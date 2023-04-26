@@ -138,7 +138,7 @@ let on_exit_of_process mdl =
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
 
-(** Exit status from an optional [results]. *)
+(** Exit status based on some results. *)
 let status_of_results in_sys =
   let res =
     let l1 = List.length (ISys.analyzable_subsystems in_sys) in
@@ -227,10 +227,6 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
-(** Status corresponding to an exception based on some results. *)
-let status_of_exn_results in_sys process =
-  status_of_results in_sys |> status_of_exn process
-
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
   Signals.ignoring_sigalrm ( fun _ ->
@@ -296,41 +292,40 @@ let slaughter_kids process sys =
 
   Signals.set_sigalrm_timeout_from_flag ()
 
-(** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit_with_results in_sys process exn =
+
+(** Called after everything has been cleaned up. *)
+let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results in_sys process exn in
-  (* Close tags in XML output. *)
+  let status = status_of_exn process base_status exn in
+  (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
   SMTSolver.destroy_all () ;
   (* Exit with status. *)
   exit status
 
-(** Called after everything has been cleaned up *)
-let post_clean_exit process exn =
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process ExitCodes.success exn in
-  (* Close tags in XML output. *)
-  KEvent.terminate_log () ;
-  (* Kill all live solvers. *)
-  SMTSolver.destroy_all () ;
-  (* Exit with status. *)
-  exit status
+(** Clean up before exit *)
+let on_exit sys process status exn =
+  try
+    slaughter_kids process sys;
+    post_clean_exit process status exn
+  with TimeoutWall -> post_clean_exit process status TimeoutWall
+
+let post_clean_exit_success process exn =
+  post_clean_exit process ExitCodes.success exn
+
+let post_clean_exit_with_results in_sys process exn =
+  let base_status = status_of_results in_sys in
+  post_clean_exit process base_status exn
+
+let on_exit_success sys process exn =
+  on_exit sys process ExitCodes.success exn
 
 (** Clean up before exit. *)
 let on_exit_with_results in_sys sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit_with_results in_sys process exn
-  with TimeoutWall -> post_clean_exit_with_results in_sys process TimeoutWall
+  let base_status = status_of_results in_sys in
+  on_exit sys process base_status exn
 
-(** Clean up before exit, for a MCS analysis. *)
-let on_exit sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit process exn
-  with TimeoutWall -> post_clean_exit process TimeoutWall
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
@@ -647,7 +642,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit None `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_success None `CONTRACTCK) |> ignore ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -708,12 +703,12 @@ let run in_sys =
         )
       ) ;
 
-      post_clean_exit `CONTRACTCK Exit
+      post_clean_exit_success `CONTRACTCK Exit
     ) with
-    | TimeoutWall -> on_exit None `CONTRACTCK TimeoutWall
+    | TimeoutWall -> on_exit_success None `CONTRACTCK TimeoutWall
     | e -> (
       handle_exception `CONTRACTCK e;
-      on_exit None `CONTRACTCK e
+      on_exit_success None `CONTRACTCK e
     )
   )
 
@@ -729,7 +724,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_success None `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -752,12 +747,12 @@ let run in_sys =
        | [] -> (KEvent.log L_note "No analyzable nodes found, skipping MCS analysis.")
        | _ -> List.iter run_mcs params
       ) ;
-      post_clean_exit `Supervisor Exit
+      post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_success None `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
-      on_exit None `Supervisor e
+      on_exit_success None `Supervisor e
     )
   ) 
 
