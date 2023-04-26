@@ -49,8 +49,10 @@ let child_pids = ref []
 (** Latest transition system for clean exit in case of error. *)
 let latest_trans_sys = ref None
 
-(** All the results this far. *)
+(** All the safety results this far. *)
 let all_results = ref ( Anal.mk_results () )
+
+let realizability_results = ref []
 
 (** Renices the current process. Used for invariant generation. *)
 let renice () =
@@ -139,7 +141,7 @@ let on_exit_of_process mdl =
 let debug_ext_of_process = short_name_of_kind_module
 
 (** Exit status based on some results. *)
-let status_of_results in_sys =
+let status_of_safety_results in_sys =
   let report_incomplete_analysis () =
     KEvent.log L_note
       "Incomplete analysis result: Not all properties could be proven invariant" ;
@@ -151,6 +153,40 @@ let status_of_results in_sys =
   | Some true -> (
     let l1 = List.length (ISys.analyzable_subsystems in_sys) in
     let l2 = Anal.results_size !all_results in
+    if l1 = l2 then
+      ExitCodes.success
+    else
+      report_incomplete_analysis ()
+  )
+
+let status_of_realiz_results in_sys =
+  let analyze_results results =
+    let open Realizability in
+    let rec loop opt = function
+    | res :: results -> (
+      match res with
+      (* If unrealizable, then return false result *)
+      | Unrealizable _ -> Some false
+      (* If realizable, propagate previous result *)
+      | Realizable _ -> loop opt results
+      (* In case of an unknown result, change result to None *)
+      | Unknown -> loop None results
+    )
+    | [] -> opt
+    in
+    loop (Some true) results
+  in
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
+    ExitCodes.incomplete_analysis
+  in
+  match analyze_results !realizability_results with
+  | None -> report_incomplete_analysis ()
+  | Some false -> ExitCodes.unsafe_result
+  | Some true -> (
+    let l1 = List.length (ISys.contract_check_params in_sys) in
+    let l2 = List.length !realizability_results in
     if l1 = l2 then
       ExitCodes.success
     else
@@ -318,18 +354,25 @@ let on_exit sys process status exn =
 let post_clean_exit_success process exn =
   post_clean_exit process ExitCodes.success exn
 
-let post_clean_exit_with_results in_sys process exn =
-  let base_status = status_of_results in_sys in
+let post_clean_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
   post_clean_exit process base_status exn
 
-let on_exit_success sys process exn =
-  on_exit sys process ExitCodes.success exn
+let post_clean_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  post_clean_exit process base_status exn
+
+let on_exit_success process exn =
+  on_exit None process ExitCodes.success exn
 
 (** Clean up before exit. *)
-let on_exit_with_results in_sys sys process exn =
-  let base_status = status_of_results in_sys in
-  on_exit sys process base_status exn
+let on_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
+  on_exit None process base_status exn
 
+let on_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  on_exit None process base_status exn
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
@@ -646,7 +689,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit_success None `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_realiz_results in_sys `CONTRACTCK) |> ignore ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -672,6 +715,9 @@ let run in_sys =
               else
                 Realizability.Unknown
           in
+
+          realizability_results := result :: !realizability_results ;
+
           (
             try
               Log.log_result
@@ -707,12 +753,12 @@ let run in_sys =
         )
       ) ;
 
-      post_clean_exit_success `CONTRACTCK Exit
+      post_clean_exit_realiz_results in_sys `CONTRACTCK Exit
     ) with
-    | TimeoutWall -> on_exit_success None `CONTRACTCK TimeoutWall
+    | TimeoutWall -> on_exit_realiz_results in_sys `CONTRACTCK TimeoutWall
     | e -> (
       handle_exception `CONTRACTCK e;
-      on_exit_success None `CONTRACTCK e
+      on_exit_realiz_results in_sys `CONTRACTCK e
     )
   )
 
@@ -728,7 +774,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit_success None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_success `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -753,10 +799,10 @@ let run in_sys =
       ) ;
       post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit_success None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
-      on_exit_success None `Supervisor e
+      on_exit_success `Supervisor e
     )
   ) 
 
@@ -829,7 +875,7 @@ let run in_sys =
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
     KEvent.run_im msg_setup []
-      (on_exit_with_results in_sys None `Supervisor) |> ignore ;
+      (on_exit_safety_results in_sys `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -871,13 +917,13 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit_with_results in_sys `Supervisor Exit
+      post_clean_exit_safety_results in_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit_with_results in_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_safety_results in_sys `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e;
-      on_exit_with_results in_sys None `Supervisor e
+      on_exit_safety_results in_sys `Supervisor e
     )
 
 (* 
