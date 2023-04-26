@@ -140,18 +140,22 @@ let debug_ext_of_process = short_name_of_kind_module
 
 (** Exit status based on some results. *)
 let status_of_results in_sys =
-  let res =
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all properties could be proven invariant" ;
+    ExitCodes.incomplete_analysis
+  in
+  match Anal.results_is_safe !all_results with
+  | None -> report_incomplete_analysis ()
+  | Some false -> ExitCodes.unsafe_result
+  | Some true -> (
     let l1 = List.length (ISys.analyzable_subsystems in_sys) in
     let l2 = Anal.results_size !all_results in
-    if l1 = l2 then Anal.results_is_safe !all_results
-    else None
-  in
-  match res with
-  | None ->
-    KEvent.log L_note "Incomplete analysis result: Not all properties could be proven invariant" ;
-    ExitCodes.incomplete_analysis
-  | Some true -> ExitCodes.success
-  | Some false -> ExitCodes.unsafe_result
+    if l1 = l2 then
+      ExitCodes.success
+    else
+      report_incomplete_analysis ()
+  )
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function
