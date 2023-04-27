@@ -6,7 +6,7 @@ New features:
 - Add dedicated syntax for reachability properties of the form:
   - `check reachable P [from <int>] [within <int>]`
   - `check reachable P at <int>`
-  The modifiers `from`, `within` and `at` allows users to specify a lower and upper bound on the number of execution steps in the witness trace.
+  The modifiers `from`, `within` and `at` allow users to specify a lower and upper bound on the number of execution steps in the witness trace.
 - Add dedicated syntax for conditional properties of the form:
   - `check A provided B`
 - Add non-vacuity checks for conditional properties and contract mode implications.
