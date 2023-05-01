@@ -65,5 +65,14 @@ let headers minimize_cores =
   (* Core minimization only supported by Z3 for now *)
   (if minimize_cores then ["(set-option :smt.core.minimize true)"] else [])
 
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  match l with
+  | `Inferred l when mem IA l && mem RA l -> (
+    if mem NA l then "AUFNIRA"
+    else "AUFLIRA"
+  )
+  | _ ->  GenericSMTLIBDriver.string_of_logic l
     
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
