@@ -26,6 +26,6 @@
   :input ( (press Bool) )
   :output ( (sig Bool) )
   :local ( (s LightStatus) (n Int) )
-  :reachable (r1 (and press (not sig) (= s off) (= n 5)))
+  :reachable (r1 (and press (= n 5)))
   :query (p1 (r1))
 )

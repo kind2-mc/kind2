@@ -34,6 +34,8 @@ val type_of_dolmen_term : enum list -> term -> Type.t
 
 val dolmen_symbol_term_to_id : term -> id
 
+val dolmen_id_to_kind_term : enum list -> (id * Var.t) list -> id -> KindTerm.t
+
 val type_of_dolmen_builtin : Term.builtin -> Type.t
 
 val dolmen_term_to_id_type : enum list -> term -> id * Type.t

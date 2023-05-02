@@ -177,7 +177,6 @@ let mk_init_term enums ({ init; inv}: Statement.sys_def) init_flag const_map ini
       Var.mk_state_var_instance init_flag TransSys.init_base
       |> KindTerm.mk_var
   in
-
   KindTerm.mk_and (init_flag_t :: 
                    DU.opt_dolmen_term_to_expr enums (const_map @ init_map) init :: 
                    DU.opt_dolmen_term_to_expr enums (const_map @ inv_map) inv :: 
@@ -265,6 +264,30 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
       (((subsystem.name, inst), renamed_local_svars), subsys_formulas)
     ) subsystem_names
     
+let get_enum_constraint env init_map trans_map (id, svar) = 
+  (* Needed because the Enum KindType does not actual constrain 
+     the variables to values within the range *)
+  let svar_type = StateVar.type_of_state_var svar in
+  (if Type.is_enum svar_type then
+    let id_term = DU.dolmen_id_to_kind_term env.enums init_map id in
+    let primed_id_term = DU.dolmen_id_to_kind_term env.enums trans_map (DU.prime id) in
+
+    Format.printf "%a\n" KindTerm.pp_print_term id_term ;
+    let low, high = Type.bounds_of_int_range svar_type in
+    let low_term = KindTerm.mk_num_of_int (Numeral.to_int low) in
+    let high_term = KindTerm.mk_num_of_int (Numeral.to_int high) in
+
+    Some ((KindTerm.mk_and [(KindTerm.mk_geq [id_term;  low_term]); (KindTerm.mk_leq [id_term;  high_term])]),
+          (KindTerm.mk_and [(KindTerm.mk_geq [primed_id_term;  low_term]); (KindTerm.mk_leq [primed_id_term;  high_term])]))
+  else
+    None)
+
+let get_enum_constraints env init_map trans_map svars = List.fold_left 
+  (fun (init_constraints, trans_constraints) svar ->  
+    match get_enum_constraint env init_map trans_map svar with
+      | Some (unprimed, primed) -> (unprimed :: init_constraints,unprimed :: primed :: trans_constraints)
+      | None -> (init_constraints, trans_constraints)
+  ) ([], []) svars 
 
 (** Process the CMC [define-system] command. *)
 let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) = 
@@ -275,6 +298,8 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let init_map, trans_map, input_svars = mk_vars env.enums system_name true ([], [], []) sys_def.input in
   let init_map, trans_map, output_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.output in
   let init_map, trans_map, local_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.local in
+
+  let init_enum_constraints, trans_enum_constraints = get_enum_constraints env init_map trans_map (input_svars @ output_svars @ local_svars) in
 
   let _, const_map = env.const_decls in
   (* Const svars are not added to symb_svars because 
@@ -308,11 +333,11 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let inv_map_for_trans = mk_inv_map init_map trans_map in
   
   let init_term = 
-    KindTerm.mk_and ((mk_init_term env.enums sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
+    KindTerm.mk_and ((mk_init_term env.enums sys_def init_flag const_map init_map inv_map_for_init) :: init_enum_constraints @ subsys_init )
   in
  
   let trans_term = 
-    KindTerm.mk_and ((mk_trans_term env.enums sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
+    KindTerm.mk_and ((mk_trans_term env.enums sys_def init_flag const_map inv_map_for_trans trans_map) :: trans_enum_constraints @ subsys_trans )
   in
 
   let state_vars =
@@ -530,7 +555,6 @@ let define_fun enums name args return_type body =
 
 let process_enum_definition name attrs =
   let count = Numeral.zero in
-  
   let enum_type = Type.mk_type (Type.IntRange (count, (Numeral.of_int ((List.length attrs) - 1)), Type.Enum)) in
   let enum, _ = attrs |> List.fold_left ( fun (enums, count) enum_var -> 
       (DU.{enums with to_int = (enum_var, count) :: enums.to_int ; to_str = (count, enum_var) :: enums.to_str}, Numeral.(count + Numeral.one))
@@ -659,6 +683,6 @@ let of_file filename =
   
   let top_sys = snd (List.hd trans_systems) in
 
-  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
+  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
   Ok (mk_subsys_structure top_sys, {name_map; sys_var_mapping; enum_defs})

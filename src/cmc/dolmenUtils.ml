@@ -611,3 +611,14 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
       parsed_statements
 
     with Failure f -> failwith (Format.sprintf "\tA Typechecker failure occured: %s" f)
+
+let dolmen_id_to_kind_term enums bound_vars id = 
+  let enum_map = gen_enum_conversion_map enums in
+    
+  let s = match List.assoc_opt id enum_map with
+  | Some enum -> HString.mk_hstring enum
+  | None ->  dolmen_id_to_hstring id in
+
+  (* Leaf in the symbol tree *)
+  (GenericSMTLIBDriver.const_of_smtlib_atom (dolmen_bound_vars_to_kind bound_vars) s)
+    
