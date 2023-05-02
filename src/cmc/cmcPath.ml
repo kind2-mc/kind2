@@ -187,7 +187,6 @@ let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k 
 
   let model_list = Model.path_to_list path in
   let values = List.map (fun reachability_svar -> List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)) reachability_svars  in
-
   let reachability_values = List.map2 (fun value reachability_svar -> 
     if (Numeral.to_int k) == 0 then 
       (reachability_svar, value, true)
@@ -346,7 +345,7 @@ let print_prop_model trans_sys ppf prop =
 
 let print_prop_trail trans_sys metadata ppf prop =
   let prop_name = prop.Property.prop_name in
-  match Property.get_prop_status prop with
+  match Property.get_prop_status prop with 
         | PropFalse cex -> (pp_trail_cmc metadata trans_sys prop_name true ppf cex) 
         | PropInvariant _
         | PropKTrue _ 
@@ -357,9 +356,14 @@ let print_prop_cert ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with
         | PropFalse cex -> () 
-        | PropInvariant (k, _)
+        | PropInvariant (k, inv) -> Format.fprintf ppf 
+                                    "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
+                                    (prop_name ^ "_cert")
+                                    Term.pp_print_term
+                                    inv
+                                    k
         | PropKTrue k -> Format.fprintf ppf 
-                          "@[<hv 2>:certificate@ (@[<v>%s :inv TODO :k %i@])@]@,"
+                          "@[<hv 2>:certificate@ (@[<v>%s :inv None :k %i@])@]@,"
                           (prop_name ^ "_cert")
                           k
         | PropUnknown -> () ;

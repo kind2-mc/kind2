@@ -43,7 +43,7 @@ type base_trans_system = {
   input_svars: (Id.t * StateVar.t) list;
   output_svars: (Id.t * StateVar.t) list;
   local_svars: (Id.t * StateVar.t) list;
-  init_map: (Id.t * Var.t) list;
+  _init_map: (Id.t * Var.t) list;
   trans_map: (Id.t * Var.t) list;
   scope: string list;
   init_flag: StateVar.t;
@@ -131,18 +131,18 @@ let mk_single_state_var sys_name (id, var_type) =
     let name = DU.dolmen_id_to_string id in
     let scope = (sys_name :: "impl" :: I.user_scope) in
     StateVar.mk_state_var
-      ~is_input:false ~is_const:false ~for_inv_gen:true
+      ~is_input:true ~is_const:false ~for_inv_gen:false
       name scope var_type
     in
     (id, svar)
 
-let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type) = 
+let mk_var ?(for_inv_gen=true) sys_name is_input is_const (init_map, trans_map, svars) (id, var_type) = 
   (* TODO Verify (or likely correct) that defined vars have valid names *)
   let svar =
     let name = DU.dolmen_id_to_string id in
     let scope = (sys_name :: "impl" :: I.user_scope) in
     StateVar.mk_state_var
-      ~is_input ~is_const ~for_inv_gen:true
+      ~is_input ~is_const ~for_inv_gen
       name scope var_type
     in
   let prev_base = Numeral.pred TransSys.trans_base in (* Why is this the previous value? ?*)
@@ -158,6 +158,8 @@ let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type
 
 let mk_vars enums sys_name is_input mappings dolmen_terms = 
   let vars = List.map (DU.dolmen_term_to_id_type enums) (DU.opt_list_to_list dolmen_terms) in
+  (* let pidt fmt (id, t) = Format.fprintf fmt "(%a: %a)" Id.print id Type.pp_print_type t in
+  Format.printf "%a" (Lib.pp_print_list pidt " ") vars; *)
   List.fold_left (mk_var sys_name is_input false) mappings vars
 
 (** A mapping of unprimed vars to their primed state. 
@@ -229,7 +231,7 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
       (* These are the new statevars of the parent system that will be used as the local vars of the subsystem *)
       let local_init_map, local_trans_map, renamed_local_svars = (List.fold_left 
         (fun mapping (name, svar) -> 
-          mk_var parent_sys_name false false mapping 
+          mk_var ~for_inv_gen:(StateVar.for_inv_gen svar) parent_sys_name false false mapping 
             (DU.join_ids local_subsystem_name name, StateVar.type_of_state_var svar)
         ) 
       ) ([], [], []) (subsystem_local_svars) in
@@ -350,8 +352,9 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
+  let local_svars = (List.rev subsys_locals) @ local_svars in
 
-  {top=false; scope; name=sys_def.id;  input_svars; output_svars; local_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
+  {top=false; scope; name=sys_def.id;  input_svars; output_svars; local_svars; _init_map=init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
 
 let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statement.sys_check) = 
   (* Requires that the sys_def and check_def match *)
@@ -529,7 +532,6 @@ let process_enum_definition name attrs =
   let count = Numeral.zero in
   
   let enum_type = Type.mk_type (Type.IntRange (count, (Numeral.of_int ((List.length attrs) - 1)), Type.Enum)) in
-  
   let enum, _ = attrs |> List.fold_left ( fun (enums, count) enum_var -> 
       (DU.{enums with to_int = (enum_var, count) :: enums.to_int ; to_str = (count, enum_var) :: enums.to_str}, Numeral.(count + Numeral.one))
     ) ((DU.empty_enum name enum_type), count) 

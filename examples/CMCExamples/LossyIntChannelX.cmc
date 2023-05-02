@@ -1,7 +1,6 @@
 ; ====NOT SUPPORTED========================
 ; TODO: declare-datatype not yet supported!
 ; ====NOT SUPPORTED========================
-
 (declare-datatype Event (par (X) (Absent) (Present (val X))))
 
 ; An event-triggered channel that arbitrarily loses its input data

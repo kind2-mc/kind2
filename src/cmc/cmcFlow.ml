@@ -344,30 +344,12 @@ let post_clean_exit_with_results cmc_sys process exn =
   (* Exit with status. *)
   exit status
 
-(** Called after everything has been cleaned up *)
-let post_clean_exit process exn =
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process ExitCodes.unknown exn in
-  (* Close tags in XML output. *)
-  KEvent.terminate_log () ;
-  (* Kill all live solvers. *)
-  SMTSolver.destroy_all () ;
-  (* Exit with status. *)
-  exit status
-
 (** Clean up before exit. *)
 let on_exit_with_results cmc_sys sys process exn =
   try
     slaughter_kids process sys;
     post_clean_exit_with_results cmc_sys process exn
   with TimeoutWall -> post_clean_exit_with_results cmc_sys process TimeoutWall
-
-(** Clean up before exit, for a MCS analysis. *)
-let on_exit sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit process exn
-  with TimeoutWall -> post_clean_exit process TimeoutWall
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)

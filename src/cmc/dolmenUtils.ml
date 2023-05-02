@@ -4,9 +4,32 @@ open Dolmen
 module Logic = Class.Logic.Make(Std.Loc)(Std.Id)(Std.Term)(Std.Statement)
 
 (* instantiate the modules for typechecking *)
-module State = Dolmen_loop.State
+(* module State = Dolmen_loop.State *)
+module State = struct
+  include Dolmen_loop.State
+  let error ?file ?loc st error payload =
+    (* do some things, such as logging, and/or storing some things in the state *)
+    let st = flush st () in
+    let loc = Dolmen.Std.Misc.opt_map loc Dolmen.Std.Loc.full_loc in 
+    let aux _ = Dolmen_loop.Code.exit (Dolmen_loop.Report.Error.code error) in
+    match get report_style st with
+    | Minimal ->
+      failwith (Format.asprintf 
+        "E:%s@." (Dolmen_loop.Report.Error.mnemonic error))
+    | Regular | Contextual ->
+      Format.kfprintf aux Format.err_formatter
+        ("@[<v>%a%a @[<hov>%a@]%a@]@.")
+        (pp_loc ?file st) loc
+        Fmt.(styled `Bold @@ styled (`Fg (`Hi `Red)) string) "Error"
+        Dolmen_loop.Report.Error.print (error, payload)
+        Dolmen_loop.Report.Error.print_hints (error, payload)
+  (* let warn ?file ?loc st warn payload =
+    (* do some things... *)
+    st *)
+end
 module Typer_aux = Dolmen_loop.Typer.Typer(State)
 module Typer = Dolmen_loop.Typer.Make(Std.Expr)(Std.Expr.Print)(State)(Typer_aux)
+module Parser = Dolmen_loop.Parser.Make(State)
 
 module KindTerm = Term
 
@@ -106,7 +129,7 @@ let type_of_dolmen_id enums id = match dolmen_id_to_string id with
   | "Bool" -> Type.t_bool 
   (* TODO Add support for arrays*)
   | other -> 
-    if is_enum_type_str enums id then 
+    if is_enum_type_str enums id then
       enum_name_to_type enums id 
     else 
       raise
@@ -137,7 +160,7 @@ let dolmen_bound_vars_to_kind bound_vars =
 let dolmen_symbol_term_to_id (symbol_term: term) = match symbol_term with
   | { term = Symbol name; _ } -> name
   | _ -> raise
-    (Invalid_argument 
+    (Invalid_argument
       (Format.asprintf 
           "Term %a is not a symbol" 
           Term.print symbol_term))
@@ -266,7 +289,7 @@ let rec gen_bindings_of_dolmen dtte enums bound_vars accum vars =
 
     (* Take first binding *)
     (* Assuming Colon binding for now, bindings may be saved differently*)
-    | { term = Colon ({ term = Symbol name; _ }, expr ); _ } as e:: other_bindings -> 
+    | { term = Colon ({ term = Symbol name; _ }, expr ); _ } :: other_bindings -> 
       
       (* Convert to an expression *)
       let expr = dtte enums bound_vars expr in
@@ -519,37 +542,24 @@ let rec dolmen_term_to_expr enum_map bound_vars (term : term) =
   dolmen_term_to_expr' dolmen_term_to_expr enum_map bound_vars term 
 
 (* Term must represent a predicate, as None term will be interpreted as True*)
-let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
+let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   match term with
     | Some term -> dolmen_term_to_expr' dolmen_term_to_expr enum_map bound_vars term 
     | None -> KindTerm.mk_true ()
   
   let process file =
-
     (* *** Parsing ********************************************************** *)
   
-  
-    (* Parse the file, and we get a tuple:
-      - format: the guessed format (according to the file extension)
-      - loc: some meta-data used for source file locations
-      - statements: the list of top-level directives found in the file *)
     let format, loc, parsed_statements = try Logic.parse_file file with 
-      Dolmen.Std.Loc.Syntax_error (loc, e) -> match e with
-        (** [Syntax_error (loc, msg)] denotes a syntax error at the given location.
-        In the [`Advanced (error_ref, prod, parsed, expected)] case,
-        - error_ref is an identifier for the error state
-        - prod is a delayed message to print in order to identify which
-          production/syntax construction the parser was trying to reduce,
-        - parsed is a description of the token which raised the error,
-        - expected is a messages describing what would have been corect
-          tokens/inputs at that point. *)
-          
-        | `Regular msg -> 
-          (* Not sure why it always prints line 1... *)
-          let locfile = Loc.mk_file file in
-          (* let locfile = Loc.mk_file file in *)
-          (Format.printf "Error %a: %t" Loc.fmt (Loc.loc locfile loc) msg ) ; failwith "\tA Parser failure occured"
-        | `Advanced (error_ref, prod, parsed, expected) -> (Format.printf "Error %t\nParsed: %t\nExpected: %t" prod parsed expected) ; failwith "A Parser failure occured"
+      Dolmen.Std.Loc.Syntax_error (loc, perr) ->
+        match perr with
+        | `Regular msg ->
+          failwith (Format.asprintf "%t" msg)
+        | `Advanced (error_ref, prod, lexed, expected) -> 
+          let p_ref fmt = Format.fprintf fmt "(%s)@ " error_ref in
+          failwith (Format.asprintf
+            "@[<v>@[<hv>%twhile parsing %t,@ read %t,@]@ @[<hov>but expected %t.@]@]"
+            p_ref prod lexed expected)
     in
   
     (* You can match on the detected format of the input *)
@@ -560,15 +570,11 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
     in
   
     (* *** Typing *********************************************************** *)
-  
-    (* Typing errors have a retcode associated to them, so that any typing
-       error results in *)
-  
     (* create the logic file corresponding to our input *)
-    let lang : Dolmen_loop.Logic.language = Smtlib2 `Latest in
+    let lang : Dolmen_loop.Logic.language = CMC `Latest in
     let logic_file = State.mk_file ~lang ~loc "./" (`File file) in
     let response_file = State.mk_file "" (`File "this is unused") in
-  
+    
     (* let's create the initial state *)
     let state =
       State.empty
@@ -585,8 +591,8 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   
     (* We can loop over the parsed statements to generated the typed statements *)
     try
-      let final_state, rev_typed_stmts =
-        List.fold_left (fun (state, acc) parsed_stmt ->          
+      let _final_state, _rev_typed_stmts =
+        List.fold_left (fun (state, acc) parsed_stmt -> 
           let state, typed_stmt = Typer.check state parsed_stmt in
           (* let a = State.get State. state in *)
           (* let b =  a.warnings in *)
@@ -594,7 +600,7 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
           (state, typed_stmt :: acc)
         ) (state, []) parsed_statements
       in
-      let typed_stmts = List.rev rev_typed_stmts in
+      let _typed_stmts = List.rev _rev_typed_stmts in
       
     
       (* let's print the typed statements *)

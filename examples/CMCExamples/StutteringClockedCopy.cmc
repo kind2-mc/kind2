@@ -19,6 +19,6 @@
 (check-system StutteringClockedCopy
   :input ((clock Bool) (in Int))
   :output ((out Int))
-  :reachable (r (and (= clock false)))
+  :reachable (r (= clock false))
   :query (query1 (r))
 )

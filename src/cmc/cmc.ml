@@ -131,7 +131,7 @@ let main () =
   let input_sys, metadata = setup () in
 
   try
-    CmcFlow.run (CMC input_sys) metadata
+    CmcFlow.run (Native input_sys) metadata
   with e -> (
     KEvent.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
     KEvent.terminate_log () ;

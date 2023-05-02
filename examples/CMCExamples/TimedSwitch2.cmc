@@ -1,33 +1,31 @@
-(declare-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (on off))
 
-; Set-of-transitions-style definition
-(define-system TimedSwitch2 
-    :input ((press Bool)) 
-    :output ((sig Bool))
-    :local ((s LightStatus) (n Int))
-    :inv (= sig (= s On))
-    :init (and
-        (= n 0)
-        (ite press (= s On) (= s Off))
-    )
-    :trans
-        (let (; Transitions
-            (stay-off (and (= s Off) (not press') (= s' Off) (= n' n)))
-            (turn-on (and (= s Off) press' (= s' On) (= n' n)))
-            (stay-on (and (= s On) (not press') (< n 10) (= s' On)
-                        (= n' (+ n 1))))
-            (turn-off (and (= s On) (or press' (>= n 10))
-                        (= s' Off) (= n' 0)))
-            )
-        (or stay-off turn-on turn-off stay-on)
-    )
+(define-system TimedSwitch2
+ :input ( (press Bool) )
+ :output ( (sig Bool) )
+ :local ( (s LightStatus) (n Int) )
+ :inv (= sig (= s on))
+ :init (and
+    (= n 0)
+    (ite press (= s on) (= s off))
+  )
+ :trans (and
+   (=> (and (= s off) (not press'))
+       (and (= s' off) (= n' n)))            ; off --> off
+   (=> (and (= s off) press')
+       (and (= s' on) (= n' n)))             ; off --> on
+   (=> (and (= s on) (not press') (< 10 n))
+        (and (= s' on) (= n' (+ n 1))))      ; on --> on
+   (=> (and (= s on) (or press' (>= n 10)))
+       (and (= s' off) (= n' 0)))            ; on --> off
+  )
 )
 
 ; check system not part of the slides example
 (check-system TimedSwitch2
-  :input ((press Bool)) 
-  :output ((sig Bool))
-  :local ((s LightStatus) (n Int))
-  :reachable (r1 (and (press) (not sig) (= s Off)))
+  :input ( (press Bool) )
+  :output ( (sig Bool) )
+  :local ( (s LightStatus) (n Int) )
+  :reachable (r1 (and press (not sig) (= s off) (= n 5)))
   :query (p1 (r1))
 )

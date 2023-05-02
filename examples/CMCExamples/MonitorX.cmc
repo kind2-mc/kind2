@@ -63,7 +63,10 @@
 (check-system Monitor 
     :input ((r1 Bool) (r2 Bool))
     :output ((g1 Bool) (g2 Bool))
-    :local (_ _ _ (b1 Bool) (b2 Bool) _ _ _ _)
+    ; TODO Underscore notation not supported
+    ; :local (_ _ _ (b1 Bool) (b2 Bool) _ _ _ _)
+    :local  ((a1 Bool) (a2 Bool) (b0 Bool) (b1 Bool) (b2 Bool)
+            (h1 Bool) (h2 Bool) (c Int) (bf Bool))
     ; :assumption (A (not (and r1 r2))) 
     :reachable (P (not (and b1 b2)))
     :query (Q (P)) ; :query (Q (A P))

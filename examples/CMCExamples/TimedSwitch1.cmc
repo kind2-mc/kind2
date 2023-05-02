@@ -1,0 +1,30 @@
+(declare-enum-sort LightStatus (on off))
+
+(define-system TimedSwitch1
+ :input ( (press Bool) )
+ :output ( (sig Bool) )
+ :local ( (s LightStatus) (n Int) )
+ :inv (= sig (= s on))
+ :init (and
+   (= n 0)
+   (ite press (= s on) (= s off))
+ )
+ :trans (let
+  (; transitions
+   (stay-off (and (= s off) (not press') (= s' off) (= n' n)))
+   (turn-on  (and (= s off) press' (= s' on) (= n' n)))
+   (stay-on  (and (= s on) (not press') (< n 10) (= s' on) (= n' (+ n 1))))
+   (turn-off (and (= s on) (or press' (>= n 10)) (= s' off) (= n' 0)))
+  )
+  (or stay-off turn-on turn-off stay-on)
+ )
+)
+
+; check system not part of the slides example
+(check-system TimedSwitch1
+  :input ( (press Bool) )
+  :output ( (sig Bool) )
+  :local ( (s LightStatus) (n Int) )
+  :reachable (r1 (and press (not sig) (= s off)))
+  :query (p1 (r1))
+)

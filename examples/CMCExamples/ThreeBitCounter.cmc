@@ -9,10 +9,10 @@
 (define-system OneBitCounter 
     :input ((inc Bool) (start Bool))
     :output ((out Bool) (carry Bool))
-    :local ((set Bool) (reset Bool))
-    :subsys (L (Latch set reset out))
-    :inv (and (= set (and inc (not reset)))
-        (= reset (or carry start))
+    :local ((set Bool) (reset_count Bool))
+    :subsys (L (Latch set reset_count out))
+    :inv (and (= set (and inc (not reset_count)))
+        (= reset_count (or carry start))
         (= carry (and inc out)))
 )
 
@@ -23,6 +23,8 @@
     :subsys (C1 (OneBitCounter inc start out0 car0))
     :subsys (C2 (OneBitCounter car0 start out1 car1))
     :subsys (C3 (OneBitCounter car1 start out2 car2))
+    :init (not (or out0 out1 out2))
+    :inv (and (= inc true) (= start true))
 )
 
 ; check system not part of the slides example
@@ -30,6 +32,6 @@
     :input ((inc Bool) (start Bool))
     :output ((out0 Bool) (out1 Bool) (out2 Bool))
     :local ((car0 Bool) (car1 Bool) (car2 Bool))
-    :reachable (r (and (= out0 true) (= out1 false) (= out2 true)))
+    :reachable (r (and true (= out2 true)))
     :query (query1 (r))
 )

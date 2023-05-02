@@ -1,4 +1,3 @@
-(set-logic QF_UFDTLIA)
 (define-fun f ((a Int)) Int (+ a 1))
 (declare-const q Int)
 (declare-enum-sort LightStatus (On Off))
@@ -9,11 +8,19 @@
   :inv (= b (+ a 1))
 )
 
+(define-system plus_two
+  :input ((a Int))
+  :output ((b Int))
+  :local ((l Int))
+  :subsys (s1 (plus_one a l))
+  :inv (= b (* l 2))
+)
+
 (define-system gconsttst
   :local ((a Int))
   :output ((b Int) (c Int))
-  :subsys (sub (plus_one a c))
-  :subsys (sub2 (plus_one c b))
+  :subsys (sub2 (plus_one a b))
+  :subsys (sub (plus_two a c))
   :init (= a 0)
   :trans (and (= a' b) (> q b)) 
 )
@@ -21,11 +28,6 @@
 (check-system gconsttst
   :local ((a Int))
   :output ((b Int) (c Int))
-  :reachable (rprop1 (= b 10))
-  :reachable (rprop2 (= a 2))
-  :reachable (rprop3 (= b 0))
-  :query (q1 (rprop1))  
-  :query (q2 (rprop2))  
-  :query (q3 (rprop3))  
-  :query (q4 (rprop1 rprop2))
+  :reachable (rprop3 (= c 60))
+  :query (q1 (rprop3))  
 )
