@@ -1,0 +1,42 @@
+; This file declares several small systems
+; This is used to verify that the parser and
+; typechecker work as expected but 
+; no check system commands are issued. 
+
+(define-system Delay :input ( (i Int) ) :output ( (o Int) )
+ :init (= o 0)
+ :trans (= o' i) ; the new output is the old input
+)
+
+(define-system Delay :input ( (i Int) ) :output ( (o Int) )
+ :init (<= 0 o 10) ; more than one possible initial output
+ :trans (= o' i)
+)
+
+(define-system StutteringClockedCopy
+ :input ((clock Bool) (i Int))
+ :output ((o Int))
+ :init (=> clock (= o i)) ; o is arbitrary when clock is false 
+ :trans (ite clock (= o' i') (= o' o)) ; ite is if-then-else
+)
+
+; TODO declare-datatype Not Supported
+; (declare-datatype Event (par (X)
+;   (absent)
+;   (present (val X))
+; ))
+
+; (define-system LossyIntChannel
+;  :input ((i (Event Int)))
+;  :output ((o (Event Int)))
+;  :inv (or (= o i) (= o absent))
+; )
+
+; (define-system LossyIntChannel
+;  :input ((i (Event Int))) 
+;  :output ((o (Event Int)))
+;  :local ((s Bool))
+;  ; at all times, whether the input event is transmitted 
+;  ; or not depends on value of s
+;  :inv (= o (ite s i absent))
+; )

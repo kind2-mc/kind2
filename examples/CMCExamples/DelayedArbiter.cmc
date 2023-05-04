@@ -1,0 +1,24 @@
+(define-system DelayedArbiter
+ :input ( (r1 Bool) (r2 Bool) )
+ :output ( (g1 Bool) (g2 Bool) )
+ :local ( (s Bool) )
+ :init (and (not g1) (not g2) )  ; nothing is granted initially
+ :trans (and
+    (=> (and (not r1) (not r2))
+        (and (not g1') (not g2')))
+    (=> (and r1 (not r2))
+        (and g1' (not g2')))
+    (=> (and (not r1) r2)
+        (and (not g1') g2'))
+    (=> (and r1 r2)
+        (not (= g1' g2')))
+  )
+)
+
+(check-system DelayedArbiter
+ :input ( (r1 Bool) (r2 Bool) )
+ :output ( (g1 Bool) (g2 Bool) )
+ :local ( (s Bool) )
+ :reachable (r (and r1 r2 g2))
+ :query (q (r))
+)

@@ -236,6 +236,8 @@ let pp_const_decls trans_sys ppf svar_path =
   let const_svars = List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys) in
   Format.fprintf ppf "%a" (pp_print_list pp_const_decl "@,") const_svars
 
+let has_model trans_sys svar_path = 
+  List.length (List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys)) > 0
 
 let pp_trail
 (CmcInput.({name_map; sys_var_mapping; enum_defs}) : CmcInput.metadata) (trans_sys : TransSys.t) ppf path =
@@ -249,12 +251,10 @@ let pp_trail
 
 (* Basic model dprinting implementation, may want to enhance in the future *)
 let pp_model trans_sys prop_name ppf path =
-  (* let svar_path = Model.path_to_list path in *) (* KEEP COMMENTED *)
-
-  Format.fprintf ppf "%s@,%a@," (prop_name^"_model") (pp_const_decls trans_sys) path   (* TODO UNCOMMENT *)
-
-  (* Format.fprintf ppf "%a@," (Model.pp_print_path) (Model.path_of_list path)   *)
-
+  if has_model trans_sys path then 
+    Format.fprintf ppf "%s@,%a@," (prop_name^"_model") (pp_const_decls trans_sys) path
+else 
+  Format.fprintf ppf "%s ()" (prop_name^"_model")
 
 let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex = 
   Format.fprintf ppf
@@ -296,7 +296,7 @@ else ()
 
 let pp_prop_result prop ppf status=
   Format.fprintf ppf
-  "@[<hv 2>:query@ (@[<v>@[<hv 1>(%s@ %s %a)@]@])@]@,"
+  "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %a)@]@]@]@,"
   prop status 
   (pp_prop_result_info prop) status
 

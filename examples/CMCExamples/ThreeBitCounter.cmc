@@ -1,30 +1,37 @@
-(define-system Latch 
-    :input ((s Bool) (r Bool)) 
-    :output ((o Bool))
-    :local ((b Bool))
-    :trans (= o' (or (and s (or (not r) b))
-        (and (not s) (not r) o)))
+(declare-const A Int)
+(declare-const B Int)
+(declare-const C Int)
+
+(define-system Latch  
+    :input ( (set Bool) (reset_count Bool) )  
+    :output ( (out Bool)) 
+    :local ( (s Bool) (b Bool) )
+    :init (= out b)
+    :trans (and
+        (= out' s)
+        (= s' (or (and set (or (not reset_count) b)) 
+                    (and (not set) (not reset_count) out)))
+    )
 )
 
-(define-system OneBitCounter 
-    :input ((inc Bool) (start Bool))
-    :output ((out Bool) (carry Bool))
-    :local ((set Bool) (reset_count Bool))
+(define-system OneBitCounter :input ( (inc Bool) (start Bool) ) 
+    :output ( (out Bool) (carry Bool) )
+    :local ( (set Bool) (reset_count Bool) )
     :subsys (L (Latch set reset_count out))
-    :inv (and (= set (and inc (not reset_count)))
+    :inv (and 
+        (= set (and inc (not reset_count)))
         (= reset_count (or carry start))
-        (= carry (and inc out)))
+        (= carry (and inc out))
+    )
 )
 
-(define-system ThreeBitCounter
-    :input ((inc Bool) (start Bool))
-    :output ((out0 Bool) (out1 Bool) (out2 Bool))
-    :local ((car0 Bool) (car1 Bool) (car2 Bool))
+(define-system ThreeBitCounter  
+    :input ( (inc Bool) (start Bool) )
+    :output ( (out0 Bool) (out1 Bool) (out2 Bool) ) 
+    :local ( (car0 Bool) (car1 Bool) (car2 Bool) ) 
     :subsys (C1 (OneBitCounter inc start out0 car0))
-    :subsys (C2 (OneBitCounter car0 start out1 car1))
+    :subsys (C2 (OneBitCounter car0 start out1 car1)) 
     :subsys (C3 (OneBitCounter car1 start out2 car2))
-    :init (not (or out0 out1 out2))
-    :inv (and (= inc true) (= start true))
 )
 
 ; check system not part of the slides example

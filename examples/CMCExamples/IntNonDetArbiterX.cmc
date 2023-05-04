@@ -1,0 +1,29 @@
+; ====NOT SUPPORTED========================
+; TODO declare-datatype Not Supported
+; ====NOT SUPPORTED========================
+
+(define-system IntNonDetArbiter
+  :input ( (r1 (Event Int)) (r2 (Event Int)) )
+  :output ( (g1 (Event Int)) (g2 (Event Int)) )
+  :local ( (s Bool) )
+  :init (= g1 g2 none)
+  :trans (and
+    (=> (= r1' r2' none)
+        (= g1' g2' none))
+    (=> (and (!= r1' none) (= r2' none))
+        (and (= g1' r1) (= g2' none)))
+    (=> (and (= r1' none) (!= r2' none))
+        (and (= g1' none) (= g2' r2')))
+    (=> (and (!= r1' none) (!= r2' none))
+        (or (and (= g1' r1') (= g2' none))
+          (and (= g1' none) (= g2' r2'))))
+  )
+)
+
+(check-system IntNonDetArbiter
+ :input ( (r1 Bool) (r2 Bool) )
+ :output ( (g1 Bool) (g2 Bool) )
+ :local ( (s Bool) )
+ :reachable (r (and r1 r2 g2))
+ :query (q (r))
+)

@@ -1,0 +1,23 @@
+; One-step delay
+(define-system Delay :input ( (i Int) ) :output ( (o Int) )
+  :local ( (s Int) )
+  :inv (= s i) 
+  :init (= o 0)
+  :trans (= o' s)
+)
+
+; Two-step delay
+(define-system DoubleDelay :input ( (in Int) ) :output ( (out Int) )
+  :local ( (temp Int) )
+  :subsys  (D1 (Delay in temp))
+  :subsys  (D2 (Delay temp out))
+)
+
+(check-system DoubleDelay
+  :input ( (in Int) ) 
+  :output ( (out Int) )
+  :local ( (temp Int) )
+  :reachable (r1 (= out 10))
+  :reachable (r2 (= out (- 10)))
+  :queries ( (q1 (r1)) (q2 (r2)) )
+)

@@ -1,28 +1,32 @@
-(declare-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (on off))
 
-; Equational-style definition
-(define-system TimedSwitch3 :input ((press Bool)) :output ((sig Bool))
-    :local ((s LightStatus) (n Int))
-    :inv (= sig (= s On))
-    :init (and
-        (= n 0)
-        (= s (ite press On Off))
-    )
-    :trans (and
-        (= s' (ite press' (flip s)
-            (ite (or (= s Off) (>= n 10)) Off On)))
-        (= n' (ite (or (= s Off) (= s' Off)) 0 ; There is a typo in the example. (= s' Off) was (s' Off)
-            (+ n 1)))
-    )
+(define-fun flip ((s LightStatus)) LightStatus
+  (ite (= s off) on off)
 )
 
-(define-fun flip ((s LightStatus)) LightStatus (ite (= s Off) On Off))
+(define-system TimedSwitch3
+ :input ( (press Bool) )
+ :output ( (sig Bool) )
+ :local ( (s LightStatus) (n Int) )
+ :inv (= sig (= s on))
+ :init (and
+   (= n 0)
+   (= s (ite press on off))
+ )
+ :trans (and
+   (= s' (ite press' (flip s)
+            (ite (or (= s off) (>= n 10)) off
+              on)))
+   (= n' (ite (or (= s off) (= s' off)) 0
+            (+ n 1)))
+  )
+)
 
 ; check system not part of the slides example
 (check-system TimedSwitch3
   :input ((press Bool)) 
   :output ((sig Bool))
   :local ((s LightStatus) (n Int))
-  :reachable (r1 (and (press) (not sig) (= s Off)))
+  :reachable (r1 (and press (not sig) (= s off)))
   :query (p1 (r1))
 )

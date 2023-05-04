@@ -1,0 +1,32 @@
+(define-system NonDetArbiter
+ :input ( (r1 Bool) (r2 Bool) )
+ :output ( (g1 Bool) (g2 Bool) )
+ :local ( (s Bool) )
+ :init (and (not g1) (not g2) )  ; nothing is granted initially ;; EXAMPLE MISSING AND
+ :trans (and
+  (=> (and (not r1') (not r2'))
+      (and (not g1') (not g2')))
+  (=> (and r1' (not r2'))
+      (and g1' (not g2')))
+  (=> (and (not r1') r2')
+      (and (not g1') g2'))
+  (=> (and r1' r2')
+      ; the unconstrained value of `s` is used as non-deterministic choice
+      (ite s' (and g1' (not g2'))
+        (and (not g1') g2')))
+  )
+)
+
+(check-system NonDetArbiter
+ :input ( (req1 Bool) (req2 Bool) )
+ :output ( (gr1 Bool) (gr2 Bool) )
+ :local ( (s Bool) )
+ ; There are never concurrent requests
+;  :assumption (a1 (not (and req1 req2)))
+ ; The same request is never issued twice in a row
+;  :assumption (a2 (and (=> req1 (not req1')) (=> req2 (not req2'))))
+ ; Neg of: every request is immediately granted
+ :reachable (r (not (and (=> req1 gr1) (=> req2 gr2))))
+ ; check the reachability of r under assumptions a1 and a2
+ :query (q (r))  ; (q (a1 a2 r)) 
+)

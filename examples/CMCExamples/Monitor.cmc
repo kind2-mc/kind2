@@ -44,30 +44,38 @@
 )
 
 (define-system Monitor 
-    :input  ((r1 Bool) (r2 Bool)) 
-    :output ((g1 Bool) (g2 Bool))
-    :local  ((a1 Bool) (a2 Bool) (b0 Bool) (b1 Bool) (b2 Bool)
-             (h1 Bool) (h2 Bool) (c Int) (bf Bool))
-    :subsys (A (NonDetArbiter r1 r2 g1 g2))
-    :subsys (H1 (Historically a1 h1))
-    :subsys (H2 (Historically a2 h2))
-    :subsys (C (Count g1 c))
-    :subsys (B (Before b0 bf))
-    
-    :inv (and 
-            (= a1 (and (not r1) (not r2))) (= a2 (and (not g1) (not g2))) (= b0 (= c 4))
-            (= b1 (=> h1 h2)) ; b1 = if there have been no requests, there have been no grants
-            (= b2 (=> bf (not g1)))); b2 = a request is granted at most 4 times
-) 
+ :input ((r1 Bool) (r2 Bool)) 
+ :output ((g1 Bool) (g2 Bool))  
+ :local ((a1 Bool) (a2 Bool) (b Bool) (h1 Bool) (h2 Bool) (bf Bool) (c1 Int))
+ :subsys (A (NonDetArbiter r1 r2 g1 g2))
+ :subsys (H1 (Historically a1 h1))
+ :subsys (H2 (Historically a2 h2))
+ :subsys (C (Count g1 c1))
+ :subsys (B (Before b bf))
+ :inv (and
+   ; a1 <=> no requests
+   (= a1 (and (not r1) (not r2)))
+   ; a2 <=> no grants
+   (= a2 (and (not g1) (not g2)))
+   ; b <=> 1 is 4
+   (= b (= c1 4))
+ )
+)
 
 (check-system Monitor 
-    :input ((r1 Bool) (r2 Bool))
-    :output ((g1 Bool) (g2 Bool))
-    ; TODO Underscore notation not supported
-    ; :local (_ _ _ (b1 Bool) (b2 Bool) _ _ _ _)
-    :local  ((a1 Bool) (a2 Bool) (b0 Bool) (b1 Bool) (b2 Bool)
-            (h1 Bool) (h2 Bool) (c Int) (bf Bool))
-    ; :assumption (A (not (and r1 r2))) 
-    :reachable (P (not (and b1 b2)))
-    :query (Q (P)) ; :query (Q (A P))
+ :input ((r1 Bool) (r2 Bool)) 
+ :output ((g1 Bool) (g2 Bool))
+ :local ((a1 Bool) (a2 Bool) 
+         (b Bool)  (h1 Bool) 
+         (h2 Bool) (bf Bool) 
+         (c1 Int))
+ ; no concurrent requests
+ ; TODO Assumptions not supported
+ ;  :assumption (A (not (and r1 r2))) 
+ ; neg of: if there have been no requests, there have been no grants 
+ :reachable (P1 (not (=> h1 h2))) 
+ ; neg of: a request is granted at most 4 times
+ :reachable (P2 (not (=> bf (not g1)))) 
+ :query (Q1 (P1)) ; (Q1 (A P1))
+ :query (Q2 (P2)) ; (Q2 (A P2))
 )

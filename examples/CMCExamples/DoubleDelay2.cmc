@@ -1,0 +1,36 @@
+;; DoubleDelay expanded
+(define-system DoubleDelay
+  :input ( (in Int) )
+  :output ( (out Int) )
+  :local ( 
+    (temp Int)  
+    (s1 Int)      ; from `(Delay in temp)`
+    (s2 Int)      ; from `(Delay temp out)`
+  )
+  :inv (and
+    (= s1 in)     ; from `(Delay in temp)`
+    (= s2 temp)   ; from `(Delay temp out)`
+  )
+  :init (and
+    (= temp 0)   ; from `(Delay in temp)`
+    (= out 0)    ; from  `(Delay temp out)`
+  )
+  :trans (and
+    (= temp' s1) ; from `(Delay in temp)`
+    (= out' s2)  ; from `(Delay temp out)`
+  )
+)
+
+
+(check-system DoubleDelay
+  :input ( (in Int) )
+  :output ( (out Int) )
+  :local ( 
+    (temp Int)  
+    (s1 Int)      ; from `(Delay in temp)`
+    (s2 Int)      ; from `(Delay temp out)`
+  )
+  :reachable (r1 (= out 10))
+  :reachable (r2 (= out (- 10)))
+  :queries ( (q1 (r1)) (q2 (r2)) )
+)
