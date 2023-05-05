@@ -387,8 +387,8 @@ let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statem
   assert (Id.equal sys_def.name system_check.id) ;
   let system_name = DU.dolmen_id_to_string sys_def.name in
   let init_map, trans_map, _ = mk_vars enums system_name true ([], [], []) system_check.input in
-  let init_map, trans_map, _ = mk_vars enums system_name true (init_map, trans_map, []) system_check.output in
-  let _, trans_map, _ = mk_vars enums system_name true (init_map, trans_map, []) system_check.local in
+  let init_map, trans_map, _ = mk_vars enums system_name false (init_map, trans_map, []) system_check.output in
+  let _, trans_map, _ = mk_vars enums system_name false (init_map, trans_map, []) system_check.local in
 
   List.map2 (fun map chk -> (fst chk,  snd map)) sys_def.trans_map trans_map  
 
