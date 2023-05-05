@@ -367,7 +367,7 @@ let mk_state_var
 (* Returns a scoped init flag. *)
 let mk_init_flag scope =
   mk_state_var
-    ~is_input:true
+    ~is_input:false
     ~is_const:false
     ~for_inv_gen:false
     init_flag_string

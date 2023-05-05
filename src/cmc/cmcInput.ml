@@ -296,8 +296,8 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let init_flag = StateVar.mk_init_flag scope in
 
   let init_map, trans_map, input_svars = mk_vars env.enums system_name true ([], [], []) sys_def.input in
-  let init_map, trans_map, output_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.output in
-  let init_map, trans_map, local_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.local in
+  let init_map, trans_map, output_svars = mk_vars env.enums system_name false (init_map, trans_map, []) sys_def.output in
+  let init_map, trans_map, local_svars = mk_vars env.enums system_name false (init_map, trans_map, []) sys_def.local in
 
   let init_enum_constraints, trans_enum_constraints = get_enum_constraints env init_map trans_map (input_svars @ output_svars @ local_svars) in
 
