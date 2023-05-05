@@ -131,7 +131,7 @@ let mk_single_state_var sys_name (id, var_type) =
     let name = DU.dolmen_id_to_string id in
     let scope = (sys_name :: "impl" :: I.user_scope) in
     StateVar.mk_state_var
-      ~is_input:true ~is_const:false ~for_inv_gen:false
+      ~is_input:false ~is_const:false ~for_inv_gen:false
       name scope var_type
     in
     (id, svar)
