@@ -1695,7 +1695,7 @@ let add_node_sofar_assumption ctx =
 
     | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
 
-    | { node = Some ({ N.equations ; N.contract } as n) } ->
+    | { node = Some ({ N.locals ; N.equations; N.contract } as n) } ->
 
       match contract with
 
@@ -1723,8 +1723,13 @@ let add_node_sofar_assumption ctx =
 
          let equations' = ((sofar_svar, []), expr) :: equations in
 
-         (* Return node with equation added *)
-         { ctx with node = Some { n with N.equations = equations' } }
+         (* Return node with equation and local variable added *)
+         { ctx with
+             node = Some { n with
+               N.equations = equations' ;
+               N.locals = D.singleton D.empty_index sofar_svar :: locals
+             }
+         }
 
        )
 
