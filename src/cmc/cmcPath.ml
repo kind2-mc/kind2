@@ -71,7 +71,7 @@ let pp_map ppf map =
 
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
   List.fold_left (fun map (subsys_val, sys_val)  ->
-    (* Format.printf "VAR: %a@." StateVar.pp_print_state_var  (subsys_val); Format.printf "VAR: %a@." StateVar.pp_print_state_var  (value);*)
+    (* Format.printf "VAR: %a@." StateVar.pp_print_state_var  (subsys_val); Format.printf "VAR: %a@." StateVar.pp_print_state_var  (sys_val); *)
     let top_val = StateVar.StateVarMap.find_opt sys_val top_to_sys in
     match top_val with 
     | None ->       StateVar.StateVarMap.add subsys_val sys_val map
@@ -203,7 +203,6 @@ let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k 
 
   let any_change = (List.fold_left (fun change_detected (_, _, svar_changed) -> change_detected || svar_changed) false formatted_svar_names) 
   || reachability_change in
-
   if any_change then
     Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val "" ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
   else
@@ -211,7 +210,7 @@ let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k 
       ()
     else
       Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
-    (* Model.pp_print_model ppf model *)
+    
 
 let pp_states (trans_sys : TransSys.t) name_map var_map enums ppf path = 
   Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys name_map var_map path enums) "@,") ( 0 -- ((Model.path_length path)-1))

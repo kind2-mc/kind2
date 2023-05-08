@@ -43,6 +43,7 @@ type base_trans_system = {
   input_svars: (Id.t * StateVar.t) list;
   output_svars: (Id.t * StateVar.t) list;
   local_svars: (Id.t * StateVar.t) list;
+  local_subsys_svars: (Id.t * StateVar.t) list;
   _init_map: (Id.t * Var.t) list;
   trans_map: (Id.t * Var.t) list;
   scope: string list;
@@ -149,17 +150,15 @@ let mk_var ?(for_inv_gen=true) sys_name is_input is_const (init_map, trans_map, 
 
   if is_const then 
     let prev_mapping = (id, Var.mk_const_state_var svar) in
-    (prev_mapping :: init_map, prev_mapping :: trans_map, (id, svar) :: svars)
+    (prev_mapping :: init_map, prev_mapping :: trans_map, svars @ [(id, svar)])
   else
     let prev_mapping = (id, Var.mk_state_var_instance svar prev_base) in
     let next_id = DU.prime id in
     let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
-    (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
+    (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, svars @ [(id, svar)])
 
 let mk_vars enums sys_name is_input mappings dolmen_terms = 
   let vars = List.map (DU.dolmen_term_to_id_type enums) (DU.opt_list_to_list dolmen_terms) in
-  (* let pidt fmt (id, t) = Format.fprintf fmt "(%a: %a)" Id.print id Type.pp_print_type t in
-  Format.printf "%a" (Lib.pp_print_list pidt " ") vars; *)
   List.fold_left (mk_var sys_name is_input false) mappings vars
 
 (** A mapping of unprimed vars to their primed state. 
@@ -213,14 +212,15 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
 
     let find_parent_svars parent_svars subsys_svars = List.map (fun param -> 
       let prop_id = DU.dolmen_symbol_term_to_id param in
-      prop_id, List.assoc prop_id parent_svars) subsys_svars in
+      prop_id, List.assoc prop_id parent_svars
+    ) subsys_svars in
 
     List.map (fun (local_subsystem_name, subsystem_name, params) -> 
       let subsystem = find_trans_system other_systems subsystem_name in
 
       let subsystem_input_svars = subsystem.input_svars in
       let subsystem_output_svars = subsystem.output_svars in
-      let subsystem_local_svars = subsystem.local_svars in
+      let subsystem_local_svars =  subsystem.local_svars @ subsystem.local_subsys_svars in
       let init_local = mk_single_state_var parent_sys_name (DU.append_to_id local_subsystem_name "_init", Type.t_bool) in
       
       (* This contains all of the non-locals of the subsystem*)
@@ -236,8 +236,7 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
       ) ([], [], []) (subsystem_local_svars) in
 
       let local_init_map, local_trans_map, _ = mk_var parent_sys_name false false (local_init_map, local_trans_map, []) (fst init_local, StateVar.type_of_state_var (snd init_local)) in
-
-      
+            
       (* These are the actual state vars of the  defined subsystem*)
       let subsys_svars = (subsystem.state_vars)  in 
 
@@ -272,7 +271,6 @@ let get_enum_constraint env init_map trans_map (id, svar) =
     let id_term = DU.dolmen_id_to_kind_term env.enums init_map id in
     let primed_id_term = DU.dolmen_id_to_kind_term env.enums trans_map (DU.prime id) in
 
-    Format.printf "%a\n" KindTerm.pp_print_term id_term ;
     let low, high = Type.bounds_of_int_range svar_type in
     let low_term = KindTerm.mk_num_of_int (Numeral.to_int low) in
     let high_term = KindTerm.mk_num_of_int (Numeral.to_int high) in
@@ -305,7 +303,7 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   (* Const svars are not added to symb_svars because 
      they are added to the global constant attribute of the trans system *)
 
-  let symb_svars = input_svars @ output_svars @ local_svars in (*S*)
+  let symb_svars = input_svars @ output_svars @ local_svars  in (*S*)
 
   (* Process subsystems *)
   let subsystem_defs = mk_subsystems env.enums system_name symb_svars init_map trans_map env.system_defs sys_def.subs in
@@ -318,8 +316,8 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
     let name_map = {map = (pos, instance_name) :: name_map.map ; counter = name_map.counter + 1} in 
 
     let subsys = match List.assoc_opt subsys_name subsystems_acc with
-    | Some other_instances -> (subsys_name, inst::other_instances) :: List.remove_assoc subsys_name subsystems_acc
-    | None -> (subsys_name, [inst]) :: subsystems_acc in
+    | Some other_instances ->  List.remove_assoc subsys_name subsystems_acc @ [(subsys_name, other_instances @ [inst])]
+    | None -> subsystems_acc @ [(subsys_name, [inst])]in
 
     subsys, name_map
   ) ([], env.name_map) named_subsystems  in
@@ -377,9 +375,9 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
-  let local_svars = (List.rev subsys_locals) @ local_svars in
+  (* let local_svars = subsys_locals @ local_svars in *)
 
-  {top=false; scope; name=sys_def.id;  input_svars; output_svars; local_svars; _init_map=init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
+  {top=false; scope; name=sys_def.id;  input_svars; output_svars; local_svars; local_subsys_svars=subsys_locals; _init_map=init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
 
 let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statement.sys_check) = 
   (* Requires that the sys_def and check_def match *)
@@ -683,6 +681,6 @@ let of_file filename =
   
   let top_sys = snd (List.hd trans_systems) in
 
-  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
+  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
 
   Ok (mk_subsys_structure top_sys, {name_map; sys_var_mapping; enum_defs})
