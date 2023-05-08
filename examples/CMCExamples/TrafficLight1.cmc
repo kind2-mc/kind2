@@ -1,0 +1,113 @@
+;-------------------
+;-- Auxiliary nodes
+;-------------------
+
+(define-system Never 
+    :input  ((x Bool))
+    :output ((y Bool))
+    :init   (= y (not x))
+    :trans  (= y' (and y (not x')))
+)
+
+; Counts how many consecutive steps X has been true
+(define-system Count 
+    :input  ((x Bool))
+    :output ((o Int))
+    :local  ((preO Int))
+    :init   (= preO 0)
+    :trans  (= preO' o)
+    :inv (= o (ite x (+ preO 1) 0))
+)
+
+; ----------------------------------------------------------------------
+; -- This is an implementation of a simple traffic light system with one
+; -- (bi-directional) car lane and one pedestrian crossing.
+; --
+; --                            ooo
+; --       ------------------==-------------------
+; --                         ==
+; --                         ==
+; --       ------------------==-------------------
+; --                    ooo
+; --
+; ----------------------------------------------------------------------
+(define-system TrafficLight
+    :input ((button Bool))
+    :output ((red Bool) (green Bool) (yellow Bool) (walk Bool) (dontWalk Bool))
+    :local ((phase Int) (prePhase Int))
+    
+    :init (= prePhase 0)
+    :trans (= prePhase' phase)
+    :inv (and
+        (= phase (ite button 
+                    1 
+                    (ite (and (> prePhase 0) (< prePhase 10)) 
+                        (+ prePhase 1)
+                        0
+                    )
+                )
+        )
+        (= green  (= phase 0))
+        (= yellow (= phase 1))
+        (= red (> phase 1))
+        (= walk (and (> phase 2) (< phase 10)))
+        (= dontWalk (not walk))
+    )
+)
+
+(define-system ReqTrafficLight
+    :input  ((button Bool))
+    :output ((red Bool) (green Bool) (yellow Bool) (walk Bool) (dontWalk Bool))
+
+    :local ((carsAllowed Bool) (buttonNeverPressed Bool) (countRed Int)
+            (r6 Bool) (r7 Bool) (r8 Bool) (r9 Bool) (r10 Bool)
+            (r13 Bool) (r15 Bool))
+
+    :subsys (observed (TrafficLight button red green yellow walk dontWalk))
+
+    :subsys (neverPressed (Never button buttonNeverPressed))
+    :subsys (redLightCount (Count red countRed))
+    :inv (= carsAllowed (or green yellow))
+
+    :init (and (= r6 true) (= r7 true) (= r8 true) (= r9 true) (= r10 true) (= r13 true) (= r15 true))
+    :trans  (and 
+                (= r6'  (not (and red' green)))
+                (= r7'  (=> carsAllowed (not walk')))
+                (= r8'  (=> walk (not carsAllowed')))
+                (= r9'  (not (and yellow yellow')))
+                (= r10' (=> (and red (not red')) green'))
+                (= r13' (=> yellow' green))
+                (= r15' (=> (and red' (not red)) (and (not walk) (not walk'))))
+
+            )
+)
+
+(check-system ReqTrafficLight
+    :input  ((button Bool))
+    :output ((red Bool) (green Bool) (yellow Bool) (walk Bool) (dontWalk Bool))
+
+    :local ((carsAllowed Bool) (buttonNeverPressed Bool) (countRed Int)
+            (r6 Bool) (r7 Bool) (r8 Bool) (r9 Bool) (r10 Bool)
+            (r13 Bool) (r15 Bool))
+        
+    :reachable (r1 (not (=> carsAllowed (not walk))))
+    :reachable (r2 (not (not (and red green))))
+    :reachable (r3 (not (or red green yellow)))
+    :reachable (r4 (not (=> walk red)))
+    :reachable (r5 (not (xor walk dontWalk)))
+    :reachable (r6 (not r6))
+    :reachable (r7 (not r7))
+    :reachable (r8 (not r8))
+    :reachable (r9 (not r9))
+    :reachable (r10 (not r10))
+    :reachable (r11 (not (=> buttonNeverPressed green)))
+    :reachable (r12 (not (=> walk red)))
+    :reachable (r13 (not r13))
+    :reachable (r14 (not (<= countRed 9)))
+    :reachable (r15 (not r15))
+
+    :queries ( (q1 (r1))   (q2 (r2))   (q3 (r3))   (q4 (r4))   (q5 (r5))
+               (q6 (r6))   (q7 (r7))   (q8 (r8))   (q9 (r9))   (q10 (r10))
+               (q11 (r11)) (q12 (r12)) (q13 (r13)) (q14 (r14)) (q15 (r15))
+            )
+)
