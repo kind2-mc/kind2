@@ -1,3 +1,36 @@
+;-------------------
+;-- Auxiliary nodes
+;-------------------
+
+(define-system Never 
+    :input  ((x Bool))
+    :output ((y Bool))
+    :init   (= y (not x))
+    :trans  (= y' (and y (not x')))
+)
+
+; Counts how many consecutive steps X has been true
+(define-system Count 
+    :input  ((x Bool))
+    :output ((o Int))
+    :local  ((preO Int))
+    :init   (= preO 0)
+    :trans  (= preO' o)
+    :inv (= o (ite x (+ preO 1) 0))
+)
+
+; ----------------------------------------------------------------------
+; -- This is an implementation of a simple traffic light system with one
+; -- (bi-directional) car lane and one pedestrian crossing.
+; --
+; --                            ooo
+; --       ------------------==-------------------
+; --                         ==
+; --                         ==
+; --       ------------------==-------------------
+; --                    ooo
+; --
+; ----------------------------------------------------------------------
 (declare-enum-sort LightStatus (red green yellow))
 (declare-enum-sort WalkStatus (yesWalk noWalk))
 
@@ -6,11 +39,16 @@
     :output ((count Int))
     :local  ((counting Bool) (precount Int))
     :init   (and (= precount 0) (not counting))
-    :inv    (= count (ite counting (+ precount 1) 0))
-    :trans  (and 
-                 (= counting' (ite (and switch (= precount 0)) true (and counting (< count 10))))
-                 (= precount' count)
+    :inv    (= count (ite switch 
+                    1 
+                    (ite (and (> precount 0) (< precount 10)) 
+                        (+ precount 1)
+                        0
+                    )
+                )
             )
+  
+    :trans  (= precount' count)
 )
 
 (define-system TrafficLight
@@ -37,13 +75,59 @@
     )
 )
 
-(check-system TrafficLight
+(define-system ReqTrafficLight
     :input ((button Bool))
     :output ((light LightStatus) (walk WalkStatus))
-    :local ((phase Int))
 
-    :reachable (r1 (and (= walk noWalk) (> phase 2)))
-    :reachable (r2 (and (= walk yesWalk) (= light green)))
-    :query (query1 (r1))
-    :query (query2 (r2))
+    :local ((carsAllowed Bool) (buttonNeverPressed Bool) (isRed Bool) (countRed Int)
+            (r6 Bool) (r7 Bool) (r8 Bool) (r9 Bool) (r10 Bool)
+            (r13 Bool) (r15 Bool))
+
+    :subsys (observed (TrafficLight button light walk))
+
+    :subsys (neverPressed (Never button buttonNeverPressed))
+    :subsys (redLightCount (Count isRed countRed))
+    :inv (and (= isRed (= light red)) (= carsAllowed (or (= light green) (= light yellow))))
+
+    :init (and (= r6 true) (= r7 true) (= r8 true) (= r9 true) (= r10 true) (= r13 true) (= r15 true))
+    :trans  (and 
+                (= r6'  (not (and (= light' red) (= light green))))
+                (= r7'  (=> carsAllowed (not (= walk' yesWalk))))
+                (= r8'  (=> (= walk yesWalk) (not carsAllowed')))
+                (= r9'  (not (and (= light yellow) (= light' yellow))))
+                (= r10' (=> (and (= light red) (not (= light' red))) (= light' green)))
+                (= r13' (=> (= light' yellow) (= light green)))
+                (= r15' (=> (and (= light' red) (not (= light red))) (and (not (= walk yesWalk)) (not (= walk' yesWalk)))))
+
+            )
+)
+
+(check-system ReqTrafficLight
+    :input ((button Bool))
+    :output ((light LightStatus) (walk WalkStatus))
+
+    :local ((carsAllowed Bool) (buttonNeverPressed Bool) (isRed Bool) (countRed Int)
+            (r6 Bool) (r7 Bool) (r8 Bool) (r9 Bool) (r10 Bool)
+            (r13 Bool) (r15 Bool))
+        
+    :reachable (r1 (not (=> carsAllowed (not (= walk yesWalk)))))
+    :reachable (r2 (not (not (and (= light red) (= light green)))))
+    :reachable (r3 (not (or (= light red) (= light green) (= light yellow))))
+    :reachable (r4 (not (=> (= walk yesWalk) (= light red))))
+    :reachable (r5 (not (xor (= walk yesWalk) (= walk noWalk))))
+    :reachable (r6 (not r6))
+    :reachable (r7 (not r7))
+    :reachable (r8 (not r8))
+    :reachable (r9 (not r9))
+    :reachable (r10 (not r10))
+    :reachable (r11 (not (=> buttonNeverPressed (= light green))))
+    :reachable (r12 (not (=> (= walk yesWalk) (= light red))))
+    :reachable (r13 (not r13))
+    :reachable (r14 (not (<= countRed 9)))
+    :reachable (r15 (not r15))
+
+    :queries ( (q1 (r1))   (q2 (r2))   (q3 (r3))   (q4 (r4))   (q5 (r5))
+               (q6 (r6))   (q7 (r7))   (q8 (r8))   (q9 (r9))   (q10 (r10))
+               (q11 (r11)) (q12 (r12)) (q13 (r13)) (q14 (r14)) (q15 (r15))
+            )
 )
