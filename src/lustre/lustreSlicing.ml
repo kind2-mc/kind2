@@ -754,13 +754,14 @@ let add_roots_of_equation roots ((_,bnds), expr) =
 
 
 (* Return state variables from properties *)
-let roots_of_props = List.map (fun (sv, _, _, _) -> sv)
-
+let roots_of_props props =
+  List.map (fun (sv, _, _, _) -> sv) props
+  |> SVS.of_list
 
 (* Return state variables from contracts *)
 let roots_of_contract = function
-| None -> []
-| Some contract -> Contract.svars_of contract |> SVS.elements
+| None -> SVS.empty
+| Some contract -> Contract.svars_of contract
 
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
@@ -1102,8 +1103,8 @@ let root_and_leaves_of_impl
       | None -> 
 
         (* Consider properties and contracts as roots *)
-        (roots_of_contract contract |> SVS.of_list)
-        |> SVS.union (roots_of_props props |> SVS.of_list)
+        (roots_of_contract contract)
+        |> SVS.union (roots_of_props props)
                                           
       (* Use instead of roots from properties and contracts *)
       | Some r -> r )
@@ -1144,7 +1145,7 @@ let [@ocaml.warning "-27"] root_and_leaves_of_contracts
   (* Slice starting with contracts *)
   let node_roots =
     (* Always include at least roots of contract *)
-    roots_of_contract contract
+    roots_of_contract contract |> SVS.elements
     (*match roots node false with
       | None -> roots_of_contract contract
       | Some r -> SVS.elements r*)
@@ -1212,15 +1213,15 @@ let slice_to_abstraction'
 let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
   let vars =
     if is_impl then
-      (roots_of_contract contract |> SVS.of_list)
-      |> SVS.union (roots_of_props props |> SVS.of_list)
+      (roots_of_contract contract)
+      |> SVS.union (roots_of_props props)
       |> SVS.union (D.values inputs |> SVS.of_list)
       |> SVS.union (D.values outputs |> SVS.of_list)
       |> SVS.union (
         List.concat (List.map D.values locals) |> SVS.of_list
       )
     else
-      (roots_of_contract contract |> SVS.of_list)
+      (roots_of_contract contract)
   in
   Some vars
 
