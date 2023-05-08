@@ -1144,11 +1144,9 @@ let [@ocaml.warning "-27"] root_and_leaves_of_contracts
     
   (* Slice starting with contracts *)
   let node_roots =
-    (* Always include at least roots of contract *)
-    roots_of_contract contract |> SVS.elements
-    (*match roots node false with
-      | None -> roots_of_contract contract
-      | Some r -> SVS.elements r*)
+    match roots node false with
+    | None -> roots_of_contract contract |> SVS.elements
+    | Some r -> SVS.elements r
   in
 
   (* Do not consider anything below outputs *)
@@ -1243,7 +1241,13 @@ let slice_to_abstraction
 let slice_to_abstraction_and_property
   ?(preserve_sig = false) analysis vars subsystem
 =
-  let roots = (fun _ _ -> Some vars) in
+  let roots { N.contract } is_impl =
+    if is_impl then
+      Some vars
+    else
+      (* Always include at least roots of contract *)
+      Some (roots_of_contract contract) 
+  in
   slice_to_abstraction'
     ~preserve_sig:preserve_sig analysis roots subsystem
 
