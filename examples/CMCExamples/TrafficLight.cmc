@@ -1,0 +1,32 @@
+(define-system TrafficLight
+    :input ((button Bool))
+    :output ((red Bool) (green Bool) (yellow Bool) (walk Bool) (dontWalk Bool))
+    :local ((phase Int) (prePhase Int))
+    :init (= prePhase 0)
+    :trans (= prePhase' phase)
+    :inv (and
+        (= phase (ite (and button (= prePhase 0)) 
+                    1 
+                    (ite (and (> prePhase 0) (< prePhase 10)) 
+                        (+ prePhase 1)
+                        0
+                    )
+                )
+        )
+        (= green  (= phase 0))
+        (= yellow (= phase 1))
+        (= red (> phase 1))
+        (= walk (and (> phase 2) (< phase 10)))
+        (= dontWalk (not walk))
+    )
+)
+
+(check-system TrafficLight
+    :input ((button Bool))
+    :output ((red Bool) (green Bool) (yellow Bool) (walk Bool) (dontWalk Bool))
+    :local ((phase Int) (prePhase Int))
+    :reachable (r1 (and dontWalk (> phase 2)))
+    :reachable (r2 (and walk (= phase 0)))
+    :query (query1 (r1))
+    :query (query2 (r2))
+)
