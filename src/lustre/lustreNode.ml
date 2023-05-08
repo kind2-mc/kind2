@@ -1358,10 +1358,15 @@ let stateful_vars_of_node
       (List.map (fun (sv, _, _, _) -> sv) props) 
   in
 
-  (* Add stateful variables from global and mode contracts *)
+  (* Add stateful variables from contracts *)
   let stateful_vars = match contract with
     | None -> stateful_vars
-    | Some contract -> C.svars_of contract |> SVS.union stateful_vars 
+    | Some contract ->
+      (* Sofar variable should only be added if the corresponding equation is present,
+         which is detected below since its definition refers to itself:
+         sofar = [...] and pre sofar
+      *)
+      C.svars_of ~with_sofar_var:false contract |> SVS.union stateful_vars
   in
 
   (* Add stateful variables from equations *)
