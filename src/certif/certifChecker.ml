@@ -1269,14 +1269,20 @@ let add_system_header fmt prefix =
   fprintf fmt "@."
 
 
-let add_logic fmt sys = 
+let add_logic ?(compliant=false) fmt sys = 
 
   (* Extract the logic of the system and add uninterpreted functions and
      integer arithmetic to it (because of implicit unrolling for state
      variables) *)
   let open TermLib in
+  let open TermLib.FeatureSet in
   let logic = match TransSys.get_logic sys with
     | `None | `SMTLogic _ -> `None
+    | `Inferred l when compliant && mem RA l -> (
+      (* Set a logic compatible with all solvers, including Z3 that does not accept
+         non-standard sub-logics for the combination of Ints and Reals *)
+      `SMTLogic "ALL"
+    )
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
@@ -1322,7 +1328,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
 
-  add_logic fmt sys;
+  add_logic ~compliant:true fmt sys;
 
   add_arrays fmt
 
