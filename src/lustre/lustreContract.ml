@@ -115,9 +115,9 @@ let svars_of_modes modes set = modes |> List.fold_left (
 ) set
 
 
-let svars_of { assumes ; sofar_assump ; guarantees ; modes } =
+let svars_of ?(with_sofar_var=true) { assumes ; sofar_assump ; guarantees ; modes } =
   let initial_set =
-    if assumes <> [] then
+    if with_sofar_var then
       SVarSet.singleton sofar_assump
     else
       SVarSet.empty

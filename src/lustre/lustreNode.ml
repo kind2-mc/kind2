@@ -1327,8 +1327,6 @@ let stateful_vars_of_expr { E.expr_step } =
     (expr_step :> Term.t)
 
 
-let stateful_vars_of_prop (state_var, _, _, _) = SVS.singleton state_var
-
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
     { inputs; 
@@ -1354,17 +1352,21 @@ let stateful_vars_of_node
   in
 
   (* Add stateful variables from properties *)
-  let stateful_vars =
-    List.fold_left
-      (fun accum p -> SVS.union accum (stateful_vars_of_prop p))
+  let stateful_vars = 
+    add_to_svs
       stateful_vars
-      props
+      (List.map (fun (sv, _, _, _) -> sv) props) 
   in
 
-  (* Add stateful variables from global and mode contracts *)
+  (* Add stateful variables from contracts *)
   let stateful_vars = match contract with
     | None -> stateful_vars
-    | Some contract -> C.svars_of contract |> SVS.union stateful_vars 
+    | Some contract ->
+      (* Sofar variable should only be added if the corresponding equation is present,
+         which is detected below since its definition refers to itself:
+         sofar = [...] and pre sofar
+      *)
+      C.svars_of ~with_sofar_var:false contract |> SVS.union stateful_vars
   in
 
   (* Add stateful variables from equations *)
@@ -1399,13 +1401,6 @@ let stateful_vars_of_node
            a)
       stateful_vars
       locals
-  in
-  
-  (* Add property variables *)
-  let stateful_vars = 
-    add_to_svs
-      stateful_vars
-      (List.map (fun (sv, _, _, _) -> sv) props) 
   in
 
   (* Add stateful variables from assertions *)
