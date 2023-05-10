@@ -1,0 +1,14 @@
+
+
+const C: bool;
+
+node N(x:real) returns (y:real);
+let
+  y = if C then x else x + 1.0;
+tel
+
+node M(x:real) returns (y:real);
+let
+  y = N(x);
+  check y>=x;
+tel
