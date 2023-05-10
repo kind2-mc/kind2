@@ -404,11 +404,11 @@ module Smt = struct
   let trace_subdir () = !trace_subdir
 
 
-  let find_solver ~fail name bin =
+  let find_solver ?(filetype="executable") ~fail name bin =
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
+      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
       raise SolverNotFound
 
   
@@ -426,7 +426,7 @@ module Smt = struct
     (* User chose SMTInterpol *)
     | `SMTInterpol_SMTLIB ->
       let full_path =
-        find_solver ~fail:true "SMTInterpol" (smtinterpol_jar ())
+        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
       in
       set_smtinterpol_jar full_path
     (* User chose Yices2 *)
@@ -461,7 +461,7 @@ module Smt = struct
         set_mathsat_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
         set_solver `SMTInterpol_SMTLIB;
         set_smtinterpol_jar exec;
       with Not_found ->
