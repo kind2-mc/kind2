@@ -123,6 +123,7 @@ module Smt = struct
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
     | `Z3_SMTLIB
@@ -132,6 +133,7 @@ module Smt = struct
     | "Bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "MathSAT" ->  `MathSAT_SMTLIB
+    | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | "Yices2" -> `Yices2_SMTLIB
     | "Yices" -> `Yices_native
     | "Z3" -> `Z3_SMTLIB
@@ -140,13 +142,14 @@ module Smt = struct
     | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `cvc5_SMTLIB -> "cvc5"
     | `MathSAT_SMTLIB -> "MathSAT"
+    | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, Bitwuzla, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -284,6 +287,20 @@ module Smt = struct
   let set_mathsat_bin str = mathsat_bin := str
   let mathsat_bin () = !mathsat_bin
 
+  (* SMTInterpol JAR. *)
+  let smtinterpol_jar_default = "smtinterpol.jar"
+  let smtinterpol_jar = ref smtinterpol_jar_default
+  let _ = add_spec
+    "--smtinterpol_jar"
+    (Arg.Set_string smtinterpol_jar)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>JAR of SMTInterpol solver@ Default: \"%s\"@]"
+        smtinterpol_jar_default
+    )
+  let set_smtinterpol_jar str = smtinterpol_jar := str
+  let smtinterpol_jar () = !smtinterpol_jar
+
   (* Bitwuzla binary. *)
   let bitwuzla_bin_default = "bitwuzla"
   let bitwuzla_bin = ref bitwuzla_bin_default
@@ -387,11 +404,11 @@ module Smt = struct
   let trace_subdir () = !trace_subdir
 
 
-  let find_solver ~fail name bin =
+  let find_solver ?(filetype="executable") ~fail name bin =
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
+      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
       raise SolverNotFound
 
   
@@ -406,6 +423,12 @@ module Smt = struct
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB ->
       find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    (* User chose SMTInterpol *)
+    | `SMTInterpol_SMTLIB ->
+      let full_path =
+        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
+      in
+      set_smtinterpol_jar full_path
     (* User chose Yices2 *)
     | `Yices2_SMTLIB ->
       find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
@@ -436,6 +459,11 @@ module Smt = struct
         let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
         set_solver `MathSAT_SMTLIB;
         set_mathsat_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+        set_solver `SMTInterpol_SMTLIB;
+        set_smtinterpol_jar exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
@@ -3642,7 +3670,13 @@ let solver_dependant_actions solver =
           Log.log L_warn "Detected MathSAT: disabling ind_compress"
       )
     | None -> Log.log L_warn "Couldn't determine MathSAT version"
-  ) 
+  )
+  | `SMTInterpol_SMTLIB -> (
+    if Smt.check_sat_assume () then (
+      Log.log L_warn "Detected SMTInterpol: disabling check_sat_assume";
+      Smt.set_check_sat_assume false
+    )
+  )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version false cmd with
