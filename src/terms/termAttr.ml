@@ -28,6 +28,7 @@ open Lib
 type attr =
   | Named of string * int (* names for terms, used in unsat cores *)
   | FunDef (* definition of recurisve function with quantifiers *)
+  | InterpGroup of string (* interpolation group (required by MathSAT) *)
 
 
 (* A private type that cannot be constructed outside this module
@@ -68,6 +69,7 @@ module Attr_node = struct
     | FunDef, FunDef -> true
     (* Two name attributes, use equality on integers *)
     | Named (s1, n1), Named (s2, n2) -> s1 = s2 && n1 = n2
+    | InterpGroup s1, InterpGroup s2 -> s1 = s2
     | _ -> false
 
   let hash = Hashtbl.hash
@@ -163,6 +165,8 @@ module SMTLIBPrinter : Printer =
     let pp_print_attr_node ppf = function 
       | Named (s, n) -> Format.fprintf ppf ":named@ %s%d" s n
       | FunDef -> Format.fprintf ppf ":fun-def"
+      | InterpGroup s ->
+        Format.fprintf ppf ":interpolation-group@ %s" s
 
     (*
     (* Pretty-print an attribute to the standard formatter *)
@@ -185,7 +189,7 @@ module YicesPrinter : Printer =
     (* Pretty-print an attribute *)
     let pp_print_attr_node _ = function 
       (* Ignore attributes for yices *)
-      | Named _ | FunDef -> ()
+      | Named _ | FunDef | InterpGroup _ -> ()
     
     (*
     (* Pretty-print an attribute to the standard formatter *)
@@ -226,9 +230,16 @@ let named_of_attr = function
   | { Hashcons.node = Named (s, n) } -> (s, n)
   | _ -> raise (Invalid_argument "Not a name attribute")
 
+let interp_group_of_attr = function
+| { Hashcons.node = InterpGroup s } -> s
+  | _ -> raise (Invalid_argument "Not an interpolation group attribute")
+
 (* Return true if the attribute is a recursive function definition annotation *)
 let is_fundef = function { Hashcons.node = FunDef } -> true | _ -> false
 
+let is_interp_group = function
+    { Hashcons.node = InterpGroup _ } -> true
+  | _ -> false
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)
@@ -237,6 +248,8 @@ let is_fundef = function { Hashcons.node = FunDef } -> true | _ -> false
 
 (* Return a hashconsed attribute which is a name *)    
 let mk_named s n = Hattr.hashcons ht (Named (s, n)) ()
+
+let mk_interp_group s = Hattr.hashcons ht (InterpGroup s) ()
 
 (* Return a hashconsed attribute which is a fun-def *)    
 let fundef = Hattr.hashcons ht FunDef ()

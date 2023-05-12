@@ -1055,19 +1055,36 @@ let kind s = s.solver_kind
 let get_interpolants solver args =
   let module S = (val solver.solver_inst) in
   
-  match execute_custom_command solver "get-interpolants" args 1 with
-  | `Custom i -> (
-    match (List.hd i) with
-    | HStringSExpr.List sexpr_lst -> (
-      List.map
-        (fun sexpr ->
-          (S.Conv.term_of_smtexpr
-            (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
-        sexpr_lst
+  (* Interpolation is not part of the SMTLIB standard.
+     Until then, we handle each particular case here... *)
+  match solver.solver_kind with
+  | `MathSAT_SMTLIB -> (
+    List.init ((List.length args)-1) (fun i ->
+      let g1, _ = Lib.list_split (i+1) args in
+      let groups = SMTExpr.ArgList g1 in
+
+      match execute_custom_command solver "get-interpolant" [groups] 1 with
+      | `Custom r -> S.Conv.term_of_smtexpr
+          (GenericSMTLIBDriver.expr_of_string_sexpr (List.hd r))
+      | r -> smt_error solver r
     )
-    | _ -> assert false
   )
-  | _ (* error_response *) -> []
+  | `SMTInterpol_SMTLIB -> (
+    match execute_custom_command solver "get-interpolants" args 1 with
+    | `Custom i -> (
+      match (List.hd i) with
+      | HStringSExpr.List sexpr_lst -> (
+        List.map
+          (fun sexpr ->
+            (S.Conv.term_of_smtexpr
+              (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
+          sexpr_lst
+      )
+      | _ -> assert false
+    )
+    | _ (* error_response *) -> []
+  )
+  | _ -> failwith ("Interpolating solver not found or unsupported")
 
 
 (* Static hashconsed strings *)

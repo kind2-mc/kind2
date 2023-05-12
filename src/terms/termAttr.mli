@@ -54,6 +54,9 @@ module AttrMap : Map.S with type key = t
 (** Return a name attribute *)
 val mk_named : string -> int -> t
 
+(** Return an interpolation group attribute *)
+val mk_interp_group : string -> t
+
 (** Return a fun-def attribute *)
 val fundef : t
 
@@ -62,12 +65,19 @@ val fundef : t
 (** Return true if the attribute is a name *)
 val is_named : t -> bool
 
-(** Return true if the attribute is a name *)
+(** Return true if the attribute is fundef *)
 val is_fundef : t -> bool
+
+(** Return true if the attribute is an interpolation group *)
+val is_interp_group : t -> bool
 
 (** Return the name in a name attribute, raises [Invalid_argument] for
     other attributes *)
 val named_of_attr : t -> string * int
+
+(** Return the name in an interpolation group attribute,
+    raises [Invalid_argument] for other attributes *)
+val interp_group_of_attr : t -> string
 
 (** {1 Pretty-printing} *)
 

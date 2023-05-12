@@ -196,15 +196,26 @@ let rec fold_until f acc n = function
   | h :: t as l -> if n = 0 then (acc, l)
                    else fold_until f (f acc h) (n - 1) t
 
-let list_slice list i k =
-  let _, list = (* drop n elements *)
-    fold_until (fun _ _ -> []) [] i list
+let list_split k l =
+  let l1, l2 =
+    fold_until (fun acc h -> h :: acc) [] k l
+  in
+  List.rev l1, l2
+
+let list_slice l i k =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
   in
   let taken, _ = (* take (k - i + 1) elements *)
-    fold_until (fun acc h -> h :: acc) [] (k - i + 1) list
+    fold_until (fun acc h -> h :: acc) [] (k - i + 1) l
   in
   List.rev taken
 
+let list_suffix l i =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
+  in
+  l
 
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 

@@ -750,6 +750,11 @@ let add_to_block_tl solver block_clause block_trace = function
 (* Implicit abstraction                                                     *)
 (* ************************************************************************ *)
 
+(* Interpolation Group ids for MathSAT *)
+let ig_newid =
+  let r = ref 0 in
+  fun () -> incr r; Format.sprintf "g%d" !r
+
 let abstr_simulate trace trans_sys raise_cex =
 
   Stat.incr (Stat.ic3ia_num_simulations);
@@ -817,13 +822,27 @@ let abstr_simulate trace trans_sys raise_cex =
 
   (* Compute the interpolants *)
 
-  let names = List.map
-      (fun t ->
+  let names =
+    match Flags.Smt.itp_solver () with
+    | `MathSAT_SMTLIB -> (
+      List.map
+        (fun t ->
+          let id = ig_newid () in
+          SMTSolver.assert_term intrpo (Term.set_inter_group t id) ;
+          SMTExpr.ArgString id
+        )
+        interpolizers
+    )
+    | `SMTInterpol_SMTLIB -> (
+      List.map
+        (fun t ->
          SMTExpr.ArgString
            (SMTSolver.assert_named_term_wr
               intrpo
               t))
       interpolizers
+    )
+    | _ -> failwith ("Interpolating solver not found or unsupported")
   in
   Stat.start_timer Stat.ic3ia_interpolation_time;
 

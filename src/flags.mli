@@ -289,6 +289,7 @@ module Smt : sig
   val qe_solver : unit -> qe_solver
 
   type itp_solver = [
+    | `MathSAT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `detect
   ]

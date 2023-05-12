@@ -201,16 +201,19 @@ module Smt = struct
   let qe_solver () = !qe_solver
 
   type itp_solver = [
+    | `MathSAT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `detect
   ]
   let itp_solver_of_string = function
+    | "MathSAT" -> `MathSAT_SMTLIB
     | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
   let string_of_itp_solver = function
+    | `MathSAT_SMTLIB -> "MathSAT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `detect -> "detect"
-  let itp_solver_values = "SMTInterpol"
+  let itp_solver_values = "MathSAT, SMTInterpol"
   let itp_solver_default = `detect
   let itp_solver = ref itp_solver_default
   let _ = add_spec
@@ -230,6 +233,7 @@ module Smt = struct
   let itp_solver () = !itp_solver
   let get_itp_solver () =
     match itp_solver () with
+    | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
     | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
     | _ -> failwith "No interpolating SMT solver found"
 
@@ -541,6 +545,12 @@ module Smt = struct
         with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 
   let check_itp_solver () = match itp_solver () with
+    (* User chose MathSAT *)
+    | `MathSAT_SMTLIB -> (
+      match solver () with
+      | `MathSAT_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    )
     (* User chose SMTInterpol *)
     | `SMTInterpol_SMTLIB -> (
       match solver () with
@@ -553,8 +563,14 @@ module Smt = struct
     )
     | `detect ->
       match solver () with
+      | `MathSAT_SMTLIB -> set_itp_solver `MathSAT_SMTLIB
       | `SMTInterpol_SMTLIB -> set_itp_solver `SMTInterpol_SMTLIB
       | _ ->
+        try
+          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+          set_itp_solver `MathSAT_SMTLIB;
+          set_mathsat_bin exec;
+        with Not_found ->
         try
           let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
           set_itp_solver `SMTInterpol_SMTLIB;
