@@ -1055,14 +1055,18 @@ let kind s = s.solver_kind
 let get_interpolants solver args =
   let module S = (val solver.solver_inst) in
   
-  match execute_custom_command solver "compute-interpolant" args (List.length args) with
-  | `Custom i ->
-     List.map
-       (fun sexpr ->
-        (S.Conv.term_of_smtexpr
-           (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
-       (List.tl i)
-
+  match execute_custom_command solver "get-interpolants" args 1 with
+  | `Custom i -> (
+    match (List.hd i) with
+    | HStringSExpr.List sexpr_lst -> (
+      List.map
+        (fun sexpr ->
+          (S.Conv.term_of_smtexpr
+            (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
+        sexpr_lst
+    )
+    | _ -> assert false
+  )
   | _ (* error_response *) -> []
 
 

@@ -282,11 +282,24 @@ module Smt : sig
     | `detect
   ]
 
-  (** Set SMT solver for QE and executable *)
+  (** Set SMT solver for QE *)
   val set_qe_solver : qe_solver -> unit
 
   (** Which SMT solver for QE to use. *)
   val qe_solver : unit -> qe_solver
+
+  type itp_solver = [
+    | `SMTInterpol_SMTLIB
+    | `detect
+  ]
+
+  (** Set SMT solver for interpolation *)
+  val set_itp_solver : itp_solver -> unit
+
+  (** Which SMT solver for interpolation to use. *)
+  val itp_solver : unit -> itp_solver
+
+  val get_itp_solver : unit -> solver
 
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool

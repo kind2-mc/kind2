@@ -476,6 +476,8 @@ val has_quantifier : t -> bool
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
+val get_atoms : t -> TermSet.t
+
 (** Return true if the term is a simple Boolean atom, that is, has
     type Boolean and does not contain subterms of type Boolean *)
 val is_atom : t -> bool

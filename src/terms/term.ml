@@ -1005,6 +1005,40 @@ let is_lambda_identity l =
   with Invalid_argument _ -> false
 
 
+let get_atoms t =
+  let rec loop acc t =
+    match T.destruct t with
+    | T.Const _ -> (
+      if type_of_term t == Type.mk_bool () then
+        TermSet.add t acc
+      else
+        acc
+    )
+    | T.Var v -> (
+      if Var.type_of_var v == Type.mk_bool () then
+        TermSet.add t acc
+      else
+        acc
+    )
+    | T.App (_, l) -> (
+      if type_of_term t == Type.mk_bool () then
+        let atoms =
+          List.fold_left
+            (fun acc t -> loop acc t)
+            TermSet.empty
+            l
+        in
+        if TermSet.is_empty atoms then
+          TermSet.add t acc
+        else
+          TermSet.union acc atoms
+      else
+        TermSet.empty
+    )
+  in
+  loop TermSet.empty t
+
+
 (* Is the term a Boolean atom? *)
 let is_atom t = match T.destruct t with 
 
