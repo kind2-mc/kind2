@@ -95,7 +95,7 @@ type error_kind = Unknown of string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
-  | SubrangeMustHaveBound
+  | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
 
 type error = [
@@ -192,7 +192,7 @@ let error_message kind = match kind with
     ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
   | SubrangeArgumentMustBeConstantInteger e -> "Range arguments should be of constant integers, but found: "
     ^ Lib.string_of_t LA.pp_print_expr e
-  | SubrangeMustHaveBound -> "Range should have at least one lower or upper bound"
+  | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
 
 let (>>=) = R.(>>=)
@@ -1431,7 +1431,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
     | Some e1, None -> if is_expr_int_type ctx e1 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
     | None, Some e2 -> if is_expr_int_type ctx e2 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
-    | None, None -> type_error pos SubrangeMustHaveBound
+    | None, None -> type_error pos IntervalMustHaveBound
     )
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 

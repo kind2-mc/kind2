@@ -80,7 +80,7 @@ type error_kind = Unknown of string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
-  | SubrangeMustHaveBound
+  | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
 
 type error = [
