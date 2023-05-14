@@ -1263,14 +1263,14 @@ let messaging_selftest () =
   (*
   let a = Unix.fork () in
   (match a with
-    0   ->  im_selftest (); exit 0;
+    0   ->  im_selftest (); exit ExitCodes.success;
   | _   ->  pids := a::(!pids)
   );
 *)
   let spawn_worker worker_name = 
     let a = Unix.fork () in
     (match a with
-      0   ->  worker_selftest worker_name; exit 0; 
+      0   ->  worker_selftest worker_name; exit ExitCodes.success; 
     | _   ->  pids := a::(!pids))
   in
   print_endline "Spawning workers and sending messages..";

@@ -119,6 +119,9 @@ You can now add modules following the instructions in the previous section.
 
 exception Error
 
+exception SolverNotFound
+exception UnsupportedSolver
+
 (** {1 Accessors for flags} *)
 
 
@@ -260,6 +263,7 @@ module Smt : sig
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
     | `Z3_SMTLIB
@@ -303,6 +307,9 @@ module Smt : sig
 
   (** Executable of MathSAT solver *)
   val mathsat_bin : unit -> string
+
+  (** JAR of SMTInterpol solver *)
+  val smtinterpol_jar : unit -> string
 
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string

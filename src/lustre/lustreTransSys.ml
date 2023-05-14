@@ -242,6 +242,43 @@ let ass_and_mode_requires_of_contract = function
   )
 | None -> None, []
 
+
+let non_vacuity_check scope name pos requires props =
+  match requires with
+  | { C.scope = s } :: _ ->
+    let name =
+      Format.asprintf "%a%s%a" (
+        pp_print_list (
+          fun fmt (pos, call) ->
+            Format.fprintf fmt "%s%a."
+              call Lib.pp_print_line_and_column pos
+        ) ""
+      ) s name Lib.pp_print_line_and_column pos 
+    in
+    let guard = conj_of requires in
+    property_of_expr
+      ~prop_kind:(P.Reachable None) 
+      false
+      name
+      P.PropUnknown
+      (P.NonVacuityCheck (pos, scope))
+      (E.mk_not guard)
+    :: props
+  | _ ->
+    props
+
+let mode_non_vacuity_checks scope { C.modes } =
+  if Flags.check_nonvacuity () then (
+    List.fold_left
+      (fun props { C.name ; C.pos; C.requires } ->
+        let name = Format.asprintf "%a" (I.pp_print_ident true) name in
+        non_vacuity_check scope name pos requires props
+      )
+      []
+      modes
+  )
+  else []
+
 (* The guarantees of a contract, including mode implications, as properties. *)
 let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
@@ -275,28 +312,11 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
             ) :: acc
           ) acc
         in
-        (* Generating one non-vacuity check per require *)
-        match requires with
-        | { scope = s } :: _ when Flags.check_nonvacuity () ->
-          let name =
-            Format.asprintf "%a%s%a" (
-              pp_print_list (
-                fun fmt (pos, call) ->
-                  Format.fprintf fmt "%s%a."
-                    call Lib.pp_print_line_and_column pos
-              ) ""
-            ) s name Lib.pp_print_line_and_column pos 
-          in
-          property_of_expr
-            ~prop_kind:(P.Reachable None) 
-            false
-            name
-            prop_status
-            (P.NonVacuityCheck (pos, scope))
-            (E.mk_not guard)
-          :: ensure_props
-        | _ ->
-          ensure_props
+        if Flags.check_nonvacuity () then (
+          (* Generating one non-vacuity check per mode *)
+          non_vacuity_check scope name pos requires ensure_props
+        )
+        else ensure_props
     ) acc
   in
 
@@ -366,10 +386,11 @@ let one_mode_active scope { C.modes } =
   else (
     let first_mode = List.hd modes in
     let pos = first_mode.C.pos in
-    let path = first_mode.C.path |> List.rev |> List.tl |> List.rev in
+    let rev_path = first_mode.C.path |> List.rev |> List.tl in
     let name =
-      Format.asprintf "%a._one_mode_active"
-        (pp_print_list Format.pp_print_string ".") path
+      let l = ("_one_mode_active" :: rev_path) |> List.rev in
+      Format.asprintf "%a"
+        (pp_print_list Format.pp_print_string ".") l
     in
     (* Disjunction of mode requirements. *)
     let prop =
@@ -1916,7 +1937,9 @@ let rec trans_sys_of_node'
                   (* Add property for completeness of modes if top node is
                     abstract. *)
                   if A.param_scope_is_abstract analysis_param scope then
-                    one_mode_active scope contract
+                    List.rev_append
+                      (mode_non_vacuity_checks scope contract)
+                      (one_mode_active scope contract)
                   else []
                 else
                   [], []

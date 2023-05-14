@@ -36,10 +36,11 @@ let gentag =
 
 (* Instantiate module for SMTLIB2 solvers with drivers *)
 module BitwuzlaSMTLIB : SolverSig.S = SMTLIBSolver.Make (BitwuzlaDriver)
-module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
 module CVC5SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC5Driver)
-module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
 module MathSATSMTLIB : SolverSig.S = SMTLIBSolver.Make (MathSATDriver)
+module SMTInterpolSMTLIB : SolverSig.S = SMTLIBSolver.Make (SMTInterpolDriver)
+module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
+module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
 
 (* SMT expression *)
 type expr = SMTExpr.t
@@ -162,6 +163,7 @@ let create_instance
     | `Bitwuzla_SMTLIB -> (module BitwuzlaSMTLIB.Create(Params) : SolverSig.Inst)
     | `cvc5_SMTLIB -> (module CVC5SMTLIB.Create(Params) : SolverSig.Inst)
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
+    | `SMTInterpol_SMTLIB -> (module SMTInterpolSMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
     | `Yices2_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
     | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)

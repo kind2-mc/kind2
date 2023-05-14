@@ -104,7 +104,7 @@ val add_gua: t -> (svar * bool) list -> t
 (** Adds modes to a contract. *)
 val add_modes: t -> mode list -> t
 
-val svars_of: t -> StateVar.StateVarSet.t
+val svars_of: ?with_sofar_var:bool -> t -> StateVar.StateVarSet.t
 
 (** Pretty prints a svar wrapper. *)
 val pp_print_svar: Format.formatter -> svar -> unit

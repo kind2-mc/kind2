@@ -297,17 +297,34 @@ let results_length results =
 (** Returns [None] if no properties were falsified but some could not be
     proved, [Some true] if all properties were proved, and [Some false] if
     some were falsified. *)
-let results_is_safe results = Scope.Map.fold (fun _ -> function
-  | head :: _ -> (
-    (* If system is safe, propagate previous result if any. *)
-    if result_is_all_proved head then fun opt -> opt
-    (* If it's not then result is false. *)
-    else if result_is_some_falsified head then fun _ -> Some false
-    (* In case of a timeout, propagate false result, none otherwise. *)
-    else function | (Some false) as opt -> opt | _ -> None
+let results_is_safe results =
+  let rec check opt = function
+  | result :: node_results ->
+    (* If some were falsified, return false result *)
+    if result_is_some_falsified result then Some false
+    else (
+      match opt with
+      | None -> check opt node_results
+      | Some true ->
+        if result_is_all_proved result then
+          (* If system is still safe, propagate true result *)
+          check opt node_results
+        else 
+          (* In case of an unknown result, change result to None *)
+          check None node_results
+      | Some false -> assert false
   )
-  | [] -> assert false
-) results (Some true)
+  | [] -> opt
+  in
+  Scope.Map.fold
+    (fun _ node_results opt' ->
+      match opt' with
+      (* If some were falsified, propagate false result *)
+      | Some false -> opt'
+      | _ -> check opt' node_results
+    )
+    results
+    (Some true)
 
 let results_is_empty results = Scope.Map.is_empty results
 

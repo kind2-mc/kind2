@@ -49,8 +49,16 @@ let setup : unit -> any_input = fun () ->
   (* Parse command-line flags. *)
   (try
     Flags.parse_argv ()
-   with Flags.Error ->
-    KEvent.terminate_log () ; exit ExitCodes.error
+   with
+   | Flags.Error -> (
+      KEvent.terminate_log () ; exit ExitCodes.usage_error
+   )
+   | Flags.UnsupportedSolver -> (
+      KEvent.terminate_log () ; exit ExitCodes.unsupported_solver
+   )
+   | Flags.SolverNotFound -> (
+      KEvent.terminate_log () ; exit ExitCodes.not_found_error
+   )
   );
 
   Debug.set_dflags (Flags.debug ()) ;
@@ -109,7 +117,7 @@ let setup : unit -> any_input = fun () ->
         | None -> (
             KEvent.log L_note "No parse errors found!";
             KEvent.terminate_log ();
-            exit 0
+            exit ExitCodes.success
         )
       )
                    
@@ -126,7 +134,7 @@ let setup : unit -> any_input = fun () ->
   (* Could not create input system. *)
   | LustreAst.Parser_error  ->
      (* We should have printed the appropriate message so just 'gracefully' exit *)
-     KEvent.terminate_log () ; exit ExitCodes.error
+     KEvent.terminate_log () ; exit ExitCodes.parse_error
   | LustreInput.NoMainNode msg ->
      KEvent.log L_fatal "Error reading input file '%s': %s" in_file msg ;
      KEvent.terminate_log () ; exit ExitCodes.error

@@ -23,6 +23,9 @@ open Lib
 
 exception Error
 
+exception SolverNotFound
+exception UnsupportedSolver
+
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
 (* Raised on bad argument for existing flag. Stores an explanation, the flag
@@ -120,6 +123,7 @@ module Smt = struct
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
     | `Z3_SMTLIB
@@ -129,6 +133,7 @@ module Smt = struct
     | "Bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "MathSAT" ->  `MathSAT_SMTLIB
+    | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | "Yices2" -> `Yices2_SMTLIB
     | "Yices" -> `Yices_native
     | "Z3" -> `Z3_SMTLIB
@@ -137,13 +142,14 @@ module Smt = struct
     | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `cvc5_SMTLIB -> "cvc5"
     | `MathSAT_SMTLIB -> "MathSAT"
+    | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, Bitwuzla, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -281,6 +287,20 @@ module Smt = struct
   let set_mathsat_bin str = mathsat_bin := str
   let mathsat_bin () = !mathsat_bin
 
+  (* SMTInterpol JAR. *)
+  let smtinterpol_jar_default = "smtinterpol.jar"
+  let smtinterpol_jar = ref smtinterpol_jar_default
+  let _ = add_spec
+    "--smtinterpol_jar"
+    (Arg.Set_string smtinterpol_jar)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>JAR of SMTInterpol solver@ Default: \"%s\"@]"
+        smtinterpol_jar_default
+    )
+  let set_smtinterpol_jar str = smtinterpol_jar := str
+  let smtinterpol_jar () = !smtinterpol_jar
+
   (* Bitwuzla binary. *)
   let bitwuzla_bin_default = "bitwuzla"
   let bitwuzla_bin = ref bitwuzla_bin_default
@@ -384,12 +404,12 @@ module Smt = struct
   let trace_subdir () = !trace_subdir
 
 
-  let find_solver ~fail name bin =
+  let find_solver ?(filetype="executable") ~fail name bin =
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
-      raise Error
+      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
+      raise SolverNotFound
 
   
   (* Check which SMT solver is available *)
@@ -403,6 +423,12 @@ module Smt = struct
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB ->
       find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    (* User chose SMTInterpol *)
+    | `SMTInterpol_SMTLIB ->
+      let full_path =
+        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
+      in
+      set_smtinterpol_jar full_path
     (* User chose Yices2 *)
     | `Yices2_SMTLIB ->
       find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
@@ -435,6 +461,11 @@ module Smt = struct
         set_mathsat_bin exec;
       with Not_found ->
       try
+        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+        set_solver `SMTInterpol_SMTLIB;
+        set_smtinterpol_jar exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
         set_solver `Bitwuzla_SMTLIB;
         set_bitwuzla_bin exec;
@@ -445,7 +476,7 @@ module Smt = struct
         set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-        raise Error
+        raise SolverNotFound
 
   let check_qe_solver () = match qe_solver () with
     (* User chose cvc5 *)
@@ -2537,7 +2568,7 @@ let print_module_info = function
       )
     )
   ) ;
-  exit 0
+  exit ExitCodes.success
 )
 
 
@@ -2604,14 +2635,14 @@ module Global = struct
     (
       "-h",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message")
     ) ;
     (
       "--help",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message too")
     ) ;
@@ -3369,7 +3400,7 @@ let check_nonvacuity_default = true
     (Arg.Unit
       (fun () -> 
         Format.printf "%t@." pp_print_version ;
-        exit 0
+        exit ExitCodes.success
       )
     )
     (fun fmt -> Format.fprintf fmt "Print version information and exit")
@@ -3565,7 +3596,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       )
       | BadArg (error, spec) ->
         check_format_flags args;
@@ -3581,7 +3612,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Error on flag '%s': %s" flag error
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       | Arg.Bad expl ->
         check_format_flags args;
         (
@@ -3597,7 +3628,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Bad argument: %s" expl
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
     )
 
   | [] ->
@@ -3639,7 +3670,13 @@ let solver_dependant_actions solver =
           Log.log L_warn "Detected MathSAT: disabling ind_compress"
       )
     | None -> Log.log L_warn "Couldn't determine MathSAT version"
-  ) 
+  )
+  | `SMTInterpol_SMTLIB -> (
+    if Smt.check_sat_assume () then (
+      Log.log L_warn "Detected SMTInterpol: disabling check_sat_assume";
+      Smt.set_check_sat_assume false
+    )
+  )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version false cmd with
@@ -3692,21 +3729,21 @@ let solver_dependant_actions solver =
     match get_version true cmd with
     | None ->
         Log.log L_warn "Couldn't determine cvc5 version";
-        raise Error
+        raise UnsupportedSolver
     | Some (major, minor, patch) ->
         if (major < 1) then (
           Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
             major minor patch ;
-          raise Error
+          raise UnsupportedSolver
         ) ;
         if
-          Certif.proof () && not (major=1 && minor=0 && patch=3)
+          Certif.proof () && not (major=1 && minor=0 && patch>=3 && patch<=5)
         then (
           Log.log L_error
-            "LFSC proof production requires cvc5 1.0.3. Found \
+            "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.0.5. Found \
              version: %d.%d.%d"
             major minor patch;
-          raise Error)
+          raise UnsupportedSolver)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3714,7 +3751,7 @@ let solver_dependant_actions solver =
     | Some (major_rev, _, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        raise Error
+        raise UnsupportedSolver
       )
     | None -> Log.log L_warn "Couldn't determine Yices version"
   )

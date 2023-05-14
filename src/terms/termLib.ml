@@ -262,10 +262,15 @@ let pp_print_logic fmt = function
   | `Inferred l ->
       if L.mem BV l && (L.mem IA l || L.mem RA l) then
         pp_print_string fmt "ALL"
+      (* Only Z3 doesn't support non-standard sub-logics for the combination of
+         Ints and Reals. Moreover, Yices 2 accepts QF_UFLIRA but not AUFLIRA.
+         We prioritize practicality over compliance.
+      
       else if (L.mem IA l && L.mem RA l) then (
         if (L.mem NA l) then pp_print_string fmt "AUFNIRA"
         else pp_print_string fmt "AUFLIRA"
       )
+      *)
       else pp_print_features fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 

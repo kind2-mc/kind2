@@ -657,7 +657,7 @@ let query_pruning pruning_checker two_state =
     | Some ([], _) ->
       KEvent.log L_fatal
         "[pruning] satisfiable instance but no falsifiable candidate" ;
-      exit 2*)
+      exit ExitCodes.error*)
   in
 
   loop []

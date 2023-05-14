@@ -25,6 +25,7 @@ Table of Contents
     2_input/3_machine_ints
     2_input/2_arrays
     3_output/2_machine_readable
+    3_output/3_exit_codes
 
 .. toctree:: 
     :maxdepth: 2
