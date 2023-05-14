@@ -1429,7 +1429,6 @@ let mult_opt x y = match x, y with
   | _, Nothing -> assert false
   | _ -> assert false
   
-(*!! Q: Come back to this !!*)
 let div_opt x y = match x, y with 
   | Number x, Number y -> Number (Numeral.div x y) 
   | Number _, Inf -> Nothing
@@ -1452,10 +1451,6 @@ let min_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | _, NegInf -> NegInf
     | Inf, num -> num 
     | num, Inf -> num
-    (*!! Currently, we throw out the Nothing elements if possible. But, this
-         might be dangerous; maybe we should return Nothing if at least
-         one Nothing exists. This would trigger conservatively returning
-         the int type in "best_int_range" !!*)
     | Nothing, num -> num
     | num, Nothing -> num
   ) Nothing
@@ -1466,10 +1461,6 @@ let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | num, NegInf -> num
     | Inf, _ -> Inf 
     | _, Inf -> Inf
-  (*!! Currently, we throw out the Nothing elements if possible. But, this
-    might be dangerous; maybe we should return Nothing if at least
-    one Nothing exists. This would trigger conservatively returning
-    the int type in "best_int_range" !!*)
     | Nothing, num -> num
     | num, Nothing -> num
   ) Nothing
@@ -1485,7 +1476,6 @@ let numeral_opts_to_nums lo hi = match lo, hi with
   | None, None -> NegInf, Inf
 
 (* Best int subrange for some operator. *)
-(*!! Come back to this !!*)
 let best_int_range is_div op t t' =
   match Type.bounds_of_int_range t' with
   
@@ -2671,7 +2661,7 @@ let type_of_minus = function
         let lower = (
         match l1, u2 with 
           | Some l1, Some u2 -> (Some Numeral.(l1 - u2))
-          | _ -> None (*!! Double check !!*)
+          | _ -> None
         ) in 
         let upper = (
         match l2, u1 with 

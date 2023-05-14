@@ -373,7 +373,6 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       | _ -> None
     in
     interpret_structured_expr f node_id ctx ty_ctx ty proj expr
-    (*!! Can maybe combine these cases !!*)
   | IntRange (_, (Some Const (_, Num l1)), (Some Const (_, Num r1))) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
