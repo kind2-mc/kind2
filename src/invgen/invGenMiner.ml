@@ -389,6 +389,16 @@ module BoolRules = struct
     in
     loop lo
 
+  (* Adds [svar >= 0] and [svar == 0] for an int [svar] to the input set. *)
+  let int_rule svar set =
+    let var = var_of svar in
+    Set.add (Term.mk_geq [var ; Term.mk_num zero]) set
+    |>
+      if Flags.Invgen.all_out () then
+        Set.add (Term.mk_eq [var ; Term.mk_num zero])
+      else identity
+
+
   (* If [svar] is an [IntRange(lo, hi)], adds to the input set the constraints
   [svar = n], for [n] in [[lo, hi]].
 
@@ -403,17 +413,14 @@ module BoolRules = struct
           )
         in
         loop lo
-      | _ -> identity (*!! Q: What to put here? !!*)
+      | Some lo, None -> 
+        Set.union (Set.of_list 
+          [ Term.mk_eq [var; Term.mk_num lo]; Term.mk_leq [Term.mk_num lo; var] ])
+      | None, Some hi -> 
+        Set.union (Set.of_list 
+        [ Term.mk_eq [var; Term.mk_num hi]; Term.mk_leq [var; Term.mk_num hi] ]) 
+      | None, None -> int_rule svar 
       
-  (* Adds [svar >= 0] and [svar == 0] for an int [svar] to the input set. *)
-  let int_rule svar set =
-    let var = var_of svar in
-    Set.add (Term.mk_geq [var ; Term.mk_num zero]) set
-    |>
-      if Flags.Invgen.all_out () then
-        Set.add (Term.mk_eq [var ; Term.mk_num zero])
-      else identity
-
   (* Adds [svar >= 0] for a real [svar] to the input set. *)
   let real_rule svar set =
     let var = var_of svar in
