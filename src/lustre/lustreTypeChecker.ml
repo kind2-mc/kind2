@@ -1429,8 +1429,8 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
             else Ok ()
       else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
     else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
-    | Some e1, None -> if is_expr_int_type ctx e1 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
-    | None, Some e2 -> if is_expr_int_type ctx e2 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
+    | Some e1, None -> if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
+    | None, Some e2 -> if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
     | None, None -> type_error pos IntervalMustHaveBound
     )
   | _ -> R.ok ()
