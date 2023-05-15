@@ -1387,10 +1387,10 @@ let sub_opt x y = match x, y with
   | Number x, Number y -> Number (Numeral.sub x y) 
   | Number _, Inf -> NegInf
   | Inf, Number _ -> Inf
-  | Inf, Inf -> Inf
+  | Inf, Inf -> Nothing
   | Number _, NegInf -> Inf
   | NegInf, Number _ -> NegInf 
-  | NegInf, NegInf -> NegInf
+  | NegInf, NegInf -> Nothing
   | Inf, NegInf -> Inf 
   | NegInf, Inf -> NegInf
   | Nothing, _ -> assert false 
@@ -1451,8 +1451,8 @@ let min_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | _, NegInf -> NegInf
     | Inf, num -> num 
     | num, Inf -> num
-    | Nothing, num -> num
-    | num, Nothing -> num
+    | Nothing, _ -> Nothing
+    | _, Nothing -> Nothing
   ) Nothing
 
 let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with 
@@ -1461,8 +1461,8 @@ let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | num, NegInf -> num
     | Inf, _ -> Inf 
     | _, Inf -> Inf
-    | Nothing, num -> num
-    | num, Nothing -> num
+    | Nothing, _ -> Nothing
+    | _, Nothing -> Nothing
   ) Nothing
 
 let num_to_numeral_opt = function 
