@@ -64,45 +64,61 @@ let renice () =
     let nice' = Unix.nice nice in
     KEvent.log L_info "[renice] renicing to %d" nice'
 
+
+type process =
+  | GenericCall of Lib.kind_module
+  | IC3IA_Call of Property.t
+
+let get_kind_module = function
+  | GenericCall m -> m
+  | IC3IA_Call _ -> `IC3IA
+
+
 (** Main function of the process *)
 let main_of_process = function
-  | `IC3 -> IC3.main
-  | `BMC -> BMC.main false
-  | `BMCSKIP -> BMC.main true
-  | `IND -> IND.main
-  | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; InvGen.main_bool true
-  | `INVGENOS -> renice () ; InvGen.main_bool false
-  | `INVGENINT -> renice () ; InvGen.main_int true
-  | `INVGENINTOS -> renice () ; InvGen.main_int false
-  | `INVGENINT8 -> renice () ; InvGen.main_int8 true
-  | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
-  | `INVGENINT16 -> renice () ; InvGen.main_int16 true
-  | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
-  | `INVGENINT32 -> renice () ; InvGen.main_int32 true
-  | `INVGENINT32OS -> renice () ; InvGen.main_int32 false
-  | `INVGENINT64 -> renice () ; InvGen.main_int64 true
-  | `INVGENINT64OS -> renice () ; InvGen.main_int64 false
-  | `INVGENUINT8 -> renice () ; InvGen.main_uint8 true
-  | `INVGENUINT8OS -> renice () ; InvGen.main_uint8 false
-  | `INVGENUINT16 -> renice () ; InvGen.main_uint16 true
-  | `INVGENUINT16OS -> renice () ; InvGen.main_uint16 false
-  | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
-  | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
-  | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
-  | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
-  | `INVGENREAL -> renice () ; InvGen.main_real true
-  | `INVGENREALOS -> renice () ; InvGen.main_real false
-  | `C2I -> renice () ; C2I.main
-  | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-  | `Supervisor -> InvarManager.main false false child_pids
-  | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
-  | `Parser | `Certif -> ( fun _ _ _ -> () )
+  | GenericCall m -> (
+    match m with
+    | `IC3 -> IC3.main
+    | `IC3IA -> assert false
+    | `BMC -> BMC.main false
+    | `BMCSKIP -> BMC.main true
+    | `IND -> IND.main
+    | `IND2 -> IND2.main
+    | `INVGEN -> renice () ; InvGen.main_bool true
+    | `INVGENOS -> renice () ; InvGen.main_bool false
+    | `INVGENINT -> renice () ; InvGen.main_int true
+    | `INVGENINTOS -> renice () ; InvGen.main_int false
+    | `INVGENINT8 -> renice () ; InvGen.main_int8 true
+    | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
+    | `INVGENINT16 -> renice () ; InvGen.main_int16 true
+    | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
+    | `INVGENINT32 -> renice () ; InvGen.main_int32 true
+    | `INVGENINT32OS -> renice () ; InvGen.main_int32 false
+    | `INVGENINT64 -> renice () ; InvGen.main_int64 true
+    | `INVGENINT64OS -> renice () ; InvGen.main_int64 false
+    | `INVGENUINT8 -> renice () ; InvGen.main_uint8 true
+    | `INVGENUINT8OS -> renice () ; InvGen.main_uint8 false
+    | `INVGENUINT16 -> renice () ; InvGen.main_uint16 true
+    | `INVGENUINT16OS -> renice () ; InvGen.main_uint16 false
+    | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
+    | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
+    | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
+    | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
+    | `INVGENREAL -> renice () ; InvGen.main_real true
+    | `INVGENREALOS -> renice () ; InvGen.main_real false
+    | `C2I -> renice () ; C2I.main
+    | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
+    | `Supervisor -> InvarManager.main false false child_pids
+    | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
+    | `Parser | `Certif -> ( fun _ _ _ -> () )
+  )
+  | IC3IA_Call prop -> IC3IA.main prop
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
   ( match mdl with
     | `IC3 -> IC3.on_exit None
+    | `IC3IA -> IC3IA.on_exit None
     | `BMCSKIP
     | `BMC -> BMC.on_exit None
     | `IND -> IND.on_exit None
@@ -398,6 +414,7 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
 
 (** Forks and runs a child process. *)
 let run_process in_sys param sys messaging_setup process =
+  let kind_module = get_kind_module process in
   (* Fork a new process. *)
   let pid = Unix.fork () in
   match pid with
@@ -412,8 +429,8 @@ let run_process in_sys param sys messaging_setup process =
     SMTSolver.delete_instance_entries () ;
     (* Initialize messaging system for process. *)
     let messaging_thread =
-      on_exit_child None process
-      |> KEvent.run_process process messaging_setup
+      on_exit_child None kind_module
+      |> KEvent.run_process kind_module messaging_setup
     in
 
     try 
@@ -422,7 +439,7 @@ let run_process in_sys param sys messaging_setup process =
       KEvent.set_relay_log ();
 
       (* Set module currently running. *)
-      KEvent.set_module process;
+      KEvent.set_module kind_module;
 
       (* Record backtraces on log levels debug and higher. *)
       if output_on_level L_debug then
@@ -430,7 +447,7 @@ let run_process in_sys param sys messaging_setup process =
 
       KEvent.log L_debug
         "Starting new process %a with PID %d" 
-        pp_print_kind_module process
+        pp_print_kind_module kind_module
         pid;
 
       ( (* Change debug output to per process file. *)
@@ -443,7 +460,7 @@ let run_process in_sys param sys messaging_setup process =
           try (* Output to [f.PROCESS-PID]. *)
             let f' = 
               Format.sprintf "%s.%s-%d" 
-                f (debug_ext_of_process process) pid
+                f (debug_ext_of_process kind_module) pid
             in
 
             (* Open output channel to file. *)
@@ -462,12 +479,12 @@ let run_process in_sys param sys messaging_setup process =
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
       (* Cleanup and exit *)
-      on_exit_child (Some messaging_thread) process Exit
+      on_exit_child (Some messaging_thread) kind_module Exit
 
     with
     (* Termination message received. *)
     | KEvent.Terminate as e ->
-      on_exit_child (Some messaging_thread) process e
+      on_exit_child (Some messaging_thread) kind_module e
     (* Catch all other exceptions. *)
     | e ->
       (* Get backtrace now, Printf changes it. *)
@@ -476,18 +493,35 @@ let run_process in_sys param sys messaging_setup process =
         KEvent.log L_fatal
           "Caught %s in %a.@ Backtrace:@ %a"
           (Printexc.to_string e)
-          pp_print_kind_module process
+          pp_print_kind_module kind_module
           print_backtrace backtrace
       ) ;
       (* Cleanup and exit. *)
-      on_exit_child (Some messaging_thread) process e
+      on_exit_child (Some messaging_thread) kind_module e
 
   )
 
   (* We are the parent process. *)
   | _ ->
     (* Keep PID of child process and return. *)
-    child_pids := (pid, process) :: !child_pids
+    child_pids := (pid, kind_module) :: !child_pids
+
+
+let create_processes modules sys =
+  let ic3ia_module, other_modules = modules |> List.partition (
+    function `IC3IA -> true | _ -> false)
+  in
+  let processes = List.map (fun m -> GenericCall m) other_modules in
+  match ic3ia_module with
+  | [] -> processes
+  | _ -> (
+    List.fold_left
+      (fun acc p ->
+        IC3IA_Call p :: acc
+      )
+      processes
+      (TSys.get_real_properties sys)
+  )
 
 let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
   let invgenmach_modules, other_modules = modules |> List.partition (
@@ -556,8 +590,10 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
         query with a lower bound *)
       let modules = reachability_query_modules sys modules in
 
+      let processes = create_processes modules sys in
+
       (* Start all child processes. *)
-      modules |> List.iter (
+      processes |> List.iter (
         fun p -> run_process in_sys param sys msg_setup p
       ) ;
 

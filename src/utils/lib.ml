@@ -825,7 +825,8 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `IC3 
+  [ `IC3
+  | `IC3IA
   | `BMC
   | `BMCSKIP
   | `IND
@@ -866,6 +867,7 @@ type kind_module =
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
   | `IC3 -> fprintf ppf "property directed reachability"
+  | `IC3IA -> fprintf ppf "property directed reachability (implicit abstraction)"
   | `BMC -> fprintf ppf "bounded model checking"
   | `BMCSKIP -> fprintf ppf "bounded model checking (skip)"
   | `IND -> fprintf ppf "inductive step"
@@ -909,6 +911,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 (* Return a short representation of kind module *)
 let short_name_of_kind_module = function
  | `IC3 -> "ic3"
+ | `IC3IA -> "ic3ia"
  | `BMC -> "bmc"
  | `BMCSKIP -> "bmcskip"
  | `IND -> "ind"
@@ -949,6 +952,7 @@ let short_name_of_kind_module = function
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "IC3" -> `IC3
+  | "IC3IA" -> `IC3IA
   | "BMC" -> `BMC
   | "BMCSKIP" -> `BMCSKIP
   | "IND" -> `IND
@@ -1018,6 +1022,7 @@ let int_of_kind_module = function
   | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
+  | `IC3IA -> 31
 
 
 (* Timeouts *)
