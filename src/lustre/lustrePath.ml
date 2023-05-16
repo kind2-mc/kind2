@@ -1382,13 +1382,15 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
       (Invalid_argument "pp_print_type: BV size not allowed")
       end
     | Type.IntRange (i, j) ->
-      let pp_print_num_opt ppf x = match x with 
-        | None -> Format.fprintf ppf "*"
-        | Some x -> Numeral.pp_print_numeral ppf x 
+      let pp_print_bound_opt attr bound ppf =
+        match bound with
+        | None -> ()
+        | Some x ->
+          Format.fprintf ppf " %s=\"%a\""
+            attr Numeral.pp_print_numeral x
       in
-      Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
-      pp_print_num_opt i 
-      pp_print_num_opt j
+      Format.fprintf ppf "type=\"subrange\"%t%t"
+        (pp_print_bound_opt "min" i) (pp_print_bound_opt "max" j)
     | Type.Real ->
       Format.pp_print_string ppf "type=\"real\""
     | Type.Abstr s ->
@@ -1683,20 +1685,26 @@ let rec pp_print_type_json field ppf stream_type =
         field field s
   )
   | Type.IntRange (i, j) -> (
-    let pp_print_num_opt ppf x = match x with 
-      | None -> Format.fprintf ppf "*"
-      | Some x -> Numeral.pp_print_numeral ppf x 
-    in
     Format.fprintf ppf
         "\"%s\" : \"subrange\",@,\
          \"%sInfo\" :@,{@[<v 1>@,\
-         \"min\" : %a,@,\
-         \"max\" : %a\
+         %t\
          @]@,},@,\
         "
         field field
-        pp_print_num_opt i 
-        pp_print_num_opt j
+        (fun ppf ->
+          match i, j with
+          | Some i, Some j ->
+            Format.fprintf ppf "\"min\" : %a,@,\"max\" : %a"
+              Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+          | Some i, None ->
+            Format.fprintf ppf "\"min\" : %a"
+              Numeral.pp_print_numeral i
+          | None, Some j ->
+            Format.fprintf ppf "\"max\" : %a"
+              Numeral.pp_print_numeral j
+          | None, None -> ()
+        )
   )
   | Type.Enum (_, _) -> (
     let pp_print_qstring ppf s =
