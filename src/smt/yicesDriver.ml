@@ -120,13 +120,9 @@ and pp_print_type_node ppf = function
       end
 
     | Type.IntRange (i, j) ->
-      let pp_print_num_opt ppf x = match x with 
-        | None -> Format.fprintf ppf "*"
-        | Some x -> Numeral.pp_print_numeral ppf x 
-      in
       Format.fprintf ppf "(subrange %a %a)"
-        pp_print_num_opt i 
-        pp_print_num_opt j
+        pp_print_bound_opt i 
+        pp_print_bound_opt j
 
     | Type.Enum (i, j) ->
       Format.fprintf ppf "(subrange %a %a)"

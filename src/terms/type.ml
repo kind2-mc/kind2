@@ -192,15 +192,11 @@ let rec pp_print_type_node ppf = function
   | Int -> Format.pp_print_string ppf "Int"
 
   | IntRange (i, j) -> 
-    let pp_print_num_opt ppf x = match x with 
-      | None -> Format.fprintf ppf "*"
-      | Some x -> Numeral.pp_print_numeral ppf x 
-    in
     Format.fprintf
       ppf 
       "(IntRange %a %a)" 
-      pp_print_num_opt i 
-      pp_print_num_opt j
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
   | Enum (i, j) -> 
 
@@ -254,15 +250,11 @@ let rec pp_print_type_node_debug ppf = function
   | Int -> Format.pp_print_string ppf "Int"
 
   | IntRange (i, j) -> 
-    let pp_print_num_opt ppf x = match x with 
-      | None -> Format.fprintf ppf "*"
-      | Some x -> Numeral.pp_print_numeral ppf x 
-    in
     Format.fprintf
       ppf 
       "(IntRange %a %a)" 
-      pp_print_num_opt i 
-      pp_print_num_opt j
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
   | Enum (i, j) -> 
 

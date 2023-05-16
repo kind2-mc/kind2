@@ -928,14 +928,10 @@ let create_proxy_constants_for_terms s terms =
               (Invalid_argument "pp_print_type_suffix: BV size not allowed")
         end
       | IntRange (i, j) ->
-        let pp_print_num_opt ppf x = match x with 
-          | None -> Format.fprintf ppf "*"
-          | Some x -> Numeral.pp_print_numeral ppf x 
-        in
         Format.fprintf ppf
           "int_range_%a_%a"
-          pp_print_num_opt i
-          pp_print_num_opt j
+          pp_print_bound_opt i
+          pp_print_bound_opt j
       | Enum (i, j) ->
         Format.fprintf ppf
           "enum_%a_%a"

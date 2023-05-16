@@ -246,15 +246,11 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
   | Type.Int -> Format.pp_print_string ppf "int"
 
   | Type.IntRange (i, j) -> 
-    let pp_print_num_opt ppf x = match x with 
-      | None -> Format.fprintf ppf "*"
-      | Some x -> Numeral.pp_print_numeral ppf x 
-    in
     Format.fprintf
       ppf 
       "subrange [%a, %a] of int" 
-      pp_print_num_opt i 
-      pp_print_num_opt j
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 

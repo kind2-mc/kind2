@@ -535,6 +535,9 @@ val set_liberal_gc : unit -> unit
     {!set_liberal_gc}. *)
 val reset_gc_params : unit -> unit
 
+(* Print bound of (possibly) open interval *)
+val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
+
 (** Paths Kind 2 can write some files.
 Factored to avoid clashes. *)
 module Paths : sig
