@@ -612,6 +612,9 @@ module ReservedIds : sig
 
 end
 
+(** String representing an unbounded subrange limit *)
+val unbounded_limit_string : string
+
 (** Exit codes. *)
 module ExitCodes: sig
 

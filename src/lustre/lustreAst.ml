@@ -647,7 +647,7 @@ and pp_print_lustre_type ppf = function
   | IntRange (_, l, u) -> 
     let pp_print_opt ppf expr_opt = (match expr_opt with
       | Some expr -> pp_print_expr ppf expr
-      | None -> Format.fprintf ppf "*"
+      | None -> Format.fprintf ppf "%s" unbounded_limit_string
     )
     in
     Format.fprintf ppf 

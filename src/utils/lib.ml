@@ -20,7 +20,7 @@ open Format
 
 exception Unsupported of string
 
-let unbounded_string = "*"
+let unbounded_limit_string = "*"
 
 (** function thunk for unimplimented features*)
 let todo = fun s -> raise (Unsupported s)
@@ -1422,7 +1422,7 @@ let set_liberal_gc () =
   Gc.set gc_c
 
 let pp_print_bound_opt ppf bound = match bound with 
-  | None -> Format.fprintf ppf "%s" unbounded_string
+  | None -> Format.fprintf ppf "%s" unbounded_limit_string
   | Some bound -> Numeral.pp_print_numeral ppf bound 
 
 
