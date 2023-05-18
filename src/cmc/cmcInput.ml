@@ -736,6 +736,6 @@ let of_file filename =
   
   let top_sys = snd (List.hd trans_systems) in
 
-  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
+  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
 
   Ok (mk_subsys_structure top_sys, {name_map; sys_var_mapping; enum_defs})

@@ -549,30 +549,38 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   
   let process file =
     (* *** Parsing ********************************************************** *)
-  
-    let format, loc, parsed_statements = try Logic.parse_file file with 
-      Dolmen.Std.Loc.Syntax_error (loc, perr) ->
-        match perr with
-        | `Regular msg ->
-          failwith (Format.asprintf "%t" msg)
-        | `Advanced (error_ref, prod, lexed, expected) -> 
-          let p_ref fmt = Format.fprintf fmt "(%s)@ " error_ref in
-          failwith (Format.asprintf
-            "@[<v>@[<hv>%twhile parsing %t,@ read %t,@]@ @[<hov>but expected %t.@]@]"
-            p_ref prod lexed expected)
+    (* note the "file" here, which refers to the file location metadata *)
+    let format, loc_file, lazy_l = Logic.parse_file_lazy file in
+
+    let parsed_statements =
+      try Lazy.force lazy_l with 
+        Dolmen.Std.Loc.Syntax_error(loc, msg) ->
+          let loc : Dolmen.Std.Loc.loc = Dolmen.Std.Loc.loc loc_file loc in
+          (* we can now print the loc if we want, or do whatever we want *)
+          Format.eprintf "error at %a\n" Dolmen.Std.Loc.fmt loc ;
+          match msg with
+            | `Regular msg ->
+              failwith (Format.asprintf "%t" msg)
+            | `Advanced (error_ref, prod, lexed, expected) -> 
+              let p_ref fmt = Format.fprintf fmt "(%s)@ " error_ref in
+              failwith (Format.asprintf
+                "@[<v>@[<hv>%twhile parsing %t,@ read %t,@]@ @[<hov>but expected %t.@]@]"
+                p_ref prod lexed expected)
     in
-  
+    
     (* You can match on the detected format of the input *)
     let () =
       match format with
       | Logic.Dimacs | Logic.ICNF -> ()
       | Logic.Alt_ergo | Logic.Smtlib2 _ | Logic.Tptp _ | Logic.Zf | Logic.CMC _-> ()
     in
+
+    
   
     (* *** Typing *********************************************************** *)
     (* create the logic file corresponding to our input *)
     let lang : Dolmen_loop.Logic.language = CMC `Latest in
-    let logic_file = State.mk_file ~lang ~loc "./" (`File file) in
+    let logic_file = State.mk_file ~lang ~loc:loc_file "./" (`File file) in
     let response_file = State.mk_file "" (`File "this is unused") in
     
     (* let's create the initial state *)
