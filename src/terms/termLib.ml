@@ -64,7 +64,11 @@ let default_of_type t =
       end
 
     (* Integer range values are their lower bound by default *)
-    | Type.IntRange (l, _, _) -> Term.mk_num l
+    | Type.IntRange (Some l, _) -> Term.mk_num l
+    | Type.IntRange (_, Some r) -> Term.mk_num r
+    | Type.IntRange _ -> Term.mk_num Numeral.zero
+
+    | Type.Enum (l, _) -> Term.mk_num l
 
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
@@ -119,7 +123,7 @@ let rec logic_of_sort ty =
   match Type.node_of_type ty with
   | Bool | Abstr _ -> empty
     
-  | Int | IntRange _ -> singleton IA
+  | Int | IntRange _ | Enum _ -> singleton IA
   
   | UBV _ | BV _ -> singleton BV
                           

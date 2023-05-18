@@ -1,0 +1,4 @@
+node main(x: subrange [*, *] of int) returns (y: int);
+let
+  y = x + 1;
+tel

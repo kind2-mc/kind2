@@ -147,7 +147,7 @@ and lustre_type =
   | Int16 of position
   | Int32 of position
   | Int64 of position
-  | IntRange of position * expr * expr
+  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * ident
   | AbstractType of position * ident
@@ -645,10 +645,15 @@ and pp_print_lustre_type ppf = function
   | Int32 _ -> Format.fprintf ppf "int32"
   | Int64 _ -> Format.fprintf ppf "int64"
   | IntRange (_, l, u) -> 
+    let pp_print_opt ppf expr_opt = (match expr_opt with
+      | Some expr -> pp_print_expr ppf expr
+      | None -> Format.fprintf ppf "%s" unbounded_limit_string
+    )
+    in
     Format.fprintf ppf 
       "subrange [%a,%a] of int" 
-      pp_print_expr l
-      pp_print_expr u
+      pp_print_opt l
+      pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
   | UserType (_, s) -> 
     Format.fprintf ppf "%a" pp_print_ident s

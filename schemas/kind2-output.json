@@ -476,8 +476,7 @@
             "properties": {
                 "min": { "type": "integer" },
                 "max": { "type": "integer" }
-            },
-            "required": ["min", "max"]
+            }
         },
         "enumTypeInfo": {
             "type": "object",

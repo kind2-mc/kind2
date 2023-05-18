@@ -394,26 +394,45 @@ let mk_range_expr ctx expr_type expr =
       let original_ty = Ctx.expand_nested_type_syn ctx original_ty in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
+          let eval_int_expr_opt expr = match expr with 
+            | Some expr -> Some (AIC.eval_int_expr ctx expr)
+            | None -> None
+          in
           let is_original =
-            let (l, u) = AIC.eval_int_expr ctx l, AIC.eval_int_expr ctx u in
-            let (l', u') = AIC.eval_int_expr ctx l', AIC.eval_int_expr ctx u' in
+            let (l, u) = eval_int_expr_opt l, eval_int_expr_opt u in
+            let (l', u') = eval_int_expr_opt l', eval_int_expr_opt u' in
             (match (l, u, l', u') with
-            | Ok l, Ok u, Ok l', Ok u' -> l = l' && u = u'
+            | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
+            | Some (Ok l), None, Some (Ok l'), None -> l = l'
+            | None, Some (Ok u), None, Some (Ok u') -> u = u'
+            | None, None, None, None -> true
             | _ -> false)
           in
           let user_prop = if is_original then []
             else
-              let l' = A.CompOp (dpos, A.Lte, l', expr) in
-              let u' = A.CompOp (dpos, A.Lte, expr, u') in
-              [A.BinaryOp (dpos, A.And, l', u'), true]
+              match l', u' with 
+                | Some l', Some u' ->
+                  let l' = A.CompOp (dpos, A.Lte, l', expr) in
+                  let u' = A.CompOp (dpos, A.Lte, expr, u') in
+                  [A.BinaryOp (dpos, A.And, l', u'), true]
+                | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
+                | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
+                | None, None -> [(A.Const (dpos, A.True)), true]
           in
           user_prop, is_original
         | A.Int _ -> [], false
         | _ -> assert false
-      in
-      let l = A.CompOp (dpos, A.Lte, l, expr) in
-      let u = A.CompOp (dpos, A.Lte, expr, u) in
-      [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
+      in (match l, u with 
+        | Some l, Some u -> 
+          let l = A.CompOp (dpos, A.Lte, l, expr) in
+          let u = A.CompOp (dpos, A.Lte, expr, u) in
+          [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
+        | Some l, None -> 
+          [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
+        | None, Some u -> 
+          [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
+        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
+      )
     | A.ArrayType (_, (ty, upper_bound)) ->
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in

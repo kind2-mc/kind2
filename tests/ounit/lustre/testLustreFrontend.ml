@@ -579,6 +579,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/provided.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
+  mk_test "test open interval with no bounds" (fun () ->
+    match load_file "./lustreTypeChecker/open_interval.lus" with
+    | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

@@ -321,6 +321,9 @@ type_decl:
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
 
+expr_opt:
+  | e = expr { Some e }
+  | MULT { None }
 
 (* A type *)
 lustre_type:
@@ -339,9 +342,9 @@ lustre_type:
   | INT64 { A.Int64 (mk_pos $startpos)}
   | SUBRANGE;
     LSQBRACKET;
-    l = expr; 
+    l = expr_opt; 
     COMMA; 
-    u = expr; 
+    u = expr_opt; 
     RSQBRACKET 
     OF
     INT 

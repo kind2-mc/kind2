@@ -1119,7 +1119,7 @@ let mk_abs_for_expr
             else
               Type.mk_array ty
                 (if E.is_numeral b then
-                   Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
+                   Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr b))
                  else Type.t_int),
               expr,
               bp :: bounds_acc,

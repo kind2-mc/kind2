@@ -344,7 +344,10 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let rec mk_bounds ty acc =
         if Type.is_array ty then
           let index_type = Type.index_type_of_array ty in
-          let (_, u) = Type.bounds_of_int_range index_type in
+          let u = match Type.bounds_of_int_range index_type with 
+            | _, Some u -> u 
+            | _, None -> assert false 
+          in
           let uexpr = E.mk_int_expr u in
           let acc = E.Bound uexpr :: acc in
           mk_bounds (Type.elem_type_of_array ty) acc
@@ -556,13 +559,16 @@ and compile_ast_type
       This should be done in the type checker *)
     (* We assume that lbound and ubound are constant integers
       and that lbound < ubound *)
-    let (lvalue, uvalue) = match (lbound, ubound) with
-      | A.Const (_, Num x), A.Const (_, Num y) ->
-        let x = HString.string_of_hstring x in
-        let y = HString.string_of_hstring y in
-        Numeral.of_string x, Numeral.of_string y
+    let lvalue = match lbound with 
+      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
+      | None -> None 
       | _ -> assert false
-    in 
+    in
+    let uvalue = match ubound with 
+      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
+      | None -> None 
+      | _ -> assert false
+    in
     X.singleton X.empty_index (Type.mk_int_range lvalue uvalue)
   | A.EnumType (_, enum_name, enum_elements) ->
       let enum_name = HString.string_of_hstring enum_name in
@@ -624,7 +630,7 @@ and compile_ast_type
           (fun j t a -> 
             X.add (j @ [X.ArrayIntIndex ix])
             (Type.mk_array t
-              (Type.mk_int_range Numeral.zero upper))
+              (Type.mk_int_range (Some Numeral.zero) (Some upper)))
             a)
           element_type
           !result
@@ -634,7 +640,7 @@ and compile_ast_type
       let over_element_type j t a = X.add
         (j @ [X.ArrayVarIndex array_size])
         (Type.mk_array t (if E.is_numeral array_size
-          then Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+          then Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr array_size))
           else Type.t_int))
         a
       in
