@@ -500,10 +500,8 @@ let mk_query aprop_svars (rprop_svars : (id * StateVar.t) list) query =
 let check_trans_system enums base_system (system_check: Statement.sys_check) = 
   (* Map renamed check sys state vars (primed and unprimed) to actual system vars *)
   let check_map = rename_check_vars enums base_system system_check in
-  Format.printf "HERE";
   (* Make svars, init terms, and trans terms for each reachability prop *)
   let all_prop_svars, assumption_svars, reachability_svars, prop_init_terms, prop_trans_terms = mk_check_props enums system_check check_map in
-  Format.printf "THERE";
   (* Create a statevar for each reachability prop within a query *)
   (* Other reachability props are ignored *)
   let queries = system_check.queries |> List.map (mk_query assumption_svars reachability_svars) in
