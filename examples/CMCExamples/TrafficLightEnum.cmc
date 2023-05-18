@@ -39,7 +39,7 @@
     :output ((count Int))
     :local  ((counting Bool) (precount Int))
     :init   (and (= precount 0) (not counting))
-    :inv    (= count (ite switch 
+    :inv    (= count (ite (and switch (= precount 0)) 
                     1 
                     (ite (and (> precount 0) (< precount 10)) 
                         (+ precount 1)
