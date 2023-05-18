@@ -45,12 +45,6 @@ val pp_print_path_in_csv :
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
-(** Recursively substitute the state variables in a term with their definition
-    in [equations]. *)
-val substitute_definitions_in_expr :
-  LustreNode.equation list -> LustreExpr.t -> LustreExpr.t
-
-
 (** Reconstruct Lustre streams from state variables *)
 val reconstruct_lustre_streams :
   LustreNode.t SubSystem.t list -> 
