@@ -56,7 +56,7 @@ let map_top instances state_var =
 
 (* Map all state variables in the term to their instances in the top
    system *)
-let map_term_top instances term = 
+let map_term_top ?(no_fail=false) instances term = 
 
   Term.map
     (fun _ t -> 
@@ -64,6 +64,7 @@ let map_term_top instances term =
        (* Only map free variables *)
        if Term.is_free_var t then 
 
+       try
          (* Get free variable of term *)
          let v = Term.free_var_of_term t in
 
@@ -100,6 +101,8 @@ let map_term_top instances term =
          
          (* Return term of variable *)
          |> Term.mk_var
+
+       with Not_found -> if no_fail then t else raise Not_found
 
        (* Return other terms unchanged *)
        else t)
@@ -435,6 +438,176 @@ let map_top_reconstruct_and_add
     (* Add as path of subnode state variable *)
     |> SVT.add model' state_var
 
+let reconstruct_and_add_init
+  node
+  trans_sys
+  instances
+  model'
+  first_model
+  to_reconstruct
+=
+  let equations_of_init =
+    (* Equations must be topologically sorted *)
+    N.ordered_equations_of_node
+      node (TransSys.state_vars trans_sys) true
+  in
+  equations_of_init |> List.iter (fun ((sv, _), def) ->
+    if SVS.mem sv to_reconstruct then
+      (* Value for state variable at step *)
+      let v =
+        (* Get expression for initial state *)
+        E.base_term_of_t Model.path_offset def
+        (* Map variables in term to top system, but
+           not fail if they are not available *)
+        |> (map_term_top ~no_fail:true instances)
+        (* Evaluate term in model *)
+        |> Eval.eval_term
+          (TransSys.uf_defs trans_sys) 
+          first_model
+        (* Return term *)
+        |> Eval.term_of_value
+      in
+      let var =
+        Var.mk_state_var_instance sv Model.path_offset
+      in
+      (* Add value to [first_model] so that it is available when
+         evaluating the definition of the next variable *)
+      Var.VarHashtbl.add first_model var (Model.Term v) ;
+      SVT.add model' sv [Model.Term v]
+  )
+
+let reconstruct_and_add_step
+  node
+  trans_sys
+  instances
+  model'
+  step_models
+  to_reconstruct
+=
+  let equations_of_step =
+    (* Equations must be topologically sorted *)
+    N.ordered_equations_of_node
+      node (TransSys.state_vars trans_sys) false
+  in
+  step_models |> List.iter (fun m ->
+    equations_of_step |> List.iter (fun ((sv, _), def) ->
+      if SVS.mem sv to_reconstruct then
+        (* Value for state variable at step *)
+        let v =
+          (* Get expression for step state *)
+          E.cur_term_of_t Model.path_offset def
+          (* Map variables in term to top system, but
+             not fail if they are not available *)
+          |> (map_term_top ~no_fail:true instances)
+          (* Evaluate expression for step state *)
+          |> Eval.eval_term
+            (TransSys.uf_defs trans_sys)
+            m
+          (* Return term *)
+          |> Eval.term_of_value
+        in
+        let var =
+          Var.mk_state_var_instance sv Model.path_offset
+        in
+        (* Add value to [m] so that it is available when
+           evaluating the definition of the next variable *)
+        Var.VarHashtbl.add m var (Model.Term v) ;
+        match SVT.find_opt model' sv with
+        | None -> assert false
+        | Some l -> SVT.replace model' sv ((Model.Term v) :: l)
+    )
+  )
+
+(* Get the sequence of values in the top system of each local state variable 
+   (if exists) and add it to [model']. Otherwise, reconstruct the sequence of
+   values from its definition. *)
+let map_top_or_reconstruct_and_add
+  first_is_init
+  node
+  trans_sys
+  instances
+  model
+  model'
+  locals
+=
+  (* Set of local variable to reconstruct *)
+  let to_reconstruct =
+    List.fold_left
+      (fun acc l ->
+        D.fold
+          (fun i state_var acc' ->
+            try
+              (* Get the sequence of values of the state variable in
+                 the top system and add it to [model'] *)
+              map_top_and_add instances model model' i state_var;
+              acc'
+            with Not_found ->
+              (* Mark the state variable as pending to reconstruct *)
+              SVS.add state_var acc'
+          )
+          l
+          acc
+      )
+      SVS.empty
+      locals
+  in
+  if not (SVS.is_empty to_reconstruct) then (
+    (* Create fresh list of models, one for each step on the path,
+      that can be modified locally for reconstructing values
+      of local varibles *)
+    let step_models = Model.models_of_path model in
+    let step_models =
+
+      (* Is the first model encoding the initial state? *)
+      if first_is_init then (
+
+        (* [map_top_and_add] handles the case where the path is empty.
+           If we are here, there exists at least one element *)
+        let first_model = List.hd step_models in
+
+        (* Reconstruct the values for the variables at the initial step
+           from their (initial) Lustre expressions *)
+        reconstruct_and_add_init
+          node
+          trans_sys
+          instances
+          model'
+          first_model
+          to_reconstruct
+        ;
+        List.tl step_models
+      )
+      else (
+        (* The first model represents an arbitrary state *)
+
+        (* Create an entry in [model'] for uniformity *)
+        SVS.elements to_reconstruct
+        |> List.iter (fun sv -> SVT.add model' sv []) ;
+        step_models
+      )
+    in
+    if step_models <> [] then
+      (* Reconstruct the rest of values for the variables
+         from their (step) Lustre expressions *)
+      reconstruct_and_add_step
+        node
+        trans_sys
+        instances
+        model'
+        step_models
+        to_reconstruct
+      ;
+      (* Reverse list of values for each variable.
+        [reconstruct_and_add_step] stores the values in reverse. *)
+      SVS.elements to_reconstruct
+      |> List.iter (fun sv ->
+        match SVT.find_opt model' sv with
+        | None -> assert false
+        | Some l -> SVT.replace model' sv (List.rev l)
+      )
+  )
+
+
 let active_modes_of_instances model_top instances = function
 (* No contract. *)
 | None | Some { C.modes = [] } -> None
@@ -611,10 +784,10 @@ let node_path_of_instance
     with Not_found -> assert false
     ) call_conds;
 
-  let equations_of_init init =
+  (*let equations_of_init init =
     N.ordered_equations_of_node
       node (TransSys.state_vars trans_sys) init
-  in
+  in*)
 
   (* Map all local state variables to the top instances or
      reconstruct and add their path to the model
@@ -623,7 +796,16 @@ let node_path_of_instance
      exactly one state variable of the top system it is an instance
      of. Otherwise, there is an equation of the node that can be
      substituted for the state variable. *)
-  List.iter
+  map_top_or_reconstruct_and_add
+    first_is_init
+    node
+    trans_sys
+    instances
+    model_top
+    model
+    ((D.singleton D.empty_index node.N.init_flag) :: locals)
+  ;
+  (*List.iter
     (D.iter
        (map_top_reconstruct_and_add
           first_is_init
@@ -632,7 +814,7 @@ let node_path_of_instance
           equations_of_init
           model_top
           model))
-    ((D.singleton D.empty_index node.N.init_flag) :: locals);
+    ((D.singleton D.empty_index node.N.init_flag) :: locals);*)
 
   let active_modes = active_modes_of_instances model_top instances contract in
 (*   ( match active_modes with
