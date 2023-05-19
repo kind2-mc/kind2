@@ -244,7 +244,7 @@ let ig_newid =
   let r = ref 0 in
   fun () -> incr r; Format.sprintf "g%d" !r
 
-let refine solver sys predicates cubes =
+let refine fwd solver sys predicates cubes =
 
   let len = List.length cubes in
 
@@ -271,11 +271,23 @@ let refine solver sys predicates cubes =
 
       | None ->
 
+        let produce_interpolants, logic =
+          match Flags.Smt.itp_solver () with
+          | `cvc5_QE
+          | `Z3_QE -> (
+            Flags.Smt.set_z3_qe_light true ;
+            false, TermLib.add_quantifiers (TransSys.get_logic sys)
+          )
+          | _ -> (
+            true, get_logic sys
+          )
+        in
+
         let solver = 
           SMTSolver.create_instance
             ~produce_models:true
-            ~produce_interpolants:true
-            (get_logic sys)
+            ~produce_interpolants
+            logic
             (Flags.Smt.get_itp_solver ())
         in
 
@@ -341,6 +353,11 @@ let refine solver sys predicates cubes =
               t))
       interpolizers
     )
+    | `cvc5_QE
+    | `Z3_QE -> (
+      List.iter (fun i -> SMTSolver.assert_term intrpo i) interpolizers ;
+      []
+    )
     | _ -> failwith ("Interpolating solver not found or unsupported")
   in
 
@@ -357,14 +374,19 @@ let refine solver sys predicates cubes =
     raise (Counterexample cex_path)
   )
   else (
-    let interpolants = 
-      SMTSolver.get_interpolants
-        intrpo
-        names
+    
+    let interpolants =
+      match Flags.Smt.itp_solver () with
+      | `cvc5_QE
+      | `Z3_QE -> (
+        SMTSolver.pop intrpo;
+        SMTSolver.get_qe_interpolants fwd intrpo interpolizers
+      )
+      | _ -> (
+        SMTSolver.get_interpolants intrpo names
+        |> (fun itps -> SMTSolver.pop intrpo; itps)
+      )
     in
-
-    SMTSolver.pop
-      intrpo;
 
     (*interpolants
     |> List.iteri (fun i t -> Format.printf "INTERPOLANT%d: %a@." i Term.pp_print_term t);*)
@@ -630,7 +652,7 @@ let add_blocked_cube solver sys init frames s =
   frames
 
 
-let block_cube solver in_sys param sys prop_name predicates next_cube frames s0 =
+let block_cube fwd solver in_sys param sys prop_name predicates next_cube frames s0 =
 
   let init = get_init base_offset in
 
@@ -649,7 +671,7 @@ let block_cube solver in_sys param sys prop_name predicates next_cube frames s0 
       | Frame 0 -> (
         let predicates =
           get_cubes next_cube (TCube.cube s)
-          |> refine solver sys predicates
+          |> refine fwd solver sys predicates
         in
         SMTSolver.trace_comment solver "Refined abstraction" ;
         predicates, next_cube, frames
@@ -771,7 +793,7 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
   loop frames 1
 
 
-let main prop in_sys param sys =
+let main fwd prop in_sys param sys =
    
    let solver = mk_solver sys in
 
@@ -804,7 +826,7 @@ let main prop in_sys param sys =
           TCube.mk cube (TCube.Frame (depth frames))
         in
         let predicates, next_cube, frames =
-          block_cube solver in_sys param sys prop_name predicates next_cube frames s
+          block_cube fwd solver in_sys param sys prop_name predicates next_cube frames s
         in
         loop predicates next_cube frames
       )

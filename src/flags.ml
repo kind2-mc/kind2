@@ -201,19 +201,23 @@ module Smt = struct
   let qe_solver () = !qe_solver
 
   type itp_solver = [
+    | `cvc5_QE
     | `MathSAT_SMTLIB
     | `SMTInterpol_SMTLIB
+    | `Z3_QE
     | `detect
   ]
   let itp_solver_of_string = function
+    | "cvc5qe" -> `cvc5_QE
     | "MathSAT" -> `MathSAT_SMTLIB
     | "SMTInterpol" -> `SMTInterpol_SMTLIB
+    | "Z3qe" -> `Z3_QE
     | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
   let string_of_itp_solver = function
     | `MathSAT_SMTLIB -> "MathSAT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `detect -> "detect"
-  let itp_solver_values = "MathSAT, SMTInterpol"
+  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe"
   let itp_solver_default = `detect
   let itp_solver = ref itp_solver_default
   let _ = add_spec
@@ -233,8 +237,10 @@ module Smt = struct
   let itp_solver () = !itp_solver
   let get_itp_solver () =
     match itp_solver () with
+    | `cvc5_QE -> `cvc5_SMTLIB
     | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
     | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
+    | `Z3_QE -> `Z3_SMTLIB
     | _ -> failwith "No interpolating SMT solver found"
 
   (* Active SMT logic. *)
@@ -545,6 +551,12 @@ module Smt = struct
         with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 
   let check_itp_solver () = match itp_solver () with
+    (* User chose cvc5qe *)
+    | `cvc5_QE -> (
+      match solver () with
+      | `cvc5_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
+    )
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB -> (
       match solver () with
@@ -561,10 +573,18 @@ module Smt = struct
         in
         set_smtinterpol_jar full_path
     )
+    (* User chose Z3qe *)
+    | `Z3_QE -> (
+      match solver () with
+      | `Z3_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    )
     | `detect ->
       match solver () with
+      | `cvc5_SMTLIB -> set_itp_solver `cvc5_QE
       | `MathSAT_SMTLIB -> set_itp_solver `MathSAT_SMTLIB
       | `SMTInterpol_SMTLIB -> set_itp_solver `SMTInterpol_SMTLIB
+      | `Z3_SMTLIB -> set_itp_solver `Z3_QE
       | _ ->
         try
           let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
@@ -575,6 +595,16 @@ module Smt = struct
           let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
           set_itp_solver `SMTInterpol_SMTLIB;
           set_smtinterpol_jar exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+          set_itp_solver `Z3_QE;
+          set_z3_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+          set_itp_solver `cvc5_QE;
+          set_cvc5_bin exec;
         with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
 end
 

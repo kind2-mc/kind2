@@ -1240,6 +1240,63 @@ let simplify_term solver term =
   let module S = (val solver.solver_inst) in
   simplify_expr solver (S.Conv.smtexpr_of_term term)
 
+let normalize_if_inconsistent solver term =
+  push solver;
+  assert_term solver term;
+  let term' =
+    if check_sat solver then term
+    else Term.t_false
+  in
+  pop solver;
+  term'  
+  
+let get_qe_interpolants fwd solver groups =
+
+  let get_interpolant solver t1 t2 =
+    let vars =
+      Var.VarSet.diff (Term.vars_of_term t2) (Term.vars_of_term t1)
+      |> Var.VarSet.elements
+    in
+    match vars with
+    | [] -> Term.negate t2 |> simplify_term solver
+    | _ -> (
+      let forall_term = Term.mk_forall vars (Term.negate t2) in
+      get_qe_term solver forall_term
+      |> Term.mk_and
+      |> simplify_term solver
+    )
+  in
+
+  let get_interpolant =
+    if fwd then 
+      (fun s t1 t2 -> get_interpolant s t2 t1 |> Term.negate)
+    else
+      get_interpolant
+  in
+
+  let pairs =
+    List.init ((List.length groups)-1) (fun i ->
+      let g1, g2 = Lib.list_split (i+1) groups in
+      List.rev g1 |> List.hd, g2
+    )
+  in
+  List.fold_left
+    (fun itps (a, b) ->
+      let prev_itp = List.hd itps in
+      let i = get_interpolant solver
+        (Term.mk_and [prev_itp; a])
+        (Term.mk_and b)
+        |> normalize_if_inconsistent solver
+      in
+      let i =
+        try Simplify.simplify_term ~split_eq:true [] i with _ -> i
+      in
+      i :: itps
+    )
+    [Term.t_true]
+    pairs
+  |> List.rev |> List.tl
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

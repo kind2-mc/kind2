@@ -67,7 +67,7 @@ let renice () =
 
 type process =
   | GenericCall of Lib.kind_module
-  | IC3IA_Call of Property.t
+  | IC3IA_Call of bool * Property.t
 
 let get_kind_module = function
   | GenericCall m -> m
@@ -112,7 +112,7 @@ let main_of_process = function
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
   )
-  | IC3IA_Call prop -> IC3IA.main prop
+  | IC3IA_Call (fwd, prop) -> IC3IA.main fwd prop
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
@@ -517,7 +517,12 @@ let create_processes modules sys =
   | _ -> (
     List.fold_left
       (fun acc p ->
-        IC3IA_Call p :: acc
+        match Flags.Smt.itp_solver () with
+        | `cvc5_QE
+        | `Z3_QE ->
+          IC3IA_Call (false, p) :: IC3IA_Call (true, p) :: acc
+        | _ ->
+          IC3IA_Call (false, p) :: acc
       )
       processes
       (TSys.get_real_properties sys)

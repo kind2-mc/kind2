@@ -1942,7 +1942,7 @@ let to_real = function
    This function is recursive, it calls itself with modified
    arguments. It is not tail-recursive, but that is OK, because the
    the recursion depth is shallow. *)
-let rec simplify_term_node default_of_var uf_defs model fterm args = 
+let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm args = 
 
   match fterm with 
 
@@ -2154,6 +2154,23 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   a b
 
               (* Equation between integers or reals *)
+              | [Num _ as a; Num _ as b] 
+              | [Dec _ as a; Dec _ as b] when split_eq ->
+
+                let a' =
+                  relation_leq
+                    (simplify_term_node default_of_var uf_defs model)
+                    [a; b]
+                in
+
+                let b' =
+                  relation_leq
+                    (simplify_term_node default_of_var uf_defs model)
+                    [b; a]
+                in
+
+                conjunction [a'; b']
+
               | _ ->
 
                 relation_eq
@@ -3102,7 +3119,7 @@ let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
 
 
 (* Simplify a term with a model *)
-let simplify_term_model ?default_of_var uf_defs model term = 
+let simplify_term_model ?(split_eq=false) ?default_of_var uf_defs model term = 
 
   Debug.simplify
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
@@ -3134,7 +3151,7 @@ let simplify_term_model ?default_of_var uf_defs model term =
   let res =
     term_of_nf
       (Term.eval_t
-         (simplify_term_node default_of_var' uf_defs model) 
+         (simplify_term_node ~split_eq default_of_var' uf_defs model) 
          term)
   in
 
@@ -3146,9 +3163,10 @@ let simplify_term_model ?default_of_var uf_defs model term =
   res
 
 (* Simplify a term *)
-let simplify_term uf_defs term = 
+let simplify_term ?(split_eq=false) uf_defs term = 
 
-  simplify_term_model 
+  simplify_term_model
+    ~split_eq
     ~default_of_var:Term.mk_var
     uf_defs 
     (Model.create 7) 
