@@ -76,10 +76,10 @@ val logic_of_sort : Type.t -> features
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 (** Print a logic *)
-val pp_print_logic : Format.formatter -> logic -> unit
+val pp_print_logic : ?enforce_logic:bool -> Format.formatter -> logic -> unit
 
 (** String correspinding to a logic *)
-val string_of_logic : logic -> string
+val string_of_logic : ?enforce_logic:bool -> logic -> string
 
 (** Returns [true] if the logic potentially has arrays *)
 val logic_allow_arrays : logic -> bool
