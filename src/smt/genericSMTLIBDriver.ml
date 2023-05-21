@@ -561,10 +561,10 @@ let gen_expr_or_lambda_of_string_sexpr conv =
 (* ********************************************************************** *)
 
 (* Convert a logic to a string *)
-let string_of_logic = TermLib.string_of_logic
+let string_of_logic = TermLib.string_of_logic ~enforce_logic:false
 
 (* Pretty-print a logic identifier *)
-let pp_print_logic = TermLib.pp_print_logic
+let pp_print_logic = TermLib.pp_print_logic ~enforce_logic:false
 
 
 (* Convert type *)

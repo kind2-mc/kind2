@@ -87,6 +87,6 @@ let string_of_logic l =
     )
     | _ -> l
   in
-  GenericSMTLIBDriver.string_of_logic l'
+  TermLib.string_of_logic ~enforce_logic:true l'
     
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
