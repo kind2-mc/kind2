@@ -1279,8 +1279,7 @@ let add_logic ?(compliant=false) fmt sys =
   let logic = match TransSys.get_logic sys with
     | `None | `SMTLogic _ -> `None
     | `Inferred l when compliant && mem RA l -> (
-      (* Set a logic compatible with all solvers, including Z3 that does not accept
-         non-standard sub-logics for the combination of Ints and Reals *)
+      (* Set a logic compatible with all solvers *)
       `SMTLogic "ALL"
     )
     | `Inferred l ->
