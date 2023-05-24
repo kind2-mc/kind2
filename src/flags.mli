@@ -186,6 +186,9 @@ val debug : unit -> string list
 (** Logfile for debug output  *)
 val debug_log : unit -> string option
 
+type exit_code_convention = [`RESULTS_AND_ERRORS | `ONLY_ERRORS]
+val exit_code_mode : unit -> exit_code_convention
+
 (** Verbosity level *)
 val log_level : unit -> Lib.log_level
 

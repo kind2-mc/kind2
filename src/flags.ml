@@ -3314,6 +3314,39 @@ let check_nonvacuity_default = true
     )
   let debug_log () = ! debug_log
 
+  
+  type exit_code_convention = [
+    `RESULTS_AND_ERRORS | `ONLY_ERRORS
+  ]
+  let exit_code_convention_of_string = function
+    | "results_and_errors" -> `RESULTS_AND_ERRORS
+    | "only_errors" -> `ONLY_ERRORS
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --exit_code" unexpected
+    ) |> raise
+  let string_of_exit_code_convention = function
+    | `RESULTS_AND_ERRORS -> "results_and_errors"
+    | `ONLY_ERRORS -> "only_errors"
+  let exit_code_mode_default = `RESULTS_AND_ERRORS
+  let exit_code_mode = ref exit_code_mode_default
+  let _ = add_spec
+    "--exit_code_mode"
+    (Arg.String
+      (fun str -> exit_code_mode := exit_code_convention_of_string str)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be results_and_errors, only_errors@ \
+          Select the exit code convention that Kind 2 should follow@ \
+          results_and_errors = use exit code to report analysis results and errors@ \
+          only_errors = only use a non-zero exit code for errors@ \
+          See user documentation for a description of the exit code conventions@ \
+          Default: %s\
+        "
+        (string_of_exit_code_convention exit_code_mode_default)
+    )
+  let exit_code_mode () = !exit_code_mode
 
   (* Log level. *)
   let _ = set_log_level default_log_level
@@ -3420,6 +3453,7 @@ end
 type enable = Global.enable
 type input_format = Global.input_format
 type real_precision = Global.real_precision
+type exit_code_convention = Global.exit_code_convention
 
 
 (* ********************************************************************** *)
@@ -3452,6 +3486,7 @@ let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
 let debug_log = Global.debug_log
+let exit_code_mode = Global.exit_code_mode
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
