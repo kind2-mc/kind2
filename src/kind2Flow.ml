@@ -147,17 +147,21 @@ let status_of_safety_results in_sys =
       "Incomplete analysis result: Not all properties could be proven invariant" ;
     ExitCodes.incomplete_analysis
   in
-  match Anal.results_is_safe !all_results with
-  | None -> report_incomplete_analysis ()
-  | Some false -> ExitCodes.unsafe_result
-  | Some true -> (
-    let l1 = List.length (ISys.analyzable_subsystems in_sys) in
-    let l2 = Anal.results_size !all_results in
-    if l1 = l2 then
-      ExitCodes.success
-    else
-      report_incomplete_analysis ()
+  match Flags.exit_code_mode () with
+  | `RESULTS_AND_ERRORS -> (
+    match Anal.results_is_safe !all_results with
+    | None -> report_incomplete_analysis ()
+    | Some false -> ExitCodes.unsafe_result
+    | Some true -> (
+      let l1 = List.length (ISys.analyzable_subsystems in_sys) in
+      let l2 = Anal.results_size !all_results in
+      if l1 = l2 then
+        ExitCodes.success
+      else
+        report_incomplete_analysis ()
+    )
   )
+  | `ONLY_ERRORS -> ExitCodes.success
 
 let status_of_realiz_results in_sys =
   let analyze_results results =
@@ -181,17 +185,21 @@ let status_of_realiz_results in_sys =
       "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
     ExitCodes.incomplete_analysis
   in
-  match analyze_results !realizability_results with
-  | None -> report_incomplete_analysis ()
-  | Some false -> ExitCodes.unsafe_result
-  | Some true -> (
-    let l1 = List.length (ISys.contract_check_params in_sys) in
-    let l2 = List.length !realizability_results in
-    if l1 = l2 then
-      ExitCodes.success
-    else
-      report_incomplete_analysis ()
+  match Flags.exit_code_mode () with
+  | `RESULTS_AND_ERRORS -> (
+    match analyze_results !realizability_results with
+    | None -> report_incomplete_analysis ()
+    | Some false -> ExitCodes.unsafe_result
+    | Some true -> (
+      let l1 = List.length (ISys.contract_check_params in_sys) in
+      let l2 = List.length !realizability_results in
+      if l1 = l2 then
+        ExitCodes.success
+      else
+        report_incomplete_analysis ()
+    )
   )
+  | `ONLY_ERRORS -> ExitCodes.success
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function

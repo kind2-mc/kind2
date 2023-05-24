@@ -5,7 +5,9 @@ Exit codes
 
 Since version 1.9.0, Kind 2 returns the standard exit code ``0`` for success,
 and a non-zero exit code to indicate an error, or an unsuccessful
-analysis result. The precise meaning of the exit codes are described
+analysis result. To force Kind 2 to use only non-zero exit codes for errors,
+pass the option ``--exit_code_mode only_errors``.
+The precise meaning of the exit codes are described
 in section :ref:`Code Convention<Current Exit Codes>`.
 For information on the old convention, see section
 :ref:`Former Convention<Former Exit Codes>`.
