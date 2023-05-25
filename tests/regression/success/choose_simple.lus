@@ -1,0 +1,9 @@
+node main () returns (y: int); 
+var x2: int;
+let 
+  x2 = choose {x: int | x > 0 };
+  y = choose { x: int | x + x2 < 50 };
+
+  check y < 100;
+tel;
+
