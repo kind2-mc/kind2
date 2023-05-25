@@ -1032,11 +1032,13 @@ will also generate the two warnings as discussed in the previous paragraph.
 .. code-block:: none
 
    frame (y1, y2)
-   if cond
-   then
-      y1 = 0;
-   else
-      y2 = 1;
+   let
+      if cond
+      then
+         y1 = 0;
+      else
+         y2 = 1;
+   tel
 
 Restrictions
 ^^^^^^^^^^^^
@@ -1073,3 +1075,12 @@ cannot be placed within if statements or frame blocks.
 Since an initialization only defines a variable at the first timestep, it need not be 
 stateful. Therefore, a frame block initialization cannot contain any ``pre`` or ``->`` 
 operators. This restriction also ensures that initializations are never undefined.
+
+Nondeterministic choice operator
+----------------------------------
+The expression ``choose { var: ty | expression }`` evaluates to a variable
+``var`` that of type ``ty`` that satisfies ``expression``. For example,
+``choose { y: int | y < 50 }`` nondeterminsitically evaluates to 
+some value less than 50. The body ``expression`` can
+reference variable ``var`` as well as any inputs, outputs, or locals 
+that are currently in scope.
