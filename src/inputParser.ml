@@ -42,12 +42,23 @@ let value_of_str ty s =
     | Type.Int ->
       Term.mk_num (Numeral.of_string s)
     | Type.Real -> decimal_of_string s
-    | Type.IntRange (l, u, Type.Range) -> (
+    | Type.IntRange (Some l, Some u) -> (
       let n = Numeral.of_string s in
       if (Numeral.leq l n && Numeral.leq n u) then Term.mk_num n
       else raise (Type_error (ty, s))
     )
-    | Type.IntRange (_, _, Type.Enum) ->
+    | Type.IntRange (Some l, None) -> (
+      let n = Numeral.of_string s in
+      if (Numeral.leq l n) then Term.mk_num n
+      else raise (Type_error (ty, s))
+    )
+    | Type.IntRange (None, Some u) -> (
+      let n = Numeral.of_string s in
+      if (Numeral.leq n u) then Term.mk_num n
+      else raise (Type_error (ty, s))
+    )
+    | Type.IntRange (None, None) -> raise (Type_error (ty, s))
+    | Type.Enum (_, _) ->
       if Type.enum_of_constr s == ty then Term.mk_constr s
       else raise (Type_error (ty, s))
     | _ -> raise (Type_error (ty, s))
@@ -232,8 +243,12 @@ let rec read_val scope name indexes arr_indexes json =
     let is_in_range n t =
       match Type.node_of_type t with
       | Int -> true
-      | IntRange (l, u, Range) ->
+      | IntRange (Some l, Some u) ->
         Numeral.leq l n && Numeral.leq n u
+      | IntRange (Some l, None) ->
+        Numeral.leq l n
+      | IntRange (None, Some u) ->
+        Numeral.leq n u
       | _ -> false
     in
     (* Is an integer in the range of a type? *)
@@ -255,7 +270,7 @@ let rec read_val scope name indexes arr_indexes json =
 
       | Bool, `Bool b -> [sv, Term.mk_bool b]
 
-      | IntRange (_, _, Enum), `String str when equal_types (enum_of_constr str) typ ->
+      | Enum _, `String str when equal_types (enum_of_constr str) typ ->
         [sv, Term.mk_constr str]
 
       | Real, `Float f -> [sv, string_of_float f |> Decimal.of_string |> Term.mk_dec]

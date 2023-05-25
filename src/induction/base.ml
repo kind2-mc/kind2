@@ -133,6 +133,44 @@ let split_closure trans solver k to_split =
 
   loop [] to_split
 
+(* Find out which reachability query has the lowest lower bound (for the purpose
+   of skipping steps) *)
+let lowest_lower_bound trans unknowns =
+  List.map
+    (fun (prop_name, _) ->
+      match TransSys.get_prop_kind trans prop_name with
+      | Reachable Some (From b)
+      | Reachable Some (At b)
+      | Reachable Some (FromWithin (b, _)) -> b
+      | _ -> assert false
+    )
+    unknowns
+  |> Lib.list_min
+
+let skip_steps_next trans solver k unknowns = 
+  let step = ref k in
+  let llb =
+    Numeral.of_int (lowest_lower_bound trans unknowns)
+  in
+  while Numeral.(!step < llb) do
+    step := Numeral.succ !step;
+
+    (* Declaring unrolled vars at k+1. *)
+    TransSys.declare_vars_of_bounds
+    trans (SMTSolver.declare_fun solver) !step !step ;
+
+    (* Asserting transition relation for next iteration. *)
+    TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
+    |> SMTSolver.assert_term solver ;
+
+    (* If we have reachability queries, assert the value of the counter at each timestep *)
+    match TransSys.get_ctr trans with
+      | Some ctr ->
+        SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr !step); Term.mk_num !step]);
+      | None -> ();
+    done;
+  !step
+
 (* Performs the next check after updating its context with new
    invariants and falsified properties. Assumes the solver is
    in the following state:
@@ -148,8 +186,7 @@ let split_closure trans solver k to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, unknowns) =
-
+let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
@@ -178,11 +215,11 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
-
   match nu_unknowns with
   | [] -> ()
 
   | _ ->
+    let k = if skip then skip_steps_next trans solver k nu_unknowns else k in
     let k_int = Numeral.to_int k in
 
     (* Notifying framework of our progress. *)
@@ -193,6 +230,14 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     (* Asserting implications if k > 0. *)
     if Numeral.(k > zero) then
       nu_unknowns
+      (* If we're skipping steps, we don't need to assert that the property
+         held in the previous step *)
+      |> List.filter (fun (name, _) -> match TransSys.get_prop_kind trans name with
+        | Reachable Some (From b)
+        | Reachable Some (At b) -> b < k_int
+        | Reachable Some (FromWithin (b, _))-> b < k_int
+        | _ -> true
+      ) 
       |> List.map (fun (_, term) -> Term.bump_state Numeral.(k-one) term)
       |> Term.mk_and |> SMTSolver.assert_term solver ;
 
@@ -200,11 +245,10 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     let unknowns_at_k, k_true =
       nu_unknowns |> List.partition (
         fun (name,_) -> match TransSys.get_prop_status trans name with
-        | Property.PropKTrue k -> k_int > k
+        | Property.PropKTrue k -> k_int > k 
         | _ -> true
       )
     in
-
     let unfalsifiable =
       match unknowns_at_k with
       | [] ->
@@ -244,14 +288,27 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
           split_closure trans solver k unknowns_at_k
         in
 
-        (* Broadcasting k-true properties. *)
+        
         unfalsifiable |> List.iter ( fun (s, _) ->
-          KEvent.prop_status
-            (Property.PropKTrue (Numeral.to_int k))
-            input_sys
-            aparam
-            trans
-            s
+          match TransSys.get_prop_kind trans s with
+            (* Broadcast reachability queries as invariant (unreachable) if they reach upper bound. *)
+            | Reachable Some (At b)
+            | Reachable Some (FromWithin (_, b))
+            | Reachable Some (Within b) when b <= Numeral.to_int k ->
+              KEvent.prop_status
+                (Property.PropInvariant (Numeral.to_int k, (TransSys.property_of_name trans s).Property.prop_term))
+                input_sys
+                aparam
+                trans
+                s
+            (* Broadcasting k-true properties. *)
+            | _ ->
+              KEvent.prop_status
+                (Property.PropKTrue (Numeral.to_int k))
+                input_sys
+                aparam
+                trans
+                s
         ) ;
 
         (* Broadcasting falsified properties. *)
@@ -263,20 +320,19 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
                 input_sys
                 aparam
                 trans
-                s )
+                s)
             p
         ) ;
 
         k_true @ unfalsifiable
     in
-
     (* K plus one. *)
     let k_p_1 = Numeral.succ k in
 
     (* Declaring unrolled vars at k+1. *)
     TransSys.declare_vars_of_bounds
      trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
-
+     
     (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver ;
@@ -295,16 +351,20 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, skip)
 
 (* Initializes the solver for the first check. *)
-let init input_sys aparam trans =
+let init input_sys aparam trans skip =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
-  (* Getting properties. *)
+  (* Getting properties. 
+     Filter for invariants or reachability queries *)
   let unknowns =
-    (TransSys.props_list_of_bound trans Numeral.zero)
+    if skip then
+      (TransSys.props_list_of_bound_skip trans Numeral.zero)
+    else
+      (TransSys.props_list_of_bound_no_skip trans Numeral.zero)
   in
 
   (* Creating solver. *)
@@ -338,12 +398,39 @@ let init input_sys aparam trans =
     )
   ) ;
 
-  (input_sys, aparam, trans, solver, Numeral.zero, unknowns)
+  let broadcast_k_true lower_bound name =
+    KEvent.prop_status
+    (Property.PropKTrue (lower_bound - 1))
+    input_sys
+    aparam
+    trans
+    name
+  in
+
+  
+  (* Reachability queries are K-true until their lower bounds. *)
+  unknowns |> List.iter (fun (name,_) -> 
+    match TransSys.get_prop_kind trans name with
+        | Reachable Some (From lower_bound) 
+        | Reachable Some (FromWithin (lower_bound, _)) 
+        | Reachable Some (At lower_bound) -> broadcast_k_true lower_bound name
+        | _ -> ()
+  ) ;
+  
+  (* If we have reachability queries, assert the value of the counter at each timestep *)
+  let _ = match TransSys.get_ctr trans with
+    | Some ctr ->
+      SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr Numeral.zero); Term.mk_num Numeral.zero]);
+    | None -> ();
+  in
+
+  (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
+  (input_sys, aparam, trans, solver, Numeral.zero, unknowns, skip)
 
 (* Runs the base instance. *)
-let main input_sys aparam trans =
+let main skip input_sys aparam trans =
   try
-    init input_sys aparam trans |> next
+    init input_sys aparam trans skip |> next
   with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->

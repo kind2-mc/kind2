@@ -151,8 +151,9 @@ the usage of integers and machine integers together. To use any of
 the other supported SMT solvers, the Lustre input must contain only
 machine integers.
 
-Moreover, :ref:`IC3 <1_techniques/4_ic3>` requires either cvc5 or Z3
+Moreover, the IC3QE engine requires either cvc5 or Z3,
+and the IC3IA engine requires MathSAT, cvc5, or Z3,
 to run on models with machine integers.
-If none of them is available,
-Kind 2 runs with the IC3 model checking engine disabled.
+If these requirements are not satisfied,
+Kind 2 runs with the corresponding IC3 model checking engine disabled.
 

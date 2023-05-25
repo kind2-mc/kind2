@@ -184,7 +184,7 @@ let if_block_to_trees ib =
           (* Misplaced frame block, annot main, or annot property *)
           | A.Body (Assert (pos, _)) 
           | A.FrameBlock (pos, _, _, _)
-          | A.AnnotProperty (pos, _, _) 
+          | A.AnnotProperty (pos, _, _, _) 
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
@@ -209,7 +209,7 @@ let if_block_to_trees ib =
           (* Misplaced frame block, annot main, or annot property *)
           | A.FrameBlock (pos, _, _, _)
           | A.Body (Assert (pos, _)) 
-          | A.AnnotProperty (pos, _, _)
+          | A.AnnotProperty (pos, _, _, _)
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
       (* We've processed everything in the if block. *)
@@ -358,6 +358,7 @@ let desugar_node_decl ctx decl = match decl with
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
     declarative ITEs, filling in oracles if branches are undefined. *)
 let desugar_if_blocks ctx sorted_node_contract_decls gids = 
+  HString.HStringHashtbl.clear pos_list_map ;
   let* res = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
   let decls, gids2 = List.split res in
   let gids2 = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids2 in

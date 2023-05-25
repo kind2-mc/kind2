@@ -65,7 +65,7 @@
   7. Restarts of node calls (if it is not a constant)
 
      @author Andrew Marmaduke *)
-     
+
 type error = [
   | `LustreAstNormalizerError
 ]

@@ -118,6 +118,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
+  mk_test "test activate clock mismatch" (fun () ->
+    match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
+    | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
+    | _ -> false);
   mk_test "test call in cone of influence 1" (fun () ->
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_1.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
@@ -298,6 +302,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_node_decls2.lus" with
     | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
     | _ -> false);
+  mk_test "test width lenghts unequal" (fun () ->
+    match load_file "./lustreAstDependencies/test_merge_width_lengths_unequal.lus" with
+    | Error (`LustreAstDependenciesError (_,  WidthLengthsUnequal _)) -> true
+    | _ -> false);
   mk_test "test output in contract assume" (fun () ->
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
@@ -323,17 +331,17 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 1" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
   
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 2" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration2.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
   
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 3" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
@@ -347,6 +355,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/contract_output_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
+
+  mk_test "test circular merge" (fun () ->
+    match load_file "./lustreAstDependencies/test_circular_merge.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test activate" (fun () ->
+    match load_file "./lustreAstDependencies/test_activate.lus" with
+    | Error _ -> false
+    | _ -> true);
 ])
 
 (* *************************************************************************** *)
@@ -556,6 +574,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test expected record type" (fun () ->
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
+    | _ -> false);
+  mk_test "test provided invalid type" (fun () ->
+    match load_file "./lustreTypeChecker/provided.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | _ -> false);
+  mk_test "test open interval with no bounds" (fun () ->
+    match load_file "./lustreTypeChecker/open_interval.lus" with
+    | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
     | _ -> false);
 ])
 

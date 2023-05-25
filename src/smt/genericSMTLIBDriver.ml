@@ -561,15 +561,15 @@ let gen_expr_or_lambda_of_string_sexpr conv =
 (* ********************************************************************** *)
 
 (* Convert a logic to a string *)
-let string_of_logic = TermLib.string_of_logic
+let string_of_logic = TermLib.string_of_logic ~enforce_logic:false
 
 (* Pretty-print a logic identifier *)
-let pp_print_logic = TermLib.pp_print_logic
+let pp_print_logic = TermLib.pp_print_logic ~enforce_logic:false
 
 
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
-  | Type.IntRange _ -> Type.mk_int ()
+  | Type.IntRange _ | Type.Enum _ -> Type.mk_int ()
   | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
   | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 -> t

@@ -139,6 +139,10 @@ let shrink_param_to_sys param sys = match param with
 | First info -> First (shrink_info_to_sys info sys)
 | Refinement (info, res) -> Refinement ( (shrink_info_to_sys info sys), res )
 
+let rec get_first_analysis_info = function
+| Refinement (_, { param }) -> get_first_analysis_info param
+| param -> info_of_param param
+
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
@@ -194,12 +198,45 @@ let mk_result param sys time =
 
   { param ; time ; sys ; contract_valid ; requirements_valid }
 
-(** Returns true if all properties in the system in a [result] have been
-    proved. *)
+(** Returns true if all invariant properties in the system
+    in a [result] have been proved. *)
+let result_is_all_inv_proved { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Invariant) -> Some st | _ -> None)
+  |> List.for_all (function
+    | Property.PropInvariant _ -> true
+    | _ -> false
+  )
+
+(** Returns true if some invariant properties in the system
+    in a [result] have been falsified. *)
+let result_is_some_inv_falsified { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Invariant) -> Some st | _ -> None)
+  |> List.exists (function
+    | Property.PropFalse _ -> true
+    | _ -> false
+  )
+
+(** Returns true if some reachability properties in the system
+    in a [result] have been proven reachable. *)
+let result_is_some_reach_proved { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Reachable _) -> Some st | _ -> None)
+  |> List.exists (function
+    | Property.PropFalse _ -> true
+    | _ -> false
+  )
+
+(** Returns true if all properties in the system
+    in a [result] have been proved. *)
 let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
-    | _, Property.PropInvariant _ -> true
+    | n, Property.PropInvariant _ -> 
+      TransSys.get_prop_kind sys n = Invariant
+    | n, Property.PropFalse _ -> 
+      not (TransSys.get_prop_kind sys n = Invariant)
     | _ -> false
   )
 
@@ -208,7 +245,10 @@ let result_is_all_proved { sys } =
 let result_is_some_falsified { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.exists (function
-      | _, Property.PropFalse _ -> true
+      | n, Property.PropFalse _ -> 
+        TransSys.get_prop_kind sys n = Invariant
+      | n, Property.PropInvariant _ -> 
+        not (TransSys.get_prop_kind sys n = Invariant)
       | _ -> false
     )
 
@@ -257,17 +297,34 @@ let results_length results =
 (** Returns [None] if no properties were falsified but some could not be
     proved, [Some true] if all properties were proved, and [Some false] if
     some were falsified. *)
-let results_is_safe results = Scope.Map.fold (fun _ -> function
-  | head :: _ -> (
-    (* If system is safe, propagate previous result if any. *)
-    if result_is_all_proved head then fun opt -> opt
-    (* If it's not then result is false. *)
-    else if result_is_some_falsified head then fun _ -> Some false
-    (* In case of a timeout, propagate false result, none otherwise. *)
-    else function | (Some false) as opt -> opt | _ -> None
+let results_is_safe results =
+  let rec check opt = function
+  | result :: node_results ->
+    (* If some were falsified, return false result *)
+    if result_is_some_falsified result then Some false
+    else (
+      match opt with
+      | None -> check opt node_results
+      | Some true ->
+        if result_is_all_proved result then
+          (* If system is still safe, propagate true result *)
+          check opt node_results
+        else 
+          (* In case of an unknown result, change result to None *)
+          check None node_results
+      | Some false -> assert false
   )
-  | [] -> assert false
-) results (Some true)
+  | [] -> opt
+  in
+  Scope.Map.fold
+    (fun _ node_results opt' ->
+      match opt' with
+      (* If some were falsified, propagate false result *)
+      | Some false -> opt'
+      | _ -> check opt' node_results
+    )
+    results
+    (Some true)
 
 let results_is_empty results = Scope.Map.is_empty results
 
@@ -379,7 +436,7 @@ let pp_print_param_of_result fmt { param ; sys } =
         if count = 1 then "" else "s"
       )
   | Refinement ( { abstraction_map }, { param = pre_param } ) ->
-    let { abstraction_map = pre_abs_map } = info_of_param pre_param in
+    let { abstraction_map = pre_abs_map } = get_first_analysis_info pre_param in
     let count =
       Scope.Map.fold (
         fun _ is_abs acc ->
@@ -415,20 +472,55 @@ let pp_print_param_of_result fmt { param ; sys } =
       ) refined
 
 let pp_print_result_quiet fmt ({ time ; sys } as res) =
-  match split_properties_nocands sys with
+  let valid, invalid, unknown = split_properties_nocands sys in
+  let invariant, unreachable =
+    valid |> List.partition (function
+      | Property.{ prop_kind = Invariant} -> true
+      | _ -> false
+    )
+  in
+  let falsified, reachable =
+    invalid |> List.partition (function
+      | Property.{ prop_kind = Invariant} -> true
+      | _ -> false
+    )
+  in
+  let property_keyword = function
+    | [ _ ] -> "property"
+    | _ -> "properties"
+  in
+  let reachability_properties fmt =
+    match unreachable, reachable with
+    | [], [] -> ()
+    | _ -> (
+      Format.fprintf fmt "@ \
+        @{<red>unreachable@}: [ @[<hov>%a@] ]@ \
+        @{<green>reachable@}:   [ @[<hov>%a@] ]
+      "
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") unreachable
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") reachable
+    )
+  in
+  match invariant, falsified, unknown with
   | valid, [], [] ->
     Format.fprintf fmt "%a:@   @[<v>\
         @{<green>safe@} in %.3fs@ \
         %a@ \
-        %d propert%s\
+        %d invariant %s%t\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       time
       pp_print_param_of_result res
       (List.length valid)
-      ( match valid with
-        | [ _ ] -> "y"
-        | _ -> "ies" )
+      (property_keyword valid)
+      (fun fmt -> match unreachable, reachable with
+        | [], [] -> ()
+        | [], _ ->
+          Format.fprintf fmt "@ %d reachable %s"
+            (List.length reachable)
+            (property_keyword reachable)
+        | _ -> reachability_properties fmt
+      )
   | valid, [], unknown ->
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>timeout@}@ \
@@ -444,16 +536,17 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>unsafe@} in %.3fs@ \
         %a@ \
-        @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
-        @{<green>valid@}:   [ @[<hov>%a@] ]\
+        @{<red>invalid@}: [ @[<hov>%a@] ]@ \
+        @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       time
       pp_print_param_of_result res
-      (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+      reachability_properties
 
 let pp_print_result fmt {
   param ; sys ; contract_valid ; requirements_valid

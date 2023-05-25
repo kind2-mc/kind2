@@ -104,6 +104,9 @@ val list_init : (int -> 'a) -> int -> 'a list
 (** Returns the maximum element of a non-empty list *)
 val list_max : 'a list -> 'a
 
+(** Returns the minimum element of a non-empty list *)
+val list_min : 'a list -> 'a
+
 (** Return the index of the first element that satisfies the predicate
     [p], raise excpetion [Not_found] if no element satisfies the
     predicate. *)
@@ -129,9 +132,18 @@ val list_insert_at : 'a -> int -> 'a list -> 'a list
 (** Apply a function to the nth element of a list *)
 val list_apply_at : ('a -> 'a) -> int -> 'a list -> 'a list
 
-(* [list_slice l i k] returns a list containing the elements between
+(** [list_slice l i k] returns a list containing the elements between
    the [i]th and [k]th element of [l]*)
 val list_slice : 'a list -> int -> int -> 'a list
+
+(** [list_suffix l i] returns a list containing the elements between
+   the [i]th and the last element of [l] *)
+val list_suffix : 'a list -> int -> 'a list
+
+(** [list_split n l] divides list [l] into two at index [n]
+    The first will contain all indices from [0,n) and
+    the second will contain all indices from [n,len) *)
+val list_split : int -> 'a list -> ('a list * 'a list)
 
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
@@ -374,7 +386,10 @@ val pp_print_version : Format.formatter -> unit
 (** Kind modules *)
 type kind_module =
   [ `IC3
+  | `IC3QE
+  | `IC3IA
   | `BMC
+  | `BMCSKIP
   | `IND
   | `IND2
   | `INVGEN
@@ -471,6 +486,10 @@ val compare_pos : position -> position -> int
     input *)
 val is_dummy_pos : position -> bool
 
+(** [set_stdin_id name] sets [name] as the filename used in positions printed
+    with [pp_print_position] when reading from standard input *)
+val set_stdin_id : string -> unit
+
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
 
@@ -526,6 +545,9 @@ val set_liberal_gc : unit -> unit
 (** Reset the parameters of the GC to its default values. Call after
     {!set_liberal_gc}. *)
 val reset_gc_params : unit -> unit
+
+(* Print bound of (possibly) open interval *)
+val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
 
 (** Paths Kind 2 can write some files.
 Factored to avoid clashes. *)
@@ -601,23 +623,39 @@ module ReservedIds : sig
 
 end
 
+(** String representing an unbounded subrange limit *)
+val unbounded_limit_string : string
+
 (** Exit codes. *)
 module ExitCodes: sig
-  (** Exit code for an unknown result. *)
-  val unknown: int
 
-  (** Exit code for an unsafe result. *)
-  val unsafe: int
+  val success : int
+  (** Exit code for a complete and successful analysis *)
 
-  (** Exit code for a safe result. *)
-  val safe: int
-
-  (** Exit code for an error. *)
   val error: int
+  (** Exit code for a general error *)
 
-  (** Exit status if kid caught a signal, the signal number is added to
-  the value *)
+  val usage_error: int
+  (** Exit code for a command line usage error *)
+
+  val parse_error: int
+  (** Exit code for a parse error *)
+
+  val not_found_error: int
+  (** Exit code for a solver not found error *)
+
+  val unsupported_solver: int
+  (** Exit code for an unknown or unsupported version of a solver *)
+
+  val incomplete_analysis: int
+  (** Exit code for an incomplete analysis (unknown result, timeout) *)
+
+  val unsafe_result: int
+  (** Exit code for a complete analysis with an unsafe result *)
+
   val kid_status: int
+  (** Exit status if kid caught a signal, the signal number is added to
+      the value *)
 end
 
 (** File names. *)

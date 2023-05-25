@@ -36,11 +36,67 @@ let merge_abstractions =
     | _ -> assert false
   )
 
+(* Try to refine every refineable subsystem of the system [result] corresponds
+   to. Traversal of the subsystems is breadth first. Return an option of the
+   the new abstraction, if any, or [None] otherwise. *)
+let get_reachability_abstraction results subs_of_scope result =
+
+  (* Input is a list of list of scope / whatever pairs. Initially input
+     only contains [subs]. Function refines every refineable system from [subs],
+     more precisely the [result] corresponding to the system recursively.
+     In addition, appends the subsystems of all refined systems and
+     not abstracted systems to the input. The function looks at
+     the subsystems previously appended to the input recursively. *)
+  let rec loop refined abstraction = function
+  | ( (system, _) :: tail ) :: lower -> (
+    (* Is system currently abstracted? *)
+    if Scope.Map.find system abstraction then
+      (* Is system refineable? *)
+      try match A.results_find system results with
+      | ({ A.param } as result) :: _ ->
+        (* It is if everything was proved in the last analysis. *)
+        if A.result_is_all_inv_proved result then (
+          let info = A.info_of_param param in
+          let sub = info.A.top in
+          (* System is now concrete. *)
+          let abstraction = Scope.Map.add sub false abstraction in
+          (* Updating with the abstraction used to prove [sub]. *)
+          let abstraction =
+            merge_abstractions abstraction info.A.abstraction_map
+          in
+          (tail :: lower) @ [ subs_of_scope system ]
+          |> loop true abstraction
+        )
+        (* Otherwise keep going. *)
+        else tail :: lower |> loop refined abstraction
+      | [] -> failwith "unreachable"
+      with Not_found -> (* Case of imported nodes (they have no result) *)
+        tail :: lower |> loop refined abstraction
+    else (* System is not abstracted, remembering its subsystems and
+            looping. *)
+      (tail :: lower) @ [ subs_of_scope system ]
+      |> loop refined abstraction
+  )
+  | [] :: lower -> loop refined abstraction lower
+  | [] -> if refined then Some abstraction else None
+  in
+
+  if Flags.Contracts.refinement () && A.result_is_some_reach_proved result then
+  (  
+    let info = A.info_of_param result.A.param in
+    let sys = info.A.top in
+    let subs = subs_of_scope sys in
+    let abstraction = info.A.abstraction_map in
+
+    loop false abstraction [ subs ]
+  )
+  else
+    None
+
 (* Looks for the first refineable subsystem of the system [result] corresponds
    to. Traversal of the subsystems is breadth first. Returns an option of the
-   scope of the system refined, the new abstraction, and the new assumptions.
-   (New assumptions is an augmentation of the one in result.) *)
-let get_params results subs_of_scope result =
+   scope of the system refined, and the new abstraction. *)
+let get_refinement_abstraction results subs_of_scope result =
   let info = A.info_of_param result.A.param in
   let sys = info.A.top in
   let subs = subs_of_scope sys in
@@ -70,7 +126,7 @@ let get_params results subs_of_scope result =
           try match A.results_find candidate results with
           | result :: _ ->
             (* It is if everything was proved in the last analysis. *)
-            if A.result_is_all_proved result then Some result
+            if A.result_is_all_inv_proved result then Some result
             (* Otherwise keep going. *)
             else tail :: lower |> loop
           | [] -> failwith "unreachable"
@@ -131,7 +187,7 @@ let first_param_of ass _results all_nodes scope =
         match A.results_find sys results with
         | [] -> assert false
         | result :: _ ->
-          if A.result_is_some_falsified result |> not then
+          if A.result_is_some_inv_falsified result |> not then
             (* System has not been proved unsafe. *)
             loop abstraction tail
           else None (* System is not correct, no need to keep going. *)
@@ -292,12 +348,26 @@ let next_modular_analysis results subs_of_scope = function
               (last_assumptions ()) sys info contract_valid
           | result :: _ ->
             last_trans_sys := Some result.A.sys ;
-            if A.result_is_all_proved result then (
-              (* Format.printf "|> all proved, going up@." ; *)
-              (* Going up. *)
-              go_up prefix
+            if A.result_is_all_inv_proved result then (
+              match get_reachability_abstraction results subs_of_scope result with
+              | None -> (
+                (* Format.printf "|> all proved, going up@." ; *)
+                (* Going up. *)
+                go_up prefix
+              )
+              | Some abs -> (
+                Some (
+                  A.Refinement (
+                    { A.top = sys ;
+                      A.uid = A.get_uid () ;
+                      A.abstraction_map = abs ;
+                      A.assumptions = last_assumptions () ; },
+                    result
+                  )
+                )
+              )
             ) else if Flags.Contracts.refinement () then (
-              match get_params results subs_of_scope result with
+              match get_refinement_abstraction results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
                 (* Format.printf "Cannot refine for %a@."
                   Scope.pp_print_scope sys ; *)

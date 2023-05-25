@@ -23,6 +23,9 @@ open Lib
 
 exception Error
 
+exception SolverNotFound
+exception UnsupportedSolver
+
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
 (* Raised on bad argument for existing flag. Stores an explanation, the flag
@@ -120,6 +123,7 @@ module Smt = struct
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
     | `Z3_SMTLIB
@@ -129,6 +133,7 @@ module Smt = struct
     | "Bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "MathSAT" ->  `MathSAT_SMTLIB
+    | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | "Yices2" -> `Yices2_SMTLIB
     | "Yices" -> `Yices_native
     | "Z3" -> `Z3_SMTLIB
@@ -137,13 +142,14 @@ module Smt = struct
     | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `cvc5_SMTLIB -> "cvc5"
     | `MathSAT_SMTLIB -> "MathSAT"
+    | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, Bitwuzla, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -193,6 +199,49 @@ module Smt = struct
     )
   let set_qe_solver s = qe_solver := s
   let qe_solver () = !qe_solver
+
+  type itp_solver = [
+    | `cvc5_QE
+    | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
+    | `Z3_QE
+    | `detect
+  ]
+  let itp_solver_of_string = function
+    | "cvc5qe" -> `cvc5_QE
+    | "MathSAT" -> `MathSAT_SMTLIB
+    | "SMTInterpol" -> `SMTInterpol_SMTLIB
+    | "Z3qe" -> `Z3_QE
+    | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
+  let string_of_itp_solver = function
+    | `MathSAT_SMTLIB -> "MathSAT"
+    | `SMTInterpol_SMTLIB -> "SMTInterpol"
+    | `detect -> "detect"
+  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe"
+  let itp_solver_default = `detect
+  let itp_solver = ref itp_solver_default
+  let _ = add_spec
+    "--smt_itp_solver"
+    (Arg.String (fun str -> itp_solver := itp_solver_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Set the SMT solver used for interpolation@ \
+          Default: %s\
+        @]"
+        itp_solver_values
+        (string_of_itp_solver itp_solver_default)
+    )
+  let set_itp_solver s = itp_solver := s
+  let itp_solver () = !itp_solver
+  let get_itp_solver () =
+    match itp_solver () with
+    | `cvc5_QE -> `cvc5_SMTLIB
+    | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
+    | `Z3_QE -> `Z3_SMTLIB
+    | _ -> failwith "No interpolating SMT solver found"
 
   (* Active SMT logic. *)
   type logic = [
@@ -280,6 +329,20 @@ module Smt = struct
     )
   let set_mathsat_bin str = mathsat_bin := str
   let mathsat_bin () = !mathsat_bin
+
+  (* SMTInterpol JAR. *)
+  let smtinterpol_jar_default = "smtinterpol.jar"
+  let smtinterpol_jar = ref smtinterpol_jar_default
+  let _ = add_spec
+    "--smtinterpol_jar"
+    (Arg.Set_string smtinterpol_jar)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>JAR of SMTInterpol solver@ Default: \"%s\"@]"
+        smtinterpol_jar_default
+    )
+  let set_smtinterpol_jar str = smtinterpol_jar := str
+  let smtinterpol_jar () = !smtinterpol_jar
 
   (* Bitwuzla binary. *)
   let bitwuzla_bin_default = "bitwuzla"
@@ -384,12 +447,12 @@ module Smt = struct
   let trace_subdir () = !trace_subdir
 
 
-  let find_solver ~fail name bin =
+  let find_solver ?(filetype="executable") ~fail name bin =
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
-      raise Error
+      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
+      raise SolverNotFound
 
   
   (* Check which SMT solver is available *)
@@ -403,6 +466,12 @@ module Smt = struct
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB ->
       find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    (* User chose SMTInterpol *)
+    | `SMTInterpol_SMTLIB ->
+      let full_path =
+        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
+      in
+      set_smtinterpol_jar full_path
     (* User chose Yices2 *)
     | `Yices2_SMTLIB ->
       find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
@@ -435,6 +504,11 @@ module Smt = struct
         set_mathsat_bin exec;
       with Not_found ->
       try
+        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+        set_solver `SMTInterpol_SMTLIB;
+        set_smtinterpol_jar exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
         set_solver `Bitwuzla_SMTLIB;
         set_bitwuzla_bin exec;
@@ -445,7 +519,7 @@ module Smt = struct
         set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-        raise Error
+        raise SolverNotFound
 
   let check_qe_solver () = match qe_solver () with
     (* User chose cvc5 *)
@@ -475,9 +549,64 @@ module Smt = struct
           set_qe_solver `cvc5_SMTLIB;
           set_cvc5_bin exec;
         with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
+
+  let check_itp_solver () = match itp_solver () with
+    (* User chose cvc5qe *)
+    | `cvc5_QE -> (
+      match solver () with
+      | `cvc5_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
+    )
+    (* User chose MathSAT *)
+    | `MathSAT_SMTLIB -> (
+      match solver () with
+      | `MathSAT_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    )
+    (* User chose SMTInterpol *)
+    | `SMTInterpol_SMTLIB -> (
+      match solver () with
+      | `SMTInterpol_SMTLIB -> ()
+      | _ ->
+        let full_path =
+          find_solver ~fail:true "SMTInterpol" (smtinterpol_jar ())
+        in
+        set_smtinterpol_jar full_path
+    )
+    (* User chose Z3qe *)
+    | `Z3_QE -> (
+      match solver () with
+      | `Z3_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    )
+    | `detect ->
+      match solver () with
+      | `cvc5_SMTLIB -> set_itp_solver `cvc5_QE
+      | `MathSAT_SMTLIB -> set_itp_solver `MathSAT_SMTLIB
+      | `SMTInterpol_SMTLIB -> set_itp_solver `SMTInterpol_SMTLIB
+      | `Z3_SMTLIB -> set_itp_solver `Z3_QE
+      | _ ->
+        try
+          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+          set_itp_solver `MathSAT_SMTLIB;
+          set_mathsat_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+          set_itp_solver `SMTInterpol_SMTLIB;
+          set_smtinterpol_jar exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+          set_itp_solver `Z3_QE;
+          set_z3_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+          set_itp_solver `cvc5_QE;
+          set_cvc5_bin exec;
+        with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
 end
-
-
 
 
 (* BMC and k-induction flags. *)
@@ -536,17 +665,17 @@ module BmcKind = struct
     )
   let check_unroll () = !check_unroll
 
-  let print_cex_default = false
-  let print_cex = ref print_cex_default
+  let ind_print_cex_default = false
+  let ind_print_cex = ref ind_print_cex_default
   let _ = add_spec
     "--ind_print_cex"
-    (bool_arg print_cex)
+    (bool_arg ind_print_cex)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Print counterexamples to induction@ Default: %a@]"
-        fmt_bool print_cex_default
+        fmt_bool ind_print_cex_default
     )
-  let print_cex () = !print_cex
+  let ind_print_cex () = !ind_print_cex
 
   let compress_default = true
   let compress = ref compress_default
@@ -625,28 +754,27 @@ end
 
 
 
-(* IC3 flags. *)
-module IC3 = struct
+(* IC3QE flags. *)
+module IC3QE = struct
 
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "ic3"
+  let id = "ic3qe"
   (* Short description of the module. *)
-  let desc = "IC3 flags"
+  let desc = "IC3-QE flags"
   (* Explanation of the module. *)
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
-      IC3 (a.k.a. PDR) is a relatively recent technique that tries to prove@ \
-      a property by contructing an inductive invariant that implies it.@ \
-      The IC3 engine in Kind 2 performs quantifier elimination which has its@ \
-      own flags (see module \"qe\").\
+      The IC3-QE engine is an SMT-based extension of IC3 (a.k.a. PDR) that@ \
+      uses quantifier elimination (QE) to generalize counterexamples.@ \
+      The QE procedure has its own flags (see module \"qe\").
     @]"
 
   let check_inductive_default = true
   let check_inductive = ref check_inductive_default
   let _ = add_spec
-    "--ic3_check_inductive"
+    "--ic3qe_check_inductive"
     (bool_arg check_inductive)
     (fun fmt ->
     Format.fprintf fmt
@@ -658,7 +786,7 @@ module IC3 = struct
   let print_to_file_default = None
   let print_to_file = ref print_to_file_default
   let _ = add_spec
-    "--ic3_print_to_file"
+    "--ic3qe_print_to_file"
     (Arg.String (fun str -> print_to_file := Some str))
     (fun fmt ->
       Format.fprintf fmt
@@ -673,7 +801,7 @@ module IC3 = struct
   let inductively_generalize_default = 1
   let inductively_generalize = ref inductively_generalize_default
   let _ = add_spec
-    "--ic3_inductively_generalize"
+    "--ic3qe_inductively_generalize"
     (Arg.Set_int inductively_generalize)
     (fun fmt ->
       Format.fprintf fmt
@@ -691,7 +819,7 @@ module IC3 = struct
   let block_in_future_default = true
   let block_in_future = ref block_in_future_default
   let _ = add_spec
-    "--ic3_block_in_future"
+    "--ic3qe_block_in_future"
     (bool_arg block_in_future)
     (fun fmt ->
       Format.fprintf fmt
@@ -703,7 +831,7 @@ module IC3 = struct
   let block_in_future_first_default = true
   let block_in_future_first = ref block_in_future_first_default
   let _ = add_spec
-    "--ic3_block_in_future_first"
+    "--ic3qe_block_in_future_first"
     (bool_arg block_in_future_first)
     (fun fmt ->
       Format.fprintf fmt
@@ -719,7 +847,7 @@ module IC3 = struct
   let fwd_prop_non_gen_default = true
   let fwd_prop_non_gen = ref fwd_prop_non_gen_default
   let _ = add_spec
-    "--ic3_fwd_prop_non_gen"
+    "--ic3qe_fwd_prop_non_gen"
     (bool_arg fwd_prop_non_gen)
     (fun fmt ->
       Format.fprintf fmt
@@ -731,7 +859,7 @@ module IC3 = struct
   let fwd_prop_ind_gen_default = true
   let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
   let _ = add_spec
-    "--ic3_fwd_prop_ind_gen"
+    "--ic3qe_fwd_prop_ind_gen"
     (bool_arg fwd_prop_ind_gen)
     (fun fmt ->
       Format.fprintf fmt
@@ -746,7 +874,7 @@ module IC3 = struct
   let fwd_prop_subsume_default = true
   let fwd_prop_subsume = ref fwd_prop_subsume_default
   let _ = add_spec
-    "--ic3_fwd_prop_subsume"
+    "--ic3qe_fwd_prop_subsume"
     (bool_arg fwd_prop_subsume)
     (fun fmt ->
       Format.fprintf fmt
@@ -758,7 +886,7 @@ module IC3 = struct
   let use_invgen_default = true
   let use_invgen = ref use_invgen_default
   let _ = add_spec
-    "--ic3_use_invgen"
+    "--ic3qe_use_invgen"
     (bool_arg use_invgen)
     (fun fmt ->
       Format.fprintf fmt
@@ -768,7 +896,7 @@ module IC3 = struct
   let use_invgen () = !use_invgen
 
   type abstr = [ `None | `IA ]
-  let abstr_of_string = function
+  (*let abstr_of_string = function
     | "None" -> `None
     | "IA" -> `IA
     | _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
@@ -777,10 +905,10 @@ module IC3 = struct
     | `None -> "None"
   let abstr_values = [
     `None ; `IA
-  ] |> List.map string_of_abstr |> String.concat ", "
+  ] |> List.map string_of_abstr |> String.concat ", "*)
   let abstr_default = `None
   let abstr = ref abstr_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--ic3_abstr"
     (Arg.String (fun str -> abstr := abstr_of_string str))
     (fun fmt ->
@@ -791,7 +919,7 @@ module IC3 = struct
           Default: %s\
         @]"
         abstr_values (string_of_abstr abstr_default)
-    )
+    )*)
   let abstr () = !abstr
 
 end
@@ -1156,13 +1284,25 @@ module Contracts = struct
       Format.fprintf fmt
       "@[<v>\
         Print a deadlocking trace and a conflict when@ \
-        a contract is proven unrealizable@ \
+        a contract is proven unrealizable.@ \
         Default: %a\
       @]"
       fmt_bool print_deadlock_default
     )
   let print_deadlock () = !print_deadlock
 
+  let dump_deadlock_default = false
+  let dump_deadlock = ref dump_deadlock_default
+  let _ = add_spec
+    "--dump_deadlock"
+    (bool_arg dump_deadlock)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump deadlocking trace to a file. Only in plain text output.@ \
+        Default: %b"
+        dump_deadlock_default
+    )
+  let dump_deadlock () = ! dump_deadlock
 
   let check_contract_is_sat_default = true
   let check_contract_is_sat = ref check_contract_is_sat_default
@@ -1175,7 +1315,7 @@ let _ = add_spec
         Check whether a contract proven unrealizable is satisfiable@ \
         Default: %a\
       @]"
-      fmt_bool print_deadlock_default
+      fmt_bool check_contract_is_sat_default
     )
   let check_contract_is_sat () = !check_contract_is_sat
 
@@ -1238,7 +1378,7 @@ module Certif = struct
     (bool_arg smaller_holes)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Generate proofs with smaller trust holes. Substantially \
+        "@[<v>Generate proofs with smaller trust holes.@ Substantially \
          increases the size of the proof.@ Default: %a@]"
         fmt_bool smaller_holes_default
     )
@@ -1252,7 +1392,7 @@ module Certif = struct
     (fun fmt ->
         Format.fprintf fmt
           "@[<v>Breakdown proofs into smaller steps, where each step is checked \
-          independently. Substantially reduces LFSC memory footprint. @ \
+          independently.@ Substantially reduces LFSC memory footprint. @ \
           Default:%a@]"
           fmt_bool smaller_holes_default)
   let flatten_proof () = !flatten_proof
@@ -1662,8 +1802,8 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Disable the must-set optimisation.@ \
-          This setting is ignored if --ivc_must_set is true.@ \
+          Disable the must-set optimization.@ \
+          Ignored if --ivc_must_set is true.@ \
           Default: %a\
         "
         fmt_bool ivc_disable_must_opt_default
@@ -1866,21 +2006,21 @@ module MCS = struct
   let print_mcs_legacy () = !print_mcs_legacy
 
 
-  let print_mcs_counterexample_default = false
-  let print_mcs_counterexample = ref print_mcs_counterexample_default
+  let print_mcs_cex_default = false
+  let print_mcs_cex = ref print_mcs_cex_default
   let _ = add_spec
-    "--print_mcs_counterexample"
-    (bool_arg print_mcs_counterexample)
+    "--print_mcs_cex"
+    (bool_arg print_mcs_cex)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print a counterexample for each MCS found@ \
-          (ignored if --print_mcs_legacy is true)@ \
+          Print a counterexample for each MCS found.@ \
+          Ignored if --print_mcs_legacy is true@ \
           Default: %a\
         "
-        fmt_bool print_mcs_counterexample_default
+        fmt_bool print_mcs_cex_default
     )
-  let print_mcs_counterexample () = !print_mcs_counterexample
+  let print_mcs_cex () = !print_mcs_cex
 
 
   let mcs_per_property_default = true
@@ -2365,8 +2505,50 @@ module Interpreter = struct
 end
 
 
+module Lsp = struct
+
+  include Make_Spec (struct end)
+  
+  (* Identifier of the module. *)
+  let id = "lsp"
+  (* Short description of the module. *)
+  let desc = "Language Server Protocol (LSP) flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Flags in this module allow LSP servers to request information,@ \
+      and control the internal behaviour of the tool.\
+    @]"
+
+  (* LSP mode. *)
+  let lsp_default = false
+
+  let lsp = ref lsp_default
+
+  let _ =
+    add_spec "--lsp" (bool_arg lsp) (fun fmt ->
+        Format.fprintf fmt
+          "Provide AST info for language-servers. Only in JSON output.@ Default: %a"
+          fmt_bool lsp_default)
+
+  let lsp () = !lsp
 
 
+  (* Fake filepath. *)
+  let fake_filepath_default = ""
+  let fake_filepath = ref fake_filepath_default
+  let _ = add_spec
+    "--fake_filepath"
+    (Arg.String (fun str -> fake_filepath := str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Fake filepath for error messages.
+        @]"
+    )
+  let fake_filepath () = !fake_filepath
+
+end
 
 (* ********************************************************************** *)
 (* Maps identifiers to modules flag specifications and description        *)
@@ -2385,8 +2567,8 @@ let module_map = [
   (BmcKind.id,
     (module BmcKind: FlagModule)
   ) ;
-  (IC3.id,
-    (module IC3: FlagModule)
+  (IC3QE.id,
+    (module IC3QE: FlagModule)
   ) ;
   (Invgen.id,
     (module Invgen: FlagModule)
@@ -2417,6 +2599,9 @@ let module_map = [
   ) ;
   (Certif.id,
     (module Certif: FlagModule)
+  ) ;
+  (Lsp.id,
+    (module Lsp: FlagModule)
   ) ;
 ]
 
@@ -2480,7 +2665,7 @@ let print_module_info = function
       )
     )
   ) ;
-  exit 0
+  exit ExitCodes.success
 )
 
 
@@ -2547,14 +2732,14 @@ module Global = struct
     (
       "-h",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message")
     ) ;
     (
       "--help",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message too")
     ) ;
@@ -2782,7 +2967,36 @@ module Global = struct
         print_invs_default
     )
   let print_invs () = ! print_invs
+  
+  let print_cex_default = true
+  let print_cex = ref print_cex_default
+  let _ = add_spec
+    "--print_cex"
+    (bool_arg print_cex)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print counterexamples to (disproven) invariant properties.@ \
+        Only in plain text output. Default: %a\
+      @]"
+      fmt_bool print_cex_default
+    )
+  let print_cex () = !print_cex
 
+  let print_witness_default = false
+  let print_witness = ref print_witness_default
+  let _ = add_spec
+    "--print_witness"
+    (bool_arg print_witness)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print witnesses of proven reachability properties.@ \
+        Only in plain text output. Default: %a\
+      @]"
+      fmt_bool print_witness_default
+    )
+  let print_witness () = !print_witness
 
   (* Dump counterexample to a file. *)
   let dump_cex_default = false
@@ -2792,11 +3006,28 @@ module Global = struct
     (bool_arg dump_cex)
     (fun fmt ->
       Format.fprintf fmt
-        "Dump counterexample to a file. Only in plain text output.@ \
+        "Dump counterexamples to a file instead of printing them in stdout.@ \
+        Only in plain text output. Implies --print_cex true.@ \
         Default: %b"
         dump_cex_default
     )
+  let set_dump_cex b = dump_cex := b
   let dump_cex () = ! dump_cex
+
+  (* Dump witness to a file. *)
+  let dump_witness_default = false
+  let dump_witness = ref dump_witness_default
+  let _ = add_spec
+    "--dump_witness"
+    (bool_arg dump_witness)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump witnesses to a file instead of printing them in stdout.@ \
+        Only in plain text output. Implies --print_witness true.@ \
+        Default: %b"
+        dump_witness_default
+    )
+  let dump_witness () = ! dump_witness
 
 
   (* Timeout. *)
@@ -2856,19 +3087,6 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
-  (* LSP mode. *)
-  let lsp_default = false
-
-  let lsp = ref lsp_default
-
-  let _ =
-    add_spec "--lsp" (bool_arg lsp) (fun fmt ->
-        Format.fprintf fmt
-          "Provide AST info for language-servers. Only in JSON output.@ Default: %a"
-          fmt_bool lsp_default)
-
-  let lsp () = !lsp
-
   (* Use the old frontend *)
   let old_frontend_default = false
   let old_frontend = ref old_frontend_default
@@ -2889,7 +3107,10 @@ module Global = struct
   type enable = kind_module list
   let kind_module_of_string = function
     | "IC3" -> `IC3
+    | "IC3QE" -> `IC3QE
+    | "IC3IA" -> `IC3IA
     | "BMC" -> `BMC
+    | "BMCSKIP" -> `BMCSKIP
     | "IND" -> `IND
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
@@ -2910,7 +3131,10 @@ module Global = struct
 
   let string_of_kind_module = function
     | `IC3 -> "IC3"
+    | `IC3QE -> "IC3QE"
+    | `IC3IA -> "IC3IA"
     | `BMC -> "BMC"
+    | `BMCSKIP -> "BMCSKIP"
     | `IND -> "IND"
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"
@@ -2934,19 +3158,19 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3QE; `IC3IA ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
     `INVGENREAL ; `INVGENREALOS ;
     `C2I ; `Interpreter ; `MCS ; `CONTRACTCK
-  ] |> List.map string_of_kind_module |> String.concat ", "
+  ] |> List.map string_of_kind_module
 
   let enable_default_init = []
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3 ;
+    `BMC ; `IND ; `IND2 ; `IC3QE ; `IC3IA ;
     `INVGEN ; `INVGENOS ;
     (* `INVGENINT ; *) `INVGENINTOS ; `INVGENMACHOS ;
     (* `INVGENREAL ; *) `INVGENREALOS ;
@@ -2979,13 +3203,15 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> can be %s@ \
-          Enable Kind module, repeat option to enable several modules@ \
+          @[<hov>where <string> can be %a@]@ \
+          Enable Kind module, repeat option to enable several modules.@ \
+          IC3 is a virtual module that enables both IC3QE and IC3IA.@ \
           Default: %s\
         "
-        enable_values
+        (pp_print_list Format.pp_print_string ",@ ") enable_values
         (string_of_enable enable_default_after)
     )
+    
   (* let enable mdl = enabled := mdl :: !enabled *)
   let enabled () = !enabled
 
@@ -3016,10 +3242,10 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
       "\
-        where <string> can be %s@ \
+        @[<hov>where <string> can be %a@]@ \
         Disable a Kind module\
       "
-      enable_values
+      (pp_print_list Format.pp_print_string ",@ ") enable_values
     )
   (* let disabled () = !disabled *)
 
@@ -3057,6 +3283,38 @@ module Global = struct
     )
   let slice_nodes () = !slice_nodes
 
+  let check_reach_default = true
+  let check_reach = ref check_reach_default
+  let _ = add_spec
+    "--check_reach"
+    (bool_arg check_reach)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check reachability properties (including non-vacuity checks).@ \
+          Default: %a\
+        "
+        fmt_bool check_reach_default
+    )
+  let set_check_reach b = check_reach := b
+  let check_reach () = !check_reach
+
+let check_nonvacuity_default = true
+  let check_nonvacuity = ref check_nonvacuity_default
+  let _ = add_spec
+    "--check_nonvacuity"
+    (bool_arg check_nonvacuity)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check non-vacuity of contract modes and conditional properties.@ \
+          Ignored if --check_reach is false.@ \
+          Default: %a\
+        "
+        fmt_bool check_nonvacuity_default
+    )
+  let set_check_nonvacuity b = check_nonvacuity := b
+  let check_nonvacuity () = !check_nonvacuity
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
@@ -3158,6 +3416,39 @@ module Global = struct
     )
   let debug_log () = ! debug_log
 
+  
+  type exit_code_convention = [
+    `RESULTS_AND_ERRORS | `ONLY_ERRORS
+  ]
+  let exit_code_convention_of_string = function
+    | "results_and_errors" -> `RESULTS_AND_ERRORS
+    | "only_errors" -> `ONLY_ERRORS
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --exit_code" unexpected
+    ) |> raise
+  let string_of_exit_code_convention = function
+    | `RESULTS_AND_ERRORS -> "results_and_errors"
+    | `ONLY_ERRORS -> "only_errors"
+  let exit_code_mode_default = `RESULTS_AND_ERRORS
+  let exit_code_mode = ref exit_code_mode_default
+  let _ = add_spec
+    "--exit_code_mode"
+    (Arg.String
+      (fun str -> exit_code_mode := exit_code_convention_of_string str)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be results_and_errors, only_errors@ \
+          Select the exit code convention that Kind 2 should follow@ \
+          results_and_errors = use exit code to report analysis results and errors@ \
+          only_errors = only use a non-zero exit code for errors@ \
+          See user documentation for a description of the exit code conventions@ \
+          Default: %s\
+        "
+        (string_of_exit_code_convention exit_code_mode_default)
+    )
+  let exit_code_mode () = !exit_code_mode
 
   (* Log level. *)
   let _ = set_log_level default_log_level
@@ -3244,7 +3535,7 @@ module Global = struct
     (Arg.Unit
       (fun () -> 
         Format.printf "%t@." pp_print_version ;
-        exit 0
+        exit ExitCodes.success
       )
     )
     (fun fmt -> Format.fprintf fmt "Print version information and exit")
@@ -3264,6 +3555,7 @@ end
 type enable = Global.enable
 type input_format = Global.input_format
 type real_precision = Global.real_precision
+type exit_code_convention = Global.exit_code_convention
 
 
 (* ********************************************************************** *)
@@ -3276,9 +3568,12 @@ let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
+let print_cex = Global.print_cex
+let print_witness = Global.print_witness
 let dump_cex = Global.dump_cex
+let set_dump_cex = Global.set_dump_cex
+let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
-let lsp = Global.lsp
 let old_frontend = Global.old_frontend
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
@@ -3287,10 +3582,13 @@ let lus_strict = Global.lus_strict
 let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
+let check_reach = Global.check_reach
+let check_nonvacuity = Global.check_nonvacuity
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
 let debug_log = Global.debug_log
+let exit_code_mode = Global.exit_code_mode
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
@@ -3435,7 +3733,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       )
       | BadArg (error, spec) ->
         check_format_flags args;
@@ -3451,7 +3749,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Error on flag '%s': %s" flag error
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       | Arg.Bad expl ->
         check_format_flags args;
         (
@@ -3467,7 +3765,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Bad argument: %s" expl
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
     )
 
   | [] ->
@@ -3509,7 +3807,13 @@ let solver_dependant_actions solver =
           Log.log L_warn "Detected MathSAT: disabling ind_compress"
       )
     | None -> Log.log L_warn "Couldn't determine MathSAT version"
-  ) 
+  )
+  | `SMTInterpol_SMTLIB -> (
+    if Smt.check_sat_assume () then (
+      Log.log L_warn "Detected SMTInterpol: disabling check_sat_assume";
+      Smt.set_check_sat_assume false
+    )
+  )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version false cmd with
@@ -3562,21 +3866,21 @@ let solver_dependant_actions solver =
     match get_version true cmd with
     | None ->
         Log.log L_warn "Couldn't determine cvc5 version";
-        raise Error
+        raise UnsupportedSolver
     | Some (major, minor, patch) ->
         if (major < 1) then (
           Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
             major minor patch ;
-          raise Error
+          raise UnsupportedSolver
         ) ;
         if
-          Certif.proof () && not (major=1 && minor=0 && patch=3)
+          Certif.proof () && not (major=1 && minor=0 && patch>=3 && patch<=5)
         then (
           Log.log L_error
-            "LFSC proof production requires cvc5 1.0.3. Found \
+            "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.0.5. Found \
              version: %d.%d.%d"
             major minor patch;
-          raise Error)
+          raise UnsupportedSolver)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3584,7 +3888,7 @@ let solver_dependant_actions solver =
     | Some (major_rev, _, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        raise Error
+        raise UnsupportedSolver
       )
     | None -> Log.log L_warn "Couldn't determine Yices version"
   )
@@ -3701,6 +4005,9 @@ let print_json_options () =
 
 let post_argv_parse_actions () =
 
+  if Lsp.fake_filepath () <> "" then
+    set_stdin_id (Lsp.fake_filepath ()) ;
+
   if Global.log_format_xml () then print_xml_options ();
   if Global.log_format_json () then Format.fprintf !log_ppf "[@.";
 
@@ -3739,6 +4046,8 @@ let parse_argv () =
 
   Smt.check_qe_solver ();
 
+  Smt.check_itp_solver ();
+
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
 
@@ -3766,6 +4075,25 @@ let parse_argv () =
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
     Log.log L_warn "IVC post-analysis enabled: disabling ind_compress"
+  );
+
+  if Global.check_reach () then (
+    if IVC.compute_ivc () then (
+      Log.log L_warn "IVC post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    ) ;
+    if Certif.certif () || Certif.proof () then (
+      Log.log L_warn "Certification post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    );
+    if print_invs () then (
+      Log.log L_warn "Invariant printing enabled: disabling reachability checks";
+      Global.set_check_reach false
+    )
+  );
+
+  if (not (Global.check_reach ())) then (
+    Global.set_check_nonvacuity false
   )
 
 

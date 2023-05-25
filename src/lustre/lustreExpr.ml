@@ -60,6 +60,11 @@ type 'a bound_or_fixed =
   | Fixed of 'a  (* Fixed value for index variable *)
   | Unbound of 'a  (* unbounded index variable *)
 
+type num = 
+  | Number of Numeral.t 
+  | Inf
+  | NegInf
+  | Nothing
 
 let compare_expr = Term.compare
 
@@ -240,19 +245,18 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
-  | Type.IntRange (i, j, Type.Range) -> 
-
-     Format.fprintf
-       ppf 
-       "subrange [%a, %a] of int" 
-       Numeral.pp_print_numeral i 
-       Numeral.pp_print_numeral j
+  | Type.IntRange (i, j) -> 
+    Format.fprintf
+      ppf 
+      "subrange [%a, %a] of int" 
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.IntRange (_, _, Type.Enum) -> 
+  | Type.Enum (_, _) -> 
      let cs = Type.constructors_of_enum t in
      Format.fprintf ppf "enum {%a}"
        (pp_print_list Format.pp_print_string ", ") cs
@@ -1194,7 +1198,7 @@ let mk_int d =
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.mk_int_range d d } 
+    expr_type = Type.mk_int_range (Some d) (Some d) } 
 
 (* Unsigned integer8 constant *)
 let mk_uint8 d =
@@ -1375,34 +1379,133 @@ let type_of_real_real_real = function
   | _ -> raise Type_mismatch
 *)
 
+let sub_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.sub x y) 
+  | Number _, Inf -> NegInf
+  | Inf, Number _ -> Inf
+  | Inf, Inf -> Nothing
+  | Number _, NegInf -> Inf
+  | NegInf, Number _ -> NegInf 
+  | NegInf, NegInf -> Nothing
+  | Inf, NegInf -> Inf 
+  | NegInf, Inf -> NegInf
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+
+let add_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.add x y) 
+  | Number _, Inf -> Inf
+  | Inf, Number _ -> Inf
+  | Inf, Inf -> Inf
+  | Number _, NegInf -> NegInf
+  | NegInf, Number _ -> NegInf 
+  | NegInf, NegInf -> NegInf
+  | Inf, NegInf -> Nothing 
+  | NegInf, Inf -> Nothing
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+
+let mult_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.mult x y) 
+  | Number x, _ when x = Numeral.zero -> Number Numeral.zero
+  | _, Number y  when y = Numeral.zero -> Number Numeral.zero
+  | Number x, Inf when Numeral.gt x Numeral.zero -> Inf
+  | Number x, Inf when Numeral.lt x Numeral.zero -> NegInf
+  | Inf, Number y when Numeral.gt y Numeral.zero -> Inf
+  | Inf, Number y when Numeral.lt y Numeral.zero -> NegInf
+  | Number x, NegInf when Numeral.gt x Numeral.zero -> NegInf
+  | Number x, NegInf when Numeral.lt x Numeral.zero -> Inf
+  | NegInf, Number y when  Numeral.gt y Numeral.zero -> NegInf 
+  | NegInf, Number y when  Numeral.lt y Numeral.zero -> Inf 
+  | Inf, Inf -> Inf
+  | NegInf, NegInf -> Inf
+  | Inf, NegInf -> NegInf 
+  | NegInf, Inf -> NegInf
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+  | _ -> assert false
+  
+let div_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.div x y) 
+  | Number _, Inf -> Nothing
+  | Inf, Number y when Numeral.gt y Numeral.zero -> Inf
+  | Inf, Number y when Numeral.lt y Numeral.zero -> NegInf
+  | Inf, Inf -> Nothing
+  | Number _, NegInf -> Nothing
+  | NegInf, Number y when Numeral.gt y Numeral.zero -> NegInf 
+  | NegInf, Number y when Numeral.lt y Numeral.zero -> Inf 
+  | NegInf, NegInf -> Nothing
+  | Inf, NegInf -> Nothing 
+  | NegInf, Inf -> Nothing
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+  | _ -> assert false
+
+let min_opt = List.fold_left (fun num1 num2 -> match num1, num2 with 
+    | Number x, Number y -> Number (Numeral.min x y)
+    | NegInf, _ -> NegInf 
+    | _, NegInf -> NegInf
+    | Inf, num -> num 
+    | num, Inf -> num
+    | Nothing, _ -> Nothing
+    | _, Nothing -> Nothing
+  ) Nothing
+
+let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with 
+    | Number x, Number y -> Number (Numeral.max x y)
+    | NegInf, num -> num 
+    | num, NegInf -> num
+    | Inf, _ -> Inf 
+    | _, Inf -> Inf
+    | Nothing, _ -> Nothing
+    | _, Nothing -> Nothing
+  ) Nothing
+
+let num_to_numeral_opt = function 
+  | Number n -> Some n 
+  | _ -> None
+
+let numeral_opts_to_nums lo hi = match lo, hi with 
+  | Some lo, Some hi -> Number lo, Number hi 
+  | Some lo, None -> Number lo, Inf 
+  | None, Some hi -> NegInf, Number hi 
+  | None, None -> NegInf, Inf
+
 (* Best int subrange for some operator. *)
 let best_int_range is_div op t t' =
   match Type.bounds_of_int_range t' with
   
-  | lo', hi' when (
+  | Some lo', Some hi' when (
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
   ) -> raise Division_by_zero
   
-  | lo', _ when (
+  | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
   ) -> Type.t_int
-  | _, hi' when (
+  | _, Some hi' when (
     is_div && Numeral.(equal hi' zero)
   )-> Type.t_int
 
   | lo', hi' ->
     let lo, hi = Type.bounds_of_int_range t in
-    let b_0 = op lo lo' in
+    let 
+      (lo', hi'), (lo, hi) = numeral_opts_to_nums lo' hi', numeral_opts_to_nums lo hi
+    in
     let bounds =
-      [ op hi lo' ;
+      [ op lo lo' ;
+        op hi lo' ;
         op lo hi' ;
         op hi hi' ]
     in
-    Type.mk_int_range
-      (List.fold_left Numeral.min b_0 bounds)
-      (List.fold_left Numeral.max b_0 bounds)
+    let lower = min_opt bounds in 
+    let upper = max_opt bounds in 
+    match lower, upper with 
+      | Nothing, _ | _, Nothing -> Type.t_int 
+      | _ -> Type.mk_int_range
+              (num_to_numeral_opt lower)
+              (num_to_numeral_opt upper)
 
 
 (* Type check for int -> int -> int, real -> real -> real *)
@@ -1705,9 +1808,13 @@ let eval_uminus expr = match Term.destruct expr with
 let type_of_uminus = function
   | t when Type.is_int t -> Type.t_int
   | t when Type.is_real t -> Type.t_real
-  | t when Type.is_int_range t -> 
-    let (lbound, ubound) = Type.bounds_of_int_range t in
-    Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
+  | t when Type.is_int_range t -> (
+    match Type.bounds_of_int_range t with
+      | Some lbound, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) (Some Numeral.(- lbound))
+      | Some lbound, None -> Type.mk_int_range None (Some Numeral.(- lbound))
+      | None, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) None
+      | None, None -> Type.mk_int_range None None
+    )
   | t when Type.is_int8 t -> Type.t_bv 8
   | t when Type.is_int16 t -> Type.t_bv 16
   | t when Type.is_int32 t -> Type.t_bv 32
@@ -2460,9 +2567,11 @@ let type_of_mod = function
   | t when Type.is_int t || Type.is_int_range t -> 
     (function 
       | t when Type.is_int t -> Type.t_int 
-      | t when Type.is_int_range t -> 
-        let l, u = Type.bounds_of_int_range t in 
-        Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+      | t when Type.is_int_range t -> (
+        match Type.bounds_of_int_range t with 
+          | Some l, Some u -> Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
+          | _ -> Type.mk_int_range (Some Numeral.zero) None
+        )
       | _ -> raise Type_mismatch)
   | t1 when Type.is_ubitvector t1 -> 
     (function 
@@ -2529,7 +2638,6 @@ let eval_minus expr1 expr2 =
               Term.mk_minus [expr1; expr2])
         
     | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
-             
 
 (* Type of subtraction 
 
@@ -2546,9 +2654,19 @@ let type_of_minus = function
       | s when Type.is_int_range s -> 
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
-        Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)
-  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.sub t
+        let lower = (
+        match l1, u2 with 
+          | Some l1, Some u2 -> (Some Numeral.(l1 - u2))
+          | _ -> None
+        ) in 
+        let upper = (
+        match l2, u1 with 
+          | Some l2, Some u1 -> (Some Numeral.(u1 - l2))
+          | _ -> None
+        ) in 
+        Type.mk_int_range lower upper 
+      | s -> type_of_numOrSBV_numOrSBV_numOrSBV sub_opt t s)
+  | t -> type_of_numOrBV_numOrBV_numOrBV sub_opt t
 
 
 (* Subtraction *)
@@ -2602,9 +2720,16 @@ let type_of_plus = function
       | s when Type.is_int_range s -> 
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
-        Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
-      | s -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t s)
-  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t
+        let lower = match l1, l2 with 
+          | Some l1, Some l2 -> Some Numeral.(l1 + l2)
+          | _ -> None
+        in let upper = match u1, u2 with 
+          | Some u1, Some u2 -> Some Numeral.(u1 + u2)
+          | _ -> None
+        in
+        Type.mk_int_range lower upper
+      | s -> type_of_numOrBV_numOrBV_numOrBV add_opt t s)
+  | t -> type_of_numOrBV_numOrBV_numOrBV add_opt t
 
 
 (* Addition *)
@@ -2663,7 +2788,7 @@ let eval_div expr1 expr2 =
    When the operator is applied to integer and machine integer arguments,
    its semantics is the same as integer division (div)
 *)
-let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true Numeral.div
+let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true div_opt
 
 
 (* Real division *)
@@ -2705,7 +2830,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_numOrBV_numOrBV_numOrBV Numeral.mult
+let type_of_times = type_of_numOrBV_numOrBV_numOrBV mult_opt
 
 
 (* Multiplication *)
@@ -2741,7 +2866,7 @@ let eval_intdiv expr1 expr2 =
 
    div: int -> int -> int *)
 let type_of_intdiv t t' =
-  try best_int_range true Numeral.div t t' with
+  try best_int_range true div_opt t t' with
   | Invalid_argument _ -> (
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
@@ -3235,20 +3360,24 @@ let type_of_ite = function
 
          (* Extend integer ranges if one is not a subtype of the other *)
          (match type2, type3 with 
-           | s, t 
-             when (Type.is_int_range s && Type.is_int t) ||
+            | s, t when (Type.is_int_range s && Type.is_int t) ||
                   (Type.is_int s && Type.is_int_range t) -> Type.t_int
 
-           | s, t 
-             when (Type.is_int_range s && Type.is_int_range t) -> 
-
-             let l1, u1 = Type.bounds_of_int_range s in
-             let l2, u2 = Type.bounds_of_int_range t in
+            | s, t when (Type.is_int_range s && Type.is_int_range t) -> 
+              let l1, u1 = Type.bounds_of_int_range s in
+              let l2, u2 = Type.bounds_of_int_range t in
+              let lower = match l1, l2 with 
+                | Some l1, Some l2 -> Some Numeral.(min l1 l2) 
+                | _ -> None 
+              in
+              let upper = match u1, u2 with 
+                | Some u1, Some u2 -> Some Numeral.(max u1 u2)
+                | _ -> None
+              in
              
-             Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+             Type.mk_int_range lower upper 
 
-
-           | _ -> raise Type_mismatch))
+            | _ -> raise Type_mismatch))
 
   | _ -> (function _ -> function _ -> raise Type_mismatch)
 
@@ -3276,8 +3405,16 @@ let type_of_arrow type1 type2 =
       
       let l1, u1 = Type.bounds_of_int_range s in
       let l2, u2 = Type.bounds_of_int_range t in
+      let lower = match l1, l2 with 
+        | Some l1, Some l2 -> Some Numeral.(min l1 l2) 
+        | _ -> None 
+      in
+      let upper = match u1, u2 with 
+        | Some u1, Some u2 -> Some Numeral.(max u1 u2)
+        | _ -> None
+      in
       
-      Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+      Type.mk_int_range lower upper 
 
     | _ -> type_of_a_a_a type1 type2)
 
@@ -3596,4 +3733,3 @@ let unsafe_expr_of_term t = t
    indent-tabs-mode: nil
    End: 
 *)
-  

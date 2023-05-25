@@ -68,11 +68,27 @@ let headers minimize_cores =
 let string_of_logic l =
   let open TermLib in
   let open TermLib.FeatureSet in
-  match l with
-  | `Inferred l when mem BV l && (mem IA l || mem RA l) -> "ALL"
-  | `Inferred l when mem IA l && mem RA l ->
-    if mem Q l then "AUFLIRA"
-    else "QF_AUFLIRA"
-  | _ -> GenericSMTLIBDriver.string_of_logic l
+  let l' =
+    match l with
+    | `Inferred l when mem IA l && mem RA l -> (
+      (* Accepted: QF_LIRA, QF_NIRA, QF_UFNIRA, QF_AUFLIRA, QF_AUFNIRA, UFNIRA, AUFLIRA, AUFNIRA
+         Unsupported: QF_UFLIRA, QF_ALIRA, QF_ANIRA, LIRA, NIRA, UFLIRA, ALIRA, ANIRA *)
+      if (mem NA l) then (
+        let l = if not (Flags.Arrays.smt()) then remove A l else l in
+        (* QF_NIRA, QF_UFNIRA, QF_AUFNIRA, UFNIRA, AUFNIRA, ~QF_ANIRA, ~NIRA, ~ANIRA *)
+        if (mem A l || mem Q l) then `Inferred (add UF l)
+        else `Inferred l
+      )
+      else 
+        (* QF_LIRA, ~QF_UFLIRA, QF_AUFLIRA, ~UFLIRA, AUFLIRA, ~QF_ALIRA, ~LIRA, ~ALIRA *)
+        if (mem UF l) then `Inferred (add A l)
+        else if (mem A l) then `Inferred (add UF l)
+        else if (mem Q l) then `Inferred (add UF (add A l))
+        else `Inferred l
+    )
+    | `Inferred l when not (Flags.Arrays.smt()) -> `Inferred (remove A l)
+    | _ -> l
+  in
+  TermLib.string_of_logic ~enforce_logic:true l'
     
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

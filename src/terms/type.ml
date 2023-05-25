@@ -26,14 +26,12 @@ open Lib
 (* Types and hash-consing                                                *)
 (* ********************************************************************* *)
 
-(* Tells if the range actually encodes an enumerated datatype *)
-type rangekind = Range | Enum
-
 (* Type of an expression in KIND *)
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Numeral.t * Numeral.t * rangekind
+  | IntRange of Numeral.t option * Numeral.t option
+  | Enum of Numeral.t * Numeral.t
   | Real
   | UBV of int
   | BV of int
@@ -81,9 +79,22 @@ module Kindtype_node = struct
     | Bool, _ -> false
     | Int, Int -> true
     | Int, _ -> false    
-    | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
-      k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
+    | IntRange (l1, u1), IntRange (l2, u2) ->
+      let eq1 = match l1, l2 with
+        | None, None -> true 
+        | Some l1, Some l2 -> Numeral.equal l1 l2 
+        | _ -> false
+      in
+      let eq2 = match u1, u2 with
+        | None, None -> true 
+        | Some u1, Some u2 -> Numeral.equal u1 u2 
+        | _ -> false
+      in
+      eq1 && eq2
+    | Enum (l1, u1), Enum (l2, u2) ->
+      Numeral.equal l1 l2 && Numeral.equal u1 u2 
     | IntRange _, _ -> false
+    | Enum _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
     | UBV i, UBV j -> i = j
@@ -180,15 +191,14 @@ let rec pp_print_type_node ppf = function
 
   | Int -> Format.pp_print_string ppf "Int"
 
-  | IntRange (i, j, Range) -> 
-
+  | IntRange (i, j) -> 
     Format.fprintf
       ppf 
       "(IntRange %a %a)" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
-  | IntRange (i, j, Enum) -> 
+  | Enum (i, j) -> 
 
     Format.fprintf
       ppf 
@@ -239,15 +249,14 @@ let rec pp_print_type_node_debug ppf = function
 
   | Int -> Format.pp_print_string ppf "Int"
 
-  | IntRange (i, j, Range) -> 
-
+  | IntRange (i, j) -> 
     Format.fprintf
       ppf 
       "(IntRange %a %a)" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+      pp_print_bound_opt i 
+      pp_print_bound_opt j
 
-  | IntRange (i, j, Enum) -> 
+  | Enum (i, j) -> 
 
     Format.fprintf
       ppf 
@@ -302,9 +311,10 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 let mk_int () = Hkindtype.hashcons ht Int ()
 
 let mk_int_range l u =
-  assert (Numeral.(l <= u));
-  Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
-
+  match l, u with 
+  | Some l', Some u' -> assert (Numeral.(l' <= u')); Hkindtype.hashcons ht (IntRange (l, u)) ()
+  | _ -> Hkindtype.hashcons ht (IntRange (l, u)) ()
+  
 let mk_real () = Hkindtype.hashcons ht Real ()
 
 let mk_ubv w = Hkindtype.hashcons ht (UBV w) ()
@@ -338,7 +348,7 @@ let mk_enum =
       let size = List.length cs in
       let n = !next_n in
       let l, u = Numeral.of_int n, Numeral.of_int (n + size - 1) in
-      let range = Hkindtype.hashcons ht (IntRange (l, u, Enum)) () in
+      let range = Hkindtype.hashcons ht (Enum (l, u)) () in
       List.iteri (fun i c ->
           let nu = Numeral.of_int (n + i) in
           HNum.add num_enums nu (c, cs, range);
@@ -377,6 +387,7 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | IntRange _
+  | Enum _
   | UBV _
   | BV _ 
   | Real as t -> mk_type t
@@ -415,7 +426,7 @@ let is_int { Hashcons.node = t } = match t with
   | _-> false
 
 let is_int_range { Hashcons.node = t } = match t with
-  | IntRange (_,_,Range) -> true 
+  | IntRange _ -> true 
   | Array (_, _) -> false (* is_int_range t *)
   |  _ -> false
 
@@ -465,7 +476,7 @@ let is_int64 { Hashcons.node = t } = match t with
   | _-> false
 
 let is_enum { Hashcons.node = t } = match t with
-  | IntRange (_,_,Enum) -> true 
+  | Enum _ -> true 
   |  _ -> false
 
 let is_bool { Hashcons.node = t } = match t with
@@ -493,11 +504,14 @@ let is_array { Hashcons.node = t } = match t with
 (*   | Array (_, t) -> is_scalar t *)
 (*   | _ -> false *)
 
-
-
 (* Return bounds of an integer range type *)
 let bounds_of_int_range = function
-  | { Hashcons.node = IntRange (l, u, _) } -> (l, u)
+  | { Hashcons.node = IntRange (l, u) } -> (l, u)
+  | _ -> raise (Invalid_argument "bounds_of_int_range")
+
+(* Return bounds of an enum type *)
+let bounds_of_enum = function
+  | { Hashcons.node = Enum (l, u) } -> (l, u)
   | _ -> raise (Invalid_argument "bounds_of_int_range")
 
 (* Return type of array index *)
@@ -526,14 +540,14 @@ let rec last_elem_type_of_array = function
 
 
 let constructors_of_enum = function
-  | { Hashcons.node = IntRange (l, _, Enum) } ->
+  | { Hashcons.node = Enum (l, _) } ->
     (try get_constrs_of_num l
      with Not_found -> raise (Invalid_argument "constructors_of_enum"))
   | _ -> raise (Invalid_argument "constructors_of_enum")
 
 
 let name_of_enum = function
-  | { Hashcons.node = IntRange (l, _, Enum) } ->
+  | { Hashcons.node = Enum (l, _) } ->
     (try get_enum_name_of_num l
      with Not_found -> raise (Invalid_argument "constructors_of_enum"))
   | _ -> raise (Invalid_argument "constructors_of_enum")
@@ -564,8 +578,24 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | IntRange _, Int -> true
 
     (* IntRange is subtype of IntRange if the interval is a subset *)
-    | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
-      k1 = k2 && Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
+    | IntRange (l1, u1), IntRange (l2, u2) ->
+      let eq1 = match l1, l2 with 
+        | None, None -> true 
+        | Some l1, Some l2 -> Numeral.(l1 >= l2)
+        | Some _, None -> true 
+        | None, Some _ -> false
+      in 
+      let eq2 = match u1, u2 with 
+        | None, None -> true 
+        | Some u1, Some u2 -> Numeral.(u1 <= u2)
+        | Some _, None -> true 
+        | None, Some _ -> false
+      in 
+      eq1 && eq2
+
+    (* Enum is subtype of Enum if the interval is a subset *)
+    | Enum (l1, u1), Enum (l2, u2) ->
+      Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
 
     (* Array is a subtype of array if both index type and element type
        are subtype *)
@@ -577,7 +607,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
 
 
 let rec generalize t = match node_of_type t with
-  | IntRange (_,_,Range) -> t_int
+  | IntRange (_,_) -> t_int
   | Array (e, i) -> mk_array (generalize e) (generalize i)
   | _ -> t
 

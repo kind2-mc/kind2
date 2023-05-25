@@ -49,8 +49,10 @@ let child_pids = ref []
 (** Latest transition system for clean exit in case of error. *)
 let latest_trans_sys = ref None
 
-(** All the results this far. *)
+(** All the safety results this far. *)
 let all_results = ref ( Anal.mk_results () )
+
+let realizability_results = ref []
 
 (** Renices the current process. Used for invariant generation. *)
 let renice () =
@@ -62,44 +64,64 @@ let renice () =
     let nice' = Unix.nice nice in
     KEvent.log L_info "[renice] renicing to %d" nice'
 
+
+type process =
+  | GenericCall of Lib.kind_module
+  | IC3IA_Call of bool * Property.t
+
+let get_kind_module = function
+  | GenericCall m -> m
+  | IC3IA_Call _ -> `IC3IA
+
+
 (** Main function of the process *)
 let main_of_process = function
-  | `IC3 -> IC3.main
-  | `BMC -> BMC.main
-  | `IND -> IND.main
-  | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; InvGen.main_bool true
-  | `INVGENOS -> renice () ; InvGen.main_bool false
-  | `INVGENINT -> renice () ; InvGen.main_int true
-  | `INVGENINTOS -> renice () ; InvGen.main_int false
-  | `INVGENINT8 -> renice () ; InvGen.main_int8 true
-  | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
-  | `INVGENINT16 -> renice () ; InvGen.main_int16 true
-  | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
-  | `INVGENINT32 -> renice () ; InvGen.main_int32 true
-  | `INVGENINT32OS -> renice () ; InvGen.main_int32 false
-  | `INVGENINT64 -> renice () ; InvGen.main_int64 true
-  | `INVGENINT64OS -> renice () ; InvGen.main_int64 false
-  | `INVGENUINT8 -> renice () ; InvGen.main_uint8 true
-  | `INVGENUINT8OS -> renice () ; InvGen.main_uint8 false
-  | `INVGENUINT16 -> renice () ; InvGen.main_uint16 true
-  | `INVGENUINT16OS -> renice () ; InvGen.main_uint16 false
-  | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
-  | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
-  | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
-  | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
-  | `INVGENREAL -> renice () ; InvGen.main_real true
-  | `INVGENREALOS -> renice () ; InvGen.main_real false
-  | `C2I -> renice () ; C2I.main
-  | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-  | `Supervisor -> InvarManager.main false false child_pids
-  | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
-  | `Parser | `Certif -> ( fun _ _ _ -> () )
+  | GenericCall m -> (
+    match m with
+    | `IC3 -> IC3.main
+    | `IC3QE -> IC3.main
+    | `IC3IA -> assert false
+    | `BMC -> BMC.main false
+    | `BMCSKIP -> BMC.main true
+    | `IND -> IND.main
+    | `IND2 -> IND2.main
+    | `INVGEN -> renice () ; InvGen.main_bool true
+    | `INVGENOS -> renice () ; InvGen.main_bool false
+    | `INVGENINT -> renice () ; InvGen.main_int true
+    | `INVGENINTOS -> renice () ; InvGen.main_int false
+    | `INVGENINT8 -> renice () ; InvGen.main_int8 true
+    | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
+    | `INVGENINT16 -> renice () ; InvGen.main_int16 true
+    | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
+    | `INVGENINT32 -> renice () ; InvGen.main_int32 true
+    | `INVGENINT32OS -> renice () ; InvGen.main_int32 false
+    | `INVGENINT64 -> renice () ; InvGen.main_int64 true
+    | `INVGENINT64OS -> renice () ; InvGen.main_int64 false
+    | `INVGENUINT8 -> renice () ; InvGen.main_uint8 true
+    | `INVGENUINT8OS -> renice () ; InvGen.main_uint8 false
+    | `INVGENUINT16 -> renice () ; InvGen.main_uint16 true
+    | `INVGENUINT16OS -> renice () ; InvGen.main_uint16 false
+    | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
+    | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
+    | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
+    | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
+    | `INVGENREAL -> renice () ; InvGen.main_real true
+    | `INVGENREALOS -> renice () ; InvGen.main_real false
+    | `C2I -> renice () ; C2I.main
+    | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
+    | `Supervisor -> InvarManager.main false false child_pids
+    | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
+    | `Parser | `Certif -> ( fun _ _ _ -> () )
+  )
+  | IC3IA_Call (fwd, prop) -> IC3IA.main fwd prop
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
   ( match mdl with
     | `IC3 -> IC3.on_exit None
+    | `IC3QE -> IC3.on_exit None
+    | `IC3IA -> IC3IA.on_exit None
+    | `BMCSKIP
     | `BMC -> BMC.on_exit None
     | `IND -> IND.on_exit None
     | `IND2 -> IND2.on_exit None
@@ -136,57 +158,66 @@ let on_exit_of_process mdl =
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
 
-(* Decides what the exit status is by looking at a transition system.
-
-The exit status is
-* 0 if some properties are unknown or k-true (timeout),
-* 10 if some properties are falsifiable (unsafe),
-* 20 if all properties are invariants (safe). *)
-let status_of_trans_sys sys =
-  (* Checking if some properties are unknown of falsifiable. *)
-  let unknown, falsifiable =
-    TSys.get_prop_status_all_nocands sys
-    |> List.fold_left (fun (u,f) -> function
-      | (n, Property.PropUnknown)
-      | (n, Property.PropKTrue _) ->
-        Format.eprintf "%s KU@." n;
-        u+1,f
-      | (n, Property.PropFalse _) ->
-        Format.eprintf "%s FALSE@." n;
-        u,f+1
-      | _ -> u,f
-    ) (0,0)
-    |> fun (u,f) -> u > 0, f > 0
+(** Exit status based on some results. *)
+let status_of_safety_results in_sys =
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all properties could be proven invariant" ;
+    ExitCodes.incomplete_analysis
   in
-  (* Getting relevant exit code. *)
-  let exit_status =
-    if unknown then ExitCodes.unknown else (
-      if falsifiable then ExitCodes.unsafe
-      else ExitCodes.safe
+  match Flags.exit_code_mode () with
+  | `RESULTS_AND_ERRORS -> (
+    match Anal.results_is_safe !all_results with
+    | None -> report_incomplete_analysis ()
+    | Some false -> ExitCodes.unsafe_result
+    | Some true -> (
+      let l1 = List.length (ISys.analyzable_subsystems in_sys) in
+      let l2 = Anal.results_size !all_results in
+      if l1 = l2 then
+        ExitCodes.success
+      else
+        report_incomplete_analysis ()
     )
-  in
-  (* Exit status. *)
-  exit_status
+  )
+  | `ONLY_ERRORS -> ExitCodes.success
 
-(** Exit status from an optional [results]. *)
-let status_of_sys () = match ! latest_trans_sys with
-  | None -> ExitCodes.unknown
-  | Some sys -> status_of_trans_sys sys
-
-(** Exit status from an optional [results]. *)
-let status_of_results in_sys =
-  let res =
-    let l1 = List.length (ISys.analyzable_subsystems in_sys) in
-    let l2 = Anal.results_size !all_results in
-    if l1 = l2 then Anal.results_is_safe !all_results
-    else None
+let status_of_realiz_results in_sys =
+  let analyze_results results =
+    let open Realizability in
+    let rec loop opt = function
+    | res :: results -> (
+      match res with
+      (* If unrealizable, then return false result *)
+      | Unrealizable _ -> Some false
+      (* If realizable, propagate previous result *)
+      | Realizable _ -> loop opt results
+      (* In case of an unknown result, change result to None *)
+      | Unknown -> loop None results
+    )
+    | [] -> opt
+    in
+    loop (Some true) results
   in
-  match res with
-  | None ->
-    KEvent.log L_note "Incomplete analysis result: Not all properties could be proven invariant" ;
-    ExitCodes.unknown
-  | Some true -> ExitCodes.safe
-  | Some false -> ExitCodes.unsafe
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
+    ExitCodes.incomplete_analysis
+  in
+  match Flags.exit_code_mode () with
+  | `RESULTS_AND_ERRORS -> (
+    match analyze_results !realizability_results with
+    | None -> report_incomplete_analysis ()
+    | Some false -> ExitCodes.unsafe_result
+    | Some true -> (
+      let l1 = List.length (ISys.contract_check_params in_sys) in
+      let l2 = List.length !realizability_results in
+      if l1 = l2 then
+        ExitCodes.success
+      else
+        report_incomplete_analysis ()
+    )
+  )
+  | `ONLY_ERRORS -> ExitCodes.success
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function
@@ -194,7 +225,7 @@ let status_of_exn process status = function
   | Exit -> status
   (* Parser error *)
   | LustreAst.Parser_error | Parsing.Parse_error ->
-    ExitCodes.error
+    ExitCodes.parse_error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
     KEvent.log L_warn "In %a: a check-sat resulted in `unknown`. \
@@ -262,14 +293,6 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
-(** Status corresponding to an exception based on an optional system. *)
-let status_of_exn_sys process =
-  status_of_sys () |> status_of_exn process
-
-(** Status corresponding to an exception based on some results. *)
-let status_of_exn_results in_sys process =
-  status_of_results in_sys |> status_of_exn process
-
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
   Signals.ignoring_sigalrm ( fun _ ->
@@ -312,15 +335,17 @@ let slaughter_kids process sys =
         if !timeout then raise TimeoutWall
       (* Unix.wait was interrupted. *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the
         outcome of the analysis. *)
-        Signal 0 |> status_of_exn_sys process |> ignore
+        Signal 0 |> status_of_exn process dummy_status |> ignore 
 
       (* Exception in Unix.wait loop. *)
       | e ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the outcome
         of the analysis. *)
-        status_of_exn_sys process e |> ignore ;
+        status_of_exn process dummy_status e |> ignore ;
     ) ;
 
     if ! child_pids <> [] then
@@ -333,47 +358,53 @@ let slaughter_kids process sys =
 
   Signals.set_sigalrm_timeout_from_flag ()
 
-(** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit_with_results in_sys process exn =
+
+(** Called after everything has been cleaned up. *)
+let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results in_sys process exn in
-  (* Close tags in XML output. *)
+  let status = status_of_exn process base_status exn in
+  (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
   SMTSolver.destroy_all () ;
   (* Exit with status. *)
   exit status
 
-(** Called after everything has been cleaned up *)
-let post_clean_exit process exn =
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process ExitCodes.unknown exn in
-  (* Close tags in XML output. *)
-  KEvent.terminate_log () ;
-  (* Kill all live solvers. *)
-  SMTSolver.destroy_all () ;
-  (* Exit with status. *)
-  exit status
+(** Clean up before exit *)
+let on_exit sys process status exn =
+  try
+    slaughter_kids process sys;
+    post_clean_exit process status exn
+  with TimeoutWall -> post_clean_exit process status TimeoutWall
+
+let post_clean_exit_success process exn =
+  post_clean_exit process ExitCodes.success exn
+
+let post_clean_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
+  post_clean_exit process base_status exn
+
+let post_clean_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  post_clean_exit process base_status exn
+
+let on_exit_success process exn =
+  on_exit None process ExitCodes.success exn
 
 (** Clean up before exit. *)
-let on_exit_with_results in_sys sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit_with_results in_sys process exn
-  with TimeoutWall -> post_clean_exit_with_results in_sys process TimeoutWall
+let on_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
+  on_exit None process base_status exn
 
-(** Clean up before exit, for a MCS analysis. *)
-let on_exit sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit process exn
-  with TimeoutWall -> post_clean_exit process TimeoutWall
+let on_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  on_exit None process base_status exn
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
 let on_exit_child ?(_alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process 0 exn in
+  let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
   on_exit_of_process process ;
   Unix.getpid () |> KEvent.log L_debug "Process %d terminating" ;
@@ -393,6 +424,7 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
 
 (** Forks and runs a child process. *)
 let run_process in_sys param sys messaging_setup process =
+  let kind_module = get_kind_module process in
   (* Fork a new process. *)
   let pid = Unix.fork () in
   match pid with
@@ -407,8 +439,8 @@ let run_process in_sys param sys messaging_setup process =
     SMTSolver.delete_instance_entries () ;
     (* Initialize messaging system for process. *)
     let messaging_thread =
-      on_exit_child None process
-      |> KEvent.run_process process messaging_setup
+      on_exit_child None kind_module
+      |> KEvent.run_process kind_module messaging_setup
     in
 
     try 
@@ -417,7 +449,7 @@ let run_process in_sys param sys messaging_setup process =
       KEvent.set_relay_log ();
 
       (* Set module currently running. *)
-      KEvent.set_module process;
+      KEvent.set_module kind_module;
 
       (* Record backtraces on log levels debug and higher. *)
       if output_on_level L_debug then
@@ -425,7 +457,7 @@ let run_process in_sys param sys messaging_setup process =
 
       KEvent.log L_debug
         "Starting new process %a with PID %d" 
-        pp_print_kind_module process
+        pp_print_kind_module kind_module
         pid;
 
       ( (* Change debug output to per process file. *)
@@ -438,7 +470,7 @@ let run_process in_sys param sys messaging_setup process =
           try (* Output to [f.PROCESS-PID]. *)
             let f' = 
               Format.sprintf "%s.%s-%d" 
-                f (debug_ext_of_process process) pid
+                f (debug_ext_of_process kind_module) pid
             in
 
             (* Open output channel to file. *)
@@ -457,12 +489,12 @@ let run_process in_sys param sys messaging_setup process =
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
       (* Cleanup and exit *)
-      on_exit_child (Some messaging_thread) process Exit
+      on_exit_child (Some messaging_thread) kind_module Exit
 
     with
     (* Termination message received. *)
     | KEvent.Terminate as e ->
-      on_exit_child (Some messaging_thread) process e
+      on_exit_child (Some messaging_thread) kind_module e
     (* Catch all other exceptions. *)
     | e ->
       (* Get backtrace now, Printf changes it. *)
@@ -471,18 +503,40 @@ let run_process in_sys param sys messaging_setup process =
         KEvent.log L_fatal
           "Caught %s in %a.@ Backtrace:@ %a"
           (Printexc.to_string e)
-          pp_print_kind_module process
+          pp_print_kind_module kind_module
           print_backtrace backtrace
       ) ;
       (* Cleanup and exit. *)
-      on_exit_child (Some messaging_thread) process e
+      on_exit_child (Some messaging_thread) kind_module e
 
   )
 
   (* We are the parent process. *)
   | _ ->
     (* Keep PID of child process and return. *)
-    child_pids := (pid, process) :: !child_pids
+    child_pids := (pid, kind_module) :: !child_pids
+
+
+let create_processes modules sys =
+  let ic3ia_module, other_modules = modules |> List.partition (
+    function `IC3IA -> true | _ -> false)
+  in
+  let processes = List.map (fun m -> GenericCall m) other_modules in
+  match ic3ia_module with
+  | [] -> processes
+  | _ -> (
+    List.fold_left
+      (fun acc p ->
+        match Flags.Smt.itp_solver () with
+        | `cvc5_QE
+        | `Z3_QE ->
+          IC3IA_Call (false, p) :: IC3IA_Call (true, p) :: acc
+        | _ ->
+          IC3IA_Call (false, p) :: acc
+      )
+      processes
+      (TSys.get_real_properties sys)
+  )
 
 let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
   let invgenmach_modules, other_modules = modules |> List.partition (
@@ -515,6 +569,25 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | _ -> other_modules
   )
 
+ (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
+    query with a lower bound *)
+let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
+  if List.mem `BMC modules then (
+    let has_lb_queries = (TSys.props_list_of_bound_skip sys Numeral.zero <> []) in 
+    if has_lb_queries && not (List.mem `BMCSKIP modules) then `BMCSKIP :: modules
+    else modules
+  )
+  else modules
+
+let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
+  if List.mem `IC3 modules then
+    let _, other_modules = modules |> List.partition (
+      function `IC3 | `IC3QE | `IC3IA -> true | _ -> false)
+    in
+    `IC3QE :: `IC3IA :: other_modules
+  else
+    modules
+
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
@@ -539,9 +612,15 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys modules in
+      (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
+        query with a lower bound *)
+      let modules = process_bmc_modules sys modules in
+      let modules = process_ic3_modules modules in
+
+      let processes = create_processes modules sys in
 
       (* Start all child processes. *)
-      modules |> List.iter (
+      processes |> List.iter (
         fun p -> run_process in_sys param sys msg_setup p
       ) ;
 
@@ -631,7 +710,7 @@ let run in_sys =
       | _ -> (
         KEvent.log L_fatal "Contract checking requires Z3 or cvc5." ;
         KEvent.terminate_log () ;
-        exit ExitCodes.error
+        exit ExitCodes.unsupported_solver
       )
     in
 
@@ -673,7 +752,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit None `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_realiz_results in_sys `CONTRACTCK) |> ignore ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -699,6 +778,9 @@ let run in_sys =
               else
                 Realizability.Unknown
           in
+
+          realizability_results := result :: !realizability_results ;
+
           (
             try
               Log.log_result
@@ -734,12 +816,12 @@ let run in_sys =
         )
       ) ;
 
-      post_clean_exit `CONTRACTCK Exit
+      post_clean_exit_realiz_results in_sys `CONTRACTCK Exit
     ) with
-    | TimeoutWall -> on_exit None `CONTRACTCK TimeoutWall
+    | TimeoutWall -> on_exit_realiz_results in_sys `CONTRACTCK TimeoutWall
     | e -> (
       handle_exception `CONTRACTCK e;
-      on_exit None `CONTRACTCK e
+      on_exit_realiz_results in_sys `CONTRACTCK e
     )
   )
 
@@ -755,7 +837,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_success `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -778,12 +860,12 @@ let run in_sys =
        | [] -> (KEvent.log L_note "No analyzable nodes found, skipping MCS analysis.")
        | _ -> List.iter run_mcs params
       ) ;
-      post_clean_exit `Supervisor Exit
+      post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
-      on_exit None `Supervisor e
+      on_exit_success `Supervisor e
     )
   ) 
 
@@ -856,7 +938,7 @@ let run in_sys =
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
     KEvent.run_im msg_setup []
-      (on_exit_with_results in_sys None `Supervisor) |> ignore ;
+      (on_exit_safety_results in_sys `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -898,13 +980,13 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit_with_results in_sys `Supervisor Exit
+      post_clean_exit_safety_results in_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit_with_results in_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_safety_results in_sys `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e;
-      on_exit_with_results in_sys None `Supervisor e
+      on_exit_safety_results in_sys `Supervisor e
     )
 
 (* 

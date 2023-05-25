@@ -732,7 +732,7 @@ let rec node_item_has_pre_or_arrow = function
     | Some pos -> Some pos
     | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
-| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+| AnnotProperty (_, _, e, _) -> has_pre_or_arrow e
 and
 
 node_item_list_has_pre_or_arrow = function 
@@ -893,8 +893,8 @@ let rec defined_vars_with_pos = function
   | IfBlock (_, _, l1, l2) -> 
     List.flatten (List.map defined_vars_with_pos l1) @
     List.flatten (List.map defined_vars_with_pos l2)
-  | FrameBlock (pos, vars, _, _) ->
-    List.map (fun var -> (pos, var)) vars
+  | FrameBlock (_, vars, _, _) ->
+    vars
   | _ -> [] 
 
 
@@ -1497,8 +1497,16 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | Real _, Real _ ->
       Ok (true)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
-      syn_expr_equal depth_limit xe1 ye1 >>= fun e1 ->
-      syn_expr_equal depth_limit xe2 ye2 >>= fun e2 ->
+      let* e1 = match xe1, ye1 with
+        | None, None -> Ok true
+        | Some xe1, Some ye1 -> syn_expr_equal depth_limit xe1 ye1
+        | _ -> Ok false
+      in
+      let* e2 =  match xe2, ye2 with
+        | None, None -> Ok true
+        | Some xe2, Some ye2 -> syn_expr_equal depth_limit xe2 ye2
+        | _ -> Ok false
+      in
       Ok (e1 && e2)
     | UserType (_, x), UserType (_, y)
     | AbstractType (_, x), AbstractType (_, y) ->
@@ -1743,3 +1751,15 @@ let rec rename_contract_vars = function
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
   | CallParam (pos, id, types, expr_list) ->
     CallParam (pos, id, types, List.map (fun e -> rename_contract_vars e) expr_list)
+
+let name_of_prop pos name k =
+  match name with 
+  | Some name -> name
+  | None -> 
+    let kind_str = match k with
+      | Invariant -> "Inv"
+      | Reachable _ -> "Reach"
+      | Provided _ -> "Prov"
+    in
+    Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
+    |> HString.mk_hstring

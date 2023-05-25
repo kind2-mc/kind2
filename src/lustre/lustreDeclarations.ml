@@ -1731,8 +1731,12 @@ and eval_node_items inputs outputs locals ctx = function
 
   | A.FrameBlock (pos, _, _, _) :: _ -> fail_at_position pos "Frame blocks not supported in old front-end"
 
+  (* Property annotation, reachability query *)
+  | A.AnnotProperty (pos, _, _, Reachable _) :: _ ->
+    fail_at_position pos "Reachability queries are not supported in the old frontend."
+
   (* Property annotation *)
-  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+  | A.AnnotProperty (pos, name_opt, ast_expr, _) :: tl -> 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (H.has_unguarded_pre ast_expr) in
 
@@ -1919,17 +1923,20 @@ and eval_node_decl
           array_var
           indices
       in
-      let lbound, ubound = Type.bounds_of_int_range base_type in
-      let ct =
-        (E.mk_and
-          (E.mk_lte (E.mk_int lbound) select_term)
-          (E.mk_lte select_term (E.mk_int ubound)))
+      let ct = match Type.bounds_of_int_range base_type with
+        | Some lbound, Some ubound ->
+          (E.mk_and
+            (E.mk_lte (E.mk_int lbound) select_term)
+            (E.mk_lte select_term (E.mk_int ubound)))
+        | Some lbound, None -> (E.mk_lte (E.mk_int lbound) select_term)
+        | None, Some ubound -> (E.mk_lte select_term (E.mk_int ubound))
+        | None, None -> E.t_true
       in
       let qct =
         List.fold_left
           (fun acc (ty, iv) ->
              match Type.node_of_type ty with
-             | Type.IntRange (i, j, Type.Range) -> (
+             | Type.IntRange (Some i, Some j) -> (
                let bounds =
                  E.mk_and
                    (E.mk_lte (E.mk_int i) (E.mk_free_var iv))
@@ -1937,6 +1944,13 @@ and eval_node_decl
                in
                E.mk_forall [iv] (E.mk_impl bounds acc)
              )
+             | Type.IntRange (Some i, None) -> (
+              E.mk_forall [iv] (E.mk_impl (E.mk_lte (E.mk_int i) (E.mk_free_var iv)) acc)
+             )
+             | Type.IntRange (None, Some j) -> (
+              E.mk_forall [iv] (E.mk_impl (E.mk_lt (E.mk_free_var iv) (E.mk_int j)) acc)
+             )
+             | Type.IntRange (None, None) -> E.t_true
              | _ ->
                E.mk_forall [iv] acc)
           ct
@@ -1949,9 +1963,14 @@ and eval_node_decl
       let lus_var = E.mk_var svar in
       (* Value of state variable is in range of declared type:
         lbound <= svar and svar <= ubound *)
-      (E.mk_and
-        (E.mk_lte (E.mk_int lbound) lus_var)
-        (E.mk_lte lus_var (E.mk_int ubound)))
+      match lbound, ubound with 
+        | Some lbound, Some ubound -> 
+          (E.mk_and
+            (E.mk_lte (E.mk_int lbound) lus_var)
+            (E.mk_lte lus_var (E.mk_int ubound)))
+        | Some lbound, None -> (E.mk_lte (E.mk_int lbound) lus_var)
+        | None, Some ubound -> (E.mk_lte lus_var (E.mk_int ubound))
+        | None, None -> E.t_true
     )
   in
 

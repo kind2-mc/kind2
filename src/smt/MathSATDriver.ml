@@ -66,7 +66,15 @@ let cmd_line
     theory.bv.eager=true
    *)
 
-  let cmd = [| mathsat_bin |] in
+  let cmd =
+    [|
+      mathsat_bin;
+      (* Workaround for problem in MathSAT 5.6.9 and below *)
+      "-preprocessor.interpolation_ite_elimination=true";
+      (* Required for interpolation *)
+      "-theory.bv.eager=false"
+    |]
+  in
     match timeout with
     | None -> cmd
     | Some timeout ->

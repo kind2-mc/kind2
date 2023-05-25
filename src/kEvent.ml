@@ -118,9 +118,12 @@ struct
         Marshal.from_string cex_string 0
       in
       let cex' =
-        List.map
-          (fun (sv, t) -> (StateVar.import sv, List.map Model.import_value t))
+        (* We use rev_map instead of map to be able to handle long counterexamples *)
+        List.rev_map
+          (fun (sv, t) ->
+            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
           cex
+        |> List.rev
       in
       PropStatus (p, Property.PropFalse cex')
   | "STEP_CEX" :: p :: cex_string :: _ ->
@@ -128,9 +131,12 @@ struct
         Marshal.from_string cex_string 0
       in
       let cex' =
-        List.map
-          (fun (sv, t) -> (StateVar.import sv, List.map Model.import_value t))
+        (* We use rev_map instead of map to be able to handle long counterexamples *)
+        List.rev_map
+          (fun (sv, t) ->
+            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
           cex
+        |> List.rev
       in
       StepCex (p, cex')
   | ss ->
@@ -280,7 +286,6 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -302,26 +307,83 @@ let tag_pt level tag str =
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop = 
-
-  (* Only ouptut if status was unknown *)
+  (* Only output if status was unknown *)
   if 
-
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
-
-  then 
-
-    (ignore_or_fprintf level)
-      !log_ppf
-      ("@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@.")
-      success_tag
-      (if TransSys.is_candidate trans_sys prop then
-         "Candidate" else "Property")
-      prop
-      (function ppf -> match k with
-         | None -> ()
-         | Some k -> Format.fprintf ppf "for k=%d " k)
-      pp_print_kind_module_pt mdl
-      (Stat.get_float Stat.analysis_time)
+  then (
+    let cand_or_prop = (if TransSys.is_candidate trans_sys prop then  "Candidate" else "Property") in
+    let k_val = (function ppf -> match k with
+      | None -> ()
+      | Some k -> Format.fprintf ppf "for k=%d " k) in
+    let kind = TransSys.get_prop_kind trans_sys prop in
+    (match kind with
+      | Property.Invariant ->
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
+        success_tag
+        cand_or_prop
+        prop
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable Some (From ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        ("@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or more %tby %a after %.3fs.@.@.")
+        failure_tag
+        cand_or_prop
+        prop
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable Some (Within ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or less %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        prop
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable Some (At ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable at step %d %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        prop
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable between steps %d and %d %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        prop
+        ts1
+        ts2
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable None -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        prop
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+    )
+  )
 
 let unknown_pt mdl level trans_sys prop = 
   (* Only ouptut if status was unknown *)
@@ -372,31 +434,31 @@ let slice_trans_sys_and_cex_to_property
   )
 
 
-(* Pretty-print a counterexample *)
-let pp_print_counterexample_pt 
-  ?(title = "Counterexample") level input_sys analysis trans_sys prop_name disproved ppf
+(* Pretty-print a trace *)
+let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
+  dump level input_sys analysis trans_sys prop_name disproved ppf
 = function
 | [] -> ()
-| cex -> (
+| trace -> (
 
-  (* Slice counterexample and transitions system to property *)
-  let trans_sys, _, cex, input_sys =
+  (* Slice trace and transitions system to property *)
+  let trans_sys, _, trace, input_sys =
     slice_trans_sys_and_cex_to_property
-      input_sys analysis trans_sys prop_name cex
+      input_sys analysis trans_sys prop_name trace
   in
 
-  let print_cex ppf =
-    (* Output counterexample *)
-    Format.fprintf ppf
-      "@{<red>%s@}:@,  @[<v>%a@]"
+  let print_trace fmt = 
+    Format.fprintf fmt
+      "@{<%s>%s@}:@,  @[<v>%a@]"
+      color
       title
       (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-      (Model.path_of_list cex)
+      (Model.path_of_list trace);
   in
 
-  if Flags.dump_cex () then (
+  if dump then (
     let dirname =
-      Filename.concat (Flags.output_dir ()) "cex"
+      Filename.concat (Flags.output_dir ()) "trace"
     in
     (* Create directories if they don't exist. *)
     Flags.output_dir () |> mk_dir ; mk_dir dirname ;
@@ -406,14 +468,15 @@ let pp_print_counterexample_pt
     in
     let out_channel = open_out path in
     let fmt = Format.formatter_of_out_channel out_channel in
-    print_cex fmt ;
+    Format.pp_set_margin fmt (Format.pp_get_margin ppf ());
+    print_trace fmt ;
     Format.pp_print_flush fmt ();
     close_out out_channel ;
     match prop_name with
     | Some prop_name -> (
       (ignore_or_fprintf level)
         !log_ppf
-        ("@[<hov>%t %s to @{<blue_b>%s@} written to '%s'@.")
+        ("@[<hov>%t %s of @{<blue_b>%s@} written to '%s'@.")
         note_tag title prop_name path
     )
     | None ->
@@ -423,7 +486,7 @@ let pp_print_counterexample_pt
         note_tag title path
   )
   else (
-    print_cex ppf
+    print_trace ppf
   )
 )
 
@@ -479,18 +542,48 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
           (* cex *)
     end
     else
-
+      let kind = TransSys.get_prop_kind trans_sys prop in
+      let title, color, print, dump =
+        match kind with
+        | Property.Invariant ->
+          "Counterexample", "red",
+          Flags.print_cex () || Flags.dump_cex (), Flags.dump_cex ()
+        | Property.Reachable _ ->
+          "Witness", "green",
+          Flags.print_witness () || Flags.dump_witness (), Flags.dump_witness ()
+      in
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
-      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
-        (if disproved then failure_tag else warning_tag)
+      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
+        (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
         prop
         (
-          if disproved then
-            Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
-          else
-            "has a step k-induction counterexample"
+          match disproved, kind with
+            | true, Property.Invariant ->
+              Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+            | false, Property.Invariant -> "has a step k-induction counterexample"
+            | true, Property.Reachable Some (From ts) ->
+              Format.asprintf "is reachable in %d steps or more by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable Some (Within ts) ->
+              Format.asprintf "is reachable in %d steps or less by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable Some (At ts) ->
+              Format.asprintf "is reachable at step %d by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable Some (FromWithin (ts1, ts2)) ->
+              Format.asprintf "is reachable between steps %d and %d by %a" 
+              ts1
+              ts2
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable None ->
+              Format.asprintf "is reachable by %a" 
+              pp_print_kind_module_pt mdl
+            | false, Property.Reachable _ -> "has a step k-induction witness"
         )
         (function ppf -> match cex with
            | [] -> ()
@@ -525,9 +618,14 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
                pp_print_satisfied_wa pp_print_unsatisfied_wa
            )
         )
-        (pp_print_counterexample_pt
-           level input_sys analysis trans_sys (Some prop) disproved)
-        cex ;
+        (function ppf ->
+          if print then
+            Format.fprintf ppf "%a@."
+              (pp_print_trace_pt
+                ~title ~color dump
+                level input_sys analysis trans_sys (Some prop) disproved)
+              cex
+        ) ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
@@ -568,7 +666,7 @@ let progress_pt mdl level k =
  *)
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_pt level prop_status =
+let prop_status_pt level prop_status_kind =
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -576,32 +674,98 @@ let prop_status_pt level prop_status =
     Pretty.print_line ()
     Pretty.print_line ()
     (pp_print_list 
-       (fun ppf (p, s) -> 
+       (fun ppf ((p, s, k)) -> 
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
             p
-            (function ppf -> function 
-               | Property.PropUnknown -> 
-                 Format.fprintf ppf "@{<red>unknown@}"
+            (function ppf -> (function
+                  | Property.PropUnknown, _ -> 
+                    Format.fprintf ppf "@{<red>unknown@}"
 
-               | Property.PropKTrue k -> 
-                 Format.fprintf ppf "@{<yellow>true up to %d steps@}" k
+                  | Property.PropKTrue n, Property.Invariant -> 
+                    Format.fprintf ppf "@{<yellow>true up to %d steps@}" n
 
-               | Property.PropInvariant (k, _) -> 
-                 Format.fprintf ppf "@{<green_b>valid (at %d)@}" k
+                  | Property.PropKTrue n, Property.Reachable _ -> 
+                    Format.fprintf ppf "@{<yellow>unreachable up to %d steps@}" n
 
-               | Property.PropFalse [] -> 
-                 Format.fprintf ppf "@{<red_b>invalid@}"
+                  | Property.PropInvariant (n, _), Property.Invariant -> 
+                    Format.fprintf ppf "@{<green_b>valid (k=%d)@}" n
 
-               | Property.PropFalse cex -> 
-                 Format.fprintf 
-                   ppf
-                   "@{<red_b>invalid after %d steps@}"
-                   ((Property.length_of_cex cex) - 1))
-            s)
+                  | Property.PropInvariant (n, _), Property.Reachable Some (From ts) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or more (k=%d)@}" ts n
+
+                  | Property.PropInvariant (n, _), Property.Reachable Some (Within ts) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or less (k=%d)@}" ts n
+
+                  | Property.PropInvariant (n, _), Property.Reachable Some (At _) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable at step %d@}" n
+
+                  | Property.PropInvariant (n, _), Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable between steps %d and %d (k=%d)@}" ts1 ts2 n
+
+                  | Property.PropInvariant (n, _), Property.Reachable None -> 
+                    Format.fprintf ppf "@{<red_b>unreachable (k=%d)@}" n 
+          
+                  | Property.PropFalse [], Property.Invariant -> 
+                    Format.fprintf ppf "@{<red_b>invalid@}"
+
+                  | Property.PropFalse [], Property.Reachable Some (From ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable in %d steps or more@}" ts
+
+                  | Property.PropFalse [], Property.Reachable Some (Within ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable in %d steps or less@}" ts
+
+                  | Property.PropFalse [], Property.Reachable Some (At ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable at step %d@}" ts
+
+                  | Property.PropFalse [], Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf ppf "@{<green_b>reachable between steps %d and %d@}" ts1 ts2
+
+                  | Property.PropFalse cex, Property.Invariant -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<red_b>invalid after %d steps@}"
+                      ((Property.length_of_cex cex) - 1)
+
+                  | Property.PropFalse cex, Property.Reachable None -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable after %d steps@}"
+                      ((Property.length_of_cex cex) - 1)
+                  
+                  | Property.PropFalse cex, Property.Reachable Some (From ts) -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable in %d steps or more (at %d)@}"
+                      ts
+                      ((Property.length_of_cex cex) - 1)
+
+                  | Property.PropFalse cex, Property.Reachable Some (Within ts) -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable in %d steps or less (at %d)@}"
+                      ts
+                      ((Property.length_of_cex cex) - 1)
+
+                  | Property.PropFalse _, Property.Reachable Some (At ts) -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable at step %d@}"
+                      ts
+
+                  | Property.PropFalse cex, Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable between steps %d and %d (at %d)@}"
+                      ts1
+                      ts2
+                      ((Property.length_of_cex cex) - 1)
+                )
+              )
+            (s, k))
        "@,")
-    prop_status
+    prop_status_kind
     Pretty.print_double_line ()
           
 
@@ -650,6 +814,10 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
+    | Property.NonVacuityCheck (pos, scope) ->
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"NonVacuityCheck\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
   get_attributes prop.Property.prop_source
@@ -678,9 +846,10 @@ let proved_xml mdl level trans_sys k prop_name =
       ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
-        <Answer source=\"%a\"%t>valid</Answer>@;<0 -2>\
+        <Answer source=\"%a\"%t>%s</Answer>@;<0 -2>\
         </Property>@]@.")
-      (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
+      (Lib.escape_xml_string prop_name) 
+      (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
@@ -690,6 +859,11 @@ let proved_xml mdl level trans_sys k prop_name =
          | None -> ()
          | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
       )
+      (match prop.prop_kind with
+      | Property.Invariant -> "valid"
+      | Property.Reachable _ -> "unreachable"
+    )
+
 
 let unknown_xml mdl level trans_sys prop_name =
 
@@ -708,8 +882,8 @@ let unknown_xml mdl level trans_sys prop_name =
       (Stat.get_float Stat.analysis_time)
       pp_print_kind_module_xml_src mdl
 
-(* Pretty-print a counterexample *)
-let pp_print_counterexample_xml
+(* Pretty-print a trace *)
+let pp_print_trace_xml
     ?(tag = "CounterExample")
     input_sys
     analysis
@@ -722,21 +896,20 @@ let pp_print_counterexample_xml
 
     | [] -> ()
 
-    | cex -> 
-
+    | trace ->
       (
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys', _, cex', input_sys' =
+        (* Slice trace and transitions system to property *)
+        let trans_sys', _, trace', input_sys' =
           slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name cex
+            input_sys analysis trans_sys prop_name trace
         in
         try
-          (* Output counterexample *)
+          (* Output trace *)
           Format.fprintf ppf
             "@[<hv 2>\ <%s>%a@]@,</%s>"
             tag
             (InputSystem.pp_print_path_xml input_sys' trans_sys' disproved)
-            (Model.path_of_list cex')
+            (Model.path_of_list trace')
             tag
         with TimeoutWall -> (
           Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
@@ -781,10 +954,14 @@ let cex_xml
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
 
+    let prop_kind = TransSys.get_prop_kind trans_sys prop_name in
     let answer =
       match mdl with
       | `IND -> "unknown"
-      | _ -> "falsifiable"
+      | _ -> (match prop_kind with
+      | Property.Invariant -> "falsifiable"
+      | Property.Reachable _ -> "reachable"
+    )
     in
 
     let comment =
@@ -797,6 +974,12 @@ let cex_xml
       | _ -> None
     in
 
+    let tag =
+      match prop_kind with
+      | Property.Invariant -> "CounterExample"
+      | Property.Reachable _ -> "Witness"
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
@@ -807,7 +990,8 @@ let cex_xml
         %t\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
+      (Lib.escape_xml_string prop_name) 
+      (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
@@ -829,7 +1013,8 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_counterexample_xml input_sys analysis trans_sys (Some prop_name) disproved)
+      (pp_print_trace_xml
+        ~tag input_sys analysis trans_sys (Some prop_name) disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -868,17 +1053,16 @@ let progress_xml mdl level k =
     k
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_xml level trans_sys prop_status =
-
+let prop_status_xml level trans_sys prop_status_kind =
   (* Filter unknown properties. *)
-  prop_status
-  |> List.filter (fun (_, status) ->
+  prop_status_kind
+  |> List.filter (fun (_, status, _) ->
     not (Property.prop_status_known status)
   ) |> (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]@."
     (pp_print_list 
-       (fun ppf (p, s) -> 
+       (fun ppf ((p, s, k)) -> 
 
             Format.fprintf 
               ppf
@@ -886,28 +1070,41 @@ let prop_status_xml level trans_sys prop_status =
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              (Lib.escape_xml_string p) (prop_attributes_xml trans_sys p)
+              (Lib.escape_xml_string p) 
+              (prop_attributes_xml trans_sys p)
               (function ppf -> function 
                  | Property.PropUnknown
                  | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
-                 | Property.PropInvariant _ -> Format.fprintf ppf "valid"
+                 | Property.PropInvariant _ when k = Property.Invariant -> Format.fprintf ppf "valid"
+                 | Property.PropInvariant _ -> Format.fprintf ppf "unreachable"
                  | Property.PropFalse [] 
-                 | Property.PropFalse _ -> Format.fprintf ppf "falsifiable")
+                 | Property.PropFalse _ when k = Property.Invariant -> Format.fprintf ppf "falsifiable"
+                 | Property.PropFalse _ -> Format.fprintf ppf "reachable")
               s
               (function ppf -> function
                  | Property.PropUnknown
                  | Property.PropInvariant _
                  | Property.PropFalse [] -> ()
-                 | Property.PropKTrue k -> 
+                 | Property.PropKTrue n when k = Property.Invariant -> 
                    Format.fprintf 
                      ppf 
                      "@,@[<hv 2><TrueFor>@,%d@;<0 -2></TrueFor>@]"
-                     k
-                 | Property.PropFalse cex -> 
+                     n
+                 | Property.PropKTrue n -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><UnreachableFor>@,%d@;<0 -2></UnreachableFor>@]"
+                     n
+                 | Property.PropFalse cex when k = Property.Invariant -> 
                    Format.fprintf 
                      ppf 
                      "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
-                     ((Property.length_of_cex cex) - 1))
+                     ((Property.length_of_cex cex) - 1)
+                 | Property.PropFalse cex -> 
+                   Format.fprintf 
+                   ppf 
+                   "@,@[<hv 2><ReachableAt>@,%d@;<0 -2></ReachableAt>@]"
+                   ((Property.length_of_cex cex) - 1))
               s)
        "@,")
 
@@ -950,6 +1147,7 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
+    | Property.NonVacuityCheck (pos, scope) -> print_attributes pos scope "NonVacuityCheck"
     | Property.Generated (pos, _) -> (
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
@@ -975,7 +1173,7 @@ let proved_json mdl level trans_sys k prop =
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then
-
+    let kind = TransSys.get_prop_kind trans_sys prop in
     (ignore_or_fprintf level)
       !log_ppf
       ",@.{@[<v 1>@,\
@@ -990,7 +1188,7 @@ let proved_json mdl level trans_sys k prop =
         %t\
         \"answer\" : {\
           \"source\" : \"%s\", \
-          \"value\" : \"valid\"\
+          \"value\" : \"%s\"\
         }\
         @]@.}@.\
       "
@@ -1001,6 +1199,11 @@ let proved_json mdl level trans_sys k prop =
          | None -> ()
          | Some k -> Format.fprintf ppf "\"k\" : %d,@," k)
       (short_name_of_kind_module mdl)
+      (match kind with
+        | Property.Invariant -> "valid"
+        | Property.Reachable _ -> "unreachable"
+      )
+
 
 let unknown_json mdl level trans_sys prop =
 
@@ -1031,7 +1234,7 @@ let unknown_json mdl level trans_sys prop =
       (short_name_of_kind_module mdl)
 
 (* Pretty-print a counterexample *)
-let pp_print_counterexample_json
+let pp_print_trace_json
     ?(object_name = "counterExample")
     input_sys
     analysis
@@ -1044,22 +1247,21 @@ let pp_print_counterexample_json
 
     | [] -> ()
 
-    | cex ->
-
+    | trace ->
       (
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys', _, cex', input_sys' =
+        (* Slice trace and transitions system to property *)
+        let trans_sys', _, trace', input_sys' =
           slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name cex
+            input_sys analysis trans_sys prop_name trace
         in
 
         try
-          (* Output counterexample *)
+          (* Output trace *)
           Format.fprintf ppf
             "\"%s\" :%a"
             object_name
             (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
-            (Model.path_of_list cex')
+            (Model.path_of_list trace')
         with TimeoutWall -> (
           Format.fprintf ppf " []@.}@.";
           raise TimeoutWall
@@ -1078,11 +1280,20 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
   then (
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
-
+    let kind = TransSys.get_prop_kind trans_sys prop in
     let answer =
       match mdl with
       | `IND -> "unknown"
-      | _ -> "falsifiable"
+      | _ -> (match kind with
+        | Property.Invariant -> "falsifiable"
+        | Property.Reachable _ -> "reachable"
+      )
+    in
+
+    let object_name =
+      match kind with
+      | Property.Invariant -> "counterExample"
+      | Property.Reachable _ -> "witness"
     in
 
     (* Output cex. *)
@@ -1131,7 +1342,8 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_counterexample_json input_sys analysis trans_sys (Some prop) disproved)
+      (pp_print_trace_json
+        ~object_name input_sys analysis trans_sys (Some prop) disproved)
       cex
       ;
 
@@ -1159,11 +1371,11 @@ let execution_path_json level input_sys trans_sys path =
 
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_json level trans_sys prop_status =
+let prop_status_json level trans_sys prop_status_kind =
 
   (* Filter unknown properties. *)
-  let unknown_props = prop_status
-    |> List.filter (fun (_, status) ->
+  let unknown_props = prop_status_kind
+    |> List.filter (fun (_, status, _) ->
       not (Property.prop_status_known status)
     )
   in
@@ -1173,7 +1385,7 @@ let prop_status_json level trans_sys prop_status =
       !log_ppf
       "@[<v>%a@]@."
       (pp_print_list
-         (fun ppf (p, s) ->
+         (fun ppf ((p, s, k)) ->
            Format.fprintf
              ppf
              ",@.{@[<v 1>@,\
@@ -1189,8 +1401,14 @@ let prop_status_json level trans_sys prop_status =
              (Lib.escape_json_string p)
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
-                | Property.PropKTrue k ->
-                  Format.fprintf ppf "\"trueFor\" : %d,@," k
+                | Property.PropKTrue n when k = Property.Invariant ->
+                  Format.fprintf ppf "\"trueFor\" : %d,@," n
+                | Property.PropKTrue n ->
+                  Format.fprintf ppf "\"unreachableFor\" : %d,@," n
+                | Property.PropFalse cex when k = Property.Invariant -> 
+                  Format.fprintf ppf "\"falseAt\" : %d,@," ((Property.length_of_cex cex) - 1)
+                | Property.PropFalse cex ->
+                  Format.fprintf ppf "\"reachableAt\" : %d,@," ((Property.length_of_cex cex) - 1)
                 | _ -> ()
              )
          )
@@ -1337,11 +1555,11 @@ let log_execution_path level input_sys trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level trans_sys prop_status =
+let log_prop_status level trans_sys prop_status_kind =
   match get_log_format () with 
-    | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level trans_sys prop_status
-    | F_json -> prop_status_json level trans_sys prop_status
+    | F_pt -> prop_status_pt level prop_status_kind
+    | F_xml -> prop_status_xml level trans_sys prop_status_kind
+    | F_json -> prop_status_json level trans_sys prop_status_kind
     | F_relay -> ()
 
 
@@ -1643,14 +1861,14 @@ let prop_invariant trans_sys prop_name cert =
 
   let mdl = get_module () in
 
+  (* Get property by name *)
+  let prop = TransSys.property_of_name trans_sys prop_name in
+
   log_proved mdl L_warn trans_sys None prop_name ;
 
   (* Update status of property (of all instances with name [prop_name]) *)
   let status = Property.PropInvariant cert in
   TransSys.set_prop_status trans_sys prop_name status;
-
-  (* Get property by name *)
-  let prop = TransSys.property_of_name trans_sys prop_name in
 
   (* Add property as invariant to transtion system *)
   TransSys.add_invariant trans_sys prop.prop_term cert false |> ignore ;
@@ -2077,7 +2295,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         tl
 
   in
-
+ (* trans_sys invars prop_status kind *)
   update_trans_sys' trans_sys SMap.empty [] events
 
 

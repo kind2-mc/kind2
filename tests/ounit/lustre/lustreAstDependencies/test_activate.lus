@@ -1,0 +1,15 @@
+
+node A(x: int) returns (z:int)
+let
+  z = 0 -> pre x + 1;
+tel
+
+node B(c: bool; x: int) returns (z:int);
+let
+  z = merge (c; (activate A every c)(x); 0 when not c);
+tel
+
+node M(c: bool; x: int) returns (z:int);
+let
+  z = B(c, z);
+tel

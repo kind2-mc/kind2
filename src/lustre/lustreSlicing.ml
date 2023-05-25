@@ -754,13 +754,20 @@ let add_roots_of_equation roots ((_,bnds), expr) =
 
 
 (* Return state variables from properties *)
-let roots_of_props = List.map (fun (sv, _, _) -> sv)
-
+let roots_of_props props =
+  List.map (fun (sv, _, _, _) -> sv) props
+  |> SVS.of_list
 
 (* Return state variables from contracts *)
-let roots_of_contract = function
-| None -> []
-| Some contract -> Contract.svars_of contract |> SVS.elements
+let roots_of_contract ?(with_sofar_var=true) = function
+| None -> SVS.empty
+| Some contract -> Contract.svars_of ~with_sofar_var contract
+
+let roots_of_contract_ass = function
+| None -> SVS.empty
+| Some ({ Contract.assumes } as contract) ->
+  let with_sofar_var = assumes <> [] in
+  Contract.svars_of ~with_sofar_var contract
 
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
@@ -1102,8 +1109,13 @@ let root_and_leaves_of_impl
       | None -> 
 
         (* Consider properties and contracts as roots *)
-        (roots_of_contract contract |> SVS.of_list)
-        |> SVS.union (roots_of_props props |> SVS.of_list)
+
+        (* Adding sofar variables in implementations may be not necessary, but
+           the code should be revised carefully before applying the change
+           (roots_of_contract ~with_sofar:false contract) 
+        *)
+        (roots_of_contract_ass contract)
+        |> SVS.union (roots_of_props props)
                                           
       (* Use instead of roots from properties and contracts *)
       | Some r -> r )
@@ -1143,11 +1155,9 @@ let [@ocaml.warning "-27"] root_and_leaves_of_contracts
     
   (* Slice starting with contracts *)
   let node_roots =
-    (* Always include at least roots of contract *)
-    roots_of_contract contract
-    (*match roots node false with
-      | None -> roots_of_contract contract
-      | Some r -> SVS.elements r*)
+    match roots node false with
+    | None -> roots_of_contract contract |> SVS.elements
+    | Some r -> SVS.elements r
   in
 
   (* Do not consider anything below outputs *)
@@ -1212,15 +1222,15 @@ let slice_to_abstraction'
 let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
   let vars =
     if is_impl then
-      (roots_of_contract contract |> SVS.of_list)
-      |> SVS.union (roots_of_props props |> SVS.of_list)
+      (roots_of_contract ~with_sofar_var:true contract)
+      |> SVS.union (roots_of_props props)
       |> SVS.union (D.values inputs |> SVS.of_list)
       |> SVS.union (D.values outputs |> SVS.of_list)
       |> SVS.union (
         List.concat (List.map D.values locals) |> SVS.of_list
       )
     else
-      (roots_of_contract contract |> SVS.of_list)
+      (roots_of_contract ~with_sofar_var:true contract)
   in
   Some vars
 
@@ -1242,7 +1252,13 @@ let slice_to_abstraction
 let slice_to_abstraction_and_property
   ?(preserve_sig = false) analysis vars subsystem
 =
-  let roots = (fun _ _ -> Some vars) in
+  let roots { N.contract } is_impl =
+    if is_impl then
+      Some vars
+    else
+      (* Always include at least roots of contract *)
+      Some (roots_of_contract_ass contract) 
+  in
   slice_to_abstraction'
     ~preserve_sig:preserve_sig analysis roots subsystem
 

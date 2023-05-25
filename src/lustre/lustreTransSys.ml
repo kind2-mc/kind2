@@ -197,6 +197,7 @@ let lift_prop_name node_name pos prop_name =
 
 (* Create a property from Lustre expression *)
 let property_of_expr
+  ?(prop_kind=P.Invariant)
   candidate
   prop_name
   prop_status
@@ -216,7 +217,7 @@ let property_of_expr
   in
 
   (* Return property *)
-  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -241,6 +242,43 @@ let ass_and_mode_requires_of_contract = function
   )
 | None -> None, []
 
+
+let non_vacuity_check scope name pos requires props =
+  match requires with
+  | { C.scope = s } :: _ ->
+    let name =
+      Format.asprintf "%a%s%a" (
+        pp_print_list (
+          fun fmt (pos, call) ->
+            Format.fprintf fmt "%s%a."
+              call Lib.pp_print_line_and_column pos
+        ) ""
+      ) s name Lib.pp_print_line_and_column pos 
+    in
+    let guard = conj_of requires in
+    property_of_expr
+      ~prop_kind:(P.Reachable None) 
+      false
+      name
+      P.PropUnknown
+      (P.NonVacuityCheck (pos, scope))
+      (E.mk_not guard)
+    :: props
+  | _ ->
+    props
+
+let mode_non_vacuity_checks scope { C.modes } =
+  if Flags.check_nonvacuity () then (
+    List.fold_left
+      (fun props { C.name ; C.pos; C.requires } ->
+        let name = Format.asprintf "%a" (I.pp_print_ident true) name in
+        non_vacuity_check scope name pos requires props
+      )
+      []
+      modes
+  )
+  else []
+
 (* The guarantees of a contract, including mode implications, as properties. *)
 let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
@@ -257,21 +295,28 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
     modes |> List.fold_left (
-      fun acc { C.name ; C.requires ; C.ensures ; C.candidate } ->
+      fun acc { C.name ; C.pos; C.requires ; C.ensures ; C.candidate } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
         let guard = conj_of requires in
         (* Generating one property per ensure. *)
-        ensures |> List.fold_left (
-          fun acc ({ C.pos ; C.svar } as sv) -> (
-            E.mk_var svar |> E.mk_impl guard
-            |> property_of_expr
-              candidate
-              (C.prop_name_of_svar sv name ".ensure")
-              prop_status
-              (P.GuaranteeModeImplication (pos, scope))
-          ) :: acc
-        ) acc
+        let ensure_props =
+          ensures |> List.fold_left (
+            fun acc ({ C.pos ; C.svar } as sv) -> (
+              E.mk_var svar |> E.mk_impl guard
+              |> property_of_expr
+                candidate
+                (C.prop_name_of_svar sv name ".ensure")
+                prop_status
+                (P.GuaranteeModeImplication (pos, scope))
+            ) :: acc
+          ) acc
+        in
+        if Flags.check_nonvacuity () then (
+          (* Generating one non-vacuity check per mode *)
+          non_vacuity_check scope name pos requires ensure_props
+        )
+        else ensure_props
     ) acc
   in
 
@@ -305,7 +350,8 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
       { P.prop_name ;
         P.prop_source ;
         P.prop_term ;
-        P.prop_status }
+        P.prop_status ;
+        prop_kind = Invariant ; }
   )
 
 (* Builds the abstraction of a node given its contract.
@@ -340,10 +386,11 @@ let one_mode_active scope { C.modes } =
   else (
     let first_mode = List.hd modes in
     let pos = first_mode.C.pos in
-    let path = first_mode.C.path |> List.rev |> List.tl |> List.rev in
+    let rev_path = first_mode.C.path |> List.rev |> List.tl in
     let name =
-      Format.asprintf "%a._one_mode_active"
-        (pp_print_list Format.pp_print_string ".") path
+      let l = ("_one_mode_active" :: rev_path) |> List.rev in
+      Format.asprintf "%a"
+        (pp_print_list Format.pp_print_string ".") l
     in
     (* Disjunction of mode requirements. *)
     let prop =
@@ -392,18 +439,35 @@ let add_constraints_of_type init terms state_var =
 
     let l, u = Type.bounds_of_int_range base_type in
 
-    let ct =
-      Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+    let ct = match l, u with 
+      | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+      | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
+      | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
+      | None, None -> Term.mk_bool true
     in
 
     let qct =
       List.fold_left
         (fun acc (ty, iv) ->
            match Type.node_of_type ty with
-           | Type.IntRange (i, j, Type.Range) -> (
+           | Type.IntRange (Some i, Some j) -> (
              let bounds =
                Term.mk_leq
                  [ Term.mk_num i; Term.mk_var iv; Term.mk_num Numeral.(j - one)]
+             in
+             Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
+           )
+           | Type.IntRange (None, Some j) -> (
+             let bounds =
+               Term.mk_leq
+                 [ Term.mk_var iv; Term.mk_num Numeral.(j - one)]
+             in
+             Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
+           )
+           | Type.IntRange (Some i, None) -> (
+             let bounds =
+               Term.mk_leq
+                 [ Term.mk_num i; Term.mk_var iv; ]
              in
              Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
            )
@@ -421,23 +485,34 @@ let add_constraints_of_type init terms state_var =
   else (
 
     (* Get bounds of integer range *)
-    let l, u = Type.bounds_of_int_range state_var_type in
+    let l, u = 
+      (if Type.is_array state_var_type 
+      then Type.bounds_of_int_range state_var_type
+      else Type.bounds_of_enum state_var_type |> (fun (a, b) -> Some a, Some b))
+    in
+    let 
+    var = Var.mk_state_var_instance state_var 
+                    (if init then TransSys.init_base else TransSys.trans_base) |> Term.mk_var
+    in
 
     (* Constrain values of variable between bounds *)
-    Term.mk_leq
-      [ Term.mk_num l; 
-        Var.mk_state_var_instance
-          state_var
-          (if init then 
-             TransSys.init_base 
-           else 
-             TransSys.trans_base)
-        |> Term.mk_var;
-        Term.mk_num u]
-
-    (* Add to terms *)
-    :: terms 
-
+    match l, u with 
+      | Some l, Some u ->
+        Term.mk_leq
+          [ Term.mk_num l; var; Term.mk_num u ]
+        (* Add to terms *)
+        :: terms 
+      | Some l, None ->
+        Term.mk_leq
+          [ Term.mk_num l; var; ]
+      (* Add to terms *)
+      :: terms 
+    | None, Some u -> 
+      Term.mk_leq
+        [ var; Term.mk_num u ]
+      (* Add to terms *)
+      :: terms 
+    | None, None -> Term.mk_bool true :: terms
   )
                   
 
@@ -642,7 +717,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   let node_props =
     if Flags.check_subproperties () && not (Flags.modular ()) then (
       properties |> List.fold_left (
-        fun a ({ P.prop_name = n; P.prop_term = t } as p) ->
+        fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
 
           (* Lift name of property *)
           let prop_name =
@@ -669,7 +744,8 @@ let call_terms_of_node_call mk_fresh_state_var globals
           { P.prop_name ;
             P.prop_source ;
             P.prop_term ;
-            P.prop_status } :: a
+            P.prop_status ;
+            P.prop_kind ; } :: a
       ) node_props
     )
     else node_props
@@ -1861,7 +1937,9 @@ let rec trans_sys_of_node'
                   (* Add property for completeness of modes if top node is
                     abstract. *)
                   if A.param_scope_is_abstract analysis_param scope then
-                    one_mode_active scope contract
+                    List.rev_append
+                      (mode_non_vacuity_checks scope contract)
+                      (one_mode_active scope contract)
                   else []
                 else
                   [], []
@@ -2125,7 +2203,7 @@ let rec trans_sys_of_node'
 
             (* Iterate over each property annotation *)
             List.map (
-              fun (state_var, prop_name, prop_source) -> 
+              fun (state_var, prop_name, prop_source, prop_kind) -> 
 
               (* Property is just the state variable *)
               let prop_term =
@@ -2137,7 +2215,8 @@ let rec trans_sys_of_node'
               { P.prop_name; 
                 P.prop_source; 
                 P.prop_term;
-                P.prop_status }
+                P.prop_status;
+                P.prop_kind; }
             ) props
               
             (* Add to existing properties *)

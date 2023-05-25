@@ -127,8 +127,14 @@ let mk_span start_pos end_pos =
 (* Token for assertions *)
 %token ASSERT
     
-(* Token for check *)
+(* Tokens for check *)
 %token CHECK
+%token REACHABLE
+%token PROVIDED
+%token INVARIANT
+%token FROM
+%token AT
+%token WITHIN
 
 (* Tokens for Boolean operations *)
 %token TRUE
@@ -143,6 +149,7 @@ let mk_span start_pos end_pos =
 %token WITH
 %token THEN
 %token ELSE
+%token ELSIF
 %token IMPL
 %token HASH
 %token FORALL
@@ -315,6 +322,9 @@ type_decl:
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
 
+expr_opt:
+  | e = expr { Some e }
+  | MULT { None }
 
 (* A type *)
 lustre_type:
@@ -333,9 +343,9 @@ lustre_type:
   | INT64 { A.Int64 (mk_pos $startpos)}
   | SUBRANGE;
     LSQBRACKET;
-    l = expr; 
+    l = expr_opt; 
     COMMA; 
-    u = expr; 
+    u = expr_opt; 
     RSQBRACKET 
     OF
     INT 
@@ -575,25 +585,63 @@ main_annot:
     A.AnnotMain (mk_pos $startpos, b)
   }
 
+
+property_timestep: 
+  | WITHIN ; timestep = NUMERAL
+    { A.Reachable (Some (Within (int_of_string (HString.string_of_hstring timestep)))) } 
+  | AT ; timestep = NUMERAL
+    { A.Reachable (Some (At (int_of_string (HString.string_of_hstring timestep)))) }
+  | FROM ; timestep = NUMERAL
+    { A.Reachable (Some (From (int_of_string (HString.string_of_hstring timestep)))) }
+  | FROM ; timestep = NUMERAL ; 
+    WITHIN ; timestep2 = NUMERAL 
+    { A.Reachable (Some (FromWithin (int_of_string (HString.string_of_hstring timestep), 
+                                     int_of_string (HString.string_of_hstring timestep2)))) }
+  | {A.Reachable None} 
+
+
 property:
-  | PROPERTY_ANNOT ; name = option(STRING) ; e = qexpr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PROPERTY_PSBLOCKSTART ; name = option(STRING);
+  (* Invariant properties *)
+  | PROPERTY_ANNOT ; option(INVARIANT) ; name = option(STRING) ; e = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | PROPERTY_ANNOT ; option(INVARIANT) ; name = option(STRING) ; e1 = qexpr ; PROVIDED ; e2 = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e1, Provided e2) }
+  | PROPERTY_PSBLOCKSTART ; option(INVARIANT) ; name = option(STRING);
     e = qexpr; SEMICOLON ; PSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PROPERTY_PSBLOCKSTART ; name = option(STRING);
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | PROPERTY_PSBLOCKSTART ; option(INVARIANT) ; name = option(STRING);
     COLON; e = qexpr; SEMICOLON ; PSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PROPERTY_SSBLOCKSTART ; name = option(STRING);
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | PROPERTY_SSBLOCKSTART ; option(INVARIANT) ; name = option(STRING);
     e = qexpr ; SEMICOLON; SSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PROPERTY_SSBLOCKSTART ; name = option(STRING);
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | PROPERTY_SSBLOCKSTART ; option(INVARIANT) ; name = option(STRING);
     COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+
+  (* Reachability queries *)
+  | PROPERTY_ANNOT ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
+  | PROPERTY_PSBLOCKSTART ; REACHABLE ; name = option(STRING);
+    e = qexpr;  bound = property_timestep; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
+  | PROPERTY_PSBLOCKSTART ; REACHABLE ; name = option(STRING);
+    COLON; e = qexpr; bound = property_timestep; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
+  | PROPERTY_SSBLOCKSTART ; REACHABLE ; name = option(STRING);
+    e = qexpr ; bound = property_timestep; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
+  | PROPERTY_SSBLOCKSTART ; REACHABLE ; name = option(STRING);
+    COLON; e = qexpr ;  bound = property_timestep; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
 
 check:
-  | CHECK ; name = option(STRING) ; e = qexpr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | CHECK ; option(INVARIANT) ; name = option(STRING) ; e = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | CHECK ; option(INVARIANT) ; name = option(STRING) ; e1 = qexpr ; PROVIDED ; e2 = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e1, Provided e2) }
+  | CHECK ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
 
 node_item:
   | i = node_if_block { i }
@@ -604,24 +652,43 @@ node_item:
   | p = check { p }
 
 
+elsif_list:
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+  { [A.IfBlock(mk_pos $startpos, e, l1, [])] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+    ELSE;
+      l2 = nonempty_list(node_item);
+  { [A.IfBlock(mk_pos $startpos, e, l1, l2)] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item); 
+    l2 = elsif_list;
+    { [A.IfBlock(mk_pos $startpos, e, l1, l2)] }
 
 node_if_block:
-  | IF; e = expr; 
-    THEN; 
+  | IF; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+  | IF; e = expr; THEN; 
       l1 = nonempty_list(node_item);
     ELSE; 
       l2 = nonempty_list(node_item);
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, l2) }
-  | IF; e = expr; THEN; 
-      l1 = nonempty_list(node_item);
+  | IF; e = expr; THEN;
+    l = nonempty_list(node_item);
+    block = elsif_list
     FI;
-    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+    { A.IfBlock(mk_pos $startpos, e, l, block) }
+
+
 
 
 
 node_frame_block:
-  | FRAME; LPAREN; l1 = separated_list(COMMA, ident); RPAREN;
+  | FRAME; LPAREN; l1 = ident_list_pos; RPAREN;
     l2 = list(node_equation);
     LET;
     l3 = list(node_item);

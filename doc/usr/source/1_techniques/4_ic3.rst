@@ -3,28 +3,55 @@
 IC3
 ---
 
-`IC3/PDR <http://link.springer.com/chapter/10.1007%2F978-3-642-18275-4_7>`_ is a recent technique by Aaron Bradley. IC3 alone can falsify and prove properties. To enable nothing but IC3, run
+Kind 2 supports two SMT-based extensions of the SAT-based verification technique `IC3 <http://link.springer.com/chapter/10.1007%2F978-3-642-18275-4_7>`_.
+The challenge when lifting IC3 to infinite state systems is the computation of pre-images of the system's transition relation.
+The first extension, IC3QE, uses quantifier elimination to compute the pre-image.
+If the input problem is in linear integer arithmetic, Kind 2 uses a built-in method that performs
+a fast approximate quantifier elimination. Otherwise,
+the quantifier elimination is delegated to an SMT solver, which is at this time possible with Z3 and cvc5.
+
+The second extension, IC3IA, implements a version of IC3 that relies on implicit (predicate) abstraction by 
+`Cimatti et al <https://link.springer.com/chapter/10.1007/978-3-642-54862-8_4>`_.
+The main idea of the method is to work on an abstraction of the state space induced by a set of predicates
+so that the computation of pre-images of the system's transition relation does not require the use
+of quantifier elimination. As with most abstraction methods, this introduces the problem of having
+to handle spurious abstract counterexamples for the property to be proven, that is, traces that
+falsify the property in the abstracted system but are not actual executions of the original system.
+The method addresses this problem by using an abstraction refinement technique based on logical
+interpolants. 
+Kind 2 currently supports two proof-based interpolating SMT solvers for the generation of interpolants:
+MathSAT and SMTInterpol. In addition, Kind 2 also implements a built-in method for producing
+interpolants based on quantifier elimination that can be used with Z3 and cvc5.
+When the IC3IA engine is enabled, each property is handled separately by a
+different process; two when the built-in method for producing interpolants is used,
+one generating backward interpolants and another one generating forward interpolants.
+
+To enable nothing but the IC3 engines (IC3QE and IC3IA), run
 
 .. code-block:: none
 
    kind2 --enable IC3 <file>
 
-The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3 or cvc5.
+If you only want to enable of the engines, e.g. IC3QE, run
 
-Options
-^^^^^^^
+.. code-block:: none
 
-``--qe_method {precise|impl|cooper}`` (default ``cooper``\ ) -- select the quantifier elimination strategy: ``cooper`` (default) for the built-in approximate method, ``precise`` or ``impl`` to delegate to the SMT solver.
+   kind2 --enable IC3QE <file>
+
+
+IC3-IA Options
+^^^^^^^^^^^^^^
+
+``--smt_itp_solver {MathSAT | SMTInterpol | Z3qe | cvc5qe}`` -- set the SMT solver used for interpolation.
+
+IC3-QE Options
+^^^^^^^^^^^^^^
+
+``--qe_method {precise|impl|cooper}`` (default ``cooper``) -- select the quantifier elimination strategy: ``cooper`` for the built-in approximate method, ``precise`` or ``impl`` to delegate to the SMT solver.
 The ``precise`` strategy computes the exact pre-image, which is an expensive operation.
-The ``impl`` strategy under-approximates the result by computing an conjunctive implicant first.
+The ``impl`` strategy under-approximates the result by computing a conjunctive implicant first.
 If the problem is not in linear integer arithmetic, ``cooper`` falls back to ``impl``.
 
-``--ic3_check_inductive <bool>`` (default ``true``\ ) -- Check if a blocking clause is inductive and communicate it as an invariant to concurrent verification engines. 
+``--smt_qe_solver {Z3 | cvc5}`` (default ``detect``) -- set the SMT solver used for quantifier elimination
 
-``--ic3_block_in_future  <bool>`` (default ``true``\ ) -- Block each clause not only in the frame it was discovered, but also in all higher frames.
-
-``--ic3_fwd_prop_non_gen <bool>`` (default ``true``\ ) -- Attempt forward propagation of clauses before inductive generalization.
-
-``--ic3_fwd_prop_ind_gen <bool>`` (default ``true``\ ) -- Inductively generalize clauses after forward propagation.
-
-``--ic3_fwd_prop_subsume <bool>`` (default ``true``\ ) -- Check syntactic subsumption of forward propagated clauses
+To see other advanced options run ``--help_of ic3qe``.

@@ -506,6 +506,12 @@ val get_prop_term : t -> string -> Term.t
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
 
+(** Return current kind of the property
+
+[get_prop_kind t n] returns the kind saved in the transition
+system of the first property of name [n]. *)
+val get_prop_kind : t -> string -> Property.prop_kind 
+
 
 (** Returns true if the input term is a known invariant of the system. *)
 val is_inv : t -> Term.t -> bool
@@ -519,9 +525,24 @@ val is_disproved : t -> string -> bool
 
 (** Return current status of all properties excepted candidates
 
-    [get_prop_status t] returns the status saved in the transition
+    [get_prop_status_all_nocands t] returns the status saved in the transition
     system of each property along with the name of the property. *)
 val get_prop_status_all_nocands : t -> (string * Property.prop_status) list
+
+(** Return the kind of all properties excepted candidates
+
+    [get_prop_kind_all_nocands t] returns the kind saved in the transition
+    system of each property along with the name of the property. *)
+val get_prop_kind_all_nocands : t -> (string * Property.prop_kind) list
+
+(** Return the internally generated counter for reachability queries (if it exists) *)
+val get_ctr : t -> StateVar.t option
+
+(** Return current status and kind of all properties excepted candidates
+
+    [get_prop_status_and_kind_all_nocands t] returns the status saved in the transition
+    system of each property along with the name of the property. *)
+val get_prop_status_and_kind_all_nocands : t -> (string * Property.prop_status * Property.prop_kind) list
 
 (** Return current status of all unknown properties
 
@@ -536,6 +557,16 @@ val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
 
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all properties to the bound, but only properties where
+    the BMC engine CANNOT skip steps. This only includes invariant properties
+    and reachability queries without lower bounds. *)
+val props_list_of_bound_no_skip : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all properties to the bound, but only properties where
+    the BMC engine CAN skip steps. This only includes reachability queries
+    with lower bounds. *)
+val props_list_of_bound_skip : t -> Numeral.t -> (string * Term.t) list 
 
 
 (** Update current status of the property

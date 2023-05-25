@@ -344,7 +344,10 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let rec mk_bounds ty acc =
         if Type.is_array ty then
           let index_type = Type.index_type_of_array ty in
-          let (_, u) = Type.bounds_of_int_range index_type in
+          let u = match Type.bounds_of_int_range index_type with 
+            | _, Some u -> u 
+            | _, None -> assert false 
+          in
           let uexpr = E.mk_int_expr u in
           let acc = E.Bound uexpr :: acc in
           mk_bounds (Type.elem_type_of_array ty) acc
@@ -510,6 +513,18 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (i, e)) (X.bindings lhs))
     (List.map (fun (i, e) -> (i, e)) (X.bindings rhs))
 
+let compile_contract_item map count scope kind pos name expr =
+    let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
+    let ident = extract_normalized expr in
+    let state_var = H.find !map.state_var ident in
+    let name = match name with
+      | Some name -> Some (HString.string_of_hstring name)
+      | None -> None
+    in
+    let contract_sv = C.mk_svar pos count name state_var scope in
+    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    contract_sv
+
 let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
@@ -544,13 +559,16 @@ and compile_ast_type
       This should be done in the type checker *)
     (* We assume that lbound and ubound are constant integers
       and that lbound < ubound *)
-    let (lvalue, uvalue) = match (lbound, ubound) with
-      | A.Const (_, Num x), A.Const (_, Num y) ->
-        let x = HString.string_of_hstring x in
-        let y = HString.string_of_hstring y in
-        Numeral.of_string x, Numeral.of_string y
+    let lvalue = match lbound with 
+      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
+      | None -> None 
       | _ -> assert false
-    in 
+    in
+    let uvalue = match ubound with 
+      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
+      | None -> None 
+      | _ -> assert false
+    in
     X.singleton X.empty_index (Type.mk_int_range lvalue uvalue)
   | A.EnumType (_, enum_name, enum_elements) ->
       let enum_name = HString.string_of_hstring enum_name in
@@ -612,7 +630,7 @@ and compile_ast_type
           (fun j t a -> 
             X.add (j @ [X.ArrayIntIndex ix])
             (Type.mk_array t
-              (Type.mk_int_range Numeral.zero upper))
+              (Type.mk_int_range (Some Numeral.zero) (Some upper)))
             a)
           element_type
           !result
@@ -622,7 +640,7 @@ and compile_ast_type
       let over_element_type j t a = X.add
         (j @ [X.ArrayVarIndex array_size])
         (Type.mk_array t (if E.is_numeral array_size
-          then Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+          then Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr array_size))
           else Type.t_int))
         a
       in
@@ -1218,20 +1236,10 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
 
 and compile_contract_variables cstate gids ctx map contract_scope node_scope contract =
   (* let contract_scope = List.map HString.string_of_hstring contract_scope in *)
-  let compile_contract_item count scope kind pos name expr =
-    let ident = extract_normalized expr in
-    let state_var = H.find !map.state_var ident in
-    let name = match name with
-      | Some name -> Some (HString.string_of_hstring name)
-      | None -> None
-    in
-    let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def ~is_dep:true state_var (N.ContractItem (pos, contract_sv, kind));
-    contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
   (* ****************************************************************** *)
-  in let gconsts, gvars, modes, contract_calls =
+  let gconsts, gvars, modes, contract_calls =
     let over_items (consts, vars, modes, calls) = function
       | A.GhostConst c -> c :: consts, vars, modes, calls
       | A.GhostVars v -> consts, v :: vars, modes, calls 
@@ -1295,17 +1303,17 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let modes =
     let over_modes (pos, id, reqs, enss) =
       let id' = HString.string_of_hstring id in
-      let contract_scope = List.map
-        (fun (p, s) -> (p, HString.string_of_hstring s))
-        contract_scope
-      in
       let reqs = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Require p n e)
+        (fun i (p, n, e) -> 
+          compile_contract_item map (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Ensure p n e)
+        (fun i (p, n, e) -> 
+          compile_contract_item map (i + 1) contract_scope N.Ensure p n e)
         enss in
-      let contract_scope = List.map (fun (_, i) -> i) contract_scope in
+      let contract_scope =
+        List.map (fun (_, i) -> HString.string_of_hstring i) contract_scope
+      in
       let path = contract_scope @ [id'] in
       let mode = C.mk_mode (mk_ident id) pos path reqs enss false in
       map := { !map with modes = mode :: !map.modes };
@@ -1326,21 +1334,10 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
 
 and compile_contract cstate gids ctx map contract_scope node_scope contract =
-  let compile_contract_item count scope kind pos name expr =
-    let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
-    let ident = extract_normalized expr in
-    let state_var = H.find !map.state_var ident in
-    let name = match name with
-      | Some name -> Some (HString.string_of_hstring name)
-      | None -> None
-    in
-    let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
-    contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
   (* ****************************************************************** *)
-  in let assumes, guarantees, contract_calls =
+  let assumes, guarantees, contract_calls =
     let over_items (assumes, guarantees, calls) = function
       | A.GhostConst _ -> assumes, guarantees, calls
       | A.GhostVars _ -> assumes, guarantees, calls
@@ -1372,7 +1369,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.assume_count in
       map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
+      compile_contract_item map (i + 1) contract_scope kind pos name expr
     in List.map over_assumes assumes
   in
   let guarantees = 
@@ -1380,7 +1377,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.guarantee_count in
       map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
+      compile_contract_item map (i + 1) contract_scope kind pos name expr
     in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
@@ -1777,7 +1774,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
-      | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
+      | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main) 
       | A.IfBlock _ 
       | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
@@ -1789,18 +1786,33 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Properties and Assertions                                          *)
   (* ****************************************************************** *)
   in let props =
-    let op (pos, name_opt, expr) =
+    let op (pos, name_opt, expr, kind) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
         | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let name =
+      let name, src =
         match name_opt with
-        | Some n -> HString.string_of_hstring n
         | None -> assert false (* Prop named in LustreAstNormalizer *)
-      in sv, name, (Property.PropAnnot pos)
+        | Some n ->
+          HString.string_of_hstring n,
+          if GI.StringSet.mem n gids.GI.nonvacuity_props then
+            Property.NonVacuityCheck (pos, node_scope)
+          else
+            Property.PropAnnot pos
+      in
+      let kind = match kind with
+        | A.Invariant -> Property.Invariant
+        | A.Reachable Some (FromWithin (ts1, ts2)) -> Property.Reachable (Some (FromWithin (ts1, ts2)))
+        | A.Reachable Some (At ts) -> Property.Reachable (Some (At ts))
+        | A.Reachable Some (From ts) -> Property.Reachable (Some (From ts))
+        | A.Reachable Some (Within ts) -> Property.Reachable (Some (Within ts))
+        | A.Reachable None -> Property.Reachable None
+        | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
+      in
+      sv, name, src, kind
     in List.map op node_props
 
   in let asserts =
@@ -2022,13 +2034,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None ->
           let name = create_constraint_name rexpr in
           let src = Property.Generated (Some pos, [sv]) in
-          a, ac, g, gc, (sv, name, src) :: p
+          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
         | _ -> assert false
       else
         let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv]) in
         let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src) :: p
+        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints

@@ -333,6 +333,11 @@ val mk_store : t -> t -> t -> t
     its name *)
 val mk_named : t -> int * t
 
+(** [set_inter_group t g] associates term [t] with
+    interpolation group [g] and return the corresponing
+    interpolation group term *)
+val set_inter_group : t -> string -> t
+
 (** Name term with the given integer in a given namespace
 
     This is a basic function, the caller has to generate the name, and
@@ -476,6 +481,8 @@ val has_quantifier : t -> bool
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
+val get_atoms : t -> TermSet.t
+
 (** Return true if the term is a simple Boolean atom, that is, has
     type Boolean and does not contain subterms of type Boolean *)
 val is_atom : t -> bool
@@ -524,6 +531,16 @@ val term_of_named : t -> t
 
 (** Return the name of a named term *)
 val name_of_named : t -> int
+
+(** Return true if the term is an interpolation group term *)
+val is_interp_group : t -> bool
+
+(** Return the term of an interpolation group term *)
+val term_of_interp_group : t -> t
+
+(** Return the name of an interpolation group term *)
+val name_of_interp_group : t -> string
+
 
 (** Return true if the term is an integer constant *)
 val is_numeral : t -> bool

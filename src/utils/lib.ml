@@ -20,6 +20,8 @@ open Format
 
 exception Unsupported of string
 
+let unbounded_limit_string = "*"
+
 (** function thunk for unimplimented features*)
 let todo = fun s -> raise (Unsupported s)
                   
@@ -88,17 +90,15 @@ let list_init f n =
     init_aux 0
 
 (* Returns the maximum element of a non-empty list *)
-let list_max l =
-  assert (List.length l > 0);
-  let rec list_max_aux l acc =
-    match l with
-    | [] ->
-       acc
-    | hd :: tl ->
-       list_max_aux tl (max hd acc)
-  in
-  list_max_aux l (List.hd l)
-             
+let list_max = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left max x xs
+
+(* Returns the minimum element of a non-empty list *)
+let list_min = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left min x xs
+
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
@@ -198,15 +198,26 @@ let rec fold_until f acc n = function
   | h :: t as l -> if n = 0 then (acc, l)
                    else fold_until f (f acc h) (n - 1) t
 
-let list_slice list i k =
-  let _, list = (* drop n elements *)
-    fold_until (fun _ _ -> []) [] i list
+let list_split k l =
+  let l1, l2 =
+    fold_until (fun acc h -> h :: acc) [] k l
+  in
+  List.rev l1, l2
+
+let list_slice l i k =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
   in
   let taken, _ = (* take (k - i + 1) elements *)
-    fold_until (fun acc h -> h :: acc) [] (k - i + 1) list
+    fold_until (fun acc h -> h :: acc) [] (k - i + 1) l
   in
   List.rev taken
 
+let list_suffix l i =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
+  in
+  l
 
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
@@ -816,8 +827,11 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `IC3 
+  [ `IC3
+  | `IC3QE
+  | `IC3IA
   | `BMC
+  | `BMCSKIP
   | `IND
   | `IND2
   | `INVGEN
@@ -855,8 +869,11 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `IC3 -> fprintf ppf "property directed reachability"
+  | `IC3 -> fprintf ppf "property directed reachability (QE and IA)"
+  | `IC3QE -> fprintf ppf "property directed reachability (QE)"
+  | `IC3IA -> fprintf ppf "property directed reachability (IA)"
   | `BMC -> fprintf ppf "bounded model checking"
+  | `BMCSKIP -> fprintf ppf "bounded model checking (skip)"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
   | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
@@ -898,7 +915,10 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 (* Return a short representation of kind module *)
 let short_name_of_kind_module = function
  | `IC3 -> "ic3"
+ | `IC3QE -> "ic3qe"
+ | `IC3IA -> "ic3ia"
  | `BMC -> "bmc"
+ | `BMCSKIP -> "bmcskip"
  | `IND -> "ind"
  | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
@@ -937,7 +957,10 @@ let short_name_of_kind_module = function
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "IC3" -> `IC3
+  | "IC3QE" -> `IC3QE
+  | "IC3IA" -> `IC3IA
   | "BMC" -> `BMC
+  | "BMCSKIP" -> `BMCSKIP
   | "IND" -> `IND
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
@@ -976,6 +999,7 @@ let int_of_kind_module = function
   | `Interpreter -> -2
   | `Supervisor -> -1
   | `BMC -> 1
+  | `BMCSKIP -> 30
   | `IND -> 2
   | `IND2 -> 3
   | `IC3 -> 4
@@ -1004,6 +1028,8 @@ let int_of_kind_module = function
   | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
+  | `IC3IA -> 31
+  | `IC3QE -> 32
 
 
 (* Timeouts *)
@@ -1209,6 +1235,10 @@ let dummy_pos_in_file fname =
   { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
 *)
 
+let stdin_id = ref "(stdin)"
+
+let set_stdin_id id = stdin_id := id
+
 (* Pretty-print a position *)
 let pp_print_position ppf (
   { pos_fname; pos_lnum; pos_cnum } as pos
@@ -1225,7 +1255,7 @@ let pp_print_position ppf (
   else
 
     let fname =
-      if pos_fname = "" then "(stdin)" else pos_fname
+      if pos_fname = "" then !stdin_id else pos_fname
     in
 
     fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum
@@ -1411,6 +1441,10 @@ let set_liberal_gc () =
   in
   Gc.set gc_c
 
+let pp_print_bound_opt ppf bound = match bound with 
+  | None -> Format.fprintf ppf "%s" unbounded_limit_string
+  | Some bound -> Numeral.pp_print_numeral ppf bound 
+
 
 (* ********************************************************************** *)
 (* Paths techniques write to                                              *)
@@ -1481,10 +1515,14 @@ end
 
 (** Exit codes. *)
 module ExitCodes = struct
-  let unknown = 0
-  let unsafe = 10
-  let safe = 20
-  let error = 2
+  let success = 0
+  let error = 1
+  let usage_error = 2
+  let parse_error = 3
+  let not_found_error = 4
+  let unsupported_solver = 5
+  let incomplete_analysis = 30
+  let unsafe_result = 40
   let kid_status = 128
 end
 

@@ -586,7 +586,10 @@ module RunInvPrint: PostAnalysis = struct
         let k_min, invs_min =
           CertifChecker.minimize_invariants sys None None
         in
-        KEvent.log_uncond
+        match invs_min with
+        | [] -> Ok()
+        | _ -> (
+          KEvent.log_uncond
           "Minimization result: \
             @[<v>\
               all properties valid by %d-induction@ \
@@ -594,15 +597,16 @@ module RunInvPrint: PostAnalysis = struct
             @]\
           "
           k_min (List.length invs_min) ;
-        List.iter
-          (fun inv ->
-            let fmt_inv =
-              LustreExpr.pp_print_term_as_expr_mvar false var_map
-            in
-            KEvent.log_uncond "%a" fmt_inv inv
-          )
-        invs_min ;
-        Ok ()
+          List.iter
+            (fun inv ->
+              let fmt_inv =
+                LustreExpr.pp_print_term_as_expr_mvar false var_map
+              in
+              KEvent.log_uncond "%a" fmt_inv inv
+            )
+          invs_min ;
+          Ok ()
+        )
       ) with
       | CertifChecker.CouldNotProve err -> error(
         fun fmt ->

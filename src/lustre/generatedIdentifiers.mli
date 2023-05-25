@@ -20,14 +20,8 @@
   @author Andrew Marmaduke 
   *)   
 
-module StringMap : sig
-  include (Map.S with type key = HString.t)
-  val keys: 'a t -> key list
-end
-
-module StringSet : sig
-  include (Set.S with type elt = HString.t)
-end
+module StringMap = HString.HStringMap
+module StringSet = HString.HStringSet
 
 type source = Local | Input | Output | Ghost
 
@@ -73,11 +67,16 @@ type t = {
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
+  nonvacuity_props: StringSet.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
    that is used for if block oracle variable names. *)
 val iboracle : string
+
+(* String constant used for counter variables generated for instrumentation
+of reachability queries with timestep bounds. *)
+val ctr_id : HString.t
 
 (** Checks if a variable name corresponds to an iboracle *)
 val var_is_iboracle: HString.t -> bool

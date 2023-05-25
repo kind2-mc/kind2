@@ -1,0 +1,7 @@
+
+node M(c: bool) returns (z:bool);
+let
+  z = merge z
+   (true -> true when z)
+   (false -> false when not z);
+tel

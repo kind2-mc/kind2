@@ -295,6 +295,9 @@
                 },
                 "counterExample": {
                     "$ref": "#/definitions/trace"
+                },
+                "witness": {
+                    "$ref": "#/definitions/trace"
                 }
             },
             "required": [
@@ -412,7 +415,7 @@
                     "type": "string"
                 },
                 "value": {
-                    "enum": ["valid", "falsifiable", "unknown"]
+                    "enum": ["valid", "reachable", "falsifiable", "unreachable", "unknown"]
                 }
             },
             "required": ["value"]
@@ -473,8 +476,7 @@
             "properties": {
                 "min": { "type": "integer" },
                 "max": { "type": "integer" }
-            },
-            "required": ["min", "max"]
+            }
         },
         "enumTypeInfo": {
             "type": "object",
@@ -638,6 +640,7 @@
                         "Assumption",
                         "Guarantee",
                         "Generated",
+                        "NonVacuityCheck",
                         "OneModeActive",
                         "Ensure",
                         "PropAnnot"
@@ -654,10 +657,25 @@
                     "type": "integer",
                     "minimum": 0
                 },
+                "unreachableFor": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "falseAt": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "reachableAt": {
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "answer": {
                     "$ref": "#/definitions/answer"
                 },
                 "counterExample": {
+                    "$ref": "#/definitions/trace"
+                },
+                "witness": {
                     "$ref": "#/definitions/trace"
                 }
             },

@@ -64,7 +64,11 @@ let default_of_type t =
       end
 
     (* Integer range values are their lower bound by default *)
-    | Type.IntRange (l, _, _) -> Term.mk_num l
+    | Type.IntRange (Some l, _) -> Term.mk_num l
+    | Type.IntRange (_, Some r) -> Term.mk_num r
+    | Type.IntRange _ -> Term.mk_num Numeral.zero
+
+    | Type.Enum (l, _) -> Term.mk_num l
 
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
@@ -119,7 +123,7 @@ let rec logic_of_sort ty =
   match Type.node_of_type ty with
   | Bool | Abstr _ -> empty
     
-  | Int | IntRange _ -> singleton IA
+  | Int | IntRange _ | Enum _ -> singleton IA
   
   | UBV _ | BV _ -> singleton BV
                           
@@ -234,11 +238,11 @@ let logic_of_term fun_symbols t =
 module L = FeatureSet
 
 
-let pp_print_features fmt l =
+let pp_print_features ?(enforce_logic=false) fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_"
   else if L.cardinal l = 1 then fprintf fmt "UF";
   if L.is_empty l then fprintf fmt "UF";
-  if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
+  if L.mem A l && (enforce_logic || Flags.Arrays.smt ()) then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
@@ -253,15 +257,17 @@ let pp_print_features fmt l =
 
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
-let pp_print_logic fmt = function
+let pp_print_logic ?(enforce_logic=false) fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
-      if L.mem BV l && (L.mem IA l || L.mem RA l) then pp_print_string fmt "ALL"
-      else pp_print_features fmt l
+      if L.mem BV l && (L.mem IA l || L.mem RA l) then
+        pp_print_string fmt "ALL"
+      else pp_print_features ~enforce_logic fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
-let string_of_logic l = asprintf "%a" pp_print_logic l
+let string_of_logic ?(enforce_logic=false) l =
+  asprintf "%a" (pp_print_logic ~enforce_logic) l
 
 
 let logic_allow_arrays = function

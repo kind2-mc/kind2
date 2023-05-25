@@ -257,6 +257,12 @@ let keyword_table = mk_hashtbl [
 
   (* Check *)
   "check", CHECK ;
+  "reachable", REACHABLE ;
+  "invariant", INVARIANT ;
+  "provided", PROVIDED ;
+  "from", FROM ;
+  "at", AT ;
+  "within", WITHIN ;
 
   (* Contract related things. *)
   "contract", CONTRACT ;
@@ -276,6 +282,7 @@ let keyword_table = mk_hashtbl [
   "frame", FRAME ; 
   "then", THEN ;
   "else", ELSE ;
+  "elsif", ELSIF ;
   "with", WITH ;
   "div", INTDIV ;
   "mod", MOD ;

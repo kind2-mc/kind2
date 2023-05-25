@@ -453,13 +453,6 @@ let mk_assign_uncontr model contr_vars =
     model
     (fun (v,_) -> VS.mem v var_set |> not)
 
-let mk_assign_offset model offset =
-  filter_and_mk_assign
-    model
-    (fun (v,_) ->
-      Var.is_const_state_var v ||
-      Numeral.(equal (Var.offset_of_state_var_instance v) offset))
-
 let check_sat_and_get_minimal_unsat_core_lits solver act_terms =
   let rec minimize tested rest =
     match tested, rest with
@@ -551,7 +544,7 @@ let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core 
 
   let model = get_var_values_at_offset solver sys offset in
 
-  model, build_countertrace cex model
+  build_countertrace cex model
 
 (*
 let compute_independent_conflict_and_deadlocking_trace
@@ -589,11 +582,11 @@ let compute_dependent_conflict_and_deadlocking_trace
       compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
     in
 
-    let assign_term = mk_assign_offset model offset in
+    let uncontr_assign = mk_assign_uncontr model contr_vars in
 
     SMTSolver.pop solver ;
 
-    SMTSolver.assert_term solver assign_term ;
+    SMTSolver.assert_term solver uncontr_assign ;
 
     let unsat_core_lits =
       check_sat_and_get_minimal_unsat_core_lits solver act_terms
@@ -622,16 +615,8 @@ let compute_dependent_conflict_and_deadlocking_trace
       check_sat_and_get_minimal_unsat_core_lits solver act_terms
     in
 
-    let model', cex' =
+    let cex' =
       compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
-    in
-
-    let assign = mk_assign_offset model' offset in
-
-    SMTSolver.assert_term solver assign ;
-
-    let unsat_core_lits =
-      check_sat_and_get_minimal_unsat_core_lits solver act_terms
     in
 
     let conflict_set =
@@ -675,7 +660,8 @@ let compute_deadlocking_trace_and_conflict
           prop_name ;
           prop_source = Property.Generated (None, []) ;
           prop_term = vr_wo ;
-          prop_status = PropUnknown
+          prop_status = PropUnknown ;
+          prop_kind = Invariant ;
         }
       in
 

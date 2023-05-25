@@ -791,7 +791,7 @@ let prop_name_in_context ctx ident =
   match ctx with
   | { node = None } -> false
   | { node = Some ({ N.props }) } ->
-    List.exists (fun (_, name, _) -> name = ident) props
+    List.exists (fun (_, name, _, _) -> name = ident) props
 
 let original_int_type { original_int_type } svar =
   SVM.find_opt svar original_int_type
@@ -1119,7 +1119,7 @@ let mk_abs_for_expr
             else
               Type.mk_array ty
                 (if E.is_numeral b then
-                   Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
+                   Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr b))
                  else Type.t_int),
               expr,
               bp :: bounds_acc,
@@ -1695,7 +1695,7 @@ let add_node_sofar_assumption ctx =
 
     | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
 
-    | { node = Some ({ N.equations ; N.contract } as n) } ->
+    | { node = Some ({ N.locals ; N.equations; N.contract } as n) } ->
 
       match contract with
 
@@ -1723,8 +1723,13 @@ let add_node_sofar_assumption ctx =
 
          let equations' = ((sofar_svar, []), expr) :: equations in
 
-         (* Return node with equation added *)
-         { ctx with node = Some { n with N.equations = equations' } }
+         (* Return node with equation and local variable added *)
+         { ctx with
+             node = Some { n with
+               N.equations = equations' ;
+               N.locals = D.singleton D.empty_index sofar_svar :: locals
+             }
+         }
 
        )
 
@@ -1781,7 +1786,7 @@ let add_node_property ctx source name expr =
 
               (* A property with the same state variables exists? *)
               List.exists 
-                (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+                (fun (sv, _, _, _) -> StateVar.equal_state_vars state_var sv)
                 props
                 
             then
@@ -1795,18 +1800,17 @@ let add_node_property ctx source name expr =
               ((state_var', []), E.mk_var state_var) :: equations, 
 
               (* Use alias as property *)
-              (state_var', name, source), 
+              (state_var', name, source, Property.Invariant), 
 
               (* Context with new declaration *)
               ctx
-
+              
             else
 
               (* Change nothing *)
-              equations, (state_var, name, source), ctx
+              equations, (state_var, name, source, Property.Invariant), ctx
 
           in
-          
           (* Return node with property and possibly alias equation
              added *)
           { ctx with 

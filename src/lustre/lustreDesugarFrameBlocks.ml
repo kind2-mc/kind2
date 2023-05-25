@@ -293,7 +293,7 @@ match ni with
   | A.IfBlock (pos, _, _, _) 
   | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 
-  | A.AnnotProperty (pos, _, _)
+  | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
   
@@ -312,6 +312,7 @@ match ni with
 let desugar_node_item node_id ni = match ni with
     (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
+    let vars = List.map snd vars in
     let* nis = R.seq (List.map (fill_ite_oracles pos node_id nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes pos node_id nis) nes) in
     let nis2 = List.flatten nis2 in 
@@ -342,6 +343,7 @@ let desugar_node_item node_id ni = match ni with
     node equation has if statements with undefined branches, it fills the branches in by setting
     the variable equal to its value in the previous timestep. *)
 let desugar_frame_blocks sorted_node_contract_decls = 
+  HString.HStringHashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co))) -> 
       let* res = R.seq (List.map (desugar_node_item node_id) nis2) in

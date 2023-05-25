@@ -1,3 +1,35 @@
+# Kind 2 v1.9.0
+
+New features:
+
+- Add support for `elsif` clauses in If-Then-Else constraints.
+- Add dedicated syntax for reachability properties of the form:
+  - `check reachable P [from <int>] [within <int>]`
+  - `check reachable P at <int>`
+  The modifiers `from`, `within` and `at` allow users to specify a lower and upper bound on the number of execution steps in the witness trace.
+- Add dedicated syntax for conditional properties of the form:
+  - `check A provided B`
+- Add non-vacuity checks for conditional properties and contract mode implications.
+- Add command-line options `--check_reach` and `--check_nonvacuity` that allow users to enable/disable reachability and non-vacuity checks.
+- Add command-line options `--print_cex` and `--print_witness` that allow users to enable/disable printing of counterexamples and reachability witnesses.
+- Add command-line options `--dump_witness` and `--dump_deadlock` that allow users to dump witnesses and deadlocks to files. Note: Kind 2 already supported the command-line option `--dump_cex`.
+
+Improvements:
+
+- Fix underreporting issue in the computation of conflicting constraints (bug introduced in v1.6.0).
+- Fix reporting of contract mode elements in IVCs and conflicting constraints (bug introduced in v1.8.0).
+- Fix setting of SMT-LIB logic for the non-linear combination of integers and reals.
+- Fix computation of dependencies for clock operators in new the Lustre front-end.
+- Other fixes and improvements in the new front-end.
+
+Changes:
+
+- New backward-incompatible convention for exit codes.
+  - Now Kind 2 follows the POSIX convention of returning `0` for successful checks.
+  - See [documentation](https://kind.cs.uiowa.edu/kind2_user_doc/3_output/3_exit_codes.html) for more details.
+- Add `--fake_filepath` option for LSP server.
+
+
 # Kind 2 v1.8.0
 
 New features:

@@ -139,8 +139,8 @@ allow Kind 2 to keep the mode information around to
   oversights to a certain extent.
   This defensive approach is discussed in the next section.
 
-Defensive check
-^^^^^^^^^^^^^^^
+Defensive checks
+^^^^^^^^^^^^^^^^
 
 Conceptually modes correspond to different situations triggering different
 behaviors for a node. Kind 2 is *defensive* in the sense that when a contract
@@ -189,3 +189,19 @@ it is enough to add to the current set of (non-exhaustive) modes a mode like
    ) ;
 
 which explicitly accounts for, and hence documents, the missing cases.
+
+In addition, Kind 2 checks that all modes are reachable in the system.
+In other words, Kind 2 also checks that for each mode there exists
+a reachable state satisfying the conjunction of its requires.
+This lets you know whether the mode implication is vacuously true or not.
+
+When the node associated to the contract has a body (it is not imported),
+the check will be performed twice. First, considering only the information
+of the contract. Then, considering the equations of the body too.
+
+Notice that when running Kind 2 in modular mode, the reachability check is
+performed locally to a node without taking call contexts into account;
+only the specified assumptions are considered.
+
+You can disable this check by passing ``--check_nonvacuity false`` to Kind 2,
+or by suppressing all reachability checks (``--check_reach false``).

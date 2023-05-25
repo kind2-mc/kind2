@@ -1136,7 +1136,7 @@ let minimize_invariants sys props invs_predicate =
   (* TODO: Fix the minimize_invariant function when Smt.check_sat_assume is false.
      The issue seems to come from the fact that nested calls to check_sat_assume
      and get_unsat_core_lits are done inside of the continuation given to check_sat_assume. *)
-  if Flags.Smt.check_sat_assume ()
+  if Flags.Smt.check_sat_assume () && invs <> []
   then
 
     (* For stats *)
@@ -1269,14 +1269,19 @@ let add_system_header fmt prefix =
   fprintf fmt "@."
 
 
-let add_logic fmt sys = 
+let add_logic ?(compliant=false) fmt sys = 
 
   (* Extract the logic of the system and add uninterpreted functions and
      integer arithmetic to it (because of implicit unrolling for state
      variables) *)
   let open TermLib in
+  let open TermLib.FeatureSet in
   let logic = match TransSys.get_logic sys with
     | `None | `SMTLogic _ -> `None
+    | `Inferred l when compliant && mem RA l -> (
+      (* Set a logic compatible with all solvers *)
+      `SMTLogic "ALL"
+    )
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
@@ -1322,7 +1327,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
 
-  add_logic fmt sys;
+  add_logic ~compliant:true fmt sys;
 
   add_arrays fmt
 
@@ -1441,11 +1446,19 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
 
 
 let export_system_defs
-    fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix sys =
+    fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix consts sys =
   
   (* add headers for info *)
   add_system_header fmt prefix ;
   
+  (* Declaring constant symbols *)
+  if consts <> [] then (
+    add_section fmt "Constants";
+    List.iter (fun sv ->
+        declare_const fmt (StateVar.uf_symbol_of_state_var sv)
+    ) consts
+  ) ;
+
   (* Declaring function symbols *)
   add_section fmt "Function symbols";
   let defs =
@@ -1501,21 +1514,15 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
 let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
 
   let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
-  
-  (* Declaring constant symbols *)
-  add_section fmt "Constants";
-  List.iter (fun sv ->
-      declare_const fmt (StateVar.uf_symbol_of_state_var sv)
-    ) consts;
-  
+    
+  (* Do not export the definitions with tracing information for LFSC *)
+  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys consts sys;
+
   (* Declaring state variables upto k *)
   add_section fmt "State variables";
   List.iter (fun sv ->
       declare_state_var fmt (StateVar.uf_symbol_of_state_var sv)
-    ) svars;
-
-  (* Do not export the definitions with tracing information for LFSC *)
-  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys sys;
+  ) svars;
 
   (* Variables i and j to be used later *)
   let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
@@ -1900,6 +1907,8 @@ let generate_certificate sys dirname =
   add_header fmt_header sys k
     names_bare.init names_bare.prop names_bare.trans names_bare.phi;
 
+  let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
+
   if is_fec sys then begin
 
     let obs_sys = sys in
@@ -1916,7 +1925,7 @@ let generate_certificate sys dirname =
     let obsdef_filename = Filename.concat dirname "observer_sys.smt2" in
     let obsdef_oc = open_out obsdef_filename in
     let fmt_obsdef = formatter_of_out_channel obsdef_oc in
-    export_system_defs fmt_obsdef ~recursive:true "Obs" obs_sys;
+    export_system_defs fmt_obsdef ~recursive:true "Obs" consts obs_sys;
     close_out obsdef_oc;
 
   end
@@ -1926,21 +1935,11 @@ let generate_certificate sys dirname =
     let def_oc = open_out def_filename in
     let fmt_def = formatter_of_out_channel def_oc in
 
-    export_system_defs fmt_def "Kind2" sys;
+    export_system_defs fmt_def "Kind2" consts sys;
 
     close_out def_oc;
 
   end;
-
-
-
-  let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
-
-  (* Declaring constant symbols *)
-  add_section fmt "Constants";
-  List.iter (fun sv ->
-      declare_const fmt (StateVar.uf_symbol_of_state_var sv)
-    ) consts;
 
   (* Declaring state variables upto k *)
   add_section fmt "State variables";
@@ -2339,7 +2338,8 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Generated (None, []);
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          prop_kind = Invariant; }
       ) props_eqs in
 
   let others_obs =
@@ -2349,7 +2349,8 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Candidate None ;
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          prop_kind = Invariant; }
         ) others_eqs in
 
   props_obs @ others_obs
