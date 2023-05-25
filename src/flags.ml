@@ -754,28 +754,27 @@ end
 
 
 
-(* IC3 flags. *)
-module IC3 = struct
+(* IC3QE flags. *)
+module IC3QE = struct
 
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "ic3"
+  let id = "ic3qe"
   (* Short description of the module. *)
-  let desc = "IC3 flags"
+  let desc = "IC3-QE flags"
   (* Explanation of the module. *)
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
-      IC3 (a.k.a. PDR) is a relatively recent technique that tries to prove@ \
-      a property by contructing an inductive invariant that implies it.@ \
-      The IC3 engine in Kind 2 performs quantifier elimination which has its@ \
-      own flags (see module \"qe\").\
+      The IC3-QE engine is an SMT-based extension of IC3 (a.k.a. PDR) that@ \
+      uses quantifier elimination (QE) to generalize counterexamples.@ \
+      The QE procedure has its own flags (see module \"qe\").
     @]"
 
   let check_inductive_default = true
   let check_inductive = ref check_inductive_default
   let _ = add_spec
-    "--ic3_check_inductive"
+    "--ic3qe_check_inductive"
     (bool_arg check_inductive)
     (fun fmt ->
     Format.fprintf fmt
@@ -787,7 +786,7 @@ module IC3 = struct
   let print_to_file_default = None
   let print_to_file = ref print_to_file_default
   let _ = add_spec
-    "--ic3_print_to_file"
+    "--ic3qe_print_to_file"
     (Arg.String (fun str -> print_to_file := Some str))
     (fun fmt ->
       Format.fprintf fmt
@@ -802,7 +801,7 @@ module IC3 = struct
   let inductively_generalize_default = 1
   let inductively_generalize = ref inductively_generalize_default
   let _ = add_spec
-    "--ic3_inductively_generalize"
+    "--ic3qe_inductively_generalize"
     (Arg.Set_int inductively_generalize)
     (fun fmt ->
       Format.fprintf fmt
@@ -820,7 +819,7 @@ module IC3 = struct
   let block_in_future_default = true
   let block_in_future = ref block_in_future_default
   let _ = add_spec
-    "--ic3_block_in_future"
+    "--ic3qe_block_in_future"
     (bool_arg block_in_future)
     (fun fmt ->
       Format.fprintf fmt
@@ -832,7 +831,7 @@ module IC3 = struct
   let block_in_future_first_default = true
   let block_in_future_first = ref block_in_future_first_default
   let _ = add_spec
-    "--ic3_block_in_future_first"
+    "--ic3qe_block_in_future_first"
     (bool_arg block_in_future_first)
     (fun fmt ->
       Format.fprintf fmt
@@ -848,7 +847,7 @@ module IC3 = struct
   let fwd_prop_non_gen_default = true
   let fwd_prop_non_gen = ref fwd_prop_non_gen_default
   let _ = add_spec
-    "--ic3_fwd_prop_non_gen"
+    "--ic3qe_fwd_prop_non_gen"
     (bool_arg fwd_prop_non_gen)
     (fun fmt ->
       Format.fprintf fmt
@@ -860,7 +859,7 @@ module IC3 = struct
   let fwd_prop_ind_gen_default = true
   let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
   let _ = add_spec
-    "--ic3_fwd_prop_ind_gen"
+    "--ic3qe_fwd_prop_ind_gen"
     (bool_arg fwd_prop_ind_gen)
     (fun fmt ->
       Format.fprintf fmt
@@ -875,7 +874,7 @@ module IC3 = struct
   let fwd_prop_subsume_default = true
   let fwd_prop_subsume = ref fwd_prop_subsume_default
   let _ = add_spec
-    "--ic3_fwd_prop_subsume"
+    "--ic3qe_fwd_prop_subsume"
     (bool_arg fwd_prop_subsume)
     (fun fmt ->
       Format.fprintf fmt
@@ -887,7 +886,7 @@ module IC3 = struct
   let use_invgen_default = true
   let use_invgen = ref use_invgen_default
   let _ = add_spec
-    "--ic3_use_invgen"
+    "--ic3qe_use_invgen"
     (bool_arg use_invgen)
     (fun fmt ->
       Format.fprintf fmt
@@ -897,7 +896,7 @@ module IC3 = struct
   let use_invgen () = !use_invgen
 
   type abstr = [ `None | `IA ]
-  let abstr_of_string = function
+  (*let abstr_of_string = function
     | "None" -> `None
     | "IA" -> `IA
     | _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
@@ -906,10 +905,10 @@ module IC3 = struct
     | `None -> "None"
   let abstr_values = [
     `None ; `IA
-  ] |> List.map string_of_abstr |> String.concat ", "
+  ] |> List.map string_of_abstr |> String.concat ", "*)
   let abstr_default = `None
   let abstr = ref abstr_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--ic3_abstr"
     (Arg.String (fun str -> abstr := abstr_of_string str))
     (fun fmt ->
@@ -920,7 +919,7 @@ module IC3 = struct
           Default: %s\
         @]"
         abstr_values (string_of_abstr abstr_default)
-    )
+    )*)
   let abstr () = !abstr
 
 end
@@ -1379,7 +1378,7 @@ module Certif = struct
     (bool_arg smaller_holes)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Generate proofs with smaller trust holes. Substantially \
+        "@[<v>Generate proofs with smaller trust holes.@ Substantially \
          increases the size of the proof.@ Default: %a@]"
         fmt_bool smaller_holes_default
     )
@@ -1393,7 +1392,7 @@ module Certif = struct
     (fun fmt ->
         Format.fprintf fmt
           "@[<v>Breakdown proofs into smaller steps, where each step is checked \
-          independently. Substantially reduces LFSC memory footprint. @ \
+          independently.@ Substantially reduces LFSC memory footprint. @ \
           Default:%a@]"
           fmt_bool smaller_holes_default)
   let flatten_proof () = !flatten_proof
@@ -2568,8 +2567,8 @@ let module_map = [
   (BmcKind.id,
     (module BmcKind: FlagModule)
   ) ;
-  (IC3.id,
-    (module IC3: FlagModule)
+  (IC3QE.id,
+    (module IC3QE: FlagModule)
   ) ;
   (Invgen.id,
     (module Invgen: FlagModule)
@@ -3108,6 +3107,7 @@ module Global = struct
   type enable = kind_module list
   let kind_module_of_string = function
     | "IC3" -> `IC3
+    | "IC3QE" -> `IC3QE
     | "IC3IA" -> `IC3IA
     | "BMC" -> `BMC
     | "BMCSKIP" -> `BMCSKIP
@@ -3131,6 +3131,7 @@ module Global = struct
 
   let string_of_kind_module = function
     | `IC3 -> "IC3"
+    | `IC3QE -> "IC3QE"
     | `IC3IA -> "IC3IA"
     | `BMC -> "BMC"
     | `BMCSKIP -> "BMCSKIP"
@@ -3157,19 +3158,19 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `IC3IA ; `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3QE; `IC3IA ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
     `INVGENREAL ; `INVGENREALOS ;
     `C2I ; `Interpreter ; `MCS ; `CONTRACTCK
-  ] |> List.map string_of_kind_module |> String.concat ", "
+  ] |> List.map string_of_kind_module
 
   let enable_default_init = []
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3 ; `IC3IA ;
+    `BMC ; `IND ; `IND2 ; `IC3QE ; `IC3IA ;
     `INVGEN ; `INVGENOS ;
     (* `INVGENINT ; *) `INVGENINTOS ; `INVGENMACHOS ;
     (* `INVGENREAL ; *) `INVGENREALOS ;
@@ -3202,11 +3203,12 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> can be %s@ \
-          Enable Kind module, repeat option to enable several modules@ \
+          @[<hov>where <string> can be %a@]@ \
+          Enable Kind module, repeat option to enable several modules.@ \
+          IC3 is a virtual module that enables both IC3QE and IC3IA.@ \
           Default: %s\
         "
-        enable_values
+        (pp_print_list Format.pp_print_string ",@ ") enable_values
         (string_of_enable enable_default_after)
     )
     
@@ -3240,10 +3242,10 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
       "\
-        where <string> can be %s@ \
+        @[<hov>where <string> can be %a@]@ \
         Disable a Kind module\
       "
-      enable_values
+      (pp_print_list Format.pp_print_string ",@ ") enable_values
     )
   (* let disabled () = !disabled *)
 

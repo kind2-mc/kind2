@@ -79,6 +79,7 @@ let main_of_process = function
   | GenericCall m -> (
     match m with
     | `IC3 -> IC3.main
+    | `IC3QE -> IC3.main
     | `IC3IA -> assert false
     | `BMC -> BMC.main false
     | `BMCSKIP -> BMC.main true
@@ -118,6 +119,7 @@ let main_of_process = function
 let on_exit_of_process mdl =
   ( match mdl with
     | `IC3 -> IC3.on_exit None
+    | `IC3QE -> IC3.on_exit None
     | `IC3IA -> IC3IA.on_exit None
     | `BMCSKIP
     | `BMC -> BMC.on_exit None
@@ -559,13 +561,24 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | _ -> other_modules
   )
 
-  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
-     query with a lower bound *)
-  let reachability_query_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
-    let has_lb_queries = (TSys.props_list_of_bound_skip sys Numeral.zero <> []) in
-    if (List.mem `BMCSKIP modules |> not) && (List.mem `BMC modules) && has_lb_queries
-      then `BMCSKIP :: modules
-      else modules
+ (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
+    query with a lower bound *)
+let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
+  if List.mem `BMC modules then (
+    let has_lb_queries = (TSys.props_list_of_bound_skip sys Numeral.zero <> []) in 
+    if has_lb_queries && not (List.mem `BMCSKIP modules) then `BMCSKIP :: modules
+    else modules
+  )
+  else modules
+
+let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
+  if List.mem `IC3 modules then
+    let _, other_modules = modules |> List.partition (
+      function `IC3 | `IC3QE | `IC3IA -> true | _ -> false)
+    in
+    `IC3QE :: `IC3IA :: other_modules
+  else
+    modules
 
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
@@ -593,7 +606,8 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       let modules = process_invgen_mach_modules sys modules in
       (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
         query with a lower bound *)
-      let modules = reachability_query_modules sys modules in
+      let modules = process_bmc_modules sys modules in
+      let modules = process_ic3_modules modules in
 
       let processes = create_processes modules sys in
 

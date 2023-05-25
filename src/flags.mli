@@ -395,8 +395,8 @@ module BmcKind : sig
 end
 
 
-(** {2 IC3 flags} *)
-module IC3 : sig
+(** {2 IC3QE flags} *)
+module IC3QE : sig
 
   (** Check inductiveness of blocking clauses. *)
   val check_inductive : unit -> bool
@@ -425,10 +425,10 @@ module IC3 : sig
   (** Use invariants from invariant generators. *)
   val use_invgen : unit -> bool
 
-  (** Legal abstraction mechanisms for in IC3. *)
+  (** DEPRECATED: Legal abstraction mechanisms for in IC3. *)
   type abstr = [ `None | `IA ]
 
-  (** Abstraction mechanism IC3 should use. *)
+  (** DEPRECATED: Abstraction mechanism IC3 should use. *)
   val abstr : unit -> abstr
 end
 

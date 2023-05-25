@@ -46,7 +46,7 @@ let print_stats () =
 
   KEvent.stat
     ([Stat.misc_stats_title, Stat.misc_stats] @
-     (if Flags.IC3.abstr () = `IA then 
+     (if Flags.IC3QE.abstr () = `IA then 
         [Stat.ic3_stats_title, Stat.ic3_stats;
          Stat.ic3ia_stats_title, Stat.ic3ia_stats]
       else 
@@ -980,7 +980,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                 let cti_gen = 
 
                   (* Abstraction used? *)
-                  match Flags.IC3.abstr () with
+                  match Flags.IC3QE.abstr () with
 
                     (* No abstraction *)
                     | `None ->
@@ -1407,7 +1407,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                frames,
 
                (* Add cube to block to next higher frame if flag is set *)
-               if Flags.IC3.block_in_future () then
+               if Flags.IC3QE.block_in_future () then
 
                  add_to_block_tl
                    solver
@@ -1508,7 +1508,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    raise (Counterexample (block_clause :: block_trace))
                  in
 
-                 (match Flags.IC3.abstr () with
+                 (match Flags.IC3QE.abstr () with
                    | `None ->
                      raise_cex ()
 
@@ -1569,7 +1569,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                     R_i-1[x] & C[x] & T[x,x'] & ~C[x'] is sat *)
                  let cti_gen =
-                   match Flags.IC3.abstr () with
+                   match Flags.IC3QE.abstr () with
                      | `None ->
 
                        extrapolate 
@@ -1859,7 +1859,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
       if 
 
         (* Inductive generalization after forward propagation? *)
-        Flags.IC3.fwd_prop_ind_gen () ||
+        Flags.IC3QE.fwd_prop_ind_gen () ||
 
         (* Inductively generalize forward propagated clause that was
            not generalized *)
@@ -1890,7 +1890,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
     let l = C.literals_of_clause c' in
 
     (* Subsumption after forward propagation? *)
-    if Flags.IC3.fwd_prop_subsume () then
+    if Flags.IC3QE.fwd_prop_subsume () then
 
       (* Is clause subsumed in frame? *)
       if F.is_subsumed a l then
@@ -1978,7 +1978,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
           (C.props_of_prop_set prop_set);
 
         (* Check inductiveness of blocking clauses? *)
-        if Flags.IC3.check_inductive () && prop <> [] then 
+        if Flags.IC3QE.check_inductive () && prop <> [] then 
 
           (
 
@@ -2224,7 +2224,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
             let fwd' = 
 
               (* Try propagating clauses before generalization? *)
-              if Flags.IC3.fwd_prop_non_gen () then
+              if Flags.IC3QE.fwd_prop_non_gen () then
 
                 (
                   
@@ -3079,7 +3079,7 @@ let main_ic3 input_sys aparam trans_sys =
 
 
   let bound =
-    match Flags.IC3.abstr () with
+    match Flags.IC3QE.abstr () with
       | `None -> 1
       | `IA -> 3
   in
@@ -3139,7 +3139,7 @@ let main_ic3 input_sys aparam trans_sys =
            trans_sys Numeral.zero)]);
 
   (* Print inductive assertions to file? *)
-  (match Flags.IC3.print_to_file () with
+  (match Flags.IC3QE.print_to_file () with
 
     (* Keep default formatter *)
     | None -> ()
@@ -3163,7 +3163,7 @@ let main_ic3 input_sys aparam trans_sys =
   in
   let predicates =
 
-    match Flags.IC3.abstr () with
+    match Flags.IC3QE.abstr () with
 
       | `IA ->
 
@@ -3269,7 +3269,7 @@ let main input_sys aparam trans_sys =
   )
   | _ -> () );
 
-  match Flags.IC3.abstr () with
+  match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (
     TransSys.iter_subsystems
