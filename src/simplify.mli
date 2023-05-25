@@ -49,7 +49,11 @@
 val has_division_by_zero_happened: unit -> bool
 
 (** Simplify a term *)
-val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.t
+val simplify_term :
+  ?split_eq:bool ->
+  (UfSymbol.t * (Var.t list * Term.t)) list ->
+  Term.t ->
+  Term.t
 
 (** Simplify a term given an assignment to variables
 
@@ -57,7 +61,13 @@ val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.
     assigns a default value per variable, for example, to smooth a
     partially defined model. The defaults for variables must not be
     circular, otherwise the simplification will cycle. *)
-val simplify_term_model : ?default_of_var:(Var.t -> Term.t) -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> Term.t
+val simplify_term_model :
+  ?split_eq:bool ->
+  ?default_of_var:(Var.t -> Term.t) ->
+  (UfSymbol.t * (Var.t list * Term.t)) list ->
+  Model.t ->
+  Term.t ->
+  Term.t
 
 (** Remove some ITE applications without introducing new symbols *)
 val remove_ite : Term.t -> Term.t

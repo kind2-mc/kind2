@@ -1055,15 +1055,36 @@ let kind s = s.solver_kind
 let get_interpolants solver args =
   let module S = (val solver.solver_inst) in
   
-  match execute_custom_command solver "compute-interpolant" args (List.length args) with
-  | `Custom i ->
-     List.map
-       (fun sexpr ->
-        (S.Conv.term_of_smtexpr
-           (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
-       (List.tl i)
+  (* Interpolation is not part of the SMTLIB standard.
+     Until then, we handle each particular case here... *)
+  match solver.solver_kind with
+  | `MathSAT_SMTLIB -> (
+    List.init ((List.length args)-1) (fun i ->
+      let g1, _ = Lib.list_split (i+1) args in
+      let groups = SMTExpr.ArgList g1 in
 
-  | _ (* error_response *) -> []
+      match execute_custom_command solver "get-interpolant" [groups] 1 with
+      | `Custom r -> S.Conv.term_of_smtexpr
+          (GenericSMTLIBDriver.expr_of_string_sexpr (List.hd r))
+      | r -> smt_error solver r
+    )
+  )
+  | `SMTInterpol_SMTLIB -> (
+    match execute_custom_command solver "get-interpolants" args 1 with
+    | `Custom i -> (
+      match (List.hd i) with
+      | HStringSExpr.List sexpr_lst -> (
+        List.map
+          (fun sexpr ->
+            (S.Conv.term_of_smtexpr
+              (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
+          sexpr_lst
+      )
+      | _ -> assert false
+    )
+    | _ (* error_response *) -> []
+  )
+  | _ -> failwith ("Interpolating solver not found or unsupported")
 
 
 (* Static hashconsed strings *)
@@ -1218,6 +1239,63 @@ let simplify_expr solver expr =
 let simplify_term solver term =
   let module S = (val solver.solver_inst) in
   simplify_expr solver (S.Conv.smtexpr_of_term term)
+
+let normalize_if_inconsistent solver term =
+  push solver;
+  assert_term solver term;
+  let term' =
+    if check_sat solver then term
+    else Term.t_false
+  in
+  pop solver;
+  term'  
+  
+let get_qe_interpolants fwd solver groups =
+
+  let get_interpolant solver t1 t2 =
+    let vars =
+      Var.VarSet.diff (Term.vars_of_term t2) (Term.vars_of_term t1)
+      |> Var.VarSet.elements
+    in
+    match vars with
+    | [] -> Term.negate t2 |> simplify_term solver
+    | _ -> (
+      let forall_term = Term.mk_forall vars (Term.negate t2) in
+      get_qe_term solver forall_term
+      |> Term.mk_and
+      |> simplify_term solver
+    )
+  in
+
+  let get_interpolant =
+    if fwd then 
+      (fun s t1 t2 -> get_interpolant s t2 t1 |> Term.negate)
+    else
+      get_interpolant
+  in
+
+  let pairs =
+    List.init ((List.length groups)-1) (fun i ->
+      let g1, g2 = Lib.list_split (i+1) groups in
+      List.rev g1 |> List.hd, g2
+    )
+  in
+  List.fold_left
+    (fun itps (a, b) ->
+      let prev_itp = List.hd itps in
+      let i = get_interpolant solver
+        (Term.mk_and [prev_itp; a])
+        (Term.mk_and b)
+        |> normalize_if_inconsistent solver
+      in
+      let i =
+        try Simplify.simplify_term ~split_eq:true [] i with _ -> i
+      in
+      i :: itps
+    )
+    [Term.t_true]
+    pairs
+  |> List.rev |> List.tl
 
 (* 
    Local Variables:

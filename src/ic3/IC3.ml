@@ -46,7 +46,7 @@ let print_stats () =
 
   KEvent.stat
     ([Stat.misc_stats_title, Stat.misc_stats] @
-     (if Flags.IC3.abstr () = `IA then 
+     (if Flags.IC3QE.abstr () = `IA then 
         [Stat.ic3_stats_title, Stat.ic3_stats;
          Stat.ic3ia_stats_title, Stat.ic3ia_stats]
       else 
@@ -750,6 +750,11 @@ let add_to_block_tl solver block_clause block_trace = function
 (* Implicit abstraction                                                     *)
 (* ************************************************************************ *)
 
+(* Interpolation Group ids for MathSAT *)
+let ig_newid =
+  let r = ref 0 in
+  fun () -> incr r; Format.sprintf "g%d" !r
+
 let abstr_simulate trace trans_sys raise_cex =
 
   Stat.incr (Stat.ic3ia_num_simulations);
@@ -772,11 +777,11 @@ let abstr_simulate trace trans_sys raise_cex =
 
       | None ->
 
-        let solver = 
+        let solver =
           SMTSolver.create_instance
             ~produce_interpolants:true
             (TransSys.get_logic trans_sys)
-            `Z3_SMTLIB
+            (Flags.Smt.get_itp_solver ())
         in   
 
         TransSys.define_and_declare_of_bounds
@@ -817,13 +822,27 @@ let abstr_simulate trace trans_sys raise_cex =
 
   (* Compute the interpolants *)
 
-  let names = List.map
-      (fun t ->
+  let names =
+    match Flags.Smt.itp_solver () with
+    | `MathSAT_SMTLIB -> (
+      List.map
+        (fun t ->
+          let id = ig_newid () in
+          SMTSolver.assert_term intrpo (Term.set_inter_group t id) ;
+          SMTExpr.ArgString id
+        )
+        interpolizers
+    )
+    | `SMTInterpol_SMTLIB -> (
+      List.map
+        (fun t ->
          SMTExpr.ArgString
            (SMTSolver.assert_named_term_wr
               intrpo
               t))
       interpolizers
+    )
+    | _ -> failwith ("Interpolating solver not found or unsupported")
   in
   Stat.start_timer Stat.ic3ia_interpolation_time;
 
@@ -870,10 +889,13 @@ let abstr_simulate trace trans_sys raise_cex =
       List.mapi
         (fun i t -> Term.bump_state (Numeral.of_int (~-(i+1))) t)
         interpolants
-
       |> 
       List.filter
-        (fun t -> not (Term.equal t Term.t_false))
+        (fun t -> not (t == Term.t_false || t == Term.t_true))
+      |>
+      List.fold_left
+        (fun acc interp -> Term.TermSet.union (Term.get_atoms interp) acc)
+        Term.TermSet.empty
     in
 
     interpolants
@@ -958,7 +980,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                 let cti_gen = 
 
                   (* Abstraction used? *)
-                  match Flags.IC3.abstr () with
+                  match Flags.IC3QE.abstr () with
 
                     (* No abstraction *)
                     | `None ->
@@ -1385,7 +1407,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                frames,
 
                (* Add cube to block to next higher frame if flag is set *)
-               if Flags.IC3.block_in_future () then
+               if Flags.IC3QE.block_in_future () then
 
                  add_to_block_tl
                    solver
@@ -1486,7 +1508,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    raise (Counterexample (block_clause :: block_trace))
                  in
 
-                 (match Flags.IC3.abstr () with
+                 (match Flags.IC3QE.abstr () with
                    | `None ->
                      raise_cex ()
 
@@ -1505,7 +1527,10 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                      let interpolants = abstr_simulate cex_trace trans_sys raise_cex in
 
-
+                     let new_interpolants =
+                      Term.TermSet.(diff interpolants (of_list predicates))
+                      |> Term.TermSet.elements
+                     in
 
                      List.iteri
                        (fun _ t ->
@@ -1521,7 +1546,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                               [Term.bump_state (Numeral.one) t;
                                Term.bump_state (Numeral.of_int 3) t]);
                        )
-                       interpolants;
+                       new_interpolants;
 
 
                      block
@@ -1531,7 +1556,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                        trans_sys
                        prop_set
                        term_tbl
-                       (interpolants @ predicates)
+                       (new_interpolants @ predicates)
                        []
                        (List.rev (List.map (fun (_,s) -> s) trace))
 
@@ -1544,7 +1569,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                     R_i-1[x] & C[x] & T[x,x'] & ~C[x'] is sat *)
                  let cti_gen =
-                   match Flags.IC3.abstr () with
+                   match Flags.IC3QE.abstr () with
                      | `None ->
 
                        extrapolate 
@@ -1834,7 +1859,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
       if 
 
         (* Inductive generalization after forward propagation? *)
-        Flags.IC3.fwd_prop_ind_gen () ||
+        Flags.IC3QE.fwd_prop_ind_gen () ||
 
         (* Inductively generalize forward propagated clause that was
            not generalized *)
@@ -1865,7 +1890,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
     let l = C.literals_of_clause c' in
 
     (* Subsumption after forward propagation? *)
-    if Flags.IC3.fwd_prop_subsume () then
+    if Flags.IC3QE.fwd_prop_subsume () then
 
       (* Is clause subsumed in frame? *)
       if F.is_subsumed a l then
@@ -1953,7 +1978,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
           (C.props_of_prop_set prop_set);
 
         (* Check inductiveness of blocking clauses? *)
-        if Flags.IC3.check_inductive () && prop <> [] then 
+        if Flags.IC3QE.check_inductive () && prop <> [] then 
 
           (
 
@@ -2199,7 +2224,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
             let fwd' = 
 
               (* Try propagating clauses before generalization? *)
-              if Flags.IC3.fwd_prop_non_gen () then
+              if Flags.IC3QE.fwd_prop_non_gen () then
 
                 (
                   
@@ -3054,7 +3079,7 @@ let main_ic3 input_sys aparam trans_sys =
 
 
   let bound =
-    match Flags.IC3.abstr () with
+    match Flags.IC3QE.abstr () with
       | `None -> 1
       | `IA -> 3
   in
@@ -3114,7 +3139,7 @@ let main_ic3 input_sys aparam trans_sys =
            trans_sys Numeral.zero)]);
 
   (* Print inductive assertions to file? *)
-  (match Flags.IC3.print_to_file () with
+  (match Flags.IC3QE.print_to_file () with
 
     (* Keep default formatter *)
     | None -> ()
@@ -3138,15 +3163,16 @@ let main_ic3 input_sys aparam trans_sys =
   in
   let predicates =
 
-    match Flags.IC3.abstr () with
+    match Flags.IC3QE.abstr () with
 
       | `IA ->
 
-        (TransSys.init_of_bound None trans_sys Numeral.zero)
-        ::
-        List.map
-          (fun (_,t) -> t)
+        let init = TransSys.init_of_bound None trans_sys Numeral.zero in
+        List.fold_left
+          (fun acc (_,t) -> Term.TermSet.add t acc)
+          (init |> Term.get_atoms |> Term.TermSet.add init)
           trans_sys_props
+        |> Term.TermSet.elements
 
       | `None ->
 
@@ -3243,7 +3269,7 @@ let main input_sys aparam trans_sys =
   )
   | _ -> () );
 
-  match Flags.IC3.abstr () with
+  match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (
     TransSys.iter_subsystems

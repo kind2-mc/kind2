@@ -36,6 +36,7 @@ type var = Var.t
 type custom_arg = 
   | ArgString of string  (** String argument *)
   | ArgExpr of t      (** Expression argument *)
+  | ArgList of custom_arg list
 
 
 (** {1 Pretty-printing and String Conversions} *)

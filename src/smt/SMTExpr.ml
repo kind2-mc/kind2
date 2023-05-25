@@ -28,6 +28,7 @@ type var = Var.t
 type custom_arg = 
   | ArgString of string
   | ArgExpr of t
+  | ArgList of custom_arg list
 
 
 
@@ -269,9 +270,12 @@ struct
     quantified_smtexpr_of_term false [] term
 
   (* Pretty-print a custom argument *)
-  let pp_print_custom_arg ppf = function 
+  let rec pp_print_custom_arg ppf = function
     | ArgString s -> Format.pp_print_string ppf s
     | ArgExpr e -> pp_print_expr ppf e
+    | ArgList l ->
+      Format.fprintf ppf "(%a)"
+        (Lib.pp_print_list pp_print_custom_arg " ") l
 
 
   (* Return a string representation of a custom argument *)

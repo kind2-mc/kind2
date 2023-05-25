@@ -198,15 +198,26 @@ let rec fold_until f acc n = function
   | h :: t as l -> if n = 0 then (acc, l)
                    else fold_until f (f acc h) (n - 1) t
 
-let list_slice list i k =
-  let _, list = (* drop n elements *)
-    fold_until (fun _ _ -> []) [] i list
+let list_split k l =
+  let l1, l2 =
+    fold_until (fun acc h -> h :: acc) [] k l
+  in
+  List.rev l1, l2
+
+let list_slice l i k =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
   in
   let taken, _ = (* take (k - i + 1) elements *)
-    fold_until (fun acc h -> h :: acc) [] (k - i + 1) list
+    fold_until (fun acc h -> h :: acc) [] (k - i + 1) l
   in
   List.rev taken
 
+let list_suffix l i =
+  let _, l = (* drop n elements *)
+    fold_until (fun _ _ -> []) [] i l
+  in
+  l
 
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
@@ -816,7 +827,9 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `IC3 
+  [ `IC3
+  | `IC3QE
+  | `IC3IA
   | `BMC
   | `BMCSKIP
   | `IND
@@ -856,7 +869,9 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `IC3 -> fprintf ppf "property directed reachability"
+  | `IC3 -> fprintf ppf "property directed reachability (QE and IA)"
+  | `IC3QE -> fprintf ppf "property directed reachability (QE)"
+  | `IC3IA -> fprintf ppf "property directed reachability (IA)"
   | `BMC -> fprintf ppf "bounded model checking"
   | `BMCSKIP -> fprintf ppf "bounded model checking (skip)"
   | `IND -> fprintf ppf "inductive step"
@@ -900,6 +915,8 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 (* Return a short representation of kind module *)
 let short_name_of_kind_module = function
  | `IC3 -> "ic3"
+ | `IC3QE -> "ic3qe"
+ | `IC3IA -> "ic3ia"
  | `BMC -> "bmc"
  | `BMCSKIP -> "bmcskip"
  | `IND -> "ind"
@@ -940,6 +957,8 @@ let short_name_of_kind_module = function
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "IC3" -> `IC3
+  | "IC3QE" -> `IC3QE
+  | "IC3IA" -> `IC3IA
   | "BMC" -> `BMC
   | "BMCSKIP" -> `BMCSKIP
   | "IND" -> `IND
@@ -1009,6 +1028,8 @@ let int_of_kind_module = function
   | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
+  | `IC3IA -> 31
+  | `IC3QE -> 32
 
 
 (* Timeouts *)

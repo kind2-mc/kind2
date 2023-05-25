@@ -238,6 +238,8 @@ val trace_comment : t -> string -> unit
 
 val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
 
+val get_qe_interpolants : bool -> t -> Term.t list -> Term.t list
+
 (** Apply quantifier elimination to a SMTExpr *)
 val get_qe_expr : t -> SMTExpr.t -> Term.t list
 

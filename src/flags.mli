@@ -285,11 +285,27 @@ module Smt : sig
     | `detect
   ]
 
-  (** Set SMT solver for QE and executable *)
+  (** Set SMT solver for QE *)
   val set_qe_solver : qe_solver -> unit
 
   (** Which SMT solver for QE to use. *)
   val qe_solver : unit -> qe_solver
+
+  type itp_solver = [
+    | `cvc5_QE
+    | `MathSAT_SMTLIB
+    | `SMTInterpol_SMTLIB
+    | `Z3_QE
+    | `detect
+  ]
+
+  (** Set SMT solver for interpolation *)
+  val set_itp_solver : itp_solver -> unit
+
+  (** Which SMT solver for interpolation to use. *)
+  val itp_solver : unit -> itp_solver
+
+  val get_itp_solver : unit -> solver
 
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
@@ -382,8 +398,8 @@ module BmcKind : sig
 end
 
 
-(** {2 IC3 flags} *)
-module IC3 : sig
+(** {2 IC3QE flags} *)
+module IC3QE : sig
 
   (** Check inductiveness of blocking clauses. *)
   val check_inductive : unit -> bool
@@ -412,10 +428,10 @@ module IC3 : sig
   (** Use invariants from invariant generators. *)
   val use_invgen : unit -> bool
 
-  (** Legal abstraction mechanisms for in IC3. *)
+  (** DEPRECATED: Legal abstraction mechanisms for in IC3. *)
   type abstr = [ `None | `IA ]
 
-  (** Abstraction mechanism IC3 should use. *)
+  (** DEPRECATED: Abstraction mechanism IC3 should use. *)
   val abstr : unit -> abstr
 end
 

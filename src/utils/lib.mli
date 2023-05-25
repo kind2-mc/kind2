@@ -132,9 +132,18 @@ val list_insert_at : 'a -> int -> 'a list -> 'a list
 (** Apply a function to the nth element of a list *)
 val list_apply_at : ('a -> 'a) -> int -> 'a list -> 'a list
 
-(* [list_slice l i k] returns a list containing the elements between
+(** [list_slice l i k] returns a list containing the elements between
    the [i]th and [k]th element of [l]*)
 val list_slice : 'a list -> int -> int -> 'a list
+
+(** [list_suffix l i] returns a list containing the elements between
+   the [i]th and the last element of [l] *)
+val list_suffix : 'a list -> int -> 'a list
+
+(** [list_split n l] divides list [l] into two at index [n]
+    The first will contain all indices from [0,n) and
+    the second will contain all indices from [n,len) *)
+val list_split : int -> 'a list -> ('a list * 'a list)
 
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
@@ -377,6 +386,8 @@ val pp_print_version : Format.formatter -> unit
 (** Kind modules *)
 type kind_module =
   [ `IC3
+  | `IC3QE
+  | `IC3IA
   | `BMC
   | `BMCSKIP
   | `IND

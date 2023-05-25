@@ -838,7 +838,8 @@ with the same input values provide different output values.
 To prevent this kind of counterexamples from happening, Kind 2 offers an option
 called ``--enforce_func_congruence`` which enforces
 abstract functions to behave as mathematical functions.
-The downside of using this option is that the IC3 engine is forced to
+The downside of using this option is that the IC3QE engine and
+IC3IA engine with the Z3qe or cvc5qe options are forced to
 shut down because its current implementation cannot reason about
 the resulting system.
 
