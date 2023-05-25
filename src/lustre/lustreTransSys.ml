@@ -437,13 +437,16 @@ let add_constraints_of_type init terms state_var =
         indices
     in
 
-    let l, u = Type.bounds_of_int_range base_type in
-
-    let ct = match l, u with 
-      | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
-      | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
-      | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
-      | None, None -> Term.mk_bool true
+    let ct = 
+      if Type.is_enum base_type then 
+        let l, u = Type.bounds_of_enum base_type in 
+        Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+      else 
+        match Type.bounds_of_int_range base_type with 
+          | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+          | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
+          | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
+          | None, None -> Term.mk_bool true
     in
 
     let qct =
