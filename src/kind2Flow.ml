@@ -525,17 +525,42 @@ let create_processes modules sys =
   match ic3ia_module with
   | [] -> processes
   | _ -> (
-    List.fold_left
-      (fun acc p ->
-        match Flags.Smt.itp_solver () with
-        | `cvc5_QE
-        | `Z3_QE ->
-          IC3IA_Call (false, p) :: IC3IA_Call (true, p) :: acc
-        | _ ->
-          IC3IA_Call (false, p) :: acc
-      )
+    let open TermLib in
+    let open TermLib.FeatureSet in
+    match TransSys.get_logic sys with
+    | `Inferred l when mem A l ->
+      KEvent.log L_warn 
+        "IC3IA disabled: arrays are not supported." ;
       processes
-      (TSys.get_real_properties sys)
+    | _ -> (
+      let qe_itp_support_model =
+        let check_system_is_supported itp_solver =
+          let supported =
+            TSys.subsystem_includes_function_symbol sys |> not
+          in
+          if not supported then
+            KEvent.log L_warn 
+              "IC3IA (%s) disabled: system includes an abstract function. Use MathSAT or SMTInterpol instead."
+              itp_solver;
+          supported
+        in
+        match Flags.Smt.itp_solver () with
+        | `cvc5_QE -> check_system_is_supported "cvc5qe"
+        | `Z3_QE -> check_system_is_supported "Z3qe"
+        | _ -> false
+      in
+      List.fold_left
+        (fun acc p ->
+          match Flags.Smt.itp_solver () with
+          | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
+            IC3IA_Call (false, p) :: IC3IA_Call (true, p) :: acc
+          | `cvc5_QE | `Z3_QE -> acc
+          | _ ->
+            IC3IA_Call (false, p) :: acc
+        )
+        processes
+        (TSys.get_real_properties sys)
+    )
   )
 
 let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =

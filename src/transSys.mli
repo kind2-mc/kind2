@@ -214,6 +214,10 @@ val get_split_properties :
 (** Returns function symbols declared in the transition system *)
 val get_function_symbols : t -> UfSymbol.t list
 
+(** Returns true if any subsystem (including top-level system) includes
+    a function symbol *)
+val subsystem_includes_function_symbol : t -> bool
+
 (** Make a copy of every mutable field of the transition system and its subsystems. *)
 val copy : t -> t
 
