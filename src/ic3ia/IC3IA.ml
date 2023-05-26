@@ -119,11 +119,11 @@ let get_logic sys =
     let open TermLib in
     let open TermLib.FeatureSet in
     match TransSys.get_logic sys with
-    | `Inferred l when mem IA l ->
-      (* The interpolants MathSAT computes in QF_LIA can use the floor function
-         (implemented using to_real/to_int in SMT-LIB 2)
-      *)
-      `Inferred (FeatureSet.add RA l)
+    (* The interpolants MathSAT computes in QF_LIA / QF_LRA can use the floor function
+       (implemented using to_real/to_int in SMT-LIB 2)
+    *)
+    | `Inferred l when mem IA l -> `Inferred (FeatureSet.add RA l)
+    | `Inferred l when mem RA l -> `Inferred (FeatureSet.add IA l)
     | l -> l
   )
   | _ -> TransSys.get_logic sys
