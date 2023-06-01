@@ -19,6 +19,8 @@
 open Lib
 open SolverResponse
 
+let trace_suffix = ref ""
+
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
@@ -751,9 +753,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       let trace_filename = 
         Filename.concat
           tdir
-          (Format.sprintf "%s.%s.%d.%s" 
+          (Format.sprintf "%s.%s.%s%d.%s" 
              (Filename.basename (Flags.input_file ()))
              (short_name_of_kind_module (KEvent.get_module ()))
+             !trace_suffix
              id
              trace_extension
           )

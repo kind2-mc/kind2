@@ -67,12 +67,15 @@ let renice () =
 
 type process =
   | GenericCall of Lib.kind_module
-  | IC3IA_Call of bool * Property.t
+  | IC3IA_Call of bool * Property.t * string
 
 let get_kind_module = function
   | GenericCall m -> m
   | IC3IA_Call _ -> `IC3IA
 
+let fresh_ic3ia_instance_name =
+  let r = ref 0 in
+  fun () -> incr r; Format.asprintf "p%d." !r
 
 (** Main function of the process *)
 let main_of_process = function
@@ -113,7 +116,9 @@ let main_of_process = function
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
   )
-  | IC3IA_Call (fwd, prop) -> IC3IA.main fwd prop
+  | IC3IA_Call (fwd, prop, instance_name) ->
+    SMTLIBSolver.trace_suffix := instance_name ;
+    IC3IA.main fwd prop
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
@@ -553,10 +558,11 @@ let create_processes modules sys =
         (fun acc p ->
           match Flags.Smt.itp_solver () with
           | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
-            IC3IA_Call (false, p) :: IC3IA_Call (true, p) :: acc
+            IC3IA_Call (false, p, fresh_ic3ia_instance_name ())
+            :: IC3IA_Call (true, p, fresh_ic3ia_instance_name ()) :: acc
           | `cvc5_QE | `Z3_QE -> acc
           | _ ->
-            IC3IA_Call (false, p) :: acc
+            IC3IA_Call (false, p, fresh_ic3ia_instance_name ()) :: acc
         )
         processes
         (TSys.get_real_properties sys)
