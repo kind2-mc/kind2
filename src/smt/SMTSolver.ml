@@ -58,7 +58,6 @@ type t = {
   id : int ;
   mutable next_assumption_id : int ;
   mutable last_assumptions : Term.t array ;
-  mutable next_getvalue_id : int ;
 }
 
 (** All solver instances created are stored in this map from solver id to
@@ -177,8 +176,7 @@ let create_instance
       term_names = Hashtbl.create 19;
       id = id;
       next_assumption_id = 0;
-      last_assumptions = [| |];
-      next_getvalue_id = 0; }
+      last_assumptions = [| |]; }
   in
 
   add_solver solver ;
@@ -381,46 +379,6 @@ let check_sat ?(timeout = 0) s =
 
   (* Fail on error *)
   | r -> smt_error s r
-
-
-(* Convert models given as pairs of SMT expressions to pairs of
-   variables and terms *)
-let values_of_smt_values conv_left type_left s smt_values =
-  let module S = (val s.solver_inst) in
-
-  (* Convert association list for get-value call to an association
-     list of variables to terms *)
-  List.map
-
-    (* Map pair of SMT expressions to a pair of variable and term *)
-    (function (v, e) -> 
-
-      (* Convert to variable or term and term *)
-      let v', e' = 
-        conv_left v, S.Conv.term_of_smtexpr e 
-      in
-
-      (* Get type of variable or term and term *)
-      let tv', te' = 
-        type_left v', Term.type_of_term e'
-      in
-
-      if 
-        (* Assignment of integer value to a real variable or term? *)
-        Type.equal_types tv' Type.t_real && 
-        Type.equal_types te' Type.t_int 
-
-      then
-
-        (* Convert integer to real *)
-        (v', Term.mk_to_real e')
-
-      else
-
-        (* Keep assignment *)
-        (v', e'))
-
-    smt_values
 
 
 let [@ocaml.warning "-27"] model_of_smt_values conv_left type_left s smt_values = 
@@ -871,124 +829,52 @@ let check_sat_assuming s if_sat if_unsat literals =
     res
 
 
+(* Get value of a single term in the current context *)
+let get_term_value s term =
+
+  let module S = (val s.solver_inst) in
+
+  match prof_get_value s [S.Conv.smtexpr_of_term term] with
+
+  | `Values m -> (
+
+     (* Ignore returned term and get just the value *)
+     let (_, smt_value) = List.hd m in
+
+     let value = S.Conv.term_of_smtexpr smt_value in
+
+     if
+      (* Assignment of integer value to a real term? *)
+      Type.equal_types (Term.type_of_term value) Type.t_int &&
+      Type.equal_types (Term.type_of_term term) Type.t_real
+     then
+       (* Convert integer to real *)
+       (term, Term.mk_to_real value)
+     else
+       (* Keep assignment *)
+       (term, value)
+  )
+  | r -> smt_error s r
+
 (* Get values of terms in the current context *)
 let get_term_values s terms =
 
-  let module S = (val s.solver_inst) in
-
-  match
-    (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map S.Conv.smtexpr_of_term terms)
-  with
-
-  | `Values m ->
-    values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
-
-  | r -> smt_error s r
-
-(* In some cases, cvc5 returns syntactically different terms
-   to the ones sent in a get-value query. For instance:
-   Query: ( get-value ((< x 10.0) (>= y 10.5)) )
-   Reply: ( ((< x 10) true) ((>= y (/ 21 2)) false) )
-   To avoid post-processing the terms, a constant is defined
-   and used as an abbreviation for each term.
-   If the term is a single variable, no constant is created.
-*)
-let create_proxy_constants_for_terms s terms =
-
-  let module S = (val s.solver_inst) in
-
-  (* Unique identifier for a get-value constant (UfSymbol)
-
-     NB: UfSymbols are global, but id is the current value of
-     a solver instance counter; type_uf is used to disambiguate
+  (* In some cases, cvc5 returns syntactically different terms
+     to the ones sent in a get-value query. For instance:
+     Query: ( get-value ((< x 10.0) (>= y 10.5)) )
+     Reply: ( ((< x 10) true) ((>= y (/ 21 2)) false) )
+     To avoid post-processing the terms, we send one get-value query
+     at a time.
   *)
-  let mk_gv_name prefix type_uf id =
+  List.map (get_term_value s) terms
 
-    let rec pp_print_type_suffix ppf t = let open Type in
-      match node_of_type t with
-      | Bool -> Format.pp_print_string ppf "bool"
-      | Int -> Format.pp_print_string ppf "int"
-      | UBV i ->
-        begin match i with
-        | 8 -> Format.pp_print_string ppf "uint8"
-        | 16 -> Format.pp_print_string ppf "uint16"
-        | 32 -> Format.pp_print_string ppf "uint32"
-        | 64 -> Format.pp_print_string ppf "uint64"
-        | _ -> raise 
-              (Invalid_argument "pp_print_type_suffix: BV size not allowed")
-        end
-      | BV i ->
-        begin match i with
-        | 8 -> Format.pp_print_string ppf "int8"
-        | 16 -> Format.pp_print_string ppf "int16"
-        | 32 -> Format.pp_print_string ppf "int32"
-        | 64 -> Format.pp_print_string ppf "int64"
-        | _ -> raise 
-              (Invalid_argument "pp_print_type_suffix: BV size not allowed")
-        end
-      | IntRange (i, j) ->
-        Format.fprintf ppf
-          "int_range_%a_%a"
-          pp_print_bound_opt i
-          pp_print_bound_opt j
-      | Enum (i, j) ->
-        Format.fprintf ppf
-          "enum_%a_%a"
-          Numeral.pp_print_numeral i
-          Numeral.pp_print_numeral j
-      | Real -> Format.pp_print_string ppf "real"
-      | Array (s, t) ->
-        Format.fprintf ppf
-          "array_%a_%a"
-          pp_print_type_suffix s
-          pp_print_type_suffix t
-      | Abstr s -> Format.pp_print_string ppf s
-    in
-
-    Format.asprintf "%s_%a_%d"
-      prefix
-      pp_print_type_suffix type_uf
-      id
-  in
-
-  terms |> List.map (fun term ->
-    match Term.destruct term with
-    | Term.T.Var _ -> (term, term)
-    | Term.T.Const s when Symbol.is_uf s -> (term, term)
-    | _ -> (
-      let type_expr = term |> Term.type_of_term in
-      let id = s.next_getvalue_id in
-      (* Name of uninterpreted function symbol *)
-      let uf_symbol_name = mk_gv_name "__gv" type_expr id in
-      (* Create or retrieve uninterpreted constant *)
-      let uf_symbol = UfSymbol.mk_uf_symbol uf_symbol_name [] type_expr in
-      s.next_getvalue_id <- s.next_getvalue_id + 1;
-      (* Define an uninterpreted constant *)
-      define_fun s uf_symbol [] (S.Conv.smtexpr_of_term term);
-      (* Return new constant and expression *)
-      (Term.mk_uf uf_symbol [], term)
-    )
-  )
-
-
-let get_term_values_through_proxy_values s = function
-  | [] -> []
-  | proxy_term_alist -> (
-    get_term_values s (List.map fst proxy_term_alist)
-    |> List.map (fun (const, value) ->
-      (List.assq const proxy_term_alist, value)
-    )
-  )
 
 (* Checks satisfiability of the current context, and evaluate one of
    two continuation functions depending on the result *)
 let check_sat_and_get_term_values s if_sat if_unsat terms =
 
-  let proxy_term_alist = create_proxy_constants_for_terms s terms in
-
   if check_sat s then
-    let tv = get_term_values_through_proxy_values s proxy_term_alist in
+    let tv = get_term_values s terms in
     if_sat s tv
   else
     if_unsat s
@@ -998,10 +884,8 @@ let check_sat_and_get_term_values s if_sat if_unsat terms =
    runs if_sat if sat or runs if_unsat if unsat. *)
 let check_sat_assuming_and_get_term_values s if_sat if_unsat literals terms =
 
-  let proxy_term_alist = create_proxy_constants_for_terms s terms in
-
   check_sat_assuming s (fun s ->
-    let tv = get_term_values_through_proxy_values s proxy_term_alist in
+    let tv = get_term_values s terms in
     if_sat s tv
   )
   if_unsat literals
