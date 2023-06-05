@@ -31,7 +31,9 @@ let max_offset = prime_abstr_offset
 (* Interpolation instance if created *)
 let ref_interpolator = ref None
 
-let max_unrolling = ref 0 
+let max_unrolling = ref 0
+
+let added_logic = ref None
 
 let init_svar () =
   StateVar.mk_state_var
@@ -114,6 +116,7 @@ let sys_def solver sys offset =
 
 
 let get_logic sys =
+  added_logic := None;
   match Flags.Smt.itp_solver () with
   | `MathSAT_SMTLIB -> (
     let open TermLib in
@@ -122,8 +125,10 @@ let get_logic sys =
     (* The interpolants MathSAT computes in QF_LIA / QF_LRA can use the floor function
        (implemented using to_real/to_int in SMT-LIB 2)
     *)
-    | `Inferred l when mem IA l -> `Inferred (FeatureSet.add RA l)
-    | `Inferred l when mem RA l -> `Inferred (FeatureSet.add IA l)
+    | `Inferred l when mem IA l && not (mem RA l) ->
+      added_logic := Some RA; `Inferred (FeatureSet.add RA l)
+    | `Inferred l when mem RA l && not (mem IA l) ->
+      added_logic := Some IA; `Inferred (FeatureSet.add IA l)
     | l -> l
   )
   | _ -> TransSys.get_logic sys
@@ -590,6 +595,21 @@ let get_invariant init c =
     (Cube.literals c)
   |> Term.mk_or
 
+let report_invariant sys inv =
+  let broadcast_inv =
+    match !added_logic with
+    | None -> true
+    | Some f -> (
+      let inv_logic = TermLib.logic_of_term [] inv in
+      not (TermLib.FeatureSet.mem f inv_logic)
+    )
+  in
+  (* Only report an invariant if the term belongs to
+     the logic of the original system *)
+  if broadcast_inv then
+    let cert = (1, inv) in
+    KEvent.invariant
+      (TransSys.scope_of_trans_sys sys) inv cert false
 
 let add_blocked_cube solver sys init frames s =
   let k =
@@ -644,9 +664,7 @@ let add_blocked_cube solver sys init frames s =
   (* Report if invariant *)
   if TCube.frame s = TCube.FrameInf then (
     let inv = get_invariant init (TCube.cube s) in
-    let cert = (1, inv) in
-    KEvent.invariant
-      (TransSys.scope_of_trans_sys sys) inv cert false
+    report_invariant sys inv
   ) ;
   
   frames
@@ -847,11 +865,7 @@ let main fwd prop in_sys param sys =
     let invariants = loop predicates next_cube frames in
     
     invariants
-    |> List.iter (fun i ->
-      let cert = (1, i) in
-      KEvent.invariant
-        (TransSys.scope_of_trans_sys sys) i cert false
-    ) ;
+    |> List.iter (fun i -> report_invariant sys i) ;
 
     let cert = 1, Term.mk_and invariants in
 
