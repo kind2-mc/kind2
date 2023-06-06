@@ -86,7 +86,7 @@ let needed_by = function
 (* Set of core modules. The analysis goes on if at least one of them is
    active *)
 let core_module = function
-  | `IND | `BMC | `IC3 -> true
+  | `IND | `BMC | `IC3QE | `IC3IA -> true
   | _ -> false
 
 
