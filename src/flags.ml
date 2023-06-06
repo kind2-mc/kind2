@@ -580,32 +580,26 @@ module Smt = struct
       | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
     )
     | `detect ->
-      match solver () with
-      | `cvc5_SMTLIB -> set_itp_solver `cvc5_QE
-      | `MathSAT_SMTLIB -> set_itp_solver `MathSAT_SMTLIB
-      | `SMTInterpol_SMTLIB -> set_itp_solver `SMTInterpol_SMTLIB
-      | `Z3_SMTLIB -> set_itp_solver `Z3_QE
-      | _ ->
-        try
-          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-          set_itp_solver `MathSAT_SMTLIB;
-          set_mathsat_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-          set_itp_solver `SMTInterpol_SMTLIB;
-          set_smtinterpol_jar exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-          set_itp_solver `Z3_QE;
-          set_z3_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-          set_itp_solver `cvc5_QE;
-          set_cvc5_bin exec;
-        with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
+      try
+        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+        set_itp_solver `MathSAT_SMTLIB;
+        set_mathsat_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+        set_itp_solver `SMTInterpol_SMTLIB;
+        set_smtinterpol_jar exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+        set_itp_solver `Z3_QE;
+        set_z3_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+        set_itp_solver `cvc5_QE;
+        set_cvc5_bin exec;
+      with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
 end
 
 
