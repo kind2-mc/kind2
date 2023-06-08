@@ -32,6 +32,7 @@ module C2I = C2I
 module Signals = TermLib.Signals
 
 open Lib
+open ProcessCall
 
 (* |===| Helpers. *)
 
@@ -64,14 +65,6 @@ let renice () =
     let nice' = Unix.nice nice in
     KEvent.log L_info "[renice] renicing to %d" nice'
 
-
-type process =
-  | GenericCall of Lib.kind_module
-  | IC3IA_Call of bool * Property.t * string
-
-let get_kind_module = function
-  | GenericCall m -> m
-  | IC3IA_Call _ -> `IC3IA
 
 let fresh_ic3ia_instance_name =
   let r = ref 0 in
@@ -112,7 +105,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-    | `Supervisor -> InvarManager.main false false child_pids
+    | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
   )
@@ -528,45 +521,52 @@ let create_processes modules sys =
   in
   let processes = List.map (fun m -> GenericCall m) other_modules in
   match ic3ia_module with
-  | [] -> processes
+  | [] -> processes, []
   | _ -> (
-    let open TermLib in
-    let open TermLib.FeatureSet in
-    match TransSys.get_logic sys with
-    | `Inferred l when mem A l ->
-      KEvent.log L_warn 
-        "IC3IA disabled: arrays are not supported." ;
-      processes
-    | _ -> (
-      let qe_itp_support_model =
-        let check_system_is_supported itp_solver =
-          let supported =
-            TSys.subsystem_includes_function_symbol sys |> not
+    if Flags.IC3IA.max_processes () > 0 then
+      let open TermLib in
+      let open TermLib.FeatureSet in
+      match TransSys.get_logic sys with
+      | `Inferred l when mem A l ->
+        KEvent.log L_warn 
+          "IC3IA disabled: arrays are not supported." ;
+        processes, []
+      | _ -> (
+        let qe_itp_support_model =
+          let check_system_is_supported itp_solver =
+            let supported =
+              TSys.subsystem_includes_function_symbol sys |> not
+            in
+            if not supported then
+              KEvent.log L_warn 
+                "IC3IA (%s) disabled: system includes an abstract function. Use MathSAT or SMTInterpol instead."
+                itp_solver;
+            supported
           in
-          if not supported then
-            KEvent.log L_warn 
-              "IC3IA (%s) disabled: system includes an abstract function. Use MathSAT or SMTInterpol instead."
-              itp_solver;
-          supported
-        in
-        match Flags.Smt.itp_solver () with
-        | `cvc5_QE -> check_system_is_supported "cvc5qe"
-        | `Z3_QE -> check_system_is_supported "Z3qe"
-        | _ -> false
-      in
-      List.fold_left
-        (fun acc p ->
           match Flags.Smt.itp_solver () with
-          | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
-            IC3IA_Call (false, p, fresh_ic3ia_instance_name ())
-            :: IC3IA_Call (true, p, fresh_ic3ia_instance_name ()) :: acc
-          | `cvc5_QE | `Z3_QE -> acc
-          | _ ->
-            IC3IA_Call (false, p, fresh_ic3ia_instance_name ()) :: acc
-        )
-        processes
-        (TSys.get_real_properties sys)
-    )
+          | `cvc5_QE -> check_system_is_supported "cvc5qe"
+          | `Z3_QE -> check_system_is_supported "Z3qe"
+          | _ -> false
+        in
+        let pending =
+          List.fold_left
+            (fun acc p ->
+              match Flags.Smt.itp_solver () with
+              | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
+                IC3IA_Call (false, p, fresh_ic3ia_instance_name ())
+                :: IC3IA_Call (true, p, fresh_ic3ia_instance_name ()) :: acc
+              | `cvc5_QE | `Z3_QE -> acc
+              | _ ->
+                IC3IA_Call (false, p, fresh_ic3ia_instance_name ()) :: acc
+            )
+            []
+            (TSys.get_real_properties sys)
+        in
+        let to_run, pending = list_split (Flags.IC3IA.max_processes ()) pending in
+        List.rev_append to_run processes, pending
+      )
+    else
+      processes, []
   )
 
 let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
@@ -648,10 +648,10 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       let modules = process_bmc_modules sys modules in
       let modules = process_ic3_modules modules in
 
-      let processes = create_processes modules sys in
+      let to_run, pending = create_processes modules sys in
 
       (* Start all child processes. *)
-      processes |> List.iter (
+      to_run |> List.iter (
         fun p -> run_process in_sys param sys msg_setup p
       ) ;
 
@@ -659,7 +659,10 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       KEvent.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main ignore_props stop_if_falsified child_pids in_sys param sys ;
+      InvarManager.main 
+        (run_process in_sys param sys msg_setup)
+        pending
+        ignore_props stop_if_falsified child_pids in_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor

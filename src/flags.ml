@@ -918,6 +918,38 @@ module IC3QE = struct
 
 end
 
+(* IC3IA flags. *)
+module IC3IA = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "ic3ia"
+  (* Short description of the module. *)
+  let desc = "IC3-IA flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      The IC3-IA engine is an SMT-based extension of IC3 (a.k.a. PDR) that@ \
+      uses implicit (predicate) abstraction (IA).
+    @]"
+
+  let max_processes_default = 1
+  let max_processes = ref max_processes_default
+  let _ = add_spec
+    "--ic3ia_max"
+    (Arg.Set_int max_processes)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Maximum number of IC3IA parallel processes.@ \
+          Each process checks an individual property.@ \
+          Default: %d\
+        @]"
+        max_processes_default
+    )
+  let max_processes () = !max_processes
+end
 
 (* Quantifier elimination module. *)
 module QE = struct
@@ -2564,6 +2596,9 @@ let module_map = [
   (IC3QE.id,
     (module IC3QE: FlagModule)
   ) ;
+  (IC3IA.id,
+    (module IC3IA: FlagModule)
+  ) ;
   (Invgen.id,
     (module Invgen: FlagModule)
   ) ;
@@ -3242,7 +3277,6 @@ module Global = struct
       (pp_print_list Format.pp_print_string ",@ ") enable_values
     )
   (* let disabled () = !disabled *)
-
 
   (* Modular mode. *)
   let modular_default = false

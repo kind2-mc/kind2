@@ -435,6 +435,13 @@ module IC3QE : sig
   val abstr : unit -> abstr
 end
 
+(** {2 IC3IA flags} *)
+module IC3IA : sig
+
+  val max_processes : unit -> int
+  
+end
+
 (** {2 QE flags} *)
 module QE : sig
   (** Methods available for quantifier elimination. *)

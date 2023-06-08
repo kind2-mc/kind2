@@ -24,7 +24,10 @@
 
 First boolean indicates whether the analysis should continue even when
 everything's been proved. *)
-val main : bool -> bool -> (int * Lib.kind_module) list ref -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+val main :
+  (ProcessCall.t -> unit) (* run_process *) ->
+  ProcessCall.t list (* pending processes *) ->
+  bool -> bool -> (int * Lib.kind_module) list ref -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit
