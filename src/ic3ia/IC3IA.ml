@@ -114,6 +114,26 @@ let sys_def solver sys offset =
    in
    Term.mk_or [init; trans]
 
+let sys_def_unrolling solver sys offset =
+  let init_term_curr =
+    get_init offset
+  in
+  if Numeral.(equal offset zero) then
+    Term.mk_and
+      [TransSys.init_of_bound
+        (Some (SMTSolver.declare_fun solver))
+        sys
+        offset;
+        Term.mk_not init_term_curr
+      ]
+  else
+    Term.mk_and
+      [TransSys.trans_of_bound
+        (Some (SMTSolver.declare_fun solver))
+        sys
+        offset;
+        Term.mk_not init_term_curr
+      ]
 
 let get_logic sys =
   added_logic := None;
@@ -321,14 +341,14 @@ let refine fwd solver sys predicates cubes =
       let cube = Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1)) in
       if i < (len - 1) then
         Term.mk_and
-          [ cube; sys_def intrpo sys (Numeral.of_int i) ]
+          [ cube; sys_def_unrolling intrpo sys (Numeral.of_int i) ]
       else
         cube
       (* If prop is not in the set of initial predicates: *)
       (*Term.mk_and
         [ Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1));
           if i < (len - 1) then
-            sys_def intrpo sys (Numeral.of_int i)
+            sys_def_unrolling intrpo sys (Numeral.of_int i)
           else
             Term.mk_not (prop |> Term.bump_state (Numeral.of_int (i - 1)))
         ]*)
