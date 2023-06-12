@@ -630,7 +630,7 @@ let pp_yices_print_bitvector_d ppf i s =
 (* Pretty-print a bitvector in SMTLIB extended decimal format *)
 let pp_smtlib_print_bitvector_d ppf b =
   let len = length_of_bitvector b in
-  let num = ubv_to_num b in
+  let num = ubv_to_num' (Numeral.of_int len) b in
   fprintf ppf "(_ bv%a %d)" Numeral.pp_print_numeral num len
 
 (* Pretty-print an unsigned Lustre machine integer *)
