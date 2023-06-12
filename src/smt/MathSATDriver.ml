@@ -69,7 +69,7 @@ let cmd_line
   let cmd =
     [|
       mathsat_bin;
-      (* Workaround for problem in MathSAT 5.6.9 and below *)
+      (* Workaround for a bug in MathSAT (last checked version: 5.6.10) *)
       "-preprocessor.interpolation_ite_elimination=true";
       (* Required for interpolation *)
       "-theory.bv.eager=false"
@@ -82,3 +82,23 @@ let cmd_line
         Format.sprintf "-timeout=%.0f" ((1000.0 *. timeout) |> ceil)
       in
       Array.append cmd [|timeout|]
+
+
+let pp_print_symbol ?arity ppf s =
+  (* Workaround for a bug in MathSAT (last checked version: 5.6.10):
+     (get-value (= x #b0000)) throws "syntax error, unexpected BINCONSTANT"
+     (get-value (= x (_ bv0 4))) works fine
+  *)
+  match Symbol.node_of_symbol s with
+  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_d ppf b 
+  | `BV b -> Bitvector.pp_smtlib_print_bitvector_d ppf b
+  | n -> GenericSMTLIBDriver.pp_print_symbol_node ?arity ppf n
+
+let string_of_symbol ?arity s = Format.asprintf "%a" (pp_print_symbol ?arity) s
+
+(* Pretty-print a term (based on pp_print_symbol implementation above) *)
+let pp_print_term ppf t =
+  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var pp_print_sort ppf t
+
+(* Pretty-print an expression (based on pp_print_symbol implementation above) *)
+let pp_print_expr = pp_print_term
