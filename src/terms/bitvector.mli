@@ -276,7 +276,7 @@ val bv_arsh : t -> t -> t
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
 (** Pretty-print a bitvector in SMTLIB extended decimal format *)
-val pp_smtlib_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
+val pp_smtlib_print_bitvector_d : Format.formatter -> t -> unit
 
 (** Pretty-print a constant bitvector in Yices' binary format *)
 val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
