@@ -123,6 +123,7 @@ module Smt = struct
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
@@ -133,6 +134,7 @@ module Smt = struct
     | "Bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "MathSAT" ->  `MathSAT_SMTLIB
+    (* | "OpenSMT" -> `OpenSMT_SMTLIB *)
     | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | "Yices2" -> `Yices2_SMTLIB
     | "Yices" -> `Yices_native
@@ -142,6 +144,7 @@ module Smt = struct
     | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `cvc5_SMTLIB -> "cvc5"
     | `MathSAT_SMTLIB -> "MathSAT"
+    | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
@@ -203,6 +206,7 @@ module Smt = struct
   type itp_solver = [
     | `cvc5_QE
     | `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Z3_QE
     | `detect
@@ -210,14 +214,16 @@ module Smt = struct
   let itp_solver_of_string = function
     | "cvc5qe" -> `cvc5_QE
     | "MathSAT" -> `MathSAT_SMTLIB
+    | "OpenSMT" -> `OpenSMT_SMTLIB
     | "SMTInterpol" -> `SMTInterpol_SMTLIB
     | "Z3qe" -> `Z3_QE
     | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
   let string_of_itp_solver = function
     | `MathSAT_SMTLIB -> "MathSAT"
+    | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `detect -> "detect"
-  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe"
+  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe, OpenSMT"
   let itp_solver_default = `detect
   let itp_solver = ref itp_solver_default
   let _ = add_spec
@@ -239,6 +245,7 @@ module Smt = struct
     match itp_solver () with
     | `cvc5_QE -> `cvc5_SMTLIB
     | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB -> `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
     | `Z3_QE -> `Z3_SMTLIB
     | _ -> failwith "No interpolating SMT solver found"
@@ -329,6 +336,20 @@ module Smt = struct
     )
   let set_mathsat_bin str = mathsat_bin := str
   let mathsat_bin () = !mathsat_bin
+
+  (* OpenSMT binary. *)
+  let opensmt_bin_default = "opensmt"
+  let opensmt_bin = ref opensmt_bin_default
+  let _ = add_spec
+    "--opensmt_bin"
+    (Arg.Set_string opensmt_bin)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of OpenSMT solver@ Default: \"%s\"@]"
+        opensmt_bin_default
+    )
+  let set_opensmt_bin str = opensmt_bin := str
+  let opensmt_bin () = !opensmt_bin
 
   (* SMTInterpol JAR. *)
   let smtinterpol_jar_default = "smtinterpol.jar"
@@ -463,6 +484,9 @@ module Smt = struct
     (* User chose cvc5 *)
     | `cvc5_SMTLIB ->
       find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
+    (* User chose OpenSMT *)
+    | `OpenSMT_SMTLIB ->
+      find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB ->
       find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
@@ -563,6 +587,12 @@ module Smt = struct
       | `MathSAT_SMTLIB -> ()
       | _ -> find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
     )
+    (* User chose OpenSMT *)
+    | `OpenSMT_SMTLIB -> (
+      match solver () with
+      | `OpenSMT_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
+    )
     (* User chose SMTInterpol *)
     | `SMTInterpol_SMTLIB -> (
       match solver () with
@@ -599,6 +629,11 @@ module Smt = struct
         let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
         set_itp_solver `cvc5_QE;
         set_cvc5_bin exec;
+      with Not_found -> 
+      try
+        let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
+        set_itp_solver `OpenSMT_SMTLIB;
+        set_opensmt_bin exec;
       with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
 end
 
@@ -3835,6 +3870,16 @@ let solver_dependant_actions solver =
           Log.log L_warn "Detected MathSAT: disabling ind_compress"
       )
     | None -> Log.log L_warn "Couldn't determine MathSAT version"
+  )
+  | `OpenSMT_SMTLIB -> (
+    if Smt.check_sat_assume () then (
+      Log.log L_warn "Detected OpenSMT: disabling check_sat_assume";
+      Smt.set_check_sat_assume false
+    ) ;
+    if BmcKind.compress () then (
+      BmcKind.disable_compress () ;
+      Log.log L_warn "Detected OpenSMT: disabling ind_compress"
+    )
   )
   | `SMTInterpol_SMTLIB -> (
     if Smt.check_sat_assume () then (

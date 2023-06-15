@@ -38,6 +38,7 @@ let gentag =
 module BitwuzlaSMTLIB : SolverSig.S = SMTLIBSolver.Make (BitwuzlaDriver)
 module CVC5SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC5Driver)
 module MathSATSMTLIB : SolverSig.S = SMTLIBSolver.Make (MathSATDriver)
+module OpenSMTSMTLIB : SolverSig.S = SMTLIBSolver.Make (OpenSMTDriver)
 module SMTInterpolSMTLIB : SolverSig.S = SMTLIBSolver.Make (SMTInterpolDriver)
 module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
 module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
@@ -162,6 +163,7 @@ let create_instance
     | `Bitwuzla_SMTLIB -> (module BitwuzlaSMTLIB.Create(Params) : SolverSig.Inst)
     | `cvc5_SMTLIB -> (module CVC5SMTLIB.Create(Params) : SolverSig.Inst)
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
+    | `OpenSMT_SMTLIB -> (module OpenSMTSMTLIB.Create(Params) : SolverSig.Inst)
     | `SMTInterpol_SMTLIB -> (module SMTInterpolSMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
     | `Yices2_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
@@ -953,6 +955,7 @@ let get_interpolants solver args =
       | r -> smt_error solver r
     )
   )
+  | `OpenSMT_SMTLIB
   | `SMTInterpol_SMTLIB -> (
     match execute_custom_command solver "get-interpolants" args 1 with
     | `Custom i -> (
