@@ -20,7 +20,7 @@ falsify the property in the abstracted system but are not actual executions of t
 The method addresses this problem by using an abstraction refinement technique based on logical
 interpolants. 
 Kind 2 currently supports two proof-based interpolating SMT solvers for the generation of interpolants:
-MathSAT and SMTInterpol. In addition, Kind 2 also implements a built-in method for producing
+MathSAT, SMTInterpol, and OpenSMT. In addition, Kind 2 also implements a built-in method for producing
 interpolants based on quantifier elimination that can be used with Z3 and cvc5.
 When the IC3IA engine is enabled, each property is handled separately by a
 different process; two when the built-in method for producing interpolants is used,
@@ -42,7 +42,7 @@ If you only want to enable of the engines, e.g. IC3QE, run
 IC3-IA Options
 ^^^^^^^^^^^^^^
 
-``--smt_itp_solver {MathSAT | SMTInterpol | Z3qe | cvc5qe}`` -- set the SMT solver used for interpolation.
+``--smt_itp_solver {MathSAT | SMTInterpol | Z3qe | cvc5qe | OpenSMT}`` -- set the SMT solver used for interpolation.
 
 ``--ic3ia_max <int>`` -- set the maximum number of IC3IA parallel processes. Each process checks an individual property.
 

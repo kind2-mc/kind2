@@ -369,6 +369,7 @@ let refine fwd solver sys predicates cubes =
         )
         interpolizers
     )
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> (
       List.map
         (fun t ->
