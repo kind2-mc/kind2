@@ -969,7 +969,7 @@ module IC3IA = struct
       uses implicit (predicate) abstraction (IA).
     @]"
 
-  let max_processes_default = 1
+  let max_processes_default = 2
   let max_processes = ref max_processes_default
   let _ = add_spec
     "--ic3ia_max"
