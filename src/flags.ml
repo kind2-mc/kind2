@@ -130,15 +130,16 @@ module Smt = struct
     | `Z3_SMTLIB
     | `detect
   ]
-  let solver_of_string = function
-    | "Bitwuzla" -> `Bitwuzla_SMTLIB
+  let solver_of_string s =
+    match String.lowercase_ascii s with
+    | "bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
-    | "MathSAT" ->  `MathSAT_SMTLIB
-    (* | "OpenSMT" -> `OpenSMT_SMTLIB *)
-    | "SMTInterpol" -> `SMTInterpol_SMTLIB
-    | "Yices2" -> `Yices2_SMTLIB
-    | "Yices" -> `Yices_native
-    | "Z3" -> `Z3_SMTLIB
+    | "mathsat" ->  `MathSAT_SMTLIB
+    (* | "opensmt" -> `OpenSMT_SMTLIB *)
+    | "smtinterpol" -> `SMTInterpol_SMTLIB
+    | "yices2" -> `Yices2_SMTLIB
+    | "yices" -> `Yices_native
+    | "z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
     | `Bitwuzla_SMTLIB -> "Bitwuzla"
@@ -176,9 +177,10 @@ module Smt = struct
     | `Z3_SMTLIB
     | `detect
   ]
-  let qe_solver_of_string = function
+  let qe_solver_of_string s =
+    match String.lowercase_ascii s with
     | "cvc5" -> `cvc5_SMTLIB
-    | "Z3" -> `Z3_SMTLIB
+    | "z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_qe_solver" |> raise
   let string_of_qe_solver = function
     | `cvc5_SMTLIB -> "cvc5"
@@ -211,12 +213,13 @@ module Smt = struct
     | `Z3_QE
     | `detect
   ]
-  let itp_solver_of_string = function
+  let itp_solver_of_string s =
+    match String.lowercase_ascii s with
     | "cvc5qe" -> `cvc5_QE
-    | "MathSAT" -> `MathSAT_SMTLIB
-    | "OpenSMT" -> `OpenSMT_SMTLIB
-    | "SMTInterpol" -> `SMTInterpol_SMTLIB
-    | "Z3qe" -> `Z3_QE
+    | "mathsat" -> `MathSAT_SMTLIB
+    | "opensmt" -> `OpenSMT_SMTLIB
+    | "smtinterpol" -> `SMTInterpol_SMTLIB
+    | "z3qe" -> `Z3_QE
     | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
   let string_of_itp_solver = function
     | `MathSAT_SMTLIB -> "MathSAT"
