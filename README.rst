@@ -111,12 +111,12 @@ To run Kind 2 the following software must be installed on your computer:
 Z3 is the presently recommended SMT solver and the default option.
 For best results, we recommend using a combination of several solvers.
 For systems with integer and real variables, we recommend using Z3 as
-the main solver (`--smt_solver Z3`) and MathSAT as
-the interpolating solver (`--smt_itp_solver MathSAT`).
+the main solver (``--smt_solver Z3``) and MathSAT as
+the interpolating solver (``--smt_itp_solver MathSAT``).
 For systems with only machine integers, we recommend using Bitwuzla as
-the main solver (`--smt_solver Bitwuzla`), MathSAT as
-the interpolating solver (`--smt_itp_solver MathSAT`), and
-Z3 for performing quantifier elimination (`--smt_qe_solver Z3`).
+the main solver (``--smt_solver Bitwuzla``), MathSAT as
+the interpolating solver (``--smt_itp_solver MathSAT``), and
+Z3 for performing quantifier elimination (``--smt_qe_solver Z3``).
 
 
 VS Code Extension
