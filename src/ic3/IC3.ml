@@ -704,7 +704,7 @@ let extrapolate trans_sys state f g =
         term 
     with
     | QE.QuantifiedTermFound _ ->
-        let err = "Disabling IC3: Cannot generalize quantified terms." in
+        let err = "Shutting down IC3QE: Cannot generalize quantified terms." in
         raise (UnsupportedFeature err)
   in
 
@@ -833,6 +833,7 @@ let abstr_simulate trace trans_sys raise_cex =
         )
         interpolizers
     )
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> (
       List.map
         (fun t ->
@@ -1040,7 +1041,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   with Invalid_argument _ as e -> (
                     if List.exists (fun t -> Term.has_quantifier t) cti_gen then (
                       raise (UnsupportedFeature
-                        "Disabling IC3: QE failed during generalization step.")
+                        "Shutting down IC3QE: QE failed during generalization step.")
                     )
                     else
                       raise e
@@ -2337,7 +2338,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
   (* Current k is length of trace *)
   let ic3_k = succ (List.length frames) in
 
-  KEvent.log L_info "IC3 main loop at k=%d" ic3_k;
+  KEvent.log L_info "IC3QE main loop at k=%d" ic3_k;
 
   KEvent.progress ic3_k;
 
@@ -2756,7 +2757,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
                       KEvent.log
                         L_info 
-                        "Property %s disproved by IC3"
+                        "Property %s disproved by IC3QE"
                         p;
 
                       (props', p :: props_false))
@@ -2765,7 +2766,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
                      (KEvent.log
                         L_info 
-                        "Property %s not disproved by IC3"
+                        "Property %s not disproved by IC3QE"
                         p;
 
                       ((p, t) :: props', props_false)))
@@ -2839,7 +2840,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
             if (not qe_solver_is_available) then
               raise (UnsupportedFeature
-              "Disabling IC3: Z3 or cvc5 is required for inputs with reals or machine integers.");
+              "Shutting down IC3QE: Z3 or cvc5 is required for inputs with reals or machine integers.");
 
             KEvent.log
               L_info
@@ -2863,7 +2864,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
         KEvent.log
           L_info 
-          "@[<h>Restarting IC3 with properties @[<h>%a@]@]"
+          "@[<h>Restarting IC3QE with properties @[<h>%a@]@]"
           (pp_print_list
              (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
              "@ ")
@@ -3059,7 +3060,7 @@ let main_ic3 input_sys aparam trans_sys =
     | `Inferred fs when mem BV fs ->
         raise
           (UnsupportedFeature
-             "Disabling IC3: The current implementation does not support BV \
+             "Shutting down IC3QE: The current implementation does not support BV \
               problems.")
     | `Inferred fs when not (subset fs (of_list [ Q; UF; A ])) ->
         `Inferred
@@ -3262,7 +3263,7 @@ let main input_sys aparam trans_sys =
      | `Inferred l when mem NA l ->
 
        raise (UnsupportedFeature
-         "Disabling IC3: Yices 2 does not support unsat-cores with non-linear models.")
+         "Shutting down IC3QE: Yices 2 does not support unsat-cores with non-linear models.")
 
      | _ -> ()
     )
@@ -3272,17 +3273,10 @@ let main input_sys aparam trans_sys =
   match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (
-    TransSys.iter_subsystems
-      ~include_top:true
-      (fun ts ->
-        if TransSys.get_function_symbols ts <> [] then
-          (* System includes an abstract function: a partially defined function,
-            an imported function, a function abstracted by its contract,...
-          *)
-          raise (UnsupportedFeature
-            "Disabling IC3: system includes an abstract function.")
-      )
-      trans_sys;
+    if TransSys.subsystem_includes_function_symbol trans_sys then
+      raise (UnsupportedFeature
+        "Shutting down IC3QE: system includes an abstract function.")
+    ;
     main_ic3 input_sys aparam trans_sys
   )
 

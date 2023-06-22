@@ -86,7 +86,7 @@ let needed_by = function
 (* Set of core modules. The analysis goes on if at least one of them is
    active *)
 let core_module = function
-  | `IND | `BMC | `IC3 -> true
+  | `IND | `BMC | `IC3QE | `IC3IA -> true
   | _ -> false
 
 
@@ -117,13 +117,42 @@ let kill_useless_engines child_pids =
     ) monitor_modules;
   not (List.exists (fun (_,m) -> core_module m) child_pids)
 
-  
+let check_pending_processes run_process pending_processes sys child_pids =
+  pending_processes := !pending_processes |> List.filter (function
+    | ProcessCall.IC3IA_Call (_, prop, _) -> (
+      match TransSys.get_prop_status sys prop.prop_name with
+      | PropUnknown | PropKTrue _ -> true
+      | _ -> false
+    )
+    | _ -> assert false
+  ) ;
+  match !pending_processes with
+  | [] -> ()
+  | _ -> (
+    let num_of_ic3ia_modules =
+      !child_pids |> List.filter (function
+        | (_, `IC3IA) -> true
+        | _ -> false
+      )
+      |> List.length
+    in
+    let diff = Flags.IC3IA.max_processes () - num_of_ic3ia_modules in
+    if diff > 0 then
+      let to_run, pending =
+        list_split diff !pending_processes
+      in
+      pending_processes := pending ;
+      List.iter (fun m -> run_process m) to_run ;
+      (* Update background thread with new kids. *)
+      KEvent.update_child_processes_list !child_pids ;
+  )
+
 
 (* Remove terminated child processed from list of analysisning processes
 
    Return [true] if the last child processes has terminated or some
    process exited with a runtime error or was killed. *)
-let rec wait_for_children child_pids = 
+let rec wait_for_children run_process pending_processes sys child_pids = 
 
   match 
     
@@ -155,8 +184,10 @@ let rec wait_for_children child_pids =
       (* Remove child process from list *)
       child_pids := List.remove_assoc child_pid !child_pids;
 
+      check_pending_processes run_process pending_processes sys child_pids ;
+
       (* Check if more child processes have died *)
-      wait_for_children child_pids
+      wait_for_children run_process pending_processes sys child_pids
 
     )
 
@@ -171,14 +202,17 @@ let rec wait_for_children child_pids =
       (* Remove child process from list *)
       child_pids := List.remove_assoc child_pid !child_pids ;
 
+      check_pending_processes run_process pending_processes sys child_pids ;
+
       (* Check if more child processes have died *)
       kill_useless_engines !child_pids ||
-      wait_for_children child_pids
+      wait_for_children run_process pending_processes sys child_pids
 
     )
 
 (* Polling loop *)
 let rec loop
+  run_process pending_processes
   ignore_props stop_if_falsified done_at timeout_analysis_reached
   child_pids input_sys aparam trans_sys
 =
@@ -233,7 +267,7 @@ let rec loop
   in
 
   (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids || (
+  if wait_for_children run_process pending_processes trans_sys child_pids || (
     match done_at with 
     | None -> false
     | Some t -> (Unix.gettimeofday () -. t) > 0.3
@@ -253,6 +287,7 @@ let rec loop
 
     (* Continue polling loop *)
     loop
+      run_process pending_processes
       ignore_props stop_if_falsified done_at' timeout_analysis_reached
       child_pids input_sys aparam trans_sys
 
@@ -260,7 +295,7 @@ let rec loop
   
 
 (* Entry point *)
-let main ignore_props stop_if_falsified child_pids input_sys aparam trans_sys =
+let main run_process pending_processes ignore_props stop_if_falsified child_pids input_sys aparam trans_sys =
   (* Building the function checking whether we reached the analysis timeout. *)
   let timeout_analysis = Flags.timeout_analysis () in
   let timeout_analysis_reached =
@@ -272,8 +307,11 @@ let main ignore_props stop_if_falsified child_pids input_sys aparam trans_sys =
     )
   in
 
+  let pending_processes = ref pending_processes in
+
   (* Run main loop *)
   loop
+    run_process pending_processes
     ignore_props stop_if_falsified None timeout_analysis_reached
     child_pids input_sys aparam trans_sys
 

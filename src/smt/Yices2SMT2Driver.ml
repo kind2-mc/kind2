@@ -52,7 +52,7 @@ let check_logic logic =
         Flags.Smt.set_check_sat_assume false;
         KEvent.log Lib.L_warn
           "In %a: Yices 2 does not support check-sat-assuming with non-linear problems.@ \
-          Disabling check_sat_assume."
+          check_sat_assume option disabled"
           Lib.pp_print_kind_module (KEvent.get_module ())
       )
     )

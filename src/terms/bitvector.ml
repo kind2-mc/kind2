@@ -628,8 +628,10 @@ let pp_yices_print_bitvector_d ppf i s =
     fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 (* Pretty-print a bitvector in SMTLIB extended decimal format *)
-let pp_smtlib_print_bitvector_d ppf n size = 
-  fprintf ppf "(_ bv%s %s)" (Numeral.string_of_numeral n) (Numeral.string_of_numeral size)
+let pp_smtlib_print_bitvector_d ppf b =
+  let len = length_of_bitvector b in
+  let num = ubv_to_num' (Numeral.of_int len) b in
+  fprintf ppf "(_ bv%a %d)" Numeral.pp_print_numeral num len
 
 (* Pretty-print an unsigned Lustre machine integer *)
 let pp_print_unsigned_machine_integer ppf b =

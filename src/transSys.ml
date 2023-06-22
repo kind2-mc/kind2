@@ -823,6 +823,13 @@ let get_sofar_term trans_sys pos =
     )
   )
 
+let subsystem_includes_function_symbol =
+  (* Subsystem includes an abstract function: a partially defined function,
+     an imported function, a function abstracted by its contract,...
+  *)
+  fold_subsystems ~include_top:true
+    (fun acc ts -> acc || get_function_symbols ts <> [])
+    false
 
 (* **************************************************************** *)
 (* Set, Map, and Hash Table                                         *)

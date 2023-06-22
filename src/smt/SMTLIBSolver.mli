@@ -23,6 +23,8 @@
 
  *)
 
+val trace_suffix : string ref
+
 module type SMTLIBSolverDriver = sig
   include SolverDriver.S
 

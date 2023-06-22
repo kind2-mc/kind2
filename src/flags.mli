@@ -266,6 +266,7 @@ module Smt : sig
     | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
     | `Yices_native
@@ -294,6 +295,7 @@ module Smt : sig
   type itp_solver = [
     | `cvc5_QE
     | `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Z3_QE
     | `detect
@@ -326,6 +328,9 @@ module Smt : sig
 
   (** Executable of MathSAT solver *)
   val mathsat_bin : unit -> string
+
+  (** Executable of OpenSMT solver *)
+  val opensmt_bin : unit -> string
 
   (** JAR of SMTInterpol solver *)
   val smtinterpol_jar : unit -> string
@@ -433,6 +438,13 @@ module IC3QE : sig
 
   (** DEPRECATED: Abstraction mechanism IC3 should use. *)
   val abstr : unit -> abstr
+end
+
+(** {2 IC3IA flags} *)
+module IC3IA : sig
+
+  val max_processes : unit -> int
+  
 end
 
 (** {2 QE flags} *)

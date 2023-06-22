@@ -1,3 +1,31 @@
+# Kind 2 v2.0.0
+
+New features:
+
+- Support for SMTInterpol as a backend solver.
+- New IC3 engine based on Implicit (Predicate) Abstraction:
+  - Supported interpolating SMT solvers: MathSAT, SMTInterpol, and OpenSMT.
+  - Generation of interpolants with Z3 and cvc5 supported through built-in method based on QE.
+  - See [documentation](https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/4_ic3.html) for more details.
+- Support for subrange types with an open end:
+  - `type T = subrange [*,N] of int`
+  - `type T = subrange [N,*] of int`
+
+Improvements:
+
+- Add additional non-vacuity check for contract modes.
+  - The new check considers only the info of the contract.
+- Optimize performance of counterexample reconstruction.
+- Fix handling of reachability properties in compositional-modular analysis.
+- Fix simulation of systems with imported subnodes.
+- Fix logic setting for Yices 2.
+- Fix logic setting and constant declaration in certificates.
+
+Changes:
+
+- Add `--exit_code_mode` option to control exit code convention.
+
+
 # Kind 2 v1.9.0
 
 New features:

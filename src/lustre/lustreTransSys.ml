@@ -437,13 +437,16 @@ let add_constraints_of_type init terms state_var =
         indices
     in
 
-    let l, u = Type.bounds_of_int_range base_type in
-
-    let ct = match l, u with 
-      | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
-      | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
-      | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
-      | None, None -> Term.mk_bool true
+    let ct = 
+      if Type.is_enum base_type then 
+        let l, u = Type.bounds_of_enum base_type in 
+        Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+      else 
+        match Type.bounds_of_int_range base_type with 
+          | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+          | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
+          | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
+          | None, None -> Term.mk_bool true
     in
 
     let qct =
@@ -1436,7 +1439,7 @@ module MBounds = Map.Make (struct
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations_wo_arrays node
+let rec constraints_of_equations_wo_arrays transfer_defs node
     eq_bounds init stateful_vars terms (lets, lets_dependencies) = function
   (* Constraints for all equations generated *)
   | [] -> terms, lets, eq_bounds
@@ -1461,14 +1464,16 @@ let rec constraints_of_equations_wo_arrays node
     in
 
     (* Add terms of equation *)
-    constraints_of_equations_wo_arrays node
+    constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) tl
 
 
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
-    (*if not (E.is_var expr) then begin*)
+    if transfer_defs then (
+    (* TODO: Factor out and optimize this code *)
+    (*if not (E.is_var expr) then ( *)
       (* We update the let dependencies *)
       let add_dependency sv acc =
         let old =
@@ -1507,7 +1512,7 @@ let rec constraints_of_equations_wo_arrays node
         then add_defs_to_sv sv
       in
       List.iter transfer_defs_to_eq_if_needed node.N.equations
-    (*end*) ;
+    ) ;
 
     (* Let binding for stateless variable, in closure form *)
     let let_closure =
@@ -1546,7 +1551,7 @@ let rec constraints_of_equations_wo_arrays node
     in
 
     (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations_wo_arrays node
+    constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) tl
 
   (* Array state variable *)
@@ -1557,7 +1562,7 @@ let rec constraints_of_equations_wo_arrays node
     (* map equation to its bounds for future treatment and continue *)
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
     
-    constraints_of_equations_wo_arrays node
+    constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars terms (lets, lets_dependencies) tl
 
 
@@ -1665,7 +1670,10 @@ let constraints_of_equations node init stateful_vars terms equations =
         
   (* make constraints for equations which do not redefine arrays first *)
   let terms, lets, eq_bounds =
-    constraints_of_equations_wo_arrays node
+    let transfer_defs =
+      Flags.IVC.compute_ivc () || List.mem `MCS (Flags.enabled ())
+    in
+    constraints_of_equations_wo_arrays transfer_defs node
       MBounds.empty init stateful_vars terms ([], SVM.empty) equations
     in
 
