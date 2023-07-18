@@ -153,6 +153,11 @@ val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit
     for encoded enumerated datatypes). *)
 val pp_print_expr : ?as_type:Type.t -> bool -> Format.formatter -> expr -> unit
 
+val pp_print_lustre_expr_pvar :
+  bool ->
+  (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> t -> unit
+
 val pp_print_expr_pvar :
   ?as_type:Type.t -> bool ->
   (Format.formatter -> StateVar.t -> unit) ->
@@ -263,12 +268,18 @@ val pre_term_of_t : Numeral.t -> t -> Term.t
     is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
-(** Return the free variable of a variable 
+(** Return the free variable of a expresion 
 
     Fail with [Invalid_argument "var_of_expr"] if the expression
     is not a free variable. *)
 val var_of_expr : t -> Var.t
-  
+
+(** Return the free variable of the initial state expression 
+
+    Fail with [Invalid_argument "var_of_init_expr"] if the initial state expression
+    is not a free variable. *)
+val var_of_init_expr : t -> Var.t
+
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
@@ -291,6 +302,9 @@ val indexes_of_state_vars_in_step : StateVar.t -> t -> expr list list
     respectively *)
 val split_expr_list : t list -> expr list * expr list 
 
+val init_expr : t -> expr
+
+val step_expr : t -> expr
 
 (** {1 Constants} *)
 

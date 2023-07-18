@@ -22,12 +22,14 @@ module ISys = InputSystem
 module TSys = TransSys
 
 module LN = LustreNode
+module LE = LustreExpr
 module LC = LustreContract
 module ME = ModelElement
 module VS = Var.VarSet
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module SVT = StateVar.StateVarHashtbl
 module UFM = UfSymbol.UfSymbolMap
 
 
@@ -220,6 +222,51 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
 
 let core_desc = "conflicting constraints"
 
+let pp_print_viable_states in_sys param sys fmt fp =
+  if fp = Term.t_true then
+    Format.fprintf fmt "@[<hov>true@]"
+  else
+    let top_node =
+      match ISys.get_lustre_node in_sys (Analysis.info_of_param param).top with
+      | Some n -> n
+      | None -> assert false
+    in
+
+    let sv_expr_map = LN.get_state_var_expr_map top_node in
+    let oracles = top_node.LN.oracles |> SVS.of_list in
+
+    let some_oracle = not (SVS.is_empty oracles) in
+
+    let sv_ln_map =
+      match top_node.LN.calls with
+      | [] -> SVM.empty
+      | _ -> ISys.call_state_var_to_lustre_reference in_sys (TSys.state_vars sys)
+    in
+
+    let rec pvar fmt sv =
+      match SVM.find_opt sv sv_ln_map with
+      | Some ln -> Format.fprintf fmt "%s" ln
+      | None -> (
+        match SVT.find_opt sv_expr_map sv with
+        | None -> Format.fprintf fmt "%s" (StateVar.name_of_state_var sv)
+        | Some expr -> (
+          let has_oracle =
+            try some_oracle && SVS.mem (LE.var_of_init_expr expr
+                |> Var.state_var_of_state_var_instance) oracles
+            with Invalid_argument _ -> false
+          in
+          let expr =
+            if has_oracle then LE.mk_of_expr (LE.step_expr expr)
+            else expr
+          in
+          Format.fprintf fmt "%a"
+              (LE.pp_print_lustre_expr_pvar false pvar) expr
+        )
+      )
+    in
+    Format.fprintf fmt "@[<hov>%a@]"
+      (LE.pp_print_term_as_expr_pvar false pvar) fp
+
 let pp_print_realizability_result_pt
   analyze in_sys param sys fmt result =
   (* Update time *)
@@ -247,8 +294,12 @@ let pp_print_realizability_result_pt
       Scope.pp_print_scope scope
       (Stat.get_float Stat.analysis_time)
   )
-  | Realizable _ ->
-    print_not_unknown_result Pretty.success_tag
+  | Realizable fp ->
+    print_not_unknown_result Pretty.success_tag ;
+
+    if Flags.Contracts.print_viable_states () then
+      Format.fprintf fmt "@{<b>Viable States@}:@,%a@.@."
+        (pp_print_viable_states in_sys param sys) fp;
 
   | Unrealizable u_res ->
     print_not_unknown_result Pretty.failure_tag ;
@@ -290,8 +341,22 @@ let pp_print_realizability_result_json
   (* Update time *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
-  let pp_print_trace_and_core =
+  let pp_print_additional_info =
     match result with
+    | Realizable fp -> (
+      if Flags.Contracts.print_viable_states () then (fun fmt ->
+        let fp_str =
+          Format.asprintf "%a"
+            (pp_print_viable_states in_sys param sys) fp
+          |> Str.global_replace (Str.regexp "\n") " "
+          |> Str.global_replace (Str.regexp "\ \ +") " "
+        in
+        Format.fprintf
+          fmt
+          ",@,\"viableStates\" : \"%s\"" fp_str
+      )
+      else (fun _ -> ())
+    )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         let trace, core =
@@ -330,7 +395,7 @@ let pp_print_realizability_result_json
   "
   (Stat.get_float Stat.analysis_time)
   (Realizability.result_to_string result)
-  pp_print_trace_and_core
+  pp_print_additional_info
 
 
 let pp_print_realizability_result_xml
@@ -339,8 +404,17 @@ let pp_print_realizability_result_xml
   (* Update time *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
-  let pp_print_trace_and_core =
+  let pp_print_additional_info =
     match result with
+    | Realizable fp -> (
+      if Flags.Contracts.print_viable_states () then (fun fmt ->
+        Format.fprintf
+          fmt
+          "@,<ViableStates><![CDATA[@,%a@,]]></ViableStates>"
+          (pp_print_viable_states in_sys param sys) fp
+      )
+      else (fun _ -> ())
+    )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         let trace, core =
@@ -373,7 +447,7 @@ let pp_print_realizability_result_xml
     tag
     (Stat.get_float Stat.analysis_time)
     (Realizability.result_to_string result)
-    pp_print_trace_and_core
+    pp_print_additional_info
     tag
 
 

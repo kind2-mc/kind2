@@ -792,6 +792,23 @@ let pp_print_expr_pvar ?as_type safe pvar ppf expr =
 let pp_print_expr ?as_type safe ppf expr =
   pp_print_expr_pvar ?as_type safe (pp_print_lustre_var safe) ppf expr
 
+let pp_print_lustre_expr_pvar safe pvar ppf = function
+
+  (* Same expression for initial state and following states *)
+  | { expr_init; expr_step; expr_type }
+       when Term.equal expr_init expr_step -> 
+
+    pp_print_expr_pvar ~as_type:expr_type safe pvar ppf expr_step
+
+  (* Print expression of initial state followed by expression for
+     following states *)
+  | { expr_init; expr_step; expr_type } -> 
+
+    Format.fprintf ppf 
+      "@[<hv 1>(%a@ ->@ %a)@]" 
+      (pp_print_expr_pvar ~as_type:expr_type safe pvar) expr_init
+      (pp_print_expr_pvar ~as_type:expr_type safe pvar) expr_step
+
 (* Pretty-print a term as an expr. *)
 let pp_print_term_as_expr = pp_print_expr
 
@@ -820,15 +837,15 @@ let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
   | { expr_init; expr_step; expr_type }
-       when Term.equal expr_init expr_step -> 
+       when Term.equal expr_init expr_step ->
 
     pp_print_expr ~as_type:expr_type safe ppf expr_step
 
   (* Print expression of initial state followed by expression for
      following states *)
-  | { expr_init; expr_step; expr_type } -> 
+  | { expr_init; expr_step; expr_type } ->
 
-    Format.fprintf ppf 
+    Format.fprintf ppf
       "@[<hv 1>(%a@ ->@ %a)@]" 
       (pp_print_expr ~as_type:expr_type safe) expr_init
       (pp_print_expr ~as_type:expr_type safe) expr_step
@@ -1041,7 +1058,11 @@ let var_of_expr { expr_init } =
   (* Fail if any of the above fails *)
   with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
 
-
+let var_of_init_expr { expr_init } = 
+  try
+    Term.free_var_of_term expr_init
+  (* Fail if any of the above fails *)
+  with Invalid_argument _ -> raise (Invalid_argument "var_of_init_expr")
 
 (* Return all state variables *)
 let state_vars_of_expr { expr_init; expr_step } = 
@@ -1112,6 +1133,10 @@ let split_expr_list list =
     ([], [])
     list      
 
+
+let init_expr { expr_init } = expr_init
+
+let step_expr { expr_step } = expr_step 
 
 
 (* ********************************************************************** *)
