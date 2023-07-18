@@ -705,6 +705,9 @@
                 "result": {
                     "enum": ["realizable","unrealizable"]
                 },
+                "viableStates": {
+                    "type": "string"
+                },
                 "deadlockingTrace": {
                     "$ref": "#/definitions/trace"
                 },

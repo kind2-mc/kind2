@@ -1370,7 +1370,7 @@ module Contracts = struct
 
   let check_contract_is_sat_default = true
   let check_contract_is_sat = ref check_contract_is_sat_default
-let _ = add_spec
+  let _ = add_spec
     "--check_contract_is_sat"
     (bool_arg check_contract_is_sat)
     (fun fmt ->
@@ -1382,6 +1382,22 @@ let _ = add_spec
       fmt_bool check_contract_is_sat_default
     )
   let check_contract_is_sat () = !check_contract_is_sat
+
+  let print_viable_states_default = false
+  let print_viable_states = ref print_viable_states_default
+  let _ = add_spec
+    "--print_viable_states"
+    (bool_arg print_viable_states)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print a lustre-like constraint representing the set of@ \
+        viable states of a realizable contract.@ \
+        Default: %a\
+      @]"
+      fmt_bool print_viable_states_default
+    )
+  let print_viable_states () = !print_viable_states
 
 end
 
