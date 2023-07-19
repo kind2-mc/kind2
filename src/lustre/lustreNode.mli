@@ -335,11 +335,14 @@ val equation_of_svar : t -> StateVar.t -> equation option
     there is an output without an equational definition *)
 val partially_defined : t -> bool
 
-(** Returns the equation for a state variable if any. *)
+(** Returns the source of a state variable if any. *)
 val source_of_svar : t -> StateVar.t -> state_var_source option
 
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
+
+(** Returns a set of state variables that are output of some node call *)
+val node_call_svars : t -> StateVar.StateVarSet.t
 
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t
