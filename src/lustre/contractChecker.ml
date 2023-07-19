@@ -222,7 +222,7 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
 
 let core_desc = "conflicting constraints"
 
-let pp_print_viable_states in_sys param sys fmt fp =
+let pp_print_viable_states in_sys param fmt fp =
   if fp = Term.t_true then
     Format.fprintf fmt "@[<hov>true@]"
   else
@@ -237,16 +237,50 @@ let pp_print_viable_states in_sys param sys fmt fp =
 
     let some_oracle = not (SVS.is_empty oracles) in
 
-    let sv_ln_map =
-      match top_node.LN.calls with
-      | [] -> SVM.empty
-      | _ -> ISys.call_state_var_to_lustre_reference in_sys (TSys.state_vars sys)
+    let ncsv_to_ln_map =
+      (* Map from node call state variables to (the string representation of)
+        Lustre variables and node call references.
+        Given a node call C(...), that is the the j-th node call,
+        if there is an equation o_1,...,o_n = C(...),
+        it maps state variables call_1,...,call_n to o_1,...,o_n. Otherwise,
+        if maps call_1,...call_n to references C[j].O1,..., C[j].O_n.
+      *)
+      let call_svars = LN.node_call_svars top_node in
+      if SVS.is_empty call_svars then
+        SVM.empty
+      else (
+        (*T*)
+        let with_eq, call_svars =
+          List.fold_left
+            (fun (with_eq, call_svars) ((sv', _), rhs) ->
+              try
+                let sv = LE.state_var_of_expr rhs in
+                if SVS.mem sv call_svars then
+                  ((sv, sv') :: with_eq, SVS.remove sv call_svars)
+                else
+                  (with_eq, call_svars)
+              with Invalid_argument _ ->
+                (with_eq, call_svars)
+            )
+            ([], call_svars)
+            top_node.LN.equations
+        in
+        let pending = SVS.elements call_svars in
+        List.fold_left
+          (fun acc (sv, sv') ->
+            let str_sv' = StateVar.name_of_state_var sv' in 
+            SVM.add sv str_sv' acc)
+          (ISys.call_state_var_to_lustre_reference in_sys pending)
+          with_eq
+      )
     in
 
     let rec pvar fmt sv =
-      match SVM.find_opt sv sv_ln_map with
+      (* Check whether state variable is a node call output *)
+      match SVM.find_opt sv ncsv_to_ln_map with
       | Some ln -> Format.fprintf fmt "%s" ln
       | None -> (
+        (* Check whether state variable has an associated expression *)
         match SVT.find_opt sv_expr_map sv with
         | None -> Format.fprintf fmt "%s" (StateVar.name_of_state_var sv)
         | Some expr -> (
@@ -256,6 +290,8 @@ let pp_print_viable_states in_sys param sys fmt fp =
             with Invalid_argument _ -> false
           in
           let expr =
+            (* If expression is of the form (oracle_i -> pre expr_j),
+              use (pre expr_j) instead *)
             if has_oracle then LE.mk_of_expr (LE.step_expr expr)
             else expr
           in
@@ -299,7 +335,7 @@ let pp_print_realizability_result_pt
 
     if Flags.Contracts.print_viable_states () then
       Format.fprintf fmt "@{<b>Viable States@}:@,%a@.@."
-        (pp_print_viable_states in_sys param sys) fp;
+        (pp_print_viable_states in_sys param) fp;
 
   | Unrealizable u_res ->
     print_not_unknown_result Pretty.failure_tag ;
@@ -347,7 +383,7 @@ let pp_print_realizability_result_json
       if Flags.Contracts.print_viable_states () then (fun fmt ->
         let fp_str =
           Format.asprintf "%a"
-            (pp_print_viable_states in_sys param sys) fp
+            (pp_print_viable_states in_sys param) fp
           |> Str.global_replace (Str.regexp "\n") " "
           |> Str.global_replace (Str.regexp "\ \ +") " "
         in
@@ -411,7 +447,7 @@ let pp_print_realizability_result_xml
         Format.fprintf
           fmt
           "@,<ViableStates><![CDATA[@,%a@,]]></ViableStates>"
-          (pp_print_viable_states in_sys param sys) fp
+          (pp_print_viable_states in_sys param) fp
       )
       else (fun _ -> ())
     )
