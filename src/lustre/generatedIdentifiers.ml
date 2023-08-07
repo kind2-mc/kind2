@@ -68,6 +68,7 @@ type t = {
     * LustreAst.expr)
     list;
   nonvacuity_props: StringSet.t;
+  array_literal_vars: StringSet.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -106,6 +107,7 @@ let union ids1 ids2 = {
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
+    array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -127,4 +129,5 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
     expanded_variables = StringSet.empty;
     equations = [];
     nonvacuity_props = StringSet.empty;
+    array_literal_vars = StringSet.empty;
   }

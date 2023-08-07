@@ -1,0 +1,8 @@
+type rational = { n: int; d: int };
+
+node Test () returns ()
+var rats: rational^4;
+let 
+    rats[i] = if i = 0 then rational { n = 0 ; d = 1} else rational { n = rats[i-1].n ; d = 1};
+    check rats[0].n=0;
+tel

@@ -61,6 +61,7 @@ type compiler_state = {
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   expr : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
+  array_literal_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   source : LustreNode.state_var_source StateVar.StateVarHashtbl.t;
   bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
@@ -112,6 +113,7 @@ let pp_print_identifier_maps ppf maps =
 let empty_identifier_maps node_name = {
   state_var = H.create 7;
   expr = H.create 7;
+  array_literal_index = H.create 7;
   source = SVT.create 7;
   bounds = SVT.create 7;
   array_index = H.create 7;
@@ -168,21 +170,11 @@ let coalesce_array2 e1 e2 =
   only one state variable *)
 let state_var_of_expr expr = expr |> E.state_vars_of_expr |> SVS.choose
 
-let filter_array_indices index = List.filter (
-  function 
-  | X.ArrayVarIndex _ 
-  | X.ArrayIntIndex _ -> false
-  | X.RecordIndex _
-  | X.TupleIndex _
-  | X.ListIndex _
-  | X.AbstractTypeIndex _ -> true)
-  index
-
 let mk_state_var_name ident index = Format.asprintf "%a%a"
   (I.pp_print_ident true) ident
   (X.pp_print_index true) 
   (* Filter out array indexes *)
-  (filter_array_indices index)
+  (X.filter_array_indices index)
 
 let bounds_of_index index =
   List.fold_left (fun acc -> function
@@ -191,6 +183,25 @@ let bounds_of_index index =
         E.Fixed (E.mk_int_expr (Numeral.of_int (i + 1))) :: acc
       | _ -> acc
     ) [] index
+
+
+let update_array_literal_index map scope sv_ident index =
+  let compute_expr expr =
+    try
+      let t = H.find !map.array_literal_index sv_ident in
+      X.add index expr t
+    with Not_found -> X.singleton index expr
+  in
+  let state_var_name = mk_state_var_name sv_ident index in
+  let flatten_scopes = X.mk_scope_for_index index in
+  try
+    let state_var = StateVar.state_var_of_string
+      (state_var_name,
+      (List.map Ident.to_string (scope @ flatten_scopes)))
+    in
+    H.replace !map.array_literal_index sv_ident (compute_expr (E.mk_var state_var))
+  with Not_found ->
+    assert false
 
 (* Create a state variable for from an indexed state variable in a
   scope *)
@@ -308,6 +319,13 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         " : ")
       " ; ") rhs; *)
   match lhs, rhs with 
+  (* No more equations, return in original order *)
+  | [], [] -> accum
+  (* Indexes are not of equal length *)
+  | _, []
+  | [], _ ->
+    internal_error pos "Type mismatch in equation: indexes not of equal length";
+    assert false
     (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
@@ -317,15 +335,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   (* Only array indexes may be left at head of indexes *)
   | (X.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
-    let expr_type = E.type_of_lustre_expr expr in
-    let bounds = if Type.is_array expr_type
-      then bounds
-      else (E.Bound b :: bounds)
-    in
-    expand_tuple' pos accum bounds
+    expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
-  | (X.ArrayIntIndex _ :: _, _) :: _, [] -> accum
   | (X.ArrayIntIndex idx :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
     let expr_type = E.type_of_lustre_expr expr in
@@ -495,13 +507,6 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
-  (* No more equations, return in original order *)
-  | [], [] -> accum
-  (* Indexes are not of equal length *)
-  | _, []
-  | [], _ ->
-    internal_error pos "Type mismatch in equation: indexes not of equal length";
-    assert false
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
     (internal_error pos "Type mismatch in equation: head indexes do not match";
@@ -538,6 +543,7 @@ let rec compile ctx gids decls =
       G.state_var_bounds = output.state_var_bounds}
 
 and compile_ast_type
+  ?(expand=false)
   (cstate:compiler_state)
   (ctx:Ctx.tc_context)
   map
@@ -623,7 +629,7 @@ and compile_ast_type
     let array_size = (List.hd (X.values array_size')).expr_init in
     (* Old code does flattening here, but that flattening is only ever used
       once! And it is for a check, in lustreDeclarations line 423 *)
-    if AH.expr_is_const size_expr then
+    if expand then
       let upper = E.numeral_of_expr array_size in
       let result = ref X.empty in
       for ix = 0 to (Numeral.to_int upper - 1) do
@@ -941,7 +947,7 @@ and compile_ast_expr
     else *)
       let over_indices = fun j (e:LustreExpr.t) a -> 
         let e' = state_var_of_expr e |> E.mk_var
-        in X.add (X.ArrayVarIndex array_size :: j) e' a
+        in X.add (j @ [X.ArrayVarIndex array_size]) e' a
       in let result = X.fold over_indices cexpr X.empty in
       result
 
@@ -1174,10 +1180,6 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
     let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
     let cexpr = flatten_list_indexes cexpr in
-    let cexpr_bindings = cexpr |> X.bindings 
-      |> List.map (fun (indices, t) -> filter_array_indices indices, t)
-    in
-    let cexpr = List.fold_left (fun acc (index, e) -> X.add index e acc) X.empty cexpr_bindings in
     let over_indices i input_sv expr accum =
       let sv = state_var_of_expr expr in
       N.set_state_var_instance sv pos ident input_sv;
@@ -1426,7 +1428,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             index_type
             (Some N.Input)
           in
-          let index = filter_array_indices index in
           match possible_state_var with
           | Some state_var -> X.add (X.ListIndex n :: index) state_var accum
           | None -> accum
@@ -1456,7 +1457,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             index_type
             (Some N.Output)
           in
-          let index = filter_array_indices index in
           let index' = if is_single then index
             else X.ListIndex n :: index
           in 
@@ -1486,7 +1486,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             index_type
             (Some N.Local)
           in
-          let index = filter_array_indices index in
           match possible_state_var with
           | Some state_var -> X.add index state_var accum
           | None -> accum
@@ -1515,11 +1514,22 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index_type
           (if is_ghost then Some N.KGhost else None)
         in
-        let index = filter_array_indices index in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
         | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
+      in
+      let result = X.fold over_indices index_types X.empty in
+      if GI.StringSet.mem id gids.GI.array_literal_vars then (
+        (* Store expanded type index *)
+        let index_types' = compile_ast_type ~expand:true cstate ctx map expr_type in
+        X.iter
+          (fun index _ ->
+            update_array_literal_index map (node_scope @ I.reserved_scope)
+            ident
+            index
+          )
+          index_types'
+      ) ;
       result :: glocals
     in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
@@ -1538,7 +1548,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index_type
           (Some N.KGhost)
         in
-        let index = filter_array_indices index in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
         | None -> accum
@@ -1562,7 +1571,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index_type
           (Some N.KLocal)
         in
-        let index = filter_array_indices index in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
         | None -> accum
@@ -1592,7 +1600,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             index_type
             None
           in
-          let index = filter_array_indices index in
           match possible_state_var with
           | Some(state_var) ->
             if not (StateVar.is_input state_var)
@@ -1668,7 +1675,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index_type
           (Some N.Oracle)
         in
-        let index = filter_array_indices index in
         match possible_state_var with
         | Some(state_var) ->
           (match closed_sv with
@@ -1695,7 +1701,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index_type
           (Some N.Oracle)
         in
-        let index = filter_array_indices index in
         match possible_state_var with
           | Some state_var -> X.add index state_var accum
           | None -> accum
@@ -1883,6 +1888,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
         | A.StructDef (_, []) -> X.empty, 0
+        | A.StructDef (_, [A.SingleIdent (_, i)]) when (GI.StringSet.mem i gids.GI.array_literal_vars) -> (
+          (* Use expanded version of the equation *)
+          let ident = mk_ident i in
+          let idx = H.find !map.array_literal_index ident in
+          let result = X.map (fun e -> state_var_of_expr e) idx in
+          result, 0
+        )
         | A.StructDef (_, [e]) -> (compile_struct_item e)
         | A.StructDef (_, l) ->
           let construct_index i j e a = X.add (X.ListIndex i :: j) e a in

@@ -1,0 +1,7 @@
+node imported F() returns (z:int^3);
+
+node N() returns (y:int^3);
+let
+  y = F();
+  check y[0]=0;
+tel

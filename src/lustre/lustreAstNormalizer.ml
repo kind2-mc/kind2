@@ -1187,6 +1187,26 @@ and combine_args_with_const info args flags =
   |> snd |> List.rev
 
 and normalize_expr ?guard info map =
+  let abstract_array_literal info expr nexpr =
+    let ivars = info.inductive_variables in
+    let pos = AH.pos_of_expr expr in
+    let ty = if expr_has_inductive_var ivars expr |> is_some then
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+    else Chk.infer_type_expr info.context expr |> unwrap
+    in
+    let nexpr, gids = mk_fresh_local false info pos false ivars ty nexpr in
+    let id =
+      match nexpr with
+      | A.Ident (_, name) -> name
+      | _ -> assert false
+    in
+    let gids =
+      { gids with 
+        array_literal_vars = StringSet.add id gids.array_literal_vars
+      }
+    in
+    nexpr, gids
+  in
   let abstract_node_arg ?guard force is_const info map expr =
     let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
     if should_not_abstract force nexpr then
@@ -1326,6 +1346,14 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let iexpr, gids2= mk_fresh_array_ctor info pos ivars ty nexpr size_expr in
     ArrayConstr (pos, iexpr, size_expr), union gids1 gids2, warnings
+  | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
+    let nexpr_list, gids1, warnings = normalize_list
+      (normalize_expr ?guard:None info map)
+      expr_list
+    in
+    let nexpr = A.GroupExpr (pos, ArrayExpr, nexpr_list) in
+    let nexpr, gids2 = abstract_array_literal info expr nexpr in
+    nexpr, union gids1 gids2, warnings
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
