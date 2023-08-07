@@ -3562,8 +3562,7 @@ let type_of_select = function
 
     (function t -> 
 
-      (* Second argument must match index type of array *)
-      if Type.check_type (Type.index_type_of_array s) t then 
+      if (Type.is_int t || Type.is_int_range t) then
 
         (* Return type of array elements *)
         Type.elem_type_of_array s
@@ -3605,8 +3604,7 @@ let type_of_store = function
 
     (fun i v -> 
 
-      (* Second argument must match index type of array *)
-       if Type.check_type i (Type.index_type_of_array s) &&
+       if (Type.is_int i || Type.is_int_range i) &&
           Type.check_type (Type.elem_type_of_array s) v
        then 
 
