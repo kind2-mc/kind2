@@ -725,6 +725,10 @@ val reinterpret_select : t -> t
 (** Return (array) indexes of a state variable appearing in a term *)
 val indexes_of_state_var : StateVar.t -> t -> t list list
 
+(** Return a term where the top-level select of the given term has been pushed
+    until reaching a subterm that is not an ITE. If the top-level symbol is not
+    a select, then the given term is returned unaltered *)
+val push_select : t -> t
 
 (** {1 Statistics} *)
 

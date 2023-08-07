@@ -145,7 +145,7 @@ let array_select_of_bounds_term bounds e =
 *)
 
 let array_select_of_indexes_expr indexes e =
-  List.fold_left (fun e i -> E.mk_select e (E.mk_index_var i)) e indexes
+  List.fold_left (fun e i -> E.mk_select_and_push e (E.mk_index_var i)) e indexes
 
 (* Try to make the types of two expressions line up.
   * If one expression is an array but the other is not, then insert a 'select'
@@ -332,7 +332,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     if Type.is_array expr_type then
       let index_type = Type.index_type_of_array expr_type in
       let index_arg = E.mk_of_expr ~as_type:index_type (E.mk_int_expr (Numeral.of_int idx)) in
-      let indexed_expr = E.mk_select expr index_arg in
+      let indexed_expr = E.mk_select_and_push expr index_arg in
       let accum = expand_tuple' pos accum bounds
         [(lhs_index_tl, state_var)]
         [([], indexed_expr)]
@@ -390,7 +390,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     in
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
-    let over_index_types (e, i) _ = E.mk_select e (E.mk_index_var i), succ i in
+    let over_index_types (e, i) _ =
+      E.mk_select_and_push e (E.mk_index_var i), succ i
+    in
     let expr, _ = List.fold_left over_index_types (expr, 0) array_index_types in
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
@@ -891,12 +893,12 @@ and compile_ast_expr
     let rec mk_store acc a ri x = match ri with
       | X.ArrayIntIndex vi :: ri' ->
         let i = E.mk_int (Numeral.of_int vi) in
-        let a' = List.fold_left E.mk_select a acc in
+        let a' = List.fold_left E.mk_select_and_push a acc in
         let x = mk_store [i] a' ri' x in
         E.mk_store a i x
       | X.ArrayVarIndex vi :: ri' ->
         let i = E.mk_of_expr vi in
-        let a' = List.fold_left E.mk_select a acc in
+        let a' = List.fold_left E.mk_select_and_push a acc in
         let x = mk_store [i] a' ri' x in
         E.mk_store a i x
       | _ :: ri' -> mk_store acc a ri' x
@@ -911,7 +913,7 @@ and compile_ast_expr
           | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
           | _ -> raise Not_found);
         let old_v = List.fold_left (fun (acc, cpt) _ ->
-          E.mk_select acc (E.mk_index_var cpt), cpt + 1) (v, 0) i |> fst
+          E.mk_select_and_push acc (E.mk_index_var cpt), cpt + 1) (v, 0) i |> fst
         in let new_v = X.find cindex cexpr2' in
         if Flags.Arrays.smt () then
           let v' = mk_store [] v cindex new_v in X.add [] v' a
@@ -964,7 +966,7 @@ and compile_ast_expr
           | _ -> assert false
         in let expr = X.fold over_expr expr X.empty in
         if E.type_of_lustre_expr v |> Type.is_array then
-          X.map (fun e -> E.mk_select e index) expr
+          X.map (fun e -> E.mk_select_and_push e index) expr
         else expr
 (*       | X.ArrayIntIndex _ :: _, _ ->
         let over_expr = fun j v vals -> match j with
@@ -991,7 +993,7 @@ and compile_ast_expr
             X.fold (fun j -> X.add (top :: j)) e acc
           | _ -> assert false
         in X.fold over_expr expr X.empty
-      | [], e -> X.singleton X.empty_index (E.mk_select e index)
+      | [], e -> X.singleton X.empty_index (E.mk_select_and_push e index)
     in push compiled_expr
 
   in

@@ -558,6 +558,13 @@ val mk_let : (Var.t * expr) list -> t -> t
 
 val apply_subst : (Var.t * expr) list -> t -> t
 
+(** Return an expression where the top-level selects of the initial and/or
+    the step expressions (if any) have been pushed *)
+val push_select : t -> t
+
+(**  Make select from an array and push it *)
+val mk_select_and_push : t -> t -> t
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

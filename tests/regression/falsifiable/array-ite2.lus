@@ -1,0 +1,6 @@
+
+node N(p: bool; A,B: int^2) returns (C: int^2);
+let
+   C[i] = (if p then A else B)[i];
+   check C[0]=0;
+tel

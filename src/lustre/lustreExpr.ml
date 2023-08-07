@@ -3752,6 +3752,17 @@ let numeral_of_expr = Term.numeral_of_term
 let unsafe_term_of_expr e = (e : Term.t)
 let unsafe_expr_of_term t = t
 
+let push_select { expr_init; expr_step; expr_type } =
+  let expr_init' = Term.push_select expr_init in
+  let expr_step' = Term.push_select expr_step in
+  { expr_init = expr_init';
+    expr_step = expr_step';
+    expr_type
+  }
+
+let mk_select_and_push e1 e2 =
+  mk_select e1 e2 |> push_select
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

@@ -1935,6 +1935,30 @@ let indexes_of_state_var sv term =
 (*   inds *)
 
 
+let push_select term =
+  let rec push_select' i t =
+    match destruct t with
+    | T.App (s, args) -> (
+      match Symbol.node_of_symbol s, args with
+      | `ITE, [p; l; r] -> (
+        mk_ite
+          p
+          (push_select' i l)
+          (push_select' i r)
+      )
+      | _ -> (mk_select t i)
+    )
+    | _ -> (mk_select t i)
+  in
+  match destruct term with
+  | T.App (s, args) -> (
+    match Symbol.node_of_symbol s, args with
+    | `SELECT _, [a; i] -> (
+      push_select' i a
+    )
+    | _ -> term
+  )
+  | _ -> term
 
 
 (* Return set of state variables at given offsets in term *)
