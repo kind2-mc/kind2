@@ -510,8 +510,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
 let expand_tuple pos lhs rhs = 
   (* Format.eprintf "expand_tuple: \n"; *)
   expand_tuple' pos [] []
-    (List.map (fun (i, e) -> (i, e)) (X.bindings lhs))
-    (List.map (fun (i, e) -> (i, e)) (X.bindings rhs))
+    (X.bindings lhs) (X.bindings rhs)
 
 let compile_contract_item map count scope kind pos name expr =
     let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
