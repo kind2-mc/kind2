@@ -405,7 +405,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let over_index_types (e, i) _ =
       E.mk_select_and_push e (E.mk_index_var i), succ i
     in
-    let expr, _ = List.fold_left over_index_types (expr, 0) array_index_types in
+    let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
+    let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)

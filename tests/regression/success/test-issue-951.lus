@@ -1,0 +1,12 @@
+node master__Operator1 ( input1:int^3 ) returns ( output1:int^3^2 )
+	var
+		Edge_3:int^3;
+		Edge_4:int^3^2;
+
+	let
+		Edge_3 = input1;
+		Edge_4 = Edge_3 ^ 2;
+		output1 = Edge_4;
+		--%MAIN ;
+		check output1[1][0] = input1[0];
+	tel
