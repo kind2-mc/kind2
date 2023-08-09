@@ -101,6 +101,7 @@ val array_vars_of_index : index -> StateVar.t list
     [Invalid_argument "top_max_index"] if the first index is not a list *)
 val top_max_index : 'a t -> int
 
+val filter_array_indices : index -> index
 
 val compatible_indexes : index -> index -> bool
 
