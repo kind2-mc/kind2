@@ -144,8 +144,8 @@ let error_message kind = match kind with
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
-  | IlltypedIdentifier (id, ty1, ty2) -> "Identifier: " ^ HString.string_of_hstring id
-    ^ " does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
+  | IlltypedIdentifier (id, ty1, ty2) -> "Identifier '" ^ HString.string_of_hstring id
+    ^ "' does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
   | UnificationFailed (ty1, ty2) -> "Cannot unify type " ^ string_of_tc_type ty1
     ^ " with inferred type " ^ string_of_tc_type ty2
   | ExpectedType (ty1, ty2) -> "Expected type " ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
@@ -646,10 +646,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   | ChooseOp (pos, (_, i ,ty), e) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
-    infer_type_expr extn_ctx e
-    >>= (function 
-        | Bool _ -> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-        | ty -> type_error pos (ExpectedType ((Bool pos), ty)))
+    check_type_expr extn_ctx e (Bool pos)
+    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Current (_, e) -> check_type_expr ctx e exp_ty
@@ -681,8 +679,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
   | Arrow (_, e1, e2) ->
-    infer_type_expr ctx e1
-    >>= fun ty1 ->  check_type_expr ctx e2 ty1
+    check_type_expr ctx e1 exp_ty
+    >> check_type_expr ctx e2 exp_ty
 
   (* Node calls *)
   | Call (pos, i, args) ->
