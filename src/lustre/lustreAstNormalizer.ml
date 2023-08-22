@@ -1176,7 +1176,7 @@ and combine_args_with_const info args flags =
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
 
-and normalize_expr ?guard info map =
+and normalize_expr ?guard node_id info map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
@@ -1338,7 +1338,7 @@ and normalize_expr ?guard info map =
     ArrayConstr (pos, iexpr, size_expr), union gids1 gids2, warnings
   | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
     let nexpr_list, gids1, warnings = normalize_list
-      (normalize_expr ?guard:None info map)
+      (normalize_expr ?guard:None node_id info map)
       expr_list
     in
     let nexpr = A.GroupExpr (pos, ArrayExpr, nexpr_list) in
