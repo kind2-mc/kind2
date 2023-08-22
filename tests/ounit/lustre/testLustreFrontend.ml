@@ -589,7 +589,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nondeterministic choice type error 2" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
 ])
 
