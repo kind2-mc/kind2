@@ -393,6 +393,7 @@
     <xs:sequence>
       <xs:element name="Result" type="RealizabilityCheckResult" minOccurs="1" maxOccurs="1"/>
       <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ViableStates" type="xs:string" minOccurs="0" maxOccurs="1"/>
       <xs:element name="DeadlockingTrace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="ConflictingSet" type="ModelElementSetType" minOccurs="0" maxOccurs="1"/>
     </xs:sequence>

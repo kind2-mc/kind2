@@ -68,6 +68,7 @@ type t = {
     * LustreAst.expr)
     list;
   nonvacuity_props: StringSet.t;
+  array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml

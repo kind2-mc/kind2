@@ -968,6 +968,15 @@ let node_call_of_svar { calls } svar =
   in
   loop calls
 
+let node_call_svars { calls } =
+  List.fold_left
+    (fun acc { call_outputs } ->
+      D.bindings call_outputs
+      |> List.map snd
+      |> SVS.of_list |> SVS.union acc)
+    SVS.empty
+    calls
+
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
 

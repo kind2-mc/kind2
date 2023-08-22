@@ -335,13 +335,17 @@ let extract_array_size = function
 
 let generalize_to_array_expr name ind_vars expr nexpr = 
   let vars = AH.vars expr in
-  let ind_vars = List.map (fun (i, _) -> i) (StringMap.bindings ind_vars) in
+  let ind_vars = List.map fst (StringMap.bindings ind_vars) in
   let ind_vars = List.filter (fun x -> A.SI.mem x vars) ind_vars in
-  let (eq_lhs, nexpr) = if List.length ind_vars = 0
-    then A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
-    else A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
+  let (eq_lhs, nexpr) =
+    match ind_vars with
+    | [] ->
+      A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
+    | _ ->
+      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
-  in eq_lhs, nexpr
+  in
+  eq_lhs, nexpr
 
 let mk_fresh_local force info pos is_ghost ind_vars expr_type expr =
   match (LocalCache.find_opt local_cache expr, force) with
@@ -370,7 +374,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in nexpr, gids
 
-let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
+let mk_fresh_node_arg_local info pos is_const expr_type expr =
   match NodeArgCache.find_opt node_arg_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
@@ -378,6 +382,7 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_gklocal") in
   let nexpr = A.Ident (pos, name) in
+  let ind_vars = info.inductive_variables in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
     node_args = [(name, is_const, expr_type, expr)];
@@ -1171,7 +1176,27 @@ and combine_args_with_const info args flags =
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
 
-and normalize_expr ?guard node_id info map =
+and normalize_expr ?guard info map =
+  let abstract_array_literal info expr nexpr =
+    let ivars = info.inductive_variables in
+    let pos = AH.pos_of_expr expr in
+    let ty = if expr_has_inductive_var ivars expr |> is_some then
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+    else Chk.infer_type_expr info.context expr |> unwrap
+    in
+    let nexpr, gids = mk_fresh_local false info pos false ivars ty nexpr in
+    let id =
+      match nexpr with
+      | A.Ident (_, name) -> name
+      | _ -> assert false
+    in
+    let gids =
+      { gids with 
+        array_literal_vars = StringSet.add id gids.array_literal_vars
+      }
+    in
+    nexpr, gids
+  in
   let abstract_node_arg ?guard force is_const info map expr =
     let nexpr, gids1, warnings = normalize_expr ?guard node_id info map expr in
     if should_not_abstract force nexpr then
@@ -1183,7 +1208,7 @@ and normalize_expr ?guard node_id info map =
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
       in
-      let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ivars ty nexpr in
+      let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in function
   (* ************************************************************************ *)
@@ -1311,6 +1336,14 @@ and normalize_expr ?guard node_id info map =
     let ivars = info.inductive_variables in
     let iexpr, gids2= mk_fresh_array_ctor info pos ivars ty nexpr size_expr in
     ArrayConstr (pos, iexpr, size_expr), union gids1 gids2, warnings
+  | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
+    let nexpr_list, gids1, warnings = normalize_list
+      (normalize_expr ?guard:None info map)
+      expr_list
+    in
+    let nexpr = A.GroupExpr (pos, ArrayExpr, nexpr_list) in
+    let nexpr, gids2 = abstract_array_literal info expr nexpr in
+    nexpr, union gids1 gids2, warnings
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)

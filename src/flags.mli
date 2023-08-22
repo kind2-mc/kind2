@@ -523,6 +523,9 @@ module Contracts : sig
 
   (** Check whether a unrealizable contract is satisfiable *)
   val check_contract_is_sat : unit -> bool
+
+  (* Print set of viable states as a lustre-like constraint *)
+  val print_viable_states : unit -> bool
 end
 
 

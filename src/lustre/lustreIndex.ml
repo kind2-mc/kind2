@@ -266,6 +266,16 @@ let top_max_index t =
   with Not_found -> (-1)
 
 
+let filter_array_indices index = List.filter (
+  function
+  | ArrayVarIndex _
+  | ArrayIntIndex _ -> false
+  | RecordIndex _
+  | TupleIndex _
+  | ListIndex _
+  | AbstractTypeIndex _ -> true)
+  index
+
 let compatible_one_index i1 i2 = match i1, i2 with
   | RecordIndex s1, RecordIndex s2 -> s1 = s2
   | TupleIndex i1, TupleIndex i2 -> i1 = i2
@@ -309,7 +319,7 @@ let mk_scope_for_index index =
        |> String.length
        |> string_of_int
        |> Ident.of_string)
-    index
+    (filter_array_indices index)
   |> Scope.mk_scope
 
 

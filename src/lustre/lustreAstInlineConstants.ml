@@ -222,14 +222,18 @@ and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr ->
   = fun ctx pos e1 idx -> 
   let e1' = simplify_expr ctx e1 in
   let idx' = simplify_expr ctx idx in
+  let raise_error () =
+    raise (Out_of_bounds (pos, "Array element access out of bounds."))
+  in
   match e1' with
   | LA.GroupExpr (_, ArrayExpr, es) ->
      (match (eval_int_expr ctx idx) with
-      | Ok i -> if List.length es > i
-                then List.nth es i
-                else
-                  (raise (Out_of_bounds (pos, "Array element access out of bounds.")))
+      | Ok i -> if List.length es > i then List.nth es i else raise_error ()
       | Error _ -> LA.ArrayIndex (pos, e1', idx'))
+  | LA.ArrayConstr (_, v, s) ->
+     (match (eval_int_expr ctx idx), (eval_int_expr ctx s) with
+     | Ok i, Ok j -> if j > i then v else raise_error ()
+     | _, _ -> LA.ArrayIndex (pos, e1', idx'))
   | _ ->
     ArrayIndex (pos, e1', idx')
 (** picks out the idx'th component of an array if it can *)
@@ -354,10 +358,10 @@ and simplify_expr ?(is_guarded = false) ctx =
   | LA.ArrayConstr (pos, e1, e2) ->
      let e1' = simplify_expr ~is_guarded ctx e1 in
      let e2' = simplify_expr ~is_guarded ctx e2 in
-     let e' = LA.ArrayConstr (pos, e1', e2') in
-     (match (eval_int_expr ctx e2) with
+     let e' = LA.ArrayConstr (pos, e1', e2') in e'
+     (*(match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
-      | Error _ -> e')
+      | Error _ -> e')*)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.ArrayConcat (pos, e1, e2) as e->
      (match (simplify_expr ~is_guarded ctx e1, simplify_expr ~is_guarded ctx e2) with

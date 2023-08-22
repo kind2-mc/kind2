@@ -1,0 +1,12 @@
+const N = 3;
+
+type rec = {
+  x: int;
+  y: int;
+};
+
+node N(in: rec^N; e: rec) returns (out: rec^N);
+let
+  out[i] = if i = 0 then e else in[i];
+  check out[0]=e;
+tel

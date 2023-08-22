@@ -171,7 +171,7 @@ let rec describe_cycle node accum = function
 
 (* Checks if the state variable appears in some accumulator [accum] or if there
    exists a cycle, then checks that this same variable is also on the cycle. *)
-let [@ocaml.warning "-27"] break_cycle accum parents state_var sv inds =
+let break_cycle accum parents state_var sv _ =
   List.exists (fun (sv', _) -> StateVar.equal_state_vars sv sv') accum
   ||
   List.exists (fun path ->
@@ -203,7 +203,7 @@ let add_dep_to_parents sv indgrps parents =
 
 (* Strategy for merging dependencies on indexes of array accesses (we keep them
    all). *)
-let [@ocaml.warning "-27"] merge_deps sv oind1 oind2 = match oind1, oind2 with
+let merge_deps _ oind1 oind2 = match oind1, oind2 with
   | Some i1, Some i2 -> Some (i1 @ i2)
   | Some i, None | None, Some i -> Some i
   | _ -> None
@@ -1137,12 +1137,11 @@ let root_and_leaves_of_impl
 
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
-let [@ocaml.warning "-27"] root_and_leaves_of_contracts
+let root_and_leaves_of_contracts
     is_top
     roots
     ({ N.outputs; 
-       N.contract;
-       N.props } as node) =
+       N.contract } as node) =
 
   (* Slice everything from node *)
   let node_sliced = 
@@ -1156,8 +1155,11 @@ let [@ocaml.warning "-27"] root_and_leaves_of_contracts
   (* Slice starting with contracts *)
   let node_roots =
     match roots node false with
-    | None -> roots_of_contract contract |> SVS.elements
-    | Some r -> SVS.elements r
+    | None ->
+      roots_of_contract ~with_sofar_var:(not is_top) contract
+      |> SVS.elements
+    | Some r ->
+      SVS.elements r
   in
 
   (* Do not consider anything below outputs *)

@@ -146,8 +146,10 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Operators *)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> union_ (r e1) (r e2)
-  | TernaryOp (_, _, e1, e2, e3) ->
-    union_ (union_ (r e1) (r e2)) (r e3)
+  | TernaryOp (_, Ite, e1, e2, e3) ->
+    let r_e1 = process_expr ind_vars ctx ns 0 indices e1 in
+    union_ (union_ (r_e1) (r e2)) (r e3)
+  | TernaryOp (_, With, _, _, _) -> assert false
   | NArityOp (_, _, es) ->
     es |> (List.map r) |> (List.fold_left union_ empty_)
   | ConvOp (_, _, e) -> r e
