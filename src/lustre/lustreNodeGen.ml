@@ -2231,7 +2231,6 @@ and compile_declaration cstate gids ctx decl =
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    print_endline (HString.string_of_hstring i);
     let gids = GI.StringMap.find i gids in
     compile_node_decl gids true cstate ctx i ext inputs outputs locals items contract
   | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
