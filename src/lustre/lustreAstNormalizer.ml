@@ -653,7 +653,7 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
-  let nbody, gids, warnings = normalize_contract info map id body in
+  let nbody, gids, warnings = normalize_contract info map body in
   nbody, gids, warnings, StringMap.empty
 
 and normalize_ghost_declaration info map = function
@@ -716,7 +716,7 @@ and normalize_node info map
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids, warnings = normalize_contract info map node_id
+      let ncontracts, gids, warnings = normalize_contract info map
         contracts in
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
@@ -866,7 +866,7 @@ and normalize_item info map = function
 
 
 
-and rename_ghost_variables info node_id contract =
+and rename_ghost_variables info contract =
   let sep = HString.mk_hstring "_contract_" in
   match contract with
   | [] -> [StringMap.empty], info
@@ -876,7 +876,7 @@ and rename_ghost_variables info node_id contract =
     let ty = Ctx.expand_nested_type_syn info.context ty in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
-    let tail, info = rename_ghost_variables info node_id t in
+    let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
   | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
@@ -884,15 +884,15 @@ and rename_ghost_variables info node_id contract =
     let ty = Ctx.expand_nested_type_syn info.context ty in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
-    let tail, info = rename_ghost_variables info node_id (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
+    let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
-  | _ :: t -> rename_ghost_variables info node_id t
+  | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info map node_id items =
+and normalize_contract info map items =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
-  let ghost_interp, info = rename_ghost_variables info node_id items in
+  let ghost_interp, info = rename_ghost_variables info items in
   let ghost_interp = List.fold_left (StringMap.merge union_keys)
     StringMap.empty ghost_interp
   in
