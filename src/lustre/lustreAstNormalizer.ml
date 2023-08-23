@@ -592,7 +592,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
       (StringMap.bindings map)
     A.pp_print_program ast;
 
-  Res.ok (ast, map, warnings, ctx)
+  Res.ok (ast, map, warnings)
 
 and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->

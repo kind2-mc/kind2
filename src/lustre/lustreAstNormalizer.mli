@@ -84,7 +84,7 @@ val normalize : TypeCheckerContext.tc_context ->
   LustreAst.t ->
     GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
-   [> `LustreAstNormalizerWarning of Lib.position * warning_kind] list * TypeCheckerContext.tc_context, [> error])
+   [> `LustreAstNormalizerWarning of Lib.position * warning_kind] list, [> error])
   result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit

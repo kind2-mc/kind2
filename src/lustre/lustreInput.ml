@@ -183,9 +183,10 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings2, inlined_global_ctx) = 
+    let* (normalized_nodes_and_contracts, gids, warnings2) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
+    
       
     Res.ok (inlined_global_ctx,
       gids,
