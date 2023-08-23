@@ -115,7 +115,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
   | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper frame_pos node_id lhs id fill e)
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | ChooseOp (a, b, e) -> ChooseOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | ArrayConcat (a, e1, e2) -> ArrayConcat (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | ArrayIndex (a, e1, e2) -> ArrayIndex (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)

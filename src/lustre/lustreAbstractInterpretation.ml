@@ -503,8 +503,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | NArityOp _ -> assert false
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
-  | ChooseOp (_, (_, _, ty), _) ->
-    extract_bounds_from_type ty
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | RecordExpr _ -> assert false
   | GroupExpr (_, ExprList, es) -> (
     let g = interpret_int_expr node_id ctx ty_ctx in
