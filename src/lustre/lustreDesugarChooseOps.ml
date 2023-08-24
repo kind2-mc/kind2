@@ -186,10 +186,14 @@
      | A.Body (Equation (pos, lhs, rhs)) -> 
        let rhs, gen_nodes = desugar_expr ctx node_name rhs in 
        A.Body (Equation (pos, lhs, rhs)), gen_nodes
+     | AnnotProperty (pos, name, e, k) -> 
+       let e, gen_nodes = desugar_expr ctx node_name e in 
+       AnnotProperty(pos, name, e, k), gen_nodes
      | IfBlock (pos, cond, nis1, nis2) -> 
        let nis1, gen_nodes1 = List.map (desugar_node_item ctx node_name) nis1 |> List.split in
        let nis2, gen_nodes2 = List.map (desugar_node_item ctx node_name) nis2 |> List.split in
-       A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2
+       let cond, gen_nodes3 = desugar_expr ctx node_name cond in
+       A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
      | FrameBlock (pos, vars, nes, nis) -> 
        let nes = List.map (fun x -> A.Body x) nes in
        let nes, gen_nodes1 = List.map (desugar_node_item ctx node_name) nes |> List.split in
@@ -200,7 +204,7 @@
        let nis, gen_nodes2 = List.map (desugar_node_item ctx node_name) nis |> List.split in
        FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
      | AnnotMain _ 
-     | AnnotProperty _ 
+     
      | Body (Assert _) -> ni, []
  
  let desugar_choose_ops ctx node_summary decls = 
