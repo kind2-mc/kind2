@@ -180,6 +180,29 @@
    | CallParam (pos, id, types, expr_list) ->
      let expr_list, gen_nodes = List.map (desugar_expr ctx node_name) expr_list |> List.split in
      CallParam (pos, id, types, expr_list), List.flatten gen_nodes
+
+ let desugar_contract_item ctx node_name ci = 
+    match ci with 
+      | A.GhostVars (pos, lhs, e) -> 
+        let e, gen_nodes = desugar_expr ctx node_name e in 
+        A.GhostVars (pos, lhs, e), gen_nodes
+      | Assume (pos, name, b, e) ->
+        let e, gen_nodes = desugar_expr ctx node_name e in 
+        Assume (pos, name, b, e), gen_nodes
+      | Guarantee (pos, name, b, e) -> 
+        let e, gen_nodes = desugar_expr ctx node_name e in 
+        Guarantee (pos, name, b, e), gen_nodes
+      | GhostConst _ 
+      | Mode _ 
+      | ContractCall _ 
+      | AssumptionVars _ -> ci, []
+
+  let desugar_contract ctx node_name contract = 
+    match contract with 
+      | Some contract_items -> 
+        let items, gen_nodes = (List.map (desugar_contract_item ctx node_name) contract_items) |> List.split in
+        Some items, List.flatten gen_nodes
+      | None -> None, []
  
  let rec desugar_node_item ctx node_name ni =
    match ni with
@@ -216,16 +239,18 @@
        | A.NodeDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
          let ctx = Chk.get_node_ctx ctx d |> unwrap in
          let items, gen_nodes = List.map (desugar_node_item ctx id) items |> List.split in 
+         let contract, gen_nodes2 = desugar_contract ctx id contract in
          let gen_nodes = List.flatten gen_nodes in
          let summary = update_node_summary summary gen_nodes in
-         decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))], 
+         decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))], 
          summary
        | A.FuncDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
          let ctx = Chk.get_node_ctx ctx d |> unwrap in
          let items, gen_nodes = List.map (desugar_node_item ctx id) items |> List.split in 
+         let contract, gen_nodes2 = desugar_contract ctx id contract in
          let gen_nodes = List.flatten gen_nodes in
          let summary = update_node_summary summary gen_nodes in
-         decls @ gen_nodes @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))], 
+         decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))], 
          summary
        | _ -> decl :: decls, node_summary
    ) ([], node_summary) decls in 
