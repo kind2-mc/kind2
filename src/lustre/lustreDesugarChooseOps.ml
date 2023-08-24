@@ -199,13 +199,15 @@
        let nes, gen_nodes1 = List.map (desugar_node_item ctx node_name) nes |> List.split in
        let nes = List.map (fun ne -> match ne with
          | A.Body (A.Equation _ as eq) -> eq
-         | _ -> assert false (*!! CHECK ON THIS !!*)
+         | _ -> assert false
        ) nes in
        let nis, gen_nodes2 = List.map (desugar_node_item ctx node_name) nis |> List.split in
        FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
-     | AnnotMain _ 
+     | Body (Assert (pos, e)) ->
+       let e, gen_nodes = desugar_expr ctx node_name e in 
+       Body (Assert (pos, e)), gen_nodes
+     | AnnotMain _ -> ni, []
      
-     | Body (Assert _) -> ni, []
  
  let desugar_choose_ops ctx node_summary decls = 
    let decls, node_summary =
