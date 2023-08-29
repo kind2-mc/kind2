@@ -37,6 +37,8 @@
      let span = { A.start_pos = Lib.dummy_pos; A.end_pos = Lib.dummy_pos } in
      let contract = [A.Guarantee (Lib.dummy_pos, None, false, expr)] in
      let inputs = Ctx.SI.elements (Ctx.SI.diff (AH.vars expr) (Ctx.SI.singleton id)) in
+     (* Constants don't need to be passed as a parameter to generated node *)
+     let inputs = List.filter (fun i -> not (Ctx.member_val ctx i)) inputs in 
      let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
      let ctx = Ctx.add_ty ctx id ty in
      let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
