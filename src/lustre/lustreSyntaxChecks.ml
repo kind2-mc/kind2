@@ -60,6 +60,7 @@ type error_kind = Unknown of string
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
+  | MisplacedAssertInFrameBlock
   | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
@@ -109,6 +110,7 @@ let error_message kind = match kind with
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
+  | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
@@ -702,6 +704,7 @@ and check_items ctx f items =
       let nes = List.map (fun x -> LA.Body x) nes in
       check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
+      (Res.seq_ (List.map (no_assert_in_frame_init pos) nes)) >>
       (Res.seq_ (List.map (fun (p, v) -> no_a_dangling_identifier ctx p v) vars)) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
@@ -737,6 +740,11 @@ and check_frame_vars pos vars ni =
   match H.HStringSet.choose_opt unlisted with
   | None -> Res.ok ()
   | Some var -> syntax_error pos (MisplacedVarInFrameBlock var)
+
+and no_assert_in_frame_init pos = function
+  | LA.Body (Assert _) -> syntax_error pos MisplacedAssertInFrameBlock
+  | _ -> Res.ok ()
+
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in
