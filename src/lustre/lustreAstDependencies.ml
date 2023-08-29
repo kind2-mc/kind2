@@ -344,6 +344,7 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"

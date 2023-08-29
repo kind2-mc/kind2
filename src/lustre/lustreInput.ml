@@ -152,15 +152,15 @@ let type_check declarations =
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
+    
+    (* Step 6. Desugar nondeterministic choice operators *)
+    let node_contract_src = LDN.desugar_choose_ops inlined_ctx node_contract_src in
 
-    (* Step 6. Dependency analysis on nodes and contracts *)
+    (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
-    (* Step 7. type check nodes and contracts *)
+    (* Step 8. type check nodes and contracts *)
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
-
-    (* Step 8. Desugar nondeterministic choice operators *)
-    let sorted_node_contract_decls, global_ctx, node_summary = LDN.desugar_choose_ops global_ctx node_summary sorted_node_contract_decls in
 
     (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in

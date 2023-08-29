@@ -71,13 +71,6 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
-val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.t
-(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
-    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
-    appear in the list [allowed] are allowed to appear under a last. It returns
-    the new AST expression and a set of identifers for which the last
-    application was replaced. *)
-
 val vars_of_node_calls: expr -> SI.t
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 
