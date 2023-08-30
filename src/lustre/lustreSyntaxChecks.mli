@@ -43,6 +43,7 @@ type error_kind = Unknown of string
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
+  | MisplacedAssertInFrameBlock
   | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
