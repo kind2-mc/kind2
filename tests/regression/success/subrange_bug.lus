@@ -1,0 +1,5 @@
+node main () returns (y: subrange [0, 7] of int); 
+let 
+
+  check y <= 7;
+tel;
