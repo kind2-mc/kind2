@@ -48,7 +48,7 @@ let _ = run_test_tt_main ("frontend LustreParser error tests" >::: [
 (*                   Lustre Ast Inline Constants Checks                        *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
-  mk_test "test imported function without body" (fun () ->
+  mk_test "test access out of bounds" (fun () ->
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
