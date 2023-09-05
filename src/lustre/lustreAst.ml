@@ -108,7 +108,7 @@ type expr =
   | NArityOp of position * n_arity_operator * expr list
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
-  | ChooseOp of position * typed_ident * expr
+  | ChooseOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
   | RecordExpr of position * ident * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
@@ -619,7 +619,16 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_lustre_type "@ ") t
         (pp_print_list pp_print_expr ",@ ") l
     
-    | ChooseOp (p, id, e) ->
+    | ChooseOp (p, id, e1, Some e2) ->
+
+      Format.fprintf ppf
+      "%achoose { %a | %a provided %a }"
+      ppos p
+      pp_print_typed_ident id
+      pp_print_expr e1
+      pp_print_expr e2
+
+    | ChooseOp (p, id, e, None) ->
 
       Format.fprintf ppf
       "%achoose { %a | %a }"

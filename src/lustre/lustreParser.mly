@@ -913,7 +913,9 @@ pexpr(Q):
 
   (* Choose operation *)
   | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-    { A.ChooseOp (mk_pos $startpos, id, e) } 
+    { A.ChooseOp (mk_pos $startpos, id, e, None) } 
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); PROVIDED; e2 = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
 
   (* Recursive node call *)
   | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 

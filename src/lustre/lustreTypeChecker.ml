@@ -443,7 +443,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
-  | ChooseOp (_, (_, _, ty), _) as e -> 
+  | ChooseOp (_, (_, _, ty), _, _) as e -> 
     check_type_expr ctx e ty >>
     R.ok ty
   (* Clock operators *)
@@ -644,9 +644,14 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
-  | ChooseOp (pos, (_, i ,ty), e) ->
+  | ChooseOp (pos, (_, i ,ty), e, None) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
+    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
+  | ChooseOp (pos, (_, i ,ty), e1, Some e2) ->
+    let extn_ctx = union ctx (singleton_ty i ty) in
+    check_type_expr extn_ctx e1 (Bool pos)
+    >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty

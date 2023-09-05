@@ -144,7 +144,7 @@ and expr =
   | NArityOp of position * n_arity_operator * expr list
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
-  | ChooseOp of position * typed_ident * expr
+  | ChooseOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
   | RecordExpr of position * ident * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
