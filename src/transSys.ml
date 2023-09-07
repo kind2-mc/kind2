@@ -1734,13 +1734,28 @@ let mk_trans_sys
 
   in
 
-  (* Global consts must be added before logic detection *)
-  let state_vars =
-    List.rev_append
-      (List.rev_map Var.state_var_of_state_var_instance global_consts)
-      state_vars
-  in
 
+  (* Global consts must be added before logic detection *)
+  let global_const_svs = (List.rev_map Var.state_var_of_state_var_instance global_consts) in
+  let state_vars = List.rev_append global_const_svs state_vars in
+
+  (* Collect subrange constraints from global constants *)
+  let create_subrange_constraints consts = 
+    List.fold_left (fun constraints const ->
+      let ty = StateVar.type_of_state_var const |> Type.node_of_type in 
+      match ty with 
+        | IntRange (Some n1, Some n2) -> 
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var Numeral.zero const); (Term.mk_num n2)] :: constraints 
+        | IntRange (Some n1, None) -> 
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var Numeral.zero const)] :: constraints
+        | IntRange (None, Some n2) -> 
+          Term.mk_leq [(LustreExpr.cur_term_of_state_var Numeral.zero const); (Term.mk_num n2)] :: constraints
+        | _ -> constraints
+    ) [] consts
+  in
+  let subrange_constraints = create_subrange_constraints global_const_svs in
+  let init = Term.mk_and (init :: subrange_constraints) in
+  
   (* Logic fragment of transition system  *)
   let logic = match Flags.Smt.logic () with
 
