@@ -1745,11 +1745,11 @@ let mk_trans_sys
       let ty = StateVar.type_of_state_var const |> Type.node_of_type in 
       match ty with 
         | IntRange (Some n1, Some n2) -> 
-          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var Numeral.zero const); (Term.mk_num n2)] :: constraints 
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var init_base const); (Term.mk_num n2)] :: constraints 
         | IntRange (Some n1, None) -> 
-          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var Numeral.zero const)] :: constraints
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var init_base const)] :: constraints
         | IntRange (None, Some n2) -> 
-          Term.mk_leq [(LustreExpr.cur_term_of_state_var Numeral.zero const); (Term.mk_num n2)] :: constraints
+          Term.mk_leq [(LustreExpr.cur_term_of_state_var init_base const); (Term.mk_num n2)] :: constraints
         | _ -> constraints
     ) [] consts
   in
