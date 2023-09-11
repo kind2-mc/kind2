@@ -34,11 +34,11 @@
  
  let rec desugar_expr ctx node_name = function
    | A.ChooseOp (pos, (_, id, ty), expr1, expr2_opt) -> 
-     let span = { A.start_pos = Lib.dummy_pos; A.end_pos = Lib.dummy_pos } in
+     let span = { A.start_pos = pos; A.end_pos = Lib.dummy_pos } in
      let contract = match expr2_opt with 
-      | None -> [A.Guarantee (Lib.dummy_pos, None, false, expr1)]
-      | Some expr2 -> [A.Assume (Lib.dummy_pos, None, false, expr2); 
-                       A.Guarantee (Lib.dummy_pos, None, false, expr1)] in
+      | None -> [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)]
+      | Some expr2 -> [A.Assume (AH.pos_of_expr expr2, None, false, expr2);
+                       A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)] in
      let inputs = Ctx.SI.elements (Ctx.SI.diff (AH.vars expr1) (Ctx.SI.singleton id)) in
      (* Constants don't need to be passed as a parameter to generated node *)
      let inputs = List.filter (fun i -> not (Ctx.member_val ctx i)) inputs in 
@@ -53,7 +53,7 @@
      let generated_node = 
        A.NodeDecl (span, 
        (name, true, [], inputs, 
-       [Lib.dummy_pos, id, ty, A.ClockTrue], [], [], Some contract)) 
+       [pos, id, ty, A.ClockTrue], [], [], Some contract)) 
      in
      A.Call(pos, name, inputs_call), [generated_node]
  
