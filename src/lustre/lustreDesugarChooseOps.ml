@@ -177,9 +177,20 @@
       | Guarantee (pos, name, b, e) -> 
         let e, gen_nodes = desugar_expr ctx node_name e in 
         Guarantee (pos, name, b, e), gen_nodes
+      | Mode (pos, i, reqs, enss) ->
+        let (reqs, gen_nodes1) = 
+          List.map (fun (pos, id, expr) -> (pos, id, desugar_expr ctx node_name expr)) reqs |> 
+          List.map (fun (pos, id, (expr, decls)) -> ((pos, id, expr), decls)) |> 
+          List.split in 
+        let (enss, gen_nodes2) = 
+          List.map (fun (pos, id, expr) -> (pos, id, desugar_expr ctx node_name expr)) enss |> 
+          List.map (fun (pos, id, (expr, decls)) -> ((pos, id, expr), decls)) |> 
+          List.split in 
+        Mode (pos, i, reqs, enss), (List.flatten gen_nodes1) @ (List.flatten gen_nodes2)
+      | ContractCall (pos, i, exprs, ids) -> 
+        let (exprs, gen_nodes) = List.map (desugar_expr ctx node_name) exprs |> List.split in 
+        ContractCall (pos, i, exprs, ids), List.flatten gen_nodes
       | GhostConst _ 
-      | Mode _ 
-      | ContractCall _ 
       | AssumptionVars _ -> ci, []
 
   let desugar_contract ctx node_name contract = 
@@ -243,7 +254,19 @@
          (* If there is an error in context collection, it will be detected later in type checking *)
           | Error _ -> decl :: decls
       )
-       | _ -> decl :: decls
+      | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) -> 
+        (
+          match Chk.get_node_ctx ctx ((), (), (), inputs, outputs, [], (), ()) with (* Unit type params are unused in function *)
+            | Ok ctx -> 
+              let contract, gen_nodes = desugar_contract ctx id (Some contract) in
+              let contract = match contract with 
+                | Some contract -> contract 
+                | None -> assert false in (* Must have a contract *)
+              decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
+           (* If there is an error in context collection, it will be detected later in type checking *)
+            | Error _ -> decl :: decls
+        )
+      | _ -> decl :: decls
    ) [] decls in 
   decls
 
