@@ -668,7 +668,7 @@ let rec vars: expr -> iset = function
   | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es))
   | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
 
 let rec vars_of_struct_item_with_pos = function
