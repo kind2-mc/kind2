@@ -1026,7 +1026,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
   Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
-    (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)));
+    (SI.elements (LH.vars_without_node_call_ids (LH.abstract_pre_subexpressions e)));
   R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
     (graph_error (LH.pos_of_expr e)
       (ContractDependencyOnCurrentOutput assume_vars_out_streams))

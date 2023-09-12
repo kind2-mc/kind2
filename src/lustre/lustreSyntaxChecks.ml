@@ -277,7 +277,7 @@ let build_equation_ctx ctx = function
         let is_symbolic = match output_type_opt with
           | Some ty -> (match ty with
             | ArrayType (_, (_, e)) ->
-              let vars = LAH.vars e in
+              let vars = LAH.vars_without_node_call_ids e in
               let check_var e = StringMap.mem e ctx.free_consts
                 || StringMap.mem e ctx.locals
               in
@@ -412,7 +412,12 @@ let no_node_calls_in_constant pos i e =
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | LA.Call (pos, i, args) ->
-    let vars = List.flatten (List.map (fun e -> LA.SI.elements (LAH.vars e)) args) in
+    let vars =
+      List.fold_left
+        (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
+        LA.SI.empty
+        args
+    in
     let over_vars j = 
       let found_quant = StringMap.mem j ctx.quant_vars in
       let found_symbolic_index = StringMap.mem j ctx.symbolic_array_indices in
@@ -421,7 +426,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
       | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, i))
       | false, false -> Ok ())
     in
-    let check = List.map over_vars vars in
+    let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check
   | _ -> Ok ()
 

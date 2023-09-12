@@ -726,14 +726,11 @@ and compile_ast_expr
 
   and compile_mode_reference path' =
     let path' = List.map HString.string_of_hstring path' in
-    let rpath = List.rev path' in
-    let path1 = (rpath |> List.tl |> List.rev) in
     let path2 = List.map
       (fun (_, s) -> HString.string_of_hstring s)
       !map.contract_scope
     in
-    let path3 = [(rpath |> List.hd)] in
-    let path' = path2 @ path1 @ path3 in
+    let path' = path2 @ path' in
     let rec find_mode = function
       | { C.path ; C.requires } :: tail ->
         if path = path' then

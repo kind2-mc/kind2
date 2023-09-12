@@ -315,13 +315,15 @@ let dpos = Lib.dummy_pos
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
 
+let get_inductive_vars ind_vars expr =
+  let vars = AH.vars_without_node_call_ids expr in
+  let ind_vars = List.map fst (StringMap.bindings ind_vars) in
+  List.filter (fun x -> A.SI.mem x vars) ind_vars
+
 let expr_has_inductive_var ind_vars expr =
-  let vars = AH.vars expr in
-  let ind_vars = List.map (fun (i, _) -> i) (StringMap.bindings ind_vars) in
-  let ind_vars = List.filter (fun x -> A.SI.mem x vars) ind_vars in
-  match ind_vars with
-  | [] -> None
-  | h :: _ -> Some h
+  match get_inductive_vars ind_vars expr with
+  | [] -> false
+  | _ -> true
 
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
@@ -333,15 +335,12 @@ let extract_array_size = function
     | _ -> assert false)
   | _ -> assert false
 
-let generalize_to_array_expr name ind_vars expr nexpr = 
-  let vars = AH.vars expr in
-  let ind_vars = List.map fst (StringMap.bindings ind_vars) in
-  let ind_vars = List.filter (fun x -> A.SI.mem x vars) ind_vars in
+let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
-    match ind_vars with
+    match get_inductive_vars ind_vars expr with
     | [] ->
       A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
-    | _ ->
+    | ind_vars ->
       A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in
@@ -1134,7 +1133,7 @@ and abstract_expr ?guard force info map is_ghost expr =
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr |> is_some then
+    let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
@@ -1180,7 +1179,7 @@ and normalize_expr ?guard info map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr |> is_some then
+    let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
@@ -1204,7 +1203,7 @@ and normalize_expr ?guard info map =
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
-      let ty = if expr_has_inductive_var ivars expr |> is_some then
+      let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
       in
@@ -1302,7 +1301,7 @@ and normalize_expr ?guard info map =
     normalize_expr ?guard info map expr
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
-    let ty = if expr_has_inductive_var ivars expr |> is_some then
+    let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
       in
@@ -1328,7 +1327,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   | ArrayConstr (pos, expr, size_expr) ->
     let ivars = info.inductive_variables in
-    let ty = if expr_has_inductive_var ivars expr |> is_some then
+    let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in

@@ -73,22 +73,24 @@ val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
 val vars_of_node_calls: expr -> SI.t
-(** returns all identifiers from the [expr] ast that are inside node calls *)
+(** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
+    appear in the expression [e] (while excluding node call identifiers) *)
 
-val vars: expr -> SI.t
-(** returns all the [ident] that appear in the expr ast*)
+val vars_without_node_call_ids: expr -> SI.t
+(** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
+    while excluding node call identifiers *)
 
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
-(** returns all variables that appear in a [struct_item] with associated positions *)
+(** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
 
 val vars_of_struct_item: struct_item -> SI.t
-(** returns all variables that appear in a [struct_item] *)
+(** returns all variables that appear in a [struct_item] (the lhs of an equation) *)
 
 val defined_vars_with_pos: node_item -> (Lib.position * index) list
 (** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t
-(**  returns all the variables that occur in the expression of a typed identifier declaration *)
+(** returns a singleton set with the only identifier in a typed identifier declaration *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)

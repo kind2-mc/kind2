@@ -1190,7 +1190,12 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                 (Bool pos))
       
     | ContractCall (pos, cname, args, rets) ->
-      let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+      let arg_ids =
+        List.fold_left
+          (fun a s -> LA.SI.union a s)
+          LA.SI.empty
+          (List.map LH.vars_without_node_call_ids args)
+      in
       let ret_ids = LA.SI.of_list rets in
       let common_ids = LA.SI.inter arg_ids ret_ids in
       if (LA.SI.equal common_ids LA.SI.empty)
@@ -1557,8 +1562,10 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
  * while declaring the array type *)
 
 and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
-  List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
-(** checks if all the variables in the expression are constants *)
+  not (LH.expr_contains_call e) &&
+  List.map (member_val ctx) (LA.SI.elements (LH.vars_without_node_call_ids e))
+  |> List.fold_left (&&) true
+(** checks if the expression only contains constant variables *)
   
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> (bool, [> error]) result =
   fun ctx (_, _, ty1) (_, _, ty2) -> eq_lustre_type ctx ty1 ty2

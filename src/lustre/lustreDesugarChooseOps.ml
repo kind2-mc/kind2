@@ -40,9 +40,15 @@
        | Some expr2 -> [A.Assume (AH.pos_of_expr expr2, None, false, expr2);
                         A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)] 
      in
-     let inputs = match expr2_opt with 
-       | None -> Ctx.SI.elements (Ctx.SI.diff (AH.vars expr1) (Ctx.SI.singleton id)) 
-       | Some expr2 -> Ctx.SI.elements (Ctx.SI.diff (Ctx.SI.union (AH.vars expr1) (AH.vars expr2)) (Ctx.SI.singleton id))  
+     let inputs =
+       let vars_of_expr1 = AH.vars_without_node_call_ids expr1 in
+       match expr2_opt with
+       | None -> Ctx.SI.elements (Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id))
+       | Some expr2 ->
+         let vars_of_expr1_and_expr2 =
+           Ctx.SI.union vars_of_expr1 (AH.vars_without_node_call_ids expr2)
+         in
+         Ctx.SI.elements (Ctx.SI.diff vars_of_expr1_and_expr2 (Ctx.SI.singleton id))
      in
      (* Constants don't need to be passed as a parameter to generated node *)
      let inputs = List.filter (fun i -> not (Ctx.member_val ctx i)) inputs in 

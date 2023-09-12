@@ -578,11 +578,15 @@ let vars_of_clock_expr: clock_expr -> iset = function
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
 
+let mk_mode_ref_id ids =
+  Format.asprintf "%a" (Lib.pp_print_list pp_print_ident "::") ids
+  |> HString.mk_hstring
+
 let rec vars_of_node_calls_h obs =
   let vars obs = vars_of_node_calls_h obs in
   function
   | Ident (_, i) -> if obs then SI.singleton i else SI.empty
-  | ModeRef (_, is) -> if obs then SI.of_list is else SI.empty
+  | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
   (* Values *)
@@ -594,8 +598,8 @@ let rec vars_of_node_calls_h obs =
   | NArityOp (_, _,es) -> SI.flatten (List.map (vars obs) es)
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars obs e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars obs e1) (vars obs e2)) (SI.singleton i)
+  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
+  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
   (* Structured expressions *)
   | RecordExpr (_, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
@@ -610,26 +614,27 @@ let rec vars_of_node_calls_h obs =
   (* Clock operators *)
   | When (_, e, clkE) -> SI.union (vars obs e) (vars_of_clock_expr clkE)
   | Current  (_, e) -> vars obs e
-  | Condact (_, e1, e2, i, es1, es2) ->
-    SI.add i (SI.flatten (vars obs e1 :: vars obs e2:: (List.map (vars obs) es1) @ (List.map (vars obs) es2)))
+  | Condact (_, e1, e2, _, es1, es2) ->
+    SI.flatten (vars obs e1 :: vars obs e2:: (List.map (vars obs) es1) @ (List.map (vars obs) es2))
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars obs e1 :: vars obs e2 :: List.map (vars obs) es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map (vars obs) |> SI.flatten
-  | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars obs e :: List.map (vars obs) es)) 
+  | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
   | Fby (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
   | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   (* Node calls *)
-  | Call (_, i, es) -> SI.add i (SI.flatten (List.map (vars true) es)) 
-  | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map (vars obs) es))
+  | Call (_, _, es) -> SI.flatten (List.map (vars true) es)
+  | CallParam (_, _, _, es) -> SI.flatten (List.map (vars obs) es)
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
 
-(** returns all identifiers from the [expr] ast*)
-let rec vars: expr -> iset = function
+let rec vars_without_node_call_ids: expr -> iset =
+  let vars = vars_without_node_call_ids in
+  function
   | Ident (_, i) -> SI.singleton i
-  | ModeRef (_, is) -> SI.of_list is
+  | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
   (* Values *)
@@ -655,11 +660,11 @@ let rec vars: expr -> iset = function
   (* Clock operators *)
   | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
   | Current  (_, e) -> vars e
-  | Condact (_, e1, e2, i, es1, es2) ->
-    SI.add i (SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2)))
+  | Condact (_, e1, e2, _, es1, es2) ->
+    SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2))
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
-  | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars e :: List.map vars es)) 
+  | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
   | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
   | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
@@ -667,8 +672,8 @@ let rec vars: expr -> iset = function
   | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es))
-  | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
+  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | CallParam (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
