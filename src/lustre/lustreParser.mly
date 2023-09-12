@@ -131,6 +131,7 @@ let mk_span start_pos end_pos =
 %token CHECK
 %token REACHABLE
 %token PROVIDED
+%token ASSUMING
 %token INVARIANT
 %token FROM
 %token AT
@@ -914,7 +915,7 @@ pexpr(Q):
   (* Choose operation *)
   | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
     { A.ChooseOp (mk_pos $startpos, id, e, None) } 
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); PROVIDED; e2 = pexpr(Q); RCURLYBRACKET
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
     { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
 
   (* Recursive node call *)

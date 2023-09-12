@@ -286,7 +286,10 @@ let keyword_table = mk_hashtbl [
   "with", WITH ;
   "div", INTDIV ;
   "mod", MOD ;
+
+  (* Choose operator *)
   "choose", CHOOSE ;
+  "assuming", ASSUMING ;
   
   (* Clock operators *)
   "when", WHEN ;
