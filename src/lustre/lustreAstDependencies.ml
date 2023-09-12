@@ -395,8 +395,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.NArityOp (_, _, es) -> List.flatten (List.map get_node_call_from_expr es)
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ChooseOp (_, _, e, None) -> get_node_call_from_expr e
-  | LA.ChooseOp (_, _, e1, Some e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2) 
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   (* Structured expressions *)
   | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
