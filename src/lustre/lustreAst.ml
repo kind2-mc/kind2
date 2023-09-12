@@ -622,7 +622,7 @@ let rec pp_print_expr ppf =
     | ChooseOp (p, id, e1, Some e2) ->
 
       Format.fprintf ppf
-      "%achoose { %a | %a provided %a }"
+      "%achoose { %a | %a assuming %a }"
       ppos p
       pp_print_typed_ident id
       pp_print_expr e1
