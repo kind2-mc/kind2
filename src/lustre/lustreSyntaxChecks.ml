@@ -48,6 +48,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
+  | NodeCallInConstant of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -95,6 +96,7 @@ let error_message kind = match kind with
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
+  | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant " ^ HString.string_of_hstring id
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -405,6 +407,9 @@ let no_dangling_identifiers ctx = function
     no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
+let no_node_calls_in_constant pos i e = 
+  if LAH.expr_contains_call e then syntax_error pos (NodeCallInConstant i) else Ok ()
+
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | LA.Call (pos, i, args) ->
     let vars = List.flatten (List.map (fun e -> LA.SI.elements (LAH.vars e)) args) in
@@ -570,8 +575,8 @@ and check_declaration ctx = function
   | ConstDecl (span, decl) ->
     let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (_, _, e)
-      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      | UntypedConst (pos, i, e)
+      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
     in
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -579,12 +584,13 @@ and check_declaration ctx = function
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl ctx expr =
-  let composed_checks ctx e =
+and check_const_expr_decl pos i ctx expr =
+  let composed_checks pos i ctx e =
     (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
+      >> (no_node_calls_in_constant pos i e)
   in
-  check_expr ctx composed_checks expr
+  check_expr ctx (composed_checks pos i) expr
 
 and common_node_equations_checks ctx e =
   (unsupported_expr e)
@@ -611,8 +617,10 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items local = match local with
-  | LA.NodeConstDecl _ -> Ok ()
+and check_local_items ctx local = match local with
+  | LA.NodeConstDecl (_, FreeConst _) -> Ok ()
+  | LA.NodeConstDecl (pos, UntypedConst (_, i, e)) -> check_const_expr_decl pos i ctx e
+  | LA.NodeConstDecl (pos, TypedConst (_, i, e, _)) -> check_const_expr_decl pos i ctx e
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ()
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
@@ -637,7 +645,7 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
      )
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Res.seq_ (List.map (check_local_items ctx) locals))
   >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
@@ -667,7 +675,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Res.seq_ (List.map (check_local_items ctx) locals))
   >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
@@ -757,8 +765,8 @@ and check_contract is_contract_node ctx f contract =
     | GhostConst decl -> (
       let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (_, _, e)
-      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      | UntypedConst (pos, i, e)
+      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
       in
       check >> Ok ()
     )
