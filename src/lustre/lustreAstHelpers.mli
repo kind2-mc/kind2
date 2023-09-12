@@ -48,8 +48,9 @@ val type_arity : lustre_type -> int * int
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
-val substitute : HString.t -> expr -> expr -> expr
-(** Subsitute the supplied identifier and expression into the last expression *)
+val substitute_naive : HString.t -> expr -> expr -> expr
+(** Substitute second param for first param in third param. 
+    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)

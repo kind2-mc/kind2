@@ -1144,7 +1144,7 @@ and abstract_expr ?guard force info map is_ghost expr =
 and expand_node_call info expr var count =
   let ty = Chk.infer_type_expr info.context expr |> unwrap in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
-  let expr_array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
+  let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
   match ty with
   | A.ArrayType _ -> A.GroupExpr (dpos, ArrayExpr, expr_array)
   | _ -> List.fold_left

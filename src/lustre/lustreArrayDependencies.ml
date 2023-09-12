@@ -178,7 +178,7 @@ and process_expr ind_vars ctx ns proj indices expr =
       (match ind_vars with
       | Some ind_vars' ->
         let ind_var = List.hd ind_vars' in
-        let idx' = AH.substitute ind_var zero idx in
+        let idx' = AH.substitute_naive ind_var zero idx in
         (match AIC.eval_int_expr ctx idx' with
         | Ok idx' ->
           let idx_vars = AH.vars idx in
