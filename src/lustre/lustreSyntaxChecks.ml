@@ -46,6 +46,7 @@ type error_kind = Unknown of string
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | ChooseOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
@@ -91,6 +92,7 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument to the node call '"
     ^ HString.string_of_hstring node ^ "'"
+  | ChooseOpInFunction -> "Illegal choose operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions can only call other functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
@@ -433,10 +435,12 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
 let no_calls_to_node ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
+  | RestartEvery (pos, i, _, _)
   | Call (pos, i, _) ->
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
+  | ChooseOp (pos, _, _, _) -> syntax_error pos ChooseOpInFunction
   | _ -> Ok ()
 
 (* Note: this check is simpler if done after the contract imports have all been
@@ -664,7 +668,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator "constant" e)
+      >> (no_temporal_operator "function" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
   >> (match contract with
