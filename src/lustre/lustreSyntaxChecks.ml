@@ -832,6 +832,10 @@ and check_expr ctx f (expr:LustreAst.expr) =
       (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
     | RestartEvery (_, _, e1, e2)
       -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
+    | ChooseOp (_, _, e1, None) -> 
+      (check_expr ctx f e1)
+    | ChooseOp (_, _, e1, Some e2) -> 
+      (check_expr ctx f e1) >> (check_expr ctx f e2)
     | _ -> Ok ()
   in
   expr' >> r
