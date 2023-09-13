@@ -344,6 +344,7 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
@@ -394,6 +395,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.NArityOp (_, _, es) -> List.flatten (List.map get_node_call_from_expr es)
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   (* Structured expressions *)
   | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
@@ -634,6 +636,10 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
+
+  (* Choose operator *)
+  | ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
+
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current  (_, e) -> r e
@@ -806,6 +812,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              empty_dependency_analysis_data
              (List.concat gs)]
 
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Current (_, e) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
@@ -1018,7 +1025,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
   Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
-    (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)));
+    (SI.elements (LH.vars_without_node_call_ids (LH.abstract_pre_subexpressions e)));
   R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
     (graph_error (LH.pos_of_expr e)
       (ContractDependencyOnCurrentOutput assume_vars_out_streams))

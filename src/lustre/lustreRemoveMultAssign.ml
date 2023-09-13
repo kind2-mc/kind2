@@ -20,6 +20,7 @@ module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module GI = GeneratedIdentifiers
+module LAH = LustreAstHelpers
 
 (** [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref (0)
@@ -45,74 +46,6 @@ let mk_fresh_temp_var ty =
     locals = GI.StringMap.singleton name (false, ty);
   } in
   name, gids2
-  
-
-(** When pulling out temp variables for recursive array definitions,
-   we also have to modify the RHS to match the temp variable.
-   For example, we want equations of the form
-   'temp[i] = if i = 0 then 0 else temp[i-1] + 1' rather than
-   'temp[i] = if i = 0 then 0 else y[i-1] + 1', where 'y' was
-   the original LHS variable name.
-*)
-let rec modify_arraydefs_in_expr array_assoc_list = function
-    (* Replace all oracles with 'fill' *)
-    | A.Ident (pos, i1) -> (
-      let update = List.assoc_opt i1 array_assoc_list in
-      match update with 
-      | Some id -> A.Ident(pos, id)
-      | None -> A.Ident(pos, i1)
-    )
-    (* Everything else is just recursing to find Idents *)
-    | Pre (a, e) -> Pre (a, (modify_arraydefs_in_expr array_assoc_list e))  
-    | Arrow (a, e1, e2) -> Arrow (a, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | Const _ as e -> e
-    | ModeRef _ as e -> e
-    | RecordProject (a, e, b) -> RecordProject (a, (modify_arraydefs_in_expr array_assoc_list e), b)
-    | ConvOp (a, b, e) -> ConvOp (a, b, (modify_arraydefs_in_expr array_assoc_list e))
-    | UnaryOp (a, b, e) -> UnaryOp (a, b, (modify_arraydefs_in_expr array_assoc_list e))
-    | Current (a, e) -> Current (a, (modify_arraydefs_in_expr array_assoc_list e))
-    | When (a, e, b) -> When (a, (modify_arraydefs_in_expr array_assoc_list e), b)
-    | TupleProject (a, e, b) -> TupleProject (a, (modify_arraydefs_in_expr array_assoc_list e), b)
-    | Quantifier (a, b, c, e) -> Quantifier (a, b, c, (modify_arraydefs_in_expr array_assoc_list e))
-    | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | CompOp (a, b, e1, e2) -> CompOp (a, b, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | ArrayConcat (a, e1, e2) -> ArrayConcat (a, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | ArrayIndex (a, e1, e2) -> ArrayIndex (a, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2))
-    | Fby (a, e1, b, e2) -> Fby (a, (modify_arraydefs_in_expr array_assoc_list e1), b, (modify_arraydefs_in_expr array_assoc_list e2))
-    | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, (modify_arraydefs_in_expr array_assoc_list e1), (modify_arraydefs_in_expr array_assoc_list e2), (modify_arraydefs_in_expr array_assoc_list e3))
-    | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, (modify_arraydefs_in_expr array_assoc_list e1), ((modify_arraydefs_in_expr array_assoc_list e2), (modify_arraydefs_in_expr array_assoc_list e3)))
-    
-    | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (modify_arraydefs_in_expr array_assoc_list) l)
-    | NArityOp (a, b, l) -> NArityOp (a, b, List.map (modify_arraydefs_in_expr array_assoc_list) l) 
-    | Call (a, b, l) -> Call (a, b, List.map (modify_arraydefs_in_expr array_assoc_list) l)
-    | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (modify_arraydefs_in_expr array_assoc_list) l)
-
-    | Merge (a, b, l) -> Merge (a, b, 
-      List.combine
-      (List.map fst l)
-      (List.map (modify_arraydefs_in_expr array_assoc_list) (List.map snd l)))
-    
-    | RecordExpr (a, b, l) -> RecordExpr (a, b,     
-      List.combine
-      (List.map fst l)
-      (List.map (modify_arraydefs_in_expr array_assoc_list) (List.map snd l)))
-    
-    | RestartEvery (a, b, l, e) -> 
-      RestartEvery (a, b, List.map (modify_arraydefs_in_expr array_assoc_list) l, modify_arraydefs_in_expr array_assoc_list e)
-    | Activate (a, b, e, r, l) ->
-      Activate (a, b, (modify_arraydefs_in_expr array_assoc_list) e, (modify_arraydefs_in_expr array_assoc_list) r, List.map (modify_arraydefs_in_expr array_assoc_list) l)
-    | Condact (a, e, r, b, l1, l2) ->
-      Condact (a, (modify_arraydefs_in_expr array_assoc_list) e, (modify_arraydefs_in_expr array_assoc_list) r, b, 
-              List.map (modify_arraydefs_in_expr array_assoc_list) l1, List.map (modify_arraydefs_in_expr array_assoc_list) l2)
-
-    | StructUpdate (a, e1, li, e2) -> 
-      A.StructUpdate (a, modify_arraydefs_in_expr array_assoc_list e1, 
-      List.map (function
-                | A.Label (a, b) -> A.Label (a, b)
-                | Index (a, e) -> Index (a, modify_arraydefs_in_expr array_assoc_list e)
-              ) li, 
-      modify_arraydefs_in_expr array_assoc_list e2) 
 
 
 (** Takes in an equation LHS and returns 
@@ -169,12 +102,9 @@ let create_new_eqs ctx lhs expr =
           | A.ArrayDef (_, id, _) -> Some id
           | _ -> None)
       in
-      let array_assoc_list =
-        let arrayids_original = get_array_ids ss in
-        let arrayids_new = get_array_ids sis in
-        List.combine arrayids_original arrayids_new
-      in
-      let expr = modify_arraydefs_in_expr array_assoc_list expr in
+      let arrayids_original = get_array_ids ss in
+      let arrayids_new = get_array_ids sis in
+      let expr = LAH.replace_idents arrayids_original arrayids_new expr in
       let gids2 = { (GI.empty ()) with 
         equations = [([], [], A.StructDef(pos, sis), expr)];
       } in

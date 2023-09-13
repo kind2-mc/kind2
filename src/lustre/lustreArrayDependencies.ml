@@ -178,14 +178,18 @@ and process_expr ind_vars ctx ns proj indices expr =
       (match ind_vars with
       | Some ind_vars' ->
         let ind_var = List.hd ind_vars' in
-        let idx' = AH.substitute ind_var zero idx in
+        let idx' = AH.substitute_naive ind_var zero idx in
         (match AIC.eval_int_expr ctx idx' with
         | Ok idx' ->
-          let idx_vars = AH.vars idx in
-          if A.SI.cardinal idx_vars = 1 && A.SI.mem ind_var idx_vars then
+          let idx_vars = AH.vars_without_node_call_ids idx in
+          if A.SI.cardinal idx_vars = 1 &&
+             A.SI.mem ind_var idx_vars &&
+             not (AH.expr_contains_call idx)
+          then
             let ind_vars = Some (List.tl ind_vars') in
             process_expr ind_vars ctx ns proj (idx' :: indices) e
-          else mk_error p (ExprMissingIndex (ind_var, idx))
+          else
+            mk_error p (ExprMissingIndex (ind_var, idx))
         | Error _ -> mk_error p (ComplicatedExpr idx))
       | None -> r e)
     else r e
@@ -199,6 +203,7 @@ and process_expr ind_vars ctx ns proj indices expr =
       vars
     in
     R.ok graph
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current (_, e) -> r e

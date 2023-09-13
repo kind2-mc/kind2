@@ -1260,7 +1260,6 @@ let pp_print_position ppf (
 
     fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum
 
-
 (** Pretty-print line and column *)
 let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
 

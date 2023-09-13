@@ -80,7 +80,7 @@ let mk_span start_pos end_pos =
 (* %token ARRAY *)
 %token CARET
 %token DOTDOT
-%token PIPE
+%token BAR
 
 (* Token for constant declarations *)
 %token CONST
@@ -131,6 +131,7 @@ let mk_span start_pos end_pos =
 %token CHECK
 %token REACHABLE
 %token PROVIDED
+%token ASSUMING
 %token INVARIANT
 %token FROM
 %token AT
@@ -154,6 +155,7 @@ let mk_span start_pos end_pos =
 %token HASH
 %token FORALL
 %token EXISTS
+%token CHOOSE
     
 (* Tokens for relations *)
 %token LTE
@@ -197,9 +199,9 @@ let mk_span start_pos end_pos =
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
-%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT 
-%left PIPE
+%left BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -843,7 +845,7 @@ pexpr(Q):
     { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
-  | e1 = pexpr(Q); PIPE; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); BAR; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
   (* with operator for updating fields of a structure (not quantified) *)
   | LPAREN; 
@@ -909,6 +911,12 @@ pexpr(Q):
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
+
+  (* Choose operation *)
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e, None) } 
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
 
   (* Recursive node call *)
   | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 

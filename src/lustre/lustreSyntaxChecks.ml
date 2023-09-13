@@ -46,8 +46,10 @@ type error_kind = Unknown of string
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | ChooseOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
+  | NodeCallInConstant of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -91,11 +93,13 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument to the node call '"
     ^ HString.string_of_hstring node ^ "'"
+  | ChooseOpInFunction -> "Illegal choose operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions can only call other functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
+  | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant " ^ HString.string_of_hstring id
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -277,7 +281,7 @@ let build_equation_ctx ctx = function
         let is_symbolic = match output_type_opt with
           | Some ty -> (match ty with
             | ArrayType (_, (_, e)) ->
-              let vars = LAH.vars e in
+              let vars = LAH.vars_without_node_call_ids e in
               let check_var e = StringMap.mem e ctx.free_consts
                 || StringMap.mem e ctx.locals
               in
@@ -407,9 +411,17 @@ let no_dangling_identifiers ctx = function
     no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
+let no_node_calls_in_constant pos i e = 
+  if LAH.expr_contains_call e then syntax_error pos (NodeCallInConstant i) else Ok ()
+
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | LA.Call (pos, i, args) ->
-    let vars = List.flatten (List.map (fun e -> LA.SI.elements (LAH.vars e)) args) in
+    let vars =
+      List.fold_left
+        (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
+        LA.SI.empty
+        args
+    in
     let over_vars j = 
       let found_quant = StringMap.mem j ctx.quant_vars in
       let found_symbolic_index = StringMap.mem j ctx.symbolic_array_indices in
@@ -418,17 +430,19 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
       | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, i))
       | false, false -> Ok ())
     in
-    let check = List.map over_vars vars in
+    let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check
   | _ -> Ok ()
 
 let no_calls_to_node ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
+  | RestartEvery (pos, i, _, _)
   | Call (pos, i, _) ->
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
+  | ChooseOp (pos, _, _, _) -> syntax_error pos ChooseOpInFunction
   | _ -> Ok ()
 
 (* Note: this check is simpler if done after the contract imports have all been
@@ -534,6 +548,8 @@ let rec expr_only_supported_in_merge observer expr =
   | Pre (_, e)
   | Current (_, e)
   | Quantifier (_, _, _, e) -> r observer e
+  | ChooseOp (_, _, e, None) -> r false e
+  | ChooseOp (_, _, e1, Some e2) -> r false e1 >> r false e2
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
@@ -570,8 +586,8 @@ and check_declaration ctx = function
   | ConstDecl (span, decl) ->
     let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (_, _, e)
-      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      | UntypedConst (pos, i, e)
+      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
     in
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -579,12 +595,13 @@ and check_declaration ctx = function
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl ctx expr =
-  let composed_checks ctx e =
+and check_const_expr_decl pos i ctx expr =
+  let composed_checks pos i ctx e =
     (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
+      >> (no_node_calls_in_constant pos i e)
   in
-  check_expr ctx composed_checks expr
+  check_expr ctx (composed_checks pos i) expr
 
 and common_node_equations_checks ctx e =
   (unsupported_expr e)
@@ -611,8 +628,10 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items local = match local with
-  | LA.NodeConstDecl _ -> Ok ()
+and check_local_items ctx local = match local with
+  | LA.NodeConstDecl (_, FreeConst _) -> Ok ()
+  | LA.NodeConstDecl (pos, UntypedConst (_, i, e)) -> check_const_expr_decl pos i ctx e
+  | LA.NodeConstDecl (pos, TypedConst (_, i, e, _)) -> check_const_expr_decl pos i ctx e
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ()
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
@@ -637,7 +656,7 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
      )
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Res.seq_ (List.map (check_local_items ctx) locals))
   >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
@@ -651,7 +670,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator "constant" e)
+      >> (no_temporal_operator "function" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
   >> (match contract with
@@ -667,7 +686,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Res.seq_ (List.map (check_local_items ctx) locals))
   >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
@@ -763,8 +782,8 @@ and check_contract is_contract_node ctx f contract =
     | GhostConst decl -> (
       let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (_, _, e)
-      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      | UntypedConst (pos, i, e)
+      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
       in
       check >> Ok ()
     )
@@ -821,6 +840,12 @@ and check_expr ctx f (expr:LustreAst.expr) =
       (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
     | RestartEvery (_, _, e1, e2)
       -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
+    | ChooseOp (_, (_, i, ty), e1, None) -> 
+      let extn_ctx = ctx_add_local ctx i (Some ty) in
+      (check_expr extn_ctx f e1)
+    | ChooseOp (_, (_, i, ty), e1, Some e2) -> 
+      let extn_ctx = ctx_add_local ctx i (Some ty) in
+      (check_expr extn_ctx f e1) >> (check_expr extn_ctx f e2)
     | _ -> Ok ()
   in
   expr' >> r

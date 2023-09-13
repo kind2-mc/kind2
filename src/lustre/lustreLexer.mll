@@ -286,6 +286,10 @@ let keyword_table = mk_hashtbl [
   "with", WITH ;
   "div", INTDIV ;
   "mod", MOD ;
+
+  (* Choose operator *)
+  "choose", CHOOSE ;
+  "assuming", ASSUMING ;
   
   (* Clock operators *)
   "when", WHEN ;
@@ -454,7 +458,6 @@ rule token = parse
   | '}' { RCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
-  | '|' { PIPE }
   | "<<" { LPARAMBRACKET }
   | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
@@ -466,6 +469,7 @@ rule token = parse
   | "<>" { NEQ }
   | '-' { MINUS }
   | '+' { PLUS }
+  | '|' { BAR }
   | '/' { DIV }
   | '*' { MULT }
   | "->" { ARROW }

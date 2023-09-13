@@ -144,8 +144,8 @@ let error_message kind = match kind with
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
-  | IlltypedIdentifier (id, ty1, ty2) -> "Identifier: " ^ HString.string_of_hstring id
-    ^ " does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
+  | IlltypedIdentifier (id, ty1, ty2) -> "Identifier '" ^ HString.string_of_hstring id
+    ^ "' does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
   | UnificationFailed (ty1, ty2) -> "Cannot unify type " ^ string_of_tc_type ty1
     ^ " with inferred type " ^ string_of_tc_type ty2
   | ExpectedType (ty1, ty2) -> "Expected type " ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
@@ -443,6 +443,10 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
+  | ChooseOp _ -> assert false
+  (* Already desugared in lustreDesugarChooseOps *)
+  (*check_type_expr ctx e ty >>
+    R.ok ty*)
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx e
   | LA.Current (_, e) -> infer_type_expr ctx e
@@ -641,6 +645,16 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
+  | ChooseOp _ -> assert false 
+    (* Already desugared in lustreDesugarChooseOps *)
+    (*let extn_ctx = union ctx (singleton_ty i ty) in
+    check_type_expr extn_ctx e (Bool pos)
+    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
+  | ChooseOp (pos, (_, i ,ty), e1, Some e2) ->
+    let extn_ctx = union ctx (singleton_ty i ty) in
+    check_type_expr extn_ctx e1 (Bool pos)
+    >> check_type_expr extn_ctx e2 (Bool pos)
+    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Current (_, e) -> check_type_expr ctx e exp_ty
@@ -672,8 +686,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
   | Arrow (_, e1, e2) ->
-    infer_type_expr ctx e1
-    >>= fun ty1 ->  check_type_expr ctx e2 ty1
+    check_type_expr ctx e1 exp_ty
+    >> check_type_expr ctx e2 exp_ty
 
   (* Node calls *)
   | Call (pos, i, args) ->
@@ -1176,7 +1190,12 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                 (Bool pos))
       
     | ContractCall (pos, cname, args, rets) ->
-      let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+      let arg_ids =
+        List.fold_left
+          (fun a s -> LA.SI.union a s)
+          LA.SI.empty
+          (List.map LH.vars_without_node_call_ids args)
+      in
       let ret_ids = LA.SI.of_list rets in
       let common_ids = LA.SI.inter arg_ids ret_ids in
       if (LA.SI.equal common_ids LA.SI.empty)
@@ -1543,8 +1562,10 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
  * while declaring the array type *)
 
 and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
-  List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
-(** checks if all the variables in the expression are constants *)
+  not (LH.expr_contains_call e) &&
+  List.map (member_val ctx) (LA.SI.elements (LH.vars_without_node_call_ids e))
+  |> List.fold_left (&&) true
+(** checks if the expression only contains constant variables *)
   
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> (bool, [> error]) result =
   fun ctx (_, _, ty1) (_, _, ty2) -> eq_lustre_type ctx ty1 ty2

@@ -48,8 +48,9 @@ val type_arity : lustre_type -> int * int
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
-val substitute : HString.t -> expr -> expr -> expr
-(** Subsitute the supplied identifier and expression into the last expression *)
+val substitute_naive : HString.t -> expr -> expr -> expr
+(** Substitute second param for first param in third param. 
+    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
@@ -71,30 +72,25 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
-val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.t
-(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
-    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
-    appear in the list [allowed] are allowed to appear under a last. It returns
-    the new AST expression and a set of identifers for which the last
-    application was replaced. *)
-
 val vars_of_node_calls: expr -> SI.t
-(** returns all identifiers from the [expr] ast that are inside node calls *)
+(** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
+    appear in the expression [e] (while excluding node call identifiers) *)
 
-val vars: expr -> SI.t
-(** returns all the [ident] that appear in the expr ast*)
+val vars_without_node_call_ids: expr -> SI.t
+(** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
+    while excluding node call identifiers *)
 
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
-(** returns all variables that appear in a [struct_item] with associated positions *)
+(** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
 
 val vars_of_struct_item: struct_item -> SI.t
-(** returns all variables that appear in a [struct_item] *)
+(** returns all variables that appear in a [struct_item] (the lhs of an equation) *)
 
 val defined_vars_with_pos: node_item -> (Lib.position * index) list
 (** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t
-(**  returns all the variables that occur in the expression of a typed identifier declaration *)
+(** returns a singleton set with the only identifier in a typed identifier declaration *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)

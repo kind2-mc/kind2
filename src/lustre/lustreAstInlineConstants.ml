@@ -275,6 +275,7 @@ and push_pre is_guarded pos =
   | ArrayConcat (p, e1, e2) -> ArrayConcat (p, r e1, r e2)
   | ArraySlice (p, e1, (e2, e3)) -> ArraySlice (p, r e1, (e2, e3))
   | Quantifier (p, e1, l, e2) -> Quantifier (p, e1, l, r e2)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | When _ as e -> LA.Pre (pos, e)
   | Current _ as e -> LA.Pre (pos, e)
   | Condact _ as e -> LA.Pre (pos, e)

@@ -1,0 +1,6 @@
+node N(y: int) returns (z: int);
+let
+  z = choose { x : int | 0 -> pre x + 1 };
+  check z >= 0;
+  check true -> z > pre z;
+tel

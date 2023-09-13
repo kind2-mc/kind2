@@ -1300,6 +1300,10 @@ let rec eval_ast_expr bounds ctx =
 
     fail_at_position pos "Parametric nodes not supported" 
 
+  | A.ChooseOp (pos, _, _, _) -> 
+    
+    fail_at_position pos "Choose operation not supported in old front end"
+
 
 
 (* ******************************************************************** *)
