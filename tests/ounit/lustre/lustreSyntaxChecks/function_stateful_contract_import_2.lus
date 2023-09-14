@@ -1,0 +1,16 @@
+-- Illegal import of a stateful contract in a function contract.
+
+node imported N( in: int ) returns ( out: int );
+
+contract blah_spec (in: int) returns (out: int) ;
+let
+  guarantee out = N(in);
+tel
+
+function blah ( in: int ) returns ( out: int ) ;
+(*@contract
+  import blah_spec (in) returns (out) ;
+*)
+let
+  out = in ;
+tel

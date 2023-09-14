@@ -1,0 +1,12 @@
+contract C1(x: int) returns (z:int);
+let
+  import C1(x) returns (z);
+tel
+
+function f(x: int) returns (z:int);
+(*@contract
+  import C1(x) returns (z);
+*)
+let
+  z = x + 1;
+tel

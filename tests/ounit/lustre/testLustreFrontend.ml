@@ -110,8 +110,12 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
-  mk_test "test function contract with stateful import" (fun () ->
+  mk_test "test function contract with stateful import 1" (fun () ->
     match load_file "./lustreSyntaxChecks/function_stateful_contract_import.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+    | _ -> false);
+  mk_test "test function contract with stateful import 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/function_stateful_contract_import_2.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
     | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
@@ -150,6 +154,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);  
+  mk_test "test node call in function contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/function_no_stateful_contract_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | _ -> false);
   mk_test "test defining a variable more than once 1" (fun () ->
     match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
     | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
@@ -220,6 +228,10 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
 let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   mk_test "test cyclic definition of contracts" (fun () ->
     match load_file "./lustreAstDependencies/circular_contracts.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test cyclic definition of function contracts" (fun () ->
+    match load_file "./lustreAstDependencies/circular_contracts_2.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
   mk_test "test cyclic definition of nodes" (fun () ->
