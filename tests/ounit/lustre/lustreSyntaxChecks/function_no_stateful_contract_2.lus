@@ -1,0 +1,11 @@
+-- Illegal node call in function contract
+
+node imported N( in: int ) returns ( out: int );
+
+function blah ( in: int ) returns ( out: int ) ;
+(*@contract
+  guarantee out = N(in) ;
+*)
+let
+  out = in ;
+tel

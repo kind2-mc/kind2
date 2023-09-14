@@ -1,0 +1,20 @@
+contract C1(x: int) returns (z:int);
+let
+  import C1(x) returns (z);
+tel
+
+node N(x: int) returns (z:int);
+(*@contract
+  import C1(x) returns (z);
+*)
+let
+  z = x + 1;
+tel
+
+node M(x: int) returns (z:int);
+(*@contract
+  guarantee z = N(x);
+*)
+let
+  z = x + 1;
+tel
