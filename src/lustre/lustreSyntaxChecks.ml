@@ -204,9 +204,15 @@ function
 
 | Condact (_, e, r, i, l1, l2) ->
   StringMap.mem i ctx.nodes ||
+  has_stateful_op ctx e ||
+  has_stateful_op ctx r ||
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
-    false (e :: r :: l1 @ l2)
+    false l1
+  ||
+  List.fold_left
+    (fun acc e -> acc || has_stateful_op ctx e)
+    false l2
 
 | Activate (_, i, e, r, l) ->
   StringMap.mem i ctx.nodes ||
@@ -557,47 +563,44 @@ let no_calls_to_node ctx = function
   resolved and combined (e.g. after a LustreNode has been constructed).
   Therefore, it may make sense to move this check to that point instead of 
   tracing through the imports early on in the LustreAST here *)
-let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
-  let rec check_only_assumptive imports =
-    let over_imports i a = match StringMap.find_opt i ctx.contracts with
-      | Some { only_assumptive; imports } ->
-        a || only_assumptive || check_only_assumptive imports
-      | None -> a (* Situation is bogus regardless *)
+let no_calls_to_nodes_subject_to_refinement ctx expr =
+  try
+    let rec check_only_assumptive visited imports =
+      let over_imports i a = match StringMap.find_opt i ctx.contracts with
+        | Some { only_assumptive; imports } ->
+          if StringSet.mem i visited then raise Cycle ;
+          a && only_assumptive && (
+            let visited = StringSet.add i visited in
+            check_only_assumptive visited imports
+          )
+        | None -> a (* Situation is bogus regardless *)
+      in
+      StringSet.fold over_imports imports true
     in
-    StringSet.fold over_imports imports false
-  in
-  match expr with
-  | LA.Condact (pos, _, _, i, _, _)
-  | Activate (pos, i, _, _, _)
-  | Call (pos, i, _) ->
-    let node_check = StringMap.find_opt i ctx.nodes in
-    let fn_check = StringMap.find_opt i ctx.functions in
-    (match node_check, fn_check with
-    | Some { has_contract = true; 
-        imported = false;
-        contract_only_assumptive;
-        contract_imports }
-      , _
-      -> 
-      let only_assumptive = contract_only_assumptive
-        || check_only_assumptive contract_imports
-      in
-      if not only_assumptive then
-        syntax_error pos (NodeCallInRefinableContract ("node", i))
-      else Ok ()
-    | _, Some { has_contract = true; 
-        imported = false;
-        contract_only_assumptive;
-        contract_imports }
-      -> 
-      let only_assumptive = contract_only_assumptive
-        || check_only_assumptive contract_imports
-      in
-      if not only_assumptive then
-        syntax_error pos (NodeCallInRefinableContract ("function", i))
-      else Ok ()
-    | _ -> Ok ())
-  | _ -> Ok ()
+    let check_node_data pos kind i = function
+      | Some { has_contract = true; 
+          imported = false;
+          contract_only_assumptive;
+          contract_imports } -> (
+        let only_assumptive = contract_only_assumptive
+            && check_only_assumptive StringSet.empty contract_imports
+        in
+        if not only_assumptive then
+          syntax_error pos (NodeCallInRefinableContract (kind, i))
+        else Ok ()
+      )
+      | _ -> Ok ()
+    in
+    match expr with
+    | LA.Condact (pos, _, _, i, _, _)
+    | Activate (pos, i, _, _, _)
+    | RestartEvery (pos, i, _, _)
+    | Call (pos, i, _) ->
+      check_node_data pos "node" i (StringMap.find_opt i ctx.nodes)
+      >> check_node_data pos "function" i (StringMap.find_opt i ctx.functions)
+    | _ -> Ok ()
+  with Cycle ->
+    Ok () (* Cycle will be rediscovered by lustreAstDependencies *)
 
 let no_temporal_operator decl_ctx expr =
   match expr with
@@ -729,7 +732,7 @@ and common_contract_checks ctx e =
     >> (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-    >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
+    >> (no_calls_to_nodes_subject_to_refinement ctx e)
 
 (* Can't have from/within/at keywords in reachability queries in functions *)
 and no_reachability_modifiers item = match item with 
@@ -918,8 +921,8 @@ and check_contract is_contract_node ctx f contract =
   Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
 
 and check_expr ctx f (expr:LustreAst.expr) =
-  let expr' = f ctx expr in
-  let r = match expr with
+  let res = f ctx expr in
+  let check = function
     | LA.RecordProject (_, e, _)
     | TupleProject (_, e, _)
     | UnaryOp (_, _, e)
@@ -934,7 +937,6 @@ and check_expr ctx f (expr:LustreAst.expr) =
         check_expr ctx f e
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
-    | StructUpdate (_, e1, _, e2)
     | ArrayConstr (_, e1, e2)
     | ArrayIndex (_, e1, e2)
     | ArrayConcat (_, e1, e2)
@@ -959,17 +961,25 @@ and check_expr ctx f (expr:LustreAst.expr) =
       (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
     | RestartEvery (_, _, e1, e2)
       -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
+    | StructUpdate (_, e1, l, e2) ->
+      (check_expr ctx f e1) >> (check_expr ctx f e2) >>
+      (let l =
+         List.filter_map
+          (function | LA.Label _ -> None | Index (_, e) -> Some e) l
+       in
+       check_expr_list ctx f l
+      )
     | ChooseOp (_, (_, i, ty), e1, None) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       (check_expr extn_ctx f e1)
     | ChooseOp (_, (_, i, ty), e1, Some e2) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       (check_expr extn_ctx f e1) >> (check_expr extn_ctx f e2)
-    | _ -> Ok ()
+    | Ident _ | ModeRef _ | Const _ -> Ok ()
   in
-  expr' >> r
-and check_expr_list ctx f e =
-  Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e)
+  res >> check expr
+and check_expr_list ctx f l =
+  Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) l)
 
 let no_mismatched_clock is_bool e =
   let ctx = empty_ctx () in

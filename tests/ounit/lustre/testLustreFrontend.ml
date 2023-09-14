@@ -134,6 +134,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_2.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
     | _ -> false);
+  mk_test "test call in cone of influence 3" (fun () ->
+    match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_3.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
+    | _ -> false);
   mk_test "test unsupported current expr" (fun () ->
     match load_file "./lustreSyntaxChecks/unsupported_current.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedExpression _)) -> true
@@ -232,6 +236,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test cyclic definition of function contracts" (fun () ->
     match load_file "./lustreAstDependencies/circular_contracts_2.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test cyclic definition of a contract of a node called in a contract" (fun () ->
+    match load_file "./lustreAstDependencies/circular_contracts_3.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
   mk_test "test cyclic definition of nodes" (fun () ->

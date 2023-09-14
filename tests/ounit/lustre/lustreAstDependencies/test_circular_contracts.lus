@@ -1,6 +1,5 @@
 contract topSpec(x: int) returns (y: int);
 let
-    guarantee x=y;
     assume n(x) = y; 
 tel
 
