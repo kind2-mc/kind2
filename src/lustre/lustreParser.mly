@@ -82,8 +82,9 @@ let mk_span start_pos end_pos =
 %token DOTDOT
 %token BAR
 
-(* Token for constant declarations *)
+(* Token for constant/parameter declarations *)
 %token CONST
+%token PARAM
     
 (* Tokens for node declarations *)
 %token IMPORTED
@@ -240,6 +241,9 @@ decl:
   | d = const_decl { List.map 
                        (function e -> A.ConstDecl (mk_span $startpos $endpos, e)) 
                        d }
+  | d = param_decl { List.map 
+                       (function e -> A.ConstDecl (mk_span $startpos $endpos, e)) 
+                       d }
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_span $startpos $endpos, e)) 
                       d }
@@ -271,6 +275,9 @@ decl:
 (* A constant declaration *)
 const_decl: CONST; l = nonempty_list(const_decl_body) { List.flatten l }
 
+(* A constant declaration *)
+param_decl: PARAM; l = nonempty_list(param_decl_body) { List.flatten l }
+
 (* The body of a constant declaration *)
 const_decl_body:
 
@@ -291,6 +298,19 @@ const_decl_body:
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
     { let (_, s, t) = c in [A.TypedConst (mk_pos $startpos, s, e, t)] }
+
+(* The body of a parameter declaration *)
+param_decl_body:
+
+  (* Imported (free) constant 
+
+     Separate rule for singleton list to avoid shift/reduce conflict *)
+  | h = ident; COLON; t = lustre_type; SEMICOLON 
+    { [A.FreeConst (mk_pos $startpos, h, t)] } 
+
+  (* Imported (free) constant *)
+  | h = ident; COMMA; l = ident_list; COLON; t = lustre_type; SEMICOLON 
+    { List.map (function e -> A.FreeConst (mk_pos $startpos, e, t)) (h :: l) } 
 
 
 (* ********************************************************************** *)
@@ -554,6 +574,9 @@ node_local_decl:
   | c = const_decl { List.map 
                        (function e -> A.NodeConstDecl (mk_pos $startpos, e))
                        c }
+  | p = param_decl { List.map 
+                       (function e -> A.NodeConstDecl (mk_pos $startpos, e))
+                       p }
   | v = var_decls { List.map 
                       (function e -> A.NodeVarDecl (mk_pos $startpos, e)) 
                       v }
