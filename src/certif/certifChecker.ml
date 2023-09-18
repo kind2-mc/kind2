@@ -485,6 +485,7 @@ let under_approx sys k invs prop =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
 
   (* Declaring path compression function if needed. *)
@@ -1169,6 +1170,7 @@ let minimize_invariants sys props invs_predicate =
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
       (SMTSolver.declare_sort solver)
+      (SMTSolver.assert_expr solver)
       Numeral.zero (Numeral.of_int (k+1));
 
     (* Declaring path compression function if needed. *)

@@ -167,6 +167,7 @@ let mk_solver sys =
      (SMTSolver.define_fun solver)
      (SMTSolver.declare_fun solver)
      (SMTSolver.declare_sort solver)
+     (SMTSolver.assert_expr solver)
      (Numeral.zero)
      (Numeral.succ max_offset) ;
 
@@ -321,6 +322,7 @@ let refine fwd solver sys predicates cubes =
           (SMTSolver.define_fun solver)
           (SMTSolver.declare_fun solver)
           (SMTSolver.declare_sort solver)
+          (SMTSolver.assert_expr solver)
           (Numeral.(pred zero))
           (Numeral.of_int len);
 

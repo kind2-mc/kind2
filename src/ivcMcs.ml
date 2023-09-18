@@ -890,6 +890,7 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero num_k;
 
   TS.init_of_bound None sys Numeral.zero

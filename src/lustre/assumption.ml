@@ -244,6 +244,7 @@ let create_solver_and_context sys k =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero (Numeral.of_int k);
 
   solver
@@ -1154,6 +1155,7 @@ let generate_assumption_vg in_sys sys var_filters prop =
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
       (SMTSolver.declare_sort solver)
+      (SMTSolver.assert_expr solver)
       Numeral.zero Numeral.one;
   
     let init_vars = vf_curr in_sys scope vars_at_0 in

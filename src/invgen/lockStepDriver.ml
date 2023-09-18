@@ -136,6 +136,7 @@ let mk_base_checker_solver sys k =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.zero ;
 
 
@@ -538,6 +539,7 @@ let mk_pruning_checker_solver sys two_state =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero (if two_state then Numeral.one else Numeral.zero);
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)

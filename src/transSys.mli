@@ -478,6 +478,7 @@ val define_and_declare_of_bounds :
   (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) ->
+  (Term.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
 
 (** Return predicate definitions of initial state and transition

@@ -677,6 +677,7 @@ let launch input_sys aparam trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.zero ;
 
   (* Declaring path compression actlit. *)

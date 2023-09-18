@@ -72,6 +72,7 @@ let get_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
+        (SMTSolver.assert_expr solver)
         Numeral.zero !ubound;
       
       SMTSolver.trace_comment solver "Defining predicates";
@@ -724,6 +725,7 @@ let ae_val_gen trans_sys premise elim conclusion =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.one;
 
   SMTSolver.assert_term solver premise ;
@@ -813,6 +815,7 @@ let ae_val_prec trans_sys premise elim conclusion =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.one;
 
   SMTSolver.push solver;

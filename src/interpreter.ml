@@ -176,6 +176,7 @@ let main input_file input_sys _ trans_sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.(~- one) Numeral.(of_int steps) ;
 
   (* Assert initial state constraint *)

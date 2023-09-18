@@ -1040,6 +1040,7 @@ let define_and_declare_of_bounds
     define 
     declare
     declare_sort
+    assert_expr
     lbound
     ubound =
 
@@ -1057,6 +1058,26 @@ let define_and_declare_of_bounds
 
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
+
+  (* Global consts must be added before logic detection *)
+  let global_const_svs = (List.rev_map Var.state_var_of_state_var_instance trans_sys.global_consts) in
+
+  (* Collect subrange constraints from global constants *)
+  let create_subrange_constraints consts = 
+    List.fold_left (fun constraints const ->
+      let ty = StateVar.type_of_state_var const |> Type.node_of_type in 
+      match ty with 
+        | IntRange (Some n1, Some n2) -> 
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var init_base const); (Term.mk_num n2)] :: constraints 
+        | IntRange (Some n1, None) -> 
+          Term.mk_leq [(Term.mk_num n1); (LustreExpr.cur_term_of_state_var init_base const)] :: constraints
+        | IntRange (None, Some n2) -> 
+          Term.mk_leq [(LustreExpr.cur_term_of_state_var init_base const); (Term.mk_num n2)] :: constraints
+        | _ -> constraints
+    ) [] consts
+  in
+  let subrange_constraints = Term.mk_and (create_subrange_constraints global_const_svs) in
+  assert_expr subrange_constraints;
 
   (* Iterate over all subsystems *)
   trans_sys |> iter_subsystems ~include_top:false (fun t ->

@@ -71,6 +71,7 @@ let mk sys =
     (S.define_fun solver)
     (S.declare_fun solver)
     (S.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     zero zero ;
 
   (* Getting fresh actlit. *)

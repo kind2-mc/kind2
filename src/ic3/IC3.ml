@@ -789,6 +789,7 @@ let abstr_simulate trace trans_sys raise_cex =
           (SMTSolver.define_fun solver)
           (SMTSolver.declare_fun solver)
           (SMTSolver.declare_sort solver)
+          (SMTSolver.assert_expr solver)
           (Numeral.zero)
           (Numeral.of_int (List.length trace));
 
@@ -3096,6 +3097,7 @@ let main_ic3 input_sys aparam trans_sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero (Numeral.of_int bound);
 
   (* Get invariants of transition system *)

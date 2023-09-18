@@ -177,6 +177,7 @@ let mk_solvers sys =
     (SMTSolver.define_fun solver1)
     (SMTSolver.declare_fun solver1)
     (SMTSolver.declare_sort solver1)
+    (SMTSolver.assert_expr solver1)
     Numeral.zero Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)
@@ -185,6 +186,7 @@ let mk_solvers sys =
     (SMTSolver.define_fun solver2)
     (SMTSolver.declare_fun solver2)
     (SMTSolver.declare_sort solver2)
+    (SMTSolver.assert_expr solver2)
     Numeral.zero Numeral.one ;
 
   (* Defining uf's and declaring variables. *)
@@ -193,6 +195,7 @@ let mk_solvers sys =
     (SMTSolver.define_fun solver3)
     (SMTSolver.declare_fun solver3)
     (SMTSolver.declare_sort solver3)
+    (SMTSolver.assert_expr solver3)
     Numeral.zero Numeral.one ;
 
   (* Asserting init in [solver1]. *)

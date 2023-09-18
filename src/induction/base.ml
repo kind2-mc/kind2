@@ -379,6 +379,7 @@ let init input_sys aparam trans skip =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.zero ;
 
   (* Asserting init. *)

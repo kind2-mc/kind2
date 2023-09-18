@@ -162,6 +162,7 @@ let realizability_check ?(include_invariants=false) vars_of_term
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero Numeral.one;
 
   (*Format.printf "%a@." (TSys.pp_print_subsystems true) sys ;*)
@@ -719,6 +720,7 @@ let compute_deadlocking_trace_and_conflict
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
+    (SMTSolver.assert_expr solver)
     Numeral.zero offset;
 
   let guarantee_mode_elts_core, other_core = get_contract_cores in_sys sys in
