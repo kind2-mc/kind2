@@ -64,7 +64,6 @@ type error_kind = Unknown of string
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
-  | ExpectedBitShiftConstant
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
