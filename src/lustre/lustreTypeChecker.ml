@@ -1231,7 +1231,7 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
 and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) result
   = fun ctx ->
   function
-  | LA.FreeConst (pos, i, ty) ->
+  | LA.FreeConst (pos, i, ty) -> 
     check_type_well_formed ctx ty
     >> if member_ty ctx i
        then type_error pos (Redeclaration i)
@@ -1247,6 +1247,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
         type_error pos (ExpectedConstant e)
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
+    check_type_well_formed ctx exp_ty >>
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
@@ -1561,6 +1562,8 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
 
+(*!! Make sure we exclude parameters. 
+     But maybe for some cases we can include params. !!*)
 and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   not (LH.expr_contains_call e) &&
   List.map (member_val ctx) (LA.SI.elements (LH.vars_without_node_call_ids e))

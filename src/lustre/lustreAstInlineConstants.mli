@@ -30,6 +30,8 @@ type error_kind = Unknown of string
   | BinaryMustBeInt of LA.expr
   | FreeBoolIdentifier of HString.t
   | ConstantMustBeBool of LA.expr
+  | ConstantOutOfSubrange of HString.t
+  | ParamInConstantDef of HString.t
   | UnaryMustBeBool of LA.expr
   | BinaryMustBeBool of LA.expr
   | IdentifierMustBeConstant of HString.t

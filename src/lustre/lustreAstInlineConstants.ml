@@ -37,6 +37,8 @@ type error_kind = Unknown of string
   | BinaryMustBeInt of LA.expr
   | FreeBoolIdentifier of HString.t
   | ConstantMustBeBool of LA.expr
+  | ConstantOutOfSubrange of HString.t
+  | ParamInConstantDef of HString.t
   | UnaryMustBeBool of LA.expr
   | BinaryMustBeBool of LA.expr
   | IdentifierMustBeConstant of HString.t
@@ -62,6 +64,10 @@ let error_message kind = match kind with
     ^ (HString.string_of_hstring i) ^ "' to a bool constant"
   | ConstantMustBeBool e -> "Cannot evaluate non-bool constant '"
     ^ LA.string_of_expr e ^ "' to a bool constant"
+  | ConstantOutOfSubrange i -> "Constant " ^ (HString.string_of_hstring i) ^ 
+  " is assigned a value outside of its subrange type"
+  | ParamInConstantDef i -> "Constant " ^ (HString.string_of_hstring i) ^ 
+  " is defined in terms of a parameter"
   | UnaryMustBeBool e -> "Cannot evaluate non-bool unary expression '"
     ^ LA.string_of_expr e ^ "' to a bool constant"
   | BinaryMustBeBool e -> "Cannot evaluate non-bool binary expression '"
@@ -500,25 +506,44 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
    (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
   | e -> e 
 
-let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
+let const_in_range c e1 e2 = 
+  match c, e1, e2 with 
+    | LA.Num c, Some e1, Some e2 -> 
+      let c, e1, e2 = int_of_string (HString.string_of_hstring c), int_of_string (LA.string_of_expr e1), int_of_string (LA.string_of_expr e2) in 
+      e1 <= c && c <= e2
+    | LA.Num c, Some e1, None -> 
+      let c, e1 = int_of_string (HString.string_of_hstring c), int_of_string (LA.string_of_expr e1) in 
+      e1 <= c
+    | LA.Num c, None, Some e2 -> 
+      let c, e2 = int_of_string (HString.string_of_hstring c), int_of_string (LA.string_of_expr e2) in 
+      c <= e2
+    | _ -> false
+
+let substitute: TC.tc_context -> LA.declaration -> ((TC.tc_context * LA.declaration), [> error]) result = fun ctx ->
   function
   | TypeDecl (span, AliasType (pos, i, t)) ->
     let t' = inline_constants_of_lustre_type ctx t in
-    ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
-  | ConstDecl (_, FreeConst _) as c -> (ctx, c)
+    R.ok (ctx, LA.TypeDecl (span, AliasType (pos, i, t')))
+  | ConstDecl (_, FreeConst _) as c -> R.ok ((ctx, c))
   | ConstDecl (span, UntypedConst (pos', i, e)) ->
     let e' = simplify_expr ctx e in
     (match (TC.lookup_ty ctx i) with
       | None ->
-          (TC.add_untyped_const ctx i e'
-          , ConstDecl (span, UntypedConst (pos', i, e')))
+          R.ok ((TC.add_untyped_const ctx i e'
+          , LA.ConstDecl (span, UntypedConst (pos', i, e'))))
       | Some ty ->
         let ty' = inline_constants_of_lustre_type ctx ty in
-        (TC.add_const ctx i e' ty', ConstDecl (span, UntypedConst (pos', i, e'))))
+        R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, UntypedConst (pos', i, e')))))
   | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     let e' = simplify_expr ctx e in 
-    (TC.add_const ctx i e' ty', ConstDecl (span, TypedConst (pos', i, e', ty')))
+    (match e', ty' with
+      | Const (_, c), IntRange (_, lower, upper) -> 
+        if const_in_range c lower upper
+        then R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, TypedConst (pos', i, e', ty'))))
+        else inline_error pos' (ConstantOutOfSubrange i) 
+      | _, IntRange _ -> inline_error pos' (ParamInConstantDef i)
+      | _ -> R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, TypedConst (pos', i, e', ty')))))
   | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
@@ -528,7 +553,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     in
     let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
     let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.NodeDecl (span, (i, imported, params, ips', ops', ldecls', items', contract')))
+     R.ok (ctx, (LA.NodeDecl (span, (i, imported, params, ips', ops', ldecls', items', contract'))))
   | (LA.FuncDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
@@ -538,17 +563,17 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     in
     let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
     let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.FuncDecl (span, (i, imported, params, ips', ops', ldecls', items', contract')))
+     R.ok (ctx, (LA.FuncDecl (span, (i, imported, params, ips', ops', ldecls', items', contract'))))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, contract))) ->
-     ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
-  | e -> (ctx, e)
+     R.ok (ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, inline_constants_of_contract ctx contract))))
+  | e -> R.ok ((ctx, e))
 (** propogate constants post type checking into the AST and constant store*)
 
 let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result = fun ctx decl ->
   match decl with
   | [] -> R.ok (ctx, [])
   | c :: rest ->
-    let* (ctx', c') = (try R.ok (substitute ctx c) with
+    let* (ctx', c') = (try substitute ctx c with
       | Out_of_bounds (pos, err) -> 
         inline_error pos (OutOfBounds err)) in
     let* (ctx'', decls) = inline_constants ctx' rest in
