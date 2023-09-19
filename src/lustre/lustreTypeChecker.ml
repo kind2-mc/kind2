@@ -79,7 +79,6 @@ type error_kind = Unknown of string
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
-  | ExpectedBitShiftConstant
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
@@ -162,7 +161,6 @@ let error_message kind = match kind with
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
-  | ExpectedBitShiftConstant -> "Expected argument of shift operator to be a constant"
   | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
   | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
@@ -786,9 +784,7 @@ and infer_type_binary_op: tc_context -> Lib.position
     if (LH.is_type_signed_machine_int ty1 || LH.is_type_unsigned_machine_int ty1)
     then (if (LH.is_type_unsigned_machine_int ty2
               && LH.is_machine_type_of_associated_width (ty1, ty2))
-          then if is_expr_of_consts ctx e2
-              then R.ok ty1
-              else type_error pos ExpectedBitShiftConstant
+          then R.ok ty1
           else type_error pos (ExpectedBitShiftConstantOfSameWidth ty1))
     else type_error pos (ExpectedBitShiftMachineIntegerType ty1)
 (** infers the type of binary operators  *)

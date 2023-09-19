@@ -55,7 +55,6 @@
 
 (** Types of expressions do not match signature of operator *)
 exception Type_mismatch
-exception NonConstantShiftOperand
 
 (** {1 Types} *)
 

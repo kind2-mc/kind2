@@ -1590,15 +1590,6 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
              A.pp_print_expr expr1
              A.pp_print_expr expr2)
 
-      | E.NonConstantShiftOperand ->
-
-        fail_at_position
-          pos
-          (Format.asprintf
-             "Second argument %a to shift operation 
-              must be constant"
-              A.pp_print_expr expr2)
-
   in
 
   (res, ctx)
