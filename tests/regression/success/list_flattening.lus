@@ -1,0 +1,42 @@
+
+
+node F0(x:int) returns (z:int);
+let
+  z = x;
+tel
+
+node F1(x,y:int) returns (z1,z2:int);
+let
+  z1 = x; z2 = y;
+tel
+
+node F2(x1:int;y1:int;x2:int;y2:int) returns (z1,z2:int);
+let
+   z1 = x1 + y1; z2 = x2 - y2;
+tel
+
+node N(x,y:int; c: bool) returns (ok: bool);
+var a0,a1,a2,a3,a4,a5,a6,a7,a8,a9:int;
+    b0,b1,b2,b3,b4,b5,b6:int;
+let
+  a0, a1 = F2(F1(x,y),F1(x,y));
+  a2, a3 = F2(F1(x,y),y,F0(x));
+  a4, a5 = F2((x,y),F0(x),y);
+  a6, a7 = F2((F1(x,y),x),y);
+  a8, a9 = F2((x,(F0(y),(y,F0(x)))));
+  b0, b1, b2 = (F1(x,y),x);
+  b3, b4 = F2((F0(x),(y,F1(x,y))));
+  b5, b6 =
+    if c then F2(F1(x,y),F1(x,y))
+    else F2((x,y),F0(x),y);
+
+  check "P1" a0 = x + y and a1 = x - y;
+  check "P2" a2 = x + y and a3 = y - x;
+  check "P3" a4 = x + y and a5 = x - y;
+  check "P4" a6 = x + y and a7 = x - y;
+  check "P5" a6 = x + y and a7 = x - y;
+  check "P6" a8 = x + y and a9 = y - x;
+  check "P7" b0 = x and b1 = y and b2 = x;
+  check "P8" b3 = x + y and b4 = x - y;
+  check "P9" c => b5 = x + y and b6 = x - y;
+tel

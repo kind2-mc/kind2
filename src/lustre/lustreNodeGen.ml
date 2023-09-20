@@ -288,18 +288,52 @@ let extract_normalized = function
   | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
 
+module XMap = Map.Make(struct
+  type t = X.index
+  let compare = X.compare_indexes
+end)
 
-let flatten_list_indexes (e:E.t X.t) =
-  let over_indices k (indices, e) =
-    let rec flatten = function
-      | (X.ListIndex _) :: (ListIndex _) :: t -> flatten ((X.ListIndex k) :: t)
-      | h :: t -> h :: t
-      | [] -> []
-    in
-    (flatten indices, e)
+let flatten_list_indexes (e:'a X.t) =
+  let top_is_list =
+    try X.top_max_index e >= 0
+    with Invalid_argument _ -> false
   in
-  let flattened = List.mapi over_indices (X.bindings e) in
-  List.fold_left (fun acc (idx, e) -> X.add idx e acc) X.empty flattened
+  if not top_is_list then e
+  else
+    let rec extract_list_prefix acc = function
+      | (X.ListIndex i) :: tl ->
+        extract_list_prefix ((X.ListIndex i) :: acc) tl
+      | rest -> (List.rev acc), rest
+    in
+    let m =
+      List.fold_left (fun acc (indices, e) ->
+        let prefix, other = extract_list_prefix [] indices in
+        XMap.update
+          prefix
+          (function
+          | None -> Some [(other, e)]
+          | Some l -> Some ((other, e) :: l)
+          )
+          acc
+      )
+      XMap.empty
+      (X.bindings e)
+    in
+    XMap.fold
+      (fun _ l (acc, i) ->
+        let acc =
+          List.fold_left
+            (fun acc (indices, e) ->
+              X.add ((X.ListIndex i) :: indices) e acc
+            )
+            acc
+            l
+        in
+        acc, i + 1
+      )
+      m
+      (X.empty, 0)
+    |> fst
 
 (* Match bindings from a trie of state variables and bindings for a
   trie of expressions and produce a list of equations *)
@@ -1911,6 +1945,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           vars in
       H.add_seq !map.quant_vars (H.to_seq quant_var_map);
       let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
+      let eq_lhs = flatten_list_indexes eq_lhs in
       let eq_rhs = flatten_list_indexes eq_rhs in
       (* Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
@@ -1960,6 +1995,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         in
         let lhs_bounds = gen_lhs_bounds is_generated eq_lhs ast_expr indexes in
         let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+        let eq_lhs = flatten_list_indexes eq_lhs in
         let eq_rhs = flatten_list_indexes eq_rhs in
         (* Format.eprintf "lhs: %a@.rhs: %a@.@."
           (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
