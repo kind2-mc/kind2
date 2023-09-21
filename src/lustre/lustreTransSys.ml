@@ -796,16 +796,24 @@ let call_terms_of_node_call mk_fresh_state_var globals
        call_locals)
   in
 
+  let non_constant_inputs =
+    (* Filter out inputs that are constants FOR THE CALLEE. *)
+    D.fold2
+      (fun formal_idx formal_sv actual_sv acc ->
+        if StateVar.is_const formal_sv then acc
+        else D.add formal_idx actual_sv acc
+      )
+      inputs
+      call_inputs
+      D.empty
+    |> D.values
+  in
+
   (* Return actual parameters of transition relation at bound in the
      correct order *)
   let trans_params_of_bound term_of_state_var pre_term_of_state_var =
     init_params_of_bound term_of_state_var @ (
-      ( (D.values call_inputs) @ D.values call_outputs @ call_locals )
-      |> List.filter (
-        (* Filter out svars that are constants FOR THE CALLEE. *)
-        fun sv ->
-          SVM.find sv state_var_map_down |> StateVar.is_const |> not
-      )
+      ( non_constant_inputs @ D.values call_outputs @ call_locals )
       |> List.map pre_term_of_state_var
     )
   in
