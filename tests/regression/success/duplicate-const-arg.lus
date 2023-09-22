@@ -1,0 +1,11 @@
+
+node M(const C:int; x:int) returns (y:int);
+let
+  y = x + C;
+tel
+
+node N(const C:int) returns (z:int);
+let
+   z = M(C, C);
+   --%PROPERTY z = 2*C;
+tel
