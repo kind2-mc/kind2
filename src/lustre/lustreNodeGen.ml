@@ -1174,15 +1174,8 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
-  | A.ArraySlice _ -> assert false
-  | A.ArrayConcat _ -> assert false
-  | A.Current _ -> assert false
-  | A.NArityOp _ -> assert false
-  | A.Fby _ -> assert false
   | A.When _ -> assert false
   | A.Activate _ -> assert false
-  | A.TernaryOp _ -> assert false
-  | A.CallParam _ -> assert false
 
 and compile_node node_scope pos ctx cstate map outputs cond restart ident args defaults =
   let called_node = N.node_of_name ident cstate.nodes in

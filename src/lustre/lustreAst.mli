@@ -80,10 +80,6 @@ type binary_operator =
 
 type ternary_operator =
   | Ite
-  | With (* With operator for recursive definitions *)
-
-type n_arity_operator =
-  | OneHot
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -141,7 +137,6 @@ and expr =
   | UnaryOp of position * unary_operator * expr
   | BinaryOp of position * binary_operator * expr * expr
   | TernaryOp of position * ternary_operator * expr * expr * expr
-  | NArityOp of position * n_arity_operator * expr list
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | ChooseOp of position * typed_ident * expr * expr option
@@ -151,25 +146,20 @@ and expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr 
-  | ArraySlice of position * expr * (expr * expr) 
   | ArrayIndex of position * expr * expr
-  | ArrayConcat of position * expr * expr
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  | Current of position * expr
   | Condact of position * expr * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
-  | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   (* Node calls *)
   | Call of position * ident * expr list
-  | CallParam of position * ident * lustre_type list * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

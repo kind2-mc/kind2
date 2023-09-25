@@ -71,10 +71,6 @@ type binary_operator =
 
 type ternary_operator =
   | Ite
-  | With (* With operator for recursive definitions *)
-
-type n_arity_operator =
-  | OneHot
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -105,7 +101,6 @@ type expr =
   | UnaryOp of position * unary_operator * expr
   | BinaryOp of position * binary_operator * expr * expr
   | TernaryOp of position * ternary_operator * expr * expr * expr
-  | NArityOp of position * n_arity_operator * expr list
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | ChooseOp of position * typed_ident * expr * expr option
@@ -114,26 +109,21 @@ type expr =
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
-  | ArrayConstr of position * expr * expr 
-  | ArraySlice of position * expr * (expr * expr) 
+  | ArrayConstr of position * expr * expr  
   | ArrayIndex of position * expr * expr
-  | ArrayConcat of position * expr * expr
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  | Current of position * expr
   | Condact of position * expr * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
-  | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   (* Node calls *)
   | Call of position * ident * expr list
-  | CallParam of position * ident * lustre_type list * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -400,15 +390,6 @@ let rec pp_print_expr ppf =
     | e :: tl -> Format.fprintf ppf "%a,@ %a" pl [e] pl tl
   in
 
-  (* Pretty-print a variadic prefix operator *)
-  let pnp p s l = 
-    Format.fprintf ppf
-      "@[<hv 2>%a%s@,@[<hv 1>(%a)@]@]" 
-      ppos p 
-      s
-      pl l
-  in
-
   function
     
     | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p pp_print_ident id
@@ -441,14 +422,6 @@ let rec pp_print_expr ppf =
         pp_print_expr e1 
         pp_print_expr e2
 
-    | ArraySlice (p, e, l) -> 
-
-      Format.fprintf ppf 
-        "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
-        ppos p 
-        pp_print_expr e
-        pp_print_array_slice l 
-
     | ArrayIndex (p, e, l) -> 
 
       Format.fprintf ppf 
@@ -456,14 +429,6 @@ let rec pp_print_expr ppf =
         ppos p 
         pp_print_expr e
         pp_print_expr l 
-
-    | ArrayConcat (p, e1, e2) -> 
-
-      Format.fprintf ppf 
-        "%a@[<hv 1>%a|%a@]" 
-        ppos p 
-        pp_print_expr e1
-        pp_print_expr e2 
 
     | RecordProject (p, e, f) -> 
 
@@ -506,7 +471,6 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
-    | NArityOp (p, OneHot, e) -> pnp p "#" e
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
@@ -532,7 +496,6 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
-    | TernaryOp (p, With, e1, e2, e3) -> p3 p "with" "then" "else" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -546,12 +509,6 @@ let rec pp_print_expr ppf =
         ppos p
         pp_print_expr e1
         pp_print_clock_expr e2
-
-    | Current (p, e) ->
-      Format.fprintf ppf "@[<hv 2>%a%s(%a)@]" 
-      ppos p 
-      "current"
-      pp_print_expr e
 
     | Condact (p, e1, er, n, e2, e3) -> 
   
@@ -591,14 +548,6 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_expr ",@ ") l 
 
     | Pre (p, e) -> p1 p "pre" e
-    | Fby (p, e1, i, e2) -> 
-
-      Format.fprintf ppf 
-        "%afby(p, %a,@ %d,@ %a)" 
-        ppos p 
-        pp_print_expr e1 
-        i 
-        pp_print_expr e2
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 
@@ -608,15 +557,6 @@ let rec pp_print_expr ppf =
         "%a%a(%a)"
         ppos p
         pp_print_ident id
-        (pp_print_list pp_print_expr ",@ ") l
-
-    | CallParam (p, id, t, l) -> 
-
-      Format.fprintf ppf 
-        "%a%a<<%a>>(%a)" 
-        ppos p
-        pp_print_ident id
-        (pp_print_list pp_print_lustre_type "@ ") t
         (pp_print_list pp_print_expr ",@ ") l
     
     | ChooseOp (p, id, e1, Some e2) ->

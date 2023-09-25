@@ -149,9 +149,6 @@ and process_expr ind_vars ctx ns proj indices expr =
   | TernaryOp (_, Ite, e1, e2, e3) ->
     let r_e1 = process_expr ind_vars ctx ns 0 indices e1 in
     union_ (union_ (r_e1) (r e2)) (r e3)
-  | TernaryOp (_, With, _, _, _) -> assert false
-  | NArityOp (_, _, es) ->
-    es |> (List.map r) |> (List.fold_left union_ empty_)
   | ConvOp (_, _, e) -> r e
   | CompOp (_, _, e1, e2) -> union_ (r e1) (r e2)
   (* Structured expressions *)
@@ -166,8 +163,6 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> union_ (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> union_ (r e1) (r e2)
-  | ArraySlice (_, e1, (e2, e3)) ->
-    union_ (union_ (r e1) (r e2)) (r e3)
   | ArrayIndex (p, e, idx) ->
     let n = match ind_vars with
       | Some iv -> List.length iv
@@ -193,7 +188,6 @@ and process_expr ind_vars ctx ns proj indices expr =
         | Error _ -> mk_error p (ComplicatedExpr idx))
       | None -> r e)
     else r e
-  | ArrayConcat (_, e1, e2) -> union_ (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (_, _, vars, e) ->
     let* graph = r e in
@@ -206,7 +200,6 @@ and process_expr ind_vars ctx ns proj indices expr =
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   (* Clock operators *)
   | When (_, e, _) -> r e
-  | Current (_, e) -> r e
   | Condact (_, e1, e2, _, es1, es2) ->
     let graph1 = union_ (r e1) (r e2) in
     let graph2 = (es1 |> (List.map r) |> (List.fold_left union_ empty_)) in
@@ -223,7 +216,6 @@ and process_expr ind_vars ctx ns proj indices expr =
     union_ (r e) graph
   (* Temporal operators *)
   | Pre _ -> empty_
-  | Fby (_, e1, _, e2) -> union_ (r e1) (r e2)
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
   (* Node calls *)
   | Call (_, i, es) ->
@@ -236,8 +228,6 @@ and process_expr ind_vars ctx ns proj indices expr =
         | None -> acc)
       empty_
       dep_args
-  | CallParam (_, _, _, es) ->
-    es |> (List.map r) |> (List.fold_left union_ empty_)
 
 let rec check_inductive_array_dependencies ctx ns = function
   | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl)) :: tail ->

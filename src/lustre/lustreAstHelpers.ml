@@ -45,18 +45,18 @@ let expr_is_false = function
 
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
-    | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
-    | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
-    | ArraySlice (pos , _ , _) | ArrayIndex (pos , _, _) | ArrayConcat (pos , _ , _)
-    | RecordExpr (pos , _ , _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
-    | NArityOp (pos , _, _ ) | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
-    | Quantifier (pos, _, _, _)
-    | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
-    | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
-    | RestartEvery (pos, _, _, _)
-    | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
-    | CallParam (pos , _ , _ , _ ) | ChooseOp (pos, _, _, _)
-    -> pos
+  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
+  | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
+  | ArrayIndex (pos , _, _)
+  | RecordExpr (pos , _ , _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
+  | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
+  | Quantifier (pos, _, _, _)
+  | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
+  | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | RestartEvery (pos, _, _, _)
+  | Arrow (pos , _ , _) | Call (pos , _ , _ )
+  | ChooseOp (pos, _, _, _)
+  -> pos
 
 let type_arity ty =
   let inner_types = function
@@ -71,16 +71,15 @@ let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Current (_, e) | Pre (_, e) 
+  | Pre (_, e) 
     -> expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConcat (_, e1, e2)
-  | Fby (_, e1, _, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2)
+  | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
-  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3))
+  | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_call e1 || expr_contains_call e2 || expr_contains_call e3
-  | NArityOp (_, _, expr_list) | GroupExpr (_, _, expr_list)
-  | CallParam (_, _, _, expr_list)
+  | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
   | RecordExpr (_, _, expr_list) | Merge (_, _, expr_list)
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_call e) false expr_list
@@ -112,8 +111,6 @@ let rec substitute_naive (var:HString.t) t = function
     BinaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
   | TernaryOp (pos, op, e1, e2, e3) ->
     TernaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2, substitute_naive var t e3)
-  | NArityOp (pos, op, expr_list) ->
-    NArityOp (pos, op, List.map (fun e -> substitute_naive var t e) expr_list)
   | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive var t e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
@@ -127,14 +124,9 @@ let rec substitute_naive (var:HString.t) t = function
     StructUpdate (pos, substitute_naive var t e1, idx, substitute_naive var t e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | ArraySlice (pos, e1, (e2, e3)) ->
-    ArraySlice (pos, substitute_naive var t e1, (substitute_naive var t e2, substitute_naive var t e3))
   | ArrayIndex (pos, e1, e2) ->
     ArrayIndex (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | ArrayConcat (pos, e1, e2) ->
-    ArrayConcat (pos, substitute_naive var t e1, substitute_naive var t e2)
   | When (pos, e, clock) -> When (pos, substitute_naive var t e, clock)
-  | Current (pos, e) -> Current (pos, substitute_naive var t e)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
     let expr_list1 = List.map (fun e -> substitute_naive var t e) expr_list1 in
@@ -151,28 +143,24 @@ let rec substitute_naive (var:HString.t) t = function
     let e = substitute_naive var t e in
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
-  | Fby (pos, e1, i, e2) -> Fby (pos, substitute_naive var t e1, i, substitute_naive var t e2)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
-  | CallParam (pos, id, types, expr_list) ->
-    CallParam (pos, id, types, List.map (fun e -> substitute_naive var t e) expr_list)
 
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
   | ChooseOp (pos, _, _, _) -> fail_at_position pos "Choose operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
-  | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
+  | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
 
-  | TernaryOp (_, _, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     let u3 = has_unguarded_pre ung e3 in
@@ -183,8 +171,7 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | NArityOp (_, _, l)
-  | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, l) ->
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
@@ -217,10 +204,6 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2 || List.exists Lib.identity us
 
-  | Fby (_, e1, _, e2) ->
-    let u1, u2 = has_unguarded_pre ung e1, has_unguarded_pre ung e2 in
-    u1 || u2
-
   | Pre (pos, e) as p ->
     if ung then begin
       (* Fail only if in strict mode *)
@@ -250,17 +233,16 @@ let rec has_unguarded_pre_no_warn ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
-  | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
+  | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
 
-  | TernaryOp (_, _, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     let u3 = has_unguarded_pre_no_warn ung e3 in
@@ -271,8 +253,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | NArityOp (_, _, l)
-  | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
 
@@ -305,10 +286,6 @@ let rec has_unguarded_pre_no_warn ung = function
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2 || List.exists Lib.identity us
 
-  | Fby (_, e1, _, e2) ->
-    let u1, u2 = has_unguarded_pre_no_warn ung e1, has_unguarded_pre_no_warn ung e2 in
-    u1 || u2
-
   | Pre (_, e)->
     let u = has_unguarded_pre_no_warn true e in
     ung || u
@@ -338,7 +315,7 @@ let rec has_pre_or_arrow = function
   | Const _ | Ident _ | ModeRef _ -> None
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
   | ChooseOp (_, _, e, None) -> 
     has_pre_or_arrow e
@@ -347,13 +324,13 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
   )
 
-  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) ->
     has_pre_or_arrow e1
     |> unwrap_or (
       fun _ ->
@@ -365,8 +342,7 @@ let rec has_pre_or_arrow = function
 
   
   
-  | GroupExpr (_, _, l) | NArityOp (_, _, l)
-  | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, l) ->
     List.map has_pre_or_arrow l
     |> some_of_list
 
@@ -404,10 +380,6 @@ let rec has_pre_or_arrow = function
             |> some_of_list
         )
     )
-
-  | Fby (_, e1, _, e2) ->
-    has_pre_or_arrow e1
-    |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | Pre (pos, _) -> Some pos
 
@@ -589,7 +561,6 @@ let rec vars_of_node_calls_h obs =
   | UnaryOp (_,_,e) -> vars obs e
   | BinaryOp (_,_,e1, e2) -> vars obs e1 |> SI.union (vars obs e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
-  | NArityOp (_, _,es) -> SI.flatten (List.map (vars obs) es)
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
   | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
@@ -601,13 +572,10 @@ let rec vars_of_node_calls_h obs =
   | StructUpdate (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
   | ArrayIndex (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
-  | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars obs e3) (SI.union (vars obs e1) (vars obs e2))
-  | ArrayConcat (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars obs e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
   | When (_, e, clkE) -> SI.union (vars obs e) (vars_of_clock_expr clkE)
-  | Current  (_, e) -> vars obs e
   | Condact (_, e1, e2, _, es1, es2) ->
     SI.flatten (vars obs e1 :: vars obs e2:: (List.map (vars obs) es1) @ (List.map (vars obs) es2))
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars obs e1 :: vars obs e2 :: List.map (vars obs) es)
@@ -615,11 +583,9 @@ let rec vars_of_node_calls_h obs =
   | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
-  | Fby (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
   | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map (vars true) es)
-  | CallParam (_, _, _, es) -> SI.flatten (List.map (vars obs) es)
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
@@ -637,7 +603,6 @@ let rec vars_without_node_call_ids: expr -> iset =
   | UnaryOp (_,_,e) -> vars e
   | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
-  | NArityOp (_, _,es) -> SI.flatten (List.map vars es)
   | ConvOp  (_,_,e) -> vars e
   | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
   (* Structured expressions *)
@@ -647,13 +612,10 @@ let rec vars_without_node_call_ids: expr -> iset =
   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
-  | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars e3) (SI.union (vars e1) (vars e2))
-  | ArrayConcat (_, e1, e2) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
   | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
-  | Current  (_, e) -> vars e
   | Condact (_, e1, e2, _, es1, es2) ->
     SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2))
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
@@ -663,11 +625,9 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
-  | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
-  | CallParam (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
@@ -836,7 +796,6 @@ let rec replace_with_constants: expr -> expr =
      let e2' = replace_with_constants e2 in
      let e3' = replace_with_constants e3 in
      TernaryOp (p, op, e1', e2', e3')
-  | NArityOp (p, op,es) -> NArityOp (p, op, List.map replace_with_constants es) 
   | ConvOp  (p, op, e) -> ConvOp (p, op, replace_with_constants e)
   | CompOp (p, op, e1, e2) ->
      let e1' = replace_with_constants e1 in
@@ -859,21 +818,10 @@ let rec replace_with_constants: expr -> expr =
      let e2' = replace_with_constants e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayConcat (p, e1, e2) ->
-     let e1' = replace_with_constants e1 in
-     let e2' = replace_with_constants e2 in
-     ArrayConcat (p, e1', e2') 
-
   | ArrayIndex (p, e1, e2) ->
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
      ArrayIndex (p, e1', e2') 
-
-  | ArraySlice (p, e1, (e2, e3)) ->
-     let e1' = replace_with_constants e1 in
-     let e2' = replace_with_constants e2 in
-     let e3' = replace_with_constants e3 in
-     ArraySlice (p, e1', (e2', e3'))
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -881,7 +829,6 @@ let rec replace_with_constants: expr -> expr =
 
    (* Clock operators *)
    | When (p, e, c) -> When (p, replace_with_constants e, c) 
-   | Current  (p, e) -> Current  (p, replace_with_constants e) 
    | Condact (p, e1, e2, i, es1, es2) ->
       Condact (p, replace_with_constants e1
                , replace_with_constants e2
@@ -900,13 +847,10 @@ let rec replace_with_constants: expr -> expr =
 
   (* Temporal operators *)
   | Pre (_, e) -> replace_with_constants e
-  | Fby (p, e1, i, e2) ->
-     Fby (p, replace_with_constants e1, i, replace_with_constants e2)
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
-  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map replace_with_constants es) 
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -931,7 +875,6 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      let e3' = abstract_pre_subexpressions e3 in
      TernaryOp (p, op, e1', e2', e3')
-  | NArityOp (p, op,es) -> NArityOp (p, op, List.map abstract_pre_subexpressions es) 
   | ConvOp  (p, op, e) -> ConvOp (p, op, abstract_pre_subexpressions e)
   | CompOp (p, op, e1, e2) ->
      let e1' = abstract_pre_subexpressions e1 in
@@ -954,21 +897,10 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayConcat (p, e1, e2) ->
-     let e1' = abstract_pre_subexpressions e1 in
-     let e2' = abstract_pre_subexpressions e2 in
-     ArrayConcat (p, e1', e2') 
-
   | ArrayIndex (p, e1, e2) ->
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
-     ArrayIndex (p, e1', e2') 
-
-  | ArraySlice (p, e1, (e2, e3)) ->
-     let e1' = abstract_pre_subexpressions e1 in
-     let e2' = abstract_pre_subexpressions e2 in
-     let e3' = abstract_pre_subexpressions e3 in
-     ArraySlice (p, e1', (e2', e3'))
+     ArrayIndex (p, e1', e2')
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -976,7 +908,6 @@ let rec abstract_pre_subexpressions: expr -> expr = function
 
    (* Clock operators *)
    | When (p, e, c) -> When (p, abstract_pre_subexpressions e, c) 
-   | Current  (p, e) -> Current  (p, abstract_pre_subexpressions e) 
    | Condact (p, e1, e2, i, es1, es2) ->
       Condact (p, abstract_pre_subexpressions e1
                , abstract_pre_subexpressions e2
@@ -995,13 +926,10 @@ let rec abstract_pre_subexpressions: expr -> expr = function
 
   (* Temporal operators *)
   | Pre (p, e) -> Pre(p, replace_with_constants e)
-  | Fby (p, e1, i, e2) ->
-     Fby (p, abstract_pre_subexpressions e1, i, abstract_pre_subexpressions e2)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
-  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
   match expr with
@@ -1020,22 +948,16 @@ let rec replace_idents locals1 locals2 expr =
   | ConvOp (a, b, e) -> ConvOp (a, b, replace_idents locals1 locals2 e)
   | UnaryOp (a, b, e) -> UnaryOp (a, b, replace_idents locals1 locals2 e)
   
-  | Current (a, e) -> Current (a, replace_idents locals1 locals2 e)
   | When (a, e, b) -> When (a, replace_idents locals1 locals2 e, b)
   | TupleProject (a, e, b) -> TupleProject (a, replace_idents locals1 locals2 e, b)
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
   | ArrayIndex (a, e1, e2) -> ArrayIndex (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
   | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | Fby (a, e1, b, e2) -> Fby (a, replace_idents locals1 locals2 e1, b, replace_idents locals1 locals2 e2)
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
-  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, replace_idents locals1 locals2 e1, (replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3))
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
-  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (replace_idents locals1 locals2) l) 
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
-  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (replace_idents locals1 locals2) l)
 
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1157,8 +1079,6 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       r (depth + 1) xe3 ye3 >>= fun e3 ->
       Ok (e1 && e2 && e3 && xop = yop)
-    | NArityOp (_, xop, xe), NArityOp(_, yop, ye) ->
-      rlist xe ye |> join >>= fun e -> Ok (e && xop = yop)
     | ConvOp (_, xop, x), ConvOp (_, yop, y) ->
       r (depth + 1) x y >>= fun e -> Ok (e && xop = yop)
     | CompOp (_, xop, xe1, xe2), CompOp (_, yop, ye1, ye2) ->
@@ -1188,16 +1108,10 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       l |> join >>= fun e3 ->
       Ok (e1 && e2 && e3)
     | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2)
-    | ArrayIndex (_, xe1, xe2), ArrayIndex (_, ye1, ye2)
-    | ArrayConcat (_, xe1, xe2), ArrayConcat (_, ye1, ye2) ->
+    | ArrayIndex (_, xe1, xe2), ArrayIndex (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
-    | ArraySlice (_, xe1, (xe2, xe3)), ArraySlice (_, ye1, (ye2, ye3)) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
-      r (depth + 1) xe3 ye3 >>= fun e3 ->
-      Ok (e1 && e2 && e3)
     | Quantifier (_, xq, xl, xe), Quantifier (_, yq, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       let l = if List.length xl = List.length yl then
@@ -1217,7 +1131,6 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     | When (_, x, ClockConstr (i1, i2)), When (_, y, ClockConstr (j1, j2)) ->
       r (depth + 1) x y >>= fun e ->
       Ok (e && HString.equal i1 j1 && HString.equal i2 j2)
-    | Current (_, x), Current (_, y) -> r (depth + 1) x y
     | Condact (_, xe1, xe2, xi, xl1, xl2), Condact (_, ye1, ye2, yi, yl1, yl2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1241,24 +1154,12 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       rlist xl yl |> join >>= fun l ->
       Ok (e && l && HString.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
-    | Fby (_, xe1, xi, xe2), Fby (_, ye1, yi, ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
-      Ok (e1 && e2 && xi = yi)
     | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
     | Call (_, xi, xl), Call (_, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
-    | CallParam (_, xi, xtl, xel), CallParam (_, yi, ytl, yel) ->
-      rlist xel yel |> join >>= fun l ->
-      let t = if List.length xtl = List.length ytl then
-          List.map2 (syn_type_equal depth_limit) xtl ytl
-        else [Ok (false)]
-      in
-      join t >>= fun t ->
-      Ok (l && t && HString.equal xi yi)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1367,16 +1268,13 @@ let hash depth_limit expr =
         let e2_hash = r (depth + 1) e2 in
         let e3_hash = r (depth + 1) e3 in
         Hashtbl.hash (8, op, e1_hash, e2_hash, e3_hash)
-      | NArityOp (_, op, e) ->
-        let e_hash = List.map (r (depth + 1)) e in
-        Hashtbl.hash (9, op, e_hash)
       | ConvOp (_, op, e) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (10, op, e_hash)
+        Hashtbl.hash (9, op, e_hash)
       | CompOp (_, op, e1, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (11, op, e1_hash, e2_hash)
+        Hashtbl.hash (10, op, e1_hash, e2_hash)
       | RecordExpr (_, i, es) ->
         let es_hash = List.map
           (fun (i, e) ->
@@ -1384,10 +1282,10 @@ let hash depth_limit expr =
             (HString.hash i, e_hash))
           es
         in
-        Hashtbl.hash (12, HString.hash i, es_hash)
+        Hashtbl.hash (11, HString.hash i, es_hash)
       | GroupExpr (_, op, es) ->
         let es_hash = List.map (r (depth + 1)) es in
-        Hashtbl.hash (13, op, es_hash)
+        Hashtbl.hash (12, op, es_hash)
       | StructUpdate (_, e1, l, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
@@ -1396,89 +1294,70 @@ let hash depth_limit expr =
           | Index (_, e) -> r (depth + 1) e)
           l
         in
-        Hashtbl.hash (14, e1_hash, l_hash, e2_hash)
+        Hashtbl.hash (13, e1_hash, l_hash, e2_hash)
       | ArrayConstr (_, e1, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (15, e1_hash, e2_hash)
+        Hashtbl.hash (14, e1_hash, e2_hash)
       | ArrayIndex (_, e1, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (16, e1_hash, e2_hash)
-      | ArrayConcat (_, e1, e2) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (17, e1_hash, e2_hash)
-      | ArraySlice (_, e1, (e2, e3)) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        let e3_hash = r (depth + 1) e3 in
-        Hashtbl.hash (18, e1_hash, e2_hash, e3_hash)
+        Hashtbl.hash (15, e1_hash, e2_hash)
       | Quantifier (_, e1, l, e2) ->
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
-        Hashtbl.hash (19, e1, l_hash, e2_hash)
+        Hashtbl.hash (16, e1, l_hash, e2_hash)
       | When (_, e, ClockTrue) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (20, e_hash, ClockTrue)
+        Hashtbl.hash (17, e_hash, ClockTrue)
       | When (_, e, ClockPos i) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (20, e_hash, 0, HString.hash i)
+        Hashtbl.hash (17, e_hash, 0, HString.hash i)
       | When (_, e, ClockNeg i) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (20, e_hash, 1, HString.hash i)
+        Hashtbl.hash (17, e_hash, 1, HString.hash i)
       | When (_, e, ClockConstr (i1, i2)) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (20, e_hash, 0, HString.hash i1, HString.hash i2)
-      | Current (_, e) ->
-        let e_hash = r (depth + 1) e in
-        Hashtbl.hash (21, e_hash)
+        Hashtbl.hash (17, e_hash, 0, HString.hash i1, HString.hash i2)
       | Condact (_, e1, e2, i, l1, l2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         let l1_hash = List.map (r (depth + 1)) l1 in
         let l2_hash = List.map (r (depth + 1)) l2 in
-        Hashtbl.hash (22, e1_hash, e2_hash, HString.hash i, l1_hash, l2_hash)
+        Hashtbl.hash (18, e1_hash, e2_hash, HString.hash i, l1_hash, l2_hash)
       | Activate (_, i, e1, e2, l) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (23, HString.hash i, e1_hash, e2_hash, l_hash)
+        Hashtbl.hash (19, HString.hash i, e1_hash, e2_hash, l_hash)
       | Merge (_, i, l) ->
         let l_hash = List.map
           (fun (i, e) -> let e_hash = r (depth + 1) e in
             (HString.hash i, e_hash))
           l
         in
-        Hashtbl.hash (24, HString.hash i, l_hash)
+        Hashtbl.hash (20, HString.hash i, l_hash)
       | RestartEvery (_, i, l, e) ->
         let l_hash = List.map (r (depth + 1)) l in
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (25, HString.hash i, l_hash, e_hash)
+        Hashtbl.hash (21, HString.hash i, l_hash, e_hash)
       | Pre (_, e) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (26, e_hash)
-      | Fby (_, e1, i, e2) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (27, e1_hash,  i, e2_hash)
+        Hashtbl.hash (22, e_hash)
       | Arrow (_, e1, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (28, e1_hash, e2_hash)
+        Hashtbl.hash (23, e1_hash, e2_hash)
       | Call (_, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (29, HString.hash i, l_hash)
-      | CallParam (_, i, _, el) ->
-        let el_hash = List.map (r (depth + 1)) el in
-        Hashtbl.hash (30, HString.hash i, el_hash)
+        Hashtbl.hash (24, HString.hash i, l_hash)
       | ChooseOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (31, HString.hash i, e_hash)
+        Hashtbl.hash (25, HString.hash i, e_hash)
       | ChooseOp (_, (_, i, _), e1, Some e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (31, HString.hash i, e1_hash, e2_hash)
+        Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
   in
   r 0 expr
 
@@ -1503,8 +1382,6 @@ let rec rename_contract_vars = function
     BinaryOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
   | TernaryOp (pos, op, e1, e2, e3) ->
     TernaryOp (pos, op, rename_contract_vars e1, rename_contract_vars e2, rename_contract_vars e3)
-  | NArityOp (pos, op, expr_list) ->
-    NArityOp (pos, op, List.map (fun e -> rename_contract_vars e) expr_list)
   | ConvOp (pos, op, e) -> ConvOp (pos, op, rename_contract_vars e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
@@ -1517,16 +1394,11 @@ let rec rename_contract_vars = function
     StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | ArraySlice (pos, e1, (e2, e3)) ->
-    ArraySlice (pos, rename_contract_vars e1, (rename_contract_vars e2, rename_contract_vars e3))
   | ArrayIndex (pos, e1, e2) ->
     ArrayIndex (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | ArrayConcat (pos, e1, e2) ->
-    ArrayConcat (pos, rename_contract_vars e1, rename_contract_vars e2)
   | Quantifier (pos, kind, idents, e) ->
     Quantifier (pos, kind, idents, rename_contract_vars e)
   | When (pos, e, clock) -> When (pos, rename_contract_vars e, clock)
-  | Current (pos, e) -> Current (pos, rename_contract_vars e)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = rename_contract_vars e1, rename_contract_vars e2 in
     let expr_list1 = List.map (fun e -> rename_contract_vars e) expr_list1 in
@@ -1543,12 +1415,9 @@ let rec rename_contract_vars = function
     let e = rename_contract_vars e in
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
-  | Fby (pos, e1, i, e2) -> Fby (pos, rename_contract_vars e1, i, rename_contract_vars e2)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
-  | CallParam (pos, id, types, expr_list) ->
-    CallParam (pos, id, types, List.map (fun e -> rename_contract_vars e) expr_list)
 
 let name_of_prop pos name k =
   match name with 

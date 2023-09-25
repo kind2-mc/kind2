@@ -88,9 +88,6 @@
      let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
      let e3, gen_nodes3 = desugar_expr ctx node_name e3 in
      TernaryOp (pos, op, e1, e2, e3), gen_nodes1 @ gen_nodes2 @ gen_nodes3
-   | NArityOp (pos, op, expr_list) ->
-     let expr_list, gen_nodes = List.map (desugar_expr ctx node_name) expr_list |> List.split in
-     NArityOp (pos, op, expr_list), List.flatten gen_nodes
    | ConvOp (pos, op, e) -> 
      let e, gen_nodes = desugar_expr ctx node_name e in
      ConvOp (pos, op, e), gen_nodes
@@ -115,28 +112,16 @@
      let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
      let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
      ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
-   | ArraySlice (pos, e1, (e2, e3)) ->
-     let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
-     let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
-     let e3, gen_nodes3 = desugar_expr ctx node_name e3 in
-     ArraySlice (pos, e1, (e2, e3)), gen_nodes1 @ gen_nodes2 @ gen_nodes3
    | ArrayIndex (pos, e1, e2) ->
      let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
      let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
      ArrayIndex (pos, e1, e2), gen_nodes1 @ gen_nodes2
-   | ArrayConcat (pos, e1, e2) ->
-     let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
-     let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
-     ArrayConcat (pos, e1, e2), gen_nodes1 @ gen_nodes2
    | Quantifier (pos, kind, idents, e) ->
      let e, gen_nodes = desugar_expr ctx node_name e in
      Quantifier (pos, kind, idents, e), gen_nodes
    | When (pos, e, clock) -> 
      let e, gen_nodes = desugar_expr ctx node_name e in
      When (pos, e, clock), gen_nodes
-   | Current (pos, e) -> 
-     let e, gen_nodes = desugar_expr ctx node_name e in
-     Current (pos, e), gen_nodes
    | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
      let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
      let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
@@ -161,10 +146,6 @@
    | Pre (pos, e) -> 
      let e, gen_nodes = desugar_expr ctx node_name e in
      Pre (pos, e), gen_nodes
-   | Fby (pos, e1, i, e2) -> 
-     let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
-     let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
-     Fby (pos, e1, i, e2), gen_nodes1 @ gen_nodes2
    | Arrow (pos, e1, e2) -> 
      let e1, gen_nodes1 = desugar_expr ctx node_name e1 in
      let e2, gen_nodes2 = desugar_expr ctx node_name e2 in
@@ -172,9 +153,6 @@
    | Call (pos, id, expr_list) ->
      let expr_list, gen_nodes = List.map (desugar_expr ctx node_name) expr_list |> List.split in
      Call (pos, id, expr_list), List.flatten gen_nodes
-   | CallParam (pos, id, types, expr_list) ->
-     let expr_list, gen_nodes = List.map (desugar_expr ctx node_name) expr_list |> List.split in
-     CallParam (pos, id, types, expr_list), List.flatten gen_nodes
 
  let desugar_contract_item ctx node_name ci = 
     match ci with 

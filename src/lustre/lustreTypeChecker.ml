@@ -307,8 +307,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     if eq_test then R.ok e1_ty
                     else type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty))
             | c_ty  ->  type_error pos  (ExpectedBooleanExpression c_ty))
-      | With -> type_error pos (Unsupported ("operator With")))
-  | LA.NArityOp _ -> Lib.todo __LOC__  (* One hot expression is not supported *)    
+    )
   | LA.ConvOp (pos, cop, e) ->
     infer_type_conv_op ctx pos e cop
   | LA.CompOp (pos, cop, e1, e2) ->
@@ -402,14 +401,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     | None -> type_error pos (NotAFieldOfRecord l)))
               | r_ty -> type_error pos (IlltypedRecordUpdate r_ty))
       | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
-  | LA.ArraySlice (pos, e1, (il, iu)) ->
-    if is_expr_int_type ctx il && is_expr_int_type ctx iu
-    then infer_type_expr ctx e1
-        >>= (function
-              | ArrayType (_, (b_ty, _)) ->
-                R.ok (LA.ArrayType (pos, (b_ty, (LH.abs_diff pos il iu))))
-            | ty -> type_error pos (IlltypedArraySlice ty))
-    else type_error pos ExpectedIntegerTypeForSlice
   | LA.ArrayIndex (pos, e, i) ->
     let* index_type =  infer_type_expr ctx i in
     let index_type = expand_type_syn ctx index_type in
@@ -419,21 +410,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
               | ArrayType (_, (b_ty, _)) -> R.ok b_ty
               | ty -> type_error pos (IlltypedArrayIndex ty))
     else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
-
-  | LA.ArrayConcat (pos, arr1, arr2) ->
-    infer_type_expr ctx arr1
-    >>= (function
-        | ArrayType (_, (b_ty1, size1)) as ty1 ->
-            infer_type_expr ctx arr2
-            >>= (function 
-                | ArrayType (_, (b_ty2, size2)) as ty2->
-                    R.ifM (R.seqM (&&) true [eq_lustre_type ctx b_ty1 b_ty2
-                                          ; R.ok(is_expr_int_type ctx size1)
-                                          ; R.ok(is_expr_int_type ctx size2)] )
-                      (R.ok (LA.ArrayType (pos, (b_ty1, (LH.add_exp pos size1 size2)))))
-                      (type_error pos (IlltypedArrayConcat (true, ty1, Some ty2)))
-                | ty2 -> type_error pos (IlltypedArrayConcat (false, ty2, None)))
-        | ty1  -> type_error pos (IlltypedArrayConcat (false, ty1, None)))
 
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
@@ -447,7 +423,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     R.ok ty*)
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx e
-  | LA.Current (_, e) -> infer_type_expr ctx e
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
     >> infer_type_expr ctx (Call (pos, node, args))
@@ -478,12 +453,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx e
-  | LA.Fby (pos, e1, _, e2) ->
-    infer_type_expr ctx e1 >>= fun ty1 ->
-    infer_type_expr ctx e2 >>= fun ty2 ->
-    R.ifM (eq_lustre_type ctx ty1 ty2)
-      (R.ok ty1)
-      (type_error pos (IlltypedFby (ty1, ty2)))
   | LA.Arrow (pos, e1, e2) ->
     infer_type_expr ctx e1 >>= fun ty1 ->
     infer_type_expr ctx e2 >>= fun ty2 ->
@@ -512,7 +481,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 (*           | None -> type_error pos ("No node with name: "
             ^ (HString.string_of_hstring i)
             ^ " found")) *)
-  | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) result
@@ -547,7 +515,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
             >>= fun ty2 -> R.guard_with (eq_lustre_type ctx ty1 ty2)
                             (type_error pos (UnificationFailed (ty1, ty2)))
         | ty -> type_error pos (ExpectedType ((Bool pos), ty)))
-  | NArityOp _ -> Lib.todo __LOC__ (* One hot expression is not supported down stream*)
   | ConvOp (pos, cvop, e) ->
     infer_type_conv_op ctx pos e cvop >>= fun inf_ty ->
     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
@@ -632,10 +599,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
               (type_error pos (ExpectedType (exp_ty, arr_b_ty)))
           | _ -> type_error pos (ExpectedArrayType inf_arr_ty))
     else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
-  | (ArraySlice _ as e) | (ArrayConcat _ as e) ->
-    infer_type_expr ctx e >>= fun inf_ty ->
-    R.guard_with(eq_lustre_type ctx inf_ty exp_ty)
-      (type_error (LH.pos_of_expr e) (ExpectedType (exp_ty, inf_ty)))
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
@@ -655,7 +618,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty
-  | Current (_, e) -> check_type_expr ctx e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty
@@ -680,9 +642,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   (* Temporal operators *)
   | Pre (_, e) -> check_type_expr ctx e exp_ty
-  | Fby (_, e1, _, e2) ->
-    check_type_expr ctx e1 exp_ty
-    >> check_type_expr ctx e2 exp_ty
   | Arrow (_, e1, e2) ->
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
@@ -699,7 +658,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     | Some ty -> 
       R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
         (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
-  | CallParam _ -> Lib.todo __LOC__
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
