@@ -109,24 +109,18 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
   | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
   | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Current (a, e) -> Current (a, fill_ite_helper frame_pos node_id lhs id fill e)
   | When (a, e, b) -> When (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper frame_pos node_id lhs id fill e)
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
-  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | ArrayIndex (a, e1, e2) -> ArrayIndex (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | Fby (a, e1, b, e2) -> Fby (a, fill_ite_helper frame_pos node_id lhs id fill e1, b, fill_ite_helper frame_pos node_id lhs id fill e2)
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
-  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, fill_ite_helper frame_pos node_id lhs id fill e1, (fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3))
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l) 
   | Call (a, b, l) -> Call (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
 
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine

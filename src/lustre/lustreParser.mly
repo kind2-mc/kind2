@@ -828,8 +828,9 @@ pexpr(Q):
     A.TupleProject (mk_pos $startpos, e, idx) }
 
   (* An array slice (not quantified) *)
-  | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
-    { A.ArraySlice (mk_pos $startpos, e, s) }
+  | pexpr(Q); LSQBRACKET; array_slice; RSQBRACKET
+    { let pos = mk_pos $startpos in
+      fail_at_position pos "Unsupported operator: array slice" }
 
   (* An array index (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
@@ -845,7 +846,9 @@ pexpr(Q):
     { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
-  | e1 = pexpr(Q); BAR; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+  | pexpr(Q); BAR; pexpr(Q) { 
+    let pos = mk_pos $startpos in
+    fail_at_position pos "Unsupported operator: array concatenation" } 
 
   (* with operator for updating fields of a structure (not quantified) *)
   | LPAREN; 
@@ -873,7 +876,9 @@ pexpr(Q):
   | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Or, e1, e2) }
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
-  | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.NArityOp (mk_pos $startpos, A.OneHot, e) }
+  | HASH; LPAREN; pexpr_list(Q); RPAREN { 
+    let pos = mk_pos $startpos in
+    fail_at_position pos "Unsupported operator: #" }
 
   (* A Bitvector operator *)
   | BVNOT; e = pexpr(Q) { A.UnaryOp (mk_pos $startpos, A.BVNot, e) }
@@ -919,14 +924,18 @@ pexpr(Q):
     { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
 
   (* Recursive node call *)
-  | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
-    { A.TernaryOp (mk_pos $startpos, A.With, e1, e2, e3) }
+  | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
+    { let pos = mk_pos $startpos in
+      fail_at_position pos "Recursive node calls are not supported" }
 
   (* when operator on qexpression  *)
   | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
 
   (* current operator on qexpression *)
-  | CURRENT; e = pexpr(Q) { A.Current (mk_pos $startpos, e) }
+  | CURRENT; pexpr(Q) {
+    let pos = mk_pos $startpos in
+    fail_at_position pos "Unsupported operator: current"
+   }
 
   (* condact call with defaults *)
   | CONDACT 
@@ -1060,10 +1069,9 @@ pexpr(Q):
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
-  | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
-    { let idx = try (int_of_string (HString.string_of_hstring s)) with
-                | _ -> fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
-      A.Fby (mk_pos $startpos, e1, idx, e2) }
+  | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
+    { let pos = mk_pos $startpos in
+      fail_at_position pos "Unsupported operator: fby" }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
@@ -1095,13 +1103,14 @@ node_call:
     { A.Call (mk_pos $startpos, s, a) }
 
   (* Call a node with static parameters *)
-  | s = ident; 
-    p = tlist 
+  | ident; 
+    tlist 
          (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
     LPAREN; 
-    a = separated_list(COMMA, expr); 
+    separated_list(COMMA, expr); 
     RPAREN 
-    { A.CallParam (mk_pos $startpos, s, p, a) }
+    { let pos = mk_pos $startpos in
+      fail_at_position pos "Node calls with static parameters are not supported" }
 
 
 (* An array slice *)

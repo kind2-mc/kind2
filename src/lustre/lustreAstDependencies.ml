@@ -323,18 +323,12 @@ and mk_graph_expr ?(only_modes = false)
   | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
-  | LA.ArraySlice (_, e1, (e2, e3)) ->
-    union_dependency_analysis_data
-      (union_dependency_analysis_data (mk_graph_expr ~only_modes e1)
-      (mk_graph_expr ~only_modes e2)) (mk_graph_expr ~only_modes e3) 
   | LA.ArrayIndex (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
-  | LA.ArrayConcat  (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.GroupExpr (_, _, es) ->
     List.fold_left union_dependency_analysis_data
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e) -> mk_graph_expr ~only_modes e
-  | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
     if List.length ids > 1 then
@@ -392,7 +386,6 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.TernaryOp (_, _, e1, e2, e3) -> (get_node_call_from_expr e1)
                                        @ (get_node_call_from_expr e2)
                                        @ (get_node_call_from_expr e3)
-  | LA.NArityOp (_, _, es) -> List.flatten (List.map get_node_call_from_expr es)
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
@@ -402,16 +395,11 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Update of structured expressions *)
   | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ArraySlice (_, e1, (e2, e3)) -> (get_node_call_from_expr e1)
-                                       @ (get_node_call_from_expr e2)
-                                       @ (get_node_call_from_expr e3)
   | LA.ArrayIndex (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ArrayConcat (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
   (* Clock operators *)
   | LA.When (_, e, _) -> get_node_call_from_expr e
-  | LA.Current (_, e) -> get_node_call_from_expr e
   | LA.Condact (pos, e1, e2, i, e3, e4) -> (HString.concat2 node_prefix i, pos)
     :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
     @ (List.flatten (List.map get_node_call_from_expr e3))
@@ -426,11 +414,9 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
-  | LA.Fby (_, e1, _, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
-  | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
 (** Returns all the node calls from an expression *)
 
 let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
@@ -614,7 +600,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | UnaryOp (_,_,e) -> r e
   | BinaryOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   | TernaryOp (_,_, e1, e2, e3) -> SI.union (SI.union (r e1) (r e2)) (r e3)
-  | NArityOp (_, _,es) -> es |> (List.map r) |> SI.flatten
   | ConvOp  (_,_,e) -> r e
   | CompOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   (* Structured expressions *)
@@ -630,8 +615,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | StructUpdate (_, e1, _, e2) -> SI.union (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
   | ArrayIndex (_, e1, e2) -> SI.union (r e1) (r e2)
-  | ArraySlice (_, e1, (e2, e3)) -> SI.union (SI.union (r e1) (r e2)) (r e3)
-  | ArrayConcat (_, e1, e2) -> SI.union (r e1) (r e2)
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
@@ -642,7 +625,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Clock operators *)
   | When (_, e, _) -> r e
-  | Current  (_, e) -> r e
   | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
     let call_vars = r (Call (pos, node_id, es)) in
     let default_vars =
@@ -663,7 +645,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
-  | Fby (_, e1, _, e2)
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
   (* Node calls *)
@@ -694,7 +675,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
         result
       | None -> SI.empty)
 
-  | CallParam (_, _, _, es) -> es |> (List.map r) |> SI.flatten
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
@@ -791,18 +771,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
-  | LA.ArraySlice (_, e1, (e2, e3)) ->
-     mk_graph_expr2 m e1 >>= fun g1 ->
-     mk_graph_expr2 m e2 >>= fun g2 ->
-     mk_graph_expr2 m e3 >>= fun g3 ->
-     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-             (g1 @ g2 @ g3) ]
   | LA.ArrayIndex (_, e1, _) -> mk_graph_expr2 m e1
 
-  | LA.ArrayConcat  (_, e1, e2) ->
-     mk_graph_expr2 m e1 >>= fun g1 ->
-     mk_graph_expr2 m e2 >>= fun g2 -> 
-     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
   | LA.GroupExpr (_, ExprList, es) ->
     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
   | LA.GroupExpr (_, _, es) ->
@@ -814,7 +784,6 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
 
   | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
-  | LA.Current (_, e) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
      let node_call = LA.Call(pos, n, e1s) in
      mk_graph_expr2 m node_call >>= fun gs ->
@@ -857,7 +826,6 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
-  | LA.Fby (p, e1, _, e2)
   | LA.Arrow (p, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 ->
