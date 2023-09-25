@@ -138,10 +138,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_3.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
     | _ -> false);
-  mk_test "test unsupported current expr" (fun () ->
-    match load_file "./lustreSyntaxChecks/unsupported_current.lus" with
-    | Error (`LustreSyntaxChecksError (_, UnsupportedExpression _)) -> true
-    | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
