@@ -461,26 +461,24 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
-  | LA.Call (pos, i, arg_exprs) ->
-    Debug.parse "Inferring type for node call %a" LA.pp_print_ident i  
-    ; let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result
-      = fun ctx args ->
-      R.seq (List.map (infer_type_expr ctx) args)
-      >>= (fun arg_tys ->
-        if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
-        else R.ok (LA.GroupType (pos, arg_tys))) in
-    (match (lookup_node_ty ctx i) with
-          | Some (TArr (_, exp_arg_tys, exp_ret_tys)) ->
-              infer_type_node_args ctx arg_exprs
-              >>= (fun given_arg_tys ->
-              R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
-                (R.ok exp_ret_tys)                         
-                (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys))))
-          | Some ty -> type_error pos (ExpectedFunctionType ty)
-          | None -> assert false)
-(*           | None -> type_error pos ("No node with name: "
-            ^ (HString.string_of_hstring i)
-            ^ " found")) *)
+  | LA.Call (pos, i, arg_exprs) -> (
+    Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
+    let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result =
+    fun ctx args ->
+      let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
+      if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
+      else R.ok (LA.GroupType (pos, arg_tys))
+    in
+    match (lookup_node_ty ctx i) with
+    | Some (TArr (_, exp_arg_tys, exp_ret_tys)) -> (
+      let* given_arg_tys = infer_type_node_args ctx arg_exprs in
+      R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
+        (R.ok exp_ret_tys)
+        (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
+    )
+    | Some ty -> type_error pos (ExpectedFunctionType ty)
+    | None -> assert false
+  )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) result
