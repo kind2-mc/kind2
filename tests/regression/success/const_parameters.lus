@@ -1,0 +1,18 @@
+
+node F() returns (x,y:int)
+let
+   x = 1; y = 2;
+tel
+
+node N(x,y:int;const n: int;m:int) returns (z:int);
+let
+  z = if C>0 then y+m else x+n;
+tel
+
+const C, W:int;
+
+node M(t:int) returns (z:int);
+let
+  z=N(F(), if C>0 then (W+3, t+1) else (2*C, C));
+  check z=t+3 or z=2*C+1;
+tel
