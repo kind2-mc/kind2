@@ -1,0 +1,9 @@
+
+node imported F() returns (y:int);
+
+node imported N(const n: int) returns (y:int);
+
+node M() returns (z:int);
+let
+  z=N(0 -> 1);
+tel

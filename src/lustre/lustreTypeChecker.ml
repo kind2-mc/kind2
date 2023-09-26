@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
+  | UnboundNodeName of HString.t
   | NotAFieldOfRecord of HString.t
   | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
@@ -51,9 +52,9 @@ type error_kind = Unknown of string
   | IlltypedTupleProjection of tc_type
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
+  | ExpectedIntegerExpression of tc_type
   | Unsupported of string
   | UnequalArrayExpressionType
-  | ExpectedIntegerTypeForArraySize
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedRecordUpdate of tc_type
   | ExpectedLabel of LA.expr
@@ -89,8 +90,7 @@ type error_kind = Unknown of string
   | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
-  | ExpectedConstant of LA.expr
-  | ArrayBoundsInvalidExpression
+  | ExpectedConstant of string * string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
@@ -111,6 +111,7 @@ let error_message kind = match kind with
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
   | UnboundIdentifier id -> "Unbound identifier '" ^ HString.string_of_hstring id ^ "'"
   | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
+  | UnboundNodeName id -> "Unbound node identifier '" ^ HString.string_of_hstring id ^ "'"
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
@@ -118,10 +119,10 @@ let error_message kind = match kind with
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
-  | ExpectedBooleanExpression ty -> "Expected a boolean expression but found " ^ string_of_tc_type ty
+  | ExpectedBooleanExpression ty -> "Expected a boolean expression but found expression of type " ^ string_of_tc_type ty
+  | ExpectedIntegerExpression ty -> "Expected an integer expression but found expression of type "  ^ string_of_tc_type ty
   | Unsupported s -> "Unsupported: " ^ s
   | UnequalArrayExpressionType -> "All expressions must be of the same type in an Array"
-  | ExpectedIntegerTypeForArraySize -> "Array size should have an integer type"
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedRecordUpdate ty -> "Cannot do an update on non-record type " ^ string_of_tc_type ty
@@ -183,8 +184,7 @@ let error_message kind = match kind with
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
-  | ExpectedConstant e -> "Expression " ^ LA.string_of_expr e ^ " is not a constant expression"
-  | ArrayBoundsInvalidExpression -> "Invalid expression in array bounds"
+  | ExpectedConstant (where, what) -> "Illegal " ^ what ^ " in " ^ where
   | UndeclaredType id -> "Type '" ^ HString.string_of_hstring id ^ "' is undeclared"
   | EmptySubrange (v1, v2) -> "Range can not be empty, but found range: ["
     ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
@@ -249,6 +249,126 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
     | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
       " must be an abstract type"))
+
+let rec infer_const_attr ctx exp =
+  let r = infer_const_attr ctx in
+  let combine l1 l2 = List.map2 (fun r1 r2 -> r1 >> r2) l1 l2 in
+  let error exp what =
+    let pos = LH.pos_of_expr exp in
+    Error (pos, fun w -> ExpectedConstant (w, what))
+  in
+  match exp with
+  | LA.Ident (_, i) ->
+    let res =
+      if member_val ctx i then R.ok ()
+      else error exp ("variable '" ^ HString.string_of_hstring i ^ "'") 
+    in
+    [res]
+  | ModeRef _ -> [error exp "mode reference"]
+  | RecordProject (_, e, _) -> r e
+  | TupleProject (_, e, _) -> r e
+  (* Values *)
+  | Const _ -> [R.ok ()]
+  (* Operators *)
+  | UnaryOp (_,_,e) -> r e
+  | BinaryOp (_,_, e1, e2) -> combine (r e1) (r e2)
+  | TernaryOp (_, Ite, e1, e2, e3) -> (
+    let r_e2 = r e2 in
+    match r e1 with
+    | [Ok _] -> combine r_e2 (r e3)
+    | [err] -> List.map (fun _ -> err) r_e2
+    | _ -> assert false
+  )
+  | ConvOp  (_,_,e) -> r e
+  | CompOp (_,_, e1, e2) -> combine (r e1) (r e2)
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) ->
+    List.fold_left
+      (fun l1 l2 -> combine l1 l2)
+      [R.ok ()]
+      (List.map r (snd (List.split flds)))
+  | GroupExpr (_, ArrayExpr, es) | GroupExpr (_, TupleExpr, es) ->
+    List.fold_left
+      (fun l1 l2 -> combine l1 l2)
+      [R.ok ()]
+      (List.map r es)
+  | GroupExpr (_, ExprList, es) -> List.flatten (List.map r es)
+  (* Update of structured expressions *)
+  | StructUpdate (_, e1, _, e2) -> combine (r e1) (r e2)
+  | ArrayConstr (_, e1, e2) -> combine (r e1) (r e2)
+  | ArrayIndex (_, e1, e2) -> combine (r e1) (r e2)
+  (* Quantified expressions *)
+  | Quantifier (_, _, _, _) ->
+    [error exp "quantified expression"]
+  (* Clock operators *)
+  | When (_, e, _) ->
+    List.map (fun _ -> error exp "when operator") (r e)
+  | Merge (_, _, es) ->
+    List.map (fun _ -> error exp "merge operator")
+      (r (List.hd (snd (List.split es))))
+  (* Temporal operators *)
+  | Pre (_, e) ->
+    List.map (fun _ -> error exp "pre operator") (r e)
+  | Arrow (_, e1, _) ->
+    List.map (fun _ -> error exp "arrow operator") (r e1)
+  (* Node calls *)
+  | ChooseOp _ -> assert false
+  | Condact (_, _, _, i, _, _)
+  | Activate (_, i, _, _, _)
+  | RestartEvery (_, i, _, _)
+  | Call (_, i, _) -> (
+    let err = error exp "node call or choose operator" in
+    match lookup_node_ty ctx i with
+    | Some (TArr (_, _, exp_ret_tys)) -> (
+      match exp_ret_tys with
+      | GroupType (_, tys) -> List.map (fun _ -> err) tys
+      | _ -> [err]
+    )
+    | _ -> [err]
+  )
+
+let check_expr_is_constant ctx kind e =
+  match R.seq_ (infer_const_attr ctx e) with
+  | Ok _ -> R.ok ()
+  | Error (pos, exn_fn) -> type_error pos (exn_fn kind)
+
+let check_and_add_constant_definition ctx i e ty =
+  match R.seq_ (infer_const_attr ctx e) with
+  | Ok _ -> R.ok (add_ty (add_const ctx i e ty) i ty)
+  | Error (pos, exn_fn) ->
+    let where =
+      "definition of constant '" ^ HString.string_of_hstring i ^ "'"
+    in
+    type_error pos (exn_fn where)
+
+let check_constant_args ctx i arg_exprs =
+  let check param_attr =
+    let arg_attr =
+      List.map (infer_const_attr ctx) arg_exprs
+      |> List.flatten
+    in
+    R.seq_chain
+      (fun _ ((id, is_const_param), res) ->
+        match is_const_param, res with
+        | true, Error (pos, exn_fn) -> (
+          let where =
+            "argument for constant parameter '" ^ HString.string_of_hstring id ^ "'"
+          in
+          type_error pos (exn_fn where)
+        )
+        | _ -> R.ok ()
+      )
+      ()
+      (List.combine param_attr arg_attr)
+  in
+  match lookup_node_param_attr ctx i with
+  | None -> assert false
+  | Some param_attr -> (
+    if List.exists (fun (_, is_const) -> is_const) param_attr then (
+      check param_attr
+    )
+    else R.ok ()
+  )
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
@@ -375,13 +495,11 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
           (type_error pos UnequalArrayExpressionType)))
     
   (* Update structured expressions *)
-  | LA.ArrayConstr (pos, b_expr, sup_expr) ->
+  | LA.ArrayConstr (pos, b_expr, sup_expr) -> (
     let* b_ty = infer_type_expr ctx b_expr in
-    if is_expr_of_consts ctx sup_expr then
-      if is_expr_int_type ctx sup_expr
-      then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
-      else type_error pos ExpectedIntegerTypeForArraySize
-    else type_error pos ArrayBoundsInvalidExpression
+    check_array_size_expr ctx sup_expr
+    >> R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
+  )
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
@@ -473,12 +591,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     match (lookup_node_ty ctx i) with
     | Some (TArr (_, exp_arg_tys, exp_ret_tys)) -> (
       let* given_arg_tys = infer_type_node_args ctx arg_exprs in
-      R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
-        (R.ok exp_ret_tys)
+      let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
+      if are_equal then
+        (check_constant_args ctx i arg_exprs >> (R.ok exp_ret_tys))
+      else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
     | Some ty -> type_error pos (ExpectedFunctionType ty)
-    | None -> type_error pos (UnboundIdentifier i)
+    | None -> type_error pos (UnboundNodeName i)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -651,9 +771,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx i) with
-    | None -> type_error pos (Impossible ("No node/function with name "
-      ^ (HString.string_of_hstring i)
-      ^ " found."))
+    | None -> type_error pos (UnboundNodeName i)
     | Some ty -> 
       R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
         (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
@@ -1192,22 +1310,17 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
   | LA.UntypedConst (pos, i, e) ->
     if member_ty ctx i then
       type_error pos (Redeclaration i)
-    else
+    else (
       let* ty = infer_type_expr ctx e in
-      if (is_expr_of_consts ctx e) then
-        R.ok (add_ty (add_const ctx i e ty) i ty)
-      else
-        type_error pos (ExpectedConstant e)
-          
+      check_and_add_constant_definition ctx i e ty
+    )
   | LA.TypedConst (pos, i, e, exp_ty) ->
     check_type_well_formed ctx exp_ty >>
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
       check_type_expr (add_ty ctx i exp_ty) e exp_ty
-      >> if (is_expr_of_consts ctx e)
-         then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-         else type_error pos (ExpectedConstant e)
+      >> check_and_add_constant_definition ctx i e exp_ty
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
@@ -1265,10 +1378,11 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   Debug.parse
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
-  ; if (member_node ctx nname)
-    then type_error pos (Redeclaration nname)
-    else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
-        R.ok (add_ty_node ctx nname fun_ty)
+  ;
+  if (member_node ctx nname)
+  then type_error pos (Redeclaration nname)
+  else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
+    R.ok (let ctx = add_ty_node ctx nname fun_ty in add_node_param_attr ctx nname ip)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) ctx =
@@ -1368,7 +1482,26 @@ and build_type_and_const_context (* : tc_context -> LA.t -> (tc_context, [> erro
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
-               
+
+and check_const_integer_expr ctx kind e =
+  match infer_type_expr ctx e with
+  | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
+    type_error pos
+      (ExpectedConstant (kind, "node call or choose operator"))
+  | Ok ty ->
+    let* eq = eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)) in
+    if eq then
+      check_expr_is_constant ctx kind e
+    else
+      type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
+  | Error err -> Error err
+
+and check_array_size_expr ctx e =
+  check_const_integer_expr ctx "array size expression" e
+
+and check_range_bound ctx e =
+  check_const_integer_expr ctx "subrange bound" e
+
 and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   = fun ctx ->
   function
@@ -1378,12 +1511,10 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.RecordType (_, _, idTys) ->
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
-  | LA.ArrayType (pos, (b_ty, s)) ->
-    if is_expr_of_consts ctx s then
-      if is_expr_int_type ctx s
-      then check_type_well_formed ctx b_ty
-      else type_error pos ExpectedIntegerTypeForArraySize
-    else type_error pos ArrayBoundsInvalidExpression
+  | LA.ArrayType (_, (b_ty, s)) -> (
+    check_array_size_expr ctx s
+    >> check_type_well_formed ctx b_ty
+  )
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->
@@ -1393,20 +1524,14 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     then R.ok () else type_error pos (UndeclaredType i)
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with
-    | Some e1, Some e2 ->
-    if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
-      if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
-          let v1 = IC.eval_int_expr ctx e1 in
-          let v2 = IC.eval_int_expr ctx e2 in
-          v1 >>= fun v1 -> v2 >>= fun v2 ->
-            if v1 > v2 then
-                type_error pos (EmptySubrange (v1, v2))
-            else Ok ()
-      else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
-    else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
-    | Some e1, None -> if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
-    | None, Some e2 -> if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
     | None, None -> type_error pos IntervalMustHaveBound
+    | Some e, None | None, Some e -> 
+      check_range_bound ctx e >> IC.eval_int_expr ctx e >> Ok ()
+    | Some e1, Some e2 ->
+      check_range_bound ctx e1 >> check_range_bound ctx e2 >>
+      let* v1 = IC.eval_int_expr ctx e1 in
+      let* v2 = IC.eval_int_expr ctx e2 in
+      if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok ()
     )
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 
@@ -1516,12 +1641,6 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
 (** Checks if the expr is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
-
-and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
-  not (LH.expr_contains_call e) &&
-  List.map (member_val ctx) (LA.SI.elements (LH.vars_without_node_call_ids e))
-  |> List.fold_left (&&) true
-(** checks if the expression only contains constant variables *)
   
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> (bool, [> error]) result =
   fun ctx (_, _, ty1) (_, _, ty2) -> eq_lustre_type ctx ty1 ty2
