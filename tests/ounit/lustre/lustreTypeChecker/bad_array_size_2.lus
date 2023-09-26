@@ -1,0 +1,4 @@
+
+node M() returns (A: int^(0 -> 1));
+let
+tel

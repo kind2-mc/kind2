@@ -1,0 +1,7 @@
+
+
+node N() returns (ok:bool);
+var s: subrange [0,X()] of int;
+let
+  s = 0;
+tel

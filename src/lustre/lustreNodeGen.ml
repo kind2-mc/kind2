@@ -665,7 +665,7 @@ and compile_ast_type
     (* Old code does flattening here, but that flattening is only ever used
       once! And it is for a check, in lustreDeclarations line 423 *)
     if expand then
-      let upper = E.numeral_of_expr array_size in
+      let upper = Numeral.(max zero (E.numeral_of_expr array_size)) in
       let result = ref X.empty in
       for ix = 0 to (Numeral.to_int upper - 1) do
         result := X.fold
@@ -681,8 +681,11 @@ and compile_ast_type
     else
       let over_element_type j t a = X.add
         (j @ [X.ArrayVarIndex array_size])
-        (Type.mk_array t (if E.is_numeral array_size
-          then Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr array_size))
+        (Type.mk_array t (
+          if E.is_numeral array_size
+          then
+            let array_size = Numeral.(max zero (E.numeral_of_expr array_size)) in
+            Type.mk_int_range (Some Numeral.zero) (Some array_size)
           else Type.t_int))
         a
       in

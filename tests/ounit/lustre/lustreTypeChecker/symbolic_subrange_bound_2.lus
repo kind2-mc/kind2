@@ -1,0 +1,8 @@
+
+const X: int;
+
+node N() returns (ok:bool);
+var s: subrange [X,*] of int;
+let
+  s = 0;
+tel

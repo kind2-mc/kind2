@@ -52,6 +52,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
+  mk_test "test symbolic subrange bound 1" (fun () ->
+    match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
+    | Error (`LustreAstInlineConstantsError (_, FreeIntIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test symbolic subrange bound 2" (fun () ->
+    match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
+    | Error (`LustreAstInlineConstantsError (_, FreeIntIdentifier _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -65,14 +73,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "test unsupported when expr" (fun () ->
     match load_file "./lustreSyntaxChecks/unsupported_when.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedWhen _)) -> true
-    | _ -> false);
-  mk_test "test temporal op in const" (fun () ->
-    match load_file "./lustreSyntaxChecks/const_not_const.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
-    | _ -> false);
-  mk_test "test temporal op in ghost const" (fun () ->
-    match load_file "./lustreSyntaxChecks/ghost_const_not_const.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
   mk_test "test undefined node" (fun () ->
     match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_var.lus" with
@@ -487,13 +487,13 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test_array_sizes.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
-  mk_test "test invalid array bounds" (fun () ->
+  mk_test "test invalid type for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/test_const_bool_in_array_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
     | _ -> false);
   mk_test "test range type integer arguments" (fun () ->
     match load_file "./lustreTypeChecker/test_const_decls_tyalias.lus" with
-    | Error (`LustreTypeCheckerError (_, SubrangeArgumentMustBeConstantInteger _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
     | _ -> false);
   mk_test "test unification failure 1" (fun () ->
     match load_file "./lustreTypeChecker/test_homeomorphic_exn_array.lus" with
@@ -531,9 +531,13 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test-type.lus" with
     | Error (`LustreTypeCheckerError (_, UnequalArrayExpressionType)) -> true
     | _ -> false);
-  mk_test "test invalid array bounds 2" (fun () ->
+  mk_test "test invalid type for array size 2" (fun () ->
     match load_file "./lustreTypeChecker/type-grammer.lus" with
-    | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
+    | _ -> false);
+  mk_test "test invalid expression for array size 1" (fun () ->
+    match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
   mk_test "test undeclared 1" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
@@ -598,6 +602,42 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test nondeterministic choice type error 2" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | _ -> false);
+  mk_test "test temporal op in const" (fun () ->
+    match load_file "./lustreSyntaxChecks/const_not_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test temporal op in ghost const" (fun () ->
+    match load_file "./lustreSyntaxChecks/ghost_const_not_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal node call in array size expression" (fun () ->
+    match load_file "./lustreTypeChecker/bad_array_size_1.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal arrow operator in array size expression" (fun () ->
+    match load_file "./lustreTypeChecker/bad_array_size_2.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal pre operator in array size expression" (fun () ->
+    match load_file "./lustreTypeChecker/bad_array_size_3.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal node call in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/const_param_1.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal arrow operator in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/const_param_2.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal variable in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/const_param_3.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test illegal node call in subrange bound" (fun () ->
+    match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
 ])
 

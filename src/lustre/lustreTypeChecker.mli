@@ -29,6 +29,7 @@ type error_kind = Unknown of string
   | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
+  | UnboundNodeName of HString.t
   | NotAFieldOfRecord of HString.t
   | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
@@ -36,9 +37,9 @@ type error_kind = Unknown of string
   | IlltypedTupleProjection of tc_type
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
+  | ExpectedIntegerExpression of tc_type
   | Unsupported of string
   | UnequalArrayExpressionType
-  | ExpectedNumeralArrayBound
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedRecordUpdate of tc_type
   | ExpectedLabel of LA.expr
@@ -74,8 +75,7 @@ type error_kind = Unknown of string
   | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
-  | ExpectedConstant of LA.expr
-  | ArrayBoundsInvalidExpression
+  | ExpectedConstant of string * string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
