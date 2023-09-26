@@ -491,9 +491,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test_array_sizes.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
-  mk_test "test invalid array bounds" (fun () ->
+  mk_test "test invalid type for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/test_const_bool_in_array_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypeForArraySize)) -> true
     | _ -> false);
   mk_test "test range type integer arguments" (fun () ->
     match load_file "./lustreTypeChecker/test_const_decls_tyalias.lus" with
@@ -535,9 +535,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test-type.lus" with
     | Error (`LustreTypeCheckerError (_, UnequalArrayExpressionType)) -> true
     | _ -> false);
-  mk_test "test invalid array bounds 2" (fun () ->
+  mk_test "test invalid type for array size 2" (fun () ->
     match load_file "./lustreTypeChecker/type-grammer.lus" with
-    | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypeForArraySize)) -> true
     | _ -> false);
   mk_test "test undeclared 1" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with

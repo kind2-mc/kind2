@@ -53,7 +53,7 @@ type error_kind = Unknown of string
   | ExpectedBooleanExpression of tc_type
   | Unsupported of string
   | UnequalArrayExpressionType
-  | ExpectedNumeralArrayBound
+  | ExpectedIntegerTypeForArraySize
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedRecordUpdate of tc_type
   | ExpectedLabel of LA.expr
@@ -118,10 +118,10 @@ let error_message kind = match kind with
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
-  | ExpectedBooleanExpression ty -> "Expected a boolean expression but bound " ^ string_of_tc_type ty
+  | ExpectedBooleanExpression ty -> "Expected a boolean expression but found " ^ string_of_tc_type ty
   | Unsupported s -> "Unsupported: " ^ s
   | UnequalArrayExpressionType -> "All expressions must be of the same type in an Array"
-  | ExpectedNumeralArrayBound -> "Array cannot have non numeral type as its bounds"
+  | ExpectedIntegerTypeForArraySize -> "Array size should have an integer type"
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedRecordUpdate ty -> "Cannot do an update on non-record type " ^ string_of_tc_type ty
@@ -380,7 +380,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     >>=  (fun b_ty ->
         if is_expr_int_type ctx sup_expr
         then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
-        else type_error pos ExpectedNumeralArrayBound)
+        else type_error pos ExpectedIntegerTypeForArraySize)
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
@@ -1380,9 +1380,11 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
   | LA.ArrayType (pos, (b_ty, s)) ->
-    if is_expr_int_type ctx s && is_expr_of_consts ctx s
-    then check_type_well_formed ctx b_ty
-    else type_error pos ArrayBoundsInvalidExpression
+    if is_expr_int_type ctx s then
+      if is_expr_of_consts ctx s
+      then check_type_well_formed ctx b_ty
+      else type_error pos ArrayBoundsInvalidExpression
+    else type_error pos ExpectedIntegerTypeForArraySize
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->

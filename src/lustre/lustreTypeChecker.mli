@@ -38,7 +38,7 @@ type error_kind = Unknown of string
   | ExpectedBooleanExpression of tc_type
   | Unsupported of string
   | UnequalArrayExpressionType
-  | ExpectedNumeralArrayBound
+  | ExpectedIntegerTypeForArraySize
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedRecordUpdate of tc_type
   | ExpectedLabel of LA.expr
