@@ -539,6 +539,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/type-grammer.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypeForArraySize)) -> true
     | _ -> false);
+  mk_test "test invalid expression for array size 1" (fun () ->
+    match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
+    | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
+    | _ -> false);
   mk_test "test undeclared 1" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true

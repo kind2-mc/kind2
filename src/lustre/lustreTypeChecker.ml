@@ -376,11 +376,12 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) ->
-    infer_type_expr ctx b_expr
-    >>=  (fun b_ty ->
-        if is_expr_int_type ctx sup_expr
-        then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
-        else type_error pos ExpectedIntegerTypeForArraySize)
+    let* b_ty = infer_type_expr ctx b_expr in
+    if is_expr_of_consts ctx sup_expr then
+      if is_expr_int_type ctx sup_expr
+      then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
+      else type_error pos ExpectedIntegerTypeForArraySize
+    else type_error pos ArrayBoundsInvalidExpression
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
@@ -477,7 +478,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
     | Some ty -> type_error pos (ExpectedFunctionType ty)
-    | None -> assert false
+    | None -> type_error pos (UnboundIdentifier i)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -1378,11 +1379,11 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
   | LA.ArrayType (pos, (b_ty, s)) ->
-    if is_expr_int_type ctx s then
-      if is_expr_of_consts ctx s
+    if is_expr_of_consts ctx s then
+      if is_expr_int_type ctx s
       then check_type_well_formed ctx b_ty
-      else type_error pos ArrayBoundsInvalidExpression
-    else type_error pos ExpectedIntegerTypeForArraySize
+      else type_error pos ExpectedIntegerTypeForArraySize
+    else type_error pos ArrayBoundsInvalidExpression
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->
