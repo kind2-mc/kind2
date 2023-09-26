@@ -1201,6 +1201,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
         type_error pos (ExpectedConstant e)
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
+    check_type_well_formed ctx exp_ty >>
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else

@@ -52,6 +52,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
+  mk_test "test symbolic subrange bound" (fun () ->
+    match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
+    | Error (`LustreAstInlineConstantsError (_, FreeIntIdentifier _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

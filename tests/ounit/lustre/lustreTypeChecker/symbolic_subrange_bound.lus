@@ -1,0 +1,5 @@
+
+const X: int;
+const M: subrange[0, X] of int = 1;
+
+node imported N() returns (ok:bool);
