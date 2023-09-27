@@ -612,8 +612,6 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
   | TernaryOp (_, Ite, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
-  | TernaryOp (_, With, _, _, _) -> assert false
-  | NArityOp _ -> assert false
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
@@ -625,11 +623,8 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | GroupExpr _ -> assert false
   | StructUpdate _ -> assert false
   | ArrayConstr _ -> assert false
-  | ArraySlice _-> assert false
-  | ArrayConcat _ -> assert false
   | Quantifier _ -> assert false
   | When _ -> assert false
-  | Current _ -> assert false
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _)
@@ -643,9 +638,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     extract_bounds_from_type output_ty
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
-  | Fby _ -> assert false
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
-  | CallParam _ -> assert false
 
 and interpret_int_unary_expr node_id ctx ty_ctx op proj e =
   let (l, r) = interpret_int_expr node_id ctx ty_ctx proj e in

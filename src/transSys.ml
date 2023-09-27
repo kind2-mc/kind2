@@ -20,7 +20,7 @@ open Lib
 
 module P = Property
 module SVM = StateVar.StateVarMap
-module SVS = StateVar.StateVarSet
+(* module SVS = StateVar.StateVarSet *)
 
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
@@ -1222,7 +1222,7 @@ let flatten_instances subsystems =
     subsystems 
 *)
 
-
+(*
 let rec map_cex_prop_to_subsystem' 
     filter_out_values
     ({ scope; subsystems } as trans_sys) 
@@ -1309,7 +1309,7 @@ let rec map_cex_prop_to_subsystem'
 
 let map_cex_prop_to_subsystem filter_out_values trans_sys cex prop = 
   map_cex_prop_to_subsystem' filter_out_values trans_sys [] cex prop 
-
+*)
 
 (*
 

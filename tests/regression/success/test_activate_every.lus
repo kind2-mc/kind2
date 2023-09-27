@@ -1,4 +1,4 @@
-node sum_ge_10 (const in: int) returns (out: bool) ;
+node sum_ge_10 (in: int) returns (out: bool) ;
 var sum: int ;
 let
   sum = in + (0 -> pre sum) ;

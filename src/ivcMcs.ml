@@ -244,17 +244,13 @@ let rec minimize_node_call_args ue lst expr =
     -> expr
     | A.Call (pos, ident, args) ->
       A.Call (pos, ident, List.mapi (minimize_arg ident) args)
-    | A.CallParam (pos, ident, ts, args) ->
-      A.CallParam (pos, ident, ts, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
     | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
-    | A.ArraySlice (p,e1,(e2,e3)) -> A.ArraySlice (p,aux e1,(aux e2,aux e3))
     | A.ArrayIndex (p,e1, e2) -> A.ArrayIndex (p,aux e1,aux e2)
-    | A.ArrayConcat (p,e1,e2) -> A.ArrayConcat (p,aux e1,aux e2)
     | A.RecordExpr (p,id,lst) ->
       A.RecordExpr (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
@@ -262,11 +258,9 @@ let rec minimize_node_call_args ue lst expr =
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
     | A.ChooseOp (p,ti,e, None) -> A.ChooseOp (p,ti,aux e, None)
     | A.ChooseOp (p,ti,e1,Some e2) -> A.ChooseOp (p,ti,aux e1,Some (aux e2))
-    | A.NArityOp (p,op,es) -> A.NArityOp (p,op,List.map aux es)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
     | A.When (p,e,c) -> A.When (p,aux e,c)
-    | A.Current (p,e) -> A.Current (p,aux e)
     | A.Condact (p,e1,e2,id,es1,es2) ->
       A.Condact (p,aux e1,aux e2,id,List.map aux es1,List.map aux es2)
     | A.Activate (p,id,e1,e2,es) ->
@@ -275,7 +269,6 @@ let rec minimize_node_call_args ue lst expr =
       A.Merge (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
-    | A.Fby (p,e1,i,e2) -> A.Fby (p,aux e1,i,aux e2)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
   in aux expr
 
@@ -285,22 +278,22 @@ and ast_contains p ast =
     else match ast with
     | A.Const _ | A.Ident _ | A.ModeRef _
       -> false
-    | A.Call (_, _, args) | A.CallParam (_, _, _, args) ->
+    | A.Call (_, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) | A.ChooseOp (_,_,e,None) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.ChooseOp (_,_,e,None) ->
       aux e
     | A.ChooseOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
-      | A.ArrayConcat (_,e1,e2) | A.ArrayIndex (_,e1,e2) 
-      | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2) | A.Fby (_,e1,_,e2)
-      | A.Arrow (_,e1,e2) -> aux e1 || aux e2
-    | A.GroupExpr (_,_,es) | A.NArityOp (_,_,es) ->
+    | A.ArrayIndex (_,e1,e2) 
+    | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
+    | A.Arrow (_,e1,e2) -> aux e1 || aux e2
+    | A.GroupExpr (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)
-    | A.ArraySlice (_,e1,(e2,e3)) | A.TernaryOp (_,_,e1,e2,e3) ->
+    | A.TernaryOp (_,_,e1,e2,e3) ->
       aux e1 || aux e2 || aux e3
     | A.RecordExpr (_,_,lst) | A.Merge (_,_,lst) ->
       List.map (fun (_,e) -> aux e) lst

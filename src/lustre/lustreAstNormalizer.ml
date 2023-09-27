@@ -1372,11 +1372,6 @@ and normalize_expr ?guard info map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids, warnings
-  | NArityOp (pos, op, expr_list) ->
-    let nexpr_list, gids, warnings = normalize_list
-      (normalize_expr ?guard info map)
-      expr_list in
-    NArityOp (pos, op, nexpr_list), gids, warnings
   | ConvOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
     ConvOp (pos, op, nexpr), gids, warnings
@@ -1403,21 +1398,10 @@ and normalize_expr ?guard info map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
     StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ArraySlice (pos, expr1, (expr2, expr3)) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
-    let nexpr3, gids3, warnings3 = normalize_expr ?guard info map expr3 in
-    let gids = union (union gids1 gids2) gids3 in
-    let warnings = warnings1 @ warnings2 @ warnings3 in
-    ArraySlice (pos, nexpr1, (nexpr2, nexpr3)), gids, warnings
   | ArrayIndex (pos, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
     ArrayIndex (pos, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ArrayConcat (pos, expr1, expr2) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
-    ArrayConcat (pos, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
@@ -1431,9 +1415,6 @@ and normalize_expr ?guard info map =
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
     When (pos, nexpr, clock_expr), gids, warnings
-  | Current (pos, expr) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
-    Current (pos, nexpr), gids, warnings
   | Activate (pos, id, expr1, expr2, expr_list) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
@@ -1443,15 +1424,6 @@ and normalize_expr ?guard info map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | Fby (pos, expr1, i, expr2) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
-    Fby (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | CallParam (pos, id, type_list, expr_list) ->
-    let nexpr_list, gids, warnings = normalize_list
-      (normalize_expr ?guard info map)
-      expr_list in
-    CallParam (pos, id, type_list, nexpr_list), gids, warnings
 
 and expand_node_calls_in_place info var count expr =
   let r = expand_node_calls_in_place info var count in
@@ -1462,27 +1434,17 @@ and expand_node_calls_in_place info var count expr =
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)
   | When (p, e, c) -> A.When (p, r e, c)
-  | Current (p, e) -> A.Current (p, r e)
   | Pre (p, e) -> A.Pre (p, r e)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
   | StructUpdate (p, e1, u, e2) -> A.StructUpdate (p, r e1, u, r e2)
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | ArrayIndex (p, e1, e2) -> A.ArrayIndex (p, r e1, r e2)
-  | ArrayConcat (p, e1, e2) -> A.ArrayConcat (p, r e1, r e2)
-  | Fby (p, e1, i, e2) -> A.Fby (p, r e1, i, r e2)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)
   | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
-  | ArraySlice (p, e1, (e2, e3)) -> A.ArraySlice (p, r e1, (r e2, r e3))
-  | NArityOp (p, op, expr_list) ->
-    let expr_list = List.map (fun e -> r e) expr_list in
-    A.NArityOp (p, op, expr_list)
   | GroupExpr (p, k, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.GroupExpr (p, k, expr_list)
-  | CallParam (p, n, t, expr_list) ->
-    let expr_list = List.map (fun e -> r e) expr_list in
-    A.CallParam (p, n, t, expr_list)
   | RecordExpr (p, n, expr_list) ->
     let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
     A.RecordExpr (p, n, expr_list)

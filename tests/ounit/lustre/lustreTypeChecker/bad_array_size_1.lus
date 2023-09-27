@@ -1,0 +1,7 @@
+
+node N() returns (y:int);
+let
+  y = 4;
+tel
+
+const A: int^(N());

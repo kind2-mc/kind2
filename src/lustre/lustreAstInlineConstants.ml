@@ -185,25 +185,23 @@ and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   
 and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (bool, [> error]) result
-  = fun ctx pos top b1 e1 e2 ->
+  = fun ctx _ top b1 e1 e2 ->
   eval_bool_expr ctx b1 >>= fun c ->
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
   match top with
   | LA.Ite -> if c then R.ok v1 else R.ok v2
-  | LA.With -> inline_error pos WidthOperatorUnsupported
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
-  = fun ctx pos top b1 e1 e2 ->
+  = fun ctx _ top b1 e1 e2 ->
   match top with
   | LA.Ite ->
      eval_bool_expr ctx b1 >>= fun c ->
      if c
      then eval_int_expr ctx e1
      else eval_int_expr ctx e2
-  | LA.With -> inline_error pos WidthOperatorUnsupported
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
@@ -262,8 +260,6 @@ and push_pre is_guarded pos =
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
-  | TernaryOp (_, With, _, _, _) as e -> LA.Pre (pos, e)
-  | NArityOp _ as e -> LA.Pre (pos, e)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | RecordExpr (p, i, es) ->
@@ -275,21 +271,16 @@ and push_pre is_guarded pos =
   | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | ArrayIndex (p, e1, e2) -> ArrayIndex (p, r e1, e2)
-  | ArrayConcat (p, e1, e2) -> ArrayConcat (p, r e1, r e2)
-  | ArraySlice (p, e1, (e2, e3)) -> ArraySlice (p, r e1, (e2, e3))
   | Quantifier (p, e1, l, e2) -> Quantifier (p, e1, l, r e2)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
   | When _ as e -> LA.Pre (pos, e)
-  | Current _ as e -> LA.Pre (pos, e)
   | Condact _ as e -> LA.Pre (pos, e)
   | Activate _ as e -> LA.Pre (pos, e)
   | Merge _ as e -> LA.Pre (pos, e)
   | RestartEvery _ as e -> LA.Pre (pos, e)
   | Pre _ as e -> LA.Pre (pos, e)
-  | Fby _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
-  | CallParam _ as e -> LA.Pre (pos, e)
 
 and simplify_expr ?(is_guarded = false) ctx =
   function
@@ -343,8 +334,7 @@ and simplify_expr ?(is_guarded = false) ctx =
           let cond' = simplify_expr ~is_guarded ctx cond in
           let e1' = simplify_expr ~is_guarded ctx e1 in
           let e2' = simplify_expr ~is_guarded ctx e2 in
-            TernaryOp (pos, top, cond', e1', e2'))
-     | _ -> Lib.todo __LOC__)
+            TernaryOp (pos, top, cond', e1', e2')))
   | LA.CompOp (pos, cop, e1, e2) ->
      let e1' = simplify_expr ~is_guarded ctx e1 in
      let e2' = simplify_expr ~is_guarded ctx e2 in
@@ -366,11 +356,6 @@ and simplify_expr ?(is_guarded = false) ctx =
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
       | Error _ -> e')*)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
-  | LA.ArrayConcat (pos, e1, e2) as e->
-     (match (simplify_expr ~is_guarded ctx e1, simplify_expr ~is_guarded ctx e2) with
-      | LA.GroupExpr (_, LA.ArrayExpr, es1), LA.GroupExpr (_, LA.ArrayExpr, es2) ->
-         LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
-      | _ -> e)
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
   | Call (pos, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~is_guarded:false ctx e) es in

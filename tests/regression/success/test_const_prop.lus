@@ -10,7 +10,7 @@ const r2 = 1.1 + r1;
 const t:int = t1; -- should inline to 1
 const t2 = c < t; -- should inline to false
 
-const arr = false ^ 3 | true ^ 3;
+const arr = [false, false, false, true, true, true];
 const arr2 = (3+c) ^ 3; -- should inline to 4
 
 const f = arr[fc]; --  should not inline

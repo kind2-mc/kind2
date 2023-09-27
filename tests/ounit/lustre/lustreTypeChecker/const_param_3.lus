@@ -1,0 +1,8 @@
+
+
+node imported N(const n: int) returns (y:int);
+
+node M(x: int) returns (y:int);
+let
+   y = N(x);
+tel

@@ -79,7 +79,10 @@ type instance =
 
     map_down : StateVar.t StateVar.StateVarMap.t;
     (** Map from the state variables of this system to the state
-        variables of the instance *)
+        variables of the instance. If the same variable is passed in
+        multiple arguments, the variable is only associated to
+        one of the formal parameters. Notice that for output and
+        local variables there is a one-to-one correspondence. *)
 
     map_up : StateVar.t StateVar.StateVarMap.t;
     (** Map from state variables of the called system to the state
@@ -365,7 +368,7 @@ val get_sofar_term: t -> Lib.position -> (Term.t * bool) option
 
 val get_max_depth : t -> int
 
-val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.value list) list ->  Model.value list -> Model.value list) -> t -> (StateVar.t * Model.value list) list -> Property.t -> t * instance list * (StateVar.t * Model.value list) list * Property.t 
+(*val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.value list) list ->  Model.value list -> Model.value list) -> t -> (StateVar.t * Model.value list) list -> Property.t -> t * instance list * (StateVar.t * Model.value list) list * Property.t *)
 
 (** {1 State Variables} *)
 

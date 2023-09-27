@@ -1238,37 +1238,11 @@ let rec eval_ast_expr bounds ctx =
 
       push expr', ctx
 
-
-  (* Array slice [A[i..j,k..l]] *)
-  | A.ArraySlice (pos, _, _) -> 
-
-    fail_at_position pos "Array slices not implemented"
-
   (* ****************************************************************** *)
   (* Not implemented                                                    *)
   (* ****************************************************************** *)
 
   (* TODO below, roughly in order of importance and difficulty *)
-
-  (* Concatenation of arrays [A|B] *)
-  | A.ArrayConcat (pos, _, _) -> 
-
-    fail_at_position pos "Array concatenation not implemented"
-
-  (* Interpolation to base clock *)
-  | A.Current (pos, A.When (_, _, _)) -> 
-
-    fail_at_position pos "Current expression not supported"
-
-  (* Boolean at-most-one constaint *)
-  | A.NArityOp (pos, A.OneHot, _) -> 
-
-    fail_at_position pos "One-hot expression not supported"
-
-  (* Followed by operator *)
-  | A.Fby (pos, _, _, _) -> 
-
-    fail_at_position pos "Fby operator not implemented" 
 
   (* Projection on clock *)
   | A.When (pos, _, _) -> 
@@ -1278,27 +1252,11 @@ let rec eval_ast_expr bounds ctx =
       "When expression must be the argument of a merge operator"
 
   (* Interpolation to base clock *)
-  | A.Current (pos, _) -> 
-
-    fail_at_position 
-      pos
-      "Current operator must have a when expression as argument"
-
   | A.Activate (pos, _, _, _, _) -> 
 
     fail_at_position 
       pos
       "Activate operator only supported in merge"
-
-  (* With operator for recursive node calls *)
-  | A.TernaryOp (pos, A.With, _, _, _) -> 
-
-    fail_at_position pos "Recursive nodes not supported"
-
-  (* Node call to a parametric node *)
-  | A.CallParam (pos, _, _, _) -> 
-
-    fail_at_position pos "Parametric nodes not supported" 
 
   | A.ChooseOp (pos, _, _, _) -> 
     
@@ -1589,15 +1547,6 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
              "Type mismatch for expressions %a and %a" 
              A.pp_print_expr expr1
              A.pp_print_expr expr2)
-
-      | E.NonConstantShiftOperand ->
-
-        fail_at_position
-          pos
-          (Format.asprintf
-             "Second argument %a to shift operation 
-              must be constant"
-              A.pp_print_expr expr2)
 
   in
 

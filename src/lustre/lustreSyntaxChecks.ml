@@ -101,7 +101,7 @@ let error_message kind = match kind with
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
-  | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant " ^ HString.string_of_hstring id
+  | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -197,7 +197,7 @@ let ctx_add_symbolic_array_index ctx i ty = {
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
 function
-| LA.Pre _ | Arrow _ | Fby _ -> true
+| LA.Pre _ | Arrow _ -> true
 
 | RestartEvery _
 | ChooseOp _ -> true
@@ -231,19 +231,18 @@ function
 | Const _ | Ident _ | ModeRef _ -> false
 
 | RecordProject (_, e, _) | ConvOp (_, _, e)
-| UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+| UnaryOp (_, _, e) | When (_, e, _)
 | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-| ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
+| ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2
 
-| TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
+| TernaryOp (_, _, e1, e2, e3) ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2 || has_stateful_op ctx e3
 
-| GroupExpr (_, _, l) | NArityOp (_, _, l)
-| CallParam (_, _, _, l) ->
+| GroupExpr (_, _, l) ->
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
@@ -525,8 +524,10 @@ let no_dangling_identifiers ctx = function
     no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
-let no_node_calls_in_constant pos i e = 
-  if LAH.expr_contains_call e then syntax_error pos (NodeCallInConstant i) else Ok ()
+let no_node_calls_in_constant i e =
+  if LAH.expr_contains_call e
+  then syntax_error (LAH.pos_of_expr e) (NodeCallInConstant i)
+  else Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | LA.Call (pos, i, args) ->
@@ -606,7 +607,6 @@ let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
-  | Fby (pos, _, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok ()
 
 let no_stateful_contract_imports ctx contract =
@@ -639,16 +639,6 @@ let no_clock_inputs_or_outputs pos = function
   | LA.ClockTrue -> Ok ()
   | _ -> syntax_error pos UnsupportedClockedInputOrOutput
 
-let unsupported_expr = function
-  | LA.ArraySlice (pos, _, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.ArrayConcat (pos, _, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.Current (pos, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.NArityOp (pos, LA.OneHot, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.Fby (pos, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.TernaryOp (pos, LA.With, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | LA.CallParam (pos, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
-  | _ -> Ok ()
-
 let rec expr_only_supported_in_merge observer expr =
   let r = expr_only_supported_in_merge in
   let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
@@ -664,25 +654,19 @@ let rec expr_only_supported_in_merge observer expr =
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
-  | Current (_, e)
   | Quantifier (_, _, _, e) -> r observer e
   | ChooseOp (_, _, e, None) -> r false e
   | ChooseOp (_, _, e1, Some e2) -> r false e1 >> r false e2
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
-  | Fby (_, e1, _, e2)
   | Arrow (_, e1, e2)
   | ArrayIndex (_, e1, e2)
-  | ArrayConcat (_, e1, e2)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3))
     -> r observer e1 >> r observer e2 >> r observer e3
-  | NArityOp (_, _, e)
   | GroupExpr (_, _, e)
-  | Call (_, _, e)
-  | CallParam (_, _, _, e) -> r_list observer e
+  | Call (_, _, e) -> r_list observer e
   | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
   | Condact (_, e1, e2, _, e3, e4 )
     -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
@@ -704,8 +688,8 @@ and check_declaration ctx = function
   | ConstDecl (span, decl) ->
     let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (pos, i, e)
-      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
+      | UntypedConst (_, i, e)
+      | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
     in
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -713,23 +697,20 @@ and check_declaration ctx = function
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl pos i ctx expr =
-  let composed_checks pos i ctx e =
-    (no_temporal_operator "constant" e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_node_calls_in_constant pos i e)
+and check_const_expr_decl i ctx expr =
+  let composed_checks i ctx e =
+    (no_dangling_identifiers ctx e)
+    >> (no_node_calls_in_constant i e)
   in
-  check_expr ctx (composed_checks pos i) expr
+  check_expr ctx (composed_checks i) expr
 
 and common_node_equations_checks ctx e =
-  (unsupported_expr e)
-    >> (no_dangling_calls ctx e)
+    (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
 
 and common_contract_checks ctx e =
-  (unsupported_expr e)
-    >> (no_dangling_calls ctx e)
+    (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_subject_to_refinement ctx e)
@@ -748,8 +729,8 @@ and check_output_items (pos, _id, _ty, clock) =
 
 and check_local_items ctx local = match local with
   | LA.NodeConstDecl (_, FreeConst _) -> Ok ()
-  | LA.NodeConstDecl (pos, UntypedConst (_, i, e)) -> check_const_expr_decl pos i ctx e
-  | LA.NodeConstDecl (pos, TypedConst (_, i, e, _)) -> check_const_expr_decl pos i ctx e
+  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
+  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ()
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
@@ -904,8 +885,8 @@ and check_contract is_contract_node ctx f contract =
     | GhostConst decl -> (
       let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (pos, i, e)
-      | TypedConst (pos, i, e, _) -> check_const_expr_decl pos i ctx e
+      | UntypedConst (_, i, e)
+      | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
       in
       check >> Ok ()
     )
@@ -928,7 +909,6 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
-    | Current (_, e)
     | Pre (_, e)
       -> check_expr ctx f e
     | Quantifier (_, _, vars, e) ->
@@ -939,17 +919,12 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
     | ArrayIndex (_, e1, e2)
-    | ArrayConcat (_, e1, e2)
-    | Fby (_, e1, _, e2)
     | Arrow (_, e1, e2)
       -> (check_expr ctx f e1) >> (check_expr ctx f e2)
     | TernaryOp (_, _, e1, e2, e3)
-    | ArraySlice (_, e1, (e2, e3))
       -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr ctx f e3)
-    | NArityOp (_, _, e)
     | GroupExpr (_, _, e)
     | Call (_, _, e)
-    | CallParam (_, _, _, e)
       -> check_expr_list ctx f e
     | RecordExpr (_, _, e)
     | Merge (_, _, e)

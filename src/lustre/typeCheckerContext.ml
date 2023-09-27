@@ -58,14 +58,18 @@ type ty_set = SI.t
 type contract_exports = (ty_store) IMap.t
 (** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
 
-type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes *)
-                  ; contract_ctx: ty_store  (* store of the types of contracts *)
-                  ; node_ctx: ty_store      (* store of the types of nodes *)                  
-                  ; vl_ctx: const_store     (* store of typed constants to its value *)
-                  ; u_types: ty_set         (* store of all declared user types,
-                                               this is poor mans kind (type of type) context *)
-                  ; contract_export_ctx:    (* stores all the export variables  of the contract *)
+type param_store = (HString.t * bool) list IMap.t
+(** A store of parameter names and flags indicating if the argument is constant *)
+
+type tc_context = { ty_syns: ty_alias_store       (* store of the type alias mappings *)
+                  ; ty_ctx: ty_store              (* store of the types of identifiers and nodes *)
+                  ; contract_ctx: ty_store        (* store of the types of contracts *)
+                  ; node_ctx: ty_store            (* store of the types of nodes *)
+                  ; node_param_attr: param_store  (* store of the parameter attributes of nodes *)
+                  ; vl_ctx: const_store           (* store of typed constants to its value *)
+                  ; u_types: ty_set               (* store of all declared user types,
+                                                     this is poor mans kind (type of type) context *)
+                  ; contract_export_ctx:          (* stores all the export variables  of the contract *)
                       contract_exports 
                   ; enum_vars:enum_variants
                   }
@@ -76,6 +80,7 @@ let empty_tc_context: tc_context =
   ; ty_ctx = IMap.empty
   ; contract_ctx = IMap.empty
   ; node_ctx = IMap.empty
+  ; node_param_attr = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
   ; contract_export_ctx = IMap.empty
@@ -169,7 +174,10 @@ let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
 let lookup_node_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.node_ctx)
 (** Lookup a node type  *)
-               
+
+let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
+  = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
+
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
@@ -192,8 +200,15 @@ let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
 
 let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with node_ctx = IMap.add i ty (ctx.node_ctx)}
-(**  Add the type of the contract *)
-                  
+(**  Add the type of the node *)
+
+let add_node_param_attr : tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
+  = fun ctx i args ->
+  let v =
+    List.map (function (_, id, _, _, is_const) -> (id, is_const)) args
+  in
+  {ctx with node_param_attr = IMap.add i v (ctx.node_param_attr)}
+
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 (** Add a user declared type in the typing context *)
@@ -226,6 +241,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; node_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                         (ctx1.node_ctx)
                                         (ctx2.node_ctx))
+                    ; node_param_attr = (IMap.union (fun _ _ v2 -> Some v2)
+                                          (ctx1.node_param_attr)
+                                          (ctx2.node_param_attr))
                     ; vl_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                   (ctx1.vl_ctx)
                                   (ctx2.vl_ctx))
