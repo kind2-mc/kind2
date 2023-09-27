@@ -38,7 +38,6 @@ type error_kind = Unknown of string
   | FreeBoolIdentifier of HString.t
   | ConstantMustBeBool of LA.expr
   | ConstantOutOfSubrange of HString.t
-  | ParamInConstantDef of HString.t
   | UnaryMustBeBool of LA.expr
   | BinaryMustBeBool of LA.expr
   | IdentifierMustBeConstant of HString.t
@@ -66,8 +65,6 @@ let error_message kind = match kind with
     ^ LA.string_of_expr e ^ "' to a bool constant"
   | ConstantOutOfSubrange i -> "Constant " ^ (HString.string_of_hstring i) ^ 
   " is assigned a value outside of its subrange type"
-  | ParamInConstantDef i -> "Constant " ^ (HString.string_of_hstring i) ^ 
-  " is defined in terms of a parameter"
   | UnaryMustBeBool e -> "Cannot evaluate non-bool unary expression '"
     ^ LA.string_of_expr e ^ "' to a bool constant"
   | BinaryMustBeBool e -> "Cannot evaluate non-bool binary expression '"
@@ -542,7 +539,7 @@ let substitute: TC.tc_context -> LA.declaration -> ((TC.tc_context * LA.declarat
         if const_in_range c lower upper
         then R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, TypedConst (pos', i, e', ty'))))
         else inline_error pos' (ConstantOutOfSubrange i) 
-      | _, IntRange _ -> inline_error pos' (ParamInConstantDef i)
+      | _, IntRange _ -> R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, TypedConst (pos', i, e', ty'))))
       | _ -> R.ok ((TC.add_const ctx i e' ty', LA.ConstDecl (span, TypedConst (pos', i, e', ty')))))
   | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in

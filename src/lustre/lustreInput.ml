@@ -50,6 +50,7 @@ type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
@@ -181,6 +182,7 @@ let type_check declarations =
 
     (* Step 14. Infer tighter subrange constraints with abstract interpretation *)
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
+    let* _ = LIA.interpret_global_consts inlined_global_ctx const_inlined_type_and_consts in
 
     (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings2) = 

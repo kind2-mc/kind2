@@ -24,9 +24,25 @@ module LA = LustreAst
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
+module R = Res
+
 let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
+
+type error_kind = Unknown of string
+  | ConstantOutOfSubrange of HString.t
+
+  type error = [
+    | `LustreAbstractInterpretationError of Lib.position * error_kind
+  ]
+  
+let error_message kind = match kind with
+  | Unknown s -> s
+  | ConstantOutOfSubrange i -> "Constant " ^ (HString.string_of_hstring i) ^ 
+  " is assigned a value outside of its subrange type"
+
+let inline_error pos kind = Error (`LustreAbstractInterpretationError (pos, kind))
 
 module IMap = struct
   (* everything that [Stdlib.Map] gives us  *)
@@ -151,21 +167,23 @@ let rec restrict_type_by ty restrict = match ty, restrict with
       | (Some Const (_, Num l1)), (Some Const (_, Num l2)) -> 
         let l1 = Numeral.of_string (HString.string_of_hstring l1) in
         let l2 = Numeral.of_string (HString.string_of_hstring l2) in
-        let lnum = Numeral.min l1 l2 in
+        let lnum = Numeral.max l1 l2 in
         let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
         Some (LA.Const (dpos, Num l)), not (Numeral.equal l1 lnum)
-      | Some _, None -> None, true
-      | _ -> None, false 
+      | (Some _ as l), None -> l, false
+      | None, (Some _ as l) -> l, true 
+      | _ -> None, false
       
     in
     let upper, is_restricted2 = match u1, u2 with 
       | (Some Const (_, Num u1)), (Some Const (_, Num u2)) ->
         let u1 = Numeral.of_string (HString.string_of_hstring u1) in
         let u2 = Numeral.of_string (HString.string_of_hstring u2) in
-        let unum = Numeral.max u1 u2 in
+        let unum = Numeral.min u1 u2 in
         let u = HString.mk_hstring (Numeral.string_of_numeral unum) in
         Some (LA.Const (dpos, Num u)), not (Numeral.equal u1 unum)
-      | Some _, None -> None, true
+      | (Some _ as u), None -> u, true
+      | None, (Some _ as u) -> u, true 
       | _ -> None, false 
     in
     (*IntRange (dpos, lower, upper)*)
@@ -175,9 +193,64 @@ let rec restrict_type_by ty restrict = match ty, restrict with
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
 
+let expr_opt_lte e1 e2 =
+  match e1 with 
+    | None -> true
+    | Some (LA.Const (_, Num l1)) -> (
+      match e2 with 
+        | None -> false
+        | Some (LA.Const (_, Num l2)) -> 
+          int_of_string (HString.string_of_hstring l1) <= int_of_string (HString.string_of_hstring l2)
+        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+      )
+    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+
+let expr_opt_gte e1 e2 =
+  match e1 with 
+    | None -> true
+    | Some (LA.Const (_, Num l1)) -> (
+      match e2 with 
+        | None -> false
+        | Some (LA.Const (_, Num l2)) -> 
+          int_of_string (HString.string_of_hstring l1) >= int_of_string (HString.string_of_hstring l2)
+        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+      )
+    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+
+let compare_ranges id actual_ty inferred_range = 
+  match inferred_range with 
+  | LA.IntRange (pos, e1, e2) ->
+    (match actual_ty with 
+      | Some (_, Some (LA.IntRange (_, e3, e4))) -> 
+        if expr_opt_lte e3 e1 && expr_opt_gte e4 e2 && expr_opt_lte e1 e2
+        then R.ok () 
+        else inline_error pos (ConstantOutOfSubrange id) 
+      | _ -> R.ok ())
+  | _ -> R.ok ()
+
 let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
+
+and interpret_global_consts ty_ctx decls = 
+  let ctx = List.fold_left (fun ctx decl ->
+    let ctx = interpret_const_decl ctx ty_ctx decl in 
+    ctx
+  ) empty_context decls in
+  Res.seq_ (check_global_const_subrange ty_ctx ctx)
+
+and check_global_const_subrange ty_ctx ctx = 
+  let ctx = (IMap.filter (fun id _ -> HString.equal id (HString.mk_hstring "supernode")) ctx)
+            |> IMap.bindings |> List.map snd in
+  let ctx = match ctx with 
+    | [] -> empty_context
+    | h :: _ -> h 
+  in
+  IMap.mapi (fun id inferred_range -> 
+    let actual_ty = Ctx.lookup_const ty_ctx id in
+    (* Check if inferred range is outside of declared type *)
+    compare_ranges id actual_ty inferred_range
+  ) ctx |> IMap.bindings |> List.map snd
 
 and interpret_contract node_id ctx ty_ctx eqns =
   let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
@@ -214,6 +287,28 @@ and interpret_decl ty_ctx gids = function
   | FuncDecl (_, decl) -> interpret_node ty_ctx gids decl
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
+
+and interpret_const_decl ctx ty_ctx = function
+  | LA.ConstDecl (_, TypedConst (pos, id, e, _)) 
+  | ConstDecl (_, UntypedConst (pos, id, e)) -> 
+    (* Get inferred bounds from expr *)
+    let ty = Ctx.lookup_ty ty_ctx id |> get in
+    let ty = Ctx.expand_nested_type_syn ty_ctx ty in (
+    match ty with 
+      | Int _ | IntRange _ -> (
+        let node_id = (HString.mk_hstring "supernode") in
+        let l, u = interpret_int_expr node_id ctx ty_ctx 0 e in
+        let ty = match l, u with 
+          | Some l, Some u -> subrange_from_bounds l u 
+          | Some l, None -> subrange_from_lower l
+          | None, Some u -> subrange_from_upper u
+          | None, None -> LA.Int pos
+        in
+        add_type ctx node_id id ty)
+      | _ -> ctx
+    )
+  | ConstDecl _ -> ctx
+  | _ -> ctx
 
 and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
   (* Setup the typing context *)
@@ -381,21 +476,37 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     | Some l2, Some r2 ->
       let l, r = Numeral.max l1 l2, Numeral.min r1 r2 in
       subrange_from_bounds l r
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
+      subrange_from_bounds l r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
+      subrange_from_bounds l1 r
     | _ -> t)
   | IntRange (_, (Some Const (_, Num l1)), None) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
-    let l2, _ = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match l2  with
-    | Some l2 ->
-      let l  = Numeral.max l1 l2  in
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2  with
+    | Some l2, Some r2 ->
+      let l = Numeral.max l1 l2 in
+      subrange_from_bounds l r2
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
       subrange_from_lower l 
+    | None, Some r2 ->
+      subrange_from_bounds l1 r2
     | _ -> t)
   | IntRange (_, None, (Some Const (_, Num r1))) as t ->
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
-    let _, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match r2 with
-    | Some r2 ->
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2 with
+    | Some l2, Some r2 ->
       let r = Numeral.min r1 r2 in
+      subrange_from_bounds l2 r
+    | Some l2, None ->
+      subrange_from_bounds l2 r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
       subrange_from_upper r
     | _ -> t)
   | IntRange (_, None, None) as t -> t
@@ -403,6 +514,8 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with
     | Some l, Some r -> subrange_from_bounds l r
+    | Some l, None -> subrange_from_lower l
+    | None, Some r -> subrange_from_upper r
     | _ -> LA.Int dpos)
   | t -> t
 
