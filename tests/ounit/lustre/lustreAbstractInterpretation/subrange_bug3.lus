@@ -1,0 +1,8 @@
+const L: int;
+const O: subrange [0, 1] of int;
+const M: subrange [0, 2] of int = O + L;
+--const A: int^3 = [2, 3, 4];
+node main() returns ();
+let 
+  check M <= 2;
+tel
