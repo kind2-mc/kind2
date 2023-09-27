@@ -33,9 +33,9 @@ let unwrap result = match result with
 type error_kind = Unknown of string
   | ConstantOutOfSubrange of HString.t
 
-  type error = [
-    | `LustreAbstractInterpretationError of Lib.position * error_kind
-  ]
+type error = [
+  | `LustreAbstractInterpretationError of Lib.position * error_kind
+]
   
 let error_message kind = match kind with
   | Unknown s -> s
@@ -58,6 +58,8 @@ end
 type context = LA.lustre_type IMap.t IMap.t
 
 let dpos = Lib.dummy_pos
+
+let dnode_id = HString.mk_hstring "dummy_node_id"
 
 let empty_context = IMap.empty
 
@@ -188,7 +190,9 @@ let rec restrict_type_by ty restrict = match ty, restrict with
     in
     (*IntRange (dpos, lower, upper)*)
     let is_restricted = is_restricted1 || is_restricted2 in
-    IntRange (dpos, lower, upper), is_restricted
+    if (lower = None && upper = None) 
+    then Int dpos, is_restricted
+    else IntRange (dpos, lower, upper), is_restricted
   | IntRange _ as t, Int _ -> t, false
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
@@ -217,6 +221,7 @@ let expr_opt_gte e1 e2 =
       )
     | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
 
+(* Compare a constant's actual range to its inferred range to see if assignment is legal *)
 let compare_ranges id actual_ty inferred_range = 
   match inferred_range with 
   | LA.IntRange (pos, e1, e2) ->
@@ -226,6 +231,11 @@ let compare_ranges id actual_ty inferred_range =
         then R.ok () 
         else inline_error pos (ConstantOutOfSubrange id) 
       | _ -> R.ok ())
+  | Int _ ->
+    (match actual_ty with 
+    | Some (_, Some (LA.IntRange (pos, Some _, _))) -> inline_error pos (ConstantOutOfSubrange id) 
+    | Some (_, Some (LA.IntRange (pos, _, Some _))) -> inline_error pos (ConstantOutOfSubrange id) 
+    | _ -> R.ok ())
   | _ -> R.ok ()
 
 let rec interpret_program ty_ctx gids = function
@@ -240,8 +250,7 @@ and interpret_global_consts ty_ctx decls =
   Res.seq_ (check_global_const_subrange ty_ctx ctx)
 
 and check_global_const_subrange ty_ctx ctx = 
-  let ctx = (IMap.filter (fun id _ -> HString.equal id (HString.mk_hstring "supernode")) ctx)
-            |> IMap.bindings |> List.map snd in
+  let ctx = ctx |> IMap.bindings |> List.map snd in
   let ctx = match ctx with 
     | [] -> empty_context
     | h :: _ -> h 
@@ -296,15 +305,14 @@ and interpret_const_decl ctx ty_ctx = function
     let ty = Ctx.expand_nested_type_syn ty_ctx ty in (
     match ty with 
       | Int _ | IntRange _ -> (
-        let node_id = (HString.mk_hstring "supernode") in
-        let l, u = interpret_int_expr node_id ctx ty_ctx 0 e in
+        let l, u = interpret_int_expr dnode_id ctx ty_ctx 0 e in
         let ty = match l, u with 
           | Some l, Some u -> subrange_from_bounds l u 
           | Some l, None -> subrange_from_lower l
           | None, Some u -> subrange_from_upper u
           | None, None -> LA.Int pos
         in
-        add_type ctx node_id id ty)
+        add_type ctx dnode_id id ty)
       | _ -> ctx
     )
   | ConstDecl _ -> ctx
@@ -509,7 +517,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       let r = Numeral.min r1 r2 in 
       subrange_from_upper r
     | _ -> t)
-  | IntRange (_, None, None) as t -> t
+  | IntRange (pos, None, None) -> Int pos
   | Int _ | IntRange _ ->
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with
