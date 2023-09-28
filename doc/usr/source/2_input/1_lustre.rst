@@ -1083,9 +1083,9 @@ nondeterministic behaviors must be modeled.
 Kind 2 offers a convenient binder of the form
 ``choose { x: T | P(x) }`` which denotes an arbitrary stream of
 values of type ``T`` each satisfying the predicate ``P``.
-In the expression above ``x`` is a locally bound variable of type ``T``,
-and ``P(x)`` is a Boolean expression that typically, 
-but not necessarily, contains ``x``. The expression ``P(x)``
+In the expression above ``x`` is a locally bound variable of
+Lustre type ``T``, and ``P(x)`` is a Lustre boolean expression that
+typically, but not necessarily, contains ``x``. The expression ``P(x)``
 may also contain any input, output, or local variable that
 are in the scope of the ``choose`` expression.
 The following example shows a component using the ``choose``
@@ -1103,6 +1103,10 @@ operator to define a local stream ``l`` of arbitrary odd values.
      l = choose { x: int | x mod 2 = 1 };
      z = y + l;
    tel
+
+In addition, the ``choose`` operator can take any Lustre type as argument.
+For instance, the expression ``choose int`` is also accepted
+and denotes an arbitrary stream of values of type ``int``.
 
 A challenge for the user with the use of ``choose`` expressions arises if
 the specified condition is inconsistent, or more generally, unrealizable.
@@ -1157,4 +1161,8 @@ was not included.
    let
      b = a + 10;
      z = choose { x: int | a <= x and x <= b assuming a<=b };
+     check z>=a+10 => z=b;
    tel
+
+Moreover, Kind 2 checks that any specified assumption in
+a choose expression holds when model checking the component.
