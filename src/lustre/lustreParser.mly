@@ -218,6 +218,7 @@ let mk_span start_pos end_pos =
 %nonassoc INT REAL 
 %nonassoc NOT
 %nonassoc BVNOT 
+%nonassoc CHOOSE
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -922,6 +923,8 @@ pexpr(Q):
     { A.ChooseOp (mk_pos $startpos, id, e, None) } 
   | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
     { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
+  | CHOOSE; ty = lustre_type;
+    { A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
