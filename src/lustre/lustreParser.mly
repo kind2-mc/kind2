@@ -924,7 +924,7 @@ pexpr(Q):
   | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
     { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
   | CHOOSE; ty = lustre_type;
-    { A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "x", ty), Const(mk_pos $startpos, True), None)}
+    { A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
