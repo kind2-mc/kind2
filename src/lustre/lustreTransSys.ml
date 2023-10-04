@@ -2154,6 +2154,12 @@ let rec trans_sys_of_node'
             ) stateful_vars
           in
           
+          let global_constraints =
+            List.map
+              (E.base_term_of_t TransSys.init_base)
+              globals.G.global_constraints
+          in
+
           (* Order initial state equations by dependency and
              generate terms *)
           let init_terms, svar_dep_init, node_output_input_dep_init =
@@ -2412,6 +2418,7 @@ let rec trans_sys_of_node'
               unconstrained_inputs
               globals.G.state_var_bounds
               global_consts
+              global_constraints
               ufs
               init_uf_symbol
               init_formals

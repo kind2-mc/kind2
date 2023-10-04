@@ -124,6 +124,9 @@ val pp_print_trans_sys_name : Format.formatter -> t -> unit
 
 (** {1 Accessors} *)
 
+(** Return global constraints on free constants *)
+val global_constraints : t -> Term.t list
+
 (** Close the initial state constraint by binding all instance
     identifiers, and bump the state variable offsets to be at the given
     bound *)
@@ -162,7 +165,6 @@ val init_flag_state_var : t -> StateVar.t
 
 (** Return the init flag at the given bound *)
 val init_flag_of_bound : t -> Numeral.t -> Term.t
-
 
 (** Return the instance variables of this transition system, the
     initial state constraint at [init_base] and the transition relation
@@ -252,6 +254,9 @@ val mk_trans_sys :
 
   (* Global free constants *)
   Var.t list  -> 
+
+  (* Global constraints on free constants *)
+  Term.t list ->
 
   (* Declarations of other function symbols *)
   UfSymbol.t list  -> 
@@ -482,6 +487,13 @@ val define_and_declare_of_bounds :
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
+
+(** [assert_global_constraints t a] uses function [a] to assert
+    the global constraints of transition system [t]
+
+    The signature of [a] is that of {!SMTSolver.assert_term}
+    *)
+val assert_global_constraints : t -> (Term.t -> unit) -> unit
 
 (** Return predicate definitions of initial state and transition
     relation of the top system and all its subsystem in reverse

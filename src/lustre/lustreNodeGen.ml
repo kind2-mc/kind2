@@ -56,6 +56,7 @@ type compiler_state = {
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
+  global_constraints: LustreExpr.t list;
 }
 
 type identifier_maps = {
@@ -132,6 +133,7 @@ let empty_compiler_state () = {
   free_constants = [];
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
+  global_constraints = [];
 }
 
 (*
@@ -575,7 +577,8 @@ let rec compile ctx gids decls =
   in 
   output.nodes,
     { G.free_constants = free_constants;
-      G.state_var_bounds = output.state_var_bounds}
+      G.state_var_bounds = output.state_var_bounds;
+      G.global_constraints = output.global_constraints }
 
 and compile_ast_type
   ?(expand=false)
@@ -2201,11 +2204,24 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     nodes = node :: cstate.nodes;
   }
 
+and add_type_constraints global_constraints v ty =
+  match Type.node_of_type ty with
+  | Type.IntRange (Some n1, Some n2) ->
+    E.mk_and
+      (E.mk_lte (E.mk_int n1) (E.mk_var v))
+      (E.mk_lte (E.mk_var v) (E.mk_int n2))
+    :: global_constraints
+  | IntRange (Some n1, None) ->
+    (E.mk_lte (E.mk_int n1) (E.mk_var v)) :: global_constraints
+  | IntRange (None, Some n2) ->
+    (E.mk_lte (E.mk_var v) (E.mk_int n2)) :: global_constraints
+  | _ -> global_constraints
+
 and compile_const_decl ?(ghost = false) cstate ctx map scope = function
   | A.FreeConst (_, i, ty) ->
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
-    let over_index = fun i ty vt ->
+    let over_index = fun i ty (vt, global_constraints) ->
       let possible_state_var = mk_state_var
         ?is_input:(Some false)
         ?is_const:(Some true)
@@ -2219,13 +2235,20 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
       in
       match possible_state_var with
       | Some state_var ->
-        let v = Var.mk_const_state_var state_var in X.add i v vt
-      | None -> vt
+        let v = Var.mk_const_state_var state_var in
+        X.add i v vt, add_type_constraints global_constraints state_var ty
+      | None -> vt, global_constraints
     in
-    let vt = X.fold over_index cty X.empty in
+    let vt, global_constraints =
+      X.fold over_index cty (X.empty, cstate.global_constraints)
+    in
     if ghost then cstate
-    else { cstate
-      with free_constants = (!map.node_name, i, vt) :: cstate.free_constants }
+    else (
+      { cstate with
+        free_constants = (!map.node_name, i, vt) :: cstate.free_constants;
+        global_constraints
+      }
+    )
   (* TODO: Old code does some subtyping checks for Typed constants
     Otherwise these other constants are used only for constant propagation *)
   | A.UntypedConst (_, id, expr)

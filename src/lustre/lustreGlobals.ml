@@ -29,5 +29,7 @@ type t =
     (* register bounds of state variables for later use *)
     state_var_bounds : (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t;
 
+    (* Constraints on free constants *)
+    global_constraints: E.t list;
   }
 

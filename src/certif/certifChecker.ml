@@ -2517,8 +2517,9 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       state_vars
       unconstrained_inputs
       bounds
-      []
-      []
+      [] (* Global consts *)
+      [] (* Global constraints *)
+      [] (* Ufs *)
       init_uf
       init_args
       init_term

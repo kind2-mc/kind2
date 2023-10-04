@@ -97,6 +97,8 @@ type t =
     global_consts : Var.t list;
     (** List of global free constants *)
     
+    global_constraints : Term.t list;
+
     state_vars : StateVar.t list;
     (** State variables in the scope of this transition system 
 
@@ -477,6 +479,8 @@ let collect_instances ({ scope } as trans_sys) =
 (* ********************************************************************** *)
 (* Access the transition system                                           *)
 (* ********************************************************************** *)
+
+let global_constraints { global_constraints } = global_constraints
 
 (* Close term by binding variables to terms with a let binding *)
 let close_term bindings term = 
@@ -1079,6 +1083,9 @@ let define_and_declare_of_bounds
   declare_vars_of_bounds trans_sys declare lbound ubound
        
 
+let assert_global_constraints { global_constraints } assert_term =
+  List.iter (fun c -> assert_term c) global_constraints
+
 let init_uf_def { init_uf_symbol; init_formals; init } = 
   (init_uf_symbol, (init_formals, init))
 
@@ -1673,6 +1680,7 @@ let mk_trans_sys
   unconstrained_inputs
   state_var_bounds
   global_consts
+  global_constraints
   ufs
   init_uf_symbol
   init_formals
@@ -1841,6 +1849,7 @@ let mk_trans_sys
       state_var_bounds;
       subsystems;
       global_consts;
+      global_constraints;
       ufs;
       init_uf_symbol;
       init_formals;

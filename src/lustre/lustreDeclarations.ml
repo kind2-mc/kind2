@@ -2405,7 +2405,8 @@ let declarations_to_nodes decls =
 
   (* Return nodes in context *)
   C.get_nodes ctx, { G.free_constants = C.get_free_constants ctx;
-                     G.state_var_bounds = C.get_state_var_bounds ctx }
+                     G.state_var_bounds = C.get_state_var_bounds ctx;
+                     G.global_constraints = [] (* Not implemented *)}
 
 
 (*
