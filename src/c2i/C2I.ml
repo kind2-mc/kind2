@@ -195,13 +195,19 @@ let mk_solvers sys =
     (SMTSolver.declare_sort solver3)
     Numeral.zero Numeral.one ;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver1) ;
+
   (* Asserting init in [solver1]. *)
   TransSys.init_of_bound (Some (SMTSolver.declare_fun solver1)) sys Numeral.zero
   |> SMTSolver.assert_term solver1 ;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver2) ;
+
   (* Asserting trans in [solver2]. *)
   TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver2)) sys Numeral.one
   |> SMTSolver.assert_term solver2 ;
+
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver3) ;
 
   (* Asserting trans in [solver3]. *)
   TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver3)) sys Numeral.one
