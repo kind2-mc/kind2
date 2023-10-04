@@ -8,5 +8,6 @@
    (glob_files lustreAstDependencies/*.lus)
    (glob_files lustreTypeChecker/*.lus)
    (glob_files lustreArrayDependencies/*.lus)
+   (glob_files lustreAbstractInterpretation/*.lus)
   )
   (libraries ounit2 kind2dev))
