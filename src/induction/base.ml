@@ -381,6 +381,8 @@ let init input_sys aparam trans skip =
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;
 
+  TransSys.assert_global_constraints trans (SMTSolver.assert_term solver) ;
+
   (* Asserting init. *)
   TransSys.init_of_bound
     (Some (SMTSolver.declare_fun solver)) trans Numeral.zero

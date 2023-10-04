@@ -674,14 +674,15 @@ let extrapolate trans_sys state f g =
   (* Construct term to be generalized with the transition relation and
      the invariants *)
   let term = 
-    Term.mk_and 
+    Term.mk_and
+      ((TransSys.global_constraints trans_sys) @
       [f; 
        TransSys.trans_of_bound None trans_sys Numeral.one; 
 (*
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
 *)
-       Term.bump_state Numeral.one g]
+       Term.bump_state Numeral.one g])
   in
 
   (* Get primed variables in the transition system *)
@@ -809,7 +810,8 @@ let abstr_simulate trace trans_sys raise_cex =
   in
 
   let interpolizers =
-    (Term.mk_and ((TransSys.init_of_bound
+    (Term.mk_and ((TransSys.global_constraints trans_sys) @
+                  (TransSys.init_of_bound
                      (Some (SMTSolver.declare_fun intrpo))
                      trans_sys Numeral.zero)
                   :: List.hd interpolizers))
@@ -3110,6 +3112,8 @@ let main_ic3 input_sys aparam trans_sys =
       ~one_state_only:true
       Numeral.zero
   in
+
+  TransSys.assert_global_constraints trans_sys (SMTSolver.assert_term solver) ;
 
   (* Assert invariants for current state if not empty *)
   if invars_0 <> [] then

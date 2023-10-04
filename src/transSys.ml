@@ -548,6 +548,13 @@ let rec set_subsystem_equations t scope init trans =
   in
   { t with init; trans; subsystems }
 
+let rec set_global_constraints t global_constraints =
+  let aux (t, instances) =
+    (set_global_constraints t global_constraints, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  { t with subsystems ; global_constraints }
+
 (* Return the state variable for the init flag *)
 let init_flag_state_var { init_flag_state_var } = init_flag_state_var
 
@@ -2064,7 +2071,20 @@ let enforce_constantness_via_equations sys =
         in
         Term.mk_and (trans_eq :: eqs)
       in
-      set_subsystem_equations sys (scope_of_trans_sys sys) init_eq trans_eq
+      let sys' =
+        set_subsystem_equations sys (scope_of_trans_sys sys) init_eq trans_eq
+      in
+      let global =
+        global_constraints sys |> List.map (fun c ->
+          c |> Term.map_vars (fun v ->
+            let sv = Var.state_var_of_state_var_instance v in
+            if List.mem sv const_svars then
+              Var.mk_state_var_instance sv Numeral.zero
+            else
+              v)
+        )
+      in
+      set_global_constraints sys' global
     )
   in
   sys', const_svars

@@ -178,6 +178,8 @@ let main input_file input_sys _ trans_sys =
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.(of_int steps) ;
 
+  TransSys.assert_global_constraints trans_sys (SMTSolver.assert_term solver) ;
+
   (* Assert initial state constraint *)
     SMTSolver.assert_term solver
       (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))

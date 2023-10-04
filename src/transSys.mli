@@ -174,6 +174,8 @@ val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 (** Update the init and trans equations of a subsystem *)
 val set_subsystem_equations : t -> Scope.t -> Term.t -> Term.t -> t
 
+val set_global_constraints : t -> Term.t list -> t
+
 (** Set the logic of the transition system *)
 val set_logic : t -> TermLib.logic -> t
 

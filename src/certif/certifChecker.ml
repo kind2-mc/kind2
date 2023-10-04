@@ -491,6 +491,8 @@ let under_approx sys k invs prop =
   if Flags.BmcKind.compress () then
     Compress.init (SMTSolver.declare_fun solver) sys ;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+
   (* Asserting transition relation up to k *)
   for i = 1 to k do
     TransSys.trans_of_bound
@@ -1174,6 +1176,8 @@ let minimize_invariants sys props invs_predicate =
     (* Declaring path compression function if needed. *)
     if Flags.BmcKind.compress () then
       Compress.init (SMTSolver.declare_fun solver) sys ;
+
+    TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
     
     (* The property we want to re-verify is the conjunction of all properties *)
     let prop = Term.mk_and props in
@@ -1456,7 +1460,12 @@ let export_system_defs
     add_section fmt "Constants";
     List.iter (fun sv ->
         declare_const fmt (StateVar.uf_symbol_of_state_var sv)
-    ) consts
+    ) consts ;
+    let constraints = TS.global_constraints sys in
+    if constraints <> [] then (
+      add_section fmt "Constant constraints";
+      List.iter (fun c -> assert_expr fmt c) constraints
+    )
   ) ;
 
   (* Declaring function symbols *)

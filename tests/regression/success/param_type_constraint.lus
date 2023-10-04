@@ -1,0 +1,10 @@
+
+type S = subrange [0,1] of int;
+
+const C: S;
+
+node N() returns (x: int);
+let
+  x = 2 + C;
+  check x<4;
+tel

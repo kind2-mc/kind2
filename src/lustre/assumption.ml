@@ -177,12 +177,16 @@ let dump_contract_for_assumption in_sys scope assumption path contract_name =
 
 let create_assumpion_init fmt_assump sys solver vars fp prop =
 
-  let init = TSys.init_of_bound None sys Numeral.zero in
+  let premise =
+    Term.mk_and
+      ((TransSys.global_constraints sys) @
+       [TSys.init_of_bound None sys Numeral.zero])
+  in
 
   let conclusion = Term.mk_and [prop.Property.prop_term; fp] in
 
   let assump_init =
-    Abduction.abduce_simpl solver vars init conclusion
+    Abduction.abduce_simpl solver vars premise conclusion
     |> SMTSolver.simplify_term solver
   in
 
@@ -201,7 +205,8 @@ let create_assumpion_trans fmt_assump sys solver vars fp prop =
       TransSys.invars_of_bound sys Numeral.one
     in  
     Term.mk_and
-      (TSys.trans_of_bound None sys Numeral.one :: invars)
+      ((TransSys.global_constraints sys) @
+       TSys.trans_of_bound None sys Numeral.one :: invars)
   in
 
   let premises = Term.mk_and [fp ; trans] in
@@ -828,7 +833,7 @@ let generate_assumption_for_k_and_below one_state assump_svars last_abduct sys p
     let system_unrolling =
       if n=0 then
         let init = TSys.init_of_bound None sys Numeral.zero in
-        [init]
+        (TransSys.global_constraints sys) @ [init]
       else
         system_unrolling @ [TSys.trans_of_bound None sys num_n]
     in
@@ -1091,6 +1096,10 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
 
 let generate_assumption_vg in_sys sys var_filters prop =
+
+  (* The current implementation does not restrict global free constants.
+     Should we offer a version that allows it?
+  *)
 
   let vars_at_0 =
     TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero Numeral.zero

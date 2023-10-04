@@ -110,6 +110,8 @@ let mk_ctx in_sys param sys =
     (Smt.declare_sort solver)
     Numeral.zero Numeral.(succ one) ;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+
   (* Invariants of the system at 0, 1 and 2. *)
   add_all_invariants solver sys ;
 

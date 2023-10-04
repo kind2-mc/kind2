@@ -112,7 +112,8 @@ let sys_def solver sys offset =
         Term.mk_not init_term_prev
       ]
    in
-   Term.mk_or [init; trans]
+   Term.mk_and (TransSys.global_constraints sys @
+     [Term.mk_or [init; trans]])
 
 let sys_def_unrolling solver sys offset =
   let init_term_curr =
@@ -120,12 +121,13 @@ let sys_def_unrolling solver sys offset =
   in
   if Numeral.(equal offset zero) then
     Term.mk_and
+      (TransSys.global_constraints sys @
       [TransSys.init_of_bound
         (Some (SMTSolver.declare_fun solver))
         sys
         offset;
         Term.mk_not init_term_curr
-      ]
+      ])
   else
     Term.mk_and
       [TransSys.trans_of_bound
