@@ -418,8 +418,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       let r = Numeral.min r1 r2 in 
       subrange_from_upper r
     | _ -> t)
-  | IntRange (pos, None, None) -> Int pos
-  | Int _ ->
+  | Int _ | IntRange _ ->
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with
     | Some l, Some r -> subrange_from_bounds l r
