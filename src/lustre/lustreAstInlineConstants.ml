@@ -212,8 +212,8 @@ and eval_comp_op: TC.tc_context -> LA.comparison_operator
   | Neq -> R.ok (v1 <> v2)
   | Lte -> R.ok (v1 <= v2)
   | Lt -> R.ok (v1 < v2)
-  | Gte -> R.ok (v1 > v2)
-  | Gt -> R.ok (v1 >= v2)
+  | Gte -> R.ok (v1 >= v2)
+  | Gt -> R.ok (v1 > v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
 and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
