@@ -266,6 +266,12 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
+  let pp_print_array_constraint ppf (pos, id, rexpr) =
+    Format.fprintf ppf "(%a, %a, %a)"
+      Lib.pp_print_position pos
+      HString.pp_print_hstring id
+      A.pp_print_expr rexpr
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -276,13 +282,14 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
+    (pp_print_list pp_print_array_constraint "\n") gids.array_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -482,6 +489,38 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
     range_exprs
   in
   List.fold_left union (empty ()) gids
+
+let mk_array_expr ctx eq = match eq with
+  | (A.Equation (pos, StructDef(_, [SingleIdent(_, i)]), rhs)) -> 
+    let ty = (match Ctx.lookup_ty ctx i with 
+      | Some ty -> ty 
+      (* Type error, shouldn't be possible *)
+      | None -> assert false
+    ) in 
+    (match ty with 
+      | ArrayType (_, (_, expr1)) -> (match rhs with 
+        | ArrayConstr(_, _, expr2) -> 
+          Some (A.CompOp (pos, Eq, expr1, expr2))
+        | _ -> None
+      )
+      | _ -> None
+    ) 
+  | _ -> None
+
+let mk_fresh_array_constraint info pos neq =
+  let array_expr = mk_array_expr info.context neq in
+  match array_expr with 
+    | None -> empty ()
+    | Some array_expr ->
+      let output_expr = AH.rename_contract_vars array_expr in
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "array") in
+      let nexpr = A.Ident (pos, name) in
+      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty array_expr nexpr in
+      (* empty () *)
+      { (empty ()) with
+        array_constraints = [(pos, name, output_expr)];
+        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; }
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
@@ -775,9 +814,10 @@ and normalize_node info map
 
 
 and normalize_item info map = function
-  | A.Body equation ->
-    let nequation, gids, warnings = normalize_equation info map equation in
-    [A.Body nequation], gids, warnings
+  | A.Body ((Equation (pos, _, _)) as equation) | A.Body ((Assert (pos, _)) as equation)->
+    let nequation, gids1, warnings = normalize_equation info map equation in
+    let gids2 = mk_fresh_array_constraint info pos nequation in
+    [A.Body nequation], union gids1 gids2, warnings
   (* shouldn't be possible *)
   | IfBlock _ 
   | FrameBlock _ -> 

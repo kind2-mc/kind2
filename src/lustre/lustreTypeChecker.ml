@@ -1656,14 +1656,14 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
       | Error _ , _ | _, Error _ ->
         (* Are the array sizes syntactically identical? *)
         match LH.syn_expr_equal None e1 e2 with
-        | Ok b -> R.ok b
+        | Ok _ -> R.ok true
         | Error _ -> R.ok false) 
     (R.ok false)
 (** Compute equality for [LA.ArrayType].
    If there are free constants in the size, the eval function will fail,
    but we want to pass such cases, as there might be some
    value assigment to the free constant that satisfies the type checker. 
-   Hence, silently return true with a leap of faith. *)         
+   Hence, silently return true and defer later checks to the model checking phase. *)         
 
                                  
 let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
