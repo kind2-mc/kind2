@@ -367,13 +367,14 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     interpret_structured_expr f node_id ctx ty_ctx ty proj expr
   | ArrayType (_, (t, s)) ->
     let f = function
-      | LA.GroupExpr (_, ArrayExpr, es) ->
+      | LA.GroupExpr (_, ArrayExpr, (e :: _ as es)) ->
         let t = List.fold_left (fun acc e ->
             let t' = interpret_expr_by_type node_id ctx ty_ctx t proj e in
             merge_types acc t')
-          t es
+          (interpret_expr_by_type node_id ctx ty_ctx t 1 e) es
         in
         Some (LA.ArrayType (dpos, (t, s)))
+      | LA.GroupExpr (pos, ArrayExpr, []) -> Some (ArrayType (pos, (t, s)))
       | ArrayConstr (_, e1, _) ->
         let t = interpret_expr_by_type node_id ctx ty_ctx t proj e1 in
         Some (ArrayType (dpos, (t, s)))
@@ -637,21 +638,44 @@ let expr_opt_gte e1 e2 =
     | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
 
 (* Compare a constant's actual range to its inferred range to see if assignment is legal *)
-let compare_ranges id actual_ty inferred_range = 
+let rec compare_ranges id actual_ty inferred_range = 
   match inferred_range with 
   | LA.IntRange (pos, e1, e2) ->
     (match actual_ty with 
-      | Some (_, Some (LA.IntRange (_, e3, e4))) -> 
+      | LA.IntRange (_, e3, e4) -> 
         if expr_opt_lte e3 e1 && expr_opt_gte e4 e2 && expr_opt_lte e1 e2
         then R.ok () 
-        else inline_error pos (ConstantOutOfSubrange id) 
+        else inline_error pos (ConstantOutOfSubrange id)
       | _ -> R.ok ())
   | Int _ ->
     (match actual_ty with 
-    | Some (_, Some (LA.IntRange (pos, Some _, _))) -> inline_error pos (ConstantOutOfSubrange id) 
-    | Some (_, Some (LA.IntRange (pos, _, Some _))) -> inline_error pos (ConstantOutOfSubrange id) 
-    | _ -> R.ok ())
+      | LA.IntRange (pos, Some _, _) -> inline_error pos (ConstantOutOfSubrange id) 
+      | LA.IntRange (pos, _, Some _) -> inline_error pos (ConstantOutOfSubrange id) 
+      | _ -> R.ok ())
+  | ArrayType (_, (ty1, _)) -> 
+    (match actual_ty with 
+      | ArrayType (_, (ty2, _)) -> compare_ranges id ty2 ty1
+      | _ -> R.ok ())
+  | TupleType (_, types1) -> 
+    (match actual_ty with 
+      | TupleType (_, types2) -> 
+        R.seq_ (List.map2 (compare_ranges id) types2 types1)
+      | _ -> R.ok ())
   | _ -> R.ok ()
+
+let rec most_general_int_ty = function 
+  | LA.IntRange (pos, _, _) -> LA.Int pos
+  | LA.GroupType (pos, types)
+  | TupleType (pos, types) -> 
+    let types = List.map most_general_int_ty types in 
+    LA.TupleType (pos, types)
+  | RecordType (pos, id, tis) -> 
+    let tis = List.map (fun (p, id, ty) -> (p, id, most_general_int_ty ty)) tis in 
+    RecordType (pos, id, tis)
+  | LA.ArrayType (pos, (ty, expr)) -> 
+    let ty = most_general_int_ty ty in 
+    LA.ArrayType (pos, (ty, expr))
+  | _ as t -> t
 
 
 let interpret_const_decl ctx ty_ctx = function
@@ -659,19 +683,10 @@ let interpret_const_decl ctx ty_ctx = function
   | ConstDecl (_, UntypedConst (_, id, e)) -> 
     (* Get inferred bounds from expr *)
     let ty = Ctx.lookup_ty ty_ctx id |> get in
-    let ty = Ctx.expand_nested_type_syn ty_ctx ty in (
-    match ty with 
-      | Int pos | IntRange (pos, _, _) -> (
-        let l, u = interpret_int_expr dnode_id ctx ty_ctx 0 e in
-        let ty = match l, u with 
-          | Some l, Some u -> subrange_from_bounds pos l u 
-          | Some l, None -> subrange_from_lower pos l
-          | None, Some u -> subrange_from_upper pos u
-          | None, None -> LA.Int pos
-        in
-        add_type ctx dnode_id id ty)
-      | _ -> ctx
-    )
+    let ty = Ctx.expand_nested_type_syn ty_ctx ty in
+    let ty = most_general_int_ty ty in 
+    let ty = interpret_expr_by_type dnode_id ctx ty_ctx ty 1 e in
+    add_type ctx dnode_id id ty
   | ConstDecl _ -> ctx
   | _ -> ctx
 
@@ -689,7 +704,8 @@ and check_global_const_subrange ty_ctx ctx =
     | h :: _ -> h 
   in
   IMap.mapi (fun id inferred_range -> 
-    let actual_ty = Ctx.lookup_const ty_ctx id in
+    let actual_ty = Ctx.lookup_ty ty_ctx id |> get in
+    let actual_ty = Ctx.expand_nested_type_syn ty_ctx actual_ty in
     (* Check if inferred range is outside of declared type *)
     compare_ranges id actual_ty inferred_range
   ) ctx |> IMap.bindings |> List.map snd
