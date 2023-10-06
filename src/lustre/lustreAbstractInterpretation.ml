@@ -716,7 +716,11 @@ let rec interpret_global_consts ty_ctx decls =
   Res.seq_ (check_global_const_subrange ty_ctx ctx pos_map)
 
 and check_global_const_subrange ty_ctx ctx pos_map =
-  let ctx = IMap.find dnode_id ctx in
+  let ctx =
+    match IMap.find_opt dnode_id ctx with
+    | None -> empty_context
+    | Some ctx -> ctx
+  in
   IMap.fold (fun id inferred_range acc ->
     let actual_ty = Ctx.lookup_ty ty_ctx id |> get in
     let actual_ty = Ctx.expand_nested_type_syn ty_ctx actual_ty in
