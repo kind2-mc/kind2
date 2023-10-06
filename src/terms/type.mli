@@ -188,7 +188,7 @@ val bounds_of_int_range : t -> (Numeral.t option * Numeral.t option)
 (** Return bounds of an enum type, fail with
     [Invalid_argument "bounds_of_enum"] if the type is not an
     integer range type. *)
-    val bounds_of_enum : t -> (Numeral.t * Numeral.t)
+val bounds_of_enum : t -> (Numeral.t * Numeral.t)
 
 
 (** Generalize a type (remove actual intranges) *)

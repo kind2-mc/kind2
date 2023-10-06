@@ -1,0 +1,11 @@
+
+const M: int = 1;
+
+node main() returns (ok: bool);
+let 
+  check "EQ" M = 1;
+  check "LTE" M <= 1;
+  check "GTE" M >= 1;
+  check "LT" not (M < 1);
+  check "GT" not (M > 1);
+tel

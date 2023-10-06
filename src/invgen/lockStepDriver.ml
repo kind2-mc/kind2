@@ -138,6 +138,7 @@ let mk_base_checker_solver sys k =
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Conditional initial predicate." ;
@@ -539,6 +540,8 @@ let mk_pruning_checker_solver sys two_state =
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero (if two_state then Numeral.one else Numeral.zero);
+
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Asserting invariants at [0]." ;

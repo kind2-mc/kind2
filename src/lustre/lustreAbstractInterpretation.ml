@@ -169,26 +169,30 @@ let rec restrict_type_by ty restrict = match ty, restrict with
       | (Some Const (_, Num l1)), (Some Const (_, Num l2)) -> 
         let l1 = Numeral.of_string (HString.string_of_hstring l1) in
         let l2 = Numeral.of_string (HString.string_of_hstring l2) in
-        let lnum = Numeral.min l1 l2 in
+        let lnum = Numeral.max l1 l2 in
         let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
         Some (LA.Const (dpos, Num l)), not (Numeral.equal l1 lnum)
-      | Some _, None -> None, true
-      | _ -> None, false 
+      | (Some _ as l), None -> l, false
+      | None, (Some _ as l) -> l, true 
+      | _ -> None, false
       
     in
     let upper, is_restricted2 = match u1, u2 with 
       | (Some Const (_, Num u1)), (Some Const (_, Num u2)) ->
         let u1 = Numeral.of_string (HString.string_of_hstring u1) in
         let u2 = Numeral.of_string (HString.string_of_hstring u2) in
-        let unum = Numeral.max u1 u2 in
+        let unum = Numeral.min u1 u2 in
         let u = HString.mk_hstring (Numeral.string_of_numeral unum) in
         Some (LA.Const (dpos, Num u)), not (Numeral.equal u1 unum)
-      | Some _, None -> None, true
-      | _ -> None, false 
+      | (Some _ as u), None -> u, false
+      | None, (Some _ as u) -> u, true
+      | _ -> None, false  
     in
     (*IntRange (dpos, lower, upper)*)
     let is_restricted = is_restricted1 || is_restricted2 in
-    IntRange (dpos, lower, upper), is_restricted
+    if (lower = None && upper = None) 
+    then Int dpos, is_restricted
+    else IntRange (dpos, lower, upper), is_restricted
   | IntRange _ as t, Int _ -> t, false
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
@@ -400,28 +404,45 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     | Some l2, Some r2 ->
       let l, r = Numeral.max l1 l2, Numeral.min r1 r2 in
       subrange_from_bounds pos l r
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
+      subrange_from_bounds pos l r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
+      subrange_from_bounds pos l1 r
     | _ -> t)
   | IntRange (pos, (Some Const (_, Num l1)), None) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
-    let l2, _ = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match l2  with
-    | Some l2 ->
-      let l  = Numeral.max l1 l2  in
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2  with
+    | Some l2, Some r2 ->
+      let l = Numeral.max l1 l2 in
+      subrange_from_bounds pos l r2
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
       subrange_from_lower pos l 
+    | None, Some r2 ->
+      subrange_from_bounds pos l1 r2
     | _ -> t)
   | IntRange (pos, None, (Some Const (_, Num r1))) as t ->
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
-    let _, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match r2 with
-    | Some r2 ->
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2 with
+    | Some l2, Some r2 ->
       let r = Numeral.min r1 r2 in
+      subrange_from_bounds pos l2 r
+    | Some l2, None ->
+      subrange_from_bounds pos l2 r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
       subrange_from_upper pos r
     | _ -> t)
-  | IntRange (_, None, None) as t -> t
-  | Int pos | IntRange (pos, _, _) ->
+  | Int pos | IntRange (pos, None, None) ->
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with
     | Some l, Some r -> subrange_from_bounds pos l r
+    | Some l, None -> subrange_from_lower pos l
+    | None, Some r -> subrange_from_upper pos r
     | _ -> LA.Int dpos)
   | t -> t
 

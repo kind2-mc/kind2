@@ -885,6 +885,8 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
     (SMTSolver.declare_sort solver)
     Numeral.zero num_k;
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+
   TS.init_of_bound None sys Numeral.zero
   |> SMTSolver.assert_term solver;
   for i = 0 to (k - 1) do
@@ -1198,6 +1200,8 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
       define (TS.trans_uf_symbol t) (TS.trans_formals t) trans
     )
   else TS.define_subsystems sys (SMTSolver.define_fun solver) ;
+
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
 
   SMTSolver.assert_term solver t |> ignore ;
 

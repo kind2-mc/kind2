@@ -30,5 +30,8 @@ type t =
       (LustreExpr.expr LustreExpr.bound_or_fixed list)
         StateVar.StateVarHashtbl.t;
     (** Register bounds of state variables for later use *)
+
+    global_constraints: LustreExpr.t list;
+    (** Constraints on free constants *)
   }
 
