@@ -44,14 +44,7 @@ let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
 
-module IMap = struct
-  (* everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = HString.compare i1 i2
-            end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
+module IMap = HString.HStringMap
 
 (** Context from a node identifier to a map of its
   variable identifiers to their inferred subrange bounds *)
@@ -375,7 +368,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
         let t = List.fold_left (fun acc e ->
             let t' = interpret_expr_by_type node_id ctx ty_ctx t proj e in
             merge_types acc t')
-          (interpret_expr_by_type node_id ctx ty_ctx t 1 e) es
+          (interpret_expr_by_type node_id ctx ty_ctx t 0 e) es
         in
         Some (LA.ArrayType (dpos, (t, s)))
       | LA.GroupExpr (pos, ArrayExpr, []) -> Some (ArrayType (pos, (t, s)))
@@ -659,28 +652,32 @@ let expr_opt_gte e1 e2 =
     | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
 
 (* Compare a constant's actual range to its inferred range to see if assignment is legal *)
-let rec compare_ranges id actual_ty inferred_range = 
+let rec compare_ranges id pos_map actual_ty inferred_range =
+  let error () =
+    let pos = IMap.find id pos_map in
+    inline_error pos (ConstantOutOfSubrange id)
+  in
   match inferred_range with 
-  | LA.IntRange (pos, e1, e2) ->
+  | LA.IntRange (_, e1, e2) ->
     (match actual_ty with 
       | LA.IntRange (_, e3, e4) -> 
         if expr_opt_lte e3 e1 && expr_opt_gte e4 e2 && expr_opt_lte e1 e2
         then R.ok () 
-        else inline_error pos (ConstantOutOfSubrange id)
+        else error ()
       | _ -> R.ok ())
   | Int _ ->
     (match actual_ty with 
-      | LA.IntRange (pos, Some _, _) -> inline_error pos (ConstantOutOfSubrange id) 
-      | LA.IntRange (pos, _, Some _) -> inline_error pos (ConstantOutOfSubrange id) 
+      | LA.IntRange (_, Some _, _) -> error ()
+      | LA.IntRange (_, _, Some _) -> error ()
       | _ -> R.ok ())
   | ArrayType (_, (ty1, _)) -> 
     (match actual_ty with 
-      | ArrayType (_, (ty2, _)) -> compare_ranges id ty2 ty1
+      | ArrayType (_, (ty2, _)) -> compare_ranges id pos_map ty2 ty1
       | _ -> R.ok ())
   | TupleType (_, types1) -> 
     (match actual_ty with 
       | TupleType (_, types2) -> 
-        R.seq_ (List.map2 (compare_ranges id) types2 types1)
+        R.seq_ (List.map2 (compare_ranges id pos_map) types2 types1)
       | _ -> R.ok ())
   | _ -> R.ok ()
 
@@ -699,34 +696,32 @@ let rec most_general_int_ty = function
   | _ as t -> t
 
 
-let interpret_const_decl ctx ty_ctx = function
+let interpret_const_decl ctx pos_map ty_ctx = function
   | LA.ConstDecl (_, TypedConst (_, id, e, _)) 
   | ConstDecl (_, UntypedConst (_, id, e)) -> 
     (* Get inferred bounds from expr *)
     let ty = Ctx.lookup_ty ty_ctx id |> get in
     let ty = Ctx.expand_nested_type_syn ty_ctx ty in
     let ty = most_general_int_ty ty in 
-    let ty = interpret_expr_by_type dnode_id ctx ty_ctx ty 1 e in
-    add_type ctx dnode_id id ty
-  | ConstDecl _ -> ctx
-  | _ -> ctx
+    let ty = interpret_expr_by_type dnode_id ctx ty_ctx ty 0 e in
+    let pos = LustreAstHelpers.pos_of_expr e in
+    add_type ctx dnode_id id ty, IMap.add id pos pos_map
+  | _ -> ctx, pos_map
 
 let rec interpret_global_consts ty_ctx decls = 
-  let ctx = List.fold_left (fun ctx decl ->
-    let ctx = interpret_const_decl ctx ty_ctx decl in 
-    ctx
-  ) empty_context decls in
-  Res.seq_ (check_global_const_subrange ty_ctx ctx)
+  let ctx, pos_map = List.fold_left (fun (ctx, pos_map) decl ->
+    let ctx, pos_map = interpret_const_decl ctx pos_map ty_ctx decl in
+    ctx, pos_map
+  ) (empty_context, IMap.empty) decls in
+  Res.seq_ (check_global_const_subrange ty_ctx ctx pos_map)
 
-and check_global_const_subrange ty_ctx ctx = 
-  let ctx = ctx |> IMap.bindings |> List.map snd in
-  let ctx = match ctx with 
-    | [] -> empty_context
-    | h :: _ -> h 
-  in
-  IMap.mapi (fun id inferred_range -> 
+and check_global_const_subrange ty_ctx ctx pos_map =
+  let ctx = IMap.find dnode_id ctx in
+  IMap.fold (fun id inferred_range acc ->
     let actual_ty = Ctx.lookup_ty ty_ctx id |> get in
     let actual_ty = Ctx.expand_nested_type_syn ty_ctx actual_ty in
     (* Check if inferred range is outside of declared type *)
-    compare_ranges id actual_ty inferred_range
-  ) ctx |> IMap.bindings |> List.map snd
+    compare_ranges id pos_map actual_ty inferred_range :: acc
+  )
+  ctx
+  []

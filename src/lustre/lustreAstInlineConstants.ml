@@ -282,16 +282,16 @@ and push_pre is_guarded pos =
 and simplify_expr ?(is_guarded = false) ctx =
   function
   | LA.Const _ as c -> c
-  | LA.Ident (pos, i) ->
+  | LA.Ident (_, i) as ident ->
      (match (TC.lookup_const ctx i) with
       | Some (const_expr, _) ->
          (match const_expr with
           | LA.Ident (_, i') as ident' ->
              if HString.compare i i' = 0 (* If This is a free constant *)
-             then ident' 
+             then ident
              else simplify_expr ~is_guarded ctx ident'
           | _ -> simplify_expr ~is_guarded ctx const_expr)
-      | None -> LA.Ident (pos, i))
+      | None -> ident)
   | LA.UnaryOp (pos, op, e1) ->
     let e1' = simplify_expr ~is_guarded ctx e1 in
     let e' = LA.UnaryOp (pos, op, e1') in

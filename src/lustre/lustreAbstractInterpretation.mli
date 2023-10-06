@@ -19,11 +19,7 @@
 (** 
     @author Andrew Marmaduke *)
 
-module IMap : sig
-  (* everything that [Stdlib.Map] gives us  *)
-  include (Map.S with type key = LustreAst.ident)
-  val keys: 'a t -> key list
-end
+module IMap = HString.HStringMap
 
 type context
 

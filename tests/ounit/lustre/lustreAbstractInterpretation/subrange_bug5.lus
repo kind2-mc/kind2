@@ -1,0 +1,9 @@
+type S01 = subrange [0,1] of int;
+
+const C: S01^3 = 2^3;
+
+node N() returns (B: int^3);
+let
+  B = C;
+  check B[0]>=0;
+tel
