@@ -393,11 +393,17 @@ let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statem
 (** Reachibility queries in terms of invariance *)
 (* Simply states that the invariant variable must equal the formula. Makes no other claims *)
 let mk_trans_invar_prop_eqs enums one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
+  let mk_trans_term prop =
+    let t = DU.dolmen_term_to_expr enums two_state_bound_var_map prop in
+    let s = KindTerm.vars_at_offset_of_term (Numeral.of_int 1) t in
+    if Var.VarSet.is_empty s then t
+    else KindTerm.bump_state (Numeral.of_int (-1)) t
+  in
   one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
     let prop = match List.assoc_opt id system_check.reachable with 
-      | Some prop -> DU.dolmen_term_to_expr enums two_state_bound_var_map prop
-      | None -> DU.dolmen_term_to_expr enums two_state_bound_var_map (List.assoc id system_check.assumption)
+      | Some prop -> mk_trans_term prop
+      | None -> mk_trans_term (List.assoc id system_check.assumption)
     in
 
     let var = Var.mk_state_var_instance svar Numeral.zero in
@@ -417,18 +423,24 @@ let mk_assumption_trans_invar_prop_eqs assumptions sofars =
       [KindTerm.mk_var s_var; KindTerm.mk_and [ KindTerm.mk_var s_var_prev; KindTerm.mk_var a_var] ])
   ) assumptions sofars
 
-let mk_init_invar_prop_eqs enums one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
-one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
-  (* Typechecker should allow us to assume that the reachability prop is defined *)
-  let prop = match List.assoc_opt id system_check.reachable with 
-    | Some prop -> DU.dolmen_term_to_expr enums two_state_bound_var_map prop
-    | None -> DU.dolmen_term_to_expr enums two_state_bound_var_map (List.assoc id system_check.assumption)
+let mk_init_invar_prop_eqs init_value enums one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map = 
+  let mk_init_term prop =
+    let t = DU.dolmen_term_to_expr enums two_state_bound_var_map prop in
+    let s = KindTerm.vars_at_offset_of_term (Numeral.of_int 1) t in
+    if Var.VarSet.is_empty s then t
+    else init_value
   in
+  one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
+    (* Typechecker should allow us to assume that the reachability prop is defined *)
+    let prop = match List.assoc_opt id system_check.reachable with 
+      | Some prop -> mk_init_term prop
+      | None -> mk_init_term (List.assoc id system_check.assumption)
+    in
 
-  let var = Var.mk_state_var_instance svar TransSys.init_base in
-    (KindTerm.mk_eq
-      [KindTerm.mk_var var; prop])
-)
+    let var = Var.mk_state_var_instance svar TransSys.init_base in
+      (KindTerm.mk_eq
+        [KindTerm.mk_var var; prop])
+  )
 
 let mk_assumption_init_invar_prop_eqs assumptions sofars =  
   List.map2 (fun (a_id, a_svar) (s_id, s_svar) ->
@@ -464,10 +476,20 @@ let mk_check_props enums (system_check : Statement.sys_check) two_state_bound_va
 
   let prop_svars = assumption_svars @ sofar_assumption_svars @ reachability_svars in
 
-  let init_reach_invar_props = mk_init_invar_prop_eqs enums (reachability_svars @ assumption_svars) system_check two_state_bound_var_map in
-  let trans_reach_invar_props = mk_trans_invar_prop_eqs enums (reachability_svars @ assumption_svars) system_check two_state_bound_var_map in
-  let init_assump_invar_props = mk_assumption_init_invar_prop_eqs assumption_svars sofar_assumption_svars in
-  let trans_assump_invar_props = mk_assumption_trans_invar_prop_eqs assumption_svars sofar_assumption_svars in
+  let init_reach_invar_props =
+    mk_init_invar_prop_eqs KindTerm.t_false enums reachability_svars system_check two_state_bound_var_map
+  in
+  let trans_reach_invar_props =
+    mk_trans_invar_prop_eqs enums reachability_svars system_check two_state_bound_var_map
+  in
+  let init_assump_invar_props =
+    mk_init_invar_prop_eqs KindTerm.t_true enums assumption_svars system_check two_state_bound_var_map
+    @ mk_assumption_init_invar_prop_eqs assumption_svars sofar_assumption_svars
+  in
+  let trans_assump_invar_props =
+    mk_trans_invar_prop_eqs enums assumption_svars system_check two_state_bound_var_map
+    @ mk_assumption_trans_invar_prop_eqs assumption_svars sofar_assumption_svars
+  in
  
   let init_invar_props = init_reach_invar_props @ init_assump_invar_props in
   let trans_invar_props = trans_reach_invar_props @ trans_assump_invar_props in
@@ -492,10 +514,20 @@ let mk_query aprop_svars (rprop_svars : (id * StateVar.t) list) query =
   let assumption_svars = List.filter_map (get_assumption_prop_svar aprop_svars) query_body in
   let reachability_svars = List.filter_map (get_prop_svar rprop_svars) query_body in
 
-  (* We or instead of and because the whole reachability query must be notted for invariance*)
   let mk_var_kind_term svar = KindTerm.mk_var (Var.mk_state_var_instance svar TransSys.prop_base) in
-  (query_id, (KindTerm.mk_implies [KindTerm.mk_and (List.map mk_var_kind_term assumption_svars) ; 
-                                   KindTerm.mk_not (KindTerm.mk_and (List.map mk_var_kind_term reachability_svars))]))
+
+  let prop_term =
+    let inv_prop =
+      KindTerm.mk_not (KindTerm.mk_and (List.map mk_var_kind_term reachability_svars))
+    in
+    match assumption_svars with
+    | [] -> inv_prop
+    | _ ->
+      KindTerm.mk_implies
+        [KindTerm.mk_and (List.map mk_var_kind_term assumption_svars) ; inv_prop]
+  in
+
+  (query_id, prop_term)
 
 let check_trans_system enums base_system (system_check: Statement.sys_check) = 
   (* Map renamed check sys state vars (primed and unprimed) to actual system vars *)
