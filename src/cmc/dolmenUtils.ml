@@ -314,6 +314,11 @@ let rec gen_bindings_of_dolmen dtte enums bound_vars accum vars =
           "Invalid expression in let binding: %a"
             Term.print e))
 
+let dolmen_app_info = function
+| { Term.term = App ( { term = Symbol funct ; _ } , params) ; _ }  ->
+  Some (funct, params)
+| _ -> None
+
 (* Convert a string S-expression to an expression 
    This function is generic, and also used from {!YicesDriver} *)
 let dolmen_term_to_expr' dtte enums bound_vars term = match (term : term) with 
@@ -574,14 +579,14 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
     let () =
       match format with
       | Logic.Dimacs | Logic.ICNF -> ()
-      | Logic.Alt_ergo | Logic.Smtlib2 _ | Logic.Tptp _ | Logic.Zf | Logic.CMC _-> ()
+      | Logic.Alt_ergo | Logic.Smtlib2 _ | Logic.Tptp _ | Logic.Zf -> ()
     in
 
     
   
     (* *** Typing *********************************************************** *)
     (* create the logic file corresponding to our input *)
-    let lang : Dolmen_loop.Logic.language = CMC `Latest in
+    let lang : Dolmen_loop.Logic.language = Smtlib2 `MCIL in
     let logic_file = State.mk_file ~lang ~loc:loc_file "./" (`File file) in
     let response_file = State.mk_file "" (`File "this is unused") in
     
@@ -591,10 +596,11 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
       |> State.init
          ~debug:false ~report_style:Contextual ~max_warn:max_int
          ~reports:(Dolmen_loop.Report.Conf.mk ~default:Enabled)
-         ~logic_file ~response_file
+         ~response_file
          (* these limits are ignored in this example; to actually enforce
             the limits, one has to use the `run` function from `Dolmen_loop.Pipeline` *)
          ~time_limit:0. ~size_limit:0.
+      |> State.set State.logic_file logic_file
       |> Typer_aux.init
       |> Typer.init ~type_check:true
     in

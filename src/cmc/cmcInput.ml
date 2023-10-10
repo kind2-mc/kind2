@@ -158,7 +158,7 @@ let mk_var ?(for_inv_gen=true) sys_name is_input is_const (init_map, trans_map, 
     (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, svars @ [(id, svar)])
 
 let mk_vars enums sys_name is_input mappings dolmen_terms = 
-  let vars = List.map (DU.dolmen_term_to_id_type enums) (DU.opt_list_to_list dolmen_terms) in
+  let vars = List.map (DU.dolmen_term_to_id_type enums) dolmen_terms in
   List.fold_left (mk_var sys_name is_input false) mappings vars
 
 (** A mapping of unprimed vars to their primed state. 
@@ -177,8 +177,8 @@ let mk_init_term enums ({ init; inv}: Statement.sys_def) init_flag const_map ini
       |> KindTerm.mk_var
   in
   KindTerm.mk_and (init_flag_t :: 
-                   DU.opt_dolmen_term_to_expr enums (const_map @ init_map) init :: 
-                   DU.opt_dolmen_term_to_expr enums (const_map @ inv_map) inv :: 
+                   DU.dolmen_term_to_expr enums (const_map @ init_map) init :: 
+                   DU.dolmen_term_to_expr enums (const_map @ inv_map) inv :: 
                    []
                   )
 
@@ -194,7 +194,7 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
      *)
   (* let trans = process_only_change sys_def trans in *)
 
-  KindTerm.mk_and (KindTerm.mk_not init_flag_t :: DU.opt_dolmen_term_to_expr enum_map (const_map @ trans_map) trans :: DU.opt_dolmen_term_to_expr enum_map (const_map @ inv_map) inv :: [])
+  KindTerm.mk_and (KindTerm.mk_not init_flag_t :: DU.dolmen_term_to_expr enum_map (const_map @ trans_map) trans :: DU.dolmen_term_to_expr enum_map (const_map @ inv_map) inv :: [])
 
   let mk_subsystems enums parent_sys_name parent_sys_svars parent_init_map parent_trans_map other_systems subsystem_names = 
     let mk_inst sys_state_vars subsys_state_vars =
@@ -215,7 +215,14 @@ let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_ma
       prop_id, List.assoc prop_id parent_svars
     ) subsys_svars in
 
-    List.map (fun (local_subsystem_name, subsystem_name, params) -> 
+    List.map (fun (local_subsystem_name, (subsystem_app : Term.t), _) ->
+      
+      let subsystem_name, params = 
+        match DU.dolmen_app_info subsystem_app with
+        | Some (name, params) -> name, params
+        | None -> assert false
+      in
+
       let subsystem = find_trans_system other_systems subsystem_name in
 
       let subsystem_input_svars = subsystem.input_svars in
@@ -382,13 +389,16 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
 let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statement.sys_check) = 
   (* Requires that the sys_def and check_def match *)
   (* TODO Support underscores *)
-  assert (Id.equal sys_def.name system_check.id) ;
+  let system_check_id = DU.dolmen_symbol_term_to_id system_check.sid in
+  assert (Id.equal sys_def.name system_check_id) ;
   let system_name = DU.dolmen_id_to_string sys_def.name in
   let init_map, trans_map, _ = mk_vars enums system_name true ([], [], []) system_check.input in
   let init_map, trans_map, _ = mk_vars enums system_name false (init_map, trans_map, []) system_check.output in
   let _, trans_map, _ = mk_vars enums system_name false (init_map, trans_map, []) system_check.local in
 
   List.map2 (fun map chk -> (fst chk,  snd map)) sys_def.trans_map trans_map  
+
+let remove_loc x = List.map (fun (id, t, _) -> id, t) x
 
 (** Reachibility queries in terms of invariance *)
 (* Simply states that the invariant variable must equal the formula. Makes no other claims *)
@@ -401,9 +411,9 @@ let mk_trans_invar_prop_eqs enums one_query_prop_svars (system_check : Statement
   in
   one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
-    let prop = match List.assoc_opt id system_check.reachable with 
+    let prop = match List.assoc_opt id (remove_loc system_check.reachable) with
       | Some prop -> mk_trans_term prop
-      | None -> mk_trans_term (List.assoc id system_check.assumption)
+      | None -> mk_trans_term (List.assoc id (remove_loc system_check.assumption))
     in
 
     let var = Var.mk_state_var_instance svar Numeral.zero in
@@ -432,9 +442,9 @@ let mk_init_invar_prop_eqs init_value enums one_query_prop_svars (system_check :
   in
   one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
-    let prop = match List.assoc_opt id system_check.reachable with 
+    let prop = match List.assoc_opt id (remove_loc system_check.reachable) with 
       | Some prop -> mk_init_term prop
-      | None -> mk_init_term (List.assoc id system_check.assumption)
+      | None -> mk_init_term (List.assoc id (remove_loc system_check.assumption))
     in
 
     let var = Var.mk_state_var_instance svar TransSys.init_base in
@@ -454,7 +464,10 @@ let mk_assumption_init_invar_prop_eqs assumptions sofars =
 
 let mk_check_props enums (system_check : Statement.sys_check) two_state_bound_var_map = 
   let mk_prop_svars props = props |> List.map (fun (prop_id, _) ->
-    let system_name = DU.dolmen_id_to_string system_check.id in
+    let system_name =
+      DU.dolmen_symbol_term_to_id system_check.sid
+      |> DU.dolmen_id_to_string
+    in
     let scope = (system_name :: I.reserved_scope) in
 
     let reachable_name = DU.dolmen_id_to_string prop_id in
@@ -466,13 +479,21 @@ let mk_check_props enums (system_check : Statement.sys_check) two_state_bound_va
     (prop_id, svar)
   ) in
 
+  let system_id =
+    DU.dolmen_symbol_term_to_id system_check.sid
+    |> DU.dolmen_id_to_string
+  in
+
   let mk_sofar_svars props = props |> List.map (fun (id, _) -> 
-      mk_single_state_var ~scope:["sofar"] (DU.dolmen_id_to_string system_check.id) (id, Type.t_bool)
+      mk_single_state_var ~scope:["sofar"] (system_id) (id, Type.t_bool)
     )  in
 
-  let assumption_svars = mk_prop_svars system_check.assumption in
-  let sofar_assumption_svars = mk_sofar_svars system_check.assumption in
-  let reachability_svars = mk_prop_svars system_check.reachable in
+  let assumption = remove_loc system_check.assumption in
+  let reachable = remove_loc system_check.reachable in
+
+  let assumption_svars = mk_prop_svars assumption in
+  let sofar_assumption_svars = mk_sofar_svars assumption in
+  let reachability_svars = mk_prop_svars reachable in
 
   let prop_svars = assumption_svars @ sofar_assumption_svars @ reachability_svars in
 
@@ -536,7 +557,10 @@ let check_trans_system enums base_system (system_check: Statement.sys_check) =
   let all_prop_svars, assumption_svars, reachability_svars, prop_init_terms, prop_trans_terms = mk_check_props enums system_check check_map in
   (* Create a statevar for each reachability prop within a query *)
   (* Other reachability props are ignored *)
-  let queries = system_check.queries |> List.map (mk_query assumption_svars reachability_svars) in
+  let queries =
+    remove_loc system_check.queries
+    |> List.map (mk_query assumption_svars reachability_svars)
+  in
 
   (* Placeholder for when assumption ,fairness, etc are added *)
   let prop_svars = List.map snd all_prop_svars in
@@ -567,9 +591,11 @@ let check_trans_system enums base_system (system_check: Statement.sys_check) =
     state_vars
   in
 
+  let sid = DU.dolmen_symbol_term_to_id system_check.sid in
+
   let init_uf_symbol =
     UfSymbol.mk_uf_symbol
-      (Format.asprintf "%s_%a_checked" Ids.init_uf_string Id.print system_check.id)  (*TODO need to change name to support multiple checks*)
+      (Format.asprintf "%s_%a_checked" Ids.init_uf_string Id.print sid)  (*TODO need to change name to support multiple checks*)
       (List.map Var.type_of_var init_formals)
       Type.t_bool
   in
@@ -593,7 +619,7 @@ let check_trans_system enums base_system (system_check: Statement.sys_check) =
        We may need to postpone the initial declararion when checks are present if 
         we want to stop this *)
     UfSymbol.mk_uf_symbol
-      (Format.asprintf "%s_%a_checked" Ids.trans_uf_string Id.print system_check.id)  (*TODO need to change name to support multiple checks*)
+      (Format.asprintf "%s_%a_checked" Ids.trans_uf_string Id.print sid)  (*TODO need to change name to support multiple checks*)
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
@@ -625,7 +651,7 @@ let declare_fun name args return_type =
 
 let define_fun enums name args return_type body = 
   let s_name = DU.dolmen_id_to_string name in
-  let named_vars, _, _ = mk_vars enums s_name true ([], [], []) (Some args) in  
+  let named_vars, _, _ = mk_vars enums s_name true ([], [], []) args in  
   let vars = List.map snd named_vars in
   let uf_name = UfSymbol.mk_uf_symbol
     s_name
@@ -688,10 +714,11 @@ let process_command definitions Statement.({id; descr; _; }) =
     (* Assuming check systems come after system definitions. 
        Changes will be needed if we want to remove this assumption. *)
     let* checked_system = 
-      match find_system defs c.id with
+      let sid = DU.dolmen_symbol_term_to_id c.sid in
+      match find_system defs sid with
        | Some system -> Ok (check_trans_system defs.enums system c)
-       | None -> (error (E.SystemNotFound c.id)) in
-
+       | None -> (error (E.SystemNotFound sid))
+    in
     Ok (update_system defs checked_system)
 
   (* (declare-fun name args type) *)

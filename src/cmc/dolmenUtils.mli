@@ -50,6 +50,8 @@ val join_ids : id -> id -> id
 
 val prime : id -> id
 
+val dolmen_app_info : term -> (id * term list) option
+
 val dolmen_term_to_expr : enum list -> (Id.t * Var.t) list -> term -> KindTerm.t
 
 val opt_dolmen_term_to_expr : enum list -> (Id.t * Var.t) list -> term option -> KindTerm.t
