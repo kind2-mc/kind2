@@ -165,17 +165,16 @@ let pp_state_var_val ppf (state_var, value, changed) =
   pp_str_var_val ppf (name, value, changed)
 
 let pp_reach_prop ppf (state_var, value, changed) =
-  (* Reachability props must be printed as the opposite boolean state. *)
   let name = StateVar.name_of_state_var state_var in 
   match value with 
   | Model.Term t ->   
     if changed then 
-      Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.negate_simplify t)
+      Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) t
     else 
       if Flags.condensed_cmc_output () then
         ()
       else
-        Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) (Term.negate_simplify t)   
+        Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) t
   | _ -> ()
 
 let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k = 
