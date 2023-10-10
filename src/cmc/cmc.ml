@@ -109,6 +109,9 @@ let setup : unit -> (TransSys.t SubSystem.t * CmcInput.metadata) = fun () ->
     KEvent.log L_debug "Input System built";
     input_system, metadata
   with
+  | DolmenUtils.DolmenParseError ->
+    (* Any error message has already been printed *)
+    KEvent.terminate_log () ; exit ExitCodes.error
   (* Could not create input system. *)
   | Sys_error msg ->
      KEvent.log L_fatal "Error opening input file '%s': %s" in_file msg ;

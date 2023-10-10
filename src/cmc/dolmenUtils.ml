@@ -1,5 +1,7 @@
 open Dolmen
 
+exception DolmenParseError
+
 (* Instantiate a module for parsing logic languages *)
 module Logic = Class.Logic.Make(Std.Loc)(Std.Id)(Std.Term)(Std.Statement)
 
@@ -618,7 +620,7 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
       
       parsed_statements
 
-    with Failure f -> failwith (Format.sprintf "\tA Typechecker failure occured: %s" f)
+    with Failure _ -> raise DolmenParseError
 
 let dolmen_id_to_kind_term enums bound_vars id = 
   let enum_map = gen_enum_conversion_map enums in

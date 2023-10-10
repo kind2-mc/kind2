@@ -1,5 +1,7 @@
 open Dolmen
 
+exception DolmenParseError
+
 module KindTerm = Term
 
 (* Instantiate a module for parsing logic languages *)
