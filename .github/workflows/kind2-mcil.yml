@@ -1,0 +1,55 @@
+
+name: Kind2-MCIL CI
+
+on:
+  pull_request:
+    branches: [ mcil ]
+  push:
+    branches: [ mcil ]
+
+jobs:
+  kind2-build:
+    strategy:
+      matrix:
+        ocaml-version: [ 4.09.1 ]
+        os: [ ubuntu-20.04, macos-11 ]
+        include:
+          - os: macos-11
+            pkg_update: brew update
+          - os: ubuntu-20.04
+            pkg_update: sudo apt-get update -y
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    #- name: Update package information
+    #  run: ${{ matrix.pkg_update }}
+
+    - name: Set up OCaml ${{ matrix.ocaml-version }}
+      uses: ocaml/setup-ocaml@v2
+      with:
+        ocaml-compiler: ${{ matrix.ocaml-version }}
+
+    - name: Pin MCIL version of Dolmen packages
+      run: |
+        opam pin -y add dolmen https://github.com/daniel-larraz/dolmen.git#mcil
+        opam pin -y add dolmen_type https://github.com/daniel-larraz/dolmen.git#mcil
+        opam pin -y add dolmen_loop https://github.com/daniel-larraz/dolmen.git#mcil
+
+    - name: Install Kind2-MCIL OCaml dependencies
+      run: opam install -y . --deps-only
+
+    - name: Build all binaries
+      run: opam exec make
+
+    - name: Rename cmc binary
+      run: mv bin/cmc bin/kind2-mcil
+
+    - name: Upload kind2-mcil artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: kind2-mcil-${{ matrix.os }}
+        path: bin/kind2-mcil
