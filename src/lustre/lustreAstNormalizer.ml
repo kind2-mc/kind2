@@ -620,6 +620,7 @@ let mk_array_exprs gids ctx eq arity = match eq with
 let mk_fresh_array_constraint gids info pos neq arity =
   let array_exprs = mk_array_exprs gids info.context neq arity in
   List.fold_left (fun gids array_expr ->  
+      i := !i + 1;
       let output_expr = AH.rename_contract_vars array_expr in
       let prefix = HString.mk_hstring (string_of_int !i) in
       let name = HString.concat2 prefix (HString.mk_hstring "array") in
