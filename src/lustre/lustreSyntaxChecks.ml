@@ -550,6 +550,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check
+  | LA.Pre (_, ArrayIndex (_, _, _)) -> Ok ()
   | LA.Pre (pos, e) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
