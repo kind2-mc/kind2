@@ -1,0 +1,13 @@
+
+node F(x:int) returns (y:int);
+let
+  y = x + 1;
+tel
+
+const n: int = 3;
+
+node N(A: int^n) returns (B: int^n);
+let
+  B[i] = pre (A[i] + 1) -> F(pre i);
+  check true -> B[0]=1;
+tel
