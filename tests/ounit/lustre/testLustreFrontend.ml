@@ -170,6 +170,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/var_redefinition3.lus" with
     | Error (`LustreSyntaxChecksError (_, DuplicateLocal _)) -> true
     | _ -> false);
+  mk_test "test applying pre operator to quantified variable" (fun () ->
+    match load_file "./lustreSyntaxChecks/pre_of_quantified_var.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
