@@ -1689,7 +1689,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
-        | A.Ident (_, id') ->
+        | A.Ident (_, id')
+        | A.ArrayIndex (_, A.Ident (_, id'), _) ->
           let ident = mk_ident id' in
           let closed_sv = H.find !map.state_var ident in
           Some closed_sv
