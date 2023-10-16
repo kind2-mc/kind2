@@ -97,7 +97,7 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, (Some v), None -> Some v
   | _, None, (Some v) -> Some v
   (* Identifiers are guaranteed to be unique making this branch impossible *)
-  | _, (Some _), (Some _) -> assert false
+  | _, (Some v), (Some _) -> Some v
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
     array_constructors = StringMap.merge union_keys

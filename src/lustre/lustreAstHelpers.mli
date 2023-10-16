@@ -52,6 +52,10 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
     ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 
+val substitute_naive_list : index list -> expr list -> expr -> expr
+(** Substitute second param list for first param list in third param. 
+    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 
