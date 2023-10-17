@@ -1,0 +1,12 @@
+node M(const m: int) returns (A: int^m);
+let
+  A = [1, 2, 3, 4];
+tel
+
+node N() returns(A: int^3);
+  const n = 3;
+let
+  A = M(n);
+  check A[0] = 1;
+  --%MAIN;
+tel
