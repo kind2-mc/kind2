@@ -52,6 +52,9 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
     ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 
+val replace_gen_locals : GeneratedIdentifiers.t -> expr -> expr
+(** Replace generated locals with their concrete values *)
+
 val substitute_naive_list : index list -> expr list -> expr -> expr
 (** Substitute second param list for first param list in third param. 
     ChooseOp and Quantifier are not supported due to introduction of bound variables. *)

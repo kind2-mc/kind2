@@ -494,19 +494,6 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   in
   List.fold_left union (empty ()) gids
 
-(* Find the corresponding expr of id in gids, if it exists *)
-let get_gen_local_expr gids id = 
-  pp_print_generated_identifiers Format.std_formatter gids;
-  let rhs = List.find_opt (fun (_, _, lhs, _) -> match lhs with 
-    | A.StructDef(_, [SingleIdent(_, id2)]) -> 
-      id = id2
-    | _ -> false
-  ) gids.equations in 
-  match rhs with 
-    | None -> 
-      Some (A.Ident (dpos, id)) 
-    | Some (_, _, _, rhs) -> Some rhs
-
 let is_call gids id = 
   match List.find_opt (fun (_, id2, _, _, _, _, _) -> id = id2) gids.calls with 
   | Some _ -> true 
@@ -644,10 +631,10 @@ let mk_array_exprs gids ctx eq arity = match eq with
               (* Of the form A = n_call *)
               | Ident (_, rhs_id) when is_call gids rhs_id  ->
                 (mk_call_constraints gids ctx lhs_id p rhs_id)
-              | Ident (_, id) -> 
-              (match get_gen_local_expr gids id with 
+              | Ident (_, id) as e -> 
+              (match AH.replace_gen_locals gids e with 
                 (* Of the form A = [val_1, ..., val_n] *)
-              | Some (A.GroupExpr (_, ArrayExpr, es)) -> 
+              | (A.GroupExpr (_, ArrayExpr, es)) -> 
                 let len = List.length es |> string_of_int |> HString.mk_hstring in
                 let constrain = (A.CompOp (pos, Eq, expr1, Const (pos, Num len))) in
                 (match es with 
@@ -686,7 +673,7 @@ let mk_array_exprs gids ctx eq arity = match eq with
   | Assert _ -> []
 
 let mk_fresh_array_constraints gids info pos neq arity =
-  let array_exprs = mk_array_exprs gids info.context neq arity in
+  let array_exprs = mk_array_exprs gids info.context neq arity |> List.map (AH.replace_gen_locals gids) in
   List.fold_left (fun gids array_expr ->  
       i := !i + 1;
       let output_expr = AH.rename_contract_vars array_expr in
