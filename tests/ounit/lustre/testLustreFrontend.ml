@@ -176,6 +176,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  mk_test "test illtyped call" (fun () ->
+    match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
+    | Error (`LustreArrayDependencies (_, Cycle _)) -> true
+    | _ -> false); 
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
@@ -474,10 +478,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test shadowed mode def" (fun () ->
     match load_file "./lustreTypeChecker/mode_reqs_by_idents_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
-    | _ -> false);
-  mk_test "test illtyped call" (fun () ->
-    match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
-    | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
     | _ -> false);
   mk_test "test expected type 1" (fun () ->
     match load_file "./lustreTypeChecker/test_array_group.lus" with

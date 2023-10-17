@@ -496,7 +496,6 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
 
 (* Find the corresponding expr of id in gids, if it exists *)
 let get_gen_local_expr gids id = 
-  print_endline "asdfasdfasdf";
   pp_print_generated_identifiers Format.std_formatter gids;
   let rhs = List.find_opt (fun (_, _, lhs, _) -> match lhs with 
     | A.StructDef(_, [SingleIdent(_, id2)]) -> 
@@ -505,8 +504,7 @@ let get_gen_local_expr gids id =
   ) gids.equations in 
   match rhs with 
     | None -> 
-      print_endline (HString.string_of_hstring id);
-      Some (A.Ident (Lib.dummy_pos, id)) 
+      Some (A.Ident (dpos, id)) 
     | Some (_, _, _, rhs) -> Some rhs
 
 let is_call gids id = 
@@ -534,7 +532,7 @@ let rec combine_three lst1 lst2 lst3 =
   | _ -> assert false
 
 let update_ctx_call_vars ctx gids proj args = List.fold_left (fun ctx arg -> match arg with 
-  | A.Ident(_, id) when is_call gids id ->
+  | A.Ident(pos, id) when is_call gids id ->
     let (_, _, _, _, node_id, call_args, _) = List.find (fun (_, call_id, _, _, _, _, _) -> id = call_id) gids.calls in 
     let rec_ctx = Ctx.empty_tc_context in
     let node_ty = Ctx.lookup_node_ty ctx node_id |> unwrap_opt in
@@ -554,7 +552,7 @@ let update_ctx_call_vars ctx gids proj args = List.fold_left (fun ctx arg -> mat
       )
     ) (combine_three call_ret_param_len_idents array_len_exprs call_ret_param_array_lens)
     in 
-    let ret_tys = List.map (fun len -> A.ArrayType(Lib.dummy_pos, (Int Lib.dummy_pos, len))) array_len_exprs in
+    let ret_tys = List.map (fun len -> A.ArrayType(pos, (Int pos, len))) array_len_exprs in
 
     (match ret_tys with 
       | [] -> rec_ctx 
@@ -576,16 +574,18 @@ let rec mk_call_constraints gids ctx lhs_id proj rhs_id =
     (* LHS variable is variable being assigned, RHS variable is call variable *)
     let rec_constraints = List.map (fun arg -> match arg with 
       | A.Ident (_, id) -> 
-        if is_call gids id then (print_endline "hereee"; mk_call_constraints gids ctx id proj id) else []
+        if is_call gids id then mk_call_constraints gids ctx id proj id else []
       | _ -> []
     ) args in
     (* Retrieve array LHS length type *)
     let array_lhs_ty = Ctx.lookup_ty ctx lhs_id |> unwrap_opt in
     let array_lhs_ty_lens = type_extract_array_lens true proj array_lhs_ty in
     let array_arg_ty_lens = List.map (fun arg -> match arg with 
-      | A.Pre (_, A.Ident (_, id)) | A.Ident (_, id) -> (match Ctx.lookup_ty ctx id with 
+      | A.Ident (_, id) -> (match Ctx.lookup_ty ctx id with 
         | Some ty -> type_extract_array_lens true proj ty 
-        | _ -> []
+        | None -> match (List.find_opt (fun (id2, _, _, _) -> id = id2) gids.node_args) with 
+          | Some (_, _, ty, _) -> type_extract_array_lens true proj ty 
+          | None -> [] 
       ) 
       | _ -> []
     ) args |> List.flatten in
@@ -617,13 +617,11 @@ let rec mk_call_constraints gids ctx lhs_id proj rhs_id =
     in 
     let constraints1 = 
       if proj = 0 then 
-        List.map2 (fun expr1 expr2 -> 
-        A.CompOp (pos, Eq, expr1, expr2)) array_arg_ty_lens array_len_exprs
+        List.map2 (fun expr1 expr2 -> A.CompOp (pos, Eq, expr1, expr2)) array_arg_ty_lens array_len_exprs
       else []
     in 
     let constraints2 = 
-      List.map2 (fun expr1 expr2 ->          
-        A.CompOp (pos, Eq, expr1, expr2)) array_lhs_ty_lens array_len_exprs2
+      List.map2 (fun expr1 expr2 -> A.CompOp (pos, Eq, expr1, expr2)) array_lhs_ty_lens array_len_exprs2
     in
     List.flatten rec_constraints @ constraints1 @ constraints2
 
