@@ -28,11 +28,17 @@ It requires a `modified version <https://github.com/ModelChecker/dolmen/tree/mci
 the `Dolmen <https://github.com/Gbury/dolmen>`_ library capable of reading MCIL files.
 Here are the installation instructions:
 
-1. Start by installing `OPAM 2.1 <https://opam.ocaml.org/>`_ or later
+Start by installing `OPAM 2.1 <https://opam.ocaml.org/>`_ or later
 following the instructions on the OPAM website, and
-make sure OPAM has been initialized by running ``opam init``.
+make sure OPAM has been initialized by running ``opam init --compiler=4.14.1``.
 
-2. Then run the following shell commands:
+Install OCaml 4.14.1 or below:
+
+.. code-block:: bash
+
+  opam switch create 4.14.1
+
+Then run the following shell commands:
 
 .. code-block:: bash
 
@@ -40,11 +46,10 @@ make sure OPAM has been initialized by running ``opam init``.
    opam pin -y add dolmen_type https://github.com/ModelChecker/dolmen.git#mcil
    opam pin -y add dolmen_loop https://github.com/ModelChecker/dolmen.git#mcil
    opam pin -y add kind2-mcil https://github.com/kind2-mc/kind2.git#mcil
-   opam install --update-invariant kind2-mcil
 
-3. Install one or more of the supported SMT solvers listed in the section Required Software below.
+Finally, install one or more of the supported SMT solvers listed in the section Required Software below.
 
-Now you should be able to run ``kind2-mcil`` as follows: `kind2-mcil <input>.mcil`
+Now you should be able to run ``kind2-mcil`` as follows: ``kind2-mcil <input>.mcil``
 
 Kind 2
 ======
