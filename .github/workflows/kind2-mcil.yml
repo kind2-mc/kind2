@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     #- name: Update package information
     #  run: ${{ matrix.pkg_update }}
@@ -35,9 +35,9 @@ jobs:
 
     - name: Pin MCIL version of Dolmen packages
       run: |
-        opam pin -y add dolmen https://github.com/daniel-larraz/dolmen.git#mcil
-        opam pin -y add dolmen_type https://github.com/daniel-larraz/dolmen.git#mcil
-        opam pin -y add dolmen_loop https://github.com/daniel-larraz/dolmen.git#mcil
+        opam pin -y add dolmen https://github.com/ModelChecker/dolmen.git#mcil
+        opam pin -y add dolmen_type https://github.com/ModelChecker/dolmen.git#mcil
+        opam pin -y add dolmen_loop https://github.com/ModelChecker/dolmen.git#mcil
 
     - name: Install Kind2-MCIL OCaml dependencies
       run: opam install -y . --deps-only
@@ -45,11 +45,8 @@ jobs:
     - name: Build all binaries
       run: opam exec make
 
-    - name: Rename cmc binary
-      run: mv bin/cmc bin/kind2-mcil
-
     - name: Upload kind2-mcil artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: kind2-mcil-${{ matrix.os }}
         path: bin/kind2-mcil
