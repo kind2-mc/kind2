@@ -7,8 +7,9 @@
 )
 
 (executable
- (package mcil)
- (public_name mcil)
+ (package kind2-mcil)
+ (name mcil)
+ (public_name kind2-mcil)
  (libraries kind2dev dolmen dolmen_type dolmen_loop)
  (modules mcil mcilFlow mcilInput mcilInputSexp mcilPath mcilErrors dolmenUtils)
  (flags (:standard (:include linking-flags.sexp)))

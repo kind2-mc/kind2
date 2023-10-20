@@ -36,11 +36,11 @@ More advanced features include contract-based compositional verification, proof 
 )
 
 (package
- (name mcil)
+ (name kind2-mcil)
  (synopsis
-   "Community Model Checker based on Kind 2")
- (description "MCIL reads system models written in the Model Checking intermeddiate Language 
-  and uses Kind 2 back-end technology for model checking")
+   "Experimental version of Kind 2 that reads MCIL files")
+ (description "Kind 2 (MCIL) reads system models written in the Model Checking Intermediate Language
+ and uses Kind 2 back-end technology for model checking")
  (homepage "https://kind2-mc.github.io/kind2")
  (documentation "https://kind.cs.uiowa.edu/kind2_user_doc")
  (depends
