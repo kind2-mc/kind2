@@ -61,12 +61,12 @@ type instance =
   }
 
 type d_fun = {
-  (** The UF function symbol *)
   f_name: UfSymbol.t;
-  (** The function arguments *)
+  (** The UF function symbol *)
   f_vars: Var.t list;
-  (** The function definition *)
+  (** The function arguments *)
   f_definition: Term.t;
+  (** The function definition *)
 }
 
 type t = 
