@@ -422,7 +422,7 @@ let mk_trans_invar_prop_eqs enums one_query_prop_svars (system_check : Statement
     |> KindTerm.bump_state Numeral.one
   )
 let mk_assumption_trans_invar_prop_eqs assumptions sofars =  
-  List.map2 (fun (a_id, a_svar) (s_id, s_svar) ->
+  List.map2 (fun (_a_id, a_svar) (_s_id, s_svar) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
     let prev_base = Numeral.pred TransSys.trans_base in
     let a_var = Var.mk_state_var_instance a_svar TransSys.trans_base in
@@ -453,7 +453,7 @@ let mk_init_invar_prop_eqs init_value enums one_query_prop_svars (system_check :
   )
 
 let mk_assumption_init_invar_prop_eqs assumptions sofars =  
-  List.map2 (fun (a_id, a_svar) (s_id, s_svar) ->
+  List.map2 (fun (_a_id, a_svar) (_s_id, s_svar) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
     let a_var = Var.mk_state_var_instance a_svar TransSys.init_base in
     let s_var = Var.mk_state_var_instance s_svar TransSys.init_base in
@@ -660,7 +660,7 @@ let define_fun enums name args return_type body =
   in
 
   let body_term = DU.dolmen_term_to_expr enums named_vars body in
-  TransSys.mk_d_fun uf_name return_type vars body_term 
+  TransSys.mk_d_fun uf_name vars body_term 
 
 let process_enum_definition name attrs =
   let count = Numeral.zero in

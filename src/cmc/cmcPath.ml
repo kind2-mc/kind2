@@ -17,18 +17,11 @@
 *)
 open Lib
 
-module T = TransSys
-module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
-module SVS = StateVar.StateVarSet
 
 let sat = "sat" 
 let unsat = "unsat"
 let unknown = "unknown"
-
-type result = {
-  name: HString.t;
-}
 
 type model_path_as_list = (StateVar.t * Model.value list) list
 
@@ -36,14 +29,6 @@ type model_path_as_list = (StateVar.t * Model.value list) list
 
 Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_json ppf (path, const_map) =
-
-  (* Delegate to recursive function *)
-  Format.fprintf ppf "@,{@[<v 1>@,\
-  \"blockType\" : \"ps\",@,\
-  \"name\" : \"pa\"\
-  @]@,}\
- " 
 
 (* 
 let rec get_trail
@@ -62,11 +47,11 @@ let (--) i j =
   in aux j [] 
 
 
-let pp_map_binding ppf (a, b) = 
-  Format.fprintf ppf "(%a -> %a)" StateVar.pp_print_state_var a StateVar.pp_print_state_var b
+(*let pp_map_binding ppf (a, b) = 
+  Format.fprintf ppf "(%a -> %a)" StateVar.pp_print_state_var a StateVar.pp_print_state_var b*)
 
-let pp_map ppf map = 
-  Format.fprintf ppf "(%a)" (pp_print_list (pp_map_binding) " ") (SVM.bindings map)
+(*let pp_map ppf map = 
+  Format.fprintf ppf "(%a)" (pp_print_list (pp_map_binding) " ") (SVM.bindings map)*)
 
 
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
@@ -101,7 +86,7 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
       | Model.Term value -> (
         match enum_opt with
         | Some enum -> ((
-          let pair = List.find (fun (numeral, str) -> Term.equal value (Term.mk_num numeral)) enum.to_str in
+          let pair = List.find (fun (numeral, _str) -> Term.equal value (Term.mk_num numeral)) enum.to_str in
           (* Format.printf "LENGTH %i" (List.length enum.to_str); *)
           let str_rep = DolmenUtils.dolmen_id_to_string (snd pair) in
           Some (var_name, str_rep, state_value_changed)))
@@ -126,7 +111,6 @@ let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list
   let help k subsystems =
     List.map (fun (subsys_transys, TransSys.({map_up; pos})) ->
       let map = Some (join_maps sys_map map_up) in
-      let name = Scope.to_string (TransSys.scope_of_trans_sys subsys_transys) in 
       (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (DolmenUtils.dolmen_id_to_string (List.assoc pos name_map)) ^ "::") ~map enums)
     ) subsystems in
 
@@ -160,9 +144,9 @@ let pp_str_var_val ppf (state_var, value, changed) =
     else
       Format.fprintf ppf "@{<black>(%s %s)@} " (state_var) (value)   
 
-let pp_state_var_val ppf (state_var, value, changed) =
+(*let pp_state_var_val ppf (state_var, value, changed) =
   let name = StateVar.name_of_state_var state_var in 
-  pp_str_var_val ppf (name, value, changed)
+  pp_str_var_val ppf (name, value, changed)*)
 
 let pp_reach_prop ppf (state_var, value, changed) =
   let name = StateVar.name_of_state_var state_var in 
@@ -263,13 +247,13 @@ let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex =
       (Model.path_of_list cex)
 
 
-let pp_prop_cmc ppf (prop_name, result) = 
+(*let pp_prop_cmc ppf (prop_name, result) = 
   Format.fprintf ppf
     "@[<hv 1>(%s@ %s)@]" 
     prop_name
-    result
+    result*)
 
-let cex_cmc metadata trans_sys prop ppf cex =
+(*let cex_cmc metadata trans_sys prop ppf cex =
   Format.fprintf ppf
   "@[<v 1>(response @,\
     @[<hv 2>:result@ (@[<v>%a@])@]@,\
@@ -283,7 +267,7 @@ let cex_cmc metadata trans_sys prop ppf cex =
   (pp_trail_cmc metadata trans_sys prop true) 
   cex
   prop
-  (prop ^ "_prefix")
+  (prop ^ "_prefix")*)
 
 let pp_prop_result_info prop ppf status =
   if status == sat then
@@ -301,13 +285,13 @@ let pp_prop_result prop ppf status=
 (** Output proved or unknown property in CMC standard format 
     In this case proving a cmc property means that we proved the test to be unreachable
     Thus proving that the property is unsat. *)
-let unsat_unknown_cmc ppf prop status = 
+(* let unsat_unknown_cmc ppf prop status = 
   Format.fprintf ppf
     "@[<v 1>(check-system-response @,\
       @[<hv 2>:result@ (@[<v>%a@])@]@,\
       @[<hv 2>:model@ (@[<v>...@])@]@.\
     )@.@."
-    pp_prop_cmc (prop, status)
+    pp_prop_cmc (prop, status)*)
 
 let print_prop_result ppf prop =
   let prop_name = prop.Property.prop_name in
@@ -353,7 +337,7 @@ let print_prop_trail trans_sys metadata ppf prop =
 let print_prop_cert ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with
-        | PropFalse cex -> () 
+        | PropFalse _ -> () 
         | PropInvariant (k, inv) -> Format.fprintf ppf 
                                     "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
                                     (prop_name ^ "_cert")

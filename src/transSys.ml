@@ -163,7 +163,7 @@ type t =
 
   }
 
-let mk_d_fun uf_name fun_type args body = 
+let mk_d_fun uf_name args body = 
   {
     f_name = uf_name; 
     f_vars = args;

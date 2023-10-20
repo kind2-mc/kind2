@@ -606,7 +606,7 @@ let prop_status_pt level prop_status =
     Pretty.print_double_line ()
 
 (* Output cex for a property in cmc format *)
-let cex_cmc ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
+let cex_cmc _ level _ _ trans_sys prop _ _ =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -1326,7 +1326,7 @@ let log_with_tag level tag str =
 let log_cex ?(wa_model=[]) disproved mdl level (type s) (input_sys: s InputSystem.t) analysis trans_sys prop cex =
   match get_log_format () with 
   | F_pt -> (match Flags.input_format () with
-    | `CMC -> cex_cmc ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | `CMC -> cex_cmc mdl level input_sys analysis trans_sys prop cex disproved
     | _ -> cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   )
   | F_xml ->

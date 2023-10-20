@@ -29,8 +29,6 @@ type error = [
   | `CmcInterpreterError of Lib.position * error_kind
 ]
 
-let soh = HString.string_of_hstring
-
 let interpreter_error_message kind = match kind with
   | Unknown s -> s
   | Impossible s -> "This should be impossible! " ^ s

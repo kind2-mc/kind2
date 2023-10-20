@@ -31,7 +31,7 @@ module State = struct
 end
 module Typer_aux = Dolmen_loop.Typer.Typer(State)
 module Typer = Dolmen_loop.Typer.Make(Std.Expr)(Std.Expr.Print)(State)(Typer_aux)
-module Parser = Dolmen_loop.Parser.Make(State)
+(*module Parser = Dolmen_loop.Parser.Make(State)*)
 
 module KindTerm = Term
 
