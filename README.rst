@@ -18,6 +18,34 @@
 
 |develop| |nbsp| |release| |nbsp| |license|
 
+IMPORTANT: THIS IS AN EXPERIMENTAL BRANCH
+=========================================
+
+This branch includes an experimental version of Kind 2 that reads system models written in
+the `Model Checking Intermediate Language <https://github.com/ModelChecker/IL>`_ (MCIL) and
+uses Kind 2 backend technology for solving the model checking queries.
+It requires a `modified version <https://github.com/ModelChecker/dolmen/tree/mcil>`_ of
+the `Dolmen <https://github.com/Gbury/dolmen>`_ library capable of reading MCIL files.
+Here are the installation instructions:
+
+1. Start by installing `OPAM 2.1 <https://opam.ocaml.org/>`_ or later
+following the instructions on the OPAM website, and
+make sure OPAM has been initialized by running ``opam init``.
+
+2. Then run the following shell commands:
+
+.. code-block:: bash
+
+   opam pin -y add dolmen https://github.com/ModelChecker/dolmen.git#mcil
+   opam pin -y add dolmen_type https://github.com/ModelChecker/dolmen.git#mcil
+   opam pin -y add dolmen_loop https://github.com/ModelChecker/dolmen.git#mcil
+   opam pin -y add kind2-mcil https://github.com/kind2-mc/kind2.git#mcil
+   opam install --update-invariant kind2-mcil
+
+3. Install one or more of the supported SMT solvers listed in the section Required Software below.
+
+Now you should be able to run ``kind2-mcil`` as follows: `kind2-mcil <input>.mcil`
+
 Kind 2
 ======
 
