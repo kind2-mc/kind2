@@ -14,9 +14,12 @@ WORKDIR kind2-build
 
 # Note: we use remote OPAM repo until local one is updated
 RUN eval $(opam env) && \
-    opam repo set-url default https://opam.ocaml.org && \
-    opam update && opam install -y . --deps-only && \
-    make static && strip bin/kind2
+    opam repo set-url default https://opam.ocaml.org && opam update \
+    opam pin -y add dolmen https://github.com/ModelChecker/dolmen.git#mcil && \
+    opam pin -y add dolmen_type https://github.com/ModelChecker/dolmen.git#mcil && \
+    opam pin -y add dolmen_loop https://github.com/ModelChecker/dolmen.git#mcil && \
+    opam install -y . --deps-only && \
+    make static && strip bin/kind2*
 
 FROM alpine:latest
 
