@@ -341,7 +341,7 @@ let print_prop_cert ppf prop =
         | PropInvariant (k, inv) -> Format.fprintf ppf 
                                     "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
                                     (prop_name ^ "_cert")
-                                    Term.pp_print_term
+                                    (LustreExpr.pp_print_term_as_expr false)
                                     inv
                                     k
         | PropKTrue k -> Format.fprintf ppf 
