@@ -1,3 +1,5 @@
+(set-logic ALL)
+
 (declare-enum-sort LightStatus (on off))
 
 (define-system TimedSwitch2
@@ -21,7 +23,6 @@
   )
 )
 
-; check system not part of the slides example
 (check-system TimedSwitch2
   :input ( (press Bool) )
   :output ( (sig Bool) )

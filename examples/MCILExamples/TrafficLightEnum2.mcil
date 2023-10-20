@@ -1,0 +1,51 @@
+(set-logic ALL)
+
+(declare-enum-sort LightStatus (red green yellow))
+(declare-enum-sort WalkStatus (yesWalk noWalk))
+
+(define-system CountToTen
+    :input  ((switch Bool))
+    :output ((count Int))
+    :local  ((counting Bool) (precount Int))
+    :init   (and (= precount 0) (not counting))
+    :inv    (= count (ite counting (+ precount 1) 0))
+    :trans  (and 
+                 (= counting' (ite (and switch (= precount 0)) true (and counting (< count 10))))
+                 (= precount' count)
+            )
+)
+
+(define-system TrafficLight
+    :input ((button Bool))
+    :output ((light LightStatus) (walk WalkStatus))
+    :local ((phase Int))
+    :subsys (timer (CountToTen button phase))
+
+    :inv (and
+        (= light (ite (= phase 0) 
+                    green
+                    (ite (= phase 1)
+                        yellow
+                        red
+                    )
+                 )
+        )
+
+        (= walk (ite (and (> phase 2) (< phase 10))
+                    yesWalk
+                    noWalk
+                )
+        )
+    )
+)
+
+(check-system TrafficLight
+    :input ((button Bool))
+    :output ((light LightStatus) (walk WalkStatus))
+    :local ((phase Int))
+
+    :reachable (r1 (and (= walk noWalk) (> phase 2)))
+    :reachable (r2 (and (= walk yesWalk) (= light green)))
+    :query (query1 (r1))
+    :query (query2 (r2))
+)

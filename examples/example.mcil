@@ -1,3 +1,5 @@
+(set-logic ALL)
+
 (define-fun f ((a Int)) Int (+ a 1))
 (declare-const q Int)
 (declare-enum-sort LightStatus (On Off))

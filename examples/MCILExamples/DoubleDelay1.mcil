@@ -1,3 +1,5 @@
+(set-logic QF_LIA)
+
 ; One-step delay
 (define-system Delay :input ( (i Int) ) :output ( (o Int) )
   :local ( (s Int) )

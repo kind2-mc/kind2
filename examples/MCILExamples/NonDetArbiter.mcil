@@ -1,8 +1,10 @@
+(set-logic QF_UF)
+
 (define-system NonDetArbiter
  :input ( (r1 Bool) (r2 Bool) )
  :output ( (g1 Bool) (g2 Bool) )
  :local ( (s Bool) )
- :init (and (not g1) (not g2) )  ; nothing is granted initially ;; EXAMPLE MISSING AND
+ :init (and (not g1) (not g2) )  ; nothing is granted initially
  :trans (and
   (=> (and (not r1') (not r2'))
       (and (not g1') (not g2')))
@@ -22,11 +24,11 @@
  :output ( (gr1 Bool) (gr2 Bool) )
  :local ( (s Bool) )
  ; There are never concurrent requests
-;  :assumption (a1 (not (and req1 req2)))
+ :assumption (a1 (not (and req1 req2)))
  ; The same request is never issued twice in a row
-;  :assumption (a2 (and (=> req1 (not req1')) (=> req2 (not req2'))))
+  :assumption (a2 (and (=> req1 (not req1')) (=> req2 (not req2'))))
  ; Neg of: every request is immediately granted
  :reachable (r (not (and (=> req1 gr1) (=> req2 gr2))))
  ; check the reachability of r under assumptions a1 and a2
- :query (q (r))  ; (q (a1 a2 r)) 
+ :query (q (a1 a2 r)) 
 )

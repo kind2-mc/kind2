@@ -1,37 +1,39 @@
-
+(set-logic QF_LIA)
 
 (define-system greycounter
-  :input ((reset Bool))
+  :input ((rst Bool))
   :local ((a Bool) (b Bool))
   :output ((out Bool))
-  :init (and (= a false) (= b false))
-  :trans (and (= a (and (not reset') (not b))) (= b (and (not reset') (a))))
+  :init (and (not a) (not b))
+  :trans (and (= a' (and (not rst') (not b))) (= b' (and (not rst') a)))
+  :inv (= out (and a b))
 )
 
 (define-system intcounter
-  :input ((reset Bool) (max Int))
+  :input ((rst Bool) (max Int))
   :local ((t Int))
   :output ((out Bool))
   :init (= t 0)
-  :trans (and (= max' max) (= t' (ite (or reset (= t max)) (0) (+ t 1))) (= out' (= t 2)))
+  :trans (= t' (ite (or rst' (= t max')) 0 (+ t 1)))
+  :inv (= out (= t 2))
 )
 
 (define-system top
-  :input ((reset Bool))
-  :local ((b Bool) (d Bool) (three Int))
-  :init (= three 3)
-  :trans (= three' 3)
-  :subsys (gc (greycounter reset b))
-  :subsys (ic (intcounter reset three d))
+  :input ((rst Bool))
+  :local ((b Bool) (d Bool) (max Int))
+  :init (= max 3)
+  :trans (= max' 3)
+  :subsys (gc (greycounter rst b))
+  :subsys (ic (intcounter rst max d))
 )
 
 (check-system top
-  :input ((reset Bool))
-  :local ((b Bool) (d Bool) (three Int))
+  :input ((rst Bool))
+  :local ((b Bool) (d Bool) (max Int))
   
-  :reachable (OKr (= b d))
-  :query (OK (OKr)) 
+  :reachable (OKr (not (= b d)))
+  :query (OK (OKr))
 
-  :reachable (OK2r (not d))
-  :query (OK2 (OK2r))   
+  :reachable (OK2r d)
+  :query (OK2 (OK2r))
 )

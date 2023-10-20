@@ -1,7 +1,4 @@
-; ====NOT SUPPORTED========================
-; TODO: ASSUMPTIONS NOT YET SUPPORTED
-;       Correct temporary code change in check system
-; ====NOT SUPPORTED========================
+(set-logic QF_LIA)
 
 (define-system Historically 
     :input ((b Bool)) 
@@ -13,7 +10,7 @@
 (define-system Before 
     :input ((b Bool)) 
     :output ((bb Bool))
-    :init (= bb false) ; Previous value was false * ; :init false
+    :init (= bb false)
     :trans (= bb' b)
 )
 
@@ -28,7 +25,7 @@
  :input ( (r1 Bool) (r2 Bool) )
  :output ( (g1 Bool) (g2 Bool) )
  :local ( (s Bool) )
- :init (and (not g1) (not g2) )  ; nothing is granted initially ;; EXAMPLE MISSING AND
+ :init (and (not g1) (not g2) )  ; nothing is granted initially
  :trans (and
   (=> (and (not r1') (not r2'))
       (and (not g1') (not g2')))
@@ -70,12 +67,11 @@
          (h2 Bool) (bf Bool) 
          (c1 Int))
  ; no concurrent requests
- ; TODO Assumptions not supported
  :assumption (A (not (and r1 r2))) 
  ; neg of: if there have been no requests, there have been no grants 
  :reachable (P1 (not (=> h1 h2))) 
  ; neg of: a request is granted at most 4 times
  :reachable (P2 (not (=> bf (not g1)))) 
- :query (Q1 (A P1)) ; (Q1 (A P1))
- :query (Q2 (A P2)) ; (Q2 (A P2))
+ :query (Q1 (A P1))
+ :query (Q2 (A P2))
 )
