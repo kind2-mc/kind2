@@ -7,10 +7,10 @@
 )
 
 (executable
- (package cmc)
- (public_name cmc)
+ (package mcil)
+ (public_name mcil)
  (libraries kind2dev dolmen dolmen_type dolmen_loop)
- (modules cmc cmcFlow cmcInput cmcInputSexp cmcPath cmcErrors dolmenUtils)
+ (modules mcil mcilFlow mcilInput mcilInputSexp mcilPath mcilErrors dolmenUtils)
  (flags (:standard (:include linking-flags.sexp)))
 )
 
@@ -22,7 +22,7 @@
  (name kind2dev)
  (libraries dune-build-info num str threads yojson zmq menhirLib)
  (modules
-  (:standard \ C2Icnf horn kind2 cmc cmcFlow cmcInput cmcInputSexp cmcPath cmcErrors dolmenUtils lustreChecker nusmv oldParser testgen testgenLib
+  (:standard \ C2Icnf horn kind2 mcil mcilFlow mcilInput mcilInputSexp mcilPath mcilErrors dolmenUtils lustreChecker nusmv oldParser testgen testgenLib
     testgenStrategies threadtest polltest))
  (modules_without_implementation solverSig)
  (wrapped false))

@@ -186,7 +186,7 @@ let dolmen_binding_to_types enums (var_def: term) = match var_def with
             "Term %a is not a list of types" 
             Term.print var_def))
         
-(* Given a dolmen term representing a CMC variable declaration 
+(* Given a dolmen term representing a MCIL variable declaration 
    return a tuple of the variable's id and kind2 type *)
 let dolmen_term_to_id_type enums (var_def: term) = match var_def with
   | { term = Colon ({ term = Symbol name; _ }, ty); _ } -> (name, type_of_dolmen_term enums ty)

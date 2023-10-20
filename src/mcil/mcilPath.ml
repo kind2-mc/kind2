@@ -139,7 +139,7 @@ let pp_str_var_val ppf (state_var, value, changed) =
   if changed then 
     Format.fprintf ppf "(%s %s) " (state_var) (value)    
   else 
-    if Flags.condensed_cmc_output () then
+    if Flags.condensed_mcil_output () then
       ()
     else
       Format.fprintf ppf "@{<black>(%s %s)@} " (state_var) (value)   
@@ -155,7 +155,7 @@ let pp_reach_prop ppf (state_var, value, changed) =
     if changed then 
       Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) t
     else 
-      if Flags.condensed_cmc_output () then
+      if Flags.condensed_mcil_output () then
         ()
       else
         Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) t
@@ -189,7 +189,7 @@ let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k 
   if any_change then
     Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val "" ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
   else
-    if Flags.condensed_cmc_output () then
+    if Flags.condensed_mcil_output () then
       ()
     else
       Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
@@ -222,7 +222,7 @@ let has_model trans_sys svar_path =
   List.length (List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys)) > 0
 
 let pp_trail
-(CmcInput.({name_map; sys_var_mapping; enum_defs}) : CmcInput.metadata) (trans_sys : TransSys.t) ppf path =
+(McilInput.({name_map; sys_var_mapping; enum_defs}) : McilInput.metadata) (trans_sys : TransSys.t) ppf path =
   (* let a = TransSys.get_function_symbols trans_sys in *)
   (* Model.pp_print_path ppf path ;  (* FOR DEBUGGING*) *)
   (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
@@ -238,7 +238,7 @@ let pp_model trans_sys prop_name ppf path =
 else 
   Format.fprintf ppf "%s ()" (prop_name^"_model")
 
-let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex = 
+let pp_trail_mcil metadata trans_sys prop_name prefix ppf cex = 
   Format.fprintf ppf
     "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
     prop_name
@@ -247,13 +247,13 @@ let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex =
       (Model.path_of_list cex)
 
 
-(*let pp_prop_cmc ppf (prop_name, result) = 
+(*let pp_prop_mcil ppf (prop_name, result) = 
   Format.fprintf ppf
     "@[<hv 1>(%s@ %s)@]" 
     prop_name
     result*)
 
-(*let cex_cmc metadata trans_sys prop ppf cex =
+(*let cex_mcil metadata trans_sys prop ppf cex =
   Format.fprintf ppf
   "@[<v 1>(response @,\
     @[<hv 2>:result@ (@[<v>%a@])@]@,\
@@ -261,10 +261,10 @@ let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex =
     %a\
     @[<hv 2>:trace@ (%s :prefix %s@,) @]@,\
     )@.@."
-  pp_prop_cmc (prop, "sat")
+  pp_prop_mcil (prop, "sat")
   (pp_model trans_sys prop)
   cex
-  (pp_trail_cmc metadata trans_sys prop true) 
+  (pp_trail_mcil metadata trans_sys prop true) 
   cex
   prop
   (prop ^ "_prefix")*)
@@ -282,16 +282,16 @@ let pp_prop_result prop ppf status=
   prop status 
   (pp_prop_result_info prop) status
 
-(** Output proved or unknown property in CMC standard format 
-    In this case proving a cmc property means that we proved the test to be unreachable
+(** Output proved or unknown property in MCIL standard format 
+    In this case proving a mcil property means that we proved the test to be unreachable
     Thus proving that the property is unsat. *)
-(* let unsat_unknown_cmc ppf prop status = 
+(* let unsat_unknown_mcil ppf prop status = 
   Format.fprintf ppf
     "@[<v 1>(check-system-response @,\
       @[<hv 2>:result@ (@[<v>%a@])@]@,\
       @[<hv 2>:model@ (@[<v>...@])@]@.\
     )@.@."
-    pp_prop_cmc (prop, status)*)
+    pp_prop_mcil (prop, status)*)
 
 let print_prop_result ppf prop =
   let prop_name = prop.Property.prop_name in
@@ -328,7 +328,7 @@ let print_prop_model trans_sys ppf prop =
 let print_prop_trail trans_sys metadata ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with 
-        | PropFalse cex -> (pp_trail_cmc metadata trans_sys prop_name true ppf cex) 
+        | PropFalse cex -> (pp_trail_mcil metadata trans_sys prop_name true ppf cex) 
         | PropInvariant _
         | PropKTrue _ 
         | PropUnknown -> () ;
@@ -351,7 +351,7 @@ let print_prop_cert ppf prop =
         | PropUnknown -> () ;
 ;;
 
-let print_cmc_props metadata trans_sys props =
+let print_mcil_props metadata trans_sys props =
   Format.printf
   "@[<v 1>(check-system-response @,\
    @[<hv 2>:verbosity@ %s@]@,\
@@ -361,7 +361,7 @@ let print_cmc_props metadata trans_sys props =
     %a\
     %a\
     )@]@.@."
-  (if Flags.condensed_cmc_output () then "condensed" else "full")
+  (if Flags.condensed_mcil_output () then "condensed" else "full")
   (Lib.pp_print_list print_prop_result "") props
   (Lib.pp_print_list print_prop_trace "") (props)
   (Lib.pp_print_list (print_prop_model trans_sys) "") (props)
@@ -369,5 +369,5 @@ let print_cmc_props metadata trans_sys props =
   (Lib.pp_print_list print_prop_cert  "") (props)
 
 
-  (* Format.printf "%a" (Lib.pp_print_list (print_cmc_prop metadata trans_sys) "\n") (props); *)
+  (* Format.printf "%a" (Lib.pp_print_list (print_mcil_prop metadata trans_sys) "\n") (props); *)
 ;;

@@ -32,7 +32,7 @@ type _ t =
 | Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
-| CMC : TransSys.t S.t -> TransSys.t t
+| MCIL : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre only_parse input_file =
@@ -51,7 +51,7 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
     |> List.map (fun { S.scope } -> scope)
 
   | Native subsystem
-  | CMC subsystem ->
+  | MCIL subsystem ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -76,7 +76,7 @@ let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | CMC subsystem ->
+  | MCIL subsystem ->
     let subsystems' =
       if Flags.modular () then S.all_subsystems subsystem
       else [subsystem]
@@ -158,7 +158,7 @@ let maximal_abstraction_for_testgen (type s)
   )
 
   | Native _ -> assert false
-  | CMC _ -> assert false
+  | MCIL _ -> assert false
   | Horn _ -> assert false
 
 let next_analysis_of_strategy (type s)
@@ -191,7 +191,7 @@ let next_analysis_of_strategy (type s)
   )
 
   | Native subsystem
-  | CMC subsystem -> (
+  | MCIL subsystem -> (
     fun results ->
       let scope_and_strategy =
         List.map (fun ({ S.scope } as sub) ->
@@ -257,7 +257,7 @@ let mcs_params (type s) (input_system : s t) =
     |> List.filter (fun { S.has_impl } -> has_impl)
     |> List.map param_for_subsystem
   | Native sub
-  | CMC sub ->
+  | MCIL sub ->
     let subs =
       if Flags.modular ()
       then
@@ -297,7 +297,7 @@ let contract_check_params (type s) (input_system : s t) =
     |> List.filter (fun s -> not s.S.has_impl)
     |> List.map param_for_subsystem
   )
-  | Native _ | CMC _ -> []
+  | Native _ | MCIL _ -> []
   | Horn _ -> []
 
 let interpreter_param (type s) (input_system : s t) =
@@ -324,7 +324,7 @@ let interpreter_param (type s) (input_system : s t) =
         Scope.Map.empty (S.all_subsystems sub)
       )
     | Native ({S.scope} as sub)
-    | CMC ({S.scope} as sub) -> (scope,
+    | MCIL ({S.scope} as sub) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
           Scope.Map.add scope (not has_impl) abs_map
@@ -347,7 +347,7 @@ let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
     let subsystems = S.all_subsystems_of_list main_subs in
     List.map (fun sb -> sb.S.source) subsystems
   | Native _ -> failwith "Unsupported input system: Native"
-  | CMC _ -> failwith "Unsupported input system: CMC"
+  | MCIL _ -> failwith "Unsupported input system: MCIL"
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
@@ -357,7 +357,7 @@ let retrieve_lustre_nodes_of_scope (type s) : s t -> Scope.t -> LustreNode.t lis
     S.find_subsystem_of_list main_subs scope |> N.nodes_of_subsystem
     )
   | Native _ -> failwith "Unsupported input system: Native"
-  | CMC _ -> failwith "Unsupported input system: CMC"
+  | MCIL _ -> failwith "Unsupported input system: MCIL"
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
@@ -368,7 +368,7 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
     |> List.exists (fun node -> N.partially_defined node)
   )
   | Native _ -> failwith "Unsupported input system: Native"
-  | CMC _ -> failwith "Unsupported input system: CMC"
+  | MCIL _ -> failwith "Unsupported input system: MCIL"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
 let get_lustre_node (type s) (input_system : s t) scope =
@@ -405,14 +405,14 @@ let lustre_definitions_of_state_var (type s) (input_system : s t) state_var =
   match input_system with
   | Lustre _ -> LustreNode.get_state_var_defs state_var
   | Native _ -> failwith "Unsupported input system: Native"
-  | CMC _ -> failwith "Unsupported input system: CMC"
+  | MCIL _ -> failwith "Unsupported input system: MCIL"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
 let lustre_source_ast (type s) (input_system : s t) =
   match input_system with
   | Lustre (_,_,ast) -> ast
   | Native _ -> failwith "Unsupported input system: Native"
-  | CMC _ -> failwith "Unsupported input system: CMC"
+  | MCIL _ -> failwith "Unsupported input system: MCIL"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
 (* Return a transition system with [top] as the main system, sliced to
@@ -442,7 +442,7 @@ let trans_sys_of_analysis (type s)
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
 
-  | CMC sub -> (fun _ -> sub.SubSystem.source, CMC sub)
+  | MCIL sub -> (fun _ -> sub.SubSystem.source, MCIL sub)
     
   | Horn _ -> assert false
 
@@ -466,8 +466,8 @@ let pp_print_path_pt
     ()
     (* assert false *)
 
-  | CMC _ ->
-    Format.eprintf "pp_print_path_pt not implemented for CMC input@.";
+  | MCIL _ ->
+    Format.eprintf "pp_print_path_pt not implemented for MCIL input@.";
     ()
 
   | Horn _ -> assert false
@@ -490,8 +490,8 @@ let pp_print_path_xml
     Format.eprintf "pp_print_path_xml not implemented for native input@.";
     assert false;
 
-  | CMC _ ->
-    Format.eprintf "pp_print_path_xml not implemented for CMC input@.";
+  | MCIL _ ->
+    Format.eprintf "pp_print_path_xml not implemented for MCIL input@.";
     assert false;
 
   | Horn _ -> assert false
@@ -514,8 +514,8 @@ let pp_print_path_json
     Format.eprintf "pp_print_path_json not implemented for native input@.";
     assert false;
 
-  | CMC _ ->
-    Format.eprintf "pp_print_path_json not implemented for CMC input@.";
+  | MCIL _ ->
+    Format.eprintf "pp_print_path_json not implemented for MCIL input@.";
     assert false;
 
   | Horn _ -> assert false
@@ -537,8 +537,8 @@ let pp_print_path_in_csv
     Format.eprintf "pp_print_path_in_csv not implemented for native input";
     assert false
 
-  | CMC _ ->
-    Format.eprintf "pp_print_path_in_csv not implemented for CMC input";
+  | MCIL _ ->
+    Format.eprintf "pp_print_path_in_csv not implemented for MCIL input";
     assert false
 
   | Horn _ -> assert false
@@ -548,7 +548,7 @@ let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   match input_system with 
   | Lustre (main_subs, _, _) ->
     LustrePath.reconstruct_lustre_streams main_subs state_vars
-  | Native _ | CMC _ -> assert false
+  | Native _ | MCIL _ -> assert false
   | Horn _ -> assert false
 
 
@@ -755,7 +755,7 @@ let slice_to_abstraction_and_property
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
 
-    | CMC subsystem -> CMC subsystem
+    | MCIL subsystem -> MCIL subsystem
 
     (* No slicing in Horn input *)
     | Horn subsystem -> Horn subsystem
@@ -771,8 +771,8 @@ fun sys top_scope target ->
     ) (S.find_subsystem_of_list main_subs top_scope).S.source
   | Native _ ->
     Format.printf "can't compile from native input: unsupported"
-  | CMC _ ->
-    Format.printf "can't compile from CMC input: unsupported"
+  | MCIL _ ->
+    Format.printf "can't compile from MCIL input: unsupported"
   | Horn _ ->
     Format.printf "can't compile from horn clause input: unsupported"
 
@@ -789,8 +789,8 @@ fun sys top_scope target ->
     ) (S.find_subsystem_of_list main_subs top_scope).S.source
   | Native _ ->
     failwith "can't compile from native input: unsupported"
-  | CMC _ ->
-    failwith "can't compile from CMC input: unsupported"
+  | MCIL _ ->
+    failwith "can't compile from MCIL input: unsupported"
   | Horn _ ->
     failwith "can't compile from horn clause input: unsupported"
 
@@ -815,8 +815,8 @@ fun sys -> fun top ->
   )
   | Native _ ->
     failwith "can't generate contracts from native input: unsupported"
-  | CMC _ ->
-    failwith "can't generate contracts from CMC input: unsupported"
+  | MCIL _ ->
+    failwith "can't generate contracts from MCIL input: unsupported"
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
 
@@ -874,7 +874,7 @@ function
 
   | Native _ -> raise (UnsupportedFileFormat "Native")
 
-  | CMC _ -> raise (UnsupportedFileFormat "CMC")
+  | MCIL _ -> raise (UnsupportedFileFormat "MCIL")
 
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 

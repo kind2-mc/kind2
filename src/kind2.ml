@@ -117,8 +117,8 @@ let setup : unit -> any_input = fun () ->
         KEvent.log L_debug "Native input detected";
         Input (InputSystem.read_input_native in_file)
 
-      | `CMC ->
-        KEvent.log L_fatal "CMC input not supported. Use the seperate CMC executable." ;
+      | `MCIL ->
+        KEvent.log L_fatal "MCIL input not supported. Use the seperate MCIL executable." ;
         KEvent.terminate_log () ;
         exit ExitCodes.error
                    

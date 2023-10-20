@@ -16,7 +16,7 @@
 
 *)
 
-(** Parse a file in CMC format into a transition system 
+(** Parse a file in MCIL format into a transition system 
 
     @author Kian Weimer
 *)
@@ -39,5 +39,5 @@ type metadata = {
 
 (** Parse from the file *)
 val of_file : string -> 
-  (TransSys.t SubSystem.t * metadata, [> CmcErrors.error]) result
-  (* (TransSys.t SubSystem.t, [> CmcErrors.error]) result TODO Temporary return type switch back when finished *)
+  (TransSys.t SubSystem.t * metadata, [> McilErrors.error]) result
+  (* (TransSys.t SubSystem.t, [> McilErrors.error]) result TODO Temporary return type switch back when finished *)

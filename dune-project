@@ -36,10 +36,10 @@ More advanced features include contract-based compositional verification, proof 
 )
 
 (package
- (name cmc)
+ (name mcil)
  (synopsis
    "Community Model Checker based on Kind 2")
- (description "CMC reads system models written in the Model Checking intermeddiate Language 
+ (description "MCIL reads system models written in the Model Checking intermeddiate Language 
   and uses Kind 2 back-end technology for model checking")
  (homepage "https://kind2-mc.github.io/kind2")
  (documentation "https://kind.cs.uiowa.edu/kind2_user_doc")

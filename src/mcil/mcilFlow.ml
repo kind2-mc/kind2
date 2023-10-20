@@ -174,9 +174,9 @@ let status_of_sys () = match ! latest_trans_sys with
   | Some sys -> status_of_trans_sys sys
 
 (** Exit status from an optional [results]. *)
-let status_of_results cmc_sys =
+let status_of_results mcil_sys =
   let res =
-    let l1 = List.length (ISys.analyzable_subsystems cmc_sys) in
+    let l1 = List.length (ISys.analyzable_subsystems mcil_sys) in
     let l2 = Anal.results_size !all_results in
     if l1 = l2 then Anal.results_is_safe !all_results
     else None
@@ -267,8 +267,8 @@ let status_of_exn_sys process =
   status_of_sys () |> status_of_exn process
 
 (** Status corresponding to an exception based on some results. *)
-let status_of_exn_results cmc_sys process =
-  status_of_results cmc_sys |> status_of_exn process
+let status_of_exn_results mcil_sys process =
+  status_of_results mcil_sys |> status_of_exn process
 
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
@@ -334,9 +334,9 @@ let slaughter_kids process sys =
   Signals.set_sigalrm_timeout_from_flag ()
 
 (** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit_with_results cmc_sys process exn =
+let post_clean_exit_with_results mcil_sys process exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results cmc_sys process exn in
+  let status = status_of_exn_results mcil_sys process exn in
   (* Close tags in XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
@@ -345,11 +345,11 @@ let post_clean_exit_with_results cmc_sys process exn =
   exit status
 
 (** Clean up before exit. *)
-let on_exit_with_results cmc_sys sys process exn =
+let on_exit_with_results mcil_sys sys process exn =
   try
     slaughter_kids process sys;
-    post_clean_exit_with_results cmc_sys process exn
-  with TimeoutWall -> post_clean_exit_with_results cmc_sys process TimeoutWall
+    post_clean_exit_with_results mcil_sys process exn
+  with TimeoutWall -> post_clean_exit_with_results mcil_sys process TimeoutWall
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
@@ -374,7 +374,7 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
 
 
 (** Forks and runs a child process. *)
-let run_process cmc_sys param sys messaging_setup process =
+let run_process mcil_sys param sys messaging_setup process =
   (* Fork a new process. *)
   let pid = Unix.fork () in
   match pid with
@@ -435,9 +435,9 @@ let run_process cmc_sys param sys messaging_setup process =
 
       ) ;
       (* Retrieve input system. *)
-      (* let cmc_sys = cmc_sys in *)
+      (* let mcil_sys = mcil_sys in *)
       (* Run main function of process *)
-      main_of_process process cmc_sys param sys ;
+      main_of_process process mcil_sys param sys ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 
@@ -498,7 +498,7 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
   )
 
 (** Performs an analysis. *)
-let analyze msg_setup save_results ignore_props stop_if_falsified modules cmc_sys param sys =
+let analyze msg_setup save_results ignore_props stop_if_falsified modules mcil_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_real_properties sys |> not && not ignore_props then
@@ -524,14 +524,14 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules cmc_sy
 
       (* Start all child processes. *)
       modules |> List.iter (
-        fun p -> run_process cmc_sys param sys msg_setup p
+        fun p -> run_process mcil_sys param sys msg_setup p
       ) ;
 
       (* Update background thread with new kids. *)
       KEvent.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main ignore_props stop_if_falsified child_pids cmc_sys param sys ;
+      InvarManager.main ignore_props stop_if_falsified child_pids mcil_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor
@@ -564,7 +564,7 @@ let handle_exception process e =
       print_backtrace backtrace
 
 (** Runs the analyses produced by the strategy module. *)
-let run cmc_sys metadata = (* meta_data =*)
+let run mcil_sys metadata = (* meta_data =*)
 
   (* Who's active? *)
   match Flags.enabled () with
@@ -590,13 +590,13 @@ let run cmc_sys metadata = (* meta_data =*)
 
     (* Runs the next analysis, if any. *)
     let rec loop ac () =
-      match ISys.next_analysis_of_strategy cmc_sys !all_results with
+      match ISys.next_analysis_of_strategy mcil_sys !all_results with
       
       | Some param ->
         (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)
-        let sys, _ (* cmc_sys_sliced *) =
-          ISys.trans_sys_of_analysis cmc_sys param
+        let sys, _ (* mcil_sys_sliced *) =
+          ISys.trans_sys_of_analysis mcil_sys param
         in
 
         (* Format.printf "%a" (TSys.pp_print_subsystems true) sys; *)
@@ -604,7 +604,7 @@ let run cmc_sys metadata = (* meta_data =*)
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
-            PostAnalysis.run cmc_sys (TSys.scope_of_trans_sys old) (
+            PostAnalysis.run mcil_sys (TSys.scope_of_trans_sys old) (
               analyze msg_setup false
             ) !all_results
           | _ -> ()
@@ -627,13 +627,13 @@ let run cmc_sys metadata = (* meta_data =*)
         latest_trans_sys := Some sys ;
         (* Analyze... *)
         Lib.set_log_level L_off ;
-        analyze msg_setup true false false modules cmc_sys param sys ;
+        analyze msg_setup true false false modules mcil_sys param sys ;
         Lib.set_log_level old_log_level;
 
         let valid_props, invalid_props, unknown_props = TSys.get_split_properties sys in
         (* Reverse lists to get them in defined order *)
         let valid_props, invalid_props, unknown_props = (List.rev valid_props), (List.rev invalid_props), (List.rev unknown_props) in
-        CmcPath.print_cmc_props metadata sys (invalid_props @ valid_props @ unknown_props) ;      
+        McilPath.print_mcil_props metadata sys (invalid_props @ valid_props @ unknown_props) ;      
 
 
         (* ...and loop. *)
@@ -641,7 +641,7 @@ let run cmc_sys metadata = (* meta_data =*)
 
       | None -> (
         ( match !latest_trans_sys with
-          | Some sys -> PostAnalysis.run cmc_sys (TSys.scope_of_trans_sys sys) (
+          | Some sys -> PostAnalysis.run mcil_sys (TSys.scope_of_trans_sys sys) (
             analyze msg_setup false
           ) !all_results
           | _ -> ()
@@ -655,7 +655,7 @@ let run cmc_sys metadata = (* meta_data =*)
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
     KEvent.run_im msg_setup []
-      (on_exit_with_results cmc_sys None `Supervisor) |> ignore ;
+      (on_exit_with_results mcil_sys None `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -666,7 +666,7 @@ let run cmc_sys metadata = (* meta_data =*)
       Flags.Smt.set_trace_subdir "";
 
       if Analysis.results_is_empty (!all_results) &&
-         InputSystem.analyzable_subsystems cmc_sys = []
+         InputSystem.analyzable_subsystems mcil_sys = []
       then
         KEvent.log L_note "No analyzable nodes found, skipping analysis." ;
 
@@ -676,7 +676,7 @@ let run cmc_sys metadata = (* meta_data =*)
 
       (* Producing a list of the last results for each system, in topological
       order. *)
-      cmc_sys |> ISys.ordered_scopes_of
+      mcil_sys |> ISys.ordered_scopes_of
       |> List.fold_left (fun l sys ->
         try (
           match Analysis.results_find sys results with
@@ -697,13 +697,13 @@ let run cmc_sys metadata = (* meta_data =*)
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit_with_results cmc_sys `Supervisor Exit
+      post_clean_exit_with_results mcil_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit_with_results cmc_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_with_results mcil_sys None `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e;
-      on_exit_with_results cmc_sys None `Supervisor e
+      on_exit_with_results mcil_sys None `Supervisor e
     )
 
 (* 

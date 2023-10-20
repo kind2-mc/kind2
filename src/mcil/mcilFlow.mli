@@ -15,12 +15,14 @@
    permissions and limitations under the License. 
 
 *)
-type model_path_as_list = (StateVar.t * Model.value list) list
+
+(** Runs the analyses produced by the strategy module. *)
+val run : 'a InputSystem.t -> McilInput.metadata -> unit
+
 (* 
-(** Output a counterexample as a Lustre execution in JSON format *)
-val pp_trail : _ InputSystem.t -> TransSys.t -> Format.formatter -> Model.path -> unit
-
-val pp_model : TransSys.t -> Format.formatter -> model_path_as_list -> unit *)
-(* val print_cmc_prop : CmcInput.metadata -> TransSys.t -> Format.formatter -> Property.t -> unit *)
-
-val print_cmc_props : CmcInput.metadata -> TransSys.t -> Property.t list -> unit
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)

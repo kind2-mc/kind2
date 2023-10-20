@@ -605,8 +605,8 @@ let prop_status_pt level prop_status =
     prop_status
     Pretty.print_double_line ()
 
-(* Output cex for a property in cmc format *)
-let cex_cmc _ level _ _ trans_sys prop _ _ =
+(* Output cex for a property in mcil format *)
+let cex_mcil _ level _ _ trans_sys prop _ _ =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -616,7 +616,7 @@ let cex_cmc _ level _ _ trans_sys prop _ _ =
   then (
     (ignore_or_fprintf level)
     !log_ppf
-    "CMC responce printing no longer availiable in Kind2. Use seperate CMC executable"
+    "MCIL responce printing no longer availiable in Kind2. Use seperate MCIL executable"
   ) else
     Debug.event "Status of property %s already known" prop
 
@@ -1326,7 +1326,7 @@ let log_with_tag level tag str =
 let log_cex ?(wa_model=[]) disproved mdl level (type s) (input_sys: s InputSystem.t) analysis trans_sys prop cex =
   match get_log_format () with 
   | F_pt -> (match Flags.input_format () with
-    | `CMC -> cex_cmc mdl level input_sys analysis trans_sys prop cex disproved
+    | `MCIL -> cex_mcil mdl level input_sys analysis trans_sys prop cex disproved
     | _ -> cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   )
   | F_xml ->
@@ -1358,7 +1358,7 @@ let log_execution_path level input_sys trans_sys path =
 let log_prop_status level trans_sys prop_status =
   match get_log_format () with 
     | F_pt -> (match Flags.input_format () with
-      | `CMC -> ()
+      | `MCIL -> ()
       | _ -> prop_status_pt level prop_status
     )
     | F_xml -> prop_status_xml level trans_sys prop_status
@@ -1465,7 +1465,7 @@ let log_analysis_start sys param =
     let info = Analysis.info_of_param param in
     match get_log_format () with
     | F_pt -> (match Flags.input_format () with
-      | `CMC -> ()
+      | `MCIL -> ()
       | _ -> (Format.fprintf !log_ppf "\
           @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
         @.@."

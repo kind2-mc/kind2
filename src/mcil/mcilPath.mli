@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2021 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -14,20 +14,13 @@
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
 
- *)
-type error_kind = 
-  | Unknown of string
-  | Impossible of string
-  | NotSuppoted of string
-  | SystemNotFound of Dolmen.Std.Id.t
-  | ParserError of string
-  | TypeCheckerError of string
- (* Add more as needed*)
+*)
+type model_path_as_list = (StateVar.t * Model.value list) list
+(* 
+(** Output a counterexample as a Lustre execution in JSON format *)
+val pp_trail : _ InputSystem.t -> TransSys.t -> Format.formatter -> Model.path -> unit
 
-type error = [
-  | `CmcInterpreterError of Lib.position * error_kind
-]
-  
-val error_position : [< error] -> Lib.position
-val error_message : [< error] -> string
-  
+val pp_model : TransSys.t -> Format.formatter -> model_path_as_list -> unit *)
+(* val print_mcil_prop : McilInput.metadata -> TransSys.t -> Format.formatter -> Property.t -> unit *)
+
+val print_mcil_props : McilInput.metadata -> TransSys.t -> Property.t list -> unit

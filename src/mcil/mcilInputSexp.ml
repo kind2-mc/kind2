@@ -52,7 +52,7 @@ let s_define_const = HString.mk_hstring "define-const"
 let s_declare_fun = HString.mk_hstring "declare-fun"
 let s_define_fun = HString.mk_hstring "define-fun"
 
-(** Additional CMC Keywords*)
+(** Additional MCIL Keywords*)
 let s_define_system = HString.mk_hstring "define-system"
 let s_check_system = HString.mk_hstring "check-system"
 let s_enum_definition = HString.mk_hstring "declare-enum-sort"
@@ -69,7 +69,7 @@ let s_only_change = HString.mk_hstring "OnlyChange"
 let s_equal = HString.mk_hstring "="
 
 (* type error = [
-  | `CmcTypeCheckerError of Lib.position * CmcTypeChecker.error_kind
+  | `McilTypeCheckerError of Lib.position * McilTypeChecker.error_kind
 ] *)
 
 type subsystem_scope = string list
@@ -356,7 +356,7 @@ let define_fun definitions name fun_type args body =
   TransSys.mk_d_fun uf_name ty vars body_term 
 
 
-(** Process the CMC [define-system] command. *)
+(** Process the MCIL [define-system] command. *)
 let rec process_define_system definitions (sys_def: system_def) attrs =  
   match attrs with
   | HS.Atom arg :: HS.List inputs :: other when arg == s_input -> (
@@ -459,7 +459,7 @@ let rec process_define_system definitions (sys_def: system_def) attrs =
   | [] -> sys_def
   | _ -> failwith (Format.asprintf "Invalid define-system parameter: %a" HS.pp_print_sexpr_list attrs)
 
-(** Parse one sexp and append it's interpretation into the cmc data structure*)
+(** Parse one sexp and append it's interpretation into the mcil data structure*)
 let process_command definitions = fun def -> match def with
 (* (define-system symbol attrs)*)
 | HS.List ( HS.Atom cmd :: HS.Atom symb :: attrs ) when cmd == s_define_system -> (
@@ -512,14 +512,14 @@ let process_command definitions = fun def -> match def with
 )
 
 | HS.List ( HS.Atom cmd :: HS.Atom _ :: _ ) when cmd == s_define_system -> failwith (Format.asprintf
-"Invalid CMC-LIBs command: %a" HS.pp_print_sexpr (HS.Atom cmd))
+"Invalid MCIL-LIBs command: %a" HS.pp_print_sexpr (HS.Atom cmd))
 
 (* ... *)
 (* Add back all SMT-LIB interpretations here*)
 | c -> failwith (Format.asprintf
-  "Invalid CMC-LIBs command: %a" HS.pp_print_sexpr c)
+  "Invalid MCIL-LIBs command: %a" HS.pp_print_sexpr c)
 
-(** Translate cmc var representation into Kind2 *)
+(** Translate mcil var representation into Kind2 *)
 let mk_state_vars sys_name input output local = (
   mk_vars sys_name true input @ 
   mk_vars sys_name false output @ 
@@ -620,7 +620,7 @@ let mk_trans_invar_prop_eqs prop_svars reachable inv_map =  (* WARNING MAY NEED 
     |> Term.bump_state Numeral.one
   )
 
-(** Translate CMC init sexp into Kind2 Term. Ands init with the inv property *)
+(** Translate MCIL init sexp into Kind2 Term. Ands init with the inv property *)
 let mk_init_term { init; inv} init_flag const_map init_map inv_map =
   (* Flag representing the init state*)
   let init_flag_t =
@@ -636,7 +636,7 @@ let mk_init_term { init; inv} init_flag const_map init_map inv_map =
     Term.mk_and (init_flag_t :: conv_term_of_sexpr (const_map @ init_map) init :: conv_term_of_sexpr (const_map @ inv_map) inv :: [])
 
   
-(** Translate CMC trans sexp into Kind2 Term. Ands init with the inv property *)
+(** Translate MCIL trans sexp into Kind2 Term. Ands init with the inv property *)
 let mk_trans_term sys_def init_flag const_map inv_map trans_map =
   (* Flag representing the init state*)
   let init_flag_t =
@@ -663,7 +663,7 @@ let rec mk_subsys_structure sys =
 
 type base_trans_system = {
   top: bool;
-  cmc_sys_def: system_def;
+  mcil_sys_def: system_def;
   symb_svars: (HString.t * StateVar.t) list;
   init_map: (HString.t * Var.t) list;
   trans_map: (HString.t * Var.t) list;
@@ -701,12 +701,12 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     let get_svars symb_svars = List.map (fun (input_name, _) -> List.assoc input_name symb_svars) in
     
     let subsys_init_svar = subsys_trans_def.init_flag in
-    let subsys_input_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.input in
-    let subsys_output_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.output in
+    let subsys_input_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.mcil_sys_def.input in
+    let subsys_output_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.mcil_sys_def.output in
 
     let subsys_local_assoc_list = subsys_trans_def.symb_svars |> List.filter_map (fun symb_svar -> 
       match symb_svar with 
-      | _ when List.assoc_opt (fst symb_svar) ( subsys_trans_def.cmc_sys_def.input @  subsys_trans_def.cmc_sys_def.output) = None -> Some (fst symb_svar, StateVar.type_of_state_var (snd symb_svar))
+      | _ when List.assoc_opt (fst symb_svar) ( subsys_trans_def.mcil_sys_def.input @  subsys_trans_def.mcil_sys_def.output) = None -> Some (fst symb_svar, StateVar.type_of_state_var (snd symb_svar))
       | _ -> None
 
       ) in
@@ -740,10 +740,10 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     (subsystem_name, List.map snd local_instances), (call_map, new_locals)
 
 
-    (* let new_transys_locals = mk_vars sys_name false (List.map (fun (name, _) -> )subsys_trans_def.cmc_sys_def.local)in
+    (* let new_transys_locals = mk_vars sys_name false (List.map (fun (name, _) -> )subsys_trans_def.mcil_sys_def.local)in
 
     (* TODO make failure message more clear when the lists do not match in size. *)
-    let in_out_vars = subsys_cmc_def.input @ subsys_cmc_def.output |> local_defs |> List.map2 fun renamings 
+    let in_out_vars = subsys_mcil_def.input @ subsys_mcil_def.output |> local_defs |> List.map2 fun renamings 
     let 
     let instances = local_defs |> List.map (fun (local_name, sys_vars) ->
       ()
@@ -751,14 +751,14 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     subsys_locals, subsystem_defs *)
 )
 
-let mk_base_trans_system const_decls instance_name_map prev_trans_systems (cmc_sys_def: system_def) = 
-  let system_name = HString.string_of_hstring cmc_sys_def.name in
+let mk_base_trans_system const_decls instance_name_map prev_trans_systems (mcil_sys_def: system_def) = 
+  let system_name = HString.string_of_hstring mcil_sys_def.name in
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
-  let symb_svars = mk_state_vars system_name cmc_sys_def.input cmc_sys_def.output cmc_sys_def.local in (*S*)
+  let symb_svars = mk_state_vars system_name mcil_sys_def.input mcil_sys_def.output mcil_sys_def.local in (*S*)
   
-  let subsystem_defs = mk_subsystems prev_trans_systems system_name cmc_sys_def.subsystems symb_svars in
+  let subsystem_defs = mk_subsystems prev_trans_systems system_name mcil_sys_def.subsystems symb_svars in
   let named_subsystems = List.map fst subsystem_defs in 
   
   let subsystems, name_map = List.fold_left (fun (subsystems_acc, name_map) (subsys_name, (instance_list: (TransSys.instance * HString.t) list)) -> 
@@ -817,11 +817,11 @@ let mk_base_trans_system const_decls instance_name_map prev_trans_systems (cmc_s
   let subsys_trans = List.map snd subsys_terms in
 
   let init_term = 
-    Term.mk_and ((mk_init_term cmc_sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
+    Term.mk_and ((mk_init_term mcil_sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
   in
 
   let trans_term = 
-    Term.mk_and ((mk_trans_term cmc_sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
+    Term.mk_and ((mk_trans_term mcil_sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
   in
 
   let state_vars =
@@ -861,25 +861,25 @@ let mk_base_trans_system const_decls instance_name_map prev_trans_systems (cmc_s
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
-  Format.printf "CMC_SYS: %s." (UfSymbol.name_of_uf_symbol trans_uf_symbol);
+  Format.printf "MCIL_SYS: %s." (UfSymbol.name_of_uf_symbol trans_uf_symbol);
 
   let symb_svars = symb_svars @ subsys_locals  in 
-  {top=false; scope; cmc_sys_def; symb_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
+  {top=false; scope; mcil_sys_def; symb_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
 
-let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def = 
-  let chk_inp, chk_out, chk_local = cmc_check_def.input, cmc_check_def.output, cmc_check_def.local in
+let rename_check_vars system_name {mcil_sys_def; trans_map} mcil_check_def = 
+  let chk_inp, chk_out, chk_local = mcil_check_def.input, mcil_check_def.output, mcil_check_def.local in
   let chk_local = match chk_local with 
   | Some chk_local -> chk_local
-  | None -> cmc_sys_def.local |> List.map (fun _ -> None) in
-  assert (List.compare_lengths cmc_sys_def.input chk_inp == 0) ;
-  assert (List.compare_lengths cmc_sys_def.output chk_out == 0) ;
-  assert (List.compare_lengths cmc_sys_def.local chk_local == 0) ;
+  | None -> mcil_sys_def.local |> List.map (fun _ -> None) in
+  assert (List.compare_lengths mcil_sys_def.input chk_inp == 0) ;
+  assert (List.compare_lengths mcil_sys_def.output chk_out == 0) ;
+  assert (List.compare_lengths mcil_sys_def.local chk_local == 0) ;
 
   let mk_vars sys_name is_input = List.map (fun e -> match e with 
   | Some e ->Some (mk_var sys_name is_input false e)
   | None -> None) in 
 
-  (* Translate cmc var representation into Kind2 *)
+  (* Translate mcil var representation into Kind2 *)
   let mk_state_vars sys_name input output local = (
     mk_vars sys_name true input @ 
     mk_vars sys_name false output @ 
@@ -896,19 +896,19 @@ let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def =
   ) )) |> List.filter_map (fun a -> a) 
 
 
-let check_trans_system system_name base_system (cmc_check_def: check_system)= 
+let check_trans_system system_name base_system (mcil_check_def: check_system)= 
   (* TODO Produce better error handling here*)
-  let check_map = rename_check_vars system_name base_system cmc_check_def in
+  let check_map = rename_check_vars system_name base_system mcil_check_def in
   
   (* let chk_inv_map = chk_init_map in *)
 
-  let invar_prop_svars = mk_invar_prop_svars system_name cmc_check_def in  (*C*)
+  let invar_prop_svars = mk_invar_prop_svars system_name mcil_check_def in  (*C*)
   let prop_svars = invar_prop_svars in (* Present to support concat in the future *)  (*C*)
   
   
   
-  let init_term = Term.mk_and ( base_system.init_term :: mk_init_invar_prop_eqs prop_svars cmc_check_def.reachable check_map ) in
-  let trans_term = Term.mk_and ( base_system.trans_term :: mk_trans_invar_prop_eqs prop_svars cmc_check_def.reachable check_map ) in
+  let init_term = Term.mk_and ( base_system.init_term :: mk_init_invar_prop_eqs prop_svars mcil_check_def.reachable check_map ) in
+  let trans_term = Term.mk_and ( base_system.trans_term :: mk_trans_invar_prop_eqs prop_svars mcil_check_def.reachable check_map ) in
   
   let props = (*C*)
     invar_prop_svars |> List.map (fun (svar, (name, _)) ->
@@ -976,23 +976,23 @@ let of_channel in_ch =
 
   (* let sexps = List.map fst sexps in *)
 
-  let cmc_defs =
+  let mcil_defs =
     List.fold_left process_command empty_definitions sexps
   in
 
-  let cmc_sys_defs = cmc_defs.system_defs in
+  let mcil_sys_defs = mcil_defs.system_defs in
 
-  let enum_defs = cmc_defs.enums in
+  let enum_defs = mcil_defs.enums in
 
   (* TODO: Check for cycles in subsystems. See lustre/lustreArrayDependencies.ml and utils/graph.ml *)
-  let mk_subsys_dag (cmc_sys_defs: (HString.t * system_def) list) = 
+  let mk_subsys_dag (mcil_sys_defs: (HString.t * system_def) list) = 
     (* First add all verticies *)
-    let graph = cmc_sys_defs |> List.fold_left ( fun graph (name, _)  ->
+    let graph = mcil_sys_defs |> List.fold_left ( fun graph (name, _)  ->
       G.add_vertex graph name
     ) G.empty in
     
     (* Generate pairs for each subsys edge *)
-    let edge_pairs = cmc_sys_defs |> List.fold_left ( fun ep (name, ({subsystems}: system_def))  ->
+    let edge_pairs = mcil_sys_defs |> List.fold_left ( fun ep (name, ({subsystems}: system_def))  ->
       (* currently does not check anything about local namings only checks overall subsys dependancies *)
       let sys_edges = subsystems |> List.map ( fun (target_name, _) ->
         (name, target_name)
@@ -1011,7 +1011,7 @@ let of_channel in_ch =
 
   
 
-  let subsys_graph = mk_subsys_dag cmc_sys_defs in
+  let subsys_graph = mk_subsys_dag mcil_sys_defs in
 
   (* Will now throw an error if there is a cycle in the graph *)
     (* Again may want to catch in the future for better messages *)
@@ -1028,17 +1028,17 @@ let of_channel in_ch =
      3. modify check system to modify trans systems rather then intermed data struct 
      4. process each trans sys that has a check (just one for now) *)
 
-  let cmc_check_defs = cmc_defs.system_checks in
+  let mcil_check_defs = mcil_defs.system_checks in
   let length = List.length sys_ordering in
 
   let base_trans_systems, (name_map, _) = sys_ordering |> List.fold_left ( fun (prev_trans_systems, (prev_instance_map, index)) sys_name -> 
     let top = index == length - 1 in
-    let cmc_sys_def = List.assoc sys_name cmc_sys_defs in
-    let cmc_check_def_opt = List.assoc_opt sys_name cmc_check_defs in 
-    let base_system, name_map = mk_base_trans_system cmc_defs.const_decls prev_instance_map prev_trans_systems cmc_sys_def in
-    match cmc_check_def_opt with 
-    | Some cmc_check_def -> prev_trans_systems @ (cmc_sys_def.name, check_trans_system (HString.string_of_hstring cmc_sys_def.name) {base_system with top} cmc_check_def) :: [], (name_map, index + 1)
-    | None -> prev_trans_systems @ (cmc_sys_def.name, {base_system with top}) :: [], (name_map, index + 1)
+    let mcil_sys_def = List.assoc sys_name mcil_sys_defs in
+    let mcil_check_def_opt = List.assoc_opt sys_name mcil_check_defs in 
+    let base_system, name_map = mk_base_trans_system mcil_defs.const_decls prev_instance_map prev_trans_systems mcil_sys_def in
+    match mcil_check_def_opt with 
+    | Some mcil_check_def -> prev_trans_systems @ (mcil_sys_def.name, check_trans_system (HString.string_of_hstring mcil_sys_def.name) {base_system with top} mcil_check_def) :: [], (name_map, index + 1)
+    | None -> prev_trans_systems @ (mcil_sys_def.name, {base_system with top}) :: [], (name_map, index + 1)
   ) ([], (empty_subsystem_instance_name_data, 0)) in
 (* 
   let mk_inst init_flag sys formal_vars =
@@ -1062,7 +1062,7 @@ let of_channel in_ch =
 
   let create_trans_system base_trans_systems = 
     base_trans_systems |> List.fold_left ( fun base_trans_system ->
-      let subsystem_definitions = base_trans_system.cmc_sys_def.subsystems in 
+      let subsystem_definitions = base_trans_system.mcil_sys_def.subsystems in 
         (*          ( sys_name * ( local_name * inputs list) list ) list    *)
   (* subsystems: (HString.t * (HString.t * HS.t list) list) list; *)
   (* [ { TransSys.pos = Lib.dummy_pos;
@@ -1080,7 +1080,7 @@ let of_channel in_ch =
   [] in *)
   
   let sys_var_mapping = List.fold_left (fun var_map (_, base_transys) -> (
-    let primary_vars = (base_transys.cmc_sys_def.input @ base_transys.cmc_sys_def.output @ base_transys.cmc_sys_def.local) |>
+    let primary_vars = (base_transys.mcil_sys_def.input @ base_transys.mcil_sys_def.output @ base_transys.mcil_sys_def.local) |>
           List.map (fun v -> List.assoc (fst v) base_transys.symb_svars) in
     (base_transys.scope, primary_vars) :: var_map
   )) [] base_trans_systems in
@@ -1100,8 +1100,8 @@ let of_channel in_ch =
         StateVar.StateVarSet.empty (* underapproximation *)
         (StateVar.StateVarHashtbl.create 7) (* state_var_bounds *)
         global_const_vars (* global_consts *)
-        (if base.top then cmc_defs.ufunctions else []) (* ufs *)
-        (if base.top then cmc_defs.functions else []) (* defs *)
+        (if base.top then mcil_defs.ufunctions else []) (* ufs *)
+        (if base.top then mcil_defs.functions else []) (* defs *)
         base.init_uf_symbol
         base.init_formals
         base.init_term
@@ -1117,14 +1117,14 @@ let of_channel in_ch =
     (name, sys) :: other_trans_systems
   in
 
-  let const_global_vars = List.map snd cmc_defs.const_decls in
+  let const_global_vars = List.map snd mcil_defs.const_decls in
   let trans_systems = base_trans_systems |> List.fold_left (mk_trans_system const_global_vars) [] in
   
-  (* let cmc_sys_def =  snd (head cmc_sys_defs) in (* temporary support for only one system def *)
-  let cmc_check_def = List.assoc cmc_sys_def.name cmc_check_defs in *)
+  (* let mcil_sys_def =  snd (head mcil_sys_defs) in (* temporary support for only one system def *)
+  let mcil_check_def = List.assoc mcil_sys_def.name mcil_check_defs in *)
 
-  (* let base_system = mk_base_trans_system [] cmc_sys_def in 
-  let chk_sys = check_trans_system (HString.string_of_hstring cmc_sys_def.name) base_system cmc_check_def in
+  (* let base_system = mk_base_trans_system [] mcil_sys_def in 
+  let chk_sys = check_trans_system (HString.string_of_hstring mcil_sys_def.name) base_system mcil_check_def in
    *)
 
   (* TEMP *)
@@ -1132,7 +1132,7 @@ let of_channel in_ch =
   let top_sys = snd (List.hd trans_systems) in
 
     (* NOTE: This was originaly commented out *)
-  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
+  Format.printf "MCIL_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
   Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs)
   (* mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs *)

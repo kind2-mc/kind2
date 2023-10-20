@@ -145,11 +145,11 @@ val add_input_file : string -> bool
 val lus_main : unit -> string option
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn | `Native | `CMC]
+type input_format = [ `Lustre | `Horn | `Native | `MCIL]
 val input_format : unit -> input_format
 
-(** Condenses CMC output. *)
-val condensed_cmc_output : unit -> bool
+(** Condenses MCIL output. *)
+val condensed_mcil_output : unit -> bool
 
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string

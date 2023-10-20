@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2021 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -14,15 +14,20 @@
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
 
-*)
+ *)
+type error_kind = 
+  | Unknown of string
+  | Impossible of string
+  | NotSuppoted of string
+  | SystemNotFound of Dolmen.Std.Id.t
+  | ParserError of string
+  | TypeCheckerError of string
+ (* Add more as needed*)
 
-(** Runs the analyses produced by the strategy module. *)
-val run : 'a InputSystem.t -> CmcInput.metadata -> unit
-
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+type error = [
+  | `McilInterpreterError of Lib.position * error_kind
+]
+  
+val error_position : [< error] -> Lib.position
+val error_message : [< error] -> string
+  

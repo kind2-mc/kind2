@@ -2613,23 +2613,23 @@ module Global = struct
 
   (* Input format. *)
   type input_format = [
-    `Lustre | `Horn | `Native | `CMC
+    `Lustre | `Horn | `Native | `MCIL
   ]
   let input_format_of_string = function
     | "extension" -> `Extension
     | "lustre" -> `Lustre
     | "horn" -> `Horn
     | "native" -> `Native
-    | "cmc" -> `CMC
+    | "mcil" -> `MCIL
     | _ -> raise (Arg.Bad "Bad value for --input_format")
   let string_of_input_format = function
     | `Extension -> "extension"
     | `Lustre -> "lustre"
     | `Horn -> "horn"
     | `Native -> "native"
-    | `CMC -> "cmc"
+    | `MCIL -> "mcil"
   let input_format_values = [
-    `Lustre ; `Native; `CMC; `Extension
+    `Lustre ; `Native; `MCIL; `Extension
   ] |> List.map string_of_input_format |> String.concat ", "
   let input_format_default = `Extension
 
@@ -2652,31 +2652,31 @@ module Global = struct
     if !input_format = `Extension then
       if Filename.check_suffix s ".kind2" then
         input_format := `Native
-      else if Filename.check_suffix s ".cmc" then
-        input_format := `CMC
+      else if Filename.check_suffix s ".mcil" then
+        input_format := `MCIL
       else input_format := `Lustre
 
   let input_format () =
     match !input_format with
     | `Extension -> `Lustre
-    | (`Lustre | `Native | `CMC | `Horn) as f -> f
+    | (`Lustre | `Native | `MCIL | `Horn) as f -> f
 
 
-  (* CMC Condensed Output Flag. *)
-  let condensed_cmc_output_default = false
-  let condensed_cmc_output = ref condensed_cmc_output_default
+  (* MCIL Condensed Output Flag. *)
+  let condensed_mcil_output_default = false
+  let condensed_mcil_output = ref condensed_mcil_output_default
   let _ = add_spec
-    "--condensed_cmc_output"
-    (bool_arg condensed_cmc_output)
+    "--condensed_mcil_output"
+    (bool_arg condensed_mcil_output)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Condense the cmc output. Only show changes in the trace. @ \
+          Condense the mcil output. Only show changes in the trace. @ \
           Default: %a\
         "
-        fmt_bool condensed_cmc_output_default
+        fmt_bool condensed_mcil_output_default
     )
-  let condensed_cmc_output () = !condensed_cmc_output
+  let condensed_mcil_output () = !condensed_mcil_output
 
   (* Output directory. *)
   let output_dir_default = ""
@@ -3301,7 +3301,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
 let input_format = Global.input_format
-let condensed_cmc_output = Global.condensed_cmc_output
+let condensed_mcil_output = Global.condensed_mcil_output
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis

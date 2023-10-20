@@ -26,7 +26,7 @@ type error_kind =
   (* Add more as needed*)
 
 type error = [
-  | `CmcInterpreterError of Lib.position * error_kind
+  | `McilInterpreterError of Lib.position * error_kind
 ]
 
 let interpreter_error_message kind = match kind with
@@ -44,8 +44,8 @@ let interpreter_error_message kind = match kind with
   (* Add more as needed*)
 
 let error_message error = match error with
-| `CmcInterpreterError (_, kind) -> interpreter_error_message kind
+| `McilInterpreterError (_, kind) -> interpreter_error_message kind
 
 let error_position error = match error with
-  | `CmcInterpreterError (pos, _) -> pos
+  | `McilInterpreterError (pos, _) -> pos
 

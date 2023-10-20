@@ -19,7 +19,7 @@
 open Dolmen
 
 module KindTerm = Term
-module E = CmcErrors
+module E = McilErrors
 module Ids = Lib.ReservedIds
 
 (* Instantiate a module for parsing logic languages *)
@@ -111,7 +111,7 @@ type metadata = {
 let find_trans_system trans_systems search_name = 
   List.find ( fun ({name; _ }: base_trans_system) -> Id.equal search_name name) trans_systems 
 
-let error ?(pos=Lib.dummy_pos) e = Error (`CmcInterpreterError (pos, e))
+let error ?(pos=Lib.dummy_pos) e = Error (`McilInterpreterError (pos, e))
 
 let find_system definitions name =
   let systems = definitions.system_defs in
@@ -169,7 +169,7 @@ let mk_inv_map init_map trans_map =
     (unprimed_var, List.assoc primed_var trans_map )
   ) 
 
-(** Translate CMC init sexp into Kind2 Term. Ands init with the inv property *)
+(** Translate MCIL init sexp into Kind2 Term. Ands init with the inv property *)
 let mk_init_term enums ({ init; inv}: Statement.sys_def) init_flag const_map init_map inv_map =
   (* Flag representing the init state*)
   let init_flag_t =
@@ -294,7 +294,7 @@ let get_enum_constraints env init_map trans_map svars = List.fold_left
       | None -> (init_constraints, trans_constraints)
   ) ([], []) svars 
 
-(** Process the CMC [define-system] command. *)
+(** Process the MCIL [define-system] command. *)
 let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) = 
   let system_name = DU.dolmen_id_to_string sys_def.id in
   let scope = [system_name] in
@@ -740,21 +740,21 @@ let of_file filename =
   (* Parse and Typecheck file with Dolmen *)
   let statements = DU.process filename in
   
-  let* cmc_defs =
+  let* mcil_defs =
     List.fold_left process_command (Ok empty_definitions) statements
   in
 
-  let cmc_sys_defs = {(List.hd cmc_defs.system_defs) with top=true} :: (List.tl cmc_defs.system_defs) in
+  let mcil_sys_defs = {(List.hd mcil_defs.system_defs) with top=true} :: (List.tl mcil_defs.system_defs) in
 
-  let enum_defs = cmc_defs.enums in
+  let enum_defs = mcil_defs.enums in
 
   let sys_var_mapping = List.map (fun base_transys -> (
     let primary_vars = (base_transys.input_svars @ base_transys.output_svars @ base_transys.local_svars) |>
           List.map snd in
     (base_transys.scope, primary_vars)
-  )) cmc_sys_defs in
+  )) mcil_sys_defs in
 
-  let name_map = cmc_defs.name_map in
+  let name_map = mcil_defs.name_map in
 
   let mk_trans_system global_const_vars other_trans_systems (base : base_trans_system)  =
     let name = base.name in
@@ -770,8 +770,8 @@ let of_file filename =
         StateVar.StateVarSet.empty (* underapproximation *)
         (StateVar.StateVarHashtbl.create 7) (* state_var_bounds *)
         global_const_vars (* global_consts *)
-        (if base.top then cmc_defs.ufunctions else []) (* ufs *)
-        (if base.top then cmc_defs.functions else []) (* defs *)
+        (if base.top then mcil_defs.ufunctions else []) (* ufs *)
+        (if base.top then mcil_defs.functions else []) (* defs *)
         base.init_uf_symbol
         base.init_formals
         base.init_term
@@ -787,12 +787,12 @@ let of_file filename =
     (name, sys) :: other_trans_systems
   in
 
-  let const_global_vars = List.map snd (snd cmc_defs.const_decls) in 
+  let const_global_vars = List.map snd (snd mcil_defs.const_decls) in 
 
-  let trans_systems = (List.rev cmc_sys_defs) |> List.fold_left (mk_trans_system const_global_vars) [] in
+  let trans_systems = (List.rev mcil_sys_defs) |> List.fold_left (mk_trans_system const_global_vars) [] in
   
   let top_sys = snd (List.hd trans_systems) in
 
-  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
+  (* Format.printf "MCIL_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
 
   Ok (mk_subsys_structure top_sys, {name_map; sys_var_mapping; enum_defs})

@@ -1,5 +1,5 @@
 ; ====NOT SUPPORTED========================
-; TODO OnlyChange not implemented in Dolmen-CMC 
+; TODO OnlyChange not implemented in Dolmen-MCIL 
 ; ====NOT SUPPORTED========================
 
 ; increment ni iff n = i; ni is 0 initially if not incremented

@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Community Model Checker based on Kind 2"
 description: """
-CMC reads system models written in the Model Checking intermeddiate Language 
+MCIL reads system models written in the Model Checking intermeddiate Language 
   and uses Kind 2 back-end technology for model checking"""
 maintainer: ["Daniel Larraz <daniel-larraz@uiowa.edu>"]
 authors: ["The Kind 2 development team"]

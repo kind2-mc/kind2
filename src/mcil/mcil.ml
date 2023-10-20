@@ -44,7 +44,7 @@ let classify_input_stream: string -> string = fun in_file ->
    - starting global timer,
    - parsing input file,
    - building input system. *)
-let setup : unit -> (TransSys.t SubSystem.t * CmcInput.metadata) = fun () ->
+let setup : unit -> (TransSys.t SubSystem.t * McilInput.metadata) = fun () ->
 
   (* Parse command-line flags. *)
   (try
@@ -101,10 +101,10 @@ let setup : unit -> (TransSys.t SubSystem.t * CmcInput.metadata) = fun () ->
 
   try
     let input_system, metadata = 
-      match CmcInput.of_file in_file with
+      match McilInput.of_file in_file with
         | Ok res -> res
         (* TODO remove lustre reporting...*)
-        | Error e -> LustreReporting.fail_at_position (CmcErrors.error_position e) (CmcErrors.error_message e)
+        | Error e -> LustreReporting.fail_at_position (McilErrors.error_position e) (McilErrors.error_message e)
     in
     KEvent.log L_debug "Input System built";
     input_system, metadata
@@ -134,7 +134,7 @@ let main () =
   let input_sys, metadata = setup () in
 
   try
-    CmcFlow.run (Native input_sys) metadata
+    McilFlow.run (Native input_sys) metadata
   with e -> (
     KEvent.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
     KEvent.terminate_log () ;
