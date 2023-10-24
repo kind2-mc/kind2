@@ -639,6 +639,12 @@ let mk_array_exprs gids ctx eq arity = match eq with
               (* Of the form A = expr^expr2 *)
               | A.ArrayConstr(_, expr3, expr2) -> 
                 (A.CompOp (pos, Eq, expr1, expr2), mk_array_prop_desc lhs_id false pos) :: (add_ty_constraints ty2 expr3)
+              (* Of the form A = pre B *)
+              | A.Pre (_, expr) -> 
+                add_ty_constraints ty expr
+              (* Of the form A = B -> C *)
+              | A.Arrow (_, expr1, expr2) -> 
+                add_ty_constraints ty expr1 @ add_ty_constraints ty expr2
               (* Of the form A = n_call *)
               | Ident (_, rhs_id) when is_call gids rhs_id  ->
                 snd (mk_call_constraints lhs_pos gids ctx lhs_id p rhs_id)
