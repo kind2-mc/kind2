@@ -59,6 +59,11 @@ val substitute_naive_list : index list -> expr list -> expr -> expr
 (** Substitute second param list for first param list in third param. 
     ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 
+val substitute_naive_list_ty : index list -> expr list -> lustre_type -> lustre_type
+(** Substitute second param list for first param list in third param. 
+    The third param is a (possibly dependent) type.
+    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 

@@ -1587,7 +1587,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Array Constraints                  *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, id, _) =
+    let over_generated_locals glocals (_, id, _, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -2120,14 +2120,12 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let create_constraint_name rexpr = 
       Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
     in
-    let over_array_constraints (a, ac, g, gc, p) (pos, id, rexpr) =
+    let over_array_constraints (a, ac, g, gc, p) (pos, id, rexpr, prop_desc) =
       let sv = H.find !map.state_var (mk_ident id) in
-
-      (* Not sure whether this should be a property or a guarantee *)
       let name = create_constraint_name rexpr in
+      let name = name ^ " (" ^ prop_desc ^ ")" in
       let src = Property.Generated (Some pos, [sv]) in
       a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
-
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_array_constraints

@@ -255,6 +255,20 @@ let rec substitute_naive_list (var:HString.t list) (t:expr list) = function
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive_list var t e) expr_list)
 
+let rec substitute_naive_list_ty (var:HString.t list) (t:expr list) = function
+  | ArrayType (pos, (ty, expr)) -> (
+    let expr = substitute_naive_list var t expr in 
+    let ty = substitute_naive_list_ty var t ty in
+    ArrayType (pos, (ty, expr))
+  )
+  | TupleType(pos, tys) -> 
+    TupleType(pos, List.map (substitute_naive_list_ty var t) tys)
+  | GroupType(pos, tys) -> 
+    GroupType(pos, List.map (substitute_naive_list_ty var t) tys)
+  | TArr(pos, ty1, ty2) ->
+    TArr(pos, substitute_naive_list_ty var t ty1, substitute_naive_list_ty var t ty2)
+  | _ as ty -> ty
+
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     

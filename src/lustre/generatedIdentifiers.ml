@@ -62,8 +62,9 @@ type t = {
     list;
   array_constraints : (
     Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
+    * HString.t (* Generated name for array constraint expression *)
+    * LustreAst.expr (* Computed expr *)
+    * string) (* Constraint textual description *)
     list;
   expanded_variables : StringSet.t;
   equations :
