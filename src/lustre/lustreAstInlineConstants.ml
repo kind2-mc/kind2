@@ -489,7 +489,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
   function
   | TypeDecl (span, AliasType (pos, i, t)) ->
     let t' = inline_constants_of_lustre_type ctx t in
-    ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
+    TC.add_ty_syn ctx i t', LA.TypeDecl (span, AliasType (pos, i, t'))
   | ConstDecl (span, FreeConst (pos, id, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     ctx, ConstDecl (span, FreeConst (pos, id, ty'))
