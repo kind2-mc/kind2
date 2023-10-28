@@ -1,0 +1,28 @@
+node Top(
+  ref_ck:        bool;
+) returns (
+  msc:           int;
+)
+let
+  msc     = Subnode(ref_ck);
+  --%PROPERTY msc <= 7;
+tel
+
+node Subnode(
+  good:       bool;
+) returns (
+  msc: int;
+)
+let
+  msc = SubsubnodeWithConst(7, 1);
+tel
+
+function SubsubnodeWithConst(
+  const max: int;
+  value: int;
+) returns (
+  i: int;
+)
+let
+  i = value;
+tel

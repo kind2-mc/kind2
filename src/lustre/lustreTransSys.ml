@@ -809,6 +809,11 @@ let call_terms_of_node_call mk_fresh_state_var globals
     |> D.values
   in
 
+  let call_locals =
+    (* Filter out instance vars that are arguments of a constant parameter in a subnode call *)
+    List.filter (fun sv -> StateVar.is_const sv |> not) call_locals
+  in
+
   (* Return actual parameters of transition relation at bound in the
      correct order *)
   let trans_params_of_bound term_of_state_var pre_term_of_state_var =
