@@ -524,6 +524,7 @@ let rec type_extract_array_lens input proj ty = match ty with
     type_extract_array_lens input proj ty
   | _ -> []
 
+(* Like List.combine but for three list arguments *)
 let rec combine_three lst1 lst2 lst3 =
   match (lst1, lst2, lst3) with
   | ([], [], []) -> []
@@ -531,8 +532,7 @@ let rec combine_three lst1 lst2 lst3 =
       (x, y, z) :: combine_three xs ys zs
   | _ -> assert false
 
-(* Find which formal parameters are connected with array length, and 
-   construct expression from arguments *)
+(* Create array length constraints associated with calls *)
 let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id = 
   let call_info = List.find_opt (fun (_, id2, _, _, _, _, _) -> 
       rhs_id = id2
@@ -548,13 +548,13 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     ) args |> List.split in
     let ctx = List.fold_left Ctx.union ctx rec_ctx in
     let rec_constraints = List.flatten rec_constraints in
-    (* For each array argument, retrieve the corresponding array length argument *)
+    (* Find array length parameters; e.g. "m" in argument of type "int^m" *)
     let call_params = Ctx.lookup_node_param_attr ctx id |> unwrap_opt in 
     let node_ty = Ctx.lookup_node_ty ctx id |> unwrap_opt in
     let call_param_array_lens = type_extract_array_lens true proj node_ty in
     let call_ret_param_array_lens = type_extract_array_lens false proj node_ty in
     let find_matching_len_params array_param_lens = 
-      List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens (*!! Not safe !!*)
+      List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens
     in
     let call_param_len_idents = List.map (AH.vars_without_node_call_ids) call_param_array_lens 
       |> List.map A.SI.elements
@@ -562,10 +562,14 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     let call_ret_param_len_idents = List.map AH.vars_without_node_call_ids call_ret_param_array_lens 
       |> List.map A.SI.elements
     in
+    (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
+       of array length param "m" is 0. *)
     let array_len_indices = List.map find_matching_len_params call_param_len_idents in
     let array_len_indices2 = List.map find_matching_len_params call_ret_param_len_idents in
+    (* Retrieve concrete arguments passed as array lengths *)
     let array_len_exprs = List.map (List.map (List.nth args)) array_len_indices in
     let array_len_exprs2 = List.map (List.map (List.nth args)) array_len_indices2 in
+    (* If equation LHS is of the form n_call, then update the context to store type info about n_call *)
     let ctx = (fun ctx id ->
       if is_call gids lhs_id then (
         let ret_ty = match List.find_opt (fun (_, id2, _, _, _, _, _) -> id = id2) gids.calls with
@@ -583,6 +587,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
           | hd :: _ -> Ctx.add_ty ctx id hd)
       ) else ctx
     ) ctx lhs_id in
+    (* In array length expressions, substitute params for their concrete values *)
     let array_len_exprs = (List.map (fun (call_param_len_idents, array_len_exprs, call_param_array_lens) -> 
         AH.substitute_naive_list call_param_len_idents array_len_exprs call_param_array_lens)
       ) (combine_three call_param_len_idents array_len_exprs call_param_array_lens)
@@ -591,7 +596,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
         AH.substitute_naive_list call_param_len_idents array_len_exprs call_param_array_lens)
       ) (combine_three call_ret_param_len_idents array_len_exprs2 call_ret_param_array_lens)
     in 
-    (* Retrieve array lengths from LHS variable's type *)
+    (* Retrieve array length params from LHS and call variables' types *)
     let array_lhs_ty = Ctx.lookup_ty ctx lhs_id |> unwrap_opt in
     let array_lhs_ty_lens = type_extract_array_lens true proj array_lhs_ty in
     let array_arg_ty_lens = List.map (fun arg -> match arg with 
@@ -606,6 +611,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     let array_arg_ty_lens = 
       List.map (fun (id, pos, exprs) -> List.map (fun expr -> (id, pos, expr)) exprs) array_arg_ty_lens |> List.flatten 
     in
+    (* Constraints associated with call arguments *)
     let constraints1 = 
       (* Only need to add constraints associated with calls once *)
       if proj = 0 then 
@@ -614,6 +620,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
           array_len_exprs
       else []
     in 
+    (* Constraints associated with equation LHS *)
     let constraints2 = 
       (* Filter out constraints over LHS of generated equations of the form n_call = expr *)
       if not (is_call gids lhs_id) then
@@ -624,8 +631,8 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     ctx, rec_constraints @ constraints1 @ constraints2
 
 let mk_array_exprs gids ctx eq arity = match eq with
-    (* Calls with arrays and array lengths as arguments must pass correct lengths for the corresponding arrays
-       (doesn't necessarily have array on LHS) *)
+    (* Definitions of array variables and calls with arrays and array lengths as arguments 
+       must respect array length constraints *)
   | (A.Equation (lhs_pos, StructDef(_, sis), rhs)) -> 
     let eqns = List.init arity (fun p -> rhs, p) in
     let constraints =
