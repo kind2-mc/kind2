@@ -836,7 +836,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVAND, _
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
-      | `BVSIGNEXT _ , _ -> assert false 
+      | `BVSIGNEXT _ , _
+      | `BVZEROEXT _ , _ -> assert false
     )    
 
   (* | Term.T.Attr (t, _) -> t *)
@@ -1908,6 +1909,12 @@ let bv_signext i = function
       (Term.bitvector_of_term b)))
   | _ -> assert false
 
+let bv_zeroext i = function
+  | [BV b] ->
+    BV (Term.mk_ubv (Bitvector.bvzeroext
+      (Numeral.to_int i)
+      (Term.bitvector_of_term b)))
+  | _ -> assert false
 
 let bv_concat = function
   | [a] -> a
@@ -2390,6 +2397,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `BVEXTRACT (i, j) -> bv_extract i j args
 
           | `BVSIGNEXT i -> bv_signext i args
+
+          | `BVZEROEXT i -> bv_zeroext i args
 
           | `BVCONCAT -> bv_concat args
 
@@ -3085,6 +3094,8 @@ let rec remove_ite' fterm args =
         | `BVEXTRACT (i, j) -> bv_extract i j args
 
         | `BVSIGNEXT i -> bv_signext i args
+
+        | `BVZEROEXT i -> bv_zeroext i args
 
         | `BVCONCAT -> bv_concat args
 

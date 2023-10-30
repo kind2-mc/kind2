@@ -40,6 +40,8 @@ let bvsignext (m : int) (b : t) : t =
       | m' -> b :: repeat (m' - 1) b 
     in List.append (repeat m sign) b
 
+let bvzeroext (m : int) (b : t) : t = zero m @ b
+
 (* Function that concatenates the input bitvectors *)
 let bvconcat (b1 : t) (b2 : t) : t =
   List.append b1 b2
