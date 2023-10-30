@@ -206,7 +206,7 @@ let type_check declarations =
         )
         else
           (warn_at_position (LW.warning_position warning) (LW.warning_message warning); Ok ())
-    ) warnings
+    ) (LW.sort_warnings_by_pos warnings)
     in
     let warning = List.fold_left (>>) (Ok ()) warnings in
     Debug.parse "Type checking done";
