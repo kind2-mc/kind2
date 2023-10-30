@@ -1009,11 +1009,11 @@ and normalize_item info map = function
     let nequation, gids, warnings = normalize_equation info map equation in
     [A.Body nequation], gids, warnings
   | A.Body ((Equation (pos, _, expr)) as equation) ->
-    let nequation, gids1, warnings = normalize_equation info map equation in
+    let nequation, gids, warnings = normalize_equation info map equation in
     let arity = Ctx.arity_of_expr info.context expr in
-    let gids2 = mk_fresh_array_constraints gids1 info pos nequation arity in
+    let gids = mk_fresh_array_constraints gids info pos nequation arity in
     (* let gids2 = empty () in *)
-    [A.Body nequation], union gids1 gids2, warnings
+    [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
   | IfBlock _ 
   | FrameBlock _ -> 
