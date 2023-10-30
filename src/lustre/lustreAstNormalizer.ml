@@ -1536,11 +1536,11 @@ and normalize_expr ?guard info map =
     normalize_expr ?guard info map expr
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
-    let ty = if expr_has_inductive_var ivars expr then
-        (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else Chk.infer_type_expr info.context expr |> unwrap
+    let ty, force = if expr_has_inductive_var ivars expr then
+        (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
+      else Chk.infer_type_expr info.context expr |> unwrap, false
       in
-    let nexpr, gids1, warnings1 = abstract_expr ?guard:None false info map false expr in
+    let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info map false expr in
     let guard, gids2, warnings2, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
       | None ->
@@ -1550,13 +1550,21 @@ and normalize_expr ?guard info map =
     in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
-    let nexpr' = match nexpr with
-      | A.ArrayIndex (pos2, expr1, expr2) ->
-        A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
-      | e -> Pre (pos, e)
-    in
-    if previously_guarded then nexpr', gids, warnings
-    else Arrow (pos, guard, nexpr'), gids, warnings
+    if previously_guarded then
+      let nexpr' = match nexpr with
+        | A.ArrayIndex (pos2, expr1, expr2) ->
+          A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
+        | e -> Pre (pos, e)
+      in
+      nexpr', gids, warnings
+    else
+      let nexpr' =
+        match nexpr with
+        | A.ArrayIndex (pos2, expr1, expr2) ->
+          A.ArrayIndex (pos2, A.Arrow (pos, guard, Pre (pos, expr1)), expr2)
+        | e -> Arrow (pos, guard, Pre (pos, e))
+      in
+      nexpr', gids, warnings
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)

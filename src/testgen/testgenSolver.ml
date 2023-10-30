@@ -80,6 +80,8 @@ let mk sys =
     term_of_actlit fresh
   in
 
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+
   (* Asserting init conditionally. *)
   S.trace_comment solver "|===| Conditional init." ;
   Term.mk_implies [ actlit ;

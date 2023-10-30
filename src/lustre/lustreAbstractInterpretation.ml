@@ -24,24 +24,35 @@ module LA = LustreAst
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
+module R = Res
+
+type error_kind = Unknown of string
+  | ConstantOutOfSubrange of HString.t
+
+type error = [
+  | `LustreAbstractInterpretationError of Lib.position * error_kind
+]
+
+let error_message kind = match kind with
+  | Unknown s -> s
+  | ConstantOutOfSubrange i -> "Constant " ^ (HString.string_of_hstring i) ^ 
+  " is assigned a value outside of its subrange type"
+
+let inline_error pos kind = Error (`LustreAbstractInterpretationError (pos, kind))
+
 let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
 
-module IMap = struct
-  (* everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = HString.compare i1 i2
-            end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
+module IMap = HString.HStringMap
 
 (** Context from a node identifier to a map of its
   variable identifiers to their inferred subrange bounds *)
 type context = LA.lustre_type IMap.t IMap.t
 
 let dpos = Lib.dummy_pos
+
+let dnode_id = HString.mk_hstring "dummy_node_id"
 
 let empty_context = IMap.empty
 
@@ -77,18 +88,18 @@ let extract_bounds_from_type ty =
   | IntRange _ -> None, None
   | _ -> None, None)
 
-let subrange_from_bounds l r =
+let subrange_from_bounds pos l r =
   let l = HString.mk_hstring (Numeral.string_of_numeral l) in
   let r = HString.mk_hstring (Numeral.string_of_numeral r) in
-  LA.IntRange (dpos, Some (Const (dpos, Num l)), Some (Const (dpos, Num r)))
+  LA.IntRange (pos, Some (Const (pos, Num l)), Some (Const (pos, Num r)))
 
-let subrange_from_lower l = 
+let subrange_from_lower pos l = 
   let l = HString.mk_hstring (Numeral.string_of_numeral l) in
-  LA.IntRange (dpos, Some (Const (dpos, Num l)), None)
+  LA.IntRange (pos, Some (Const (pos, Num l)), None)
 
-let subrange_from_upper r = 
+let subrange_from_upper pos r = 
   let r = HString.mk_hstring (Numeral.string_of_numeral r) in
-  LA.IntRange (dpos, None, Some (Const (dpos, Num r)))
+  LA.IntRange (pos, None, Some (Const (pos, Num r)))
 
 let rec merge_types a b = match a, b with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
@@ -151,26 +162,30 @@ let rec restrict_type_by ty restrict = match ty, restrict with
       | (Some Const (_, Num l1)), (Some Const (_, Num l2)) -> 
         let l1 = Numeral.of_string (HString.string_of_hstring l1) in
         let l2 = Numeral.of_string (HString.string_of_hstring l2) in
-        let lnum = Numeral.min l1 l2 in
+        let lnum = Numeral.max l1 l2 in
         let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
         Some (LA.Const (dpos, Num l)), not (Numeral.equal l1 lnum)
-      | Some _, None -> None, true
-      | _ -> None, false 
+      | (Some _ as l), None -> l, false
+      | None, (Some _ as l) -> l, true 
+      | _ -> None, false
       
     in
     let upper, is_restricted2 = match u1, u2 with 
       | (Some Const (_, Num u1)), (Some Const (_, Num u2)) ->
         let u1 = Numeral.of_string (HString.string_of_hstring u1) in
         let u2 = Numeral.of_string (HString.string_of_hstring u2) in
-        let unum = Numeral.max u1 u2 in
+        let unum = Numeral.min u1 u2 in
         let u = HString.mk_hstring (Numeral.string_of_numeral unum) in
         Some (LA.Const (dpos, Num u)), not (Numeral.equal u1 unum)
-      | Some _, None -> None, true
-      | _ -> None, false 
+      | (Some _ as u), None -> u, false
+      | None, (Some _ as u) -> u, true
+      | _ -> None, false  
     in
     (*IntRange (dpos, lower, upper)*)
     let is_restricted = is_restricted1 || is_restricted2 in
-    IntRange (dpos, lower, upper), is_restricted
+    if (lower = None && upper = None) 
+    then Int dpos, is_restricted
+    else IntRange (dpos, lower, upper), is_restricted
   | IntRange _ as t, Int _ -> t, false
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
@@ -349,13 +364,14 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     interpret_structured_expr f node_id ctx ty_ctx ty proj expr
   | ArrayType (_, (t, s)) ->
     let f = function
-      | LA.GroupExpr (_, ArrayExpr, es) ->
+      | LA.GroupExpr (_, ArrayExpr, (e :: _ as es)) ->
         let t = List.fold_left (fun acc e ->
             let t' = interpret_expr_by_type node_id ctx ty_ctx t proj e in
             merge_types acc t')
-          t es
+          (interpret_expr_by_type node_id ctx ty_ctx t 0 e) es
         in
         Some (LA.ArrayType (dpos, (t, s)))
+      | LA.GroupExpr (pos, ArrayExpr, []) -> Some (ArrayType (pos, (t, s)))
       | ArrayConstr (_, e1, _) ->
         let t = interpret_expr_by_type node_id ctx ty_ctx t proj e1 in
         Some (ArrayType (dpos, (t, s)))
@@ -373,36 +389,53 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       | _ -> None
     in
     interpret_structured_expr f node_id ctx ty_ctx ty proj expr
-  | IntRange (_, (Some Const (_, Num l1)), (Some Const (_, Num r1))) as t ->
+  | IntRange (pos, (Some Const (_, Num l1)), (Some Const (_, Num r1))) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
     let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l2, r2 with
     | Some l2, Some r2 ->
       let l, r = Numeral.max l1 l2, Numeral.min r1 r2 in
-      subrange_from_bounds l r
+      subrange_from_bounds pos l r
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
+      subrange_from_bounds pos l r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
+      subrange_from_bounds pos l1 r
     | _ -> t)
-  | IntRange (_, (Some Const (_, Num l1)), None) as t ->
+  | IntRange (pos, (Some Const (_, Num l1)), None) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
-    let l2, _ = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match l2  with
-    | Some l2 ->
-      let l  = Numeral.max l1 l2  in
-      subrange_from_lower l 
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2  with
+    | Some l2, Some r2 ->
+      let l = Numeral.max l1 l2 in
+      subrange_from_bounds pos l r2
+    | Some l2, None ->
+      let l = Numeral.max l1 l2 in 
+      subrange_from_lower pos l 
+    | None, Some r2 ->
+      subrange_from_bounds pos l1 r2
     | _ -> t)
-  | IntRange (_, None, (Some Const (_, Num r1))) as t ->
+  | IntRange (pos, None, (Some Const (_, Num r1))) as t ->
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
-    let _, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
-    (match r2 with
-    | Some r2 ->
+    let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2, r2 with
+    | Some l2, Some r2 ->
       let r = Numeral.min r1 r2 in
-      subrange_from_upper r
+      subrange_from_bounds pos l2 r
+    | Some l2, None ->
+      subrange_from_bounds pos l2 r1
+    | None, Some r2 ->
+      let r = Numeral.min r1 r2 in 
+      subrange_from_upper pos r
     | _ -> t)
-  | IntRange (_, None, None) as t -> t
-  | Int _ | IntRange _ ->
+  | Int pos | IntRange (pos, None, None) ->
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with
-    | Some l, Some r -> subrange_from_bounds l r
+    | Some l, Some r -> subrange_from_bounds pos l r
+    | Some l, None -> subrange_from_lower pos l
+    | None, Some r -> subrange_from_upper pos r
     | _ -> LA.Int dpos)
   | t -> t
 
@@ -593,3 +626,106 @@ and interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2 =
     | _ -> None)
   in
   l, r
+
+let expr_opt_lte e1 e2 =
+  match e1 with 
+    | None -> true
+    | Some (LA.Const (_, Num l1)) -> (
+      match e2 with 
+        | None -> false
+        | Some (LA.Const (_, Num l2)) -> 
+          int_of_string (HString.string_of_hstring l1) <= int_of_string (HString.string_of_hstring l2)
+        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+      )
+    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+
+let expr_opt_gte e1 e2 =
+  match e1 with 
+    | None -> true
+    | Some (LA.Const (_, Num l1)) -> (
+      match e2 with 
+        | None -> false
+        | Some (LA.Const (_, Num l2)) -> 
+          int_of_string (HString.string_of_hstring l1) >= int_of_string (HString.string_of_hstring l2)
+        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+      )
+    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+
+(* Compare a constant's actual range to its inferred range to see if assignment is legal *)
+let rec compare_ranges id pos_map actual_ty inferred_range =
+  let error () =
+    let pos = IMap.find id pos_map in
+    inline_error pos (ConstantOutOfSubrange id)
+  in
+  match inferred_range with 
+  | LA.IntRange (_, e1, e2) ->
+    (match actual_ty with 
+      | LA.IntRange (_, e3, e4) -> 
+        if expr_opt_lte e3 e1 && expr_opt_gte e4 e2 && expr_opt_lte e1 e2
+        then R.ok () 
+        else error ()
+      | _ -> R.ok ())
+  | Int _ ->
+    (match actual_ty with 
+      | LA.IntRange (_, Some _, _) -> error ()
+      | LA.IntRange (_, _, Some _) -> error ()
+      | _ -> R.ok ())
+  | ArrayType (_, (ty1, _)) -> 
+    (match actual_ty with 
+      | ArrayType (_, (ty2, _)) -> compare_ranges id pos_map ty2 ty1
+      | _ -> R.ok ())
+  | TupleType (_, types1) -> 
+    (match actual_ty with 
+      | TupleType (_, types2) -> 
+        R.seq_ (List.map2 (compare_ranges id pos_map) types2 types1)
+      | _ -> R.ok ())
+  | _ -> R.ok ()
+
+let rec most_general_int_ty = function 
+  | LA.IntRange (pos, _, _) -> LA.Int pos
+  | LA.GroupType (pos, types)
+  | TupleType (pos, types) -> 
+    let types = List.map most_general_int_ty types in 
+    LA.TupleType (pos, types)
+  | RecordType (pos, id, tis) -> 
+    let tis = List.map (fun (p, id, ty) -> (p, id, most_general_int_ty ty)) tis in 
+    RecordType (pos, id, tis)
+  | LA.ArrayType (pos, (ty, expr)) -> 
+    let ty = most_general_int_ty ty in 
+    LA.ArrayType (pos, (ty, expr))
+  | _ as t -> t
+
+
+let interpret_const_decl ctx pos_map ty_ctx = function
+  | LA.ConstDecl (_, TypedConst (_, id, e, _)) 
+  | ConstDecl (_, UntypedConst (_, id, e)) -> 
+    (* Get inferred bounds from expr *)
+    let ty = Ctx.lookup_ty ty_ctx id |> get in
+    let ty = Ctx.expand_nested_type_syn ty_ctx ty in
+    let ty = most_general_int_ty ty in 
+    let ty = interpret_expr_by_type dnode_id ctx ty_ctx ty 0 e in
+    let pos = LustreAstHelpers.pos_of_expr e in
+    add_type ctx dnode_id id ty, IMap.add id pos pos_map
+  | _ -> ctx, pos_map
+
+let rec interpret_global_consts ty_ctx decls = 
+  let ctx, pos_map = List.fold_left (fun (ctx, pos_map) decl ->
+    let ctx, pos_map = interpret_const_decl ctx pos_map ty_ctx decl in
+    ctx, pos_map
+  ) (empty_context, IMap.empty) decls in
+  Res.seq_ (check_global_const_subrange ty_ctx ctx pos_map)
+
+and check_global_const_subrange ty_ctx ctx pos_map =
+  let ctx =
+    match IMap.find_opt dnode_id ctx with
+    | None -> empty_context
+    | Some ctx -> ctx
+  in
+  IMap.fold (fun id inferred_range acc ->
+    let actual_ty = Ctx.lookup_ty ty_ctx id |> get in
+    let actual_ty = Ctx.expand_nested_type_syn ty_ctx actual_ty in
+    (* Check if inferred range is outside of declared type *)
+    compare_ranges id pos_map actual_ty inferred_range :: acc
+  )
+  ctx
+  []

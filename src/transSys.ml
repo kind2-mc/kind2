@@ -97,6 +97,8 @@ type t =
     global_consts : Var.t list;
     (** List of global free constants *)
     
+    global_constraints : Term.t list;
+
     state_vars : StateVar.t list;
     (** State variables in the scope of this transition system 
 
@@ -478,6 +480,8 @@ let collect_instances ({ scope } as trans_sys) =
 (* Access the transition system                                           *)
 (* ********************************************************************** *)
 
+let global_constraints { global_constraints } = global_constraints
+
 (* Close term by binding variables to terms with a let binding *)
 let close_term bindings term = 
   if bindings = [] then term else Term.mk_let bindings term
@@ -543,6 +547,13 @@ let rec set_subsystem_equations t scope init trans =
     else (t.init, t.trans)
   in
   { t with init; trans; subsystems }
+
+let rec set_global_constraints t global_constraints =
+  let aux (t, instances) =
+    (set_global_constraints t global_constraints, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  { t with subsystems ; global_constraints }
 
 (* Return the state variable for the init flag *)
 let init_flag_state_var { init_flag_state_var } = init_flag_state_var
@@ -1078,6 +1089,9 @@ let define_and_declare_of_bounds
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
        
+
+let assert_global_constraints { global_constraints } assert_term =
+  List.iter (fun c -> assert_term c) global_constraints
 
 let init_uf_def { init_uf_symbol; init_formals; init } = 
   (init_uf_symbol, (init_formals, init))
@@ -1673,6 +1687,7 @@ let mk_trans_sys
   unconstrained_inputs
   state_var_bounds
   global_consts
+  global_constraints
   ufs
   init_uf_symbol
   init_formals
@@ -1841,6 +1856,7 @@ let mk_trans_sys
       state_var_bounds;
       subsystems;
       global_consts;
+      global_constraints;
       ufs;
       init_uf_symbol;
       init_formals;
@@ -2055,7 +2071,20 @@ let enforce_constantness_via_equations sys =
         in
         Term.mk_and (trans_eq :: eqs)
       in
-      set_subsystem_equations sys (scope_of_trans_sys sys) init_eq trans_eq
+      let sys' =
+        set_subsystem_equations sys (scope_of_trans_sys sys) init_eq trans_eq
+      in
+      let global =
+        global_constraints sys |> List.map (fun c ->
+          c |> Term.map_vars (fun v ->
+            let sv = Var.state_var_of_state_var_instance v in
+            if List.mem sv const_svars then
+              Var.mk_state_var_instance sv Numeral.zero
+            else
+              v)
+        )
+      in
+      set_global_constraints sys' global
     )
   in
   sys', const_svars

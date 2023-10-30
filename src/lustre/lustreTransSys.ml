@@ -809,6 +809,11 @@ let call_terms_of_node_call mk_fresh_state_var globals
     |> D.values
   in
 
+  let call_locals =
+    (* Filter out instance vars that are arguments of a constant parameter in a subnode call *)
+    List.filter (fun sv -> StateVar.is_const sv |> not) call_locals
+  in
+
   (* Return actual parameters of transition relation at bound in the
      correct order *)
   let trans_params_of_bound term_of_state_var pre_term_of_state_var =
@@ -2031,17 +2036,19 @@ let rec trans_sys_of_node'
             )
           in
 
+          let filter_enum_svars =
+            List.filter (fun state_var ->
+              let state_var_type = StateVar.type_of_state_var state_var in
+              if Type.is_array state_var_type then
+                let base_type = Type.last_elem_type_of_array state_var_type in
+                Type.is_enum base_type
+              else
+                Type.is_enum state_var_type
+            )
+          in
+
           let subrange_and_enum_state_vars =
-            let enum_state_vars =
-              all_state_vars |> List.filter (fun state_var ->
-                let state_var_type = StateVar.type_of_state_var state_var in
-                if Type.is_array state_var_type then
-                  let base_type = Type.last_elem_type_of_array state_var_type in
-                  Type.is_enum base_type
-                else
-                  Type.is_enum state_var_type
-              )
-            in
+            let enum_state_vars = filter_enum_svars all_state_vars in
             (* Inputs, defined outputs, and locals require a check.
                This is currently done in lustreDeclarations and lustreContext.
             *)
@@ -2146,14 +2153,33 @@ let rec trans_sys_of_node'
             |> List.rev
           in
           
-          let global_consts_sv =
+          let global_const_svars =
             List.map Var.state_var_of_state_var_instance global_consts
-            |> SVS.of_list in
-          let stateful_vars = List.filter (fun sv ->
-              not (SVS.mem sv global_consts_sv)
-            ) stateful_vars
           in
-          
+
+          let global_constraints =
+            List.map
+              (E.base_term_of_t TransSys.init_base)
+              globals.G.global_constraints
+          in
+
+          let global_constraints =
+            let enum_consts = filter_enum_svars global_const_svars in
+            List.fold_left
+              (add_constraints_of_type true)
+              global_constraints
+              enum_consts
+          in
+
+          let stateful_vars =
+            let global_const_svars =
+              SVS.of_list global_const_svars
+            in
+            List.filter
+              (fun sv -> not (SVS.mem sv global_const_svars))
+              stateful_vars
+          in
+
           (* Order initial state equations by dependency and
              generate terms *)
           let init_terms, svar_dep_init, node_output_input_dep_init =
@@ -2412,6 +2438,7 @@ let rec trans_sys_of_node'
               unconstrained_inputs
               globals.G.state_var_bounds
               global_consts
+              global_constraints
               ufs
               init_uf_symbol
               init_formals

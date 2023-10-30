@@ -1,0 +1,8 @@
+
+const n: int;
+
+node N() returns (B: int^n);
+let
+  B[i] = 0 -> i;
+  check forall (i: int) 0 <= i and i < n => B[i]=(0 -> pre i);
+tel

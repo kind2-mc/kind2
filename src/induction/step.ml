@@ -686,6 +686,8 @@ let launch input_sys aparam trans =
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
+  TransSys.assert_global_constraints trans (SMTSolver.assert_term solver) ;
+
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero
   |> Term.mk_and

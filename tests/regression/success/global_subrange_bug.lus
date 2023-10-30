@@ -1,0 +1,13 @@
+
+type S02 = subrange [0, 2] of int;
+
+const X = 2;
+const Y: subrange [0, 4] of int = X;
+const M: S02 = Y;
+
+const W: S02^3 = [0, 1, 2];
+
+node main() returns ();
+let 
+  check M <= 2;
+tel

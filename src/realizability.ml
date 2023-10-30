@@ -206,7 +206,10 @@ let realizability_check ?(include_invariants=false) vars_of_term
 
   let free_of_controllable_vars_at_0, contains_controllable_vars_at_0 =
     let init = TSys.init_of_bound None sys Numeral.zero in
-    term_partition controllable_vars_at_0 (get_conjucts init)
+    let constraints_at_0 =
+      (TransSys.global_constraints sys) @ (get_conjucts init)
+    in
+    term_partition controllable_vars_at_0 constraints_at_0
   in
 
   let rec loop fp1 fp =
@@ -741,6 +744,8 @@ let compute_deadlocking_trace_and_conflict
     Term.mk_and
       (neg_vr :: (cex_assigns @ guarantee_mode_elts_term @ other_term))
   in
+
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
 
   SMTSolver.assert_term solver constraints ;
 

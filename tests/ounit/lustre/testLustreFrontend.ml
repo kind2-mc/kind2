@@ -170,6 +170,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/var_redefinition3.lus" with
     | Error (`LustreSyntaxChecksError (_, DuplicateLocal _)) -> true
     | _ -> false);
+  mk_test "test applying pre operator to quantified variable" (fun () ->
+    match load_file "./lustreSyntaxChecks/pre_of_quantified_var.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -661,4 +665,34 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
     | _ -> false);  
+])
+
+(* *************************************************************************** *)
+(*                        Lustre Abstract Interpretation Checks                *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >::: [
+  mk_test "test subrange bug 1" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug1.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
+  mk_test "test subrange bug 2" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug2.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
+  mk_test "test subrange bug 3" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug3.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
+  mk_test "test subrange bug 4" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug4.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
+  mk_test "test subrange bug 5" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug5.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
+  mk_test "test subrange bug 6" (fun () ->
+    match load_file "./lustreAbstractInterpretation/subrange_bug6.lus" with
+    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+    | _ -> false);
 ])

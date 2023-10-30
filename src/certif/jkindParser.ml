@@ -455,8 +455,9 @@ let of_channel in_ch =
       allstatevars
       StateVar.StateVarSet.empty (* underapproximation *)
       (StateVar.StateVarHashtbl.create 3)
-      []
-      []
+      [] (* Global consts *)
+      [] (* Global constraints *)
+      [] (* Ufs *)
       init_uf_symbol
       init_args
       init_term

@@ -1,0 +1,6 @@
+const L: int;
+const M: subrange [0, 2] of int = L;
+node main() returns ();
+let 
+  check M <= 2;
+tel

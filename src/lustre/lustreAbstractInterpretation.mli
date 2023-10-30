@@ -19,13 +19,20 @@
 (** 
     @author Andrew Marmaduke *)
 
-module IMap : sig
-  (* everything that [Stdlib.Map] gives us  *)
-  include (Map.S with type key = LustreAst.ident)
-  val keys: 'a t -> key list
-end
+module IMap = HString.HStringMap
 
 type context
+
+
+type error_kind = Unknown of string
+  | ConstantOutOfSubrange of HString.t
+
+type error = [
+  | `LustreAbstractInterpretationError of Lib.position * error_kind
+]
+
+val error_message: error_kind -> string
+(** Returns an message describing the error kind *)
 
 val empty_context: context
 
@@ -34,3 +41,9 @@ val get_type: context -> LustreAst.ident -> LustreAst.ident -> LustreAst.lustre_
 val union: context -> context -> context
 
 val interpret_program: TypeCheckerContext.tc_context -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> LustreAst.t -> context
+
+val interpret_global_consts: TypeCheckerContext.tc_context -> LustreAst.declaration list ->
+  ( unit,
+    [> `LustreAbstractInterpretationError of
+       Lib.position * error_kind ] )
+  result

@@ -46,6 +46,7 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
+  | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | ChooseOpInFunction
@@ -89,6 +90,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
+  | QuantifiedVariableInPre var -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
   | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument to the node call '"
     ^ HString.string_of_hstring node ^ "'"
@@ -544,6 +547,16 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
       | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, i))
       | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, i))
       | false, false -> Ok ())
+    in
+    let check = List.map over_vars (LA.SI.elements vars) in
+    List.fold_left (>>) (Ok ()) check
+  | LA.Pre (_, ArrayIndex (_, _, _)) -> Ok ()
+  | LA.Pre (pos, e) ->
+    let vars = LAH.vars_without_node_call_ids e in
+    let over_vars j = 
+      let found_quant = StringMap.mem j ctx.quant_vars in
+      if found_quant then syntax_error pos (QuantifiedVariableInPre j)
+      else Ok ()
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check
