@@ -11,13 +11,14 @@ jobs:
   kind2-build:
     strategy:
       matrix:
-        ocaml-version: [ 4.09.1 ]
         os: [ ubuntu-20.04, macos-11 ]
         include:
           - os: macos-11
+            ocaml-version: 4.14.1
             pkg_update: brew update
             z3_install: brew install z3
           - os: ubuntu-20.04
+            ocaml-version: 4.09.1
             pkg_update: sudo apt-get update -y
             z3_install: sudo apt-get install -y z3
 
