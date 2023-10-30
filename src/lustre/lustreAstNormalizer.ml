@@ -83,9 +83,12 @@ type error = [
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
+  | UseOfAssertionWarning
 
 let warning_message warning = match warning with
   | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
+  | UseOfAssertionWarning ->
+    "Assertions are not checked; please consider using a contract assumption instead"
 
 type warning = [
   | `LustreAstNormalizerWarning of Lib.position * warning_kind
@@ -1047,6 +1050,7 @@ and normalize_contract info map items =
 and normalize_equation info map = function
   | Assert (pos, expr) ->
     let nexpr, map, warnings = abstract_expr true info map true expr in
+    let warnings = mk_warning pos UseOfAssertionWarning :: warnings in
     A.Assert (pos, nexpr), map, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
