@@ -353,16 +353,16 @@ lustre_type:
 
   (* Predefined types *)
   | BOOL { A.Bool (mk_pos $startpos) }
-  | INT { A.Int (mk_pos $startpos)}
-  | REAL { A.Real (mk_pos $startpos)}
-  | UINT8 { A.UInt8 (mk_pos $startpos)}
-  | UINT16 { A.UInt16 (mk_pos $startpos)}
-  | UINT32 { A.UInt32 (mk_pos $startpos)}
-  | UINT64 { A.UInt64 (mk_pos $startpos)}
-  | INT8 { A.Int8 (mk_pos $startpos)}
-  | INT16 { A.Int16 (mk_pos $startpos)}
-  | INT32 { A.Int32 (mk_pos $startpos)}
-  | INT64 { A.Int64 (mk_pos $startpos)}
+  | INT { A.Int (mk_pos $startpos) }
+  | REAL { A.Real (mk_pos $startpos) }
+  | UINT8 { A.UInt8 (mk_pos $startpos) }
+  | UINT16 { A.UInt16 (mk_pos $startpos) }
+  | UINT32 { A.UInt32 (mk_pos $startpos) }
+  | UINT64 { A.UInt64 (mk_pos $startpos) }
+  | INT8 { A.Int8 (mk_pos $startpos) }
+  | INT16 { A.Int16 (mk_pos $startpos) }
+  | INT32 { A.Int32 (mk_pos $startpos) }
+  | INT64 { A.Int64 (mk_pos $startpos) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 
@@ -371,7 +371,7 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { A.IntRange (mk_pos $startpos, l, u)}
+    { A.IntRange (mk_pos $startpos, l, u) }
 
   (* User-defined type *)
   | s = ident { A.UserType (mk_pos $startpos, s) }
@@ -386,6 +386,9 @@ lustre_type:
 
   (* Array type (V6) *)
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
+
+  (* Refinement type *)
+  | t = refinement_type { t }
 
 (* A tuple type *)
 tuple_type:
@@ -407,6 +410,14 @@ record_type:
 (* An array type (V6) *)
 array_type: 
   | t = lustre_type; CARET; s = expr { t, s }
+
+
+(* Refinement type *)
+refinement_type:
+  | LPAREN; id = typed_ident; BAR; e = expr; RPAREN
+    { A.RefinementType (mk_pos $startpos, id, e, None) } 
+  | LPAREN; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RPAREN
+    { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
 
 (*
   (* Alternate syntax: array [size] of type *)

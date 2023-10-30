@@ -147,7 +147,8 @@ and lustre_type =
   | RecordType of position * ident * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
-  | TArr of position * lustre_type * lustre_type  
+  | TArr of position * lustre_type * lustre_type 
+  | RefinementType of position * typed_ident * expr * expr option 
 
 
 (* A declaration of an unclocked type *)
