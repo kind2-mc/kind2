@@ -104,6 +104,8 @@ let smtlib_string_sexpr_conv =
        s_index = HString.mk_hstring "_";
        s_int2bv = HString.mk_hstring "int2bv";
        s_extract = HString.mk_hstring "extract";
+       s_signext = HString.mk_hstring "sign_extend";
+       s_zeroext = HString.mk_hstring "zero_extend";
        prime_symbol = None;
        s_define_fun = HString.mk_hstring "define-fun";
        s_declare_fun = HString.mk_hstring "declare-fun";
@@ -526,6 +528,7 @@ let ensure_symbol_qf_lira s =
   | `BVEXTRACT _
   | `BVCONCAT
   | `BVSIGNEXT _
+  | `BVZEROEXT _
   | `UINT8_TO_INT
   | `UINT16_TO_INT
   | `UINT32_TO_INT

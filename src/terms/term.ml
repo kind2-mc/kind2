@@ -728,7 +728,7 @@ let rec type_of_term' t = match T.destruct t with
 
             | _ -> assert false)
 
-        | `BVSIGNEXT i ->
+        | `BVSIGNEXT i | `BVZEROEXT i ->
 
           (match l with
           

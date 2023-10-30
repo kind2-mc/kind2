@@ -44,7 +44,7 @@ let cmd_line
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
-  let base_cmd = [| bitwuzla_bin; "--smt2"; "--incremental" |] in
+  let base_cmd = [| bitwuzla_bin |] in
   match timeout with
   | None -> base_cmd
   | Some timeout ->
