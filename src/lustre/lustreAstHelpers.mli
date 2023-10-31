@@ -45,7 +45,7 @@ val type_arity : lustre_type -> int * int
     where `a` is the number of inputs and `b` is the number of outputs,
     every other type has arity `(0, 0)` *)
 
-val type_contains_subrange : lustre_type -> bool
+val type_contains_subrange_or_ref_type : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
 val substitute_naive : HString.t -> expr -> expr -> expr

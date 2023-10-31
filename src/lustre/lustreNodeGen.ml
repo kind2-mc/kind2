@@ -1588,6 +1588,28 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       result :: glocals
     in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
   (* ****************************************************************** *)
+  (* (State Variables for) Generated Refinement Type Constraints        *)
+  (* ****************************************************************** *)
+  in let glocals =
+    let over_generated_locals glocals (_, _, id, _) =
+      let ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
+      let over_indices = fun index index_type accum ->
+        let possible_state_var = mk_state_var
+          map
+          (node_scope @ I.reserved_scope)
+          ident
+          index
+          index_type
+          (Some N.KGhost)
+        in
+        match possible_state_var with
+        | Some state_var -> X.add index state_var accum
+        | None -> accum
+      in let result = X.fold over_indices index_types X.empty in
+      result :: glocals
+    in List.fold_left over_generated_locals glocals gids.GI.refinement_type_constraints
+  (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
   in let glocals =
@@ -2096,6 +2118,91 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       gids.GI.subrange_constraints
     in
     assumes, guarantees, props
+(* ****************************************************************** *)
+  (* Generate Contract Constraints for Integer Subranges                *)
+  (* ****************************************************************** *)
+  in let (assumes, guarantees, props) =
+    let create_constraint_name rexpr = 
+      Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+    in
+    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, rexpr) =
+      let sv = H.find !map.state_var (mk_ident id) in
+      let effective_contract = guarantees != [] || modes != [] in
+      let constraint_kind = match source with
+        | GI.Input -> Some N.Assumption
+        | Local -> None
+        | Output -> if not ext && not effective_contract then
+            None else Some N.Guarantee
+        | Ghost -> Some N.Guarantee
+      in
+      if is_original then
+        match constraint_kind with
+        | Some N.Assumption ->
+          let name = create_constraint_name rexpr in
+          let contract_sv = C.mk_svar pos ac (Some name) sv [] in
+          N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
+          contract_sv :: a, ac + 1, g, gc, p
+        | Some N.Guarantee ->
+          let name = create_constraint_name rexpr in
+          let contract_sv = C.mk_svar pos gc (Some name) sv [] in
+          N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
+          a, ac, (contract_sv, false) :: g, gc + 1, p
+        | None ->
+          let name = create_constraint_name rexpr in
+          let src = Property.Generated (Some pos, [sv]) in
+          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+        | _ -> assert false
+      else
+        let name = create_constraint_name rexpr in
+        let src = Property.Generated (Some pos, [sv]) in
+        let src = Property.Candidate (Some src) in
+        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+    in
+    let (assumes, _, guarantees, _, props) = 
+      List.fold_left over_subrange_constraints
+      (assumes, List.length assumes, guarantees, List.length guarantees, props)
+      gids.GI.subrange_constraints
+    in
+    assumes, guarantees, props
+  (* ****************************************************************** *)
+  (* Generate Contract Constraints for Refinement Type Constraints      *)
+  (* ****************************************************************** *)
+  in let (assumes, guarantees, props) =
+  let create_constraint_name rexpr = 
+    Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+  in
+  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
+    let sv = H.find !map.state_var (mk_ident id) in
+    let effective_contract = guarantees != [] || modes != [] in
+    let constraint_kind = match source with
+      | GI.Input -> Some N.Assumption
+      | Local -> None
+      | Output -> if not ext && not effective_contract then
+          None else Some N.Guarantee
+      | Ghost -> Some N.Guarantee
+    in match constraint_kind with
+      | Some N.Assumption ->
+        let name = create_constraint_name rexpr in
+        let contract_sv = C.mk_svar pos ac (Some name) sv [] in
+        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
+        contract_sv :: a, ac + 1, g, gc, p
+      | Some N.Guarantee ->
+        let name = create_constraint_name rexpr in
+        let contract_sv = C.mk_svar pos gc (Some name) sv [] in
+        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
+        a, ac, (contract_sv, false) :: g, gc + 1, p
+      | None ->
+        let name = create_constraint_name rexpr in
+        let src = Property.Generated (Some pos, [sv]) in
+        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+      | _ -> assert false
+  in
+  let (assumes, _, guarantees, _, props) = 
+    List.fold_left over_ref_type_constraints
+    (assumes, List.length assumes, guarantees, List.length guarantees, props)
+    gids.GI.refinement_type_constraints
+  in
+  assumes, guarantees, props
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)

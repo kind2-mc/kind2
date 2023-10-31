@@ -266,6 +266,13 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
+  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+    Format.fprintf ppf "(%a, %a, %a, %a)"
+      pp_print_source source
+      Lib.pp_print_position pos
+      HString.pp_print_hstring id
+      A.pp_print_expr rexpr
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -276,13 +283,14 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
+    (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -452,15 +460,15 @@ let mk_range_expr ctx expr_type expr =
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun ty -> AH.type_contains_subrange_or_ref_type ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange_or_ref_type ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | _ -> assert false
+    | _ -> []
   in
   mk ctx 0 expr_type expr
 
@@ -480,6 +488,39 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
     in
     gids)
     range_exprs
+  in
+  List.fold_left union (empty ()) gids
+
+let mk_ref_type_expr id = function 
+  | A.RefinementType (_, (_, id2, _), expr1, Some expr2) ->
+    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
+       in terms of x instead of y *)
+    let expr1 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr1 in
+    let expr2 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr2 in
+    [expr1; expr2]
+  | A.RefinementType (_, (_, id2, _), expr, None) -> 
+    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
+       in terms of x instead of y *)
+    let expr = AH.substitute_naive id2 (A.Ident (dpos, id)) expr in
+    [expr]
+  | _ -> []
+
+
+let mk_fresh_refinement_type_constraint source info pos id expr_type =
+  let ref_type_exprs = mk_ref_type_expr id expr_type in
+  let gids = List.map (fun ref_type_expr ->
+    i := !i + 1;
+    let output_expr = AH.rename_contract_vars ref_type_expr in
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
+    let nexpr = A.Ident (pos, name) in
+    let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
+    let gids = { (empty ()) with
+      refinement_type_constraints = [(source, pos, name, output_expr)];
+      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_expr)]; }
+    in
+    gids)
+    ref_type_exprs
   in
   List.fold_left union (empty ()) gids
 
@@ -690,21 +731,24 @@ and normalize_node info map
   let gids1 = inputs
     |> List.filter (fun (_, id, _, _, _) -> 
       let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange ty)
+      AH.type_contains_subrange_or_ref_type ty)
     |> List.fold_left (fun acc (p, id, _, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Input info p id ty))
+      let gids = union acc (mk_fresh_subrange_constraint Input info p id ty)
+      in union gids (mk_fresh_refinement_type_constraint Input info p id ty))
       (empty ())
   in
   let gids2 = outputs
     |> List.filter (fun (_, id, _, _) -> 
       let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange ty)
+      AH.type_contains_subrange_or_ref_type ty)
     |> List.fold_left (fun acc (p, id, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p id ty))
+      let gids = union acc (mk_fresh_subrange_constraint Output info p id ty)
+      in union gids (mk_fresh_refinement_type_constraint Output info p id ty))
+
       (empty ())
   in
   (* We have to handle contracts before locals
@@ -732,13 +776,14 @@ and normalize_node info map
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
-        AH.type_contains_subrange ty
+        AH.type_contains_subrange_or_ref_type ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Local info p id ty)
+        let gids = union acc (mk_fresh_subrange_constraint Local info p id ty)
+        in union gids (mk_fresh_refinement_type_constraint Local info p id ty)
       | _ -> assert false)
       (empty ())
   in
@@ -1019,8 +1064,9 @@ and normalize_contract info map items =
             List.map (
               fun (_, i, ty) -> 
               let new_id = StringMap.find i info.interpretation in
-              if AH.type_contains_subrange ty then
-                mk_fresh_subrange_constraint Ghost info pos new_id ty
+              if AH.type_contains_subrange_or_ref_type ty then
+                union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
+                      (mk_fresh_refinement_type_constraint Ghost info pos new_id ty)
               else empty ()
             )
             tis

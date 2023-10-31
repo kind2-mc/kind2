@@ -1213,14 +1213,15 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (unit, [> e
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
   (* forbid subranges in the arguments or return types *)
+  (*!! Think about this !!*)
   R.seq (List.map (fun (pos, i, ty, _, _) -> 
     let ty = expand_nested_type_syn arg_ctx ty in
-    if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
+    if LH.type_contains_subrange_or_ref_type ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
     else Ok ())
     args)
   >> R.seq (List.map (fun (pos, i, ty, _) -> 
     let ty = expand_nested_type_syn ret_ctx ty in
-    if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (false, i, ty))
+    if LH.type_contains_subrange_or_ref_type ty then type_error pos (DisallowedSubrangeInContractReturn (false, i, ty))
     else Ok ())
     rets)
   (* get the local const var declarations into the context *)

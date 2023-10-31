@@ -89,14 +89,15 @@ let rec expr_contains_call = function
   | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | ChooseOp (_, _, _, _)
     -> true
 
-let rec type_contains_subrange = function
+let rec type_contains_subrange_or_ref_type = function
   | IntRange _ -> true
+  | RefinementType _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_subrange_or_ref_type ty) false tys
   | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange_or_ref_type ty)
       false tys
-  | ArrayType (_, (ty, _)) -> type_contains_subrange ty
+  | ArrayType (_, (ty, _)) -> type_contains_subrange_or_ref_type ty
   | _ -> false
 
 (* Substitute t for var. ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
