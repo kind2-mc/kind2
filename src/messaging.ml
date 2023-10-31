@@ -958,53 +958,41 @@ struct
         let unconfirmed_invariants = (Hashtbl.create 100) in
         let last_received_invariant_id = ref 0 in
 
-        while true do
+        while not !exit_flag do
 
-          if !exit_flag then 
+          (* get any messages from invariant manager *)
+          recv_messages sub_sock (is_invariant_manager proc);
 
-            (
-
-              (* send any messages in outgoing queue *)
-              worker_send_messages push_sock unconfirmed_invariants;
-
-              Zmq.Socket.close sub_sock;
-              Zmq.Socket.close push_sock;
-              Zmq.Context.terminate bg_ctx;
-
-              Thread.exit ()
-
-            )
-
-          else
+          (* handle incoming messages *)
+          if (not !debug_mode) then
 
             (
 
-              (* get any messages from invariant manager *)
-              recv_messages sub_sock (is_invariant_manager proc);
+              worker_handle_messages
+                unconfirmed_invariants
+                confirmed_invariants
+                last_received_invariant_id
 
-              (* handle incoming messages *)
-              if (not !debug_mode) then 
+            );
 
-                (
+          (* send any messages in outgoing queue *)
+          worker_send_messages push_sock unconfirmed_invariants;
 
-                  worker_handle_messages 
-                    unconfirmed_invariants 
-                    confirmed_invariants 
-                    last_received_invariant_id
+          (* resend any old unconfirmed invariants *)
+          worker_resend_invariants unconfirmed_invariants;
 
-                );
+          minisleep 0.01
 
-              (* send any messages in outgoing queue *)
-              worker_send_messages push_sock unconfirmed_invariants;
+        done ;
 
-              (* resend any old unconfirmed invariants *)
-              worker_resend_invariants unconfirmed_invariants;
+        (* send any messages in outgoing queue *)
+        worker_send_messages push_sock unconfirmed_invariants;
 
-              minisleep 0.01
+        Zmq.Socket.close sub_sock;
+        Zmq.Socket.close push_sock;
+        Zmq.Context.terminate bg_ctx;
 
-            )
-
-        done)
+      )
 
     with e -> on_exit e
 
