@@ -643,6 +643,17 @@ and pp_print_lustre_type ppf = function
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
        pp_print_lustre_type ret_ty 
+  | RefinementType (_, (_, id, ty), expr1, Some expr2) ->
+    Format.fprintf ppf "{ %a: %a | %a assuming %a }"
+      pp_print_ident id 
+      pp_print_lustre_type ty 
+      pp_print_expr expr1 
+      pp_print_expr expr2  
+  | RefinementType (_, (_, id, ty), expr1, None) ->
+    Format.fprintf ppf "{ %a: %a | %a }"
+      pp_print_ident id 
+      pp_print_lustre_type ty 
+      pp_print_expr expr1 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (_, s, t) = 

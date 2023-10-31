@@ -2275,6 +2275,8 @@ and eval_ast_type_flatten flatten_arrays ctx = function
         D.empty
   | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
+  | RefinementType (pos, _, _, _) -> fail_at_position pos "Refinement types not supported in old frontend"
+
 (*
 
 (* Standalone Lustre simplifier for testing *)

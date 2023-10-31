@@ -299,6 +299,9 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
+  (*!! Any special handling of new bound variable name? !!*)
+  | RefinementType (_, _, expr1, Some expr2) -> union_dependency_analysis_data (mk_graph_expr expr1) (mk_graph_expr expr2)
+  | RefinementType (_, _, expr1, None) -> mk_graph_expr expr1
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)

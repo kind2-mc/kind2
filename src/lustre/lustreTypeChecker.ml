@@ -1601,6 +1601,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     )
     else R.ok false
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
+  | RefinementType (_, (_, _, ty1), _, _), ty2 -> eq_lustre_type ctx ty1 ty2 
+  | ty1, RefinementType (_, (_, _, ty2), _, _) -> eq_lustre_type ctx ty1 ty2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
     if List.length is1 = List.length is2
     then
