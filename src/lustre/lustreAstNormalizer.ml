@@ -491,24 +491,29 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   in
   List.fold_left union (empty ()) gids
 
-let mk_ref_type_expr id = function 
+let mk_ref_type_expr id source = function 
   | A.RefinementType (_, (_, id2, _), expr1, Some expr2) ->
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
+    let source1, source2 = match source with 
+       | Local -> Output, Input
+       | Input -> Input, Output
+       | Output -> Output, Input
+       | Ghost -> assert false in
     let expr1 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr1 in
     let expr2 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr2 in
-    [expr1; expr2]
+    [(source1, expr1); (source2, expr2)]
   | A.RefinementType (_, (_, id2, _), expr, None) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
     let expr = AH.substitute_naive id2 (A.Ident (dpos, id)) expr in
-    [expr]
+    [(source, expr)]
   | _ -> []
 
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
-  let ref_type_exprs = mk_ref_type_expr id expr_type in
-  let gids = List.map (fun ref_type_expr ->
+  let ref_type_exprs = mk_ref_type_expr id source expr_type in
+  let gids = List.map (fun (source, ref_type_expr) ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars ref_type_expr in
     let prefix = HString.mk_hstring (string_of_int !i) in

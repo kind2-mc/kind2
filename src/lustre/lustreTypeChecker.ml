@@ -1497,11 +1497,27 @@ and check_const_integer_expr ctx kind e =
       type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
   | Error err -> Error err
 
+and check_const_boolean_expr ctx kind e =
+  match infer_type_expr ctx e with
+  | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
+    type_error pos
+      (ExpectedConstant (kind, "node call or choose operator"))
+  | Ok ty ->
+    let* eq = eq_lustre_type ctx ty (LA.Bool (LH.pos_of_expr e)) in
+    if eq then
+      R.ok ()
+    else
+      type_error (LH.pos_of_expr e) (ExpectedBooleanExpression ty)
+  | Error err -> Error err
+
 and check_array_size_expr ctx e =
   check_const_integer_expr ctx "array size expression" e
 
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
+
+and check_ref_type_expr ctx e =
+  check_const_boolean_expr ctx "refinement type predicate" e
 
 and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   = fun ctx ->
@@ -1512,10 +1528,20 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.RecordType (_, _, idTys) ->
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
+  (*!! Add case for refinement types? !!*)
   | LA.ArrayType (_, (b_ty, s)) -> (
     check_array_size_expr ctx s
     >> check_type_well_formed ctx b_ty
   )
+  | LA.RefinementType (_, (_, i, ty), e1, Some e2) -> 
+    let ctx = add_ty ctx i ty in
+    check_ref_type_expr ctx e1 
+    >> check_ref_type_expr ctx e2 
+    >> check_type_well_formed ctx ty
+  | LA.RefinementType (_, (_, i, ty), e, None) ->
+    let ctx = add_ty ctx i ty in
+    check_ref_type_expr ctx e 
+    >> check_type_well_formed ctx ty
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->
