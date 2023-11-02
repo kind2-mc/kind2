@@ -488,8 +488,16 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
   | TypeDecl (span, AliasType (pos, i, t)) ->
-    let t' = inline_constants_of_lustre_type ctx t in
-    ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
+    let ctx', t' =
+      match t with
+      | LA.EnumType _ ->
+        (* Special handling is applied to enum types (see type_check_infer_globals) *)
+        ctx, t
+      | _ ->
+        let t' = inline_constants_of_lustre_type ctx t in
+        TC.add_ty_syn ctx i t', t'
+    in
+    ctx', LA.TypeDecl (span, AliasType (pos, i, t'))
   | ConstDecl (span, FreeConst (pos, id, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     ctx, ConstDecl (span, FreeConst (pos, id, ty'))
@@ -501,11 +509,13 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
           , ConstDecl (span, UntypedConst (pos', i, e')))
       | Some ty ->
         let ty' = inline_constants_of_lustre_type ctx ty in
-        (TC.add_const ctx i e' ty', ConstDecl (span, UntypedConst (pos', i, e'))))
+        let ctx' = TC.add_ty (TC.add_const ctx i e' ty') i ty' in
+        (ctx', ConstDecl (span, UntypedConst (pos', i, e'))))
   | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
-    let e' = simplify_expr ctx e in 
-    (TC.add_const ctx i e' ty', ConstDecl (span, TypedConst (pos', i, e', ty')))
+    let e' = simplify_expr ctx e in
+    let ctx' = TC.add_ty (TC.add_const ctx i e' ty') i ty' in
+    (ctx', ConstDecl (span, TypedConst (pos', i, e', ty')))
   | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in

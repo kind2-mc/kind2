@@ -87,7 +87,11 @@ const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 const c100:int = 1 + 1;
 const c101:real = 1.0 + 1.0;
 
-node main () returns (x:int;)
+type s1 = subrange [-1,1] of int;
+
+node imported R(x: s1) returns (y:s1);
+
+node main (x: s1) returns (y: s1)
 let
-  x = 0;
+  y = R(pre x);
 tel
