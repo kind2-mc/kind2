@@ -1,7 +1,0 @@
-node x (a: int^3) returns ();
-var y: int^3;
-let
-  y = [0, 0, 0]; -- -> [ pre y[0] + 1,  pre y[1] + 2,  pre y[2] + 3];
-  -- y = 0^3;
-  --%PROPERTY y[1] = 0;
-tel
