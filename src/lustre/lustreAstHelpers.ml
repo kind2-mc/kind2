@@ -89,6 +89,16 @@ let rec expr_contains_call = function
   | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | ChooseOp (_, _, _, _)
     -> true
 
+let rec type_contains_array = function
+  | IntRange _ -> false
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_array ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_array ty)
+      false tys
+  | ArrayType _ -> true
+  | _ -> false
+
 let rec type_contains_subrange = function
   | IntRange _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->

@@ -587,6 +587,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/extensional_array_equality.lus" with
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
     | _ -> false);
+  mk_test "test extensional array equality 2" (fun () ->
+    match load_file "./lustreTypeChecker/extensional_array_equality2.lus" with
+    | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
+    | _ -> false);
   mk_test "test expected record type" (fun () ->
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
