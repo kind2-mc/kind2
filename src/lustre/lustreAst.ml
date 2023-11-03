@@ -103,7 +103,7 @@ type expr =
   | TernaryOp of position * ternary_operator * expr * expr * expr
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
-  | ChooseOp of position * typed_ident * expr * expr option
+  | AnyOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
   | RecordExpr of position * ident * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
@@ -559,19 +559,19 @@ let rec pp_print_expr ppf =
         pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l
     
-    | ChooseOp (p, id, e1, Some e2) ->
+    | AnyOp (p, id, e1, Some e2) ->
 
       Format.fprintf ppf
-      "%achoose { %a | %a assuming %a }"
+      "%aany { %a | %a assuming %a }"
       ppos p
       pp_print_typed_ident id
       pp_print_expr e1
       pp_print_expr e2
 
-    | ChooseOp (p, id, e, None) ->
+    | AnyOp (p, id, e, None) ->
 
       Format.fprintf ppf
-      "%achoose { %a | %a }"
+      "%aany { %a | %a }"
       ppos p
       pp_print_typed_ident id
       pp_print_expr e

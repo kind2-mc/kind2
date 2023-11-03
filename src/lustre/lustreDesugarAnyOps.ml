@@ -28,12 +28,12 @@
    let node_name = HString.concat2 node_name (HString.mk_hstring ".") in
    let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
    let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
-   let name = (HString.mk_hstring "choose_") in
+   let name = (HString.mk_hstring "any_") in
    let name = HString.concat2 name pos in
    HString.concat2 node_name name
  
  let rec desugar_expr ctx node_name = function
-   | A.ChooseOp (pos, (_, id, ty), expr1, expr2_opt) -> 
+   | A.AnyOp (pos, (_, id, ty), expr1, expr2_opt) -> 
      let span = { A.start_pos = pos; A.end_pos = Lib.dummy_pos } in
      let contract = match expr2_opt with 
        | None -> [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)]
@@ -216,7 +216,7 @@
      | AnnotMain _ -> ni, []
      
  
- let desugar_choose_ops ctx decls = 
+ let desugar_any_ops ctx decls = 
    let decls =
    List.fold_left (fun decls decl ->
      match decl with

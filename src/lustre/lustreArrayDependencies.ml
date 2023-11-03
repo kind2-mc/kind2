@@ -197,7 +197,7 @@ and process_expr ind_vars ctx ns proj indices expr =
       vars
     in
     R.ok graph
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Condact (_, e1, e2, _, es1, es2) ->

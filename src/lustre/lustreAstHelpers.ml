@@ -55,7 +55,7 @@ let pos_of_expr = function
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _ , _) | Call (pos , _ , _ )
-  | ChooseOp (pos, _, _, _)
+  | AnyOp (pos, _, _, _)
   -> pos
 
 let type_arity ty =
@@ -86,7 +86,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | ChooseOp (_, _, _, _)
+  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> true
 
 let rec type_contains_array = function
@@ -109,7 +109,7 @@ let rec type_contains_subrange = function
   | ArrayType (_, (ty, _)) -> type_contains_subrange ty
   | _ -> false
 
-(* Substitute t for var. ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+(* Substitute t for var. AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
@@ -124,7 +124,7 @@ let rec substitute_naive (var:HString.t) t = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive var t e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
@@ -163,7 +163,7 @@ let rec has_unguarded_pre ung = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
-  | ChooseOp (pos, _, _, _) -> fail_at_position pos "Choose operations are not supported in the old front end"
+  | AnyOp (pos, _, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -245,7 +245,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
@@ -327,10 +327,10 @@ let rec has_pre_or_arrow = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
-  | ChooseOp (_, _, e, None) -> 
+  | AnyOp (_, _, e, None) -> 
     has_pre_or_arrow e
 
-  | ChooseOp (_, _, e1, Some e2) -> 
+  | AnyOp (_, _, e1, Some e2) -> 
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
@@ -573,8 +573,8 @@ let rec vars_of_node_calls_h obs =
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
   (* Structured expressions *)
   | RecordExpr (_, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
@@ -631,8 +631,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
@@ -811,7 +811,7 @@ let rec replace_with_constants: expr -> expr =
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
      CompOp (p, op, e1', e2')
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
 
   (* Structured expressions *)
   | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, replace_with_constants e)) flds))
@@ -890,7 +890,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
      CompOp (p, op, e1', e2')
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
 
   (* Structured expressions *)
   | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))
@@ -969,7 +969,7 @@ let rec replace_idents locals1 locals2 expr =
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
 
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
     (* Remove 'tis' from locals because they're bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
@@ -1361,10 +1361,10 @@ let hash depth_limit expr =
       | Call (_, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, HString.hash i, l_hash)
-      | ChooseOp (_, (_, i, _), e, None) ->
+      | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)
-      | ChooseOp (_, (_, i, _), e1, Some e2) ->
+      | AnyOp (_, (_, i, _), e1, Some e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
@@ -1395,7 +1395,7 @@ let rec rename_contract_vars = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, rename_contract_vars e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->

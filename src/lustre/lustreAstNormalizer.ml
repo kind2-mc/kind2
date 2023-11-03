@@ -1391,7 +1391,7 @@ and normalize_expr ?guard info map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
+  | AnyOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
       let nexpr, gids, warnings = normalize_expr ?guard info map expr in

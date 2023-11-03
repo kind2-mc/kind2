@@ -53,7 +53,7 @@ val type_contains_array : lustre_type -> bool
 
 val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
-    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
