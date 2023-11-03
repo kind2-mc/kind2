@@ -920,7 +920,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if LH.is_type_array ty1 then
+      (if LH.type_contains_array ty1 then
          type_error pos (Unsupported "Extensional array equality is not supported")
        else
          R.ok (LA.Bool pos)
