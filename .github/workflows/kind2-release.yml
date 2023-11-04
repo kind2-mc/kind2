@@ -54,7 +54,7 @@ jobs:
       matrix: # Single configuration
         ocaml-version: [ 4.14.1 ]
         # Only matrix variables can be used at runs-on
-        os: [ macos-11 ]
+        os: [ macos-12 ]
 
     runs-on: ${{ matrix.os }}
 
@@ -108,7 +108,7 @@ jobs:
     needs: [create-new-release]
     strategy:
       matrix:
-        version: [linux, macos-11]
+        version: [linux, macos-12]
 
     steps:
     - name: Download binary

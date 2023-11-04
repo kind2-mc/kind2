@@ -11,10 +11,10 @@ jobs:
   kind2-build:
     strategy:
       matrix:
-        os: [ ubuntu-20.04, macos-11 ]
+        os: [ ubuntu-20.04, macos-12 ]
         ocaml-version: [ 4.09.1 ]
         include:
-          - os: macos-11
+          - os: macos-12
             pkg_update: brew update
             z3_install: brew install z3
           - os: ubuntu-20.04
