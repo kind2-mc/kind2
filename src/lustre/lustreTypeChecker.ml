@@ -312,7 +312,7 @@ let rec infer_const_attr ctx exp =
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
   (* Node calls *)
-  | ChooseOp _ -> assert false
+  | AnyOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
@@ -536,8 +536,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
-  | ChooseOp _ -> assert false
-  (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false
+  (* Already desugared in lustreDesugarAnyOps *)
   (*check_type_expr ctx e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -725,12 +725,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
-  | ChooseOp _ -> assert false 
-    (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false 
+    (* Already desugared in lustreDesugarAnyOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-  | ChooseOp (pos, (_, i ,ty), e1, Some e2) ->
+  | AnyOp (pos, (_, i ,ty), e1, Some e2) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e1 (Bool pos)
     >> check_type_expr extn_ctx e2 (Bool pos)

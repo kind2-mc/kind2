@@ -269,7 +269,7 @@ and push_pre is_guarded pos =
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | ArrayIndex (p, e1, e2) -> ArrayIndex (p, r e1, e2)
   | Quantifier (p, e1, l, e2) -> Quantifier (p, e1, l, r e2)
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | When _ as e -> LA.Pre (pos, e)
   | Condact _ as e -> LA.Pre (pos, e)
   | Activate _ as e -> LA.Pre (pos, e)

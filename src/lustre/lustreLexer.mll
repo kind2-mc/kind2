@@ -288,8 +288,8 @@ let keyword_table = mk_hashtbl [
   "div", INTDIV ;
   "mod", MOD ;
 
-  (* Choose operator *)
-  "choose", CHOOSE ;
+  (* 'Any' operator *)
+  "any", ANY ;
   "assuming", ASSUMING ;
   
   (* Clock operators *)

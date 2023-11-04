@@ -1081,14 +1081,14 @@ Nondeterministic choice operator
 There are situations in the design of reactive systems where
 nondeterministic behaviors must be modeled.
 Kind 2 offers a convenient binder of the form
-``choose { x: T | P(x) }`` which denotes an arbitrary stream of
-values of type ``T`` each satisfying the predicate ``P``.
+``any { x: T | P(x) }`` which denotes an arbitrary stream of
+values of type ``T`` satisfying the predicate ``P``.
 In the expression above ``x`` is a locally bound variable of
 Lustre type ``T``, and ``P(x)`` is a Lustre boolean expression that
 typically, but not necessarily, contains ``x``. The expression ``P(x)``
 may also contain any input, output, or local variable that
-are in the scope of the ``choose`` expression.
-The following example shows a component using the ``choose``
+are in the scope of the ``any`` expression.
+The following example shows a component using the ``any``
 operator to define a local stream ``l`` of arbitrary odd values.
 
 .. code-block:: none
@@ -1100,20 +1100,20 @@ operator to define a local stream ``l`` of arbitrary odd values.
    *)
      var l: int;
    let
-     l = choose { x: int | x mod 2 = 1 };
+     l = any { x: int | x mod 2 = 1 };
      z = y + l;
    tel
 
-In addition, the ``choose`` operator can take any Lustre type as argument.
-For instance, the expression ``choose int`` is also accepted
+In addition, the ``any`` operator can take any Lustre type as argument.
+For instance, the expression ``any int`` is also accepted
 and denotes an arbitrary stream of values of type ``int``.
 
-A challenge for the user with the use of ``choose`` expressions arises if
+A challenge for the user with the use of ``any`` expressions arises if
 the specified condition is inconsistent, or more generally, unrealizable.
 In that case, the system model may be satisfied by no execution trace.
 As a consequence, any property, even an inconsistent one, would be trivially
 satisfied by the (inconsistent) system model.
-For instance, the condition of the ``choose`` operator in the node of
+For instance, the condition of the ``any`` operator in the node of
 the following example is inconsistent, and thus, there is no realization of
 the system model. As a result, Kind 2 proves the property P1 valid.
 
@@ -1122,20 +1122,20 @@ the system model. As a result, Kind 2 proves the property P1 valid.
    node N(y: int) returns (z: int);
      var l: int;
    let
-     l = choose { x : int | x < 0 and x > 0 };
+     l = any { x : int | x < 0 and x > 0 };
      z = y + l;
      check "P1" z > 0 and z < 0;
    tel
 
 This problem is mitigated by the possibility for
 the user to check that the predicate ``P(x)`` in
-the ``choose`` expression is realizable.
-This is possible because, for each ``choose`` expression occurring in
+the ``any`` expression is realizable.
+This is possible because, for each ``any`` expression occurring in
 a model, Kind 2 introduces an internal imported node whose
 contract restricts the values of the returned output using
 the given predicate as a guarantee.
 The user can take advantage of this fact to detect issues with
-the conditions of ``choose`` expressions by enabling 
+the conditions of ``any`` expressions by enabling 
 Kind 2's functionality that checks
 the :ref:`realizability of contracts<9_other/11_contract_checks>` of
 imported nodes. When this functionality is enabled, Kind 2 is able to
@@ -1147,10 +1147,10 @@ Because of this limitation, some checks may fail even if,
 in a broader context where all constraints included in
 the model are considered, the imported node would actually be considered
 realizable. To mitigate this issue, Kind 2 offers an extended version of
-the binder, ``choose { x: T | P(x) assuming Q }``, that
+the binder, ``any { x: T | P(x) assuming Q }``, that
 allows the user to specify an assumption ``Q`` that
 should be taken into account in the realizability check.
-For instance, the realizability check for the ``choose`` expression
+For instance, the realizability check for the ``any`` expression
 in the following example would fail if the assumption ``a <= b`` 
 was not included.
 
@@ -1160,9 +1160,9 @@ was not included.
    var b: int;
    let
      b = a + 10;
-     z = choose { x: int | a <= x and x <= b assuming a<=b };
+     z = any { x: int | a <= x and x <= b assuming a<=b };
      check z>=a+10 => z=b;
    tel
 
 Moreover, Kind 2 checks that any specified assumption in
-a choose expression holds when model checking the component.
+a ``any`` expression holds when model checking the component.
