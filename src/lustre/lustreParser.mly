@@ -401,7 +401,7 @@ tuple_type:
 record_type:
 
   (* Keyword "struct" is optional *)
-  | option(STRUCT); 
+  | STRUCT; 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, typed_idents)
   
     { List.flatten f  }
@@ -414,9 +414,9 @@ array_type:
 
 (* Refinement type *)
 refinement_type:
-  | LPAREN; id = typed_ident; BAR; e = expr; RPAREN
+  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
-  | LPAREN; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RPAREN
+  | LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
 
 (*
@@ -953,10 +953,10 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* Choose operation *)
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-    { A.ChooseOp (mk_pos $startpos, id, e, None) } 
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
-    { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
+  // | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
+  //   { A.ChooseOp (mk_pos $startpos, id, e, None) } 
+  // | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
+  //   { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
   | CHOOSE; ty = lustre_type;
     { A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
 
