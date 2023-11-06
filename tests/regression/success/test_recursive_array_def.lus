@@ -1,3 +1,17 @@
+
+node sum (const n: int; A: int ^ n) returns (s: int);
+var cumul: int ^ n;
+let
+  cumul[i] = if i = 0 then A[0] else A[i] + cumul[i-1];
+  s = cumul[n-1];
+tel
+
+node slice (const n: int; A: int ^ n; const low: int; const up: int)
+returns (B : int ^ (up-low));
+let
+  B[i] = A[low + i];
+tel
+
 node a(A: int^5) returns (B: int^5)
 let
   B[i] = A[i] + 1;
