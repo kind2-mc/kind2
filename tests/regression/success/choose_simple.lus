@@ -3,11 +3,11 @@ const x1: int = 0;
 node main (a: int) returns (y, z: int); 
 var x2, b: int;
 let 
-  x2 = choose {x: int | x > x1 };
-  y = choose { x: int | x + x2 < 50 };
+  x2 = choose ref { x: int | x > x1 };
+  y = choose ref { x: int | x + x2 < 50 };
   check y < 100;
   
   b = a + 10;
-  z = choose { x: int | a <= x and x <= b assuming a<=b };
+  z = choose ref { x: int | a <= x and x <= b assuming a<=b };
   check a <= z and z <= b;
 tel;

@@ -75,6 +75,7 @@ let mk_span start_pos end_pos =
 %token BOOL
 %token SUBRANGE
 %token OF
+%token REF
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -401,7 +402,7 @@ tuple_type:
 record_type:
 
   (* Keyword "struct" is optional *)
-  | STRUCT; 
+  | option(STRUCT); 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, typed_idents)
   
     { List.flatten f  }
@@ -414,13 +415,13 @@ array_type:
 
 (* Refinement type *)
 refinement_type:
-  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  | REF; LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
-  | LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
+  | REF; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
-  | ty = lustre_type; LSQBRACKET; e = expr; RSQBRACKET
+  | REF; ty = lustre_type; LSQBRACKET; e = expr; RSQBRACKET
     { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e, None) } 
-  | ty = lustre_type; LSQBRACKET; e1 = expr; ASSUMING; e2 = expr; RSQBRACKET
+  | REF; ty = lustre_type; LSQBRACKET; e1 = expr; ASSUMING; e2 = expr; RSQBRACKET
     { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e1, Some e2) } 
 
 (*
