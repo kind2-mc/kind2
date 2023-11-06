@@ -222,7 +222,6 @@ let mk_span start_pos end_pos =
 %nonassoc BVNOT 
 %nonassoc CHOOSE
 %left CARET 
-%left WITH
 %left LSQBRACKET DOT DOTPERCENT
 
 (* Start token *)
@@ -959,10 +958,10 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* Choose operation *)
-  // | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-  //   { A.ChooseOp (mk_pos $startpos, id, e, None) } 
-  // | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
-  //   { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e, None) } 
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
   | CHOOSE; ty = lustre_type;
     { A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
 

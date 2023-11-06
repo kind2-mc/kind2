@@ -236,7 +236,7 @@ let keyword_table = mk_hashtbl [
   "bool", BOOL ;
   "subrange", SUBRANGE ;
   "of", OF ;
-  "ref", REF ;
+  "refine", REF ;
   (* "array", ARRAY) ; *)
   "struct", STRUCT ;
   "enum", ENUM ;

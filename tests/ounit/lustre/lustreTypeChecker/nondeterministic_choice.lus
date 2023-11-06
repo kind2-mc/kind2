@@ -1,6 +1,6 @@
 node main () returns (y: int); 
 let 
-  y = choose ref { x: bool | x < 50 };
+  y = choose { x: bool | x < 50 };
 
   check y < 100;
 tel;
