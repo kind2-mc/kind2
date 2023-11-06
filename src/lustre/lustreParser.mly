@@ -418,6 +418,10 @@ refinement_type:
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
   | LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
+  | ty = lustre_type; LSQBRACKET; e = expr; RSQBRACKET
+    { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e, None) } 
+  | ty = lustre_type; LSQBRACKET; e1 = expr; ASSUMING; e2 = expr; RSQBRACKET
+    { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e1, Some e2) } 
 
 (*
   (* Alternate syntax: array [size] of type *)
