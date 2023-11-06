@@ -222,6 +222,7 @@ let mk_span start_pos end_pos =
 %nonassoc BVNOT 
 %nonassoc CHOOSE
 %left CARET 
+%left WITH
 %left LSQBRACKET DOT DOTPERCENT
 
 (* Start token *)
@@ -419,9 +420,9 @@ refinement_type:
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
   | REF; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
-  | REF; ty = lustre_type; LSQBRACKET; e = expr; RSQBRACKET
+  | REF; ty = lustre_type; WITH; LCURLYBRACKET; e = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e, None) } 
-  | REF; ty = lustre_type; LSQBRACKET; e1 = expr; ASSUMING; e2 = expr; RSQBRACKET
+  | REF; ty = lustre_type; WITH; LCURLYBRACKET; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e1, Some e2) } 
 
 (*
