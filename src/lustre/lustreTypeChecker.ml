@@ -1533,14 +1533,14 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     check_array_size_expr ctx s
     >> check_type_well_formed ctx b_ty
   )
-  | LA.RefinementType (_, (_, i, ty), e1, Some e2) -> 
+  | LA.RefinementType (pos, (_, i, ty), e1, Some e2) -> 
     let ctx = add_ty ctx i ty in
-    check_ref_type_expr ctx e1 
-    >> check_ref_type_expr ctx e2 
+    check_type_expr ctx e1 (Bool pos)
+    >> check_type_expr ctx e2 (Bool pos)
     >> check_type_well_formed ctx ty
-  | LA.RefinementType (_, (_, i, ty), e, None) ->
+  | LA.RefinementType (pos, (_, i, ty), e, None) ->
     let ctx = add_ty ctx i ty in
-    check_ref_type_expr ctx e 
+    check_type_expr ctx e (Bool pos)
     >> check_type_well_formed ctx ty
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)

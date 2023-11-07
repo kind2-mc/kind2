@@ -160,7 +160,7 @@ let type_check declarations =
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
-    (* Step 8. type check nodes and contracts *)
+    (* Step 8. Type check nodes and contracts *)
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
