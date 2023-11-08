@@ -31,6 +31,7 @@ type error_kind = Unknown of string
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
   | NotAFieldOfRecord of HString.t
+  | AssumptionOnCurrentOutput of HString.t
   | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type

@@ -46,6 +46,7 @@ type error_kind = Unknown of string
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
   | NotAFieldOfRecord of HString.t
+  | AssumptionOnCurrentOutput of HString.t
   | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
@@ -113,6 +114,7 @@ let error_message kind = match kind with
   | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
   | UnboundNodeName id -> "Unbound node identifier '" ^ HString.string_of_hstring id ^ "'"
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
+  | AssumptionOnCurrentOutput id -> "Refinement type includes an assumption on the current value of output " ^ HString.string_of_hstring id
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
@@ -1497,27 +1499,18 @@ and check_const_integer_expr ctx kind e =
       type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
   | Error err -> Error err
 
-and check_const_boolean_expr ctx kind e =
-  match infer_type_expr ctx e with
-  | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
-    type_error pos
-      (ExpectedConstant (kind, "node call or choose operator"))
-  | Ok ty ->
-    let* eq = eq_lustre_type ctx ty (LA.Bool (LH.pos_of_expr e)) in
-    if eq then
-      R.ok ()
-    else
-      type_error (LH.pos_of_expr e) (ExpectedBooleanExpression ty)
-  | Error err -> Error err
-
 and check_array_size_expr ctx e =
   check_const_integer_expr ctx "array size expression" e
 
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
-and check_ref_type_expr ctx e =
-  check_const_boolean_expr ctx "refinement type predicate" e
+and check_ref_type_assuming_expr ctx e =
+  let vars = LH.vars_without_node_call_ids_current e in
+  (* Filter vars for output vars. What about local vars? *)
+  match SI.elements vars with 
+    | [] -> R.ok ()
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
 
 and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   = fun ctx ->
@@ -1537,6 +1530,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     let ctx = add_ty ctx i ty in
     check_type_expr ctx e1 (Bool pos)
     >> check_type_expr ctx e2 (Bool pos)
+    >> check_ref_type_assuming_expr ctx e2 
     >> check_type_well_formed ctx ty
   | LA.RefinementType (pos, (_, i, ty), e, None) ->
     let ctx = add_ty ctx i ty in

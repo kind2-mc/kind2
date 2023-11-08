@@ -630,6 +630,46 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
+(* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
+let rec vars_without_node_call_ids_current: expr -> iset =
+  let vars = vars_without_node_call_ids in
+  function
+  | Ident (_, i) -> SI.singleton i
+  | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
+  | RecordProject (_, e, _) -> vars e 
+  | TupleProject (_, e, _) -> vars e
+  (* Values *)
+  | Const _ -> SI.empty
+  (* Operators *)
+  | UnaryOp (_,_,e) -> vars e
+  | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
+  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
+  | ConvOp  (_,_,e) -> vars e
+  | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
+  (* Update of structured expressions *)
+  | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  (* Quantified expressions *)
+  | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+  (* Clock operators *)
+  | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
+  | Condact (_, e1, e2, _, es1, es2) ->
+    SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2))
+  | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
+  | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
+  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
+  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  (* Temporal operators *)
+  | Pre _ -> SI.empty
+  | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Node calls *)
+  | Call (_, _, es) -> SI.flatten (List.map vars es)
+
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
   | TupleStructItem (_, ts) -> List.flatten (List.map vars_of_struct_item_with_pos ts)  
