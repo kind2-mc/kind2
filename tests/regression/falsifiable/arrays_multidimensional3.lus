@@ -6,6 +6,6 @@ tel
 node N() returns(A: [int^2^3, int]);
 let
   A = M(2, 3);
-  check (A = pre A);
+  check (A.%1 = pre A.%1);
   --%MAIN;
 tel

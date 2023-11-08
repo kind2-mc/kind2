@@ -709,6 +709,7 @@ let mk_fresh_array_constraints gids info pos neq arity =
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty array_expr nexpr in
       union gids
       { (empty ()) with
+        locals = StringMap.singleton name (false, A.Bool dpos);
         array_constraints = [(pos, name, output_expr, prop_name)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; }
   ) gids array_exprs  

@@ -1587,28 +1587,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       result :: glocals
     in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Array Constraints                  *)
-  (* ****************************************************************** *)
-  in let glocals =
-    let over_generated_locals glocals (_, id, _, _) =
-      let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
-      let over_indices = fun index index_type accum ->
-        let possible_state_var = mk_state_var
-          map
-          (node_scope @ I.reserved_scope)
-          ident
-          index
-          index_type
-          (Some N.KGhost)
-        in
-        match possible_state_var with
-        | Some state_var -> X.add index state_var accum
-        | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
-      result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.array_constraints
-  (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
   in let glocals =
@@ -2120,23 +2098,18 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Generate Contract Constraints for Array constraints                *)
   (* ****************************************************************** *)
-  in let (assumes, guarantees, props) =
+  in let props =
     let create_constraint_name rexpr = 
       Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
     in
-    let over_array_constraints (a, ac, g, gc, p) (pos, id, rexpr, prop_desc) =
+    let over_array_constraints p (pos, id, rexpr, prop_desc) =
       let sv = H.find !map.state_var (mk_ident id) in
       let name = create_constraint_name rexpr in
       let name = name ^ " (" ^ prop_desc ^ ")" in
       let src = Property.Generated (Some pos, [sv]) in
-      a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+      (sv, name, src, Property.Invariant) :: p
     in
-    let (assumes, _, guarantees, _, props) = 
-      List.fold_left over_array_constraints
-      (assumes, List.length assumes, guarantees, List.length guarantees, props)
-      gids.GI.array_constraints
-    in
-    assumes, guarantees, props
+    List.fold_left over_array_constraints props gids.GI.array_constraints
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
