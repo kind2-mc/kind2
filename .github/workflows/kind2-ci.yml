@@ -27,8 +27,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    #- name: Update package information
-    #  run: ${{ matrix.pkg_update }}
+    - name: Update package information
+      run: ${{ matrix.pkg_update }}
 
     - name: Set up OCaml ${{ matrix.ocaml-version }}
       uses: ocaml/setup-ocaml@v2
