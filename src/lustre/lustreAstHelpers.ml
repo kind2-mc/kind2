@@ -191,7 +191,7 @@ let rec replace_gen_locals gids = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, replace_gen_locals gids e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, replace_gen_locals gids e1, replace_gen_locals gids e2)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, replace_gen_locals gids e)) expr_list)
@@ -243,7 +243,7 @@ let rec substitute_naive_list (var:HString.t list) (t:expr list) = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive_list var t e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, substitute_naive_list var t e1, substitute_naive_list var t e2)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute_naive_list var t e)) expr_list)
