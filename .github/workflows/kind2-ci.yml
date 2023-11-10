@@ -45,9 +45,9 @@ jobs:
         Z3_VERSION=4.12.2
         Z3_OS_VERSION=x64-glibc-2.31
         Z3_ZIP_NAME=z3-$Z3_VERSION-$Z3_OS_VERSION
-        wget https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
-        unzip $Z3_ZIP_NAME.zip
-        cp $Z3_ZIP_NAME/bin/z3 ./bin/
+        wget -q https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
+        unzip -q $Z3_ZIP_NAME.zip
+        sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
 
     - name: Install Z3 (macOS)
       if: runner.os == 'macOS'
