@@ -1,0 +1,11 @@
+const a:int;
+
+node N(x: int^a) returns (o: int^a);
+let
+  o = M();
+  check o[0] >0;
+tel
+
+node M () returns (A: int^a);
+let
+tel

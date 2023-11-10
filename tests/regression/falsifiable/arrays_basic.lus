@@ -1,0 +1,7 @@
+const a,b: int;
+
+node N(x: int^3) returns (o: int^3);
+let
+  o = x;
+  check o[0]>0;
+tel

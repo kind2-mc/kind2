@@ -512,16 +512,23 @@ let is_call gids id =
   | Some _ -> true 
   | None -> false
 
-let rec type_extract_array_lens input proj ty = match ty with 
-  | A.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens input proj ty
-  | TupleType (_, tys) -> List.map (type_extract_array_lens input proj) tys |> List.flatten
-  | GroupType (_, tys) -> List.map (type_extract_array_lens input proj) tys |> List.flatten
+let rec type_extract_array_lens ctx input proj ty = match ty with 
+  | A.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx input proj ty
+  | TupleType (_, tys) -> List.map (type_extract_array_lens ctx input proj) tys |> List.flatten
+  | GroupType (_, tys) -> List.map (type_extract_array_lens ctx input proj) tys |> List.flatten
   | TArr (_, ty1, GroupType (_, tys)) -> 
     let ty = if input then ty1 else (List.nth tys proj) in 
-    type_extract_array_lens input proj ty
+    type_extract_array_lens ctx input proj ty
   | TArr (_, ty1, ty2) -> 
     let ty = if input then ty1 else ty2 in 
-    type_extract_array_lens input proj ty
+    type_extract_array_lens ctx input proj ty
+  | RecordType (_, _, tis) ->
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+    List.map (type_extract_array_lens ctx input proj) tys |> List.flatten
+  | UserType (_, id) -> 
+    (match (Ctx.lookup_ty_syn ctx id) with 
+      | Some ty -> type_extract_array_lens ctx input proj ty;
+      | None -> [])
   | _ -> []
 
 (* Like List.combine but for three list arguments *)
@@ -551,16 +558,20 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     (* Find array length parameters; e.g. "m" in argument of type "int^m" *)
     let call_params = Ctx.lookup_node_param_attr ctx id |> unwrap_opt in 
     let node_ty = Ctx.lookup_node_ty ctx id |> unwrap_opt in
-    let call_param_array_lens = type_extract_array_lens true proj node_ty in
-    let call_ret_param_array_lens = type_extract_array_lens false proj node_ty in
+    let call_param_array_lens = type_extract_array_lens ctx true proj node_ty in
+    let call_ret_param_array_lens = type_extract_array_lens ctx false proj node_ty in
     let find_matching_len_params array_param_lens = 
       List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens
     in
     let call_param_len_idents = List.map (AH.vars_without_node_call_ids) call_param_array_lens 
       |> List.map A.SI.elements
+      (* Filter out constants *)
+      |> List.map (List.filter (fun id -> not (Ctx.member_val ctx id)))
     in
     let call_ret_param_len_idents = List.map AH.vars_without_node_call_ids call_ret_param_array_lens 
       |> List.map A.SI.elements
+      (* Filter out constants *)
+      |> List.map (List.filter (fun id -> not (Ctx.member_val ctx id)))
     in
     (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
        of array length param "m" is 0. *)
@@ -577,12 +588,12 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
             Ctx.lookup_node_ty ctx node_id |> unwrap_opt
           | _ -> assert false 
         in
-        let ret_ty = match ret_ty with | A.TArr (_, _, ret_ty) -> ret_ty | _ -> assert false in 
-        let ret_ty = (List.map2 (fun call_param_len_idents array_len_exprs -> 
-          AH.substitute_naive_list_ty call_param_len_idents array_len_exprs ret_ty)
+        let ret_ty' = match ret_ty with | A.TArr (_, _, ret_ty) -> ret_ty | _ -> assert false in 
+        let ret_ty' = (List.map2 (fun call_param_len_idents array_len_exprs -> 
+          AH.substitute_naive_list_ty call_param_len_idents array_len_exprs ret_ty')
         ) call_ret_param_len_idents array_len_exprs2
         in 
-        (match ret_ty with 
+        (match ret_ty' with 
           | [] -> ctx 
           | hd :: _ -> Ctx.add_ty ctx id hd)
       ) else ctx
@@ -597,14 +608,21 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
       ) (combine_three call_ret_param_len_idents array_len_exprs2 call_ret_param_array_lens)
     in 
     (* Retrieve array length params from LHS and call variables' types *)
-    let array_lhs_ty = Ctx.lookup_ty ctx lhs_id |> unwrap_opt in
-    let array_lhs_ty_lens = type_extract_array_lens true proj array_lhs_ty in
+    match Ctx.lookup_ty ctx lhs_id with 
+    | None -> ctx, []
+    | Some array_lhs_ty ->
+    let array_lhs_ty_lens = type_extract_array_lens ctx true proj array_lhs_ty in
     let array_arg_ty_lens = List.map (fun arg -> match arg with 
       | A.Ident (pos, id) -> (match Ctx.lookup_ty ctx id with 
-        | Some ty -> [(id, pos, type_extract_array_lens true proj ty)]
-        | None -> match (List.find_opt (fun (id2, _, _, _) -> id = id2) gids.node_args) with 
-          | Some (_, _, ty, _) -> [(id, pos, type_extract_array_lens true proj ty)]
-          | None -> [] 
+        | Some ty -> [(id, pos, type_extract_array_lens ctx true proj ty)]
+        (* Type info can be found somewhere in gids *)
+        | None -> 
+          match (List.find_opt (fun (id2, _, _, _) -> id = id2) gids.node_args) with 
+          | Some (_, _, ty, _) -> [(id, pos, type_extract_array_lens ctx true proj ty)]
+          | None -> 
+          (match (StringMap.find_opt id gids.locals) with 
+          | Some (_, ty) -> [(id, pos, type_extract_array_lens ctx true proj ty)]
+          | None -> print_endline (HString.string_of_hstring id); [])
       ) 
       | _ -> []
     ) args |> List.flatten in
@@ -630,7 +648,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
     in
     ctx, rec_constraints @ constraints1 @ constraints2
 
-let mk_array_exprs gids ctx eq arity = match eq with
+let rec mk_array_exprs gids ctx eq arity = match eq with
     (* Definitions of array variables and calls with arrays and array lengths as arguments 
        must respect array length constraints *)
   | (A.Equation (lhs_pos, StructDef(_, sis), rhs)) -> 
@@ -639,9 +657,22 @@ let mk_array_exprs gids ctx eq arity = match eq with
     List.fold_left2 (fun acc lhs (rhs, p) -> match lhs with
       | A.SingleIdent (pos, lhs_id) -> 
         let ty = Ctx.lookup_ty ctx lhs_id |> unwrap_opt in 
+        (* Impose array length constraints given an assignment x (:: ty1) = y (:: ty2) *)
+        let rec add_recursive_ty_constraints ty1 ty2 = match ty1, ty2 with 
+          | A.ArrayType (_, (ty1, expr1)), A.ArrayType (_, (ty2, expr2)) -> 
+            (A.CompOp (pos, Eq, expr1, expr2), mk_array_prop_desc lhs_id false pos) :: 
+            add_recursive_ty_constraints ty1 ty2
+          | A.TupleType (_, tys1), A.TupleType (_, tys2) -> 
+            List.map2 add_recursive_ty_constraints tys1 tys2 |> List.flatten
+          | A.RecordType (_, _, tis1), A.RecordType (_, _, tis2) -> 
+            let tys1 = List.map (fun (_, _, ty) -> ty) tis1 in
+            let tys2 = List.map (fun (_, _, ty) -> ty) tis2 in 
+            List.map2 add_recursive_ty_constraints tys1 tys2 |> List.flatten
+          | _ -> []
+        in
         (* Array assignments must respect length constraints *)
         let rec add_ty_constraints ty rhs =
-          (match ty with 
+          let constraints1 = (match ty with 
             | A.ArrayType (_, (ty2, expr1)) -> (match rhs with 
               (* Of the form A = expr^expr2 *)
               | A.ArrayConstr(_, expr3, expr2) -> 
@@ -652,9 +683,6 @@ let mk_array_exprs gids ctx eq arity = match eq with
               (* Of the form A = B -> C *)
               | A.Arrow (_, expr1, expr2) -> 
                 add_ty_constraints ty expr1 @ add_ty_constraints ty expr2
-              (* Of the form A = n_call *)
-              | Ident (_, rhs_id) when is_call gids rhs_id  ->
-                snd (mk_call_constraints lhs_pos gids ctx lhs_id p rhs_id)
               (* Other cases of A = ident *)
               | Ident (_, id) as e -> (match AH.replace_gen_locals gids e with 
                 (* Of the form A = [val_1, ..., val_n] *)
@@ -666,28 +694,50 @@ let mk_array_exprs gids ctx eq arity = match eq with
                     | hd :: _ -> (constrain, mk_array_prop_desc lhs_id false pos) :: (add_ty_constraints ty2 hd)
                   )
                 | _ -> (match StringMap.find_opt id gids.array_constructors with 
-                    | Some (_, expr1, _) ->
-                    add_ty_constraints ty expr1
-                    | None -> (match Ctx.lookup_ty ctx id with 
-                      (* Of the form A = B (A and B both arrays) *)
-                      | Some (A.ArrayType (_, (_, expr2))) -> 
-                        [(A.CompOp (pos, Eq, expr1, expr2), mk_array_prop_desc lhs_id false pos)]
-                      | _ -> []
-                    )
+                    (* Of the form A = generated_array_constructor *)
+                    | Some (_, expr1, _) -> add_ty_constraints ty expr1
+                    | None -> []
                 )
               )
               | _ -> []
             )
-            (* Of the form A = { tuple_val_1, tuple_val_2, ... } or A (:: tuple) = n_call *)
+            (* Of the form A = { tuple_val_1, tuple_val_2, ... } *)
             | TupleType (_, tys) -> (match rhs with 
               | GroupExpr (_, TupleExpr, exprs) -> 
                 List.map2 add_ty_constraints tys exprs |> List.flatten
-              | Ident (_, rhs_id) when is_call gids rhs_id  -> 
-                snd (mk_call_constraints lhs_pos gids ctx lhs_id p rhs_id)
+              | _ -> []
+            )
+            | RecordType _ -> (match rhs with 
+              (* Of the form R = { A = B; ... } *)
+              | RecordExpr (pos, name, flds) -> 
+                let tis = match Ctx.lookup_ty_syn ctx name |> unwrap_opt with 
+                  | RecordType (_, _, fld_tis) -> fld_tis
+                  | _ -> assert false 
+                in
+                let eqs, ctxs = List.map2 (fun (id, rhs) (_, id2, ty2) -> 
+                  let eq = (A.Equation (lhs_pos, StructDef(pos, [SingleIdent(pos, id)]), rhs)) in
+                  let ctx = Ctx.add_ty ctx id2 ty2 in
+                  eq, ctx
+                ) flds tis |> List.split in
+                List.map2 (fun eq ctx -> mk_array_exprs gids ctx eq arity) eqs ctxs |> List.flatten
               | _ -> []
             )
             | _ -> []
+          ) in 
+          let constraints2 = (match rhs with 
+            (* Of the generic form ident = n_call, handling complex/nested types *)
+            | Ident (_, rhs_id) when is_call gids rhs_id  -> 
+              snd (mk_call_constraints lhs_pos gids ctx lhs_id p rhs_id)
+            (* Of the generic form ident1 = ident2, handling complex/nested types *)
+            | Ident (_, rhs_id) -> 
+              let ty2 = Ctx.lookup_ty ctx rhs_id in 
+              (match ty2 with 
+                | Some ty2 -> add_recursive_ty_constraints ty ty2
+                | None -> [])
+            | _ -> []
           ) in
+          constraints1 @ constraints2
+          in
           acc @ add_ty_constraints ty rhs
       | ArrayDef _ -> []
       | _ -> assert false

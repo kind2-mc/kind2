@@ -1,0 +1,9 @@
+const a,b:int;
+
+type T = struct { A: int^a; f: bool };
+
+node N(x: T) returns (o: T);
+let
+  o = x;
+  check o.A[0]>0;
+tel

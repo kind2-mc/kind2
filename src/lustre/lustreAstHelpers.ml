@@ -267,7 +267,12 @@ let rec substitute_naive_list_ty (var:HString.t list) (t:expr list) = function
     GroupType(pos, List.map (substitute_naive_list_ty var t) tys)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, substitute_naive_list_ty var t ty1, substitute_naive_list_ty var t ty2)
-  | _ as ty -> ty
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, substitute_naive_list_ty var t ty)) tis 
+    in
+    RecordType (pos, name, tis)
+  | ty -> ty
 
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
