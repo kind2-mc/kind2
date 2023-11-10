@@ -623,19 +623,8 @@ and compile_ast_type
   | A.UserType (_, ident) ->
     StringMap.find ident cstate.type_alias
   | A.AbstractType (_, ident) ->
-    (match StringMap.find_opt ident cstate.type_alias with
-      | Some candidate ->
-        (* The typechecker transforms enum types to abstract types (not sure why) 
-          here we check if the ident in fact names an enum type *)
-        let ident = HString.string_of_hstring ident in
-        let bindings = X.bindings candidate in
-        let (head_index, ty) = List.hd bindings in
-        if List.length bindings = 1 && head_index = X.empty_index && Type.is_enum ty then
-          candidate
-        else X.singleton [X.AbstractTypeIndex ident] Type.t_int
-      | None ->
-        let ident = HString.string_of_hstring ident in
-        X.singleton [X.AbstractTypeIndex ident] Type.t_int)
+    let ident = HString.string_of_hstring ident in
+    X.singleton [X.AbstractTypeIndex ident] Type.t_int
   | A.RecordType (_, _, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let i = HString.string_of_hstring i in
@@ -1136,7 +1125,7 @@ and compile_ast_expr
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases
-  | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarChooseOps *)
+  | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)

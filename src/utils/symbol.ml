@@ -116,6 +116,8 @@ type interpreted_symbol =
   | `BVCONCAT             (* Concatenation of bitvectors (binary) *)
   | `BVSIGNEXT of Numeral.t
                           (* Sign extension of bitvector (unary) *)
+  | `BVZEROEXT of Numeral.t
+                          (* Extend bitvector with zeros (unary) *)
 
   (* Selection from array (binary) *)
   | `SELECT of Type.t
@@ -237,6 +239,7 @@ module Symbol_node = struct
 
     | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
     | `BVSIGNEXT i1, `BVSIGNEXT i2 -> Numeral.equal i1 i2
+    | `BVZEROEXT i1, `BVZEROEXT i2 -> Numeral.equal i1 i2
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
@@ -307,6 +310,7 @@ module Symbol_node = struct
     | `BVEXTRACT _, _
     | `BVCONCAT, _
     | `BVSIGNEXT _, _
+    | `BVZEROEXT _, _
 
     | `BVNOT, _ 
     | `BVNEG, _
@@ -510,6 +514,11 @@ let rec pp_print_symbol_node ppf = function
       Format.fprintf
       ppf
       "(_ sign_extend %a)"
+      Numeral.pp_print_numeral i
+  | `BVZEROEXT i ->
+      Format.fprintf
+      ppf
+      "(_ zero_extend %a)"
       Numeral.pp_print_numeral i
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
@@ -778,6 +787,10 @@ let s_store = mk_symbol `STORE
 
 (* Bit-vector extract operator *)
 let s_extract i j = mk_symbol (`BVEXTRACT (i,j))
+
+let s_signext i = mk_symbol (`BVSIGNEXT i)
+
+let s_zeroext i = mk_symbol (`BVZEROEXT i)
 
 (* Constant integer -> machine integer operators *)
 let s_to_uint8 = mk_symbol `TO_UINT8

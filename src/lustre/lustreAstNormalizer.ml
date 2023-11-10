@@ -83,9 +83,12 @@ type error = [
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
+  | UseOfAssertionWarning
 
 let warning_message warning = match warning with
   | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
+  | UseOfAssertionWarning ->
+    "Assertions are not checked; please consider using a contract assumption instead"
 
 type warning = [
   | `LustreAstNormalizerWarning of Lib.position * warning_kind
@@ -406,6 +409,19 @@ let mk_range_expr ctx expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Ctx.expand_nested_type_syn ctx expr_type in
     match expr_type with
+    | A.EnumType (_, _, values) -> (
+      let eqs =
+        List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
+      in
+      match eqs with
+      | [] -> assert false
+      | [e] -> [e, true]
+      | e :: eqs ->
+        let disj =
+          List.fold_left (fun acc e' -> A.BinaryOp(dpos, A.Or, acc, e')) e eqs
+        in
+        [disj, true]
+    )
     | A.IntRange (_, l, u) ->
       let original_ty = Chk.infer_type_expr ctx expr |> unwrap in
       let original_ty = Ctx.expand_nested_type_syn ctx original_ty in
@@ -1333,6 +1349,7 @@ and normalize_contract info map items =
 and normalize_equation info map = function
   | Assert (pos, expr) ->
     let nexpr, map, warnings = abstract_expr true info map true expr in
+    let warnings = mk_warning pos UseOfAssertionWarning :: warnings in
     A.Assert (pos, nexpr), map, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
@@ -1495,7 +1512,34 @@ and normalize_expr ?guard info map =
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
-  in function
+  in let mk_enum_subrange_constraints info vars =
+    let enum_subrange_vars =
+      vars |> List.filter (fun (_, _, ty) ->
+        let ty = Ctx.expand_nested_type_syn info.context ty in
+        AH.type_contains_enum_or_subrange ty
+      )
+    in
+    let constraints =
+      List.fold_left
+        (fun acc (_, id, ty) ->
+          let expr = A.Ident(dpos, id) in
+          let range_exprs = mk_range_expr info.context ty expr in
+          range_exprs :: acc
+        )
+        []
+        enum_subrange_vars
+      |> List.flatten |> List.map fst
+    in
+    match constraints with
+    | [] -> None
+    | c :: cs ->
+      let conj =
+        List.fold_left
+          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+      in
+      Some conj
+  in
+  function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
@@ -1673,7 +1717,7 @@ and normalize_expr ?guard info map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
+  | AnyOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
       let nexpr, gids, warnings = normalize_expr ?guard info map expr in
@@ -1705,6 +1749,15 @@ and normalize_expr ?guard info map =
         quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    let nexpr =
+      let constraints =
+        mk_enum_subrange_constraints info vars
+      in
+      match constraints, kind with
+      | None, _ -> nexpr
+      | Some c, A.Exists -> A.BinaryOp (pos, A.And, c, nexpr)
+      | Some c, A.Forall -> A.BinaryOp (pos, A.Impl, c, nexpr)
+    in
     Quantifier (pos, kind, vars, nexpr), gids, warnings
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in

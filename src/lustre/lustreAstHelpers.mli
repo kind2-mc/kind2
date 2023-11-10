@@ -48,9 +48,15 @@ val type_arity : lustre_type -> int * int
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
+val type_contains_enum_or_subrange : lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+
+val type_contains_array : lustre_type -> bool 
+(** Returns true if the lustre type expression contains an array or if it is an array *)
+
 val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
-    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 
 val replace_gen_locals : GeneratedIdentifiers.t -> expr -> expr
 (** Replace generated locals with their concrete values *)

@@ -44,7 +44,7 @@ module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
-module LDN = LustreDesugarChooseOps
+module LDN = LustreDesugarAnyOps
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -155,7 +155,7 @@ let type_check declarations =
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
     
     (* Step 6. Desugar nondeterministic choice operators *)
-    let node_contract_src = LDN.desugar_choose_ops inlined_ctx node_contract_src in
+    let node_contract_src = LDN.desugar_any_ops inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
@@ -206,7 +206,7 @@ let type_check declarations =
         )
         else
           (warn_at_position (LW.warning_position warning) (LW.warning_message warning); Ok ())
-    ) warnings
+    ) (LW.sort_warnings_by_pos warnings)
     in
     let warning = List.fold_left (>>) (Ok ()) warnings in
     Debug.parse "Type checking done";

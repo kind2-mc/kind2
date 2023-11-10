@@ -212,14 +212,14 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 
 let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
-  | AbstractType (_, _) -> LSC.no_mismatched_clock false e
+  | EnumType _ -> LSC.no_mismatched_clock false e
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
   = fun ctx pos ty cases ->
     match ty with
-    | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
+    | EnumType (_, enum_id, _) -> (match lookup_variants ctx enum_id with
         | Some variants ->
           let check_cases_containment = R.seq_
             (List.map (fun i ->
@@ -248,7 +248,7 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
           ^ " is not an enumeration identifier")))
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
     | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
-      " must be an abstract type"))
+      " must be a bool or an enum type"))
 
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
@@ -312,7 +312,7 @@ let rec infer_const_attr ctx exp =
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
   (* Node calls *)
-  | ChooseOp _ -> assert false
+  | AnyOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
@@ -536,8 +536,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
-  | ChooseOp _ -> assert false
-  (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false
+  (* Already desugared in lustreDesugarAnyOps *)
   (*check_type_expr ctx e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -725,12 +725,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
-  | ChooseOp _ -> assert false 
-    (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false 
+    (* Already desugared in lustreDesugarAnyOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-  | ChooseOp (pos, (_, i ,ty), e1, Some e2) ->
+  | AnyOp (pos, (_, i ,ty), e1, Some e2) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e1 (Bool pos)
     >> check_type_expr extn_ctx e2 (Bool pos)
@@ -920,7 +920,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if LH.is_type_array ty1 then
+      (if LH.type_contains_array ty1 then
          type_error pos (Unsupported "Extensional array equality is not supported")
        else
          R.ok (LA.Bool pos)
@@ -1360,7 +1360,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
           (* 1. add the enum type and variants to the enum context *)
           let ctx' = add_enum_variants ctx ename econsts in
           (* 2. add the enum type as a valid type in context*)
-          let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
+          let ctx'' = add_ty_syn ctx' i ty in
           R.ok (List.fold_left union (add_ty_decl ctx'' ename)
           (* 3. Lift all enum constants (terms) with associated user type of enum name *)
             (enum_type_bindings

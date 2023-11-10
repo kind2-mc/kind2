@@ -81,6 +81,7 @@
     {- [`BVEXTRACT (i, j)] unary: extract subsequence from bitvector}
     {- [`BVCONCAT] binary: concatenation of bitvectors}
     {- [`BVSIGNEXT i] unary: sign extension of bitvectors}
+    {- [`BVZEROEXT i] unary: extend bitvectors with zeros}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
     }
@@ -188,9 +189,9 @@ type interpreted_symbol =
                           (** Extract subsequence from bitvector (unary) *)
   | `BVCONCAT             (** Concatenation of bitvectors (binary) *)
   | `BVSIGNEXT of Numeral.t
-                          (** Sign extension of bitvector (unary) *)                        
-
-
+                          (** Sign extension of bitvector (unary) *)
+  | `BVZEROEXT of Numeral.t
+                          (** Extend bitvector with zeros (unary) *)
   
   | `SELECT of Type.t     (** Selection from array (binary) *)
 
@@ -302,6 +303,10 @@ val s_store : t
 
 (**  Bit-vector extract operator *)
 val s_extract : Numeral.t -> Numeral.t -> t
+
+val s_signext : Numeral.t -> t
+
+val s_zeroext : Numeral.t -> t
 
 (** int -> machine int converters *)
 val s_to_uint8 : t

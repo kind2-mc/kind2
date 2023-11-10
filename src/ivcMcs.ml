@@ -256,8 +256,8 @@ let rec minimize_node_call_args ue lst expr =
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
     | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
-    | A.ChooseOp (p,ti,e, None) -> A.ChooseOp (p,ti,aux e, None)
-    | A.ChooseOp (p,ti,e1,Some e2) -> A.ChooseOp (p,ti,aux e1,Some (aux e2))
+    | A.AnyOp (p,ti,e, None) -> A.AnyOp (p,ti,aux e, None)
+    | A.AnyOp (p,ti,e1,Some e2) -> A.AnyOp (p,ti,aux e1,Some (aux e2))
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
     | A.When (p,e,c) -> A.When (p,aux e,c)
@@ -283,9 +283,9 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.ChooseOp (_,_,e,None) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
       aux e
-    | A.ChooseOp (_,_,e1,Some e2) -> aux e1 || aux e2
+    | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
     | A.ArrayIndex (_,e1,e2) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)

@@ -45,6 +45,9 @@ val bvextract : int -> int -> t -> t
 (** Return input bitvector sign-extended to m bits *)
 val bvsignext : int -> t -> t
 
+(** Extend input bitvector by concatenating m zero bits *)
+val bvzeroext : int -> t -> t
+
 (** Return input bitvectors concatenated together *)
 val bvconcat : t -> t -> t
 

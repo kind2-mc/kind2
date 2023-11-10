@@ -11,15 +11,13 @@ jobs:
   kind2-build:
     strategy:
       matrix:
+        os: [ ubuntu-20.04, macos-12 ]
         ocaml-version: [ 4.09.1 ]
-        os: [ ubuntu-20.04, macos-11 ]
         include:
-          - os: macos-11
+          - os: macos-12
             pkg_update: brew update
-            z3_install: brew install z3
           - os: ubuntu-20.04
             pkg_update: sudo apt-get update -y
-            z3_install: sudo apt-get install -y z3
 
     runs-on: ${{ matrix.os }}
 
@@ -41,8 +39,19 @@ jobs:
     - name: Build Kind2
       run: opam exec make
 
-    - name: Install Z3
-      run: ${{ matrix.z3_install }}
+    - name: Install Z3 (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        Z3_VERSION=4.12.2
+        Z3_OS_VERSION=x64-glibc-2.31
+        Z3_ZIP_NAME=z3-$Z3_VERSION-$Z3_OS_VERSION
+        wget -q https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
+        unzip -q $Z3_ZIP_NAME.zip
+        sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
+
+    - name: Install Z3 (macOS)
+      if: runner.os == 'macOS'
+      run: brew install z3
 
     - name: Install unit test dependencies
       run: opam install ounit2
