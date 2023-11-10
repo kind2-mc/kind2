@@ -212,14 +212,14 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 
 let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
-  | AbstractType (_, _) -> LSC.no_mismatched_clock false e
+  | EnumType _ -> LSC.no_mismatched_clock false e
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
   = fun ctx pos ty cases ->
     match ty with
-    | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
+    | EnumType (_, enum_id, _) -> (match lookup_variants ctx enum_id with
         | Some variants ->
           let check_cases_containment = R.seq_
             (List.map (fun i ->
@@ -248,7 +248,7 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
           ^ " is not an enumeration identifier")))
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
     | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
-      " must be an abstract type"))
+      " must be a bool or an enum type"))
 
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
@@ -1360,7 +1360,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
           (* 1. add the enum type and variants to the enum context *)
           let ctx' = add_enum_variants ctx ename econsts in
           (* 2. add the enum type as a valid type in context*)
-          let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
+          let ctx'' = add_ty_syn ctx' i ty in
           R.ok (List.fold_left union (add_ty_decl ctx'' ename)
           (* 3. Lift all enum constants (terms) with associated user type of enum name *)
             (enum_type_bindings
