@@ -109,6 +109,17 @@ let rec type_contains_subrange = function
   | ArrayType (_, (ty, _)) -> type_contains_subrange ty
   | _ -> false
 
+let rec type_contains_enum_or_subrange = function
+  | IntRange _
+  | EnumType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ty
+  | _ -> false
+
 (* Substitute t for var. AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
