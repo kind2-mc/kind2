@@ -77,13 +77,23 @@ module AI = LustreAbstractInterpretation
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
+type error_kind = 
+  | InvalidArrayLengthConstraint of A.expr * A.expr
+
 type error = [
-  | `LustreAstNormalizerError
+  | `LustreAstNormalizerError of Lib.position * error_kind
 ]
+
+let error_message kind = match kind with
+  | InvalidArrayLengthConstraint (e1, e2) -> "Array length constraint "
+    ^ A.string_of_expr e1 ^ " does not match constraint " ^ A.string_of_expr e2
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
   | UseOfAssertionWarning
+
+let normalize_error pos kind = Error (`LustreAstNormalizerError (pos, kind))
+  (** [type_error] returns an [Error] of [tc_result] *)
 
 let warning_message warning = match warning with
   | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
@@ -760,6 +770,18 @@ let rec mk_array_exprs gids ctx eq arity = match eq with
     ) [] sis eqns in 
     constraints
   | Assert _ -> []
+
+let evaluate_trivial_array_constraints ctx expr = match expr with 
+  | A.CompOp (_, _, e1, e2) -> 
+    let e1' = LustreAstInlineConstants.eval_int_expr ctx e1 in 
+    let e2' = LustreAstInlineConstants.eval_int_expr ctx e2 in (match e1', e2' with 
+    | Ok m, Ok n -> 
+    (if m = n 
+        then Result.ok (false) else 
+        normalize_error (AH.pos_of_expr e1) (InvalidArrayLengthConstraint (e1, e2)))
+    | _, _ -> Result.ok (true)
+    )
+  | _ -> assert false
 
 let mk_fresh_array_constraints gids info pos neq arity =
   let array_exprs = 

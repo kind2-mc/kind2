@@ -66,9 +66,14 @@
 
      @author Andrew Marmaduke *)
 
+type error_kind = 
+  | InvalidArrayLengthConstraint of LustreAst.expr * LustreAst.expr
+
 type error = [
-  | `LustreAstNormalizerError
+  | `LustreAstNormalizerError of Lib.position * error_kind
 ]
+
+val error_message: error_kind -> string
 
 type warning_kind =
   | UnguardedPreWarning of LustreAst.expr
