@@ -2094,7 +2094,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let over_array_constraints p (pos, id, rexpr, prop_desc) =
       let sv = H.find !map.state_var (mk_ident id) in
       let name = create_constraint_name rexpr in
-      let name = name ^ " (" ^ prop_desc ^ ")" in
+      let name = prop_desc ^ " " ^ name in
       let src = Property.Generated (Some pos, [sv]) in
       (sv, name, src, Property.Invariant) :: p
     in

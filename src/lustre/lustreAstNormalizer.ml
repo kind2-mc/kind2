@@ -516,12 +516,12 @@ let mk_array_prop_desc var is_call_arg pos =
   let pos = (Lib.string_of_t Lib.pp_print_position pos) in
   let is_generated = Str.string_match (Str.regexp "^[0-9].*") var 0 in
   if is_call_arg && is_generated
-  then "node call argument at position " ^ pos ^ " must have correct corresponding length argument"
+  then "Node call argument at position " ^ pos ^ " must have correct corresponding length argument"
   else if is_call_arg && not is_generated
-  then "node call argument " ^ var ^ " at position " ^ pos ^ " must have correct corresponding length argument"
+  then "Node call argument " ^ var ^ " at position " ^ pos ^ " must have correct corresponding length argument"
   else if not is_call_arg && is_generated
-  then "definition of variable at position " ^ pos ^ " must respect array length constraint" 
-  else "definition of variable " ^ var ^ " at position " ^ pos ^ " must respect array length constraint" 
+  then "Definition of variable at position " ^ pos ^ " must respect array length constraint" 
+  else "Definition of variable " ^ var ^ " at position " ^ pos ^ " must respect array length constraint" 
 
 let is_call gids id = 
   match List.find_opt (fun (_, id2, _, _, _, _, _) -> id = id2) gids.calls with 
