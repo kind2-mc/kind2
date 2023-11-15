@@ -804,7 +804,7 @@ let mk_fresh_array_constraints gids info pos neq arity =
         locals = StringMap.singleton name (false, A.Bool dpos);
         array_constraints = [(pos, name, output_expr, prop_name)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; }
-  ) gids array_exprs)  
+  ) (empty ()) array_exprs)
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
@@ -1107,8 +1107,8 @@ and normalize_item gids info map = function
   | A.Body ((Equation (pos, _, expr)) as equation) ->
     let nequation, gids2, warnings = normalize_equation info map equation in
     let arity = Ctx.arity_of_expr info.context expr in
-    let* gids = mk_fresh_array_constraints (union gids gids2) info pos nequation arity in
-    R.ok ([A.Body nequation], gids, warnings)
+    let* gids3 = mk_fresh_array_constraints (union gids gids2) info pos nequation arity in
+    R.ok ([A.Body nequation], union gids2 gids3, warnings)
   (* shouldn't be possible *)
   | IfBlock _ 
   | FrameBlock _ -> 
