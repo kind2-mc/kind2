@@ -1,4 +1,4 @@
-const a,b:int;
+const a:int;
 
 type T = struct { A: int^a; f: bool };
 

@@ -648,7 +648,7 @@ let rec mk_call_constraints lhs_pos gids ctx lhs_id proj rhs_id =
           | None -> 
           (match (StringMap.find_opt id gids.locals) with 
           | Some (_, ty) -> [(id, pos, type_extract_array_lens ctx true proj ty)]
-          | None -> print_endline (HString.string_of_hstring id); [])
+          | None -> [])
       ) 
       | _ -> []
     ) args |> List.flatten in
@@ -786,7 +786,7 @@ let evaluate_trivial_array_constraints ctx (expr, str) = match expr with
 let mk_fresh_array_constraints gids info pos neq arity =
   let array_exprs = 
     mk_array_exprs gids info.context neq arity 
-    |> List.map (fun (expr, name) -> ((AH.replace_gen_locals gids) expr, name)) 
+    |> List.map (fun (expr, name) -> (AH.replace_gen_locals gids expr, name)) 
   in
   (* Attempt to directly evaluate array constraints. If they trivially hold, filter
      them out, and if they are trivially falsified, throw an error. *)
@@ -1092,7 +1092,7 @@ and normalize_node info map
   in
   (* Normalize equations and the contract *)
   let over_list (nitems, gids, warnings1) item =
-    let* (normal_item, ids, warnings2) = normalize_item info map item in
+    let* (normal_item, ids, warnings2) = normalize_item gids info map item in
     R.ok (normal_item :: nitems, union ids gids, warnings1 @ warnings2)
   in let* nitems, gids4, warnings2 = R.seq_chain over_list ([], empty (), []) items in
   let nitems, gids4, warnings2 = List.rev nitems, gids4, warnings2 in 
@@ -1100,15 +1100,14 @@ and normalize_node info map
   let map = StringMap.singleton node_id gids in
   R.ok ((node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2)
 
-and normalize_item info map = function
+and normalize_item gids info map = function
   | A.Body ((Assert (_, _)) as equation) -> 
     let nequation, gids, warnings = normalize_equation info map equation in
     R.ok (([A.Body nequation], gids, warnings))
-  (* shouldn't be possible *)
   | A.Body ((Equation (pos, _, expr)) as equation) ->
-    let nequation, gids, warnings = normalize_equation info map equation in
+    let nequation, gids2, warnings = normalize_equation info map equation in
     let arity = Ctx.arity_of_expr info.context expr in
-    let* gids = mk_fresh_array_constraints gids info pos nequation arity in
+    let* gids = mk_fresh_array_constraints (union gids gids2) info pos nequation arity in
     R.ok ([A.Body nequation], gids, warnings)
   (* shouldn't be possible *)
   | IfBlock _ 
