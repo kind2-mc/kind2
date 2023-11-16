@@ -202,8 +202,7 @@ let mk_span start_pos end_pos =
     
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT 
-%left BAR
+%nonassoc WHEN CURRENT ASSUMING BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -1219,10 +1218,12 @@ typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
-  | l = ident_list_pos; COLON; t = lustre_type; BAR; ex = expr;
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr;
     (* Pair each identifier with the type *)
-    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), ex, None))) l }
-
+    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), e1, None))) l }
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr; ASSUMING; e2 = expr;
+    (* Pair each identifier with the type *)
+    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), e1, Some e2))) l }
 
 
 (* A list of lists of typed identifiers *)

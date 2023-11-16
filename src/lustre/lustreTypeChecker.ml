@@ -1505,12 +1505,13 @@ and check_array_size_expr ctx e =
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
-and check_ref_type_assuming_expr ctx e =
+(* Disallow assumptions on current values of input variables *)
+(* and check_ref_type_assuming_expr ctx e =
   let vars = LH.vars_without_node_call_ids_current e in
   (* Filter vars for output vars. What about local vars? *)
   match SI.elements vars with 
     | [] -> R.ok ()
-    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) *)
 
 and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   = fun ctx ->
@@ -1530,7 +1531,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     let ctx = add_ty ctx i ty in
     check_type_expr ctx e1 (Bool pos)
     >> check_type_expr ctx e2 (Bool pos)
-    >> check_ref_type_assuming_expr ctx e2 
+    (* >> check_ref_type_assuming_expr ctx e2  *)
     >> check_type_well_formed ctx ty
   | LA.RefinementType (pos, (_, i, ty), e, None) ->
     let ctx = add_ty ctx i ty in
@@ -1565,6 +1566,7 @@ and build_node_fun_ty: Lib.position -> tc_context
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
                         ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
+  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_op_ty rets) in 
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
   let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.GroupType (pos, ops) in
