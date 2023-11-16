@@ -419,10 +419,6 @@ refinement_type:
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
   | REF; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
-  | REF; ty = lustre_type; WITH; LCURLYBRACKET; e = expr; RCURLYBRACKET
-    { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e, None) } 
-  | REF; ty = lustre_type; WITH; LCURLYBRACKET; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
-    { A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), e1, Some e2) } 
 
 (*
   (* Alternate syntax: array [size] of type *)
@@ -1223,6 +1219,9 @@ typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; ex = expr;
+    (* Pair each identifier with the type *)
+    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), ex, None))) l }
 
 
 
