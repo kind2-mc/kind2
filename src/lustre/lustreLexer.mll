@@ -458,7 +458,6 @@ rule token = parse
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
-  | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
   | "<<" { LPARAMBRACKET }
   | ">>" { RPARAMBRACKET }
