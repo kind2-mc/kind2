@@ -168,6 +168,77 @@ let rec substitute_naive (var:HString.t) t = function
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
+(* Substitute t for var. ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+let rec substitute_naive_list (var:HString.t list) (t:expr list) = function
+  | Ident (pos, i) -> (
+    match List.assoc_opt i (List.combine var t) with
+      | Some expr -> expr
+      | None -> Ident (pos, i)
+  )
+  | ModeRef (_, _) as e -> e
+  | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive_list var t e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive_list var t e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive_list var t e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, substitute_naive_list var t e1, substitute_naive_list var t e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, substitute_naive_list var t e1, substitute_naive_list var t e2, substitute_naive_list var t e3)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive_list var t e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, substitute_naive_list var t e1, substitute_naive_list var t e2)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute_naive_list var t e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> substitute_naive_list var t e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, substitute_naive_list var t e1, idx, substitute_naive_list var t e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, substitute_naive_list var t e1, substitute_naive_list var t e2)
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, substitute_naive_list var t e1, substitute_naive_list var t e2)
+  | When (pos, e, clock) -> When (pos, substitute_naive_list var t e, clock)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = substitute_naive_list var t e1, substitute_naive_list var t e2 in
+    let expr_list1 = List.map (fun e -> substitute_naive_list var t e) expr_list1 in
+    let expr_list2 = List.map (fun e -> substitute_naive_list var t e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = substitute_naive_list var t e1, substitute_naive_list var t e2 in
+    let expr_list = List.map (fun e -> substitute_naive_list var t e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, substitute_naive_list var t e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> substitute_naive_list var t e) expr_list in
+    let e = substitute_naive_list var t e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, substitute_naive_list var t e)
+  | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive_list var t e1, substitute_naive_list var t e2)
+  | Call (pos, id, expr_list) ->
+    Call (pos, id, List.map (fun e -> substitute_naive_list var t e) expr_list)
+
+let rec substitute_naive_list_ty (var:HString.t list) (t:expr list) = function
+  | ArrayType (pos, (ty, expr)) -> (
+    let expr = substitute_naive_list var t expr in 
+    let ty = substitute_naive_list_ty var t ty in
+    ArrayType (pos, (ty, expr))
+  )
+  | TupleType(pos, tys) -> 
+    TupleType(pos, List.map (substitute_naive_list_ty var t) tys)
+  | GroupType(pos, tys) -> 
+    GroupType(pos, List.map (substitute_naive_list_ty var t) tys)
+  | TArr(pos, ty1, ty2) ->
+    TArr(pos, substitute_naive_list_ty var t ty1, substitute_naive_list_ty var t ty2)
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, substitute_naive_list_ty var t ty)) tis 
+    in
+    RecordType (pos, name, tis)
+  | ty -> ty
+    
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     
