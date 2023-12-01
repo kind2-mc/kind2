@@ -634,8 +634,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       let* given_arg_tys = infer_type_node_args ctx arg_exprs in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
       if are_equal then
-        let* ctx = (check_constant_args ctx i arg_exprs >> (R.ok exp_ret_tys)) in 
-        R.ok ctx
+        (check_constant_args ctx i arg_exprs >> (R.ok exp_ret_tys)) 
       else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
