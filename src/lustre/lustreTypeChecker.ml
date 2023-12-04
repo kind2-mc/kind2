@@ -399,7 +399,7 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
   | [] -> node_ty
   | _ -> (
     let find_matching_len_params array_param_lens = 
-      List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens
+      List.map (fun len -> (Lib.list_index (fun id2 -> len = id2) call_params)) array_param_lens
     in
     (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
       of array length param "m" is 0. *)
@@ -628,7 +628,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
       else R.ok (LA.GroupType (pos, arg_tys))
     in
-    match (lookup_node_param_attr ctx i), (lookup_node_ty ctx i) with
+    match (lookup_node_param_ids ctx i), (lookup_node_ty ctx i) with
     | Some call_params, Some node_ty -> (
       (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
@@ -816,7 +816,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
-    (match (lookup_node_ty ctx i), (lookup_node_param_attr ctx i) with
+    (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
     | None, _ 
     | _, None -> type_error pos (UnboundNodeName i)
     | Some ty, Some call_params -> 
