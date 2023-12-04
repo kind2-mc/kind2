@@ -385,25 +385,30 @@ let rec type_extract_array_lens ctx ty = match ty with
       | None -> [])
   | _ -> []
 
-let update_ty_with_ctx node_ty call_params ctx arg_exprs = 
-  let call_param_array_lens = type_extract_array_lens ctx node_ty in
-  let find_matching_len_params array_param_lens = 
-    List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens
-  in
-  let call_param_len_idents = List.map (LH.vars_without_node_call_ids) call_param_array_lens 
-    |> List.map LA.SI.elements
+let update_ty_with_ctx node_ty call_params ctx arg_exprs =
+  let call_param_len_idents =
+    type_extract_array_lens ctx node_ty
+    |> List.map (LH.vars_without_node_call_ids)
+    (* Remove duplicates *)
+    |> List.fold_left (fun acc vars -> LA.SI.union vars acc) LA.SI.empty
+    |> LA.SI.elements
     (* Filter out constants *)
-    |> List.map (List.filter (fun id -> not (member_val ctx id)))
-    |> List.flatten
+    |> List.filter (fun id -> not (member_val ctx id))
   in
-  (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
+  match call_param_len_idents with
+  | [] -> node_ty
+  | _ -> (
+    let find_matching_len_params array_param_lens = 
+      List.map (fun len -> (Lib.list_index (fun (id2, _) -> len = id2) call_params)) array_param_lens
+    in
+    (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
       of array length param "m" is 0. *)
-  let array_len_indices = find_matching_len_params call_param_len_idents in
-  (* Retrieve concrete arguments passed as array lengths *)
-  let array_len_exprs = (List.map (List.nth arg_exprs)) array_len_indices in
-  (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
-  LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
-
+    let array_len_indices = find_matching_len_params call_param_len_idents in
+    (* Retrieve concrete arguments passed as array lengths *)
+    let array_len_exprs = List.map (List.nth arg_exprs) array_len_indices in
+    (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
+    LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
+  )
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
