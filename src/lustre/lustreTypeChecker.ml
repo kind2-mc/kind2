@@ -402,7 +402,7 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
   (* Retrieve concrete arguments passed as array lengths *)
   let array_len_exprs = (List.map (List.nth arg_exprs)) array_len_indices in
   (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
-  LH.substitute_naive_list_ty call_param_len_idents array_len_exprs node_ty
+  LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
 
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result

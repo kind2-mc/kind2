@@ -58,10 +58,10 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
     AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 
-val substitute_naive_list_ty : index list -> expr list -> lustre_type -> lustre_type
-(** Substitute second param list for first param list in third param. 
-    The third param is a (possibly dependent) type.
-    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
+(** [apply_subst_in_type s t] applies the substitution defined by association list [s]
+    to the expressions of (possibly dependent) type [t]
+    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
     
 
 val has_unguarded_pre : expr -> bool
