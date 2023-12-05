@@ -392,8 +392,8 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     (* Remove duplicates *)
     |> List.fold_left (fun acc vars -> LA.SI.union vars acc) LA.SI.empty
     |> LA.SI.elements
-    (* Filter out constants *)
-    |> List.filter (fun id -> not (member_val ctx id))
+    (* Filter out constants. If "id" is a constant, it must be a local constant  *)
+    |> List.filter (fun id -> not (member_val ctx id) || (List.mem id call_params) )
   in
   match call_param_len_idents with
   | [] -> node_ty
