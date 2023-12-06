@@ -724,9 +724,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
         else
           let elty = List.hd inf_tys in
           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
-            (let arr_ty = List.hd inf_tys in
-            let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
-            (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
+            (let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
+             let arr_ty = LA.ArrayType (pos, (elty, arr_size)) in
+             (R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
                 (type_error pos (ExpectedType (exp_ty, arr_ty)))))
             (type_error pos UnequalArrayExpressionType))
 
