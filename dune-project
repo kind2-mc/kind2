@@ -1,6 +1,7 @@
 (lang dune 2.7)
 
 (name kind2)
+(version 2.1.0)
 
 (package
  (name kind2)

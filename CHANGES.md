@@ -1,4 +1,4 @@
-# Unreleased
+# Kind 2 v2.1.0
 
 This release includes multiple improvements and bug fixes. Notably:
 
