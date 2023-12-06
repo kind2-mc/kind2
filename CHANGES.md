@@ -1,3 +1,20 @@
+# Unreleased
+
+This release includes multiple improvements and bug fixes. Notably:
+
+- Add new option for printing the set of viable states of a realizable contract (`--print_viable_states`).
+- Allow the second argument of a shift operator to be non-constant.
+- Add support for the latest versions of SMT solver Bitwuzla (v0.1.1 and above).
+- Fix compatibility issue with OCaml 5.0.0+
+- Fix printing of values of stateless variables in counterexamples (bug introduced in v2.0.0).
+- Fix several bugs related to the definition and use of arrays in Lustre models.
+- Add static checks on the definition of global subrange constants.
+- Accept `param` keyword for the declaration of system parameters (global constants without a definition).
+- Add subrange and enum constraints on system parameters.
+- Fix type checking and handling of constant node arguments.
+- Other improvements and bug fixes in the Lustre front end.
+
+
 # Kind 2 v2.0.0
 
 New features:
