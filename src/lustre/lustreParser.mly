@@ -132,7 +132,6 @@ let mk_span start_pos end_pos =
 %token CHECK
 %token REACHABLE
 %token PROVIDED
-%token ASSUMING
 %token INVARIANT
 %token FROM
 %token AT
@@ -156,7 +155,6 @@ let mk_span start_pos end_pos =
 %token HASH
 %token FORALL
 %token EXISTS
-%token ANY
     
 (* Tokens for relations *)
 %token LTE
@@ -219,7 +217,6 @@ let mk_span start_pos end_pos =
 %nonassoc INT REAL 
 %nonassoc NOT
 %nonassoc BVNOT 
-%nonassoc ANY
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -942,12 +939,12 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* 'Any' operation *)
-  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
+  (*| ANY; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
     { A.AnyOp (mk_pos $startpos, id, e, None) } 
   | ANY; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
     { A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
   | ANY; ty = lustre_type;
-    { A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
+    { A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}*)
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
