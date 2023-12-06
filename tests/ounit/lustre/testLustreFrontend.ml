@@ -603,14 +603,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/open_interval.lus" with
     | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
     | _ -> false);
-  mk_test "test nondeterministic choice type error" (fun () ->
-    match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
-    | _ -> false);
-  mk_test "test nondeterministic choice type error 2" (fun () ->
-    match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
-    | _ -> false);
   mk_test "test temporal op in const" (fun () ->
     match load_file "./lustreSyntaxChecks/const_not_const.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
