@@ -370,6 +370,46 @@ let check_constant_args ctx i arg_exprs =
     else R.ok ()
   )
 
+let rec type_extract_array_lens ctx ty = match ty with 
+  | LA.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx ty
+  | TupleType (_, tys) -> List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | GroupType (_, tys) -> List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | TArr (_, ty1, ty2) -> 
+    type_extract_array_lens ctx ty1 @ type_extract_array_lens ctx ty2
+  | RecordType (_, _, tis) ->
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+    List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | UserType (_, id) -> 
+    (match (lookup_ty_syn ctx id) with 
+      | Some ty -> type_extract_array_lens ctx ty;
+      | None -> [])
+  | _ -> []
+
+let update_ty_with_ctx node_ty call_params ctx arg_exprs =
+  let call_param_len_idents =
+    type_extract_array_lens ctx node_ty
+    |> List.map (LH.vars_without_node_call_ids)
+    (* Remove duplicates *)
+    |> List.fold_left (fun acc vars -> LA.SI.union vars acc) LA.SI.empty
+    |> LA.SI.elements
+    (* Filter out constants. If "id" is a constant, it must be a local constant  *)
+    |> List.filter (fun id -> not (member_val ctx id) || (List.mem id call_params) )
+  in
+  match call_param_len_idents with
+  | [] -> node_ty
+  | _ -> (
+    let find_matching_len_params array_param_lens = 
+      List.map (fun len -> (Lib.list_index (fun id2 -> len = id2) call_params)) array_param_lens
+    in
+    (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
+      of array length param "m" is 0. *)
+    let array_len_indices = find_matching_len_params call_param_len_idents in
+    (* Retrieve concrete arguments passed as array lengths *)
+    let array_len_exprs = List.map (List.nth arg_exprs) array_len_indices in
+    (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
+    LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
+  )
+
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)
@@ -588,8 +628,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
       else R.ok (LA.GroupType (pos, arg_tys))
     in
-    match (lookup_node_ty ctx i) with
-    | Some (TArr (_, exp_arg_tys, exp_ret_tys)) -> (
+    match (lookup_node_param_ids ctx i), (lookup_node_ty ctx i) with
+    | Some call_params, Some node_ty -> (
+      (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
+      let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
+      let exp_arg_tys, exp_ret_tys = match node_ty with 
+        | TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
+        | _ -> assert false 
+      in
       let* given_arg_tys = infer_type_node_args ctx arg_exprs in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
       if are_equal then
@@ -597,8 +643,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
-    | Some ty -> type_error pos (ExpectedFunctionType ty)
-    | None -> type_error pos (UnboundNodeName i)
+    | _, Some ty -> type_error pos (ExpectedFunctionType ty)
+    | _, None -> type_error pos (UnboundNodeName i)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -767,14 +813,18 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   (* Node calls *)
   | Call (pos, i, args) ->
-    R.seq (List.map (infer_type_expr ctx) args) >>= fun arg_tys ->
+    let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
-    (match (lookup_node_ty ctx i) with
-    | None -> type_error pos (UnboundNodeName i)
-    | Some ty -> 
-      R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
-        (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
+    (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
+    | None, _ 
+    | _, None -> type_error pos (UnboundNodeName i)
+    | Some ty, Some call_params -> 
+      (* Express ty in terms of the current context *)
+      let ty = update_ty_with_ctx ty call_params ctx args in
+      let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
+      if b then R.ok ()
+      else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)

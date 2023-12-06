@@ -178,6 +178,12 @@ let lookup_node_ty: tc_context -> LA.ident -> tc_type option
 let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
   = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
 
+let lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
+  = fun ctx i ->
+  match IMap.find_opt i (ctx.node_param_attr) with
+  | Some l -> Some (List.map fst l)
+  | None -> None
+
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
