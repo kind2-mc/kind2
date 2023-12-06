@@ -168,7 +168,6 @@ let rec substitute_naive (var:HString.t) t = function
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
-(* Substitute t for var. ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
     match List.assoc_opt i sigma with
