@@ -1,0 +1,6 @@
+node N() returns (ok:bool);
+let
+  assert (true -> pre ok);
+  ok = false;
+  --%PROPERTY ok;
+tel
