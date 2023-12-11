@@ -64,6 +64,9 @@ val seq_: (unit, 'e) result list -> (unit, 'e) result
 val ifM: (bool, 'e) result -> ('a, 'e) result -> ('a, 'e) result -> ('a, 'e) result  
 (** This is an if .. then .. else lifted in monadic world *)
 
+val splitM: (('a * 'b) list, 'e) result -> ('a list * 'b list, 'e) result
+(** List.split, lifted to the monadic world *)
+
 val guard_with: (bool, 'e) result -> (unit, 'e) result -> (unit, 'e) result
 (** converts a monadic boolean condition into a guard *)
   

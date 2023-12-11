@@ -197,6 +197,7 @@ let (>>=) = R.(>>=)
 let (let*) = R.(>>=)
 let (>>) = R.(>>)
 
+(*!! TODO: review *)
 let global_id = HString.mk_hstring "_global"
 
 let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
@@ -536,17 +537,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type * (LA.expr * string) 
   | LA.GroupExpr (pos, struct_type, exprs) ->
     (match struct_type with
     | LA.ExprList ->
-        let* tys_cons = R.seq (List.map (infer_type_expr ctx) exprs) in
-        let tys, cons = List.split tys_cons in
+        let* tys, cons = R.seq (List.map (infer_type_expr ctx) exprs) |> R.splitM in
         R.ok (LA.GroupType (pos, tys), List.flatten cons)
     | LA.TupleExpr ->
-        let* tys_cons = R.seq (List.map (infer_type_expr ctx) exprs) in
-        let tys, cons = List.split tys_cons in
+        let* tys, cons = R.seq (List.map (infer_type_expr ctx) exprs) |> R.splitM in
         R.ok (LA.TupleType (pos, tys), List.flatten cons)
     | LA.ArrayExpr ->
-        R.seq (List.map (infer_type_expr ctx) exprs)
-        >>= (fun tys_cons ->
-        let tys, cons1 = List.split tys_cons in
+        R.seq (List.map (infer_type_expr ctx) exprs) |> R.splitM
+        >>= (fun (tys, cons1) ->
         let elty = List.hd tys in
         let f = (fun (b1, exprs1) (b2, exprs2) -> b1 && b2, exprs1 @ exprs2) in 
         let* b, cons2 = (R.seqM f (true, []) (List.map (eq_lustre_type ctx elty) tys)) in
@@ -607,8 +605,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type * (LA.expr * string) 
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
     >> let* r_ty, cons1 = infer_type_expr ctx (Call (pos, node, args)) in
-    let* d_tys_cons = R.seq (List.map (infer_type_expr ctx) defaults) in
-    let d_tys, cons2 = List.split d_tys_cons in
+    let* d_tys, cons2 = R.seq (List.map (infer_type_expr ctx) defaults) |> R.splitM in
     let* b, cons3 = (eq_lustre_type ctx r_ty (GroupType (pos, d_tys))) in
     if b
     then R.ok (r_ty, cons1 @ List.flatten cons2 @ cons3)
@@ -622,8 +619,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type * (LA.expr * string) 
     let case_tys = mcases_exprs |> List.map (infer_type_expr ctx) in
     check_merge_exhaustive ctx pos ty mcases_ids >>
     check_merge_clock e ty >>
-    R.seq case_tys >>= fun tys_cons ->
-    let tys, cons2 = List.split tys_cons in
+    let* tys, cons2 = R.seq case_tys |> R.splitM in
     let main_ty = List.hd tys in
     let f = (fun (b1, exprs1) (b2, exprs2) -> b1 && b2, exprs1 @ exprs2) in 
     let* b, cons3 = (R.seqM f (true, []) (List.map (eq_lustre_type ctx main_ty) tys)) in
@@ -649,8 +645,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type * (LA.expr * string) 
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type * (LA.expr * string) list, [> error]) result =
     fun ctx args ->
-      let* res = R.seq (List.map (infer_type_expr ctx) args) in
-      let arg_tys, cons = List.split res in
+      let* arg_tys, cons = R.seq (List.map (infer_type_expr ctx) args) |> R.splitM in
       if List.length arg_tys = 1 then R.ok (List.hd arg_tys, List.hd cons)
       else R.ok (LA.GroupType (pos, arg_tys), List.flatten cons)
     in
@@ -738,8 +733,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> ((LA.expr * string) lis
   | RecordExpr (pos, name, flds) ->
     let (ids, es) = List.split flds in
     let mk_ty_ident p i t = (p, i, t) in
-    let* inf_tys_cons = R.seq (List.map (infer_type_expr ctx) es) in
-    let inf_tys, cons1 = List.split inf_tys_cons in
+    let* inf_tys, cons1 = R.seq (List.map (infer_type_expr ctx) es) |> R.splitM in
     let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
     let* b, cons2 = (eq_lustre_type ctx inf_r_ty exp_ty) in
     if b then R.ok (List.flatten cons1 @ cons2)
@@ -748,24 +742,21 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> ((LA.expr * string) lis
     (match group_ty with
     (* These should be tuple type  *)
     | ExprList ->
-        let* inf_tys_cons = R.seq (List.map (infer_type_expr ctx) es) in 
-        let inf_tys, cons1 = List.split inf_tys_cons in 
+        let* inf_tys, cons1 = R.seq (List.map (infer_type_expr ctx) es) |> R.splitM in 
         let inf_ty = LA.GroupType (pos, inf_tys) in
         let* b, cons2 = (eq_lustre_type ctx inf_ty exp_ty) in
         if b then 
         R.ok (List.flatten cons1 @ cons2)
         else (type_error pos (ExpectedType (exp_ty, inf_ty)))
       | TupleExpr ->
-        let* inf_tys_cons = R.seq (List.map (infer_type_expr ctx) es) in
-        let inf_tys, cons1 = List.split inf_tys_cons in 
+        let* inf_tys, cons1 = R.seq (List.map (infer_type_expr ctx) es) |> R.splitM in
         let inf_ty = LA.TupleType (pos, inf_tys) in
         let* b, cons2 = (eq_lustre_type ctx inf_ty exp_ty) in
         if b     then R.ok (List.flatten cons1 @ cons2) 
         else (type_error pos (ExpectedType (exp_ty, inf_ty)))
     (* This should be array type *)
     | ArrayExpr ->
-        let* inf_tys_cons = R.seq (List.map (infer_type_expr ctx) es) in
-        let inf_tys, cons1 = List.split inf_tys_cons in
+        let* inf_tys, cons1 = R.seq (List.map (infer_type_expr ctx) es) |> R.splitM in
         if List.length inf_tys < 1
         then type_error pos EmptyArrayExpression
         else
@@ -843,8 +834,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> ((LA.expr * string) lis
   | Condact (pos, c, _, node, args, defaults) ->
     let* cons1 = check_type_expr ctx c (Bool pos) in 
     let* cons2 = check_type_expr ctx (Call (pos, node, args)) exp_ty in
-    let* d_tys_cons =  R.seq (List.map (infer_type_expr ctx) defaults) in 
-    let d_tys, cons3 = List.split d_tys_cons in
+    let* d_tys, cons3 =  R.seq (List.map (infer_type_expr ctx) defaults) |> R.splitM in 
     let* b, cons4 = eq_lustre_type ctx (GroupType (pos, d_tys)) exp_ty in
     if b then R.ok (cons1 @ cons2 @ List.flatten cons3 @ cons4)
     else (type_error pos IlltypedDefaults)
@@ -872,8 +862,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> ((LA.expr * string) lis
 
   (* Node calls *)
   | Call (pos, i, args) ->
-    let* arg_tys_cons = R.seq (List.map (infer_type_expr ctx) args) in
-    let arg_tys, cons1 = List.split arg_tys_cons in
+    let* arg_tys, cons1 = R.seq (List.map (infer_type_expr ctx) args) |> R.splitM in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
@@ -1170,8 +1159,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ((LA.exp
                 ; Debug.parse "TC declaration node %a done }" LA.pp_print_ident node_name; [])
       else (
         (* add local variable binding in the context *)
-        let* local_var_ctxts_cons = R.seq (List.map (local_var_binding ctx_plus_ips) ldecls) in
-        let local_var_ctxts, cons2 = List.split local_var_ctxts_cons in
+        let* local_var_ctxts, cons2 = R.seq (List.map (local_var_binding ctx_plus_ips) ldecls) |> R.splitM in
         (* Local TC context is input vars + output vars + local const + var decls *)
         let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
@@ -1365,8 +1353,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ((LA.expr *
     else Ok ([]))
     rets) in
   (* get the local const var declarations into the context *)
-  let* ctxs_cons = R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract) in
-  let ctxs, cons3 = List.split ctxs_cons in 
+  let* ctxs, cons3 = R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract) |> R.splitM in
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
   check_type_contract (arg_ids, ret_ids) local_ctx contract
@@ -1415,16 +1402,15 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
       let common_ids = LA.SI.inter arg_ids ret_ids in
       if (LA.SI.equal common_ids LA.SI.empty)
       then 
-        let* ret_tys_cons = R.seq (List.map (infer_type_expr ctx)
+        let* ret_tys, cons1 = R.seq (List.map (infer_type_expr ctx)
           (List.map (fun i -> LA.Ident (pos, i)) rets))
+          |> R.splitM
         in
-        let ret_tys, cons1 = List.split ret_tys_cons in
         let ret_ty = if List.length ret_tys = 1
           then List.hd ret_tys
           else LA.GroupType (pos, ret_tys)
         in
-        let* arg_tys_cons = R.seq(List.map (infer_type_expr ctx) args) in
-        let arg_tys, cons2 = List.split arg_tys_cons in
+        let* arg_tys, cons2 = R.seq(List.map (infer_type_expr ctx) args) |> R.splitM in
         let arg_ty = if List.length arg_tys = 1
           then List.hd arg_tys
           else LA.GroupType (pos, arg_tys)

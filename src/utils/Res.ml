@@ -67,6 +67,11 @@ let safe_unwrap: 'a -> ('a, 'e) result -> 'a =
   fun d -> function
         | Ok v -> v
         | _ -> d
+
+let splitM: (('a * 'b) list, 'e) result -> (('a list *'b list), 'e) result
+  = fun list -> match list with 
+    | Ok list -> Ok (List.split list)
+    | Error e ->  Error e
              
 (** Unwraps a result. *)
 let unwrap = function
