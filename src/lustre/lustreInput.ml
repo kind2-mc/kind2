@@ -51,7 +51,7 @@ type error = [
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
-  | `LustreAstNormalizerError
+  | `LustreAstNormalizerError of Lib.position * LustreAstNormalizer.error_kind
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
@@ -149,7 +149,7 @@ let type_check declarations =
     let* sorted_const_type_decls = AD.sort_globals const_type_decls in
     
     (* Step 4. Type check top level declarations *)
-    let* ctx = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
+    let* ctx, cons1 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
@@ -161,7 +161,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 8. type check nodes and contracts *)
-    let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+    let* global_ctx, cons2 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
@@ -185,8 +185,11 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (*!! TODO: Clean this up *)
+    let cons1 = GeneratedIdentifiers.StringMap.of_seq (TypeCheckerContext.IMap.to_seq cons1) in
+    let cons2 = GeneratedIdentifiers.StringMap.of_seq (TypeCheckerContext.IMap.to_seq cons2) in
     let* (normalized_nodes_and_contracts, gids, warnings2) = 
-      LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
+      LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids (GeneratedIdentifiers.StringMap.merge LustreTypeChecker.union_keys cons1 cons2)
     in
     
       

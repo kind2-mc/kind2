@@ -90,20 +90,22 @@ type error = [
 
 val error_message: error_kind -> string
 
+val union_keys: 'a -> 'b list option -> 'b list option -> 'b list option
+
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
-     
-val type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result  
+      
+val type_check_infer_globals: tc_context -> LA.t -> (tc_context * (LA.expr * string) list IMap.t, [> error]) result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> error]) result
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * ((LA.expr * string) list IMap.t), [> error]) result
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_context, [> error]) result
+val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_context * (LA.expr * string) list, [> error ]) result
 
-val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result
+val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context * (LA.expr * string) list, [> error]) result
 
 val get_node_ctx : tc_context ->
   'a * 'b * 'c * LA.const_clocked_typed_decl list *
@@ -115,16 +117,17 @@ val build_node_fun_ty : Lib.position ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type, [> error ]) result
 
-val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
+val infer_type_expr: tc_context -> LA.expr -> (tc_type * (LA.expr * string) list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
-val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
+val eq_lustre_type : ?is_call_arg: bool -> ?pos:Lib.position -> tc_context -> LA.lustre_type -> LA.lustre_type -> (bool * (LA.expr * string) list, [> error]) result
 (** Check if two lustre types are equal *)
 
 (* 
-   Local Variables:
-   compile-command: "make -k -C .."
-   indent-tabs-mode: nil
-   End: 
+    Local Variables:
+    compile-command: "make -k -C .."
+    indent-tabs-mode: nil
+    End: 
 *)
-                                
+                                    
+    

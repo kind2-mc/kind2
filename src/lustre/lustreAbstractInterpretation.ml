@@ -195,7 +195,7 @@ let rec interpret_program ty_ctx gids = function
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
+  let ty_ctx, _ = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
@@ -274,7 +274,7 @@ and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
     | None -> empty_context
   in
   let ty_ctx = List.fold_left
-    (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
+    (fun ctx local -> TC.local_var_binding ctx local |> unwrap |> fst)
     ty_ctx
     locals 
   in
@@ -441,7 +441,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
 
 and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e |> unwrap
+    let ty, _ = TC.infer_type_expr ty_ctx e |> unwrap
     in
     Ctx.expand_nested_type_syn ty_ctx ty
   in
@@ -492,7 +492,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e |> unwrap
+    let ty, _ = TC.infer_type_expr ty_ctx e |> unwrap
     in
     let ty = Ctx.expand_nested_type_syn ty_ctx ty in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e

@@ -60,6 +60,12 @@ type t = {
     * HString.t (* Generated name for Range Expression *)
     * LustreAst.expr) (* Computed ranged expr *)
     list;
+  array_constraints : (
+    Lib.position
+    * HString.t (* Generated name for array constraint expression *)
+    * LustreAst.expr (* Computed expr *)
+    * string) (* Constraint textual description *)
+    list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
@@ -104,6 +110,7 @@ let union ids1 ids2 = {
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
     subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
+    array_constraints = ids1.array_constraints @ ids2.array_constraints;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
@@ -126,6 +133,7 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
     calls = [];
     contract_calls = StringMap.empty;
     subrange_constraints = [];
+    array_constraints = [];
     expanded_variables = StringSet.empty;
     equations = [];
     nonvacuity_props = StringSet.empty;
