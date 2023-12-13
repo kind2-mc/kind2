@@ -332,7 +332,7 @@ let rec infer_const_attr ctx exp =
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
   | Call (_, i, _) -> (
-    let err = error exp "node call or choose operator" in
+    let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
     | Some (TArr (_, _, exp_ret_tys)) -> (
       match exp_ret_tys with
@@ -764,14 +764,15 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> ((LA.expr * string) lis
           let* b, cons2 = (R.seqM f (true, []) (List.map (eq_lustre_type ctx elty) inf_tys)) in
           if b
           then (
-            let arr_ty = List.hd inf_tys in
             let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
+            let arr_ty = LA.ArrayType (pos, (elty, arr_size)) in
             let* b, cons3 = (eq_lustre_type ctx (LA.ArrayType (pos, (arr_ty, arr_size))) exp_ty) in (
-            if b         then R.ok (List.flatten cons1 @ cons2 @ cons3)
+            if b then R.ok (List.flatten cons1 @ cons2 @ cons3)
             else (type_error pos (ExpectedType (exp_ty, arr_ty))))
           )
           else (type_error pos UnequalArrayExpressionType)
       )
+
   (* Update of structured expressions *)
   | StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
@@ -1638,7 +1639,7 @@ and check_const_integer_expr ctx kind e =
   match infer_type_expr ctx e with
   | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
     type_error pos
-      (ExpectedConstant (kind, "node call or choose operator"))
+      (ExpectedConstant (kind, "node call or any operator"))
   | Ok (ty, _) ->
     let* eq, _ = eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)) in
     if eq then

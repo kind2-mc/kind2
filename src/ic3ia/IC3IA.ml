@@ -54,6 +54,9 @@ let rec declare_init_var declare lbound ubound =
     declare (Var.unrolled_uf_of_state_var_instance var) ;
     declare_init_var declare (Numeral.succ lbound) ubound
 
+let sys_def_guard () =
+  UfSymbol.mk_uf_symbol "%sys_def" [] Type.t_bool
+
 let on_exit _ =
   max_unrolling := 0 ;
   match !ref_interpolator with
@@ -177,8 +180,14 @@ let mk_solver sys =
      (Numeral.zero)
      (Numeral.succ max_offset) ;
 
-   SMTSolver.assert_term solver 
-     (sys_def solver sys prime_abstr_offset) ;
+   let guard = sys_def_guard () in
+   SMTSolver.declare_fun solver guard;
+
+   (* Assert system definition guarded with activation literal *)
+   SMTSolver.assert_term solver (
+    Term.mk_implies
+      [Term.mk_uf guard [];
+       sys_def solver sys prime_abstr_offset]) ;
 
    solver
 
@@ -493,6 +502,10 @@ let solve_relative solver predicates frames s option =
   let cube = TCube.cube s in
 
   SMTSolver.push solver ;
+
+  (* Asserts system definition via activation literal *)
+  SMTSolver.assert_term solver
+    (Term.mk_uf (sys_def_guard ()) []) ;
 
   if option <> NoInd then (
     let not_cube = Term.negate (Cube.to_term cube) in
