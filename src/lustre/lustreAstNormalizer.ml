@@ -609,25 +609,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids array_constraints_map =
     ([], gids, warnings) decls
   
   (* Collect array constraints in map *)
-  in let map = StringMap.fold (fun id array_exprs acc1  ->  
-    let gids2 = List.fold_left (fun acc2 (array_expr, desc) ->
-      i := !i + 1;
-      let output_expr = AH.rename_contract_vars array_expr in
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "array") in
-      let pos = AH.pos_of_expr array_expr in
-      let nexpr = A.Ident (pos, name) in
-      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty array_expr nexpr in
-      union acc2
-      { (empty ()) with
-        locals = StringMap.singleton name (false, A.Bool dpos);
-        array_constraints = [(pos, name, output_expr, desc)];
-        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; 
-      }
-    ) (empty ()) array_exprs in 
-    StringMap.merge union_keys2 acc1 (StringMap.singleton id gids2)
-  ) array_constraints_map map
-  in
+  in let map = collect_array_constraints info map array_constraints_map in
 
   let ast = List.rev ast in
   
@@ -1568,3 +1550,23 @@ and expand_node_calls_in_place info var count expr =
     let e = A.RestartEvery (p, id, expr_list, r e) in
     expand_node_call info e var count
   | e -> e
+
+and collect_array_constraints info map array_constraints_map = 
+  StringMap.fold (fun id array_exprs acc1  ->  
+    let gids2 = List.fold_left (fun acc2 (array_expr, desc) ->
+      i := !i + 1;
+      let output_expr = AH.rename_contract_vars array_expr in
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "array") in
+      let pos = AH.pos_of_expr array_expr in
+      let nexpr = A.Ident (pos, name) in
+      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty array_expr nexpr in
+      union acc2
+      { (empty ()) with
+        locals = StringMap.singleton name (false, A.Bool dpos);
+        array_constraints = [(pos, name, output_expr, desc)];
+        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; 
+      }
+    ) (empty ()) array_exprs in 
+    StringMap.merge union_keys2 acc1 (StringMap.singleton id gids2)
+  ) array_constraints_map map
