@@ -1553,7 +1553,7 @@ and expand_node_calls_in_place info var count expr =
 
 and collect_array_constraints info map array_constraints_map = 
   StringMap.fold (fun id array_exprs acc1  ->  
-    let gids2 = List.fold_left (fun acc2 (array_expr, desc) ->
+    let gids = List.fold_left (fun acc2 (array_expr, desc) ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars array_expr in
       let prefix = HString.mk_hstring (string_of_int !i) in
@@ -1568,5 +1568,5 @@ and collect_array_constraints info map array_constraints_map =
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, array_expr)]; 
       }
     ) (empty ()) array_exprs in 
-    StringMap.merge union_keys2 acc1 (StringMap.singleton id gids2)
+    StringMap.merge union_keys2 acc1 (StringMap.singleton id gids)
   ) array_constraints_map map
