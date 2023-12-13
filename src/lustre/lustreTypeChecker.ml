@@ -96,6 +96,7 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
+  | GlobalArrayConstraint of LA.expr
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -192,13 +193,11 @@ let error_message kind = match kind with
     ^ Lib.string_of_t LA.pp_print_expr e
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
+  | GlobalArrayConstraint expr -> "Unresolved global array constraint " ^ LA.string_of_expr expr
 
 let (>>=) = R.(>>=)
 let (let*) = R.(>>=)
 let (>>) = R.(>>)
-
-(*!! TODO: review *)
-let global_id = HString.mk_hstring "_global"
 
 let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (** [type_error] returns an [Error] of [tc_result] *)
@@ -1595,10 +1594,11 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
 and tc_ctx_of_declaration: (tc_context * ((LA.expr * string) list IMap.t)) -> LA.declaration -> (tc_context * ((LA.expr * string) list IMap.t), [> error]) result
     = fun (ctx', m1) ->
     function
-    | LA.ConstDecl (_, const_decl) -> 
+    | LA.ConstDecl ({start_pos;}, const_decl) -> 
       let* ctx, cons = tc_ctx_const_decl ctx' const_decl in 
-      let m2 = IMap.singleton global_id cons in
-      R.ok (ctx, IMap.merge union_keys m1 m2)
+      (match cons with 
+        | (expr, _) :: _ -> type_error start_pos (GlobalArrayConstraint expr)
+        | _ -> R.ok (ctx, m1))
     | LA.NodeDecl ({LA.start_pos=pos}, node_decl) ->
       let* ctx = tc_ctx_of_node_decl pos ctx' node_decl in 
       R.ok (ctx, m1)
@@ -1623,11 +1623,13 @@ and build_type_and_const_context : tc_context -> LA.t -> (tc_context * (LA.expr 
   | LA.TypeDecl (_, ty_decl) :: rest ->
     let* ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     build_type_and_const_context ctx' rest
-  | ConstDecl (_, const_decl) :: rest ->
-    let* ctx', cons1 = tc_ctx_const_decl ctx const_decl in
-    let m1 = IMap.singleton global_id cons1 in
-    let* ctx, m2 = build_type_and_const_context ctx' rest in 
-    R.ok (ctx, IMap.merge union_keys m1 m2)                   
+  | ConstDecl ({ start_pos; }, const_decl) :: rest ->
+    let* ctx', cons = tc_ctx_const_decl ctx const_decl in
+    (match cons with 
+        | (expr, _) :: _ -> type_error start_pos (GlobalArrayConstraint expr)
+        | _ -> 
+          let* ctx, m = build_type_and_const_context ctx' rest in 
+          R.ok (ctx, m))
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)

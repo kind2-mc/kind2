@@ -81,6 +81,7 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
+  | GlobalArrayConstraint of LA.expr
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

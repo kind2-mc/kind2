@@ -25,11 +25,7 @@ module SI = LA.SI
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
-module IMap : sig
-  (* everything that [Stdlib.Map] gives us  *)
-  include (Map.S with type key = LA.ident)
-  val keys: 'a t -> key list
-end
+module IMap = HString.HStringMap
 (** Map for types with identifiers as keys *)
 
 type enum_variants = LA.ident list IMap.t

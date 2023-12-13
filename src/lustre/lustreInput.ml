@@ -45,6 +45,7 @@ module LDF = LustreDesugarFrameBlocks
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
 module LDN = LustreDesugarAnyOps
+module GI = GeneratedIdentifiers
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -185,11 +186,8 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
-    (*!! TODO: Clean this up *)
-    let cons1 = GeneratedIdentifiers.StringMap.of_seq (TypeCheckerContext.IMap.to_seq cons1) in
-    let cons2 = GeneratedIdentifiers.StringMap.of_seq (TypeCheckerContext.IMap.to_seq cons2) in
     let* (normalized_nodes_and_contracts, gids, warnings2) = 
-      LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids (GeneratedIdentifiers.StringMap.merge LustreTypeChecker.union_keys cons1 cons2)
+      LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids (GI.StringMap.merge TC.union_keys cons1 cons2)
     in
     
       

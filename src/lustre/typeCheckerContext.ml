@@ -27,16 +27,10 @@ module LH = LustreAstHelpers
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
-module IMap = struct
-  (* everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = HString.compare i1 i2
-            end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
+module IMap = HString.HStringMap
 (** Map for types with identifiers as keys *)
 
+let keys m = List.map fst (IMap.bindings m)
 
 type enum_variants = LA.ident list IMap.t
 (** A store of the variants for defined enumeration types *)
@@ -288,7 +282,7 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
 (** Extracts constants as a typing constant  *)
 
 let get_constant_ids: tc_context -> LA.ident list
-  = fun ctx -> IMap.keys ctx.vl_ctx
+  = fun ctx -> keys ctx.vl_ctx
 (** Returns the constants declared in the typing context  *)
 
 let lookup_contract_exports: tc_context -> LA.ident -> ty_store option
