@@ -163,6 +163,8 @@ let type_check declarations =
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
+    let sorted_node_contract_decls = LustreFlattenRefinementTypes.flatten_ref_types global_ctx sorted_node_contract_decls in
+
     (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
 
