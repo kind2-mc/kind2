@@ -1406,6 +1406,261 @@ let rec constraints_of_node_calls
   | _ -> assert false
 
 
+let build_call_pairs
+  analysis_param
+  nodes
+  subsystems
+  top_calls
+=
+  let mk_map calls =
+    List.fold_left
+    (fun acc node_call ->
+      let
+        { N.call_node_name ;
+          N.call_inputs    ;
+          N.call_oracles   ;
+          N.call_outputs   ;
+          N.call_cond      ;}
+        =
+        node_call
+      in
+
+      let { N.is_function } =
+        try N.node_of_name call_node_name nodes
+        with Not_found -> assert false
+      in
+
+      if is_function || call_oracles <> [] || call_cond <> [] then
+        (* TODO: Handle calls with activation conditions *)
+        acc
+      else (
+        I.Map.add call_node_name
+          [D.values call_inputs, D.values call_outputs]
+          acc
+      )
+    )
+    I.Map.empty
+    calls
+  in
+
+  let calls_in_top = mk_map top_calls in
+
+  let calls_in_subnodes =
+    List.fold_left
+      (fun acc { N.call_pos; N.call_node_name; N.call_cond } ->
+        let scope = I.to_scope call_node_name in
+        if A.param_scope_is_abstract analysis_param scope && call_cond = [] then
+          (* TODO: Handle calls with activation conditions *)
+          let { N.calls; N.is_function } =
+            try N.node_of_name call_node_name nodes
+            with Not_found -> assert false
+          in
+          if is_function then
+            (* Skip: functions only contains calls to functions *)
+            acc
+          else
+            (scope, call_pos, mk_map calls) :: acc
+        else
+          acc
+      )
+      []
+      top_calls
+  in
+
+  let get_map_up scope pos =
+    try
+      let { TransSys.map_up } =
+        subsystems
+        |> List.find (fun (sys, _) ->
+          Scope.equal (TransSys.scope_of_trans_sys sys) scope
+        )
+        |> snd
+        |> List.find (fun { TransSys.pos=pos' } ->
+          Lib.equal_pos pos pos'
+        )
+      in
+      map_up
+    with Not_found ->
+      assert false
+  in
+
+  let lift_trace_and_svars map_up (inputs, outputs) =
+    let inputs =
+      List.map
+        (fun sv -> lift_state_var map_up sv)
+        inputs
+    in
+    let outputs =
+      List.map
+        (fun sv -> lift_state_var map_up sv)
+        outputs
+    in
+    inputs, outputs
+  in
+
+  let mk_call_pairs l1 l2 acc =
+    let mk_eq (sv1, sv2) =
+      let v1 = Var.mk_state_var_instance sv1 TransSys.init_base in
+      let v2 = Var.mk_state_var_instance sv2 TransSys.init_base in
+      Term.mk_eq [Term.mk_var v1; Term.mk_var v2]
+    in
+    let mk_conj vl1 vl2 =
+      (* Returns Term.t_true if all variables are syntactically equal *)
+      List.map2 (fun sv1 sv2 -> sv1, sv2) vl1 vl2
+      |> List.filter
+        (fun (sv1, sv2) -> StateVar.equal_state_vars sv1 sv2 |> not)
+      |> List.map mk_eq
+      |> Term.mk_and
+    in
+    List.fold_left
+      (fun acc (i1,o1) ->
+        List.fold_left
+          (fun acc (i2,o2) ->
+            (mk_conj i1 i2, mk_conj o1 o2) :: acc
+          )
+          acc
+          l2
+      )
+      acc
+      l1
+  in
+
+  List.fold_left
+    (fun acc (scope, pos, map) ->
+      let lift_name_and_svars' =
+        let map_up = get_map_up scope pos in
+        lift_trace_and_svars map_up
+      in
+      I.Map.fold
+        (fun name top_lst acc ->
+            match I.Map.find_opt name map with
+            | None -> acc
+            | Some subnode_lst -> (
+              let subnode_lst' =
+                List.map lift_name_and_svars' subnode_lst
+              in
+              mk_call_pairs top_lst subnode_lst' acc
+            )
+        )
+        calls_in_top
+        acc
+    )
+    []
+    calls_in_subnodes
+
+
+let constraints_of_node_congruence
+  mk_fresh_state_var
+  analysis_param
+  nodes
+  subsystems
+  init_terms
+  trans_terms
+  top_calls
+=
+  let call_pairs =
+    (* List of pairs (t1, t2)
+      t1: Term stating inputs of Call 1 are equal to inputs of Call 2
+      t2: Term stating outputs of Call 1 are equal to outputs of Call 2
+
+      As of today, [build_call_pairs] pairs calls to node N called by
+      the top node with calls to node N called by direct subnodes of
+      the top node that are abstract in the current analysis.
+    *)
+    build_call_pairs
+      analysis_param nodes subsystems top_calls
+  in
+
+  (* Split [call_pairs] in two lists to handle separately the cases where
+     all inputs are syntactically equal from the rest of cases
+  *)
+  let all_inputs_equal, rest =
+    call_pairs
+    |> List.partition (fun (t, _) -> Term.equal t Term.t_true)
+  in
+
+  let add_constraints_for_all_inputs_equal init_terms trans_terms =
+    let init_terms =
+      all_inputs_equal
+      |> List.fold_left (fun init_terms (_,o_base) ->
+        o_base :: init_terms
+      )
+      init_terms
+    in
+
+    let trans_terms =
+      all_inputs_equal
+      |> List.fold_left (fun trans_terms (_,o_base) ->
+        let offset =
+          Numeral.(TransSys.trans_base - TransSys.init_base)
+        in
+        let o_trans = Term.bump_state offset o_base in
+        o_trans :: trans_terms
+      )
+      trans_terms
+    in
+    init_terms, trans_terms
+  in
+
+  let add_constraints_for_rest init_terms trans_terms =
+    let local_and_terms =
+      rest |> List.map (fun terms ->
+        let fresh_svar =
+          mk_fresh_state_var
+            ?is_const:(Some false)
+            ?for_inv_gen:(Some true)
+            ?inst_for_sv:None
+            Type.t_bool
+        in
+        (fresh_svar, terms)
+      )
+    in
+
+    let locals = List.map fst local_and_terms in
+
+    let init_terms =
+      local_and_terms
+      |> List.fold_left (fun init_terms (l, (i_base,o_base)) ->
+        let vi =
+          Var.mk_state_var_instance l TransSys.init_base |> Term.mk_var
+        in
+        Term.mk_eq [vi; i_base]
+        :: Term.mk_implies [vi; o_base]
+        :: init_terms
+      )
+      init_terms
+    in
+
+    let trans_terms =
+      local_and_terms
+      |> List.fold_left (fun trans_terms (l, (i_base,o_base)) ->
+        let vt =
+          Var.mk_state_var_instance l TransSys.trans_base |> Term.mk_var
+        in
+        let vp = Term.bump_state (Numeral.of_int (-1)) vt in
+        let offset = Numeral.(TransSys.trans_base - TransSys.init_base) in
+        let i_trans = Term.bump_state offset i_base in
+        let o_trans = Term.bump_state offset o_base in
+        Term.mk_eq [vt; Term.mk_and [i_trans; vp]]
+        :: Term.mk_implies [vt; o_trans]
+        :: trans_terms
+      )
+      trans_terms
+    in
+    locals, init_terms, trans_terms
+  in
+
+  let init_terms, trans_terms =
+    match all_inputs_equal with
+    | [] -> init_terms, trans_terms
+    | _  -> add_constraints_for_all_inputs_equal init_terms trans_terms
+  in
+
+  match rest with
+  | [] -> [], init_terms, trans_terms
+  | _  -> add_constraints_for_rest init_terms trans_terms
+
+
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
 let rec constraints_of_asserts init_terms trans_terms = function
@@ -1770,6 +2025,7 @@ let rec trans_sys_of_node'
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
+          ?(basename=I.inst_ident)
           ?is_const
           ?for_inv_gen
           ?inst_for_sv
@@ -1784,7 +2040,7 @@ let rec trans_sys_of_node'
             ~is_input:false
             ?is_const:is_const
             ?for_inv_gen:for_inv_gen
-            ((I.push_index I.inst_ident index) 
+            ((I.push_index basename index)
              |> I.string_of_ident true)
             (N.scope_of_node node @ I.reserved_scope)
             state_var_type
@@ -2103,7 +2359,7 @@ let rec trans_sys_of_node'
             trans_terms
           =
             constraints_of_node_calls
-              mk_fresh_state_var
+              (mk_fresh_state_var ~basename:I.inst_ident)
               globals
               trans_sys_defs
               []  (* No lifted locals *)
@@ -2113,6 +2369,29 @@ let rec trans_sys_of_node'
               init_terms
               trans_terms
               calls
+          in
+
+          let
+            equiv_locals,
+            init_terms,
+            trans_terms
+          =
+            if I.equal node_name top_name then
+              (* Select pairs of calls (C1, C2) to the same node N and
+                 add constraint "SoFar(I1=I2) => O1=O2" where:
+                 I1 and O1 are the inputs and the outputs of call C1, and
+                 I2 and O2 are the inputs and the outputs of call C2.
+              *)
+              constraints_of_node_congruence
+                (mk_fresh_state_var ~basename:I.eq_inputs_ident)
+                analysis_param
+                nodes
+                subsystems
+                init_terms
+                trans_terms
+                calls
+            else
+              [], init_terms, trans_terms
           in
 
           (* Add lifted properties *)
@@ -2139,7 +2418,7 @@ let rec trans_sys_of_node'
           let stateful_vars = 
             init_flag ::
               (N.stateful_vars_of_node node |> SVS.elements)
-              @ lifted_locals in
+              @ lifted_locals @ equiv_locals in
 
 
           let global_consts =

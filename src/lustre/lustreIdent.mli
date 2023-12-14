@@ -102,6 +102,9 @@ val init_flag_ident : t
 (** Identifier for instantiated variables in node calls *)
 val inst_ident : t
 
+(** Identifier for variables stating inputs of two node calls are equal so far *)
+val eq_inputs_ident : t
+
 (** Identifier for index variables in arrays *)
 val index_ident : t
 
