@@ -1,0 +1,24 @@
+
+type S1 = subrange[0,1] of int;
+type S5 = subrange[0,5] of int;
+
+contract Spec1(x: S1) returns (y: S5);
+let
+  guarantee y>x;
+tel
+
+contract Spec2(x: S1) returns (y: S5);
+let
+  import Spec1(x) returns (y);
+tel
+
+node N1(x: S1) returns (y: S5);
+(*@contract
+  import Spec2(x) returns (y);
+*)
+var l: int;
+let
+  y = x + 1;
+  l = y + 1;
+  check l>0;
+tel

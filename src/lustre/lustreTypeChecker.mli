@@ -71,7 +71,6 @@ type error_kind = Unknown of string
   | NodeArgumentOnLHS of HString.t
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set
-  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
   | ExpectedConstant of string * string

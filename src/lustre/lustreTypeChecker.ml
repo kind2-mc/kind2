@@ -86,7 +86,6 @@ type error_kind = Unknown of string
   | NodeArgumentOnLHS of HString.t
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set
-  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
   | ExpectedConstant of string * string
@@ -174,10 +173,6 @@ let error_message kind = match kind with
     ^ " does not match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
   | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
-  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument '" | false -> "Return '")
-    ^ HString.string_of_hstring id ^ "' can not have type "
-    ^ string_of_tc_type ty ^ ". Contract " ^ (match kind with | true -> "assumptions" | false -> "guarantees")
-    ^ " should be used instead"
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
@@ -1259,19 +1254,8 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (unit, [> e
   let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
-  (* forbid subranges in the arguments or return types *)
-  R.seq (List.map (fun (pos, i, ty, _, _) -> 
-    let ty = expand_nested_type_syn arg_ctx ty in
-    if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
-    else Ok ())
-    args)
-  >> R.seq (List.map (fun (pos, i, ty, _) -> 
-    let ty = expand_nested_type_syn ret_ctx ty in
-    if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (false, i, ty))
-    else Ok ())
-    rets)
   (* get the local const var declarations into the context *)
-  >> R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
+  R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
   >>= fun ctxs ->
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
