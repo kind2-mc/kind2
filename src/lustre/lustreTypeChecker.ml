@@ -84,7 +84,6 @@ type error_kind = Unknown of string
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
   | NodeArgumentOnLHS of HString.t
-  | NodeInputOutputShareIdentifier of ty_set
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set
   | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
@@ -168,8 +167,6 @@ let error_message kind = match kind with
     ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
   | InvalidConversion (ty1, ty2) -> "Cannot convert type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentOnLHS v -> "Input '" ^ HString.string_of_hstring v ^ "' can not be defined"
-  | NodeInputOutputShareIdentifier set -> "Input and output parameters cannot have common identifiers, "
-    ^ "but found common parameters: " ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
   | MismatchOfEquationType (items, ty) -> "Term structure on left hand side of the equation "
     ^ (match items with
       | Some items -> Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") items
@@ -1311,36 +1308,25 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                 (Bool pos))
       
     | ContractCall (pos, cname, args, rets) ->
-      let arg_ids =
-        List.fold_left
-          (fun a s -> LA.SI.union a s)
-          LA.SI.empty
-          (List.map LH.vars_without_node_call_ids args)
+      let* ret_tys = R.seq (List.map (infer_type_expr ctx)
+        (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
-      let ret_ids = LA.SI.of_list rets in
-      let common_ids = LA.SI.inter arg_ids ret_ids in
-      if (LA.SI.equal common_ids LA.SI.empty)
-      then 
-        let* ret_tys = R.seq (List.map (infer_type_expr ctx)
-          (List.map (fun i -> LA.Ident (pos, i)) rets))
-        in
-        let ret_ty = if List.length ret_tys = 1
-          then List.hd ret_tys
-          else LA.GroupType (pos, ret_tys)
-        in
-        let* arg_tys = R.seq(List.map (infer_type_expr ctx) args) in
-        let arg_ty = if List.length arg_tys = 1
-          then List.hd arg_tys
-          else LA.GroupType (pos, arg_tys)
-        in
-        let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-        (match (lookup_contract_ty ctx cname) with
-        | Some inf_ty -> 
-            R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-              (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
-        | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
-          ^ (HString.string_of_hstring cname))))
-      else type_error pos (NodeInputOutputShareIdentifier common_ids)
+      let ret_ty = if List.length ret_tys = 1
+        then List.hd ret_tys
+        else LA.GroupType (pos, ret_tys)
+      in
+      let* arg_tys = R.seq(List.map (infer_type_expr ctx) args) in
+      let arg_ty = if List.length arg_tys = 1
+        then List.hd arg_tys
+        else LA.GroupType (pos, arg_tys)
+      in
+      let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+      (match (lookup_contract_ty ctx cname) with
+      | Some inf_ty -> 
+          R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+            (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
+      | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
+        ^ (HString.string_of_hstring cname))))
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
   = fun (pos1, GhostVarDec(pos2, tis), expr) ->
