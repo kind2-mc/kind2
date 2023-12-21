@@ -1378,9 +1378,8 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let (_, scope, contract_eqns) =
         GI.StringMap.find id gids.GI.contract_calls
       in
-      let contract_scope = (List.hd scope) :: contract_scope in
-      map := { !map with contract_scope };
-      let (a, g) = compile_contract cstate gids ctx map contract_scope node_scope contract_eqns
+      map := { !map with contract_scope=scope };
+      let (a, g) = compile_contract cstate gids ctx map scope node_scope contract_eqns
       in a @ ams, g @ gs
     in List.fold_left over_calls ([], []) contract_calls
   (* ****************************************************************** *)
