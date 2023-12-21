@@ -55,6 +55,7 @@ type t = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
+    * (Lib.position * HString.t) list (* contract scope  *)
     * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)

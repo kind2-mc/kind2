@@ -261,7 +261,7 @@ let pp_print_generated_identifiers ppf gids =
     | Output -> "output"
     | Ghost -> "ghost")
   in
-  let pp_print_subrange_constraint ppf (source, is_original, pos, id, rexpr) =
+  let pp_print_subrange_constraint ppf (source, _, is_original, pos, id, rexpr) =
     Format.fprintf ppf "(%a, %b, %a, %a, %a)"
       pp_print_source source
       is_original
@@ -491,7 +491,7 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
-      subrange_constraints = [(source, is_original, pos, name, output_expr)];
+      subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
     in
     gids)
@@ -560,6 +560,17 @@ let get_type_of_id info node_id id =
 
 (* If [expr] is already an id then we don't create a fresh local *)
 let should_not_abstract force expr = not force && AH.expr_is_id expr
+
+let add_subrange_constraints info node_id kind vars =
+  vars
+  |> List.filter (fun (_, id) -> 
+    let ty = get_type_of_id info node_id id in
+    AH.type_contains_subrange ty)
+  |> List.fold_left (fun acc (p, id) ->
+    let ty = get_type_of_id info node_id id in
+    let ty = AIC.inline_constants_of_lustre_type info.context ty in
+    union acc (mk_fresh_subrange_constraint kind info p id ty))
+    (empty ())
 
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
@@ -668,8 +679,16 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
-  let nbody, gids, warnings = normalize_contract info map body in
-  nbody, gids, warnings, StringMap.empty
+  let gids1 =
+    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) ivars in
+    add_subrange_constraints info id Input vars
+  in
+  let gids2 = 
+    let vars = List.map (fun (p,id,_,_) -> (p,id)) ovars in
+    add_subrange_constraints info id Output vars
+  in
+  let nbody, gids3, warnings = normalize_contract info map body in
+  nbody, union (union gids1 gids2) gids3, warnings, StringMap.empty
 
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
@@ -703,25 +722,13 @@ and normalize_node info map
   in
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs *)
-  let gids1 = inputs
-    |> List.filter (fun (_, id, _, _, _) -> 
-      let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange ty)
-    |> List.fold_left (fun acc (p, id, _, _, _) ->
-      let ty = get_type_of_id info node_id id in
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Input info p id ty))
-      (empty ())
+  let gids1 =
+    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
+    add_subrange_constraints info node_id Input vars
   in
-  let gids2 = outputs
-    |> List.filter (fun (_, id, _, _) -> 
-      let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange ty)
-    |> List.fold_left (fun acc (p, id, _, _) ->
-      let ty = get_type_of_id info node_id id in
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p id ty))
-      (empty ())
+  let gids2 = 
+    let vars = List.map (fun (p,id,_,_) -> (p,id)) outputs in
+    add_subrange_constraints info node_id Output vars
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)

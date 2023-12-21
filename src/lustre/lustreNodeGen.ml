@@ -1556,7 +1556,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Subrange Constraints               *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, _, id, _) =
+    let over_generated_locals glocals (_, _, _, _, id, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -2044,7 +2044,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let create_constraint_name rexpr = 
       Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
     in
-    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, rexpr) =
+    let over_subrange_constraints
+      (a, ac, g, gc, p)
+      (source, contract_scope, is_original, pos, id, rexpr)
+    =
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
@@ -2055,15 +2058,18 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | Ghost -> Some N.Guarantee
       in
       if is_original then
+        let scope =
+          List.map (fun (i, s) -> i, HString.string_of_hstring s) contract_scope
+        in
         match constraint_kind with
         | Some N.Assumption ->
           let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos ac (Some name) sv [] in
+          let contract_sv = C.mk_svar pos ac (Some name) sv scope in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee ->
           let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos gc (Some name) sv [] in
+          let contract_sv = C.mk_svar pos gc (Some name) sv scope in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None ->
