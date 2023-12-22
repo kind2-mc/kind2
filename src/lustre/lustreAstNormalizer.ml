@@ -658,12 +658,12 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
   let input_interp = List.fold_left (fun acc (i, e) ->
       StringMap.merge union_keys acc (StringMap.singleton i e))
     StringMap.empty
-    (List.combine ivars_names inputs)
+    (List.combine ivars_names (List.map fst inputs))
   in
   let output_interp = List.fold_left (fun acc (i, e) ->
       StringMap.merge union_keys acc (StringMap.singleton i e))
     StringMap.empty
-    (List.combine ovars_names outputs)
+    (List.combine ovars_names (List.map fst outputs))
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
@@ -679,15 +679,33 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
+  let compute_vars caller callee =
+    List.combine (List.map snd caller) callee
+    |> List.filter_map (fun (ty1, (p,id,ty2)) ->
+      match ty1 with
+      | None -> Some (p,id)
+      | Some ty1 ->
+        match AH.syn_type_equal None ty1 ty2 with
+        | Error () | Ok false -> Some (p,id)
+        | Ok true -> None
+    )
+  in
+  (* As an optimization we omit input and output variables for which
+     we know a stronger constraint is already accounted.
+     Future improvement: filter out variables based on subtyping relation
+     on their types instead of equality.
+  *)
   let gids1 =
-    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) ivars in
+    let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
+    let vars = compute_vars inputs vars in
     add_subrange_constraints info id Input vars
   in
   let gids2 = 
-    let vars = List.map (fun (p,id,_,_) -> (p,id)) ovars in
+    let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
+    let vars = compute_vars outputs vars in
     add_subrange_constraints info id Output vars
   in
-  let nbody, gids3, warnings = normalize_contract info map body in
+  let nbody, gids3, warnings = normalize_contract info map ivars ovars body in
   nbody, union (union gids1 gids2) gids3, warnings, StringMap.empty
 
 and normalize_ghost_declaration info map = function
@@ -702,7 +720,7 @@ and normalize_ghost_declaration info map = function
   | e -> e, empty (), []
 
 and normalize_node info map
-    (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
+    (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -732,14 +750,14 @@ and normalize_node info map
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids5, warnings1 = match contracts with
-    | Some contracts ->
-      let ctx = Chk.tc_ctx_of_contract info.context contracts |> unwrap
+  let ncontracts, gids5, warnings1 = match contract with
+    | Some contract ->
+      let ctx = Chk.tc_ctx_of_contract info.context contract |> unwrap
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids, warnings = normalize_contract info map
-        contracts in
+      let ncontracts, gids, warnings =
+        normalize_contract info map inputs outputs contract in
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
@@ -910,7 +928,7 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info map items =
+and normalize_contract info map ivars ovars items =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
@@ -945,14 +963,28 @@ and normalize_contract info map items =
       | ContractCall (pos, name, inputs, outputs) ->
         let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info map false) inputs in
         let noutputs = List.map
-          (fun id -> match StringMap.find_opt id info.interpretation with
-            | Some new_id -> new_id
-            | None -> id)
+          (fun id ->
+            let ty =
+              (* If output argument is an output of the caller, keep type *)
+              match List.find_opt (fun (_, oid, _, _) -> HString.equal id oid) ovars with
+              | None -> None
+              | Some (_, _, ty, _) -> Some ty
+            in
+            match StringMap.find_opt id info.interpretation with
+            | Some new_id -> (new_id, ty)
+            | None -> (id, ty))
           outputs
         in
-        let ninputs = List.map (fun e -> 
+        let ninputs = List.map (fun e ->
           match e with
-          | A.Ident (_, i) -> i
+          | A.Ident (_, i) ->
+            let ty =
+              (* If input argument is an input of the caller, keep type *)
+              match List.find_opt (fun (_, id, _, _, _) -> HString.equal i id) ivars with
+              | None -> None
+              | Some (_, _, ty, _, _) -> Some ty
+            in
+            (i, ty)
           | _ -> assert false)
           ninputs
         in
