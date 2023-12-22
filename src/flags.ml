@@ -3966,10 +3966,13 @@ let solver_dependant_actions solver =
           raise UnsupportedSolver
         ) ;
         if
-          Certif.proof () && not (major=1 && minor=0 && patch>=3 && patch<=5)
+          Certif.proof () && not (
+            major=1 && minor=0 && patch>=3 && patch<=9 ||
+            major=1 && minor=1 && patch=0
+          )
         then (
           Log.log L_error
-            "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.0.5. Found \
+            "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.1.0. Found \
              version: %d.%d.%d"
             major minor patch;
           raise UnsupportedSolver)
