@@ -1,3 +1,12 @@
+# Unreleased
+
+This release includes some minor improvements and various fixes. Notably:
+
+- Fix soundness bug in IC3IA engine
+- Allow variables with subrange types in the interface of a contract node
+- Accept new versions of cvc5 for proof production (up to 1.1.0)
+
+
 # Kind 2 v2.1.0
 
 This release includes multiple improvements and bug fixes. Notably:
