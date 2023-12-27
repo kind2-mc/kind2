@@ -79,7 +79,7 @@ jobs:
     - name: Upload Kind 2 binary
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}
+        name: macos
         path: bin/kind2
 
   create-new-release:
@@ -108,7 +108,7 @@ jobs:
     needs: [create-new-release]
     strategy:
       matrix:
-        version: [linux, macos-12]
+        version: [linux, macos]
 
     steps:
     - name: Download binary
