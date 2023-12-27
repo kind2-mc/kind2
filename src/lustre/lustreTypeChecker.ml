@@ -309,7 +309,7 @@ let rec infer_const_attr ctx exp =
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
   | Call (_, i, _) -> (
-    let err = error exp "node call" in
+    let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
     | Some (TArr (_, _, exp_ret_tys)) -> (
       match exp_ret_tys with
@@ -1507,7 +1507,7 @@ and check_const_integer_expr ctx kind e =
   match infer_type_expr ctx e with
   | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
     type_error pos
-      (ExpectedConstant (kind, "node call"))
+      (ExpectedConstant (kind, "node call or any operator"))
   | Ok ty ->
     let* eq = eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)) in
     if eq then

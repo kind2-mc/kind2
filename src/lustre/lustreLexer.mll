@@ -287,6 +287,10 @@ let keyword_table = mk_hashtbl [
   "with", WITH ;
   "div", INTDIV ;
   "mod", MOD ;
+
+  (* 'Any' operator *)
+  "any", ANY ;
+  "assuming", ASSUMING ;
   
   (* Clock operators *)
   "when", WHEN ;
