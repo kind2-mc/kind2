@@ -52,7 +52,7 @@ jobs:
     if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix: # Single configuration
-        ocaml-version: [ 4.14.1 ]
+        ocaml-version: [ 5.1.1 ]
         # Only matrix variables can be used at runs-on
         os: [ macos-12 ]
 
