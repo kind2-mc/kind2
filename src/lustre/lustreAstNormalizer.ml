@@ -472,6 +472,12 @@ let mk_range_expr ctx expr_type expr =
   in
   mk ctx 0 expr_type expr
 
+let mk_fresh_dummy_index =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_index") in
+  name
+
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   let expr = A.Ident(pos, constrained_name) in
   let range_exprs = mk_range_expr info.context expr_type expr in
@@ -491,7 +497,8 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   in
   List.fold_left union (empty ()) gids
 
-let mk_ref_type_expr id source = function 
+let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr) list
+ = fun id source ty -> match ty with 
   | A.RefinementType (_, (_, id2, _), expr1, Some expr2) ->
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
@@ -500,19 +507,35 @@ let mk_ref_type_expr id source = function
        | Input -> Input, Output
        | Output -> Output, Input
        | Ghost -> assert false in
-    let expr1 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr1 in
-    let expr2 = AH.substitute_naive id2 (A.Ident (dpos, id)) expr2 in
+    let expr1 = AH.substitute_naive id2 id expr1 in
+    let expr2 = AH.substitute_naive id2 id expr2 in
     [(source1, expr1); (source2, expr2)]
   | A.RefinementType (_, (_, id2, _), expr, None) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 (A.Ident (dpos, id)) expr in
+    let expr = AH.substitute_naive id2 id expr in
     [(source, expr)]
+  | TupleType (_, tys) 
+  | GroupType (_, tys) -> List.map (mk_ref_type_expr id source) tys |> List.flatten
+  | RecordType _ -> [] (*!! handle this *)
+  | ArrayType (_, (ty, len)) -> 
+    let pos = AH.pos_of_expr id in
+    let dummy_index = mk_fresh_dummy_index in
+    let exprs_sources = mk_ref_type_expr (A.ArrayIndex(pos, id, Ident(pos, dummy_index))) source ty in 
+    List.map (fun (source, expr) -> 
+      let bound1 = 
+        A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
+      in 
+      let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
+      let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
+      source, A.Quantifier(pos, Forall, [pos, mk_fresh_dummy_index, A.Int pos], expr)
+    ) exprs_sources
   | _ -> []
 
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
   let ref_type_exprs = mk_ref_type_expr id source expr_type in
+  List.iter (fun (_, expr) -> A.pp_print_expr Format.std_formatter expr) ref_type_exprs;
   let gids = List.map (fun (source, ref_type_expr) ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars ref_type_expr in
@@ -537,8 +560,6 @@ let mk_fresh_oracle expr_type expr =
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
-
-
 
 let mk_fresh_call info id map pos cond restart args defaults =
   let called_node = StringMap.find id map in 
@@ -741,7 +762,7 @@ and normalize_node info map
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
       let gids = union acc (mk_fresh_subrange_constraint Input info p id ty)
-      in union gids (mk_fresh_refinement_type_constraint Input info p id ty))
+      in union gids (mk_fresh_refinement_type_constraint Input info p (A.Ident (p, id)) ty))
       (empty ())
   in
   let gids2 = outputs
@@ -752,7 +773,7 @@ and normalize_node info map
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
       let gids = union acc (mk_fresh_subrange_constraint Output info p id ty)
-      in union gids (mk_fresh_refinement_type_constraint Output info p id ty))
+      in union gids (mk_fresh_refinement_type_constraint Output info p (A.Ident (p, id)) ty))
 
       (empty ())
   in
@@ -788,7 +809,7 @@ and normalize_node info map
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
         let gids = union acc (mk_fresh_subrange_constraint Local info p id ty)
-        in union gids (mk_fresh_refinement_type_constraint Local info p id ty)
+        in union gids (mk_fresh_refinement_type_constraint Local info p (A.Ident (p, id)) ty)
       | _ -> assert false)
       (empty ())
   in
@@ -1071,7 +1092,7 @@ and normalize_contract info map items =
               let new_id = StringMap.find i info.interpretation in
               if AH.type_contains_subrange_or_ref_type ty then
                 union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
-                      (mk_fresh_refinement_type_constraint Ghost info pos new_id ty)
+                      (mk_fresh_refinement_type_constraint Ghost info pos (A.Ident (pos, new_id)) ty)
               else empty ()
             )
             tis
