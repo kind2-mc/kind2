@@ -75,7 +75,7 @@ let mk_span start_pos end_pos =
 %token BOOL
 %token SUBRANGE
 %token OF
-%token REF
+%token SUBTYPE
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -414,9 +414,9 @@ array_type:
 
 (* Refinement type *)
 refinement_type:
-  | REF; LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  | SUBTYPE; LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e, None) } 
-  | REF; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
+  | SUBTYPE; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
     { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
 
 (*
