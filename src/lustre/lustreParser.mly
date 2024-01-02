@@ -1220,10 +1220,18 @@ typed_idents:
     { List.map (function (pos, e) -> (pos, e, t)) l }
   | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr;
     (* Pair each identifier with the type *)
-    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), e1, None))) l }
+    { 
+      match l with 
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), e1, None))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
   | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr; ASSUMING; e2 = expr;
     (* Pair each identifier with the type *)
-    { List.map (function (pos, e) -> (pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", t), e1, Some e2))) l }
+    {
+      match l with 
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), e1, Some e2))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
 
 
 (* A list of lists of typed identifiers *)
