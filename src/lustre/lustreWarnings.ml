@@ -19,12 +19,15 @@
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
   | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
+  | `LustreTypeCheckerWarning of Lib.position * LustreTypeChecker.warning_kind
 ]
 
 let warning_position warning = match warning with
   | `LustreDesugarFrameBlocksWarning (pos, _) -> pos
   | `LustreAstNormalizerWarning (pos, _) -> pos
+  | `LustreTypeCheckerWarning (pos, _) -> pos
 
 let warning_message warning = match warning with
   | `LustreDesugarFrameBlocksWarning (_, kind) -> LustreDesugarFrameBlocks.warning_message kind
   | `LustreAstNormalizerWarning (_, kind) -> LustreAstNormalizer.warning_message kind
+  | `LustreTypeCheckerWarning (_, kind) -> LustreTypeChecker.warning_message kind

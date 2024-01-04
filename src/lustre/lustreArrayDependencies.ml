@@ -257,7 +257,7 @@ and check_node_decl ctx ns decl =
     (Ctx.union input_ctx output_ctx)
   in
   let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap)
+    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap |> fst)
     ctx
     locals
   in

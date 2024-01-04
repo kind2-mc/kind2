@@ -40,6 +40,9 @@ val pos_of_expr : expr -> Lib.position
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
+val expr_contains_id : index -> expr -> bool
+(** Checks if the expression contains a particular identifier *)
+
 val type_arity : lustre_type -> int * int
 (** Returns the arity of a type, a function (TArr) has arity `(a, b)`
     where `a` is the number of inputs and `b` is the number of outputs,

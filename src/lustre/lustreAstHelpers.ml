@@ -89,6 +89,36 @@ let rec expr_contains_call = function
   | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | ChooseOp (_, _, _, _)
     -> true
 
+let rec expr_contains_id id = function
+  | Ident (_, id2) -> id = id2
+  | ModeRef (_, _) | Const (_, _) -> false
+  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
+    -> expr_contains_id id e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
+    -> expr_contains_id id e1 || expr_contains_id id e2
+  | TernaryOp (_, _, e1, e2, e3)
+    -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
+  | Call (_, _, expr_list) | GroupExpr (_, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
+  | RecordExpr (_, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    expr_contains_id id e1 || expr_contains_id id e2
+    || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
+  | ChooseOp (_, (_, id2, _), e, None) -> if id != id2 then expr_contains_id id e else false
+  | ChooseOp (_, (_, id2, _), e1, Some e2) -> 
+    if id != id2 then expr_contains_id id e1 || expr_contains_id id e2 else false
+  | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
+    expr_contains_id id e1 || expr_contains_id id e2 || 
+    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
+    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list2
+  | RestartEvery (_, _, expr_list, e) -> 
+    expr_contains_id id e || 
+    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
+    
+
 let rec type_contains_subrange_or_ref_type = function
   | IntRange _ -> true
   | RefinementType _ -> true
