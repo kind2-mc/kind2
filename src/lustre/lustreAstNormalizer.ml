@@ -472,7 +472,7 @@ let mk_range_expr ctx expr_type expr =
   in
   mk ctx 0 expr_type expr
 
-let mk_fresh_dummy_index =
+let mk_fresh_dummy_index _ =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
@@ -517,10 +517,14 @@ let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr)
     [(source, expr)]
   | TupleType (_, tys) 
   | GroupType (_, tys) -> List.map (mk_ref_type_expr id source) tys |> List.flatten
-  | RecordType _ -> [] (*!! handle this *)
+  | RecordType (p, _, tis) -> 
+    List.map (fun (_, id2, ty) -> 
+      let expr = A.RecordProject(p, id, id2) in
+      mk_ref_type_expr expr source ty
+    ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
     let pos = AH.pos_of_expr id in
-    let dummy_index = mk_fresh_dummy_index in
+    let dummy_index = mk_fresh_dummy_index () in
     let exprs_sources = mk_ref_type_expr (A.ArrayIndex(pos, id, Ident(pos, dummy_index))) source ty in 
     List.map (fun (source, expr) -> 
       let bound1 = 
@@ -528,14 +532,16 @@ let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr)
       in 
       let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
-      source, A.Quantifier(pos, Forall, [pos, mk_fresh_dummy_index, A.Int pos], expr)
+      source, A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs_sources
   | _ -> []
 
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
   let ref_type_exprs = mk_ref_type_expr id source expr_type in
-  List.iter (fun (_, expr) -> A.pp_print_expr Format.std_formatter expr) ref_type_exprs;
+  List.iter (fun (_, expr) -> 
+  (*!! Remove print *)
+  A.pp_print_expr Format.std_formatter expr) ref_type_exprs;
   let gids = List.map (fun (source, ref_type_expr) ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars ref_type_expr in
