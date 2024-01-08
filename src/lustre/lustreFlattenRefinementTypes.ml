@@ -25,13 +25,25 @@ let rec flatten_ref_type ctx = function
     (match ty2 with 
     | Some ty2 -> flatten_ref_type ctx ty2
     | None -> ty)
-  | RefinementType (pos, (pos2, id, ty2), expr, expr_opt) as ty -> 
+  | RefinementType (pos, (pos2, id, ty2), expr, None) as ty -> 
     let ty2 = flatten_ref_type ctx ty2 in
     (match ty2 with 
-      | A.RefinementType (_, (_, id2, ty3), expr2, expr_opt2) -> 
-        print_endline "Got here";
+      | A.RefinementType (_, (_, id2, ty3), expr2, None) -> 
         let expr2 = AH.substitute_naive id2 (Ident(pos, id)) expr2 in
-        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr2), expr_opt) 
+        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr2), None) 
+      | A.RefinementType (_, (_, id2, ty3), expr2, Some expr3) -> 
+        let expr2 = AH.substitute_naive id2 (Ident(pos, id)) expr2 in
+        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr2), Some expr3) 
+      | _ -> ty)
+  | RefinementType (pos, (pos2, id, ty2), expr, Some expr2) as ty -> 
+    let ty2 = flatten_ref_type ctx ty2 in
+    (match ty2 with 
+      | A.RefinementType (_, (_, id2, ty3), expr3, None) -> 
+        let expr3 = AH.substitute_naive id2 (Ident(pos, id)) expr3 in
+        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr3), Some expr2) 
+      | A.RefinementType (_, (_, id2, ty3), expr3, Some expr4) -> 
+        let expr3 = AH.substitute_naive id2 (Ident(pos, id)) expr3 in
+        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr3), Some (A.BinaryOp(pos, And, expr3, expr4))) 
       | _ -> ty)
   | ty -> ty
 

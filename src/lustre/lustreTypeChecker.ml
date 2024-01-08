@@ -1236,7 +1236,6 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> `Lustre
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
   (* forbid subranges in the arguments or return types *)
-  (*!! Think about this !!*)
   R.seq (List.map (fun (pos, i, ty, _, _) -> 
     let ty = expand_nested_type_syn arg_ctx ty in
     if LH.type_contains_subrange_or_ref_type ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
@@ -1534,13 +1533,13 @@ and check_array_size_expr ctx e =
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
-(* Disallow assumptions on current values of input variables *)
-(* and check_ref_type_assuming_expr ctx e =
+(*!! Disallow assumptions on current values of input variables *)
+and check_ref_type_assuming_expr e =
   let vars = LH.vars_without_node_call_ids_current e in
   (* Filter vars for output vars. What about local vars? *)
   match SI.elements vars with 
     | [] -> R.ok ()
-    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) *)
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
 
 and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
   = fun ctx ->
@@ -1668,7 +1667,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     else R.ok false
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
   | RefinementType (_, (_, _, ty1), _, _), ty2 -> eq_lustre_type ctx ty1 ty2 
-  | ty1, RefinementType (_, (_, _, ty2), _, _) -> eq_lustre_type ctx ty1 ty2 
+  | ty1, RefinementType (_, (_, _, ty2), _, _) -> eq_lustre_type ctx ty1 ty2
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
     if List.length is1 = List.length is2
     then

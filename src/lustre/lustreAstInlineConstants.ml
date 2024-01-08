@@ -387,6 +387,9 @@ let rec inline_constants_of_lustre_type ctx = function
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in
     TArr (pos, ty1', ty2')
+  | RefinementType (pos, (pos2, id, ty), expr, expr_opt) ->
+    let ty' = inline_constants_of_lustre_type ctx ty in 
+    RefinementType (pos, (pos2, id, ty'), expr, expr_opt)
   | ty -> ty
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
