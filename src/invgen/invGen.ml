@@ -722,7 +722,9 @@ module Make (Graph : GraphSig) : Out = struct
       )
       (* If in modular mode, we already ran on the subsystems.
       Might as well start with the current top system since it's new. *)
-      |> ( if modular then identity else List.rev )
+      (* Update: If in monolithic mode, also start with the current top system
+      since it is not clear that starting from the bottom really helps *)
+      (*|> ( if modular then identity else List.rev )*)
       |> function
         | [] ->
           KEvent.log L_info "%s no candidate to run on" (pref_s two_state) ;
