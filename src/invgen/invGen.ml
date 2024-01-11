@@ -696,7 +696,7 @@ module Make (Graph : GraphSig) : Out = struct
 
 
   (** Invariant generation entry point. *)
-  let main max_depth top_only modular two_state input_sys aparam sys =
+  let main max_depth top_only _modular two_state input_sys aparam sys =
     try (
     
       (* Format.printf "Starting (%b)@.@." two_state ; *)
