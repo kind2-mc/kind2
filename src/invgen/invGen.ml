@@ -836,8 +836,9 @@ let run_main eq_cond eq_main main two_state in_sys param sys =
     ) (
       Flags.Invgen.top_only ()
     ) (
-      Flags.modular () |> not
-    ) two_state in_sys param sys
+      Flags.modular ()
+    )
+    two_state in_sys param sys
     |> ignore ;
     exit ExitCodes.success
 
