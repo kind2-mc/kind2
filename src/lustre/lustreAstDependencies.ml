@@ -366,6 +366,7 @@ let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_prefix  i pos 
+  | AliasType (pos, i, LA.RefinementType (_, (_, _, ty), _, _)) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos;
   | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
 
 (***********************************************************
