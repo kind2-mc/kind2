@@ -716,42 +716,45 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
   in
   
-  (* Instantiate all properties of the called node in this node *)
+  (* Instantiate properties of the called node in this node *)
   let node_props =
-    if Flags.check_subproperties () && not (Flags.modular ()) then (
-      properties |> List.fold_left (
-        fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
-
-          (* Lift name of property *)
-          let prop_name =
-            lift_prop_name call_node_name call_pos n
-          in
-
-          (* Lift state variable of property
-
-            Property is a local variable, thus it has been
-            instantiated and is in the map *)
-          let prop_term = lift_term state_var_map_up t in
-
-          (* Property is instantiated *)
-          let prop_source =
-            match p.P.prop_source with
-            | P.Candidate src -> P.Candidate src
-            | _ -> P.Instantiated (I.to_scope call_node_name, p)
-          in
-
-          (* Property status is unknown *)
-          let prop_status = P.PropUnknown in
-
-          (* Create and append property *)
-          { P.prop_name ;
-            P.prop_source ;
-            P.prop_term ;
-            P.prop_status ;
-            P.prop_kind ; } :: a
-      ) node_props
+    properties
+    |> List.filter (fun p ->
+      match P.get_prop_original_source p with
+      | P.Assumption _ -> true
+      | _ -> Flags.check_subproperties () && not (Flags.modular ())
     )
-    else node_props
+    |> List.fold_left (
+      fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
+
+        (* Lift name of property *)
+        let prop_name =
+          lift_prop_name call_node_name call_pos n
+        in
+
+        (* Lift state variable of property
+
+          Property is a local variable, thus it has been
+          instantiated and is in the map *)
+        let prop_term = lift_term state_var_map_up t in
+
+        (* Property is instantiated *)
+        let prop_source =
+          match p.P.prop_source with
+          | P.Candidate src -> P.Candidate src
+          | _ -> P.Instantiated (I.to_scope call_node_name, p)
+        in
+
+        (* Property status is unknown *)
+        let prop_status = P.PropUnknown in
+
+        (* Create and append property *)
+        { P.prop_name ;
+          P.prop_source ;
+          P.prop_term ;
+          P.prop_status ;
+          P.prop_kind ; } :: a
+    ) node_props
   in
 
   (* Instantiate assumptions from contracts in this node. *)
