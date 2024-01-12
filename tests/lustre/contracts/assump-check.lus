@@ -1,0 +1,20 @@
+
+
+node imported C(x: int) returns (y:int);
+(*@contract
+  assume x>=0;
+  guarantee y>0;
+*)
+
+node B(x: int) returns (y: int);
+let
+  y = C(x);
+tel
+
+node A(x: int) returns (y: int);
+var l: int;
+let
+  l = if x>=0 then x else -x;
+  y = B(l);
+  check y>0;
+tel

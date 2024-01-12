@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2014-2023 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -126,6 +126,7 @@ val length_of_cex :  (StateVar.t * Model.value list) list -> int
 
 val get_prop_status : t -> prop_status
 
+val get_prop_original_source : t -> prop_source
 
 (* 
    Local Variables:
