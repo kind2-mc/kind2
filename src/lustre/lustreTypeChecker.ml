@@ -1561,7 +1561,7 @@ and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarni
     let ctx = add_ty ctx i ty in
     (* check_ref_type_assuming_expr e2  *)
     check_type_expr ctx e1 (Bool pos) 
-    >> check_type_expr ctx e2 (Bool pos) >>
+    >> check_type_expr ctx e2 (Bool pos) >> 
     let warnings1 = 
       if not (LH.expr_contains_id i e1 || LH.expr_contains_id i e2) 
       then [mk_warning pos (UnusedBoundVariableWarning i)] 
