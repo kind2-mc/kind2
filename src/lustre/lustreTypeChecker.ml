@@ -1534,12 +1534,13 @@ and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
 (*!! Disallow assumptions on current values of input variables *)
-and check_ref_type_assuming_expr e =
+(* and check_ref_type_assuming_expr e =
   let vars = LH.vars_without_node_call_ids_current e in
-  (* Filter vars for output vars. What about local vars? *)
-  match SI.elements vars with 
+  let vars = SI.elements vars in
+  (*!! Need to filter vars to only input vars. But we don't know the current node name (if it exists) *)
+  match vars with 
     | [] -> R.ok ()
-    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) *)
 
 and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
   = fun ctx ->
@@ -1558,6 +1559,7 @@ and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarni
   )
   | LA.RefinementType (pos, (_, i, ty), e1, Some e2) -> 
     let ctx = add_ty ctx i ty in
+    (* check_ref_type_assuming_expr e2  *)
     check_type_expr ctx e1 (Bool pos) 
     >> check_type_expr ctx e2 (Bool pos) >>
     let warnings1 = 

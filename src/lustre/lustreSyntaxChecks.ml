@@ -53,6 +53,7 @@ type error_kind = Unknown of string
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
+  | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -105,6 +106,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
   | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
+  | NodeCallInGlobalTypeDecl id -> "Illegal node call or choose operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -696,13 +698,38 @@ let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
   Res.seq (List.map (check_declaration ctx) ast)
 
+and check_ty_node_calls i ty = 
+  match ty with 
+    | LA.RefinementType (_, _, e, None) ->
+      if LAH.expr_contains_call e
+        then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
+        else Ok ()
+    | LA.RefinementType (_, _, e1, Some e2) ->
+      if LAH.expr_contains_call e1 
+        then syntax_error (LAH.pos_of_expr e1) (NodeCallInGlobalTypeDecl i)
+        else if LAH.expr_contains_call e2 
+          then syntax_error (LAH.pos_of_expr e2) (NodeCallInGlobalTypeDecl i)
+          else Ok ()
+    | TupleType (_, tys) 
+    | GroupType (_, tys) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
+    | RecordType (_, _, tis) -> Res.seq_ (List.map (fun (_, _, ty) -> check_ty_node_calls i ty) tis)
+    | ArrayType (_, (ty, e)) -> 
+      check_ty_node_calls i ty 
+      >> if LAH.expr_contains_call e
+        then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
+        else Ok ()
+    | _ -> Ok ()
+
 and check_declaration ctx = function
-  | TypeDecl (span, decl) -> Ok (LA.TypeDecl (span, decl))
+(*!! Check for node calls in ref types *)
+  | TypeDecl (span, FreeType (pos, id) ) -> Ok (LA.TypeDecl (span, FreeType (pos, id)))
+  | TypeDecl (span, AliasType (pos, id, ty) ) -> 
+    check_ty_node_calls id ty >> Ok (LA.TypeDecl (span, AliasType (pos, id, ty)))
   | ConstDecl (span, decl) ->
     let check = match decl with
       | LA.FreeConst _ -> Ok ()
-      | UntypedConst (_, i, e)
-      | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
+      | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
+      | TypedConst (_, i, e, ty) -> check_const_expr_decl i ctx e >> check_ty_node_calls i ty
     in
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
