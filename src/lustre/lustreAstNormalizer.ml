@@ -539,8 +539,6 @@ let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr)
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
   let ref_type_exprs = mk_ref_type_expr id source expr_type in
-  List.iter (fun (_, expr) -> 
-  A.pp_print_expr Format.std_formatter expr) ref_type_exprs;
   let gids = List.map (fun (source, ref_type_expr) ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars ref_type_expr in

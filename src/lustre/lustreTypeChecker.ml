@@ -402,14 +402,17 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty = infer_type_expr ctx e in
-    let rec_ty = expand_type_syn ctx rec_ty in
-    (match rec_ty with
-    | LA.RecordType (_, _, flds) ->
-        let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-        (match (List.assoc_opt fld typed_fields) with
-        | Some ty -> R.ok (expand_type_syn ctx ty)
-        | None -> type_error pos (NotAFieldOfRecord fld))
-    | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
+    let rec is_base_record_ty rec_ty = 
+      let rec_ty = expand_type_syn ctx rec_ty in
+      (match rec_ty with
+      | LA.RecordType (_, _, flds) ->
+          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+          (match (List.assoc_opt fld typed_fields) with
+          | Some ty -> R.ok (expand_type_syn ctx ty)
+          | None -> type_error pos (NotAFieldOfRecord fld))
+      | LA.RefinementType (_, (_, _, ty), _, _) -> is_base_record_ty ty
+      | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty)) in 
+    is_base_record_ty rec_ty
 
   | LA.TupleProject (pos, e1, i) ->
     let* tup_ty = infer_type_expr ctx e1 in

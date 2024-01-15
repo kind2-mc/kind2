@@ -1,10 +1,9 @@
 const x1: int = 0;
-type Nat = subtype { x: int | x >= 0 };
 
 node main (a: int) returns (y, z: int); 
-var x2, b: Nat;
+var x2, b: int;
 let 
-  x2 = choose { x: Nat | x > x1 };
+  x2 = choose { x: int | x > x1 };
   y = choose { x: int | x + x2 < 50 };
   check y < 100;
   

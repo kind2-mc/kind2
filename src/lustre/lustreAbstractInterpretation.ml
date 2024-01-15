@@ -507,11 +507,17 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       let ty = Ctx.expand_nested_type_syn ty_ctx ty in
       extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
-  | RecordProject (_, e, p) -> (match infer e with
-    | RecordType (_, _, nested) ->
-      let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
-      extract_bounds_from_type ty
-    | _ -> assert false)
+  | RecordProject (_, e, p) -> 
+    let ty = infer e in 
+    let rec handle_rec_project ty = 
+      let ty = Ctx.expand_nested_type_syn ty_ctx ty in
+      (match ty with
+        | LA.RecordType (_, _, nested) ->
+          let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
+          extract_bounds_from_type ty
+        | RefinementType (_, (_, _, ty), _, _) -> handle_rec_project ty
+        | _ -> assert false) in 
+    handle_rec_project ty
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
