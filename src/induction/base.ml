@@ -163,7 +163,7 @@ let skip_steps_next trans solver k unknowns =
     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
     |> SMTSolver.assert_term solver ;
 
-    (* If we have reachability queries, assert the value of the counter at each timestep *)
+    (* Assert the value of the counter at each timestep *)
     match TransSys.get_ctr trans with
       | Some ctr ->
         SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr !step); Term.mk_num !step]);
@@ -337,6 +337,13 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver ;
 
+    (* Assert the value of the counter at each timestep *)
+    (match TransSys.get_ctr trans with
+    | Some ctr ->
+      SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr k_p_1); Term.mk_num k_p_1]);
+    | None -> ()
+    );
+
     (* Output statistics *)
     print_stats ();
 
@@ -419,7 +426,7 @@ let init input_sys aparam trans skip =
         | _ -> ()
   ) ;
   
-  (* If we have reachability queries, assert the value of the counter at each timestep *)
+  (* Assert the value of the counter at each timestep *)
   let _ = match TransSys.get_ctr trans with
     | Some ctr ->
       SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr Numeral.zero); Term.mk_num Numeral.zero]);
