@@ -515,8 +515,10 @@ let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr)
        in terms of x instead of y *)
     let expr = AH.substitute_naive id2 id expr in
     [(source, expr)]
-  | TupleType (_, tys) 
-  | GroupType (_, tys) -> List.map (mk_ref_type_expr id source) tys |> List.flatten
+  | TupleType (pos, tys) 
+  | GroupType (pos, tys) -> List.mapi (fun i ty ->
+      mk_ref_type_expr (A.TupleProject(pos, id, i)) source ty
+    ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
       let expr = A.RecordProject(p, id, id2) in
