@@ -87,6 +87,8 @@ type node_def = {
 
      Properties of the callees of the node *)
   properties : P.t list;
+
+  ctr_svars: StateVar.t list ;
 }
 
 
@@ -627,6 +629,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
       N.call_outputs   ;}
     node_locals
     node_props
+    node_crt_svars
     { init_uf_symbol  ;
       trans_uf_symbol ;
       node = {
@@ -637,6 +640,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
       }               ;
       stateful_locals ;
       properties      ;
+      ctr_svars ;
     } =
 
   (* Initialize map of state variable in callee to instantiated state
@@ -715,7 +719,12 @@ let call_terms_of_node_call mk_fresh_state_var globals
       (node_locals, [], (state_var_map_up, state_var_map_down))
 
   in
-  
+
+  let node_crt_svars =
+    (List.map (lift_state_var state_var_map_up) ctr_svars)
+    @ node_crt_svars
+  in
+
   (* Instantiate properties of the called node in this node *)
   let node_props =
     properties
@@ -866,6 +875,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   state_var_map_down, 
   node_locals, 
   node_props, 
+  node_crt_svars,
   node_assumes,
   call_locals,
   init_call_term, 
@@ -882,6 +892,7 @@ let rec constraints_of_node_calls
   node_locals
   node_init_flags
   node_props 
+  node_crt_svars
   subsystems
   init_terms
   trans_terms
@@ -893,6 +904,7 @@ let rec constraints_of_node_calls
     node_locals, 
     node_init_flags, 
     node_props, 
+    node_crt_svars,
     init_terms, 
     trans_terms
   )
@@ -913,6 +925,7 @@ let rec constraints_of_node_calls
       state_var_map_down,
       node_locals,
       node_props,
+      node_crt_svars,
       node_assumes,
       _,
       init_term,
@@ -926,6 +939,7 @@ let rec constraints_of_node_calls
         node_call
         node_locals
         node_props
+        node_crt_svars
         node_def
     in
 
@@ -952,6 +966,7 @@ let rec constraints_of_node_calls
       node_locals
       node_init_flags
       node_props
+      node_crt_svars
       subsystems
       (init_term :: init_terms)
       (trans_term :: trans_terms)
@@ -969,10 +984,10 @@ let rec constraints_of_node_calls
     in
 
     let state_var_map_up, state_var_map_down, node_locals, node_props,
-        node_assumes, _, init_term, _, trans_term =
+        node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
-        mk_fresh_state_var globals node_call node_locals node_props node_def
+        mk_fresh_state_var globals node_call node_locals node_props node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1023,6 +1038,7 @@ let rec constraints_of_node_calls
       node_locals
       node_init_flags
       node_props
+      node_crt_svars
       subsystems
       (init_term :: init_terms)
       (trans_term :: trans_terms)
@@ -1134,6 +1150,7 @@ let rec constraints_of_node_calls
       state_var_map_down, 
       node_locals, 
       node_props,
+      node_crt_svars,
       node_assumes,
       call_locals,
       init_term, 
@@ -1147,6 +1164,7 @@ let rec constraints_of_node_calls
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
         node_props
+        node_crt_svars
         node_def
     in
 
@@ -1400,6 +1418,7 @@ let rec constraints_of_node_calls
       node_locals
       (init_flags @ node_init_flags)
       node_props
+      node_crt_svars
       subsystems
       (init_term :: init_terms)
       (trans_term :: trans_terms)
@@ -1408,6 +1427,23 @@ let rec constraints_of_node_calls
 
   | _ -> assert false
 
+let constraints_of_ctr ctr_svars trans_terms =
+  let rec loop acc = function
+  | [] | [_] -> acc
+  | sv1 :: sv2 :: tl ->
+    let v1 =
+      Var.mk_state_var_instance sv1 TransSys.trans_base |> Term.mk_var
+    in
+    let v2 =
+      Var.mk_state_var_instance sv2 TransSys.trans_base |> Term.mk_var
+    in
+    let eq = Term.mk_eq [v1; v2] in
+    loop (eq :: acc) (sv2 :: tl)
+  in
+  let eqs = loop [] ctr_svars in
+  match eqs with
+  | [] -> trans_terms
+  | _ -> Term.mk_and eqs :: trans_terms
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
@@ -2101,7 +2137,8 @@ let rec trans_sys_of_node'
             subsystems, 
             lifted_locals, 
             init_flags,
-            lifted_props, 
+            lifted_props,
+            lifted_ctr_svars,
             init_terms, 
             trans_terms
           =
@@ -2112,6 +2149,7 @@ let rec trans_sys_of_node'
               []  (* No lifted locals *)
               [init_flag]
               []  (* No lifted properties *)
+              [] (* No lifted crt_vars *)
               []  (* No subsystems *)
               init_terms
               trans_terms
@@ -2139,11 +2177,31 @@ let rec trans_sys_of_node'
           (* Stateful variables in node, including state
              variables for node instance, first tick flag, and state
              variables capturing outputs of node calls *)
+          let stateful_vars_of_node =
+            N.stateful_vars_of_node node |> SVS.elements
+          in
           let stateful_vars = 
-            init_flag ::
-              (N.stateful_vars_of_node node |> SVS.elements)
+            init_flag :: stateful_vars_of_node
               @ lifted_locals in
 
+          let ctr_svars =
+            let is_ctr =
+              let ctr_str =
+                HString.string_of_hstring GeneratedIdentifiers.ctr_id
+              in
+              fun sv -> StateVar.name_of_state_var sv = ctr_str
+            in
+            match List.find_opt is_ctr stateful_vars_of_node with
+            | None -> lifted_ctr_svars
+            | Some sv -> sv :: lifted_ctr_svars
+          in
+
+          let trans_terms =
+            if I.equal node_name top_name then
+              constraints_of_ctr ctr_svars trans_terms
+            else
+              trans_terms
+          in
 
           let global_consts =
             (* Format.eprintf "Global constants: %d@." *)
@@ -2467,7 +2525,8 @@ let rec trans_sys_of_node'
                  trans_uf_symbol;
                  stateful_locals;
                  init_flags;
-                 properties }
+                 properties;
+                 ctr_svars }
                trans_sys_defs)
             ((node_name, 
               (node_output_input_dep_init, node_output_input_dep_trans))
