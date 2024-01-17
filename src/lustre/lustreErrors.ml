@@ -23,7 +23,7 @@ type error = [
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
-  | `LustreAstNormalizerError of Lib.position * LustreAstNormalizer.error_kind
+  | `LustreAstNormalizerError of Lib.position
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
@@ -37,7 +37,7 @@ let error_position error = match error with
   | `LustreAstDependenciesError (pos, _) -> pos
   | `LustreAstInlineConstantsError (pos, _) -> pos
   | `LustreAbstractInterpretationError (pos, _) -> pos
-  | `LustreAstNormalizerError (pos, _) -> pos
+  | `LustreAstNormalizerError pos -> pos
   | `LustreSyntaxChecksError (pos, _) -> pos
   | `LustreTypeCheckerError (pos, _) -> pos
   | `LustreUnguardedPreError (pos, _) -> pos
@@ -50,7 +50,7 @@ let error_message error = match error with
   | `LustreAstDependenciesError (_, kind) -> LustreAstDependencies.error_message kind
   | `LustreAstInlineConstantsError (_, kind) -> LustreAstInlineConstants.error_message kind
   | `LustreAbstractInterpretationError (_, kind) -> LustreAbstractInterpretation.error_message kind
-  | `LustreAstNormalizerError (_, kind) -> LustreAstNormalizer.error_message kind
+  | `LustreAstNormalizerError _ -> assert false
   | `LustreSyntaxChecksError (_, kind) -> LustreSyntaxChecks.error_message kind
   | `LustreTypeCheckerError (_, kind) -> LustreTypeChecker.error_message kind
   | `LustreUnguardedPreError (_, e) -> (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]" LA.pp_print_expr e)

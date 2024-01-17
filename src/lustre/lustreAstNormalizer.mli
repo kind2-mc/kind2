@@ -66,15 +66,6 @@
 
      @author Andrew Marmaduke *)
 
-type error_kind = 
-  | InvalidArrayLengthConstraint of LustreAst.expr * LustreAst.expr
-
-type error = [
-  | `LustreAstNormalizerError of Lib.position * error_kind
-]
-
-val error_message: error_kind -> string
-
 type warning_kind =
   | UnguardedPreWarning of LustreAst.expr
   | UseOfAssertionWarning
@@ -91,7 +82,6 @@ val normalize : TypeCheckerContext.tc_context ->
     GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
     (LustreAst.expr * string) list GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
-  [> `LustreAstNormalizerWarning of Lib.position * warning_kind] list, [> error])
-  result
+  [> `LustreAstNormalizerWarning of Lib.position * warning_kind] list)
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit

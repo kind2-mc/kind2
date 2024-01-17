@@ -80,17 +80,6 @@ module R = Res
 
 let (let*) = Res.(>>=)
 
-type error_kind = 
-  | InvalidArrayLengthConstraint of A.expr * A.expr
-
-type error = [
-  | `LustreAstNormalizerError of Lib.position * error_kind
-]
-
-let error_message kind = match kind with
-  | InvalidArrayLengthConstraint (e1, e2) -> "Array length "
-    ^ A.string_of_expr e1 ^ " differs from expected value " ^ A.string_of_expr e2
-
 type warning_kind = 
   | UnguardedPreWarning of A.expr
   | UseOfAssertionWarning
@@ -598,14 +587,14 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids array_constraints_map =
   let gids, warnings = normalize_gids info gids in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
-    let* (normal_item, map, warnings) =
+    let (normal_item, map, warnings) =
       normalize_declaration info accum item in
-    R.ok ((match normal_item with 
+    (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
     StringMap.merge union_keys2 map accum,
-    warnings @ warnings_accum)
-  in let* ast, map, warnings = Res.seq_chain over_declarations
+    warnings @ warnings_accum
+  in let ast, map, warnings = List.fold_left over_declarations
     ([], gids, warnings) decls
   
   (* Collect array constraints in map *)
@@ -626,17 +615,17 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids array_constraints_map =
       (StringMap.bindings map)
     A.pp_print_program ast;
 
-  R.ok (ast, map, warnings)
+  ast, map, warnings
 
 and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->
-    let* normal_decl, map, warnings = normalize_node info map decl in
-    R.ok (Some (A.NodeDecl(span, normal_decl)), map, warnings)
+    let normal_decl, map, warnings = normalize_node info map decl in
+    Some (A.NodeDecl(span, normal_decl)), map, warnings
   | FuncDecl (span, decl) ->
-    let* normal_decl, map, warnings = normalize_node info map decl in
-    R.ok (Some (A.FuncDecl (span, normal_decl)), map, warnings)
-  | ContractNodeDecl (_, _) -> R.ok (None, StringMap.empty, [])
-  | decl -> R.ok (Some decl, StringMap.empty, [])
+    let normal_decl, map, warnings = normalize_node info map decl in
+    Some (A.FuncDecl (span, normal_decl)), map, warnings
+  | ContractNodeDecl (_, _) -> None, StringMap.empty, []
+  | decl -> Some decl, StringMap.empty, []
 
 and normalize_gids info gids_map = 
   (* Convert gids_map to a new gids_map with normalized equations *)
@@ -804,23 +793,23 @@ and normalize_node info map
   in
   (* Normalize equations and the contract *)
   let over_list (nitems, gids, warnings1) item =
-    let* (normal_item, ids, warnings2) = normalize_item info map item in
-    R.ok (normal_item :: nitems, union ids gids, warnings1 @ warnings2)
-  in let* nitems, gids4, warnings2 = R.seq_chain over_list ([], empty (), []) items in
+    let (normal_item, ids, warnings2) = normalize_item info map item in
+    normal_item :: nitems, union ids gids, warnings1 @ warnings2
+  in let nitems, gids4, warnings2 = List.fold_left over_list ([], empty (), []) items in
   let nitems, gids4, warnings2 = List.rev nitems, gids4, warnings2 in 
   let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
   let map = StringMap.singleton node_id gids in
-  R.ok ((node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2)
+  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2
 
 and normalize_item info map = function
   | A.Body equation -> 
     let nequation, gids, warnings = normalize_equation info map equation in
-    R.ok (([A.Body nequation], gids, warnings))
+    ([A.Body nequation], gids, warnings)
   (* shouldn't be possible *)
   | IfBlock _ 
   | FrameBlock _ -> 
     assert false
-  | AnnotMain (pos, b) -> R.ok ([A.AnnotMain (pos, b)], empty (), [])
+  | AnnotMain (pos, b) -> [A.AnnotMain (pos, b)], empty (), []
   | AnnotProperty (pos, name, expr, k) -> 
     let name' = Some (AH.name_of_prop pos name k) in
     (match k with 
@@ -832,7 +821,7 @@ and normalize_item info map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
       | Reachable Some (At b) -> 
@@ -842,7 +831,7 @@ and normalize_item info map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter > b *)
       | Reachable Some (Within b) -> 
@@ -852,7 +841,7 @@ and normalize_item info map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
       
       (* expr or counter < b1 or counter > b2 *)
       | Reachable Some (FromWithin (b1, b2)) -> 
@@ -866,12 +855,12 @@ and normalize_item info map = function
           )
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Reachable _ -> 
         let expr = A.UnaryOp (pos, A.Not, expr) in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Provided expr2 ->
         let expr1 = A.BinaryOp (pos, A.Impl, expr2, expr) in
@@ -889,16 +878,16 @@ and normalize_item info map = function
               }
             | None -> None, gids2
           in
-          R.ok ([inv_prop; AnnotProperty (pos', name'', nexpr2, Reachable None)],
-          union gids1 gids2, warnings1 @ warnings2)
+          [inv_prop; AnnotProperty (pos', name'', nexpr2, Reachable None)],
+          union gids1 gids2, warnings1 @ warnings2
         )
         else (
-          R.ok ([inv_prop], gids1, warnings1)
+          [inv_prop], gids1, warnings1
         )
 
       | _ -> 
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        R.ok ([A.AnnotProperty (pos, name', nexpr, k)], gids, warnings)
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
     ) 
 
 

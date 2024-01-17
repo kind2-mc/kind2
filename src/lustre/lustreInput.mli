@@ -112,7 +112,7 @@ type error = [
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
-  | `LustreAstNormalizerError of Lib.position * LustreAstNormalizer.error_kind
+  | `LustreAstNormalizerError of Lib.position
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr

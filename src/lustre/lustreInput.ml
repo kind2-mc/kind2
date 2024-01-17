@@ -52,7 +52,7 @@ type error = [
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
-  | `LustreAstNormalizerError of Lib.position * LustreAstNormalizer.error_kind
+  | `LustreAstNormalizerError of Lib.position
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
@@ -186,7 +186,7 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings2) = 
+    let (normalized_nodes_and_contracts, gids, warnings2) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids (GI.StringMap.merge TC.union_keys cons1 cons2)
     in
     
