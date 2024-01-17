@@ -76,9 +76,6 @@ module AIC = LustreAstInlineConstants
 module AI = LustreAbstractInterpretation
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
-module R = Res
-
-let (let*) = Res.(>>=)
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
