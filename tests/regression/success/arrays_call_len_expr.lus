@@ -1,0 +1,11 @@
+node M(const m: int; const n: int; A: int^(m+n)) returns (B: int^m);
+let
+
+tel
+
+node N(A: int^5) returns (B: int^3);
+let
+  B = M(3, 2, A);
+  check B[0] = 1 or B[0] <> 1;
+  --%MAIN;
+tel

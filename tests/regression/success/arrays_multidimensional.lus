@@ -1,0 +1,11 @@
+node M(const m: int; const n: int) returns (A: int^m^n);
+let
+  A = [[5, 6], [5, 6], [5, 6]];
+tel
+
+node N() returns(A: int^2^3);
+let
+  A = M(2, 3);
+  check A[0][0] = 5;
+  --%MAIN;
+tel

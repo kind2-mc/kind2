@@ -1,0 +1,4 @@
+node N(x: int^3) returns (o: int^3);
+let
+  o = x;
+tel

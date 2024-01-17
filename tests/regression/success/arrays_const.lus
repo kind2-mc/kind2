@@ -1,0 +1,10 @@
+const a:int;
+
+node N() returns (o: int^(-1 + a + 1));
+let
+  o = M();
+tel
+
+node M () returns (A: int^(a + 0));
+let
+tel

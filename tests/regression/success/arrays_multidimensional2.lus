@@ -1,0 +1,11 @@
+node M(const m: int; const n: int) returns (A: int^m^n);
+let
+  A = 0^2^3;
+tel
+
+node N() returns(A: int^2^3);
+let
+  A = M(2, 3);
+  check A[0][0] = 0;
+  --%MAIN;
+tel

@@ -1,0 +1,7 @@
+const a: int;
+
+node N(x: [int^(3), bool]) returns (o: [int^(a + 3 - a), bool]);
+let
+  o = x;
+  check o.%0[0]>0;
+tel

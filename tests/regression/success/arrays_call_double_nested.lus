@@ -1,0 +1,18 @@
+node P(const n: int; A: int^n) returns (B: int^(n-1);); 
+let
+tel
+
+node Q(const n: int; A: int^n) returns (B: int^(n-1);); 
+let
+tel
+
+node M(const m: int; const n: int; A: int^m; B: int^n) returns (E: int^m; F: int^n);
+let
+tel
+
+node N(A: int^2; B: int^5) returns (C: int^2; D: int^3);
+let
+  C,D = M(2, 3, A, P(4, Q(5, B)));
+  check C[0] = 1 or C[0] <> 1;
+  --%MAIN;
+tel
