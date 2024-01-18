@@ -36,6 +36,11 @@ jobs:
     - name: Install Kind2 OCaml dependencies
       run: opam install -y . --deps-only
 
+    - name: Make OCaml warnings fatal
+      run: |
+        head -n1 dune-project > dune-workspace
+        echo '(profile strict)' >> dune-workspace
+
     - name: Build Kind2
       run: opam exec make
 
