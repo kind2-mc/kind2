@@ -402,6 +402,14 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
+let rec expand_type ctx = function
+  | LA.History (pos, i) -> (
+    match lookup_ty ctx i with
+    | None -> type_error pos (UnboundIdentifier i)
+    | Some ty -> expand_type ctx ty
+  )
+  | ty -> R.ok (expand_type_syn ctx ty)
+
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)
@@ -420,7 +428,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty = infer_type_expr ctx e in
-    let rec_ty = expand_type_syn ctx rec_ty in
+    let* rec_ty = expand_type ctx rec_ty in
     (match rec_ty with
     | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
@@ -431,7 +439,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 
   | LA.TupleProject (pos, e1, i) ->
     let* tup_ty = infer_type_expr ctx e1 in
-    let tup_ty = expand_type_syn ctx tup_ty in
+    let* tup_ty = expand_type ctx tup_ty in
     (match tup_ty with
     | LA.TupleType (pos, tys) as ty ->
         if List.length tys <= i
@@ -553,8 +561,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
               | r_ty -> type_error pos (IlltypedRecordUpdate r_ty))
       | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
   | LA.ArrayIndex (pos, e, i) ->
-    let* index_type =  infer_type_expr ctx i in
-    let index_type = expand_type_syn ctx index_type in
+    let* index_type = infer_type_expr ctx i in
+    let* index_type = expand_type ctx index_type in
     if is_expr_int_type ctx i
     then infer_type_expr ctx e
         >>= (function
@@ -1651,6 +1659,12 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     if List.length tys = 1
     then (eq_lustre_type ctx (List.hd tys) t)
     else R.ok false  
+  | History (pos, v), ty
+  | ty, History (pos, v) -> (
+    match lookup_ty ctx v with
+    | Some hist_ty -> eq_lustre_type ctx hist_ty ty
+    | None -> type_error pos (UnboundIdentifier v)
+  )
   | _, _ -> R.ok false
 (** Compute Equality for lustre types  *)
 

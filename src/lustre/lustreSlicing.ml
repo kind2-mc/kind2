@@ -677,7 +677,8 @@ let slice_all_of_node
       N.state_var_source_map;
       N.oracle_state_var_map;
       N.state_var_expr_map;
-      N.assumption_svars
+      N.assumption_svars;
+      N.history_svars
     } = 
 
   (* Copy of the node with the same signature, but without local
@@ -701,7 +702,8 @@ let slice_all_of_node
     N.state_var_source_map = state_var_source_map;
     N.oracle_state_var_map = oracle_state_var_map;
     N.state_var_expr_map = state_var_expr_map;
-    N.assumption_svars = assumption_svars
+    N.assumption_svars = assumption_svars;
+    N.history_svars = history_svars
   }
 
 

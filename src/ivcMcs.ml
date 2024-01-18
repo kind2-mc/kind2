@@ -156,6 +156,7 @@ let rec unannot_pos = function
     A.RecordType (dpos, name, List.map aux tids)
   | A.ArrayType (_,(t,e)) -> A.ArrayType (dpos,(unannot_pos t,e))
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
+  | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in

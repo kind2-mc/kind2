@@ -147,6 +147,7 @@ and lustre_type =
   | RecordType of position * ident * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
+  | History of position * ident
   | TArr of position * lustre_type * lustre_type  
 
 
@@ -642,6 +643,9 @@ and pp_print_lustre_type ppf = function
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
        pp_print_lustre_type ret_ty 
+  | History (_, i) ->
+    Format.fprintf ppf
+      "history(%a)" (pp_print_ident) i
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (_, s, t) = 

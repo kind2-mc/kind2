@@ -34,6 +34,7 @@ module P = Property
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module SCM = Scope.Map
+module TM = Type.TypeMap
 
 
 type settings = {
@@ -87,6 +88,8 @@ type node_def = {
 
      Properties of the callees of the node *)
   properties : P.t list;
+
+  history_svars: (StateVar.t * StateVar.t) list TM.t;
 
   ctr_svars: StateVar.t list ;
 }
@@ -600,12 +603,14 @@ let register_call_bound globals map_up sv =
         let svs = Term.state_vars_of_term t |> SVS.elements in
         let sigma =
           List.fold_left (fun acc s ->
-              assert (StateVar.is_const s);
-              let v = Var.mk_const_state_var s in
+              (*assert (StateVar.is_const s);
+              let v = Var.mk_const_state_var s in*)
+              let v = Var.mk_state_var_instance s Numeral.zero in
               try
                 let sv' = SVM.find s map_up in
-                assert (StateVar.is_const sv');
-                let tv' = Var.mk_const_state_var sv' |> Term.mk_var in
+                (*assert (StateVar.is_const sv');
+                let tv' = Var.mk_const_state_var sv' |> Term.mk_var in*)
+                let tv' = Var.mk_state_var_instance sv' Numeral.zero |> Term.mk_var in
                 (v, tv') :: acc
               with Not_found -> acc) [] svs
           |> List.rev in
@@ -629,6 +634,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
       N.call_outputs   ;}
     node_locals
     node_props
+    node_hist_svars
     node_crt_svars
     { init_uf_symbol  ;
       trans_uf_symbol ;
@@ -640,6 +646,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
       }               ;
       stateful_locals ;
       properties      ;
+      history_svars   ;
       ctr_svars ;
     } =
 
@@ -718,6 +725,22 @@ let call_terms_of_node_call mk_fresh_state_var globals
          variable map *)
       (node_locals, [], (state_var_map_up, state_var_map_down))
 
+  in
+
+  let node_hist_svars =
+    let lifted_hist_svars =
+      history_svars |> TM.map (fun l ->
+        l |> List.map (fun (sv, h_sv) ->
+          let sv' = lift_state_var state_var_map_up sv in
+          let h_sv' = lift_state_var state_var_map_up h_sv in
+          sv', h_sv'
+        )
+      )
+    in
+    TM.union
+      (fun _ l1 l2 -> Some (l1 @ l2))
+      lifted_hist_svars
+      node_hist_svars
   in
 
   let node_crt_svars =
@@ -875,6 +898,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   state_var_map_down, 
   node_locals, 
   node_props, 
+  node_hist_svars,
   node_crt_svars,
   node_assumes,
   call_locals,
@@ -892,6 +916,7 @@ let rec constraints_of_node_calls
   node_locals
   node_init_flags
   node_props 
+  node_hist_svars
   node_crt_svars
   subsystems
   init_terms
@@ -904,6 +929,7 @@ let rec constraints_of_node_calls
     node_locals, 
     node_init_flags, 
     node_props, 
+    node_hist_svars,
     node_crt_svars,
     init_terms, 
     trans_terms
@@ -925,6 +951,7 @@ let rec constraints_of_node_calls
       state_var_map_down,
       node_locals,
       node_props,
+      node_hist_svars,
       node_crt_svars,
       node_assumes,
       _,
@@ -939,6 +966,7 @@ let rec constraints_of_node_calls
         node_call
         node_locals
         node_props
+        node_hist_svars
         node_crt_svars
         node_def
     in
@@ -966,6 +994,7 @@ let rec constraints_of_node_calls
       node_locals
       node_init_flags
       node_props
+      node_hist_svars
       node_crt_svars
       subsystems
       (init_term :: init_terms)
@@ -983,11 +1012,11 @@ let rec constraints_of_node_calls
       with Not_found -> assert false
     in
 
-    let state_var_map_up, state_var_map_down, node_locals, node_props,
+    let state_var_map_up, state_var_map_down, node_locals, node_props, node_hist_svars,
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
-        mk_fresh_state_var globals node_call node_locals node_props node_crt_svars node_def
+        mk_fresh_state_var globals node_call node_locals node_props node_hist_svars node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1038,6 +1067,7 @@ let rec constraints_of_node_calls
       node_locals
       node_init_flags
       node_props
+      node_hist_svars
       node_crt_svars
       subsystems
       (init_term :: init_terms)
@@ -1150,6 +1180,7 @@ let rec constraints_of_node_calls
       state_var_map_down, 
       node_locals, 
       node_props,
+      node_hist_svars,
       node_crt_svars,
       node_assumes,
       call_locals,
@@ -1164,6 +1195,7 @@ let rec constraints_of_node_calls
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
         node_props
+        node_hist_svars
         node_crt_svars
         node_def
     in
@@ -1418,6 +1450,7 @@ let rec constraints_of_node_calls
       node_locals
       (init_flags @ node_init_flags)
       node_props
+      node_hist_svars
       node_crt_svars
       subsystems
       (init_term :: init_terms)
@@ -1444,6 +1477,131 @@ let constraints_of_ctr ctr_svars trans_terms =
   match eqs with
   | [] -> trans_terms
   | _ -> Term.mk_and eqs :: trans_terms
+
+let constraints_of_history_congruence
+  mk_fresh_state_var
+  history_svars
+  init_terms
+  trans_terms
+=
+  let pairs =
+    let mk_eq sv1 sv2 =
+      let v1 = Var.mk_state_var_instance sv1 TransSys.init_base in
+      let v2 = Var.mk_state_var_instance sv2 TransSys.init_base in
+      Term.mk_eq [Term.mk_var v1; Term.mk_var v2]
+    in
+    let rec mk_pairs acc = function
+    | [] -> acc
+    | (sv1, h_sv1) :: tl ->
+      let acc =
+        List.fold_left
+          (fun acc (sv2, h_sv2) ->
+            let sv_eq =
+              if StateVar.equal_state_vars sv1 sv2 then Term.t_true
+              else mk_eq sv1 sv2
+            in
+            (sv_eq, mk_eq h_sv1 h_sv2) :: acc
+          )
+          acc
+          tl
+      in
+      mk_pairs acc tl
+    in
+    TM.fold
+      (fun _ l acc -> mk_pairs acc l)
+      history_svars
+      []
+  in
+
+  (* Split [pairs] in two lists to handle separately the cases where
+     variables are syntactically equal from the rest of cases
+  *)
+  let all_inputs_equal, rest =
+    pairs
+    |> List.partition (fun (t, _) -> Term.equal t Term.t_true)
+  in
+
+  let add_constraints_for_vars_equal init_terms trans_terms =
+    let init_terms =
+      all_inputs_equal
+      |> List.fold_left (fun init_terms (_,o_base) ->
+        o_base :: init_terms
+      )
+      init_terms
+    in
+
+    let trans_terms =
+      all_inputs_equal
+      |> List.fold_left (fun trans_terms (_,o_base) ->
+        let offset =
+          Numeral.(TransSys.trans_base - TransSys.init_base)
+        in
+        let o_trans = Term.bump_state offset o_base in
+        o_trans :: trans_terms
+      )
+      trans_terms
+    in
+    init_terms, trans_terms
+  in
+
+  let add_constraints_for_rest init_terms trans_terms =
+    let local_and_terms =
+      rest |> List.map (fun terms ->
+        let fresh_svar =
+          mk_fresh_state_var
+            ?is_const:(Some false)
+            ?for_inv_gen:(Some true)
+            ?inst_for_sv:None
+            Type.t_bool
+        in
+        (fresh_svar, terms)
+      )
+    in
+
+    let locals = List.map fst local_and_terms in
+
+    let init_terms =
+      local_and_terms
+      |> List.fold_left (fun init_terms (l, (i_base,o_base)) ->
+        let vi =
+          Var.mk_state_var_instance l TransSys.init_base |> Term.mk_var
+        in
+        Term.mk_eq [vi; i_base]
+        :: Term.mk_implies [vi; o_base]
+        :: init_terms
+      )
+      init_terms
+    in
+
+    let trans_terms =
+      local_and_terms
+      |> List.fold_left (fun trans_terms (l, (i_base,o_base)) ->
+        let vt =
+          Var.mk_state_var_instance l TransSys.trans_base |> Term.mk_var
+        in
+        let vp = Term.bump_state (Numeral.of_int (-1)) vt in
+        let offset = Numeral.(TransSys.trans_base - TransSys.init_base) in
+        let i_trans = Term.bump_state offset i_base in
+        let o_trans = Term.bump_state offset o_base in
+        Term.mk_eq [vt; Term.mk_and [i_trans; vp]]
+        :: Term.mk_implies [vt; o_trans]
+        :: trans_terms
+      )
+      trans_terms
+    in
+    locals, init_terms, trans_terms
+  in
+
+  let init_terms, trans_terms =
+    match all_inputs_equal with
+    | [] -> init_terms, trans_terms
+    | _  -> add_constraints_for_vars_equal init_terms trans_terms
+  in
+
+  match rest with
+  | [] -> [], init_terms, trans_terms
+  | _  -> add_constraints_for_rest init_terms trans_terms
+
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
@@ -1785,6 +1943,7 @@ let rec trans_sys_of_node'
             N.calls;
             N.asserts;
             N.props;
+            N.history_svars;
             N.contract;
             N.is_function } as node =
 
@@ -1809,6 +1968,7 @@ let rec trans_sys_of_node'
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
+          ?(basename=I.inst_ident)
           ?is_const
           ?for_inv_gen
           ?inst_for_sv
@@ -1823,7 +1983,7 @@ let rec trans_sys_of_node'
             ~is_input:false
             ?is_const:is_const
             ?for_inv_gen:for_inv_gen
-            ((I.push_index I.inst_ident index) 
+            ((I.push_index basename index)
              |> I.string_of_ident true)
             (N.scope_of_node node @ I.reserved_scope)
             state_var_type
@@ -2138,22 +2298,55 @@ let rec trans_sys_of_node'
             lifted_locals, 
             init_flags,
             lifted_props,
+            lifted_hist_svars,
             lifted_ctr_svars,
             init_terms, 
             trans_terms
           =
             constraints_of_node_calls
-              mk_fresh_state_var
+              (mk_fresh_state_var ~basename:I.inst_ident)
               globals
               trans_sys_defs
               []  (* No lifted locals *)
               [init_flag]
               []  (* No lifted properties *)
+              TM.empty  (* No lifted history_svars *)
               [] (* No lifted crt_vars *)
               []  (* No subsystems *)
               init_terms
               trans_terms
               calls
+          in
+
+          let history_svars =
+            let history_svars' =
+              history_svars |> TM.map (fun l ->
+                l |> List.filter (fun (sv, h_sv) ->
+                  List.exists (StateVar.equal_state_vars sv) all_state_vars
+                  &&
+                  List.exists (StateVar.equal_state_vars h_sv) all_state_vars
+                )
+              )
+            in
+            TM.union
+              (fun _ l1 l2 -> Some (l1 @ l2))
+              history_svars'
+              lifted_hist_svars
+          in
+
+          let
+            equiv_locals,
+            init_terms,
+            trans_terms
+          =
+            if I.equal node_name top_name then
+              constraints_of_history_congruence
+                (mk_fresh_state_var ~basename:I.eq_vars_ident)
+                history_svars
+                init_terms
+                trans_terms
+            else
+              [], init_terms, trans_terms
           in
 
           (* Add lifted properties *)
@@ -2182,7 +2375,7 @@ let rec trans_sys_of_node'
           in
           let stateful_vars = 
             init_flag :: stateful_vars_of_node
-              @ lifted_locals in
+              @ lifted_locals @ equiv_locals in
 
           let ctr_svars =
             let is_ctr =
@@ -2526,6 +2719,7 @@ let rec trans_sys_of_node'
                  stateful_locals;
                  init_flags;
                  properties;
+                 history_svars;
                  ctr_svars }
                trans_sys_defs)
             ((node_name, 

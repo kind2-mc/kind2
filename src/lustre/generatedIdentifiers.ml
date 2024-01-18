@@ -70,6 +70,7 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t;
+  history_vars: HString.t StringMap.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -94,6 +95,7 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   (* Identifiers are guaranteed to be unique making this branch impossible *)
   | _, (Some _), (Some _) -> assert false
+
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
     array_constructors = StringMap.merge union_keys
@@ -109,6 +111,7 @@ let union ids1 ids2 = {
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
+    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -118,17 +121,18 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   | _, (Some a), (Some b) -> Some (union a b)
   
-  let empty () = {
-    locals = StringMap.empty;
-    array_constructors = StringMap.empty;
-    node_args = [];
-    oracles = [];
-    ib_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
-    subrange_constraints = [];
-    expanded_variables = StringSet.empty;
-    equations = [];
-    nonvacuity_props = StringSet.empty;
-    array_literal_vars = StringSet.empty;
-  }
+let empty () = {
+  locals = StringMap.empty;
+  array_constructors = StringMap.empty;
+  node_args = [];
+  oracles = [];
+  ib_oracles = [];
+  calls = [];
+  contract_calls = StringMap.empty;
+  subrange_constraints = [];
+  expanded_variables = StringSet.empty;
+  equations = [];
+  nonvacuity_props = StringSet.empty;
+  array_literal_vars = StringSet.empty;
+  history_vars = StringMap.empty;
+}

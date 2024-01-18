@@ -2273,6 +2273,12 @@ and eval_ast_type_flatten flatten_arrays ctx = function
              a)
         element_type
         D.empty
+
+  | A.History (_, ident) ->
+
+    let i = HString.string_of_hstring ident in
+    C.type_of_ident ctx (I.mk_string_ident i)
+
   | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
 (*
