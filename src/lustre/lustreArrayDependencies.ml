@@ -238,7 +238,7 @@ let rec check_inductive_array_dependencies ctx ns = function
   | [] -> Ok ()
 
 and check_node_decl ctx ns decl =
-  let (_, _, _, inputs, outputs, locals, items, _) = decl in
+  let (node_id, _, _, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -257,7 +257,7 @@ and check_node_decl ctx ns decl =
     (Ctx.union input_ctx output_ctx)
   in
   let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap |> fst)
+    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
     ctx
     locals
   in

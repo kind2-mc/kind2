@@ -994,19 +994,19 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> e
     infer_type_expr ctx exp
     >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
                         (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
-and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
-  = fun ctx ->
+and local_var_binding: tc_context -> HString.t -> LA.node_local_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
+  = fun ctx nname ->
     function
     | LA.NodeConstDecl (_, const_decls) ->
       Debug.parse "Extracting typing context from const declaration: %a"
         LA.pp_print_const_decl const_decls
       ; 
-      let* ctx, warnings = tc_ctx_const_decl ctx const_decls in 
+      let* ctx, warnings = tc_ctx_const_decl ctx (Some nname) const_decls in 
       R.ok (ctx, warnings)
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
       if (member_ty ctx v) then type_error pos (Redeclaration v)
       else 
-        let* warnings = check_type_well_formed ctx ty in 
+        let* warnings = check_type_well_formed ctx (Some nname) ty in 
         R.ok (add_ty ctx v ty, warnings)
                      
 and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
@@ -1050,7 +1050,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
     (match contract with
       | None -> R.ok ([])
       | Some c ->
-        tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun (con_ctx, warnings) ->
+        tc_ctx_of_contract ctx_plus_ops_and_ips node_name c >>= fun (con_ctx, warnings) ->
         Debug.parse "Checking node contract with context %a"
           pp_print_tc_context con_ctx;
         check_type_contract (arg_ids, ret_ids) con_ctx c
@@ -1062,7 +1062,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
                 [])
       else (
         (* add local variable binding in the context *)
-        let* local_var_ctxts_warnings = R.seq (List.map (local_var_binding ctx_plus_ips) ldecls) in
+        let* local_var_ctxts_warnings = R.seq (List.map (local_var_binding ctx_plus_ips node_name) ldecls) in
         let local_var_ctxts, warnings = List.split local_var_ctxts_warnings in
         (* Local TC context is input vars + output vars + local const + var decls *)
         let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
@@ -1209,12 +1209,11 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
-(* Difference between this and tc_ctx_contract_node_eqn? *)
-and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
-  = fun ctx -> function
-  | GhostConst c -> tc_ctx_const_decl ctx c
+and tc_ctx_contract_eqn: tc_context -> HString.t -> LA.contract_node_equation -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
+  = fun ctx cname -> function
+  | GhostConst c -> tc_ctx_const_decl ctx (Some cname) c
   | GhostVars vs -> 
-    let* ctx = tc_ctx_contract_vars ctx vs in 
+    let* ctx = tc_ctx_contract_vars ctx cname vs in 
     R.ok (ctx, [])
   | Assume _ -> R.ok (ctx, [])
   | Guarantee _ -> R.ok (ctx, [])
@@ -1250,7 +1249,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> `Lustre
     else Ok ())
     rets)
   (* get the local const var declarations into the context *)
-  >> R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
+  >> R.seq (List.map (tc_ctx_contract_eqn local_const_ctx cname) contract)
   >>= fun ctxs_warnings ->
   let ctxs, warnings = List.split ctxs_warnings in
   let local_ctx = List.fold_left union local_const_ctx ctxs in
@@ -1326,11 +1325,11 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     ) in
     Equation(pos1, lhs, expr)
 
-and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
-  = fun ctx ->
+and tc_ctx_const_decl: tc_context -> HString.t option -> LA.const_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
+  = fun ctx nname ->
   function
   | LA.FreeConst (pos, i, ty) ->
-    let* warnings = check_type_well_formed ctx ty in
+    let* warnings = check_type_well_formed ctx nname ty in
     if member_ty ctx i
     then type_error pos (Redeclaration i)
     else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty, warnings)
@@ -1343,7 +1342,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context * [> `LustreTy
       R.ok (ctx, [])
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
-    let* warnings = check_type_well_formed ctx exp_ty in
+    let* warnings = check_type_well_formed ctx nname exp_ty in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
@@ -1352,11 +1351,11 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context * [> `LustreTy
       R.ok (ctx, warnings)
 (** Fail if a duplicate constant is detected  *)
   
-and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
-  = fun ctx (_, GhostVarDec (_, tis), _) ->
+and tc_ctx_contract_vars: tc_context -> HString.t -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
+  = fun ctx cname (_, GhostVarDec (_, tis), _) ->
     R.seq_chain
       (fun ctx (pos, i, ty) ->
-        check_type_well_formed ctx ty
+        check_type_well_formed ctx (Some cname) ty
         >> if member_ty ctx i
           then type_error pos (Redeclaration i)
           else R.ok (add_ty ctx i ty)
@@ -1371,7 +1370,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
   = fun ctx ->
   function
   | LA.AliasType (_, i, ty) ->
-    check_type_well_formed ctx ty >> (match ty with
+    check_type_well_formed ctx None ty >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
           && (List.for_all (fun e -> not (member_val ctx e)) econsts)
@@ -1410,16 +1409,18 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   ;
   if (member_node ctx nname)
   then type_error pos (Redeclaration nname)
-  else build_node_fun_ty pos ctx ip op >>= fun (fun_ty, warnings) ->
-    R.ok (let ctx = add_ty_node ctx nname fun_ty in add_node_param_attr ctx nname ip, warnings)
+  else 
+    let ctx = add_node_param_attr ctx nname ip in
+    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ip op in
+    R.ok (add_ty_node ctx nname fun_ty, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
-and tc_ctx_contract_node_eqn ?(ignore_modes = false) (ctx, warnings) =
+and tc_ctx_contract_node_eqn ?(ignore_modes = false) cname (ctx, warnings) =
   function
   | LA.GhostConst c -> 
-    tc_ctx_const_decl ctx c
+    tc_ctx_const_decl ctx (Some cname) c
   | LA.GhostVars vs -> 
-    let* ctx = tc_ctx_contract_vars ctx vs in 
+    let* ctx = tc_ctx_contract_vars ctx cname vs in 
     R.ok (ctx, warnings)
   | LA.Mode (pos, mname, _, _) ->
     if ignore_modes then R.ok (ctx, warnings)
@@ -1435,9 +1436,9 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) (ctx, warnings) =
       (IMap.bindings m), warnings)) 
   | _ -> R.ok (ctx, warnings)
                          
-and tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error ]) result 
-= fun ?(ignore_modes = false) ctx con ->
-  R.seq_chain (tc_ctx_contract_node_eqn ~ignore_modes) (ctx, []) con
+and tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> HString.t -> LA.contract -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error ]) result 
+= fun ?(ignore_modes = false) ctx cname con ->
+  R.seq_chain (tc_ctx_contract_node_eqn ~ignore_modes cname) (ctx, []) con
 
 and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> error]) result
   = let exports_from_eqn: tc_context -> LA.contract_node_equation -> ((LA.ident * tc_type) list, [> error]) result
@@ -1481,14 +1482,14 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos (Redeclaration cname)
-    else build_node_fun_ty pos ctx inputs outputs >>= fun (fun_ty, warnings) ->
+    else build_node_fun_ty pos ctx cname inputs outputs >>= fun (fun_ty, warnings) ->
         extract_exports cname ctx contract >>= fun export_ctx  ->  
         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty, warnings)
 
 and tc_ctx_of_declaration: (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list) -> LA.declaration -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
     = fun (ctx', warnings) ->
     function
-    | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
+    | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' None const_decl
     | LA.NodeDecl ({LA.start_pos=pos}, node_decl) ->
       tc_ctx_of_node_decl pos ctx' node_decl 
     | LA.FuncDecl ({LA.start_pos=pos}, node_decl) ->
@@ -1502,7 +1503,7 @@ and tc_context_of: (tc_context * [> `LustreTypeCheckerWarning of Lib.position * 
   R.seq_chain (tc_ctx_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
   
-and build_type_and_const_context: tc_context -> LA.t -> (tc_context* [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
+and build_type_and_const_context: tc_context -> LA.t -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
   = fun ctx ->
   function
   | [] -> R.ok (ctx, [])
@@ -1510,7 +1511,7 @@ and build_type_and_const_context: tc_context -> LA.t -> (tc_context* [> `LustreT
     let* ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     build_type_and_const_context ctx' rest
   | ConstDecl (_, const_decl) :: rest ->
-    let* ctx', warnings1 = tc_ctx_const_decl ctx const_decl in
+    let* ctx', warnings1 = tc_ctx_const_decl ctx None const_decl in
     let* ctx', warnings2 = build_type_and_const_context ctx' rest in 
     R.ok (ctx', warnings1 @ warnings2)   
   | _ :: rest -> build_type_and_const_context ctx rest  
@@ -1536,41 +1537,51 @@ and check_array_size_expr ctx e =
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
-(*!! Disallow assumptions on current values of input variables *)
-(* and check_ref_type_assuming_expr e =
-  let vars = LH.vars_without_node_call_ids_current e in
-  let vars = SI.elements vars in
-  (*!! Need to filter vars to only input vars. But we don't know the current node name (if it exists) *)
+(* Disallow assumptions on current values of output variables.
+   'nname' is optional because the refinement type may not be in the 
+   context of a node (e.g., a global type declaration). *)
+and check_ref_type_assuming_expr ctx nname e =
+  let vars = LH.vars_without_node_call_ids_current e |> SI.elements in
+  let inputs = (match nname with 
+    | Some nname -> lookup_node_param_attr ctx nname
+    | None -> None)
+  in
+  let vars = List.filter (fun var -> 
+    match inputs with 
+      | None -> false 
+      | Some inputs -> not (List.mem var (List.map fst inputs))
+  ) vars
+  in
   match vars with 
     | [] -> R.ok ()
-    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) *)
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
 
-and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
-  = fun ctx ->
+and check_type_well_formed: tc_context -> HString.t option -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
+  = fun ctx nname ->
   function
   | LA.TArr (_, arg_ty, res_ty) ->
-    let* warnings1 = check_type_well_formed ctx arg_ty in
-    let* warnings2 = check_type_well_formed ctx res_ty in 
+    let* warnings1 = check_type_well_formed ctx nname arg_ty in
+    let* warnings2 = check_type_well_formed ctx nname res_ty in 
     R.ok (warnings1 @ warnings2)
   | LA.RecordType (_, _, idTys) ->
       let* warnings = (R.seq (List.map (fun (_, _, ty)
-        -> check_type_well_formed ctx ty) idTys)) in 
+        -> check_type_well_formed ctx nname ty) idTys)) in 
       R.ok (List.flatten warnings)
   | LA.ArrayType (_, (b_ty, s)) -> (
     check_array_size_expr ctx s
-    >> check_type_well_formed ctx b_ty
+    >> check_type_well_formed ctx nname b_ty
   )
   | LA.RefinementType (pos, (_, i, ty), e1, Some e2) -> 
     let ctx = add_ty ctx i ty in
-    (* check_ref_type_assuming_expr e2  *)
-    check_type_expr ctx e1 (Bool pos) 
+    check_ref_type_assuming_expr ctx nname e2  
+    >> check_type_expr ctx e1 (Bool pos) 
     >> check_type_expr ctx e2 (Bool pos) >> 
     let warnings1 = 
       if not (LH.expr_contains_id i e1 || LH.expr_contains_id i e2) 
       then [mk_warning pos (UnusedBoundVariableWarning i)] 
       else []
     in
-    let* warnings2 = check_type_well_formed ctx ty in 
+    let* warnings2 = check_type_well_formed ctx nname ty in 
     R.ok (warnings1 @ warnings2)
   | LA.RefinementType (pos, (_, i, ty), e, None) ->
     let ctx = add_ty ctx i ty in
@@ -1580,13 +1591,13 @@ and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarni
       then [mk_warning pos (UnusedBoundVariableWarning i)] 
       else []
     in
-    let* warnings2 = check_type_well_formed ctx ty in
+    let* warnings2 = check_type_well_formed ctx nname ty in
     R.ok (warnings1 @ warnings2)
   | LA.TupleType (_, tys) ->
-    let* warnings = R.seq (List.map (check_type_well_formed ctx) tys) in
+    let* warnings = R.seq (List.map (check_type_well_formed ctx nname) tys) in
     R.ok (List.flatten warnings)
   | LA.GroupType (_, tys) ->
-    let* warnings = R.seq (List.map (check_type_well_formed ctx) tys) in 
+    let* warnings = R.seq (List.map (check_type_well_formed ctx nname) tys) in 
     R.ok (List.flatten warnings)
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
@@ -1606,10 +1617,10 @@ and check_type_well_formed: tc_context -> tc_type -> ([> `LustreTypeCheckerWarni
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and build_node_fun_ty: Lib.position -> tc_context
+and build_node_fun_ty: Lib.position -> tc_context -> HString.t
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
-  = fun pos ctx args rets ->
+  = fun pos ctx nname args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
                         ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
@@ -1618,8 +1629,8 @@ and build_node_fun_ty: Lib.position -> tc_context
   let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.GroupType (pos, ops) in
   let arg_ty = if List.length ips = 1 then List.hd ips else LA.GroupType (pos, ips) in
-  let* warnings1 = check_type_well_formed fun_ctx ret_ty in
-  let* warnings2 = check_type_well_formed fun_ctx arg_ty in
+  let* warnings1 = check_type_well_formed fun_ctx (Some nname) ret_ty in
+  let* warnings2 = check_type_well_formed fun_ctx (Some nname) arg_ty in
   R.ok (LA.TArr (pos, arg_ty, ret_ty), warnings1 @ warnings2)
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 
@@ -1763,7 +1774,7 @@ let rec type_check_group: tc_context -> LA.t ->  ([> `LustreTypeCheckerWarning o
  * the types of all the forward referenced indentifiers from the context*) 
  
 (** Collects a node's context. *)
-let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
+let get_node_ctx ctx (nname, _, _, inputs, outputs, locals, _, _) =
   let constants_ctx = inputs
     |> List.map extract_consts
     |> (List.fold_left union ctx)
@@ -1781,7 +1792,7 @@ let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
     (union input_ctx output_ctx) in
   let rec helper ctx locals = match locals with
     | local :: locals -> 
-      let* ctx, _ = local_var_binding ctx local in 
+      let* ctx, _ = local_var_binding ctx nname local in 
       helper ctx locals
     | [] -> R.ok ctx in
   helper ctx locals

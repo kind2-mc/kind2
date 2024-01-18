@@ -244,7 +244,7 @@
       )
       | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) -> 
         (
-          match Chk.get_node_ctx ctx ((), (), (), inputs, outputs, [], (), ()) with (* Unit type params are unused in function *)
+          match Chk.get_node_ctx ctx (id, (), (), inputs, outputs, [], (), ()) with (* Unit type params are unused in function *)
             | Ok ctx -> 
               let contract, gen_nodes = desugar_contract ctx id (Some contract) in
               let contract = match contract with 

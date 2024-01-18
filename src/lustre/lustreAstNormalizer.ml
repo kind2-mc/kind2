@@ -786,7 +786,7 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids5, warnings1 = match contracts with
     | Some contracts ->
-      let ctx = Chk.tc_ctx_of_contract info.context contracts |> unwrap |> fst
+      let ctx = Chk.tc_ctx_of_contract info.context node_id contracts |> unwrap |> fst
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
@@ -798,7 +798,7 @@ and normalize_node info map
   (* Record subrange constraints on locals
     and finish setting up the typing context for the node body *)
   let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap |> fst)
+    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
     ctx
     locals
   in
