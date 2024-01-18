@@ -78,9 +78,24 @@ let flatten_ref_types ctx sorted_node_contract_decls =
       ) ops in
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
+    | NodeParamInst (pos, (id1, id2, tys)) -> 
+      let tys = List.map (flatten_ref_type ctx) tys in 
+      NodeParamInst (pos, (id1, id2, tys))
+    | ContractNodeDecl (pos, (id, params, ips, ops, contract)) -> 
+      let ips = List.map (fun (pos, id, ty, cl, b) -> 
+        (pos, id, flatten_ref_type ctx ty, cl, b)
+      ) ips in
+      let ops = List.map (fun (pos, id, ty, cl) -> 
+        (pos, id, flatten_ref_type ctx ty, cl)
+      ) ops in
+      ContractNodeDecl (pos, (id, params, ips, ops, contract))
+    | ConstDecl (pos, (FreeConst (pos2, id, ty))) -> 
+      let ty = flatten_ref_type ctx ty in 
+      ConstDecl (pos, (FreeConst (pos2, id, ty)))
+    | ConstDecl (pos, (TypedConst (pos2, id, expr, ty))) -> 
+      let ty = flatten_ref_type ctx ty in 
+      ConstDecl (pos, (TypedConst (pos2, id, expr, ty))) 
     | A.TypeDecl (_, FreeType _) 
-    (*!! Finish cases *)
-    | ConstDecl _
-    | ContractNodeDecl _
-    | NodeParamInst _ -> decl
+    | ConstDecl (_, (UntypedConst _))  -> decl
+    
   ) sorted_node_contract_decls

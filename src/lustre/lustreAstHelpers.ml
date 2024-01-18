@@ -747,7 +747,6 @@ let extract_op_ty: clocked_typed_decl -> ident * lustre_type
 let is_const_arg: const_clocked_typed_decl -> bool
   = fun (_, _, _, _, is_const) -> is_const
           
-(*!! Extend these for ref types *)
 let rec is_type_num: lustre_type -> bool
   = function
   | Int _

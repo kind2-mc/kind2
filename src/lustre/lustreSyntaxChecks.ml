@@ -721,7 +721,6 @@ and check_ty_node_calls i ty =
     | _ -> Ok ()
 
 and check_declaration ctx = function
-(*!! Check for node calls in ref types *)
   | TypeDecl (span, FreeType (pos, id) ) -> Ok (LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ty) ) -> 
     check_ty_node_calls id ty >> Ok (LA.TypeDecl (span, AliasType (pos, id, ty)))
