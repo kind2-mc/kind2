@@ -1547,15 +1547,21 @@ let desugar_history ctr_id prefix expr =
     in
     let vars', e' = r map e in
     let e' =
-      let conj =
-        List.fold_left
-          (fun acc c -> BinaryOp(pos, And, c, acc))
-          (List.hd constrs)
-          (List.tl constrs)
-      in
-      match kind with
-      | Forall -> assert false
-      | Exists -> BinaryOp(pos, And, conj, e')
+      match constrs with
+      | [] -> e'
+      | [c] ->
+        assert (kind = Exists);
+        BinaryOp(pos, And, c, e')
+      | _ -> (
+        assert (kind = Exists);
+        let conj =
+          List.fold_left
+            (fun acc c -> BinaryOp(pos, And, c, acc))
+            (List.hd constrs)
+            (List.tl constrs)
+        in
+        BinaryOp(pos, And, conj, e')
+      )
     in
     StringSet.union vars vars',
     Quantifier (pos, kind, List.rev idents, e')
