@@ -141,6 +141,8 @@ let init_flag_ident = mk_string_ident init_flag_ident_string
 (* Identifier for new variables from node instances *)
 let inst_ident = mk_string_ident inst_ident_string
 
+let eq_vars_ident = mk_string_ident eq_vars_ident_string
+
 (* Identifier for new clock initialization flag *)
 let index_ident = mk_string_ident index_ident_string
 

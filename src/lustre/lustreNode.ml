@@ -53,6 +53,7 @@ module C = LustreContract
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
+module TM = Type.TypeMap
 
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
@@ -198,6 +199,8 @@ type t = {
   state_var_expr_map : LustreExpr.t SVT.t;
 
   assumption_svars: SVS.t;
+
+  history_svars: (StateVar.t * StateVar.t) list TM.t;
 }
 
 
@@ -230,7 +233,8 @@ let empty_node name is_extern = {
   state_var_source_map = SVM.empty;
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
-  assumption_svars = SVS.empty
+  assumption_svars = SVS.empty;
+  history_svars = TM.empty;
 }
 
 

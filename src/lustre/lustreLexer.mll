@@ -239,6 +239,7 @@ let keyword_table = mk_hashtbl [
   (* "array", ARRAY) ; *)
   "struct", STRUCT ;
   "enum", ENUM ;
+  "history", HISTORY ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;

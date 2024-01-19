@@ -572,6 +572,36 @@ let add_subrange_constraints info node_id kind vars =
     union acc (mk_fresh_subrange_constraint kind info p id ty))
     (empty ())
 
+let get_history_type ctx id =
+  let base_ty = Ctx.lookup_ty ctx id |> get in
+  let size =
+    let one = A.Const (dpos, A.Num (HString.mk_hstring "1")) in
+      A.BinaryOp (dpos, A.Plus, A.Ident(dpos, ctr_id), one)
+    in
+  A.ArrayType (dpos, (base_ty, size))
+
+let add_history_var_and_equation info id h_id =
+  let ty = get_history_type info.context id in
+  let locals = StringMap.singleton h_id (false, ty) in
+  let equations =
+    let index = HString.mk_hstring "i" in
+    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
+    let eq_rhs =
+      let cond =
+        A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
+      in
+      let prev_hist =
+        A.Arrow (dpos,
+          A.Ident(dpos, id),
+          A.ArrayIndex (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index))
+        )
+      in
+      A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
+    in
+    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs)]
+  in
+  { (empty ()) with locals; equations }
+
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
     let (normal_item, ids, warnings2) = f item in
@@ -738,6 +768,7 @@ and normalize_node info map
     (Ctx.union constants_ctx info.context)
     (Ctx.union input_ctx output_ctx)
   in
+  let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs *)
   let gids1 =
@@ -800,20 +831,50 @@ and normalize_node info map
     in
     Flags.check_reach () && List.exists reachability_prop_with_bounds items
   in
-  let info, gids6 =
-    if exists_reachability_prop_with_bounds then (
-      {info with context = Ctx.add_ty info.context ctr_id (A.Int dpos)},
+  (* Normalize equations and the contract *)
+  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
+  let gids4' = union gids4 gids5 in
+  let gids5' =
+    if exists_reachability_prop_with_bounds ||
+       not (StringMap.is_empty gids4'.history_vars) then (
       add_step_counter info
     )
     else
-      info, empty ()
+      empty ()
   in
-  (* Normalize equations and the contract *)
-  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
-  let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
+  let gids6 =
+    StringMap.fold
+      (fun id h_id acc ->
+        union acc (add_history_var_and_equation info id h_id)
+      )
+      gids4'.history_vars
+      (empty ())
+  in
+  let gids = union_list [gids1; gids2; gids3; gids4'; gids5'; gids6] in
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2
 
+
+and desugar_history info expr =
+  let prefix = "_history" in
+  let history_arg_vars, expr =
+    AH.desugar_history ctr_id prefix expr
+  in
+  let info, h_gids =
+    StringSet.fold
+      (fun id (info, gids) ->
+        let name = HString.mk_hstring
+          (Format.asprintf "%s_%a" prefix HString.pp_print_hstring id)
+        in
+        let ty = get_history_type info.context id in
+        let history_vars = StringMap.singleton id name in
+        {info with context = Ctx.add_ty info.context name ty},
+        union gids { (empty ()) with history_vars }
+      )
+      history_arg_vars
+      (info, empty ())
+  in
+  info, h_gids, expr
 
 and normalize_item info map = function
   | A.Body equation ->
@@ -824,9 +885,11 @@ and normalize_item info map = function
   | FrameBlock _ -> 
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
-  | AnnotProperty (pos, name, expr, k) -> 
+  | AnnotProperty (pos, name, expr, k) ->
+    let info, h_gids, expr = desugar_history info expr in
     let name' = Some (AH.name_of_prop pos name k) in
-    (match k with 
+    let decls, gids, warnings =
+      match k with
       (* expr or counter < b *) 
       | Reachable Some (From b) -> 
         let expr =
@@ -835,7 +898,7 @@ and normalize_item info map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
       | Reachable Some (At b) -> 
@@ -899,10 +962,11 @@ and normalize_item info map = function
           [inv_prop], gids1, warnings1
         )
 
-      | _ -> 
+      | _ ->
         let nexpr, gids, warnings = abstract_expr false info map false expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
-    ) 
+    in
+    decls, union h_gids gids, warnings
 
 
 
@@ -944,18 +1008,21 @@ and normalize_contract info map ivars ovars items =
     let item = List.nth items j in
     let nitem, gids', warnings', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
+        let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
-        A.Assume (pos, name, soft, nexpr), gids, warnings, StringMap.empty
+        A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
+        let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
-        Guarantee (pos, name, soft, nexpr), gids, warnings, StringMap.empty
+        Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
         let info = { info with interpretation } in *)
         let over_property info map (pos, name, expr) =
+          let info, h_gids, expr = desugar_history info expr in
           let nexpr, gids, warnings = abstract_expr true info map true expr in
-          (pos, name, nexpr), gids, warnings
+          (pos, name, nexpr), union h_gids gids, warnings
         in
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in

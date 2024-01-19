@@ -225,6 +225,8 @@ type t = {
 
   assumption_svars: StateVar.StateVarSet.t;
 
+  history_svars: (StateVar.t * StateVar.t) list Type.TypeMap.t;
+
 }
 
 (** Instance of state vars as streams with their position *)

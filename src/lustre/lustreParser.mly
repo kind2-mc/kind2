@@ -75,6 +75,7 @@ let mk_span start_pos end_pos =
 %token BOOL
 %token SUBRANGE
 %token OF
+%token HISTORY
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -921,7 +922,7 @@ pexpr(Q):
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Forall, List.flatten vars, e) }
   | EXISTS; q = Q;
-    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, exists_typed_idents); e = pexpr(Q)
     %prec prec_exists
     { let pos = mk_pos $startpos in
       if not q then
@@ -1208,7 +1209,16 @@ typed_idents:
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
 
+lustre_type_or_history:
+  | t = lustre_type
+    { t }
+  | HISTORY ; LPAREN ; i = ident ; RPAREN
+    { A.History (mk_pos $startpos, i) }
 
+exists_typed_idents:
+  | l = ident_list_pos; COLON; t = lustre_type_or_history
+    (* Pair each identifier with the type *)
+    { List.map (function (pos, e) -> (pos, e, t)) l }
 
 (* A list of lists of typed identifiers *)
 typed_idents_list:

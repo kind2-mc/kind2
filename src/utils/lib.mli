@@ -586,6 +586,9 @@ module ReservedIds : sig
   (** New variables from node instance. *)
   val inst_ident_string: string
 
+  (** Observer for variable equivalence *)
+  val eq_vars_ident_string: string
+
   (** Initial predicate. *)
   val init_uf_string: string
 
