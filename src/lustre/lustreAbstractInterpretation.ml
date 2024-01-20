@@ -467,11 +467,20 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
     | RecordProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
-      (match parent_ty with
-      | RecordType (_, _, idents) ->
-        let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
-        t
-      | _ -> assert false)
+      let rec handle_rec_project parent_ty = 
+        let parent_ty = Ctx.expand_nested_type_syn ty_ctx parent_ty in
+        (match parent_ty with
+          | LA.RecordType (_, _, idents) ->
+            let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
+            t
+          | RefinementType (_, (_, _, ty), _, _) -> handle_rec_project ty
+          
+          | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+          | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+          | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
+          | EnumType _ | TArr _ -> assert false)
+      in 
+      handle_rec_project parent_ty
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
