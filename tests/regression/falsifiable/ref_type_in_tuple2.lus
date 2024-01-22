@@ -1,0 +1,9 @@
+type Nat = subtype { n: int | n >= 0 };
+type T1 = struct { fst: Nat; snd: Nat }; 
+type T2 = struct { fst: int; snd: T1 };
+type R = subtype { rec: T2 | rec.snd.snd > 5 };
+
+node M(z: R) returns (y: T2);
+let
+  y = T2 { fst = 1; snd = z.snd };
+tel
