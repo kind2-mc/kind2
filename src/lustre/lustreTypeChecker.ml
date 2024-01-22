@@ -85,10 +85,8 @@ type error_kind = Unknown of string
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
   | NodeArgumentOnLHS of HString.t
-  | NodeInputOutputShareIdentifier of ty_set
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set
-  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
   | ExpectedConstant of string * string
@@ -170,8 +168,6 @@ let error_message kind = match kind with
     ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
   | InvalidConversion (ty1, ty2) -> "Cannot convert type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentOnLHS v -> "Input '" ^ HString.string_of_hstring v ^ "' can not be defined"
-  | NodeInputOutputShareIdentifier set -> "Input and output parameters cannot have common identifiers, "
-    ^ "but found common parameters: " ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
   | MismatchOfEquationType (items, ty) -> "Term structure on left hand side of the equation "
     ^ (match items with
       | Some items -> Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") items
@@ -179,10 +175,6 @@ let error_message kind = match kind with
     ^ " does not match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
   | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
-  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument '" | false -> "Return '")
-    ^ HString.string_of_hstring id ^ "' can not have type "
-    ^ string_of_tc_type ty ^ ". Contract " ^ (match kind with | true -> "assumptions" | false -> "guarantees")
-    ^ " should be used instead"
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
@@ -226,14 +218,14 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 
 let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
-  | AbstractType (_, _) -> LSC.no_mismatched_clock false e
+  | EnumType _ -> LSC.no_mismatched_clock false e
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
   = fun ctx pos ty cases ->
     match ty with
-    | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
+    | EnumType (_, enum_id, _) -> (match lookup_variants ctx enum_id with
         | Some variants ->
           let check_cases_containment = R.seq_
             (List.map (fun i ->
@@ -262,7 +254,7 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
           ^ " is not an enumeration identifier")))
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
     | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
-      " must be an abstract type"))
+      " must be a bool or an enum type"))
 
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
@@ -326,12 +318,12 @@ let rec infer_const_attr ctx exp =
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
   (* Node calls *)
-  | ChooseOp _ -> assert false
+  | AnyOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
   | Call (_, i, _) -> (
-    let err = error exp "node call or choose operator" in
+    let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
     | Some (TArr (_, _, exp_ret_tys)) -> (
       match exp_ret_tys with
@@ -384,6 +376,55 @@ let check_constant_args ctx i arg_exprs =
     else R.ok ()
   )
 
+let rec type_extract_array_lens ctx ty = match ty with 
+  | LA.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx ty
+  | TupleType (_, tys) -> List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | GroupType (_, tys) -> List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | TArr (_, ty1, ty2) -> 
+    type_extract_array_lens ctx ty1 @ type_extract_array_lens ctx ty2
+  | RecordType (_, _, tis) ->
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+    List.map (type_extract_array_lens ctx) tys |> List.flatten
+  | UserType (_, id) -> 
+    (match (lookup_ty_syn ctx id) with 
+      | Some ty -> type_extract_array_lens ctx ty;
+      | None -> [])
+  | _ -> []
+
+let update_ty_with_ctx node_ty call_params ctx arg_exprs =
+  let call_param_len_idents =
+    type_extract_array_lens ctx node_ty
+    |> List.map (LH.vars_without_node_call_ids)
+    (* Remove duplicates *)
+    |> List.fold_left (fun acc vars -> LA.SI.union vars acc) LA.SI.empty
+    |> LA.SI.elements
+    (* Filter out constants. If "id" is a constant, it must be a local constant  *)
+    |> List.filter (fun id -> not (member_val ctx id) || (List.mem id call_params) )
+  in
+  match call_param_len_idents with
+  | [] -> node_ty
+  | _ -> (
+    let find_matching_len_params array_param_lens = 
+      List.map (fun len -> (Lib.list_index (fun id2 -> len = id2) call_params)) array_param_lens
+    in
+    (* Find indices of array length parameters. E.g. in Call(m :: const int, A :: int^m), the index 
+      of array length param "m" is 0. *)
+    let array_len_indices = find_matching_len_params call_param_len_idents in
+    (* Retrieve concrete arguments passed as array lengths *)
+    let array_len_exprs = List.map (List.nth arg_exprs) array_len_indices in
+    (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
+    LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
+  )
+
+let rec expand_type ctx = function
+  | LA.History (pos, i) -> (
+    match lookup_ty ctx i with
+    | None -> type_error pos (UnboundIdentifier i)
+    | Some ty -> expand_type ctx ty
+  )
+  | LA.RefinementType (_, (_, _, ty), _, _) -> expand_type ctx ty
+  | ty -> R.ok (expand_type_syn ctx ty)
+
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)
@@ -402,21 +443,18 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty = infer_type_expr ctx e in
-    let rec is_base_record_ty rec_ty = 
-      let rec_ty = expand_type_syn ctx rec_ty in
-      (match rec_ty with
-      | LA.RecordType (_, _, flds) ->
-          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-          (match (List.assoc_opt fld typed_fields) with
-          | Some ty -> R.ok (expand_type_syn ctx ty)
-          | None -> type_error pos (NotAFieldOfRecord fld))
-      | LA.RefinementType (_, (_, _, ty), _, _) -> is_base_record_ty ty
-      | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty)) in 
-    is_base_record_ty rec_ty
+    let* rec_ty = expand_type ctx rec_ty in
+    (match rec_ty with
+    | LA.RecordType (_, _, flds) ->
+        let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+        (match (List.assoc_opt fld typed_fields) with
+        | Some ty -> R.ok (expand_type_syn ctx ty)
+        | None -> type_error pos (NotAFieldOfRecord fld))
+    | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
 
   | LA.TupleProject (pos, e1, i) ->
     let* tup_ty = infer_type_expr ctx e1 in
-    let tup_ty = expand_type_syn ctx tup_ty in
+    let* tup_ty = expand_type ctx tup_ty in
     (match tup_ty with
     | LA.TupleType (pos, tys) as ty ->
         if List.length tys <= i
@@ -538,8 +576,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
               | r_ty -> type_error pos (IlltypedRecordUpdate r_ty))
       | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
   | LA.ArrayIndex (pos, e, i) ->
-    let* index_type =  infer_type_expr ctx i in
-    let index_type = expand_type_syn ctx index_type in
+    let* index_type = infer_type_expr ctx i in
+    let* index_type = expand_type ctx index_type in
     if is_expr_int_type ctx i
     then infer_type_expr ctx e
         >>= (function
@@ -553,8 +591,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
-  | ChooseOp _ -> assert false
-  (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false
+  (* Already desugared in lustreDesugarAnyOps *)
   (*check_type_expr ctx e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -605,8 +643,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
       else R.ok (LA.GroupType (pos, arg_tys))
     in
-    match (lookup_node_ty ctx i) with
-    | Some (TArr (_, exp_arg_tys, exp_ret_tys)) -> (
+    match (lookup_node_param_ids ctx i), (lookup_node_ty ctx i) with
+    | Some call_params, Some node_ty -> (
+      (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
+      let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
+      let exp_arg_tys, exp_ret_tys = match node_ty with 
+        | TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
+        | _ -> assert false 
+      in
       let* given_arg_tys = infer_type_node_args ctx arg_exprs in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
       if are_equal then
@@ -614,8 +658,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
-    | Some ty -> type_error pos (ExpectedFunctionType ty)
-    | None -> type_error pos (UnboundNodeName i)
+    | _, Some ty -> type_error pos (ExpectedFunctionType ty)
+    | _, None -> type_error pos (UnboundNodeName i)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -695,9 +739,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
         else
           let elty = List.hd inf_tys in
           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
-            (let arr_ty = List.hd inf_tys in
-            let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
-            (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
+            (let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
+             let arr_ty = LA.ArrayType (pos, (elty, arr_size)) in
+             (R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
                 (type_error pos (ExpectedType (exp_ty, arr_ty)))))
             (type_error pos UnequalArrayExpressionType))
 
@@ -742,12 +786,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
-  | ChooseOp _ -> assert false 
-    (* Already desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false 
+    (* Already desugared in lustreDesugarAnyOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-  | ChooseOp (pos, (_, i ,ty), e1, Some e2) ->
+  | AnyOp (pos, (_, i ,ty), e1, Some e2) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e1 (Bool pos)
     >> check_type_expr extn_ctx e2 (Bool pos)
@@ -784,14 +828,18 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   (* Node calls *)
   | Call (pos, i, args) ->
-    R.seq (List.map (infer_type_expr ctx) args) >>= fun arg_tys ->
+    let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
-    (match (lookup_node_ty ctx i) with
-    | None -> type_error pos (UnboundNodeName i)
-    | Some ty -> 
-      R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
-        (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
+    (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
+    | None, _ 
+    | _, None -> type_error pos (UnboundNodeName i)
+    | Some ty, Some call_params -> 
+      (* Express ty in terms of the current context *)
+      let ty = update_ty_with_ctx ty call_params ctx args in
+      let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
+      if b then R.ok ()
+      else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
@@ -937,7 +985,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if LH.is_type_array ty1 then
+      (if LH.type_contains_array ty1 then
          type_error pos (Unsupported "Extensional array equality is not supported")
        else
          R.ok (LA.Bool pos)
@@ -1237,19 +1285,8 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> `Lustre
   let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
-  (* forbid subranges in the arguments or return types *)
-  R.seq (List.map (fun (pos, i, ty, _, _) -> 
-    let ty = expand_nested_type_syn arg_ctx ty in
-    if LH.type_contains_subrange_or_ref_type ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
-    else Ok ())
-    args)
-  >> R.seq (List.map (fun (pos, i, ty, _) -> 
-    let ty = expand_nested_type_syn ret_ctx ty in
-    if LH.type_contains_subrange_or_ref_type ty then type_error pos (DisallowedSubrangeInContractReturn (false, i, ty))
-    else Ok ())
-    rets)
   (* get the local const var declarations into the context *)
-  >> R.seq (List.map (tc_ctx_contract_eqn local_const_ctx cname) contract)
+  R.seq (List.map (tc_ctx_contract_eqn local_const_ctx cname) contract)
   >>= fun ctxs_warnings ->
   let ctxs, warnings = List.split ctxs_warnings in
   let local_ctx = List.fold_left union local_const_ctx ctxs in
@@ -1287,36 +1324,25 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                 (Bool pos))
       
     | ContractCall (pos, cname, args, rets) ->
-      let arg_ids =
-        List.fold_left
-          (fun a s -> LA.SI.union a s)
-          LA.SI.empty
-          (List.map LH.vars_without_node_call_ids args)
+      let* ret_tys = R.seq (List.map (infer_type_expr ctx)
+        (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
-      let ret_ids = LA.SI.of_list rets in
-      let common_ids = LA.SI.inter arg_ids ret_ids in
-      if (LA.SI.equal common_ids LA.SI.empty)
-      then 
-        let* ret_tys = R.seq (List.map (infer_type_expr ctx)
-          (List.map (fun i -> LA.Ident (pos, i)) rets))
-        in
-        let ret_ty = if List.length ret_tys = 1
-          then List.hd ret_tys
-          else LA.GroupType (pos, ret_tys)
-        in
-        let* arg_tys = R.seq(List.map (infer_type_expr ctx) args) in
-        let arg_ty = if List.length arg_tys = 1
-          then List.hd arg_tys
-          else LA.GroupType (pos, arg_tys)
-        in
-        let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-        (match (lookup_contract_ty ctx cname) with
-        | Some inf_ty -> 
-            R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-              (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
-        | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
-          ^ (HString.string_of_hstring cname))))
-      else type_error pos (NodeInputOutputShareIdentifier common_ids)
+      let ret_ty = if List.length ret_tys = 1
+        then List.hd ret_tys
+        else LA.GroupType (pos, ret_tys)
+      in
+      let* arg_tys = R.seq(List.map (infer_type_expr ctx) args) in
+      let arg_ty = if List.length arg_tys = 1
+        then List.hd arg_tys
+        else LA.GroupType (pos, arg_tys)
+      in
+      let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+      (match (lookup_contract_ty ctx cname) with
+      | Some inf_ty -> 
+          R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+            (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
+      | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
+        ^ (HString.string_of_hstring cname))))
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
   = fun (pos1, GhostVarDec(pos2, tis), expr) ->
@@ -1388,7 +1414,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
           (* 1. add the enum type and variants to the enum context *)
           let ctx' = add_enum_variants ctx ename econsts in
           (* 2. add the enum type as a valid type in context*)
-          let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
+          let ctx'' = add_ty_syn ctx' i ty in
           R.ok (List.fold_left union (add_ty_decl ctx'' ename)
           (* 3. Lift all enum constants (terms) with associated user type of enum name *)
             (enum_type_bindings
@@ -1522,7 +1548,7 @@ and check_const_integer_expr ctx kind e =
   match infer_type_expr ctx e with
   | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
     type_error pos
-      (ExpectedConstant (kind, "node call or choose operator"))
+      (ExpectedConstant (kind, "node call or any operator"))
   | Ok ty ->
     let* eq = eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)) in
     if eq then
@@ -1714,6 +1740,12 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     if List.length tys = 1
     then (eq_lustre_type ctx (List.hd tys) t)
     else R.ok false  
+  | History (pos, v), ty
+  | ty, History (pos, v) -> (
+    match lookup_ty ctx v with
+    | Some hist_ty -> eq_lustre_type ctx hist_ty ty
+    | None -> type_error pos (UnboundIdentifier v)
+  )
   | _, _ -> R.ok false
 (** Compute Equality for lustre types  *)
 

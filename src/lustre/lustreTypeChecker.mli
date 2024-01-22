@@ -70,10 +70,8 @@ type error_kind = Unknown of string
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
   | NodeArgumentOnLHS of HString.t
-  | NodeInputOutputShareIdentifier of ty_set
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set
-  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
   | Redeclaration of HString.t
   | ExpectedConstant of string * string

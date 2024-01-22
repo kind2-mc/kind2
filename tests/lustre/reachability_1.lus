@@ -1,0 +1,12 @@
+node counter() returns (out: int);
+let 
+  out = 0 -> pre out + 1;
+ 
+  check reachable out = 2000 from 100 within 2000;
+tel
+
+node top() returns (out: int);
+let
+  out = counter();
+  check reachable out = 50 at 50;
+tel

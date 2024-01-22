@@ -1258,9 +1258,9 @@ let rec eval_ast_expr bounds ctx =
       pos
       "Activate operator only supported in merge"
 
-  | A.ChooseOp (pos, _, _, _) -> 
+  | A.AnyOp (pos, _, _, _) -> 
     
-    fail_at_position pos "Choose operation not supported in old front end"
+    fail_at_position pos "'Any' operation not supported in old front end"
 
 
 
@@ -2273,6 +2273,12 @@ and eval_ast_type_flatten flatten_arrays ctx = function
              a)
         element_type
         D.empty
+
+  | A.History (_, ident) ->
+
+    let i = HString.string_of_hstring ident in
+    C.type_of_ident ctx (I.mk_string_ident i)
+
   | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
   | RefinementType (pos, _, _, _) -> fail_at_position pos "Refinement types not supported in old frontend"

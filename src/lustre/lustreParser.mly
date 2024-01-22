@@ -76,6 +76,7 @@ let mk_span start_pos end_pos =
 %token SUBRANGE
 %token OF
 %token SUBTYPE
+%token HISTORY
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -157,7 +158,7 @@ let mk_span start_pos end_pos =
 %token HASH
 %token FORALL
 %token EXISTS
-%token CHOOSE
+%token ANY
     
 (* Tokens for relations *)
 %token LTE
@@ -219,7 +220,7 @@ let mk_span start_pos end_pos =
 %nonassoc INT REAL 
 %nonassoc NOT
 %nonassoc BVNOT 
-%nonassoc CHOOSE
+%nonassoc ANY
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -932,7 +933,7 @@ pexpr(Q):
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Forall, List.flatten vars, e) }
   | EXISTS; q = Q;
-    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, exists_typed_idents); e = pexpr(Q)
     %prec prec_exists
     { let pos = mk_pos $startpos in
       if not q then
@@ -952,18 +953,18 @@ pexpr(Q):
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
-  (* Choose operation *)
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-    { A.ChooseOp (mk_pos $startpos, id, e, None) } 
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
-    { A.ChooseOp (mk_pos $startpos, id, e1, Some e2) } 
-  | CHOOSE; ty = lustre_type;
+  (* 'Any' operation *)
+  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
+    { A.AnyOp (mk_pos $startpos, id, e, None) } 
+  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
+    { A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
+  | ANY; ty = lustre_type;
     { 
       match ty with 
         | RefinementType (_, id, e1, e2) -> 
-          A.ChooseOp(mk_pos $startpos, id, e1, e2)
+          A.AnyOp(mk_pos $startpos, id, e1, e2)
         | _ ->
-          A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), 
+          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), 
                       Const(mk_pos $startpos, True), None)
     }
 
@@ -1239,7 +1240,17 @@ typed_idents:
         | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), e1, Some e2))]
         | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
     }
+    
+lustre_type_or_history:
+  | t = lustre_type
+    { t }
+  | HISTORY ; LPAREN ; i = ident ; RPAREN
+    { A.History (mk_pos $startpos, i) }
 
+exists_typed_idents:
+  | l = ident_list_pos; COLON; t = lustre_type_or_history
+    (* Pair each identifier with the type *)
+    { List.map (function (pos, e) -> (pos, e, t)) l }
 
 (* A list of lists of typed identifiers *)
 typed_idents_list:

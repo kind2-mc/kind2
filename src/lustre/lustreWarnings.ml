@@ -31,3 +31,6 @@ let warning_message warning = match warning with
   | `LustreDesugarFrameBlocksWarning (_, kind) -> LustreDesugarFrameBlocks.warning_message kind
   | `LustreAstNormalizerWarning (_, kind) -> LustreAstNormalizer.warning_message kind
   | `LustreTypeCheckerWarning (_, kind) -> LustreTypeChecker.warning_message kind
+
+let sort_warnings_by_pos l =
+  List.sort (fun w1 w2 -> Lib.compare_pos (warning_position w1) (warning_position w2)) l

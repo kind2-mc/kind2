@@ -72,6 +72,7 @@ type error = [
 
 type warning_kind =
   | UnguardedPreWarning of LustreAst.expr
+  | UseOfAssertionWarning
 
 type warning = [
   | `LustreAstNormalizerWarning of Lib.position * warning_kind

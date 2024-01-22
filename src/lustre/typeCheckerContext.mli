@@ -105,6 +105,8 @@ val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
 
+val lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
+
 val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
 (** Lookup a constant identifier *)
 

@@ -302,7 +302,10 @@ let set_prop_unknown p =
 (* Get property status *)
 let get_prop_status { prop_status } = prop_status
 
-
+let rec get_prop_original_source { prop_source } =
+  match prop_source with
+  | Instantiated (_, p) -> get_prop_original_source p
+  | _ -> prop_source
 
 
 (* 

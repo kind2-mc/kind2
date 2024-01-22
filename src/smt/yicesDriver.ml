@@ -358,6 +358,8 @@ let rec pp_print_symbol_node ?arity ppf = function
         ppf
         "bv-sign-extend %a"
         Numeral.pp_print_numeral i
+
+  | `BVZEROEXT _ -> failwith "bv-zero-extend not implemented for yices"
         
   | `SELECT _ -> Format.pp_print_string ppf ""
 

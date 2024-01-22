@@ -19,6 +19,9 @@
 open LustreAst
 open LustreReporting
 
+module StringMap = HString.HStringMap
+module StringSet = HString.HStringSet
+
 type iset = LustreAst.SI.t
 
 let (let*) = Res.(>>=)
@@ -55,7 +58,7 @@ let pos_of_expr = function
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _ , _) | Call (pos , _ , _ )
-  | ChooseOp (pos, _, _, _)
+  | AnyOp (pos, _, _, _)
   -> pos
 
 let type_arity ty =
@@ -86,8 +89,18 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | ChooseOp (_, _, _, _)
+  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> true
+
+let rec type_contains_array = function
+  | IntRange _ -> false
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_array ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_array ty)
+      false tys
+  | ArrayType _ -> true
+  | _ -> false
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
@@ -107,8 +120,8 @@ let rec expr_contains_id id = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_id id e1 || expr_contains_id id e2
     || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | ChooseOp (_, (_, id2, _), e, None) -> if id != id2 then expr_contains_id id e else false
-  | ChooseOp (_, (_, id2, _), e1, Some e2) -> 
+  | AnyOp (_, (_, id2, _), e, None) -> if id != id2 then expr_contains_id id e else false
+  | AnyOp (_, (_, id2, _), e1, Some e2) -> 
     if id != id2 then expr_contains_id id e1 || expr_contains_id id e2 else false
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     expr_contains_id id e1 || expr_contains_id id e2 || 
@@ -130,7 +143,18 @@ let rec type_contains_subrange_or_ref_type = function
   | ArrayType (_, (ty, _)) -> type_contains_subrange_or_ref_type ty
   | _ -> false
 
-(* Substitute t for var. ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+let rec type_contains_enum_or_subrange = function
+  | IntRange _
+  | EnumType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ty
+  | _ -> false
+
+(* Substitute t for var. AnyOp and Quantifier are not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
@@ -145,7 +169,7 @@ let rec substitute_naive (var:HString.t) t = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive var t e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
@@ -178,13 +202,83 @@ let rec substitute_naive (var:HString.t) t = function
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
+let rec apply_subst_in_expr sigma = function
+  | Ident (pos, i) -> (
+    match List.assoc_opt i sigma with
+      | Some expr -> expr
+      | None -> Ident (pos, i)
+  )
+  | ModeRef (_, _) as e -> e
+  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2, apply_subst_in_expr sigma e3)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, apply_subst_in_expr sigma e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
+  | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, apply_subst_in_expr sigma e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | When (pos, e, clock) -> When (pos, apply_subst_in_expr sigma e, clock)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
+    let expr_list1 = List.map (fun e -> apply_subst_in_expr sigma e) expr_list1 in
+    let expr_list2 = List.map (fun e -> apply_subst_in_expr sigma e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
+    let expr_list = List.map (fun e -> apply_subst_in_expr sigma e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> apply_subst_in_expr sigma e) expr_list in
+    let e = apply_subst_in_expr sigma e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
+  | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | Call (pos, id, expr_list) ->
+    Call (pos, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+
+let rec apply_subst_in_type sigma = function
+  | ArrayType (pos, (ty, expr)) -> (
+    let expr = apply_subst_in_expr sigma expr in 
+    let ty = apply_subst_in_type sigma ty in
+    ArrayType (pos, (ty, expr))
+  )
+  | TupleType(pos, tys) -> 
+    TupleType(pos, List.map (apply_subst_in_type sigma) tys)
+  | GroupType(pos, tys) -> 
+    GroupType(pos, List.map (apply_subst_in_type sigma) tys)
+  | TArr(pos, ty1, ty2) ->
+    TArr(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, apply_subst_in_type sigma ty)) tis 
+    in
+    RecordType (pos, name, tis)
+  | ty -> ty
+    
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
-  | ChooseOp (pos, _, _, _) -> fail_at_position pos "Choose operations are not supported in the old front end"
+  | AnyOp (pos, _, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -266,7 +360,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
@@ -348,10 +442,10 @@ let rec has_pre_or_arrow = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
-  | ChooseOp (_, _, e, None) -> 
+  | AnyOp (_, _, e, None) -> 
     has_pre_or_arrow e
 
-  | ChooseOp (_, _, e1, Some e2) -> 
+  | AnyOp (_, _, e1, Some e2) -> 
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
@@ -594,8 +688,8 @@ let rec vars_of_node_calls_h obs =
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
   (* Structured expressions *)
   | RecordExpr (_, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
@@ -652,8 +746,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
@@ -692,8 +786,8 @@ let vars_without_node_call_ids_current: expr -> iset =
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
-  | ChooseOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
-  | ChooseOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
@@ -881,7 +975,7 @@ let rec replace_with_constants: expr -> expr =
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
      CompOp (p, op, e1', e2')
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
 
   (* Structured expressions *)
   | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, replace_with_constants e)) flds))
@@ -960,7 +1054,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
      CompOp (p, op, e1', e2')
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
 
   (* Structured expressions *)
   | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))
@@ -1039,7 +1133,7 @@ let rec replace_idents locals1 locals2 expr =
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
 
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
     (* Remove 'tis' from locals because they're bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
@@ -1431,10 +1525,10 @@ let hash depth_limit expr =
       | Call (_, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, HString.hash i, l_hash)
-      | ChooseOp (_, (_, i, _), e, None) ->
+      | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)
-      | ChooseOp (_, (_, i, _), e1, Some e2) ->
+      | AnyOp (_, (_, i, _), e1, Some e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
@@ -1465,7 +1559,7 @@ let rec rename_contract_vars = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, rename_contract_vars e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
-  | ChooseOp _ -> assert false (* desugared in lustreDesugarChooseOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
@@ -1498,6 +1592,178 @@ let rec rename_contract_vars = function
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
+
+
+let desugar_history ctr_id prefix expr =
+  let rec r map expr =
+  match expr with
+  | Quantifier (pos, kind, idents, e) -> (
+    let vars, map, idents, constrs =
+      List.fold_left
+        (fun (vars, map, idents, constrs) (pos, bv, ty) ->
+          match ty with
+          | History (_, i) ->
+            let hist_varid =
+              HString.mk_hstring
+                (Format.asprintf "%s_%a" prefix HString.pp_print_hstring i)
+            in
+            let c =
+              BinaryOp (pos, And,
+                CompOp (pos, Lte,
+                  Const (pos, Num (HString.mk_hstring "0")),
+                  Ident(pos, bv)
+                ),
+                CompOp (pos, Lte, Ident(pos, bv), Ident(pos, ctr_id))
+              )
+            in
+            StringSet.add i vars,
+            StringMap.add bv hist_varid map,
+            (pos, bv, Int pos) :: idents,
+            c :: constrs
+          | _ -> vars, map, (pos, bv, ty) :: idents, constrs
+        )
+        (StringSet.empty, map, [], [])
+        idents
+    in
+    let vars', e' = r map e in
+    let e' =
+      match constrs with
+      | [] -> e'
+      | [c] ->
+        assert (kind = Exists);
+        BinaryOp(pos, And, c, e')
+      | _ -> (
+        assert (kind = Exists);
+        let conj =
+          List.fold_left
+            (fun acc c -> BinaryOp(pos, And, c, acc))
+            (List.hd constrs)
+            (List.tl constrs)
+        in
+        BinaryOp(pos, And, conj, e')
+      )
+    in
+    StringSet.union vars vars',
+    Quantifier (pos, kind, List.rev idents, e')
+  )
+  | Ident (pos, id) -> (
+    match StringMap.find_opt id map with
+    | None -> StringSet.empty, expr
+    | Some hist_varid ->
+      StringSet.empty, ArrayIndex(pos, Ident(pos, hist_varid), expr)
+  )
+  | ModeRef _ -> StringSet.empty, expr
+  | RecordProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, RecordProject (pos, e', idx)
+  | TupleProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, TupleProject (pos, e', idx)
+  | Const _ -> StringSet.empty, expr
+  | UnaryOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, UnaryOp (pos, op, e')
+  | BinaryOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    BinaryOp (pos, op, e1', e2')
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, e3' = r map e3 in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    TernaryOp (pos, op, e1', e2', e3')
+  | ConvOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, ConvOp (pos, op, e')
+  | CompOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    CompOp (pos, op, e1', e2')
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | RecordExpr (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, RecordExpr (pos, ident, expr_list')
+  | GroupExpr (pos, kind, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, GroupExpr (pos, kind, expr_list')
+  | StructUpdate (pos, e1, idx_list, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    StructUpdate (pos, e1', idx_list, e2')
+  | ArrayConstr (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayConstr (pos, e1', e2')
+  | ArrayIndex (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayIndex (pos, e1', e2')
+  | When (pos, e, c) ->
+    let vars, e' = r map e in
+    vars, When (pos, e', c)
+  | Pre (pos, e) ->
+    let vars, e' = r map e in
+    vars, Pre (pos, e')
+  | Arrow (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    Arrow (pos, e1', e2')
+  | Call(pos, id, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, Call(pos, id, expr_list')
+  | Merge (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, Merge (pos, ident, expr_list')
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list' = desugar_expr_list map expr_list in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    Activate (pos, ident, e1', e2', expr_list')
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list1' = desugar_expr_list map expr_list1 in
+    let vars4, expr_list2' = desugar_expr_list map expr_list2 in
+    StringSet.(vars1 |> union vars2 |> union vars3 |> union vars4),
+    Condact (pos, e1', e2', id, expr_list1', expr_list2')
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let vars1, e' = r map e in
+    let vars2, expr_list' = desugar_expr_list map expr_list in
+    StringSet.union vars1 vars2,
+    RestartEvery (pos, ident, expr_list', e')
+  and desugar_expr_list map expr_list =
+    let vars, expr_list' =
+        expr_list
+        |> List.map (fun e -> r map e)
+        |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    expr_list'
+  and desugar_idx_expr_list map record_list =
+    let vars, idx_exp_list' =
+      record_list
+      |> List.map
+        (fun (i, e) -> let vars, e' = r map e in vars, (i, e'))
+      |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    idx_exp_list'
+  in
+  r StringMap.empty expr
 
 let name_of_prop pos name k =
   match name with 

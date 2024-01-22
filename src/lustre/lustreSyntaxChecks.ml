@@ -49,7 +49,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | ChooseOpInFunction
+  | AnyOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
@@ -99,13 +99,13 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument to the node call '"
     ^ HString.string_of_hstring node ^ "'"
-  | ChooseOpInFunction -> "Illegal choose operator in function"
+  | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
-  | NodeCallInConstant id -> "Illegal node call or choose operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
+  | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or choose operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
@@ -205,7 +205,7 @@ function
 | LA.Pre _ | Arrow _ -> true
 
 | RestartEvery _
-| ChooseOp _ -> true
+| AnyOp _ -> true
 
 | Condact (_, e, r, i, l1, l2) ->
   StringMap.mem i ctx.nodes ||
@@ -572,7 +572,7 @@ let no_calls_to_node ctx = function
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
-  | ChooseOp (pos, _, _, _) -> syntax_error pos ChooseOpInFunction
+  | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
 
 (* Note: this check is simpler if done after the contract imports have all been
@@ -670,8 +670,8 @@ let rec expr_only_supported_in_merge observer expr =
   | ConvOp (_, _, e)
   | Pre (_, e)
   | Quantifier (_, _, _, e) -> r observer e
-  | ChooseOp (_, _, e, None) -> r false e
-  | ChooseOp (_, _, e1, Some e2) -> r false e1 >> r false e2
+  | AnyOp (_, _, e, None) -> r false e
+  | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
@@ -983,10 +983,10 @@ and check_expr ctx f (expr:LustreAst.expr) =
        in
        check_expr_list ctx f l
       )
-    | ChooseOp (_, (_, i, ty), e1, None) -> 
+    | AnyOp (_, (_, i, ty), e1, None) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       (check_expr extn_ctx f e1)
-    | ChooseOp (_, (_, i, ty), e1, Some e2) -> 
+    | AnyOp (_, (_, i, ty), e1, Some e2) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       (check_expr extn_ctx f e1) >> (check_expr extn_ctx f e2)
     | Ident _ | ModeRef _ | Const _ -> Ok ()

@@ -51,9 +51,21 @@ val type_arity : lustre_type -> int * int
 val type_contains_subrange_or_ref_type : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
+val type_contains_enum_or_subrange : lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+
+val type_contains_array : lustre_type -> bool 
+(** Returns true if the lustre type expression contains an array or if it is an array *)
+
 val substitute_naive : HString.t -> expr -> expr -> expr
 (** Substitute second param for first param in third param. 
-    ChooseOp and Quantifier are not supported due to introduction of bound variables. *)
+    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+
+val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
+(** [apply_subst_in_type s t] applies the substitution defined by association list [s]
+    to the expressions of (possibly dependent) type [t]
+    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+    
 
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
@@ -195,3 +207,10 @@ val rename_contract_vars : expr -> expr
 
 val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
 (** Get the name associated with a property *)
+
+val desugar_history : HString.t -> string -> expr -> HString.HStringSet.t * expr
+(** [desugar_history c p e] desugars type constructors of the form history(x) occurring in [e]
+    using [c] for the name of the counter variable and [p] as a prefix for the name of
+    the history variables. It returns the set of variables passed as argument to the
+    type constructors history and an expression that is the result of desusgaring
+    the type constructors ocurring in [e] *)

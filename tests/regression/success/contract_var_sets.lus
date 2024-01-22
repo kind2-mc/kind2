@@ -1,0 +1,13 @@
+
+contract Spec(x: int) returns (y:int);
+let
+  guarantee y>=x;
+tel
+
+node N(x: int) returns (y:int);
+(*@contract
+  import Spec(x -> pre y) returns (y);
+*)
+let
+   y = x -> pre y + 1;
+tel

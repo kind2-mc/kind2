@@ -23,9 +23,9 @@ copyright = '2015-2023, Board of Trustees of the University of Iowa'
 author = 'Kind 2 Team'
 
 # The short X.Y version
-version = 'v2.0'
+version = 'v2.1'
 # The full version, including alpha/beta/rc tags
-release = 'v2.0.0'
+release = 'v2.1.1'
 
 nitpicky = True
 
@@ -82,13 +82,13 @@ pygments_style = 'sphinx'
 # a list of builtin themes.
 #
 html_theme = 'press'
-html_theme_path = ['_themes',]
-html_css_files = ['css/styles.css',]
+#html_theme_path = ['_themes',]
+#html_css_files = ['css/styles.css',]
 
 # Allow us to modify css as we please
 # https://docs.readthedocs.io/en/latest/guides/adding-custom-css.html#overriding-or-replacing-a-theme-s-stylesheet
 #
-html_style = 'css/styles.css'
+#html_style = 'css/styles.css'
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -250,7 +250,7 @@ latex_elements = {
 
             \sffamily\Large \textbf{\Huge {Kind 2 User Documentation}}
 
-            \sffamily\Large \textbf{Version 2.0.0}
+            \sffamily\Large \textbf{Version 2.1.1}
 
             \newdateformat{monthdayyear}{%
                 \monthname[\THEMONTH] \THEDAY, \THEYEAR}

@@ -1,0 +1,12 @@
+
+type T = subrange [0,1] of int;
+
+type E = enum {E1, E2};
+
+node N() returns (ok: bool);
+let
+  check forall (x: T) x<5;
+  check exists (x:T) 0<x;
+  check forall (x: E) x=E1 or x=E2;
+  check exists (x: E) x=E1;
+tel

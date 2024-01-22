@@ -180,6 +180,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  mk_test "test illtyped call" (fun () ->
+    match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
+    | Error (`LustreArrayDependencies (_, Cycle _)) -> true
+    | _ -> false); 
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
@@ -190,7 +194,7 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     | _ -> false);
   mk_test "test invalid inductive array def 3" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array3.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprMissingIndex _)) -> true
+    | Error (`LustreArrayDependencies  (_, ComplicatedExpr _)) -> true
     | _ -> false);
   mk_test "test invalid inductive array def 4" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array4.lus" with
@@ -198,7 +202,7 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     | _ -> false);
   mk_test "test invalid inductive array def 5" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array5.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprMissingIndex _)) -> true
+    | Error (`LustreArrayDependencies  (_, ComplicatedExpr _)) -> true
     | _ -> false);
   mk_test "test invalid inductive array def 6" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array6.lus" with
@@ -435,10 +439,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/enum_02.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
-  mk_test "test import type mismatch" (fun () ->
-    match load_file "./lustreTypeChecker/import_type_mismatch.lus" with
-    | Error (`LustreTypeCheckerError (_, DisallowedSubrangeInContractReturn _)) -> true
-    | _ -> false);
   mk_test "test inlined contract 1" (fun () ->
     match load_file "./lustreTypeChecker/inlined_contract_01.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
@@ -478,10 +478,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test shadowed mode def" (fun () ->
     match load_file "./lustreTypeChecker/mode_reqs_by_idents_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
-    | _ -> false);
-  mk_test "test illtyped call" (fun () ->
-    match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
-    | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
     | _ -> false);
   mk_test "test expected type 1" (fun () ->
     match load_file "./lustreTypeChecker/test_array_group.lus" with
@@ -585,6 +581,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test extensional array equality" (fun () ->
     match load_file "./lustreTypeChecker/extensional_array_equality.lus" with
+    | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
+    | _ -> false);
+  mk_test "test extensional array equality 2" (fun () ->
+    match load_file "./lustreTypeChecker/extensional_array_equality2.lus" with
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
     | _ -> false);
   mk_test "test expected record type" (fun () ->

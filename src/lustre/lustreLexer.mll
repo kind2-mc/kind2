@@ -240,6 +240,7 @@ let keyword_table = mk_hashtbl [
   (* "array", ARRAY) ; *)
   "struct", STRUCT ;
   "enum", ENUM ;
+  "history", HISTORY ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;
@@ -289,8 +290,8 @@ let keyword_table = mk_hashtbl [
   "div", INTDIV ;
   "mod", MOD ;
 
-  (* Choose operator *)
-  "choose", CHOOSE ;
+  (* 'Any' operator *)
+  "any", ANY ;
   "assuming", ASSUMING ;
   
   (* Clock operators *)

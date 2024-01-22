@@ -55,6 +55,7 @@ type t = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
+    * (Lib.position * HString.t) list (* contract scope  *)
     * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
@@ -74,6 +75,7 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
+  history_vars: HString.t StringMap.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml

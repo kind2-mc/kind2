@@ -52,9 +52,9 @@ jobs:
     if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix: # Single configuration
-        ocaml-version: [ 4.14.1 ]
+        ocaml-version: [ 5.1.1 ]
         # Only matrix variables can be used at runs-on
-        os: [ macos-11 ]
+        os: [ macos-12 ]
 
     runs-on: ${{ matrix.os }}
 
@@ -79,7 +79,7 @@ jobs:
     - name: Upload Kind 2 binary
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}
+        name: macos
         path: bin/kind2
 
   get-ready-release:
@@ -115,7 +115,7 @@ jobs:
     needs: [get-ready-release]
     strategy:
       matrix:
-        version: [linux, macos-11]
+        version: [linux, macos]
 
     steps:
     - name: Download binary

@@ -87,6 +87,12 @@ type expr_of_string_sexpr_conv =
     (* String constant for bvextract operator *)
     s_extract : HString.t;
 
+    (* String constant for bitvector sign_extend operator *)
+    s_signext : HString.t;
+
+    (* String constant for bitvector zero_extend operator *)
+    s_zeroext : HString.t;
+
     (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
 
@@ -199,6 +205,8 @@ let gen_expr_of_string_sexpr'
        s_index;
        s_int2bv;
        s_extract;
+       s_signext;
+       s_zeroext;
        prime_symbol;
        const_of_atom; 
        symbol_of_atom;
@@ -429,6 +437,24 @@ let gen_expr_of_string_sexpr'
         | 32 -> Term.mk_app Symbol.s_to_uint32 args
         | 64 -> Term.mk_app Symbol.s_to_uint64 args
         | _ -> failwith "Invalid S-expression")
+
+    (* Parse ((_ sign_extend i) x) or ((_ zero_extend i) x) *)
+    | HStringSExpr.List
+      (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                          HStringSExpr.Atom i;] :: tl)
+      when s1 == s_index && (s2 = s_signext || s2 == s_zeroext) ->
+
+      let i_n = Numeral.of_string (HString.string_of_hstring i) in
+
+      (* parse arguments *)
+      let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+      let symbol =
+        if s2 = s_signext then Symbol.s_signext i_n
+        else (* s2 == s_zeroext *) Symbol.s_zeroext i_n
+      in
+
+      Term.mk_app symbol args
 
     (* Parse ((_ extract i j) x) *)
     | HStringSExpr.List
@@ -777,6 +803,11 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
         ppf
         "(_ sign_extend %a)"
         Numeral.pp_print_numeral i
+  | `BVZEROEXT i ->
+      Format.fprintf
+        ppf
+        "(_ zero_extend %a)"
+        Numeral.pp_print_numeral i
   | `SELECT ty_array ->
 
     if Flags.Arrays.smt () then
@@ -970,6 +1001,8 @@ let smtlib_string_sexpr_conv =
     s_index = HString.mk_hstring "_";
     s_int2bv = HString.mk_hstring "int2bv";
     s_extract = HString.mk_hstring "extract";
+    s_signext = HString.mk_hstring "sign_extend";
+    s_zeroext = HString.mk_hstring "zero_extend";
     s_define_fun = HString.mk_hstring "define-fun";
     s_declare_fun = HString.mk_hstring "declare-fun";
     prime_symbol = None;

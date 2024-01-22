@@ -5,14 +5,14 @@ tel;
 
 node main(x : int; y : int; r : real) returns (z : int);
 var
-  history : bool;
+  hist : bool;
   prop1 : bool;
   prop2 : bool;
 let
   z = integ(x);
 
-  history = x > 0 and (true -> pre history);
-  prop1 = history => z > 0;
+  hist = x > 0 and (true -> pre hist);
+  prop1 = hist => z > 0;
 
   --%PROPERTY prop1;
 

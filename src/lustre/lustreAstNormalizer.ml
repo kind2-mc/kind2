@@ -83,9 +83,12 @@ type error = [
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
+  | UseOfAssertionWarning
 
 let warning_message warning = match warning with
   | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
+  | UseOfAssertionWarning ->
+    "Assertions are not checked; please consider using a contract assumption instead"
 
 type warning = [
   | `LustreAstNormalizerWarning of Lib.position * warning_kind
@@ -258,7 +261,7 @@ let pp_print_generated_identifiers ppf gids =
     | Output -> "output"
     | Ghost -> "ghost")
   in
-  let pp_print_subrange_constraint ppf (source, is_original, pos, id, rexpr) =
+  let pp_print_subrange_constraint ppf (source, _, is_original, pos, id, rexpr) =
     Format.fprintf ppf "(%a, %b, %a, %a, %a)"
       pp_print_source source
       is_original
@@ -402,6 +405,19 @@ let mk_range_expr ctx expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Ctx.expand_nested_type_syn ctx expr_type in
     match expr_type with
+    | A.EnumType (_, _, values) -> (
+      let eqs =
+        List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
+      in
+      match eqs with
+      | [] -> assert false
+      | [e] -> [e, true]
+      | e :: eqs ->
+        let disj =
+          List.fold_left (fun acc e' -> A.BinaryOp(dpos, A.Or, acc, e')) e eqs
+        in
+        [disj, true]
+    )
     | A.IntRange (_, l, u) ->
       let original_ty = Chk.infer_type_expr ctx expr |> unwrap in
       let original_ty = Ctx.expand_nested_type_syn ctx original_ty in
@@ -489,7 +505,7 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
-      subrange_constraints = [(source, is_original, pos, name, output_expr)];
+      subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
     in
     gids)
@@ -617,6 +633,48 @@ let get_type_of_id info node_id id =
 (* If [expr] is already an id then we don't create a fresh local *)
 let should_not_abstract force expr = not force && AH.expr_is_id expr
 
+let add_subrange_constraints info node_id kind vars =
+  vars
+  |> List.filter (fun (_, id) -> 
+    let ty = get_type_of_id info node_id id in
+    AH.type_contains_subrange_or_ref_type ty)
+  |> List.fold_left (fun acc (p, id) ->
+    let ty = get_type_of_id info node_id id in
+    let ty = AIC.inline_constants_of_lustre_type info.context ty in
+    let gids = union acc (mk_fresh_subrange_constraint kind info p id ty) in 
+    union gids (mk_fresh_refinement_type_constraint kind info p (A.Ident (p, id)) ty))
+    (empty ())
+
+let get_history_type ctx id =
+  let base_ty = Ctx.lookup_ty ctx id |> get in
+  let size =
+    let one = A.Const (dpos, A.Num (HString.mk_hstring "1")) in
+      A.BinaryOp (dpos, A.Plus, A.Ident(dpos, ctr_id), one)
+    in
+  A.ArrayType (dpos, (base_ty, size))
+
+let add_history_var_and_equation info id h_id =
+  let ty = get_history_type info.context id in
+  let locals = StringMap.singleton h_id (false, ty) in
+  let equations =
+    let index = HString.mk_hstring "i" in
+    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
+    let eq_rhs =
+      let cond =
+        A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
+      in
+      let prev_hist =
+        A.Arrow (dpos,
+          A.Ident(dpos, id),
+          A.ArrayIndex (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index))
+        )
+      in
+      A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
+    in
+    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs)]
+  in
+  { (empty ()) with locals; equations }
+
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
     let (normal_item, ids, warnings2) = f item in
@@ -703,12 +761,12 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
   let input_interp = List.fold_left (fun acc (i, e) ->
       StringMap.merge union_keys acc (StringMap.singleton i e))
     StringMap.empty
-    (List.combine ivars_names inputs)
+    (List.combine ivars_names (List.map fst inputs))
   in
   let output_interp = List.fold_left (fun acc (i, e) ->
       StringMap.merge union_keys acc (StringMap.singleton i e))
     StringMap.empty
-    (List.combine ovars_names outputs)
+    (List.combine ovars_names (List.map fst outputs))
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
@@ -724,8 +782,34 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
-  let nbody, gids, warnings = normalize_contract info map body in
-  nbody, gids, warnings, StringMap.empty
+  let compute_vars caller callee =
+    List.combine (List.map snd caller) callee
+    |> List.filter_map (fun (ty1, (p,id,ty2)) ->
+      match ty1 with
+      | None -> Some (p,id)
+      | Some ty1 ->
+        match AH.syn_type_equal None ty1 ty2 with
+        | Error () | Ok false -> Some (p,id)
+        | Ok true -> None
+    )
+  in
+  (* As an optimization we omit input and output variables for which
+     we know a stronger constraint is already accounted.
+     Future improvement: filter out variables based on subtyping relation
+     on their types instead of equality.
+  *)
+  let gids1 =
+    let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
+    let vars = compute_vars inputs vars in
+    add_subrange_constraints info id Input vars
+  in
+  let gids2 = 
+    let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
+    let vars = compute_vars outputs vars in
+    add_subrange_constraints info id Output vars
+  in
+  let nbody, gids3, warnings = normalize_contract info map ivars ovars body in
+  nbody, union (union gids1 gids2) gids3, warnings, StringMap.empty
 
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
@@ -739,7 +823,7 @@ and normalize_ghost_declaration info map = function
   | e -> e, empty (), []
 
 and normalize_node info map
-    (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
+    (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -757,41 +841,27 @@ and normalize_node info map
     (Ctx.union constants_ctx info.context)
     (Ctx.union input_ctx output_ctx)
   in
+  let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs *)
-  let gids1 = inputs
-    |> List.filter (fun (_, id, _, _, _) -> 
-      let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange_or_ref_type ty)
-    |> List.fold_left (fun acc (p, id, _, _, _) ->
-      let ty = get_type_of_id info node_id id in
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      let gids = union acc (mk_fresh_subrange_constraint Input info p id ty)
-      in union gids (mk_fresh_refinement_type_constraint Input info p (A.Ident (p, id)) ty))
-      (empty ())
+  let gids1 =
+    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
+    add_subrange_constraints info node_id Input vars
   in
-  let gids2 = outputs
-    |> List.filter (fun (_, id, _, _) -> 
-      let ty = get_type_of_id info node_id id in
-      AH.type_contains_subrange_or_ref_type ty)
-    |> List.fold_left (fun acc (p, id, _, _) ->
-      let ty = get_type_of_id info node_id id in
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      let gids = union acc (mk_fresh_subrange_constraint Output info p id ty)
-      in union gids (mk_fresh_refinement_type_constraint Output info p (A.Ident (p, id)) ty))
-
-      (empty ())
+  let gids2 = 
+    let vars = List.map (fun (p,id,_,_) -> (p,id)) outputs in
+    add_subrange_constraints info node_id Output vars
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids5, warnings1 = match contracts with
-    | Some contracts ->
-      let ctx = Chk.tc_ctx_of_contract info.context node_id contracts |> unwrap |> fst
+  let ncontracts, gids5, warnings1 = match contract with
+    | Some contract ->
+      let ctx = Chk.tc_ctx_of_contract info.context node_id contract |> unwrap |> fst
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids, warnings = normalize_contract info map
-        contracts in
+      let ncontracts, gids, warnings =
+        normalize_contract info map inputs outputs contract in
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
@@ -835,20 +905,50 @@ and normalize_node info map
     in
     Flags.check_reach () && List.exists reachability_prop_with_bounds items
   in
-  let info, gids6 =
-    if exists_reachability_prop_with_bounds then (
-      {info with context = Ctx.add_ty info.context ctr_id (A.Int dpos)},
+  (* Normalize equations and the contract *)
+  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
+  let gids4' = union gids4 gids5 in
+  let gids5' =
+    if exists_reachability_prop_with_bounds ||
+       not (StringMap.is_empty gids4'.history_vars) then (
       add_step_counter info
     )
     else
-      info, empty ()
+      empty ()
   in
-  (* Normalize equations and the contract *)
-  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
-  let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
+  let gids6 =
+    StringMap.fold
+      (fun id h_id acc ->
+        union acc (add_history_var_and_equation info id h_id)
+      )
+      gids4'.history_vars
+      (empty ())
+  in
+  let gids = union_list [gids1; gids2; gids3; gids4'; gids5'; gids6] in
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2
 
+
+and desugar_history info expr =
+  let prefix = "_history" in
+  let history_arg_vars, expr =
+    AH.desugar_history ctr_id prefix expr
+  in
+  let info, h_gids =
+    StringSet.fold
+      (fun id (info, gids) ->
+        let name = HString.mk_hstring
+          (Format.asprintf "%s_%a" prefix HString.pp_print_hstring id)
+        in
+        let ty = get_history_type info.context id in
+        let history_vars = StringMap.singleton id name in
+        {info with context = Ctx.add_ty info.context name ty},
+        union gids { (empty ()) with history_vars }
+      )
+      history_arg_vars
+      (info, empty ())
+  in
+  info, h_gids, expr
 
 and normalize_item info map = function
   | A.Body equation ->
@@ -859,9 +959,11 @@ and normalize_item info map = function
   | FrameBlock _ -> 
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
-  | AnnotProperty (pos, name, expr, k) -> 
+  | AnnotProperty (pos, name, expr, k) ->
+    let info, h_gids, expr = desugar_history info expr in
     let name' = Some (AH.name_of_prop pos name k) in
-    (match k with 
+    let decls, gids, warnings =
+      match k with
       (* expr or counter < b *) 
       | Reachable Some (From b) -> 
         let expr =
@@ -870,7 +972,7 @@ and normalize_item info map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info map false expr in
-        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
+        [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
       | Reachable Some (At b) -> 
@@ -934,10 +1036,11 @@ and normalize_item info map = function
           [inv_prop], gids1, warnings1
         )
 
-      | _ -> 
+      | _ ->
         let nexpr, gids, warnings = abstract_expr false info map false expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
-    ) 
+    in
+    decls, union h_gids gids, warnings
 
 
 
@@ -963,7 +1066,7 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info map items =
+and normalize_contract info map ivars ovars items =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
@@ -979,18 +1082,21 @@ and normalize_contract info map items =
     let item = List.nth items j in
     let nitem, gids', warnings', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
+        let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
-        A.Assume (pos, name, soft, nexpr), gids, warnings, StringMap.empty
+        A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
+        let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
-        Guarantee (pos, name, soft, nexpr), gids, warnings, StringMap.empty
+        Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
         let info = { info with interpretation } in *)
         let over_property info map (pos, name, expr) =
+          let info, h_gids, expr = desugar_history info expr in
           let nexpr, gids, warnings = abstract_expr true info map true expr in
-          (pos, name, nexpr), gids, warnings
+          (pos, name, nexpr), union h_gids gids, warnings
         in
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
@@ -998,14 +1104,28 @@ and normalize_contract info map items =
       | ContractCall (pos, name, inputs, outputs) ->
         let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info map false) inputs in
         let noutputs = List.map
-          (fun id -> match StringMap.find_opt id info.interpretation with
-            | Some new_id -> new_id
-            | None -> id)
+          (fun id ->
+            let ty =
+              (* If output argument is an output of the caller, keep type *)
+              match List.find_opt (fun (_, oid, _, _) -> HString.equal id oid) ovars with
+              | None -> None
+              | Some (_, _, ty, _) -> Some ty
+            in
+            match StringMap.find_opt id info.interpretation with
+            | Some new_id -> (new_id, ty)
+            | None -> (id, ty))
           outputs
         in
-        let ninputs = List.map (fun e -> 
+        let ninputs = List.map (fun e ->
           match e with
-          | A.Ident (_, i) -> i
+          | A.Ident (_, i) ->
+            let ty =
+              (* If input argument is an input of the caller, keep type *)
+              match List.find_opt (fun (_, id, _, _, _) -> HString.equal i id) ivars with
+              | None -> None
+              | Some (_, _, ty, _, _) -> Some ty
+            in
+            (i, ty)
           | _ -> assert false)
           ninputs
         in
@@ -1124,6 +1244,7 @@ and normalize_contract info map items =
 and normalize_equation info map = function
   | Assert (pos, expr) ->
     let nexpr, map, warnings = abstract_expr true info map true expr in
+    let warnings = mk_warning pos UseOfAssertionWarning :: warnings in
     A.Assert (pos, nexpr), map, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
@@ -1286,7 +1407,34 @@ and normalize_expr ?guard info map =
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
-  in function
+  in let mk_enum_subrange_constraints info vars =
+    let enum_subrange_vars =
+      vars |> List.filter (fun (_, _, ty) ->
+        let ty = Ctx.expand_nested_type_syn info.context ty in
+        AH.type_contains_enum_or_subrange ty
+      )
+    in
+    let constraints =
+      List.fold_left
+        (fun acc (_, id, ty) ->
+          let expr = A.Ident(dpos, id) in
+          let range_exprs = mk_range_expr info.context ty expr in
+          range_exprs :: acc
+        )
+        []
+        enum_subrange_vars
+      |> List.flatten |> List.map fst
+    in
+    match constraints with
+    | [] -> None
+    | c :: cs ->
+      let conj =
+        List.fold_left
+          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+      in
+      Some conj
+  in
+  function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
@@ -1464,7 +1612,7 @@ and normalize_expr ?guard info map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
+  | AnyOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
       let nexpr, gids, warnings = normalize_expr ?guard info map expr in
@@ -1496,6 +1644,15 @@ and normalize_expr ?guard info map =
         quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    let nexpr =
+      let constraints =
+        mk_enum_subrange_constraints info vars
+      in
+      match constraints, kind with
+      | None, _ -> nexpr
+      | Some c, A.Exists -> A.BinaryOp (pos, A.And, c, nexpr)
+      | Some c, A.Forall -> A.BinaryOp (pos, A.Impl, c, nexpr)
+    in
     Quantifier (pos, kind, vars, nexpr), gids, warnings
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in

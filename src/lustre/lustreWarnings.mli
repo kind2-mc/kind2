@@ -29,3 +29,5 @@
 val warning_position : [< warning] -> Lib.position
     
 val warning_message : [< warning] -> string
+
+val sort_warnings_by_pos : warning list -> warning list

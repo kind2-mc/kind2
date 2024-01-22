@@ -21,7 +21,6 @@
 
 type error_kind = Unknown of string
   | ComplicatedExpr of LustreAst.expr
-  | ExprMissingIndex of HString.t * LustreAst.expr
   | Cycle of HString.t list
 
 val error_message: error_kind -> string

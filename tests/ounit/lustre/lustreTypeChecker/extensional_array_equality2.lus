@@ -1,0 +1,5 @@
+node N() returns(A: [int^2^3, int]);
+let
+  check (A = pre A);
+  --%MAIN;
+tel

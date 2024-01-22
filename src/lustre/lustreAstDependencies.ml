@@ -298,6 +298,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | GroupType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
+  | History _ -> empty_dependency_analysis_data
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
   | RefinementType (_, _, expr1, Some expr2) -> union_dependency_analysis_data (mk_graph_expr expr1) (mk_graph_expr expr2)
   | RefinementType (_, _, expr1, None) -> mk_graph_expr expr1
@@ -340,7 +341,7 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
-  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
+  | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
@@ -391,7 +392,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
                                        @ (get_node_call_from_expr e3)
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
+  | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   (* Structured expressions *)
   | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
@@ -623,8 +624,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
 
-  (* Choose operator *)
-  | ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
+  (* 'Any' operator *)
+  | AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
 
   (* Clock operators *)
   | When (_, e, _) -> r e
@@ -785,7 +786,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              empty_dependency_analysis_data
              (List.concat gs)]
 
-  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarChooseOps *)
+  | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
      let node_call = LA.Call(pos, n, e1s) in

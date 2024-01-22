@@ -696,7 +696,7 @@ module Make (Graph : GraphSig) : Out = struct
 
 
   (** Invariant generation entry point. *)
-  let main max_depth top_only modular two_state input_sys aparam sys =
+  let main max_depth top_only _modular two_state input_sys aparam sys =
     try (
     
       (* Format.printf "Starting (%b)@.@." two_state ; *)
@@ -722,7 +722,9 @@ module Make (Graph : GraphSig) : Out = struct
       )
       (* If in modular mode, we already ran on the subsystems.
       Might as well start with the current top system since it's new. *)
-      |> ( if modular then identity else List.rev )
+      (* Update: If in monolithic mode, also start with the current top system
+      since it is not clear that starting from the bottom really helps *)
+      (*|> ( if modular then identity else List.rev )*)
       |> function
         | [] ->
           KEvent.log L_info "%s no candidate to run on" (pref_s two_state) ;
@@ -836,8 +838,9 @@ let run_main eq_cond eq_main main two_state in_sys param sys =
     ) (
       Flags.Invgen.top_only ()
     ) (
-      Flags.modular () |> not
-    ) two_state in_sys param sys
+      Flags.modular ()
+    )
+    two_state in_sys param sys
     |> ignore ;
     exit ExitCodes.success
 
