@@ -416,14 +416,19 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
+(* Expand type, taking into account History and Refinement type constructors *)
 let rec expand_type ctx = function
   | LA.History (pos, i) -> (
     match lookup_ty ctx i with
     | None -> type_error pos (UnboundIdentifier i)
-    | Some ty -> expand_type ctx ty
+    | Some ty -> 
+      let ty = expand_nested_type_syn ctx ty in
+      expand_type ctx ty
   )
-  | LA.RefinementType (_, (_, _, ty), _, _) -> expand_type ctx ty
-  | ty -> R.ok (expand_type_syn ctx ty)
+  | LA.RefinementType (_, (_, _, ty), _, _) -> 
+    let ty = expand_nested_type_syn ctx ty in
+    expand_type ctx ty
+  | ty -> R.ok (expand_nested_type_syn ctx ty)
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
@@ -448,7 +453,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
-        | Some ty -> R.ok (expand_type_syn ctx ty)
+        | Some ty -> expand_type ctx ty
         | None -> type_error pos (NotAFieldOfRecord fld))
     | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
 
@@ -459,7 +464,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     | LA.TupleType (pos, tys) as ty ->
         if List.length tys <= i
         then type_error pos (TupleIndexOutOfBounds (i, ty))
-        else R.ok (expand_type_syn ctx (List.nth tys i))
+        else expand_type ctx (List.nth tys i)
     | ty -> type_error pos (IlltypedTupleProjection ty))
 
   (* Values *)

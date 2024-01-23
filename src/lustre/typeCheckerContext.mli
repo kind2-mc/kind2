@@ -87,10 +87,7 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
-
-val expand_type_syn: tc_context -> tc_type -> tc_type
-(** Chases the type to its base form to resolve type synonyms *)
-
+    
 val expand_nested_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 

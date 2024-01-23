@@ -403,7 +403,7 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
 
 let mk_range_expr ctx expr_type expr = 
   let rec mk ctx n expr_type expr = 
-    let expr_type = Ctx.expand_nested_type_syn ctx expr_type in
+    let expr_type = Chk.expand_type ctx expr_type |> unwrap in
     match expr_type with
     | A.EnumType (_, _, values) -> (
       let eqs =
@@ -420,7 +420,7 @@ let mk_range_expr ctx expr_type expr =
     )
     | A.IntRange (_, l, u) ->
       let original_ty = Chk.infer_type_expr ctx expr |> unwrap in
-      let original_ty = Ctx.expand_nested_type_syn ctx original_ty in
+      let original_ty = Chk.expand_type ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
           let eval_int_expr_opt expr = match expr with 
@@ -1051,7 +1051,7 @@ and rename_ghost_variables info contract =
   | (A.GhostConst (UntypedConst (_, id, _))
   | GhostConst (TypedConst (_, id, _, _))) :: t ->
     let ty = Ctx.lookup_ty info.context id |> get in
-    let ty = Ctx.expand_nested_type_syn info.context ty in
+    let ty = Chk.expand_type info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info t in
@@ -1059,7 +1059,7 @@ and rename_ghost_variables info contract =
   (* Recurse through each declaration one at a time *)
   | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
     let ty = Ctx.lookup_ty info.context id |> get in
-    let ty = Ctx.expand_nested_type_syn info.context ty in
+    let ty = Chk.expand_type info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
@@ -1410,7 +1410,7 @@ and normalize_expr ?guard info map =
   in let mk_enum_subrange_constraints info vars =
     let enum_subrange_vars =
       vars |> List.filter (fun (_, _, ty) ->
-        let ty = Ctx.expand_nested_type_syn info.context ty in
+        let ty = Chk.expand_type info.context ty |> unwrap in
         AH.type_contains_enum_or_subrange ty
       )
     in

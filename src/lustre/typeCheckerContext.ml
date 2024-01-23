@@ -163,7 +163,7 @@ let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
 let lookup_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->
   match (IMap.find_opt i (ctx.ty_ctx)) with
-  | Some ty -> Some (expand_type_syn ctx ty) 
+  | Some ty -> Some (expand_nested_type_syn ctx ty) 
   | None -> None
 (** Picks out the type of the identifier to type context map *)
 
