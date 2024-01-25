@@ -909,8 +909,7 @@ and infer_type_binary_op: tc_context -> Lib.position
           (R.ok ty1)
           (type_error pos (UnificationFailed (ty1, ty2))))
       | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
-      | Error id, _ -> (type_error pos (UnboundIdentifier id))
-      | _, Error id -> (type_error pos (UnboundIdentifier id)))
+      | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Plus | LA.Minus | LA.Times | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
@@ -923,8 +922,7 @@ and infer_type_binary_op: tc_context -> Lib.position
           (R.ok ty1)
           (type_error pos (UnificationFailed (ty1, ty2))))
       | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
-      | Error id, _ -> (type_error pos (UnboundIdentifier id))
-      | _, Error id -> (type_error pos (UnboundIdentifier id)))
+      | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.BVAnd | LA.BVOr ->
     (R.ifM (eq_lustre_type ctx ty1 ty2)
       (match is_type_machine_int ctx ty1, is_type_machine_int ctx ty2 with
@@ -941,8 +939,7 @@ and infer_type_binary_op: tc_context -> Lib.position
           | Ok _, Ok _ -> type_error pos (ExpectedBitShiftConstantOfSameWidth ty1)
           | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
       | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
-      | Error id, _ -> (type_error pos (UnboundIdentifier id))
-      | _, Error id -> (type_error pos (UnboundIdentifier id)))
+      | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> Lib.position
@@ -1096,7 +1093,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
       This behavior can be relaxed once the backend supports it.    
     *)
 
-    R.seq_chain (fun _ i ->
+  R.seq_chain (fun _ i ->
       (if (member_ty ctx i) then
           type_error pos (Redeclaration i)
         else R.ok()))

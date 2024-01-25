@@ -514,16 +514,16 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ModeRef (_, _) -> assert false
   | RecordProject (_, e, p) -> 
     let ty = infer e in 
-      let ty = TC.expand_type ty_ctx ty |> unwrap in
-      (match ty with
-        | LA.RecordType (_, _, nested) ->
-          let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
-          extract_bounds_from_type ty
-        
-        | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-        | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
-        | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
+    let ty = TC.expand_type ty_ctx ty |> unwrap in
+    (match ty with
+      | LA.RecordType (_, _, nested) ->
+        let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
+        extract_bounds_from_type ty
+      
+      | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+      | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+      | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
+      | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
