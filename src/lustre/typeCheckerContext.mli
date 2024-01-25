@@ -206,3 +206,31 @@ val arity_of_expr: tc_context -> LA.expr -> int
 
 val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
 (** Traverse a group expr list *)
+
+val is_type_num: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a number type i.e. Int, Real, IntRange, or Machine Integer *)
+
+val is_type_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type, i.e. Int, or IntRange *)
+
+val is_type_real_or_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a real or integer type, i.e, Real, Int, or IntRange *)
+
+val is_type_int_or_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type or machine int, i.e. Int, IntRange, or Machine Integer *)
+
+val is_type_unsigned_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an unsigned machine int. i.e. UInt, UInt32 etc.  *)
+
+val is_type_signed_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an signed machine int. i.e. Int, Int32 etc.  *)
+
+val is_type_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a signed or unsiged machine integer.  *)
+
+val is_type_array: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an array type *)
+
+val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lustre_type) -> (bool, HString.t) result
+(** returns [true] if the first component of the type is of the same width 
+  as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)

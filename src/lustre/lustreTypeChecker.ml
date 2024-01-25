@@ -858,13 +858,13 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
       (R.ok (LA.Bool pos))
       (type_error pos (ExpectedType (LA.Bool pos, ty)))
   | LA.BVNot ->
-    if LH.is_type_machine_int ty
-    then R.ok ty
-    else type_error pos (IlltypedBitNot ty)
+    (match (is_type_machine_int ctx ty) with
+      | Ok(b) -> if b then R.ok(ty) else (type_error pos (IlltypedBitNot ty))
+      | Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Uminus ->
-    if (LH.is_type_num ty)
-    then R.ok ty
-    else type_error pos (IlltypedUnaryMinus ty)
+    (match (is_type_num ctx ty) with
+      | Ok(b) -> if b then R.ok(ty) else (type_error pos (IlltypedUnaryMinus ty))
+      | Error id -> (type_error pos (UnboundIdentifier id)))
 (** Infers type of unary operator application *)
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
@@ -903,35 +903,46 @@ and infer_type_binary_op: tc_context -> Lib.position
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
   | LA.Mod ->
-    if LH.is_type_int_or_machine_int ty1 && LH.is_type_int_or_machine_int ty2
-    then (R.ifM (eq_lustre_type ctx ty1 ty2)
-            (R.ok ty1)
-            (type_error pos (UnificationFailed (ty1, ty2))))
-    else (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
+    (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
+      | Ok(true), Ok(true) -> 
+        (R.ifM (eq_lustre_type ctx ty1 ty2)
+          (R.ok ty1)
+          (type_error pos (UnificationFailed (ty1, ty2))))
+      | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
+      | Error id, _ -> (type_error pos (UnboundIdentifier id))
+      | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Plus | LA.Minus | LA.Times | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
     else type_error pos (ExpectedNumberTypes (ty1, ty2))
   | LA.IntDiv ->
-    if LH.is_type_int_or_machine_int ty1 && LH.is_type_int_or_machine_int ty2
-    then (R.ifM (eq_lustre_type ctx ty1 ty2)
-            (R.ok ty1)
-            (type_error pos (UnificationFailed (ty1, ty2))))
-    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
+    (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
+      | Ok(true), Ok(true) -> 
+        (R.ifM (eq_lustre_type ctx ty1 ty2)
+          (R.ok ty1)
+          (type_error pos (UnificationFailed (ty1, ty2))))
+      | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
+      | Error id, _ -> (type_error pos (UnboundIdentifier id))
+      | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.BVAnd | LA.BVOr ->
-    R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if LH.is_type_machine_int ty1 && LH.is_type_machine_int ty2
-      then R.ok ty2
-      else type_error pos (ExpectedMachineIntegerTypes (ty1, ty2)))
-      (type_error pos (UnificationFailed (ty1, ty2)))
+    (R.ifM (eq_lustre_type ctx ty1 ty2)
+      (match is_type_machine_int ctx ty1, is_type_machine_int ctx ty2 with
+        | Ok(true), Ok(true) -> R.ok ty2
+        | Ok _, Ok _ -> (type_error pos (ExpectedMachineIntegerTypes (ty1, ty2)))
+        | Error id, _ -> (type_error pos (UnboundIdentifier id))
+        | _, Error id -> (type_error pos (UnboundIdentifier id)))
+      (type_error pos (UnificationFailed (ty1, ty2))))
   | LA.BVShiftL | LA.BVShiftR ->
-    if (LH.is_type_signed_machine_int ty1 || LH.is_type_unsigned_machine_int ty1)
-    then (if (LH.is_type_unsigned_machine_int ty2
-              && LH.is_machine_type_of_associated_width (ty1, ty2))
-          then R.ok ty1
-          else type_error pos (ExpectedBitShiftConstantOfSameWidth ty1))
-    else type_error pos (ExpectedBitShiftMachineIntegerType ty1)
+    (match is_type_signed_machine_int ctx ty1, is_type_unsigned_machine_int ctx ty1 with
+      | Ok(b1), Ok(b2) when b1 || b2 -> 
+        (match is_type_unsigned_machine_int ctx ty2, is_machine_type_of_associated_width ctx (ty1, ty2) with
+          | Ok (true), Ok (true) -> (R.ok ty1)
+          | Ok _, Ok _ -> type_error pos (ExpectedBitShiftConstantOfSameWidth ty1)
+          | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
+      | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
+      | Error id, _ -> (type_error pos (UnboundIdentifier id))
+      | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> Lib.position
@@ -941,45 +952,53 @@ and infer_type_conv_op: tc_context -> Lib.position
   infer_type_expr ctx e >>= fun ty ->
   match op with
   | ToInt ->
-    if LH.is_type_num ty
-    then R.ok (LA.Int pos)
-    else type_error pos (InvalidConversion (ty, (Int pos)))
+    (match (is_type_num ctx ty) with
+      | Ok(b) -> if b then R.ok(LA.Int pos) else (type_error pos (InvalidConversion (ty, Int pos)))
+      | Error id -> (type_error pos (UnboundIdentifier id)))
   | ToReal ->
-    if LH.is_type_real_or_int ty
-    then R.ok (LA.Real pos)
-    else type_error pos (InvalidConversion (ty, (Real pos)))
+    (match (is_type_real_or_int ctx ty) with
+      | Ok(b) -> if b then R.ok(LA.Real pos) else (type_error pos (InvalidConversion (ty, Real pos)))
+      | Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt8 ->
-    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.Int8 pos)
-    else type_error pos (InvalidConversion (ty, (Int8 pos)))
+    (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
+      | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int8 pos)  
+      | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int8 pos)))
+      | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt16 ->
-    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.Int16 pos)
-    else type_error pos (InvalidConversion (ty, (Int16 pos)))
+    (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int16 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int16 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt32 ->
-    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.Int32 pos)
-    else type_error pos (InvalidConversion (ty, (Int32 pos)))
+    (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int32 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int32 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt64 ->
-    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.Int64 pos)
-    else type_error pos (InvalidConversion (ty, (Int64 pos)))
+    (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int64 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int64 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt8 ->
-    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.UInt8 pos)
-    else type_error pos (InvalidConversion (ty, (UInt8 pos)))
+    (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt8 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt8 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt16 ->
-    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.UInt16 pos)
-    else type_error pos (InvalidConversion (ty, (UInt16 pos)))
+    (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt16 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt16 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt32 ->
-    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.UInt32 pos)
-    else type_error pos (InvalidConversion (ty, (UInt32 pos)))
+    (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt32 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt32 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt64 ->
-    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
-    then R.ok (LA.UInt64 pos)
-    else type_error pos (InvalidConversion (ty, (UInt64 pos)))
+    (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt64 pos)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt64 pos)))
+    | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** Converts from given type to the intended type aka casting *)
     
 and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
@@ -1644,7 +1663,9 @@ and check_type_well_formed: tc_context -> HString.t option -> tc_type -> ([> `Lu
       let* v2 = IC.eval_int_expr ctx e2 in
       if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok ([])
     )
-  | _ -> R.ok ([])
+  | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+  | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
+  | AbstractType _ | EnumType _ | History _ -> R.ok ([])
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        

@@ -840,96 +840,9 @@ let extract_op_ty: clocked_typed_decl -> ident * lustre_type
 
 let is_const_arg: const_clocked_typed_decl -> bool
   = fun (_, _, _, _, is_const) -> is_const
-          
-let rec is_type_num: lustre_type -> bool
-  = function
-  | Int _
-    | UInt8 _       
-    | UInt16 _   
-    | UInt32 _   
-    | UInt64 _  
-    | Int8 _   
-    | Int16 _    
-    | Int32 _    
-    | Int64 _    
-    | IntRange _
-    | Real _ -> true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_num ty
-  | _ -> false
 
-let rec is_type_int: lustre_type -> bool
-  = function
-  | Int _
-  | IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_int ty
-  | _ -> false
-
-let rec is_type_real_or_int: lustre_type -> bool
-  = function
-  | Real _
-  | Int _
-  | IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_real_or_int ty
-  | _ -> false
-
-let rec is_type_int_or_machine_int: lustre_type -> bool
-  = function
-  |  Int _
-     | UInt8 _       
-     | UInt16 _   
-     | UInt32 _   
-     | UInt64 _  
-     | Int8 _   
-     | Int16 _    
-     | Int32 _    
-     | Int64 _    
-     | IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_int_or_machine_int ty
-  | _ -> false
-
-let rec is_type_unsigned_machine_int: lustre_type -> bool
-  = function
-  | UInt8 _       
-    | UInt16 _   
-    | UInt32 _   
-    | UInt64 _ -> true    
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_unsigned_machine_int ty
-  | _ -> false  
-
-let rec is_type_signed_machine_int: lustre_type -> bool
-  = function
-  | Int8 _       
-    | Int16 _   
-    | Int32 _   
-    | Int64 _ -> true 
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_signed_machine_int ty  
-  | _ -> false  
-       
-let is_type_machine_int: lustre_type -> bool = fun ty ->
-  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
-
-let rec is_type_array : lustre_type -> bool =
-  function
-  | ArrayType _ -> true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_array ty
-  | _ -> false
-
-let rec is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
-  = function
-  | Int8 _, UInt8 _       
-    | Int16 _,UInt16 _   
-    | Int32 _, UInt32 _   
-    | Int64 _, UInt64 _
-    | UInt8 _, UInt8 _       
-    | UInt16 _,UInt16 _   
-    | UInt32 _, UInt32 _   
-    | UInt64 _, UInt64 _ -> true
-  | RefinementType (_, (_, _, ty1), _, _), ty2 -> is_machine_type_of_associated_width (ty1, ty2)
-  | ty1, RefinementType (_, (_, _, ty2), _, _) -> is_machine_type_of_associated_width (ty1, ty2)
-  | _ -> false
-
-let is_type_or_const_decl: declaration -> bool = 
-  function
+let is_type_or_const_decl: declaration -> bool 
+ = fun ty -> match ty with
   | TypeDecl _
     | ConstDecl _ -> true
   | _ -> false
