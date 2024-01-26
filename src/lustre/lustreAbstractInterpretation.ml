@@ -83,7 +83,7 @@ let extract_bounds_from_type ty =
     None, Some r
   | LA.IntRange (_, Some Const (_, Num l), None) ->
     let l = Numeral.of_string (HString.string_of_hstring l) in
-    None, Some l
+    Some l, None
   (* If the int range is not constant, we treat it as an int for now *)
   | IntRange _ -> None, None
   | _ -> None, None)
