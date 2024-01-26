@@ -181,7 +181,6 @@ let rec restrict_type_by ty restrict = match ty, restrict with
       | None, (Some _ as u) -> u, true
       | _ -> None, false  
     in
-    (*IntRange (dpos, lower, upper)*)
     let is_restricted = is_restricted1 || is_restricted2 in
     if (lower = None && upper = None) 
     then Int dpos, is_restricted
