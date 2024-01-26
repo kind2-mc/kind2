@@ -83,7 +83,7 @@ let extract_bounds_from_type ty =
     None, Some r
   | LA.IntRange (_, Some Const (_, Num l), None) ->
     let l = Numeral.of_string (HString.string_of_hstring l) in
-    None, Some l
+    Some l, None
   (* If the int range is not constant, we treat it as an int for now *)
   | IntRange _ -> None, None
   | _ -> None, None)
@@ -181,7 +181,6 @@ let rec restrict_type_by ty restrict = match ty, restrict with
       | None, (Some _ as u) -> u, true
       | _ -> None, false  
     in
-    (*IntRange (dpos, lower, upper)*)
     let is_restricted = is_restricted1 || is_restricted2 in
     if (lower = None && upper = None) 
     then Int dpos, is_restricted
