@@ -18,34 +18,62 @@
 
 module A = LustreAst
 module AH = LustreAstHelpers
+module AN = LustreAstNormalizer
 
-let rec flatten_ref_type ctx = function
-  | A.UserType (_, str) as ty -> 
-    let ty2 = TypeCheckerContext.lookup_ty_syn ctx str in 
-    (match ty2 with 
-    | Some ty2 -> flatten_ref_type ctx ty2
-    | None -> ty)
-  | RefinementType (pos, (pos2, id, ty2), expr, None) as ty -> 
-    let ty2 = flatten_ref_type ctx ty2 in
-    (match ty2 with 
-      | A.RefinementType (_, (_, id2, ty3), expr2, None) -> 
-        let expr2 = AH.substitute_naive id2 (Ident(pos, id)) expr2 in
-        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr2), None) 
-      | A.RefinementType (_, (_, id2, ty3), expr2, Some expr3) -> 
-        let expr2 = AH.substitute_naive id2 (Ident(pos, id)) expr2 in
-        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr2), Some expr3) 
-      | _ -> ty)
-  | RefinementType (pos, (pos2, id, ty2), expr, Some expr2) as ty -> 
-    let ty2 = flatten_ref_type ctx ty2 in
-    (match ty2 with 
-      | A.RefinementType (_, (_, id2, ty3), expr3, None) -> 
-        let expr3 = AH.substitute_naive id2 (Ident(pos, id)) expr3 in
-        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr3), Some expr2) 
-      | A.RefinementType (_, (_, id2, ty3), expr3, Some expr4) -> 
-        let expr3 = AH.substitute_naive id2 (Ident(pos, id)) expr3 in
-        RefinementType (pos, (pos2, id, ty3), BinaryOp(pos, And, expr, expr3), Some (A.BinaryOp(pos, And, expr3, expr4))) 
-      | _ -> ty)
-  | ty -> ty
+let rec flatten_ref_type ctx ty = match ty with
+  | A.UserType (pos, str) -> 
+    let ty = TypeCheckerContext.lookup_ty_syn ctx str in 
+    (match ty with 
+    | Some ty -> flatten_ref_type ctx ty
+    | None -> A.UserType (pos, str))
+  | RecordType (pos, id, tis) -> 
+    let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
+    RecordType (pos, id, tis)
+  | TupleType (pos, tys) | GroupType (pos, tys) -> 
+    let tys = List.map (flatten_ref_type ctx) tys in 
+    TupleType (pos, tys)
+  | ArrayType (pos, (ty, expr)) -> 
+    let ty = flatten_ref_type ctx ty in 
+    ArrayType (pos, (ty, expr))
+  | RefinementType (pos, (pos2, id, ty), expr, None) -> 
+    let ty = flatten_ref_type ctx ty in
+    let rec chase_refinements ty = match ty with 
+      | A.RefinementType (_, (_, id2, ty2), expr2, None) -> 
+        let cons = chase_refinements ty2 in
+        (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
+      | RecordType (_, _, tis) ->
+        List.map (fun (_, id2, ty) -> 
+          let exprs = chase_refinements ty in 
+          List.map (AH.substitute_naive id (A.RecordProject(pos, Ident(pos, id), id2))) exprs
+        ) tis |> List.flatten
+      | TupleType (pos, tys) | GroupType (pos, tys) -> 
+        List.mapi (fun i ty ->
+          let exprs = chase_refinements ty in
+          List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
+        ) tys |> List.flatten
+      | ArrayType (pos, (ty, len)) -> 
+        let dummy_index = AN.mk_fresh_dummy_index () in
+        let exprs = chase_refinements ty in
+        List.map (fun expr -> 
+          let expr = AH.substitute_naive id (A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index))) expr in
+          let bound1 = 
+            A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
+          in 
+          let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
+          let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
+          A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
+        ) exprs
+      | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
+      | Bool _ | RefinementType _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+      | History _ | TArr _ | UserType _  ->[]
+    in
+    let constraints = chase_refinements ty in 
+    let expr = List.fold_left (fun acc expr ->
+      A.BinaryOp(pos, And, acc, expr)
+    ) expr constraints in
+    RefinementType (pos, (pos2, id, ty), expr, None)
+  | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
+  | RefinementType _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->

@@ -80,6 +80,8 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val mk_fresh_dummy_index : 'a -> HString.t
+
 val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
   LustreAst.t ->

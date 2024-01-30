@@ -170,7 +170,9 @@ let rec substitute_naive (var:HString.t) t = function
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
   | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
+  (*!! Dirty *)
+  | Quantifier (pos, q, tis, e) -> 
+    Quantifier (pos, q, tis, substitute_naive var t e) (* Not supported due to introduction of bound variables *)
   | RecordExpr (pos, ident, expr_list) ->
     RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
