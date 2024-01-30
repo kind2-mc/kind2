@@ -149,7 +149,7 @@ and lustre_type =
   | EnumType of position * ident * ident list
   | History of position * ident
   | TArr of position * lustre_type * lustre_type 
-  | RefinementType of position * typed_ident * expr * expr option 
+  | RefinementType of position * typed_ident * expr
 
 
 (* A declaration of an unclocked type *)
@@ -644,13 +644,7 @@ and pp_print_lustre_type ppf = function
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
        pp_print_lustre_type ret_ty 
-  | RefinementType (_, (_, id, ty), expr1, Some expr2) ->
-    Format.fprintf ppf "subtype { %a: %a | %a assuming %a }"
-      pp_print_ident id 
-      pp_print_lustre_type ty 
-      pp_print_expr expr1 
-      pp_print_expr expr2  
-  | RefinementType (_, (_, id, ty), expr1, None) ->
+  | RefinementType (_, (_, id, ty), expr1) ->
     Format.fprintf ppf "subtype { %a: %a | %a }"
       pp_print_ident id 
       pp_print_lustre_type ty 

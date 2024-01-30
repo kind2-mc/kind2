@@ -700,16 +700,10 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_ty_node_calls i ty = 
   match ty with 
-    | LA.RefinementType (_, _, e, None) ->
+    | LA.RefinementType (_, _, e) ->
       if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
-    | LA.RefinementType (_, _, e1, Some e2) ->
-      if LAH.expr_contains_call e1 
-        then syntax_error (LAH.pos_of_expr e1) (NodeCallInGlobalTypeDecl i)
-        else if LAH.expr_contains_call e2 
-          then syntax_error (LAH.pos_of_expr e2) (NodeCallInGlobalTypeDecl i)
-          else Ok ()
     | TupleType (_, tys) 
     | GroupType (_, tys) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | RecordType (_, _, tis) -> Res.seq_ (List.map (fun (_, _, ty) -> check_ty_node_calls i ty) tis)

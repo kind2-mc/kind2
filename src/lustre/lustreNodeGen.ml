@@ -684,7 +684,7 @@ and compile_ast_type
       X.fold over_element_type element_type X.empty
   | A.History _
   | A.TArr _ -> assert false
-  | A.RefinementType (_, (_, _, ty), _, _) -> compile_ast_type cstate ctx map ty
+  | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
 and vars_of_quant cstate ctx map avars =

@@ -387,9 +387,9 @@ let rec inline_constants_of_lustre_type ctx ty = match ty with
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in
     TArr (pos, ty1', ty2')
-  | RefinementType (pos, (pos2, id, ty), expr, expr_opt) ->
+  | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    RefinementType (pos, (pos2, id, ty'), expr, expr_opt)
+    RefinementType (pos, (pos2, id, ty'), expr)
     
   | History _ | Int _ | TVar _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _

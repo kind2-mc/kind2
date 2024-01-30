@@ -416,9 +416,7 @@ array_type:
 (* Refinement type *)
 refinement_type:
   | SUBTYPE; LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
-    { A.RefinementType (mk_pos $startpos, id, e, None) } 
-  | SUBTYPE; LCURLYBRACKET; id = typed_ident; BAR; e1 = expr; ASSUMING; e2 = expr; RCURLYBRACKET
-    { A.RefinementType (mk_pos $startpos, id, e1, Some e2) } 
+    { A.RefinementType (mk_pos $startpos, id, e) } 
 
 (*
   (* Alternate syntax: array [size] of type *)
@@ -961,8 +959,8 @@ pexpr(Q):
   | ANY; ty = lustre_type;
     { 
       match ty with 
-        | RefinementType (_, id, e1, e2) -> 
-          A.AnyOp(mk_pos $startpos, id, e1, e2)
+        | RefinementType (_, id, e) -> 
+          A.AnyOp(mk_pos $startpos, id, e, None)
         | _ ->
           A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), 
                       Const(mk_pos $startpos, True), None)
@@ -1226,18 +1224,11 @@ typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
-  | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr;
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr;
     (* Pair each identifier with the type *)
     { 
       match l with 
-        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), e1, None))]
-        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
-    }
-  | l = ident_list_pos; COLON; t = lustre_type; BAR; e1 = expr; ASSUMING; e2 = expr;
-    (* Pair each identifier with the type *)
-    {
-      match l with 
-        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), e1, Some e2))]
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
         | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
     }
     

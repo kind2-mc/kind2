@@ -35,10 +35,10 @@ let rec flatten_ref_type ctx ty = match ty with
   | ArrayType (pos, (ty, expr)) -> 
     let ty = flatten_ref_type ctx ty in 
     ArrayType (pos, (ty, expr))
-  | RefinementType (pos, (pos2, id, ty), expr, None) -> 
+  | RefinementType (pos, (pos2, id, ty), expr) -> 
     let ty = flatten_ref_type ctx ty in
     let rec chase_refinements ty = match ty with 
-      | A.RefinementType (_, (_, id2, ty2), expr2, None) -> 
+      | A.RefinementType (_, (_, id2, ty2), expr2) -> 
         let cons = chase_refinements ty2 in
         (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
       | RecordType (_, _, tis) ->
@@ -64,16 +64,16 @@ let rec flatten_ref_type ctx ty = match ty with
           A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
         ) exprs
       | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
-      | Bool _ | RefinementType _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+      | Bool _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
       | History _ | TArr _ | UserType _  ->[]
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
-    RefinementType (pos, (pos2, id, ty), expr, None)
+    RefinementType (pos, (pos2, id, ty), expr)
   | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
-  | RefinementType _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
+  | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->

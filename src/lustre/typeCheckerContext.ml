@@ -418,7 +418,7 @@ let rec traverse_group_expr_list f ctx proj es =
     | Int64 _    
     | IntRange _
     | Real _ -> Ok true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_num ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_num ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -430,7 +430,7 @@ let rec is_type_int: tc_context -> tc_type -> (bool, HString.t) result
   = fun ctx ty -> match ty with
   | Int _
   | IntRange _ -> Ok true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_int ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -443,7 +443,7 @@ let rec is_type_real_or_int: tc_context -> tc_type -> (bool, HString.t) result
   | Real _
   | Int _
   | IntRange _ -> Ok true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_real_or_int ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_real_or_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -463,7 +463,7 @@ let rec is_type_int_or_machine_int: tc_context -> tc_type -> (bool, HString.t) r
      | Int32 _    
      | Int64 _    
      | IntRange _ -> Ok true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_int_or_machine_int ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_int_or_machine_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -477,7 +477,7 @@ let rec is_type_unsigned_machine_int: tc_context -> tc_type -> (bool, HString.t)
     | UInt16 _   
     | UInt32 _   
     | UInt64 _ -> Ok true    
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_unsigned_machine_int ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_unsigned_machine_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -491,7 +491,7 @@ let rec is_type_signed_machine_int: tc_context -> tc_type -> (bool, HString.t) r
     | Int16 _   
     | Int32 _   
     | Int64 _ -> Ok true 
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_signed_machine_int ctx ty 
+  | RefinementType (_, (_, _, ty), _) -> is_type_signed_machine_int ctx ty 
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -507,7 +507,7 @@ let is_type_machine_int: tc_context -> tc_type -> (bool, HString.t) result = fun
 let rec is_type_array : tc_context -> tc_type -> (bool, HString.t) result 
   = fun ctx ty -> match ty with
   | ArrayType _ -> Ok true
-  | RefinementType (_, (_, _, ty), _, _) -> is_type_array ctx ty
+  | RefinementType (_, (_, _, ty), _) -> is_type_array ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 
@@ -525,8 +525,8 @@ let rec is_machine_type_of_associated_width: tc_context -> (tc_type * tc_type) -
     | UInt16 _,UInt16 _   
     | UInt32 _, UInt32 _   
     | UInt64 _, UInt64 _ -> Ok true
-  | RefinementType (_, (_, _, ty1), _, _), ty2 -> is_machine_type_of_associated_width ctx (ty1, ty2)
-  | ty1, RefinementType (_, (_, _, ty2), _, _) -> is_machine_type_of_associated_width ctx (ty1, ty2)
+  | RefinementType (_, (_, _, ty1), _), ty2 -> is_machine_type_of_associated_width ctx (ty1, ty2)
+  | ty1, RefinementType (_, (_, _, ty2), _) -> is_machine_type_of_associated_width ctx (ty1, ty2)
   | ty1, History (_, id) -> 
     let ty = lookup_ty ctx id in 
     (match ty with 

@@ -425,7 +425,7 @@ let rec expand_type ctx = function
       let ty = expand_nested_type_syn ctx ty in
       expand_type ctx ty
   )
-  | LA.RefinementType (_, (_, _, ty), _, _) -> 
+  | LA.RefinementType (_, (_, _, ty), _) -> 
     let ty = expand_nested_type_syn ctx ty in
     expand_type ctx ty
   | ty -> R.ok (expand_nested_type_syn ctx ty)
@@ -1584,7 +1584,7 @@ and check_array_size_expr ctx e =
 and check_range_bound ctx e =
   check_const_integer_expr ctx "subrange bound" e
 
-(* Disallow assumptions on current values of output variables.
+(*!! Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
    context of a node (e.g., a global type declaration). *)
 and check_ref_type_assuming_expr ctx nname e =
@@ -1618,19 +1618,7 @@ and check_type_well_formed: tc_context -> HString.t option -> tc_type -> ([> `Lu
     check_array_size_expr ctx s
     >> check_type_well_formed ctx nname b_ty
   )
-  | LA.RefinementType (pos, (_, i, ty), e1, Some e2) -> 
-    let ctx = add_ty ctx i ty in
-    check_ref_type_assuming_expr ctx nname e2  
-    >> check_type_expr ctx e1 (Bool pos) 
-    >> check_type_expr ctx e2 (Bool pos) >> 
-    let warnings1 = 
-      if not (LH.expr_contains_id i e1 || LH.expr_contains_id i e2) 
-      then [mk_warning pos (UnusedBoundVariableWarning i)] 
-      else []
-    in
-    let* warnings2 = check_type_well_formed ctx nname ty in 
-    R.ok (warnings1 @ warnings2)
-  | LA.RefinementType (pos, (_, i, ty), e, None) ->
+  | LA.RefinementType (pos, (_, i, ty), e) ->
     let ctx = add_ty ctx i ty in
     check_type_expr ctx e (Bool pos) >>
     let warnings1 = 
@@ -1731,8 +1719,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     )
     else R.ok false
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
-  | RefinementType (_, (_, _, ty1), _, _), ty2 -> eq_lustre_type ctx ty1 ty2 
-  | ty1, RefinementType (_, (_, _, ty2), _, _) -> eq_lustre_type ctx ty1 ty2
+  | RefinementType (_, (_, _, ty1), _), ty2 -> eq_lustre_type ctx ty1 ty2 
+  | ty1, RefinementType (_, (_, _, ty2), _) -> eq_lustre_type ctx ty1 ty2
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
     if List.length is1 = List.length is2
     then

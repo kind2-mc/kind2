@@ -515,18 +515,7 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
 
 let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr) list
  = fun id source ty -> match ty with 
-  | A.RefinementType (_, (_, id2, _), expr1, Some expr2) ->
-    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
-       in terms of x instead of y *)
-    let source1, source2 = match source with 
-       | Local -> Output, Input
-       | Input -> Input, Output
-       | Output -> Output, Input
-       | Ghost -> assert false in
-    let expr1 = AH.substitute_naive id2 id expr1 in
-    let expr2 = AH.substitute_naive id2 id expr2 in
-    [(source1, expr1); (source2, expr2)]
-  | A.RefinementType (_, (_, id2, _), expr, None) -> 
+  | A.RefinementType (_, (_, id2, _), expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
     let expr = AH.substitute_naive id2 id expr in
