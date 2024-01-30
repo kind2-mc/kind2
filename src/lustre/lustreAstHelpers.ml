@@ -132,15 +132,25 @@ let rec expr_contains_id id = function
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
     
 
-let rec type_contains_subrange_or_ref_type = function
+let rec type_contains_subrange = function
   | IntRange _ -> true
+  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_subrange ty
+  | _ -> false
+
+let rec type_contains_ref = function
   | RefinementType _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_subrange_or_ref_type ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_ref ty) false tys
   | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange_or_ref_type ty)
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ty)
       false tys
-  | ArrayType (_, (ty, _)) -> type_contains_subrange_or_ref_type ty
+  | ArrayType (_, (ty, _)) -> type_contains_ref ty
   | _ -> false
 
 let rec type_contains_enum_or_subrange = function

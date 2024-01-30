@@ -476,12 +476,12 @@ let mk_range_expr ctx expr_type expr =
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> AH.type_contains_subrange_or_ref_type ty) tys in
+      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange_or_ref_type ty) tys in
+      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | _ -> []
@@ -613,9 +613,11 @@ let add_step_counter info =
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info node_id id =
-  let ty = (match AI.get_type info.abstract_interp_context node_id id with
-  | Some ty -> ty
-  | None -> let ty = Ctx.lookup_ty info.context id |> get in ty)
+  let ty = (match AI.get_type info.abstract_interp_context node_id id, 
+                  Ctx.lookup_ty info.context id |> get with
+  | _, (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
+  | Some ty, _ -> ty
+  | None, ty -> ty)
   in
   Ctx.expand_nested_type_syn info.context ty
 
@@ -626,12 +628,22 @@ let add_subrange_constraints info node_id kind vars =
   vars
   |> List.filter (fun (_, id) -> 
     let ty = get_type_of_id info node_id id in
-    AH.type_contains_subrange_or_ref_type ty)
+    AH.type_contains_subrange ty)
   |> List.fold_left (fun acc (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
-    let gids = union acc (mk_fresh_subrange_constraint kind info p id ty) in 
-    union gids (mk_fresh_refinement_type_constraint kind info p (A.Ident (p, id)) ty))
+    union acc (mk_fresh_subrange_constraint kind info p id ty))
+    (empty ())
+
+let add_ref_type_constraints info node_id kind vars =
+  vars
+  |> List.filter (fun (_, id) -> 
+    let ty = get_type_of_id info node_id id in
+    AH.type_contains_ref ty)
+  |> List.fold_left (fun acc (p, id) ->
+    let ty = get_type_of_id info node_id id in
+    let ty = AIC.inline_constants_of_lustre_type info.context ty in
+    union acc (mk_fresh_refinement_type_constraint kind info p (A.Ident (p, id)) ty))
     (empty ())
 
 let get_history_type ctx id =
@@ -797,8 +809,17 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     let vars = compute_vars outputs vars in
     add_subrange_constraints info id Output vars
   in
-  let nbody, gids3, warnings = normalize_contract info map ivars ovars body in
-  nbody, union (union gids1 gids2) gids3, warnings, StringMap.empty
+  let gids3 =
+    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) ivars in
+    add_ref_type_constraints info id Input vars
+  in
+  let gids4 = 
+    let vars = List.map (fun (p,id,_,_) -> (p,id)) ovars in
+    add_ref_type_constraints info id Output vars
+  in
+  let nbody, gids5, warnings = normalize_contract info map ivars ovars body in
+  let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4; gids5] in
+  nbody, gids, warnings, StringMap.empty
 
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
@@ -835,11 +856,13 @@ and normalize_node info map
   (* Record subrange constraints on inputs, outputs *)
   let gids1 =
     let vars = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
-    add_subrange_constraints info node_id Input vars
+    union (add_subrange_constraints info node_id Input vars) 
+          (add_ref_type_constraints info node_id Input vars) 
   in
   let gids2 = 
     let vars = List.map (fun (p,id,_,_) -> (p,id)) outputs in
-    add_subrange_constraints info node_id Output vars
+    union (add_subrange_constraints info node_id Output vars) 
+          (add_ref_type_constraints info node_id Output vars)
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
@@ -866,7 +889,7 @@ and normalize_node info map
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
-        AH.type_contains_subrange_or_ref_type ty
+        AH.type_contains_subrange ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
@@ -1204,7 +1227,7 @@ and normalize_contract info map ivars ovars items =
             List.map (
               fun (_, i, ty) -> 
               let new_id = StringMap.find i info.interpretation in
-              if AH.type_contains_subrange_or_ref_type ty then
+              if AH.type_contains_subrange ty then
                 union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
                       (mk_fresh_refinement_type_constraint Ghost info pos (A.Ident (pos, new_id)) ty)
               else empty ()
