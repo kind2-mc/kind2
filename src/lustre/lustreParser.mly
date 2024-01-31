@@ -203,7 +203,7 @@ let mk_span start_pos end_pos =
     
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT ASSUMING BAR
+%nonassoc WHEN CURRENT BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists

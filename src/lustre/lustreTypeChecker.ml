@@ -1587,7 +1587,7 @@ and check_range_bound ctx e =
 (*!! Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
    context of a node (e.g., a global type declaration). *)
-and check_ref_type_assuming_expr ctx nname e =
+(* and check_ref_type_assuming_expr ctx nname e =
   let vars = LH.vars_without_node_call_ids_current e |> SI.elements in
   let inputs = (match nname with 
     | Some nname -> lookup_node_param_attr ctx nname
@@ -1601,7 +1601,7 @@ and check_ref_type_assuming_expr ctx nname e =
   in
   match vars with 
     | [] -> R.ok ()
-    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h))
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) *)
 
 and check_type_well_formed: tc_context -> HString.t option -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
   = fun ctx nname ->
