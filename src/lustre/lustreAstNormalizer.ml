@@ -889,7 +889,7 @@ and normalize_node info map
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
-        AH.type_contains_subrange ty
+        AH.type_contains_subrange ty || AH.type_contains_ref ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
@@ -1419,23 +1419,26 @@ and normalize_expr ?guard info map =
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
-  in let mk_enum_subrange_constraints info vars =
-    let enum_subrange_vars =
+  in let mk_enum_subrange_reftype_constraints info vars =
+    let enum_subrange_reftype_vars =
       vars |> List.filter (fun (_, _, ty) ->
+        let ty' = Ctx.expand_nested_type_syn info.context ty in
         let ty = Chk.expand_type info.context ty |> unwrap in
-        AH.type_contains_enum_or_subrange ty
+        A.pp_print_lustre_type Format.std_formatter ty;
+        AH.type_contains_enum_subrange_reftype ty'
       )
     in
     let constraints =
       List.fold_left
         (fun acc (_, id, ty) ->
           let expr = A.Ident(dpos, id) in
-          let range_exprs = mk_range_expr info.context ty expr in
+          let range_exprs =  List.map fst (mk_range_expr info.context ty expr) @ 
+                             List.map snd (mk_ref_type_expr expr Local ty) in
           range_exprs :: acc
         )
         []
-        enum_subrange_vars
-      |> List.flatten |> List.map fst
+        enum_subrange_reftype_vars
+      |> List.flatten 
     in
     match constraints with
     | [] -> None
@@ -1658,7 +1661,7 @@ and normalize_expr ?guard info map =
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
     let nexpr =
       let constraints =
-        mk_enum_subrange_constraints info vars
+        mk_enum_subrange_reftype_constraints info vars
       in
       match constraints, kind with
       | None, _ -> nexpr

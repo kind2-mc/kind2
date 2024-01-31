@@ -977,9 +977,9 @@ and check_expr ctx f (expr:LustreAst.expr) =
        in
        check_expr_list ctx f l
       )
-    | AnyOp (_, (_, i, ty), e1, None) -> 
+    | AnyOp (pos, (_, i, ty), e, None) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      (check_expr extn_ctx f e1)
+      (check_expr extn_ctx f e)
     | AnyOp (_, (_, i, ty), e1, Some e2) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       (check_expr extn_ctx f e1) >> (check_expr extn_ctx f e2)
