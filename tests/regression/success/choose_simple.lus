@@ -8,6 +8,6 @@ let
   check y < 100;
   
   b = a + 10;
-  z = any { x: int | a <= x and x <= b assuming a<=b };
+  z = any { x: int | a <= x and x <= b } assuming a<=b;
   check a <= z and z <= b;
 tel;

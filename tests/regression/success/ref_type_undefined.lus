@@ -1,0 +1,5 @@
+
+node N() returns (y:subtype {x: int | x >= 0});
+let
+  check y >= 0;
+tel

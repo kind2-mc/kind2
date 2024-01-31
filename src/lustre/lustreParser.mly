@@ -203,7 +203,7 @@ let mk_span start_pos end_pos =
     
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT BAR
+%nonassoc WHEN CURRENT ASSUMING BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -412,11 +412,14 @@ record_type:
 array_type: 
   | t = lustre_type; CARET; s = expr { t, s }
 
+refinement_type_base:
+  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  { id, e }
 
 (* Refinement type *)
 refinement_type:
-  | SUBTYPE; LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
-    { A.RefinementType (mk_pos $startpos, id, e) } 
+  | SUBTYPE; r = refinement_type_base
+    { let (id, e) = r in A.RefinementType (mk_pos $startpos, id, e) } 
 
 (*
   (* Alternate syntax: array [size] of type *)
@@ -952,10 +955,10 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* 'Any' operation *)
-  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-    { A.AnyOp (mk_pos $startpos, id, e, None) } 
-  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
-    { A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
+  | ANY; r = refinement_type_base
+    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e, None) } 
+  | ANY; r = refinement_type_base ASSUMING; e2 = pexpr(Q)
+    { let (id, e1) = r in A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
   | ANY; ty = lustre_type;
     { 
       match ty with 
