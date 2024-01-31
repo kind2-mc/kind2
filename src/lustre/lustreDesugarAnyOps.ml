@@ -247,9 +247,9 @@ fun output items ->
   
 let define_undefined_variables: A.clocked_typed_decl list -> A.node_item list -> A.node_item list
 = fun outputs items -> 
-  let items2 = List.concat_map (fun output -> 
+  let items2 = List.map (fun output -> 
     if is_undefined_output output items then [define_output output] else []
-  ) outputs in 
+  ) outputs |> List.flatten in 
   items @ items2
 
 let desugar_any_ops: Ctx.tc_context -> A.declaration list -> A.declaration list = 
