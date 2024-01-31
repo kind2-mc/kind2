@@ -261,7 +261,7 @@ fun ctx decls ->
     (
       match Chk.get_node_ctx ctx d with 
         | Ok ctx ->
-          let items = define_undefined_variables outputs items in 
+          let items = if not ext then define_undefined_variables outputs items else items in 
           let items, gen_nodes = List.map (desugar_node_item ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract ctx id contract in
           let gen_nodes = List.flatten gen_nodes in
@@ -273,7 +273,7 @@ fun ctx decls ->
     (
       match Chk.get_node_ctx ctx d with 
         | Ok ctx -> 
-          let items = define_undefined_variables outputs items in 
+          let items = if not ext then define_undefined_variables outputs items else items in 
           let items, gen_nodes = List.map (desugar_node_item ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract ctx id contract in
           let gen_nodes = List.flatten gen_nodes in
