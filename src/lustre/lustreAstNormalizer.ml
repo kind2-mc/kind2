@@ -1227,7 +1227,7 @@ and normalize_contract info map ivars ovars items =
             List.map (
               fun (_, i, ty) -> 
               let new_id = StringMap.find i info.interpretation in
-              if AH.type_contains_subrange ty then
+              if AH.type_contains_subrange ty || AH.type_contains_ref ty then
                 union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
                       (mk_fresh_refinement_type_constraint Ghost info pos (A.Ident (pos, new_id)) ty)
               else empty ()
