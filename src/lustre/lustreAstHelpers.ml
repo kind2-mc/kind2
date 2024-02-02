@@ -768,8 +768,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
-let vars_without_node_call_ids_current: expr -> iset =
-  let vars = vars_without_node_call_ids in
+let rec vars_without_node_call_ids_current: expr -> iset =
+  let vars = vars_without_node_call_ids_current in
   function
   | Ident (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
@@ -802,7 +802,7 @@ let vars_without_node_call_ids_current: expr -> iset =
   | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
   | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
   (* Temporal operators *)
-  | Pre _ -> SI.empty
+  | Pre _ -> print_endline "got here"; SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)

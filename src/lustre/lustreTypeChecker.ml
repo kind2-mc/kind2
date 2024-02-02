@@ -1614,8 +1614,8 @@ and check_ref_type_assumptions ctx src nname bound_var e =
       | [] -> R.ok ()
       | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
   )
-  | Output | Local | Ghost -> R.ok ()
-  | Global -> assert false (* not currently supported *)
+  | Output | Local | Ghost | Global -> R.ok ()
+
 and check_type_well_formed: tc_context -> source -> HString.t option -> tc_type -> ([> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
   = fun ctx src nname ->
   function
