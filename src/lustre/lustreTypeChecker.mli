@@ -94,6 +94,9 @@ type warning = [
   | `LustreTypeCheckerWarning of Lib.position * warning_kind
 ]
 
+type source = 
+  | Input | Output | Local | Global | Ghost
+
 val error_message: error_kind -> string
 
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
@@ -109,7 +112,7 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> HString.t -> LA.contract -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result
+val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error ]) result 
 
 val local_var_binding: tc_context ->  HString.t -> LA.node_local_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
 

@@ -868,7 +868,7 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids5, warnings1 = match contract with
     | Some contract ->
-      let ctx = Chk.tc_ctx_of_contract info.context node_id contract |> unwrap |> fst
+      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fst
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
