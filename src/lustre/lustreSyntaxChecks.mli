@@ -19,6 +19,8 @@
   
   @author Andrew Marmaduke *)
 
+module LA = LustreAst
+
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t * Lib.position
@@ -56,9 +58,21 @@ type error = [
 
 val error_message : error_kind -> string
 
-val syntax_check : LustreAst.t -> (LustreAst.t, [> error]) result
+type warning_kind =
+  | UnusedBoundVariableWarning of HString.t
 
-val no_mismatched_clock : bool -> LustreAst.expr -> (unit, [> error]) result
+type warning = [
+  | `LustreSyntaxChecksWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
+
+val syntax_check : LA.t -> (([> `LustreSyntaxChecksWarning of Lib.position * warning_kind] list * LA.declaration list), 
+                            [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result
+
+val no_mismatched_clock : bool -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list,
+                                              [> `LustreSyntaxChecksError of Lib.position * error_kind ])
+  result
 (** Conservative syntactic check of clock arguments for merge expressions.
   To eventually be replaced with more general clock inference/checking.
 

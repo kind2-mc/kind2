@@ -140,7 +140,7 @@ let ast_of_channel(in_ch: in_channel) =
 let type_check declarations =
   let tc_res = (
     (* Step 1. Basic syntax checks on declarations  *)
-    let* declarations = LS.syntax_check declarations in
+    let* warnings1, declarations = LS.syntax_check declarations in
 
     (* Step 2. Split program into top level const and type delcs, and node/contract decls *)
     let (const_type_decls, node_contract_src) = LH.split_program declarations in
@@ -149,7 +149,7 @@ let type_check declarations =
     let* sorted_const_type_decls = AD.sort_globals const_type_decls in
     
     (* Step 4. Type check top level declarations *)
-    let* ctx, warnings1 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
+    let* ctx, warnings2 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
@@ -161,7 +161,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 8. Type check nodes and contracts *)
-    let* global_ctx, warnings2 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+    let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 9. Flatten refinement types *)
     let sorted_node_contract_decls = LustreFlattenRefinementTypes.flatten_ref_types global_ctx sorted_node_contract_decls in
@@ -173,7 +173,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
     (* Step 12. Desugar frame blocks by adding node equations and guarding oracles. *)
-    let* (sorted_node_contract_decls, warnings3) = LDF.desugar_frame_blocks sorted_node_contract_decls in 
+    let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in 
 
     (* Step 13. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
@@ -188,7 +188,7 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 16. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings4) = 
+    let* (normalized_nodes_and_contracts, gids, warnings5) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
     
@@ -196,7 +196,7 @@ let type_check declarations =
       gids,
       const_inlined_type_and_consts @ normalized_nodes_and_contracts,
       toplevel_nodes,
-      warnings1 @ warnings2 @ warnings3 @ warnings4)
+      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
     )
   in
   match tc_res with

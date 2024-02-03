@@ -225,8 +225,8 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 
 let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
-  | EnumType _ -> LSC.no_mismatched_clock false e
-  | Bool _ -> LSC.no_mismatched_clock true e
+  | EnumType _ -> LSC.no_mismatched_clock false e >> Ok ()
+  | Bool _ -> LSC.no_mismatched_clock true e >> Ok ()
   | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result

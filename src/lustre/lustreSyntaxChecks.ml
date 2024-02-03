@@ -126,6 +126,18 @@ let error_message kind = match kind with
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
+type warning_kind = 
+  | UnusedBoundVariableWarning of HString.t
+
+let warning_message warning = match warning with
+  | UnusedBoundVariableWarning id -> "Unused 'any' operator bound variable " ^ HString.string_of_hstring id
+
+type warning = [
+  | `LustreSyntaxChecksWarning of Lib.position * warning_kind
+]
+
+let mk_warning pos kind = `LustreSyntaxChecksWarning (pos, kind)
+
 let (let*) = Result.bind
 let (>>) = fun a b -> let* _ = a in b
 
@@ -622,7 +634,7 @@ let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
-  | _ -> Ok ()
+  | _ -> Ok []
 
 let no_stateful_contract_imports ctx contract =
   try
@@ -696,7 +708,9 @@ let parametric_nodes_unsupported pos params =
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
-  Res.seq (List.map (check_declaration ctx) ast)
+  let* warnings_decls = Res.seq (List.map (check_declaration ctx) ast) in 
+  let warnings, decls = List.split warnings_decls in 
+  Ok (List.flatten warnings, decls)
 
 and check_ty_node_calls i ty = 
   match ty with 
@@ -714,26 +728,28 @@ and check_ty_node_calls i ty =
         else Ok ()
     | _ -> Ok ()
 
-and check_declaration ctx = function
-  | TypeDecl (span, FreeType (pos, id) ) -> Ok (LA.TypeDecl (span, FreeType (pos, id)))
+and check_declaration: context -> LA.declaration -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list * LA.declaration, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+= fun ctx -> function
+  | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ty) ) -> 
-    check_ty_node_calls id ty >> Ok (LA.TypeDecl (span, AliasType (pos, id, ty)))
+    check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ty)))
   | ConstDecl (span, decl) ->
-    let check = match decl with
-      | LA.FreeConst _ -> Ok ()
+    let* warnings = match decl with
+      | LA.FreeConst _ -> Ok ([])
       | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
-      | TypedConst (_, i, e, ty) -> check_const_expr_decl i ctx e >> check_ty_node_calls i ty
+      | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
     in
-    check >> Ok (LA.ConstDecl (span, decl))
+    Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl i ctx expr =
+and check_const_expr_decl: H.t -> context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+= fun i ctx expr ->
   let composed_checks i ctx e =
     (no_dangling_identifiers ctx e)
-    >> (no_node_calls_in_constant i e)
+    >> (no_node_calls_in_constant i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 
@@ -741,12 +757,14 @@ and common_node_equations_checks ctx e =
     (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+    >> Ok []
 
 and common_contract_checks ctx e =
     (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_subject_to_refinement ctx e)
+    >> Ok []
 
 (* Can't have from/within/at keywords in reachability queries in functions *)
 and no_reachability_modifiers item = match item with 
@@ -760,11 +778,12 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items ctx local = match local with
-  | LA.NodeConstDecl (_, FreeConst _) -> Ok ()
+and check_local_items: context -> LA.node_local_decl -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+= fun ctx local -> match local with
+  | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
   | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
   | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
-  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ()
+  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
@@ -776,20 +795,19 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (match contract with
-     | Some c -> check_contract false ctx common_contract_checks c
-     | None -> Ok ())
   >> (locals_exactly_one_definition locals items)
   >> (outputs_at_most_one_definition outputs items)
-  >> (check_items
-       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
-       common_node_equations_checks
-       items
-     )
   >> (Res.seq_ (List.map check_input_items inputs))
-  >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map (check_local_items ctx) locals))
-  >> (Ok decl)
+  >> (Res.seq_ (List.map check_output_items outputs)) >> 
+  let* warnings1 = (match contract with
+  | Some c -> check_contract false ctx common_contract_checks c
+  | None -> Ok ([])) in
+  let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
+  let* warnings3 = (check_items
+  (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+  common_node_equations_checks
+  items) in
+  (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx =
@@ -800,42 +818,45 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
-    (common_node_equations_checks ctx e)
-      >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator "function" e)
+    (no_calls_to_node ctx e)
+    >> (no_temporal_operator "function" e)
+    >> (common_node_equations_checks ctx e)
   in
   let function_contract_checks ctx e =
-    (common_contract_checks ctx e)
-    >> (no_calls_to_node ctx e)
-    >> (no_temporal_operator "function contract" e)
+    (no_calls_to_node ctx e) >> 
+    let* warnings1 =  (common_contract_checks ctx e) in
+    let* warnings2 = (no_temporal_operator "function contract" e) in 
+    Ok (warnings1 @ warnings2)
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (match contract with
-      | Some c -> check_contract false ctx function_contract_checks c
-        >> no_stateful_contract_imports ctx c
-      | None -> Ok ())
-  >> (check_items
-       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
-       composed_items_checks
-       items
-     )
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
-  >> (Res.seq_ (List.map check_output_items outputs))
-  >> (Res.seq_ (List.map (check_local_items ctx) locals))
-  >> (Ok decl)
+  >> (Res.seq_ (List.map check_output_items outputs)) >> 
+  let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
+  let* warnings2 = (match contract with
+  | Some c -> no_stateful_contract_imports ctx c
+    >> check_contract false ctx function_contract_checks c
+  | None -> Ok []) in 
+  let* warnings3 = (check_items
+    (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+    composed_items_checks
+    items
+  ) in
+  (Ok (List.flatten warnings1 @ warnings2 @ warnings3, decl))
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let ctx = build_local_ctx ctx [] inputs outputs in
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  (check_contract true ctx common_contract_checks contract)
-    >> (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs))
-    >> (Ok decl)
+   (Res.seq_ (List.map check_input_items inputs))
+    >> (Res.seq_ (List.map check_output_items outputs)) >> 
+    let* warnings = (check_contract true ctx common_contract_checks contract) in
+    (Ok (warnings, decl))
 
-and check_items ctx f items =
+and check_items: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
+  LA.node_item list -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result 
+= fun ctx f items ->
   (* Record duplicate properties if we find them *)
   let over_props props = function
     | LA.AnnotProperty (pos, name, _, kind) ->
@@ -845,32 +866,39 @@ and check_items ctx f items =
       else Ok (StringSet.add name props)
     | _ -> Ok props
   in
-  let check_item ctx f = function
+  let check_item: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind] as 'a)) result) ->
+    LA.node_item -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result = fun ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx' = build_equation_ctx ctx lhs in
       let StructDef (_, struct_items) = lhs in
       check_struct_items ctx struct_items
-        >> check_expr ctx' f e
         >> (expr_only_supported_in_merge false e)
+        >> check_expr ctx' f e
     | LA.IfBlock (_, e, l1, l2) -> 
-      check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
+      let* warnings1 = check_expr ctx f e in 
+      let* warnings2 = (check_items ctx f l1) in 
+      let* warnings3 = (check_items ctx f l2) in 
+      Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in
-      check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
-      check_items ctx f nes >> (check_items ctx f nis) >>
       (Res.seq_ (List.map (no_assert_in_frame_init pos) nes)) >>
       (Res.seq_ (List.map (fun (p, v) -> no_a_dangling_identifier ctx p v) vars)) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
-      (Res.seq_ (List.map (check_frame_vars pos var_ids) nes))
+      (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
+      let* warnings1 = check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes in
+      let* warnings2 = check_items ctx f nes in 
+      let* warnings3 = (check_items ctx f nis) in
+      Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
-    | AnnotMain _ -> Ok ()
+    | AnnotMain _ -> Ok ([])
   in
   (* Check for duplicate properties *)
-  Res.seq_chain (fun props -> over_props props) StringSet.empty items
-  >> Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
+  Res.seq_chain (fun props -> over_props props) StringSet.empty items >> 
+  let* warnings = Res.seq (List.map (check_item ctx f) items) in 
+  Ok (List.flatten warnings)
 
 and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
@@ -901,40 +929,44 @@ and no_assert_in_frame_init pos = function
   | _ -> Res.ok ()
 
 
-and check_contract is_contract_node ctx f contract =
+and check_contract: bool -> context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
+  LA.contract -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result 
+= fun is_contract_node ctx f contract ->
   let ctx = build_contract_ctx ctx contract in
-  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
+  let check_list e = Res.seq (List.map (check_expr ctx f) e) in
   let check_contract_item ctx f = function
     | LA.Assume (_, _, _, e) -> check_expr ctx f e
     | Guarantee (_, _, _, e) -> check_expr ctx f e
     | Mode (_, _, rs, gs) ->
       let rs = List.map (fun (_, _, e) -> e) rs in
       let gs = List.map (fun (_, _, e) -> e) gs in
-      check_list rs >> check_list gs
+      let* warnings1 = check_list rs in
+      let* warnings2 = check_list gs in 
+      Ok (List.flatten warnings1 @ List.flatten warnings2)
     | GhostVars (_, _, e) -> check_expr ctx f e
     | AssumptionVars (pos, _) ->
-      if not is_contract_node then Ok ()
+      if not is_contract_node then Ok ([])
       else syntax_error pos AssumptionVariablesInContractNode
     | GhostConst decl -> (
-      let check = match decl with
-      | LA.FreeConst _ -> Ok ()
+      match decl with
+      | LA.FreeConst _ -> Ok ([])
       | UntypedConst (_, i, e)
       | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
-      in
-      check >> Ok ()
     )
     | ContractCall (pos, i, args, outputs) -> (
       if StringMap.mem i ctx.contracts then (
+        Res.seqM (fun x _ -> x) () (List.map
+           (no_a_dangling_identifier ctx pos) outputs) >>
         check_expr_list ctx f args
-        >> Res.seqM (fun x _ -> x) () (List.map
-           (no_a_dangling_identifier ctx pos) outputs)
       )
       else syntax_error pos (UndefinedContract i)
     )
   in
-  Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
+  let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
+  Ok(List.flatten warnings)
 
-and check_expr ctx f (expr:LustreAst.expr) =
+and check_expr: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
+  LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let res = f ctx expr in
   let check = function
     | LA.RecordProject (_, e, _)
@@ -942,8 +974,7 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
-    | Pre (_, e)
-      -> check_expr ctx f e
+    | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
         let ctx = List.fold_left over_vars ctx vars in
@@ -952,42 +983,73 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
     | ArrayIndex (_, e1, e2)
-    | Arrow (_, e1, e2)
-      -> (check_expr ctx f e1) >> (check_expr ctx f e2)
-    | TernaryOp (_, _, e1, e2, e3)
-      -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr ctx f e3)
+    | Arrow (_, e1, e2) ->
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in 
+      Ok (warnings1 @ warnings2)
+    | TernaryOp (_, _, e1, e2, e3) -> 
+      let* warnings1 = (check_expr ctx f e1) in
+      let* warnings2 = (check_expr ctx f e2) in 
+      let* warnings3 = (check_expr ctx f e3) in 
+      Ok (warnings1 @ warnings2 @ warnings3)
     | GroupExpr (_, _, e)
     | Call (_, _, e)
       -> check_expr_list ctx f e
     | RecordExpr (_, _, e)
     | Merge (_, _, e)
       -> let e = List.map (fun (_, e) -> e) e in check_expr_list ctx f e
-    | Condact (_, e1, e2, _, e3, e4)
-      -> (check_expr ctx f e1) >> (check_expr ctx f e2)
-        >> (check_expr_list ctx f e3) >> (check_expr_list ctx f e4)
+    | Condact (_, e1, e2, _, e3, e4) -> 
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in
+      let* warnings3 = (check_expr_list ctx f e3) in
+      let* warnings4 = (check_expr_list ctx f e4) in 
+      Ok (warnings1 @ warnings2 @ warnings3 @ warnings4)
     | Activate (_, _, e1, e2, e3) ->
-      (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
-    | RestartEvery (_, _, e1, e2)
-      -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in 
+      let* warnings3 = (check_expr_list ctx f e3) in 
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | RestartEvery (_, _, e1, e2) -> 
+      let* warnings1 = (check_expr_list ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in
+      Ok (warnings1 @ warnings2)
     | StructUpdate (_, e1, l, e2) ->
-      (check_expr ctx f e1) >> (check_expr ctx f e2) >>
-      (let l =
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in
+      let l =
          List.filter_map
           (function | LA.Label _ -> None | Index (_, e) -> Some e) l
        in
-       check_expr_list ctx f l
-      )
-    | AnyOp (_, (_, i, ty), e, None) -> 
+       let* warnings3 = check_expr_list ctx f l in 
+       Ok (warnings1 @ warnings2 @ warnings3)
+    | AnyOp (pos, (_, i, ty), e, None) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      (check_expr extn_ctx f e)
-    | AnyOp (_, (_, i, ty), e1, Some e2) -> 
+      let warnings1 = 
+        if not (LAH.expr_contains_id i e) 
+        then [mk_warning pos (UnusedBoundVariableWarning i)] 
+        else []
+      in
+      let* warnings2 = (check_expr extn_ctx f e) in
+      Ok (warnings1 @ warnings2)
+    | AnyOp (pos, (_, i, ty), e1, Some e2) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      (check_expr extn_ctx f e1) >> (check_expr extn_ctx f e2)
-    | Ident _ | ModeRef _ | Const _ -> Ok ()
+      let warnings1 = 
+        if not (LAH.expr_contains_id i e1) 
+        then [mk_warning pos (UnusedBoundVariableWarning i)] 
+        else []
+      in
+      let* warnings2 = (check_expr extn_ctx f e1) in 
+      let* warnings3 = (check_expr extn_ctx f e2)  in 
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | Ident _ | ModeRef _ | Const _ -> Ok ([])
   in
-  res >> check expr
+  let* warnings1 = res in 
+  let* warnings2 = check expr in 
+  Ok (warnings1 @ warnings2)
+
 and check_expr_list ctx f l =
-  Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) l)
+  let* warnings = Res.seq (List.map (check_expr ctx f) l) in 
+  Ok(List.flatten warnings)
 
 let no_mismatched_clock is_bool e =
   let ctx = empty_ctx () in
@@ -1001,7 +1063,7 @@ let no_mismatched_clock is_bool e =
     | _ -> false
   in
   let clocks_match_result pos c1 c2 =
-    if clocks_match c1 c2 then Ok()
+    if clocks_match c1 c2 then Ok []
     else syntax_error pos ClockMismatchInMerge
   in
   let check_clocks clock = function
@@ -1016,23 +1078,26 @@ let no_mismatched_clock is_bool e =
         | _ -> syntax_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | _ -> Ok ()
+    | _ -> Ok []
   in
-  let check_merge = function
+  let check_merge: LA.expr -> ( [> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ])
+    result = function
     | LA.Merge (_, clock, exprs) ->
       if not is_bool then
         let case (i, e) = check_expr ctx
           (fun _ -> check_clocks (ClockConstr (i, clock))) e
         in
-        List.fold_left (>>) (Ok ()) (List.map case exprs)
+        let* warnings = Res.seq (List.map case exprs) in 
+        Ok (List.flatten warnings)
       else
         let true_variant = List.nth_opt exprs 0 in
         let false_variant = List.nth_opt exprs 1 in
         (match true_variant, false_variant with
         | Some (_, e1), Some (_, e2) ->
-          check_clocks (ClockPos clock) e1
-            >> check_clocks (ClockNeg clock) e2
-        | _ -> Ok ())
-    | _ -> Ok ()
+          let* warnings1 = check_clocks (ClockPos clock) e1 in
+          let* warnings2 = check_clocks (ClockNeg clock) e2 in 
+          Ok (warnings1 @ warnings2)
+        | _ -> Ok [])
+    | _ -> Ok ([])
   in
   check_expr ctx (fun _ -> check_merge) e

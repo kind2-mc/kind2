@@ -94,6 +94,8 @@ type warning = [
   | `LustreTypeCheckerWarning of Lib.position * warning_kind
 ]
 
+val warning_message : warning_kind -> string
+
 type source = 
   | Input | Output | Local | Global | Ghost
 
@@ -101,8 +103,6 @@ val error_message: error_kind -> string
 
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
-
-val warning_message : warning_kind -> string
      
 val type_check_infer_globals: tc_context -> LA.t -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 

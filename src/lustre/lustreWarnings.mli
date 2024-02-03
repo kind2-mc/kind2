@@ -24,6 +24,7 @@
   | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
   | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
   | `LustreTypeCheckerWarning of Lib.position * LustreTypeChecker.warning_kind
+  | `LustreSyntaxChecksWarning of Lib.position * LustreSyntaxChecks.warning_kind
 ]
 
 val warning_position : [< warning] -> Lib.position
