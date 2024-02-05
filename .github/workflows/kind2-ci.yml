@@ -12,14 +12,16 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-20.04, macos-12, macos-14 ]
-        ocaml-version: [ 4.09.1 ]
         include:
           - os: macos-12
             pkg_update: brew update
+            ocaml-version: [ 4.09.1 ]
           - os: macos-14
             pkg_update: brew update
+            ocaml-version: [ 4.10.2 ] # Oldest version available
           - os: ubuntu-20.04
             pkg_update: sudo apt-get update -y
+            ocaml-version: [ 4.09.1 ]
 
     runs-on: ${{ matrix.os }}
 
