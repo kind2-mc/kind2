@@ -54,6 +54,7 @@ type error_kind = Unknown of string
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
+  | GlobalConstRefType of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -107,6 +108,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ " has a refinable contract"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or choose operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
+  | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -728,6 +730,10 @@ and check_ty_node_calls i ty =
         else Ok ()
     | _ -> Ok ()
 
+and check_ty_ref_tys i = function 
+  | LA.RefinementType (pos, _, _) -> syntax_error pos (GlobalConstRefType i)
+  | _ -> Ok ()
+
 and check_declaration: context -> LA.declaration -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list * LA.declaration, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
@@ -735,9 +741,9 @@ and check_declaration: context -> LA.declaration -> ([> `LustreSyntaxChecksWarni
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
-      | LA.FreeConst _ -> Ok ([])
+      | LA.FreeConst (_, i, ty) -> check_ty_ref_tys i ty >> Ok []
       | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
-      | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
+      | TypedConst (_, i, e, ty) -> check_ty_ref_tys i ty >> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
