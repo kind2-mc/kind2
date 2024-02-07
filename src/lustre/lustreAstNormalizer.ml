@@ -518,8 +518,6 @@ let rec mk_ref_type_expr: A.expr -> source -> A.lustre_type -> (source * A.expr)
   | A.RefinementType (_, (_, id2, _), expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-      (*!! expr could be (or contain) a glocal-- in this case, we need to do substitution 
-      within gids. *)
     let expr = AH.substitute_naive id2 id expr in
     [(source, expr)]
   | TupleType (pos, tys) 
