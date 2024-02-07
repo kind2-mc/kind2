@@ -591,10 +591,12 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     let* index_type = infer_type_expr ctx i in
     let* index_type = expand_type ctx index_type in
     if is_expr_int_type ctx i
-    then infer_type_expr ctx e
-        >>= (function
-              | ArrayType (_, (b_ty, _)) -> R.ok b_ty
-              | ty -> type_error pos (IlltypedArrayIndex ty))
+    then 
+      let* ty = infer_type_expr ctx e in 
+      let* ty = expand_type ctx ty in 
+      match ty with 
+      | LA.ArrayType (_, (b_ty, _)) -> R.ok b_ty
+      | ty -> type_error pos (IlltypedArrayIndex ty)
     else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
 
   (* Quantified expressions *)
@@ -671,7 +673,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
-    | _, None -> type_error pos (UnboundNodeName i)
+    | _, None -> pp_print_tc_context Format.std_formatter ctx; type_error pos (UnboundNodeName i)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -845,7 +847,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
     | None, _ 
-    | _, None -> type_error pos (UnboundNodeName i)
+    | _, None -> pp_print_tc_context Format.std_formatter ctx; type_error pos (UnboundNodeName i)
     | Some ty, Some call_params -> 
       (* Express ty in terms of the current context *)
       let ty = update_ty_with_ctx ty call_params ctx args in

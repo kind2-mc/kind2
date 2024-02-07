@@ -1977,6 +1977,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
           vars in
       H.add_seq !map.quant_vars (H.to_seq quant_var_map);
+      (*!! Need to remember ref type bound var in ctx. But why do we even need to compile the ref type?
+           the gids were already use to generate properties *)
       let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
       let eq_lhs = flatten_list_indexes eq_lhs in
       let eq_rhs = flatten_list_indexes eq_rhs in
