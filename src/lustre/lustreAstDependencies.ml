@@ -489,7 +489,7 @@ let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_
   let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
   let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops |> List.flatten in
   let ad = connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (mk_graph_contract_node_eqn i) c))
-    (HString.concat2 contract_prefix i) pos in 
+    i pos in 
   List.fold_left
     (fun g (nr, p) -> union_dependency_analysis_data g
                         (connect_g_pos
