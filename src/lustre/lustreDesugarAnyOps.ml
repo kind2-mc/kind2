@@ -234,7 +234,7 @@ let is_undefined_output: A.clocked_typed_decl -> A.node_item list -> bool =
 fun output items -> 
   (* Search for definition *)
   let (_, id, _, _) = output in
-  let definition = List.find_opt (fun item -> match item with 
+  let rec find_def item = match item with 
     | A.Body (A.Equation (_, StructDef (_, sis), _)) -> 
       let definition = List.find_opt (fun si -> match si with 
         | A.SingleIdent (_, id2) -> id = id2
@@ -242,8 +242,15 @@ fun output items ->
         | _ -> assert false
       ) sis in 
       definition != None
-    | A.Body _ | IfBlock _ | FrameBlock _ | AnnotMain _ | AnnotProperty _ -> false  (*!! Can't omit all these cases *)
-  ) items in 
+    | IfBlock (_, _, nes1, nes2) -> 
+      List.map find_def nes1 @ (List.map find_def nes2) 
+      |> List.filter Fun.id |> (fun lst -> List.length lst > 0)
+    | FrameBlock (_, vars, _, _) -> 
+      let definition = List.find_opt (fun (_, id2) -> id = id2) vars in 
+      definition != None
+    | A.Body (Assert _)  | AnnotMain _ | AnnotProperty _ -> false  
+  in
+  let definition = List.find_opt find_def items in 
   (* If no definition, then output is undefined *)
   definition = None
 
