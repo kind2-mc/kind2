@@ -469,18 +469,18 @@ let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis
         ad node_refs
     )
     | LA.GhostVars (_, GhostVarDec(_, tis), e) ->
-          let handle_one_lhs (pos, i, ty) = (
-            let node_refs = extract_node_calls_type ty in
-            List.fold_left
-              (fun g (nr, p) -> union_dependency_analysis_data g
-                              (connect_g_pos
-                                (singleton_dependency_analysis_data node_prefix nr p) i pos))
-              empty_dependency_analysis_data node_refs
-          ) in
-        List.fold_left union_dependency_analysis_data (empty_dependency_analysis_data)
-          ((List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
-          @ 
-          (List.map handle_one_lhs tis))
+      let handle_one_lhs (pos, i, ty) = (
+        let node_refs = extract_node_calls_type ty in
+        List.fold_left
+          (fun g (nr, p) -> union_dependency_analysis_data g
+                          (connect_g_pos
+                            (singleton_dependency_analysis_data node_prefix nr p) i pos))
+          empty_dependency_analysis_data node_refs
+      ) in
+      List.fold_left union_dependency_analysis_data (empty_dependency_analysis_data)
+        ((List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
+        @ 
+        (List.map handle_one_lhs tis))
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
 
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
@@ -494,7 +494,6 @@ let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_
                         (connect_g_pos
                            (singleton_dependency_analysis_data node_prefix nr p) i pos))
     ad node_refs
-  
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
   
 let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list

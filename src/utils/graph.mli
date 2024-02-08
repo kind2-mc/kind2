@@ -128,14 +128,14 @@ module type S = sig
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)    
+   *  Implementation is of this function is based on Kahn's algorithm *)    
 
   module VMap : sig
     include (Map.S with type key = vertex)
   end
 
   val memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices
-  (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
+  (** Finds all the [vertices] that are reachable from the given [vertex] in a graph *)
 
 
   (** {1 Pretty Printers}  *)
