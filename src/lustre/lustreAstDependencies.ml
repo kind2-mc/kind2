@@ -458,7 +458,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
      | UntypedConst (_, _, e) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
-     | TypedConst (pos, i, e, ty) ->
+     | TypedConst (pos, _, e, ty) ->
         let node_refs = extract_node_calls_type ty in
         let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e)) in 
@@ -485,7 +485,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
 
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
   = fun pos (i, _, ips, ops, c) ->
-  let node_refs = List.map (fun (_, i, ty, _, _) -> extract_node_calls_type ty) ips in
+  let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
   let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops |> List.flatten in
   let ad = connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (mk_graph_contract_node_eqn i) c))
     (HString.concat2 contract_prefix i) pos in 
