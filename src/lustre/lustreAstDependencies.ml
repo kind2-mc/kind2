@@ -422,6 +422,17 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
 
+let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
+= function 
+  | RefinementType (_, (_, _, ty), e) -> extract_node_calls_type ty @ get_node_call_from_expr e
+  | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
+  | TupleType (_, tys)
+  | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
+  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
+  | Bool _ | Real _ | TVar _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ | TArr _ -> []
+(** Extracts all the node calls from a type *)
+
 let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
   = function
   | LA.AssumptionVars _ -> empty_dependency_analysis_data
@@ -447,19 +458,43 @@ let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis
      | UntypedConst (_, _, e) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
-     | TypedConst (_, _, e, _) ->
-        List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
+     | TypedConst (pos, i, e, ty) ->
+        let node_refs = extract_node_calls_type ty in
+        let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e)) in 
+        List.fold_left
+        (fun g (nr, p) -> union_dependency_analysis_data g
+                        (connect_g_pos
+                            (singleton_dependency_analysis_data node_prefix nr p) i pos))
+        ad node_refs
     )
-    | LA.GhostVars (_, _, e) ->
-        List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
+    | LA.GhostVars (_, GhostVarDec(_, tis), e) ->
+          let handle_one_lhs (pos, i, ty) = (
+            let node_refs = extract_node_calls_type ty in
+            List.fold_left
+              (fun g (nr, p) -> union_dependency_analysis_data g
+                              (connect_g_pos
+                                (singleton_dependency_analysis_data node_prefix nr p) i pos))
+              empty_dependency_analysis_data node_refs
+          ) in
+        List.fold_left union_dependency_analysis_data (empty_dependency_analysis_data)
+          ((List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
+          @ 
+          (List.map handle_one_lhs tis))
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
-       
+
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
-  = fun pos (i , _, _, _, c) ->
-  connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_contract_node_eqn c))
-    (HString.concat2 contract_prefix i) pos
+  = fun pos (i, _, ips, ops, c) ->
+  let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
+  let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops |> List.flatten in
+  let ad = connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_contract_node_eqn c))
+    (HString.concat2 contract_prefix i) pos in 
+  List.fold_left
+    (fun g (nr, p) -> union_dependency_analysis_data g
+                        (connect_g_pos
+                           (singleton_dependency_analysis_data node_prefix nr p) i pos))
+    ad node_refs
+  
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
   
 let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
@@ -483,7 +518,7 @@ and extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
 = fun l -> List.fold_left (fun acc i -> extract_node_calls_item i @ acc) [] l
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
-  = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->    
+  = fun pos (i, _, _, ips, ops, locals, nitems, contract_opt) ->    
   let cg = connect_g_pos
              (match contract_opt with
               | None -> empty_dependency_analysis_data
@@ -491,7 +526,15 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
                             (List.map mk_graph_contract_node_eqn c))
              (HString.concat2 node_prefix i) pos in
 
-  let node_refs = extract_node_calls nitems in
+  let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
+  let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops in
+  let node_refs = node_refs @ List.map (fun decl -> match decl with 
+    | LA.NodeConstDecl (_, FreeConst (_, _, ty)) 
+    | LA.NodeConstDecl (_, TypedConst (_, _, _, ty)) -> extract_node_calls_type ty
+    | LA.NodeConstDecl (_, UntypedConst _) -> []
+    | LA.NodeVarDecl _ -> []
+  ) locals |> List.flatten in
+  let node_refs = node_refs @ extract_node_calls nitems in
   List.fold_left
     (fun g (nr, p) -> union_dependency_analysis_data g
                         (connect_g_pos
@@ -957,8 +1000,18 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
     (
     match c with
     | FreeConst _ -> R.ok ad
-    | UntypedConst (pos, i, e)
-    | TypedConst (pos, i, e, _) ->
+    | UntypedConst (pos, i, e) -> 
+      let union g v = union_dependency_analysis_data g
+      (singleton_dependency_analysis_data empty_hs v pos)
+      in
+      let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
+      let effective_vars = LA.SI.elements vars in
+      let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
+      let effective_vars2 = LA.SI.elements vars2 in
+      let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
+      R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+    | TypedConst (pos, i, e, ty) ->
+      let node_refs = extract_node_calls_type ty in
       let union g v = union_dependency_analysis_data g
         (singleton_dependency_analysis_data empty_hs v pos)
       in
@@ -967,20 +1020,33 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
       let effective_vars2 = LA.SI.elements vars2 in
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-      R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+      let ad = connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos in 
+      R.ok (
+        List.fold_left
+        (fun g (nr, p) -> union_dependency_analysis_data g
+                        (connect_g_pos
+                           (singleton_dependency_analysis_data node_prefix nr p) i pos))
+        ad node_refs
+      )
     )
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
     let union g v = 
       union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
     in
-    let handle_one_lhs index (_, i, _) = (
+    let handle_one_lhs index (_, i, ty) = (
+      let node_refs = extract_node_calls_type ty in
       let e = LH.abstract_pre_subexpressions e in
       let vars = vars_with_flattened_nodes ad.nsummary index e in
       let effective_vars = LA.SI.elements vars in
       let vars2 = vars_with_flattened_nodes ad.nsummary2 index e in
       let effective_vars2 = LA.SI.elements vars2 in
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-      (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+      let ad = (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos) in 
+      List.fold_left
+        (fun g (nr, p) -> union_dependency_analysis_data g
+                        (connect_g_pos
+                           (singleton_dependency_analysis_data node_prefix nr p) i pos))
+        ad node_refs
     )
     in 
     R.ok (List.fold_left union_dependency_analysis_data
