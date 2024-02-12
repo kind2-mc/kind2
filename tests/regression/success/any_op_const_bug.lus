@@ -1,0 +1,8 @@
+type Nat = subtype { x: int | x >= 0 };
+
+node N(const n: int) returns (y: Nat^n);
+let
+  y = any Nat^n;
+
+  check (n > 0) => (y[0] >= 0);
+tel

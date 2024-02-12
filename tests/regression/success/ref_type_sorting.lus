@@ -1,0 +1,17 @@
+node M(x: int) returns (out: bool)
+let
+tel
+
+contract C(x: int | M(x)) returns (y: int);
+let
+  guarantee true;
+tel
+
+node N(x: int | M(x)) returns (y: int)
+(*@contract 
+  import C(x) returns (y);
+*)
+let
+  y = x; 
+  -- check y >= 0;
+tel
