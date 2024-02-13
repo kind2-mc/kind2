@@ -1,18 +1,18 @@
 (* This file is part of the Kind 2 model checker.
 
-  Copyright (c) 2022 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2022 by the Board of Trustees of the University of Iowa
 
-  Licensed under the Apache License, Version 2.0 (the "License"); you
-  may not use this file except in compliance with the License.  You
-  may obtain a copy of the License at
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0 
 
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-  implied. See the License for the specific language governing
-  permissions and limitations under the License. 
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
 *)
 
 module A = LustreAst
@@ -191,38 +191,38 @@ fun global_ctx ctx node_name ->
 let desugar_contract: Ctx.tc_context ->  Ctx.tc_context -> HString.t -> A.contract_node_equation list option -> A.contract_node_equation list option * A.declaration list =
 fun global_ctx ctx node_name contract -> 
   match contract with 
-    | Some contract_items -> 
-      let items, gen_nodes = (List.map (desugar_contract_item global_ctx ctx node_name) contract_items) |> List.split in
-      Some items, List.flatten gen_nodes
-    | None -> None, []
+  | Some contract_items -> 
+    let items, gen_nodes = (List.map (desugar_contract_item global_ctx ctx node_name) contract_items) |> List.split in
+    Some items, List.flatten gen_nodes
+  | None -> None, []
 
 let rec desugar_node_item: Ctx.tc_context ->  Ctx.tc_context -> HString.t -> A.node_item -> A.node_item * A.declaration list =
 fun global_ctx ctx node_name ni ->
   match ni with
-    | A.Body (Equation (pos, lhs, rhs)) -> 
-      let rhs, gen_nodes = desugar_expr global_ctx ctx node_name rhs in 
-      A.Body (Equation (pos, lhs, rhs)), gen_nodes
-    | AnnotProperty (pos, name, e, k) -> 
-      let e, gen_nodes = desugar_expr global_ctx ctx node_name e in 
-      AnnotProperty(pos, name, e, k), gen_nodes
-    | IfBlock (pos, cond, nis1, nis2) -> 
-      let nis1, gen_nodes1 = List.map (desugar_node_item global_ctx ctx node_name) nis1 |> List.split in
-      let nis2, gen_nodes2 = List.map (desugar_node_item global_ctx ctx node_name) nis2 |> List.split in
-      let cond, gen_nodes3 = desugar_expr global_ctx ctx node_name cond in
-      A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
-    | FrameBlock (pos, vars, nes, nis) -> 
-      let nes = List.map (fun x -> A.Body x) nes in
-      let nes, gen_nodes1 = List.map (desugar_node_item global_ctx ctx node_name) nes |> List.split in
-      let nes = List.map (fun ne -> match ne with
-        | A.Body (A.Equation _ as eq) -> eq
-        | _ -> assert false
-      ) nes in
-      let nis, gen_nodes2 = List.map (desugar_node_item global_ctx ctx node_name) nis |> List.split in
-      FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
-    | Body (Assert (pos, e)) ->
-      let e, gen_nodes = desugar_expr global_ctx ctx node_name e in 
-      Body (Assert (pos, e)), gen_nodes
-    | AnnotMain _ -> ni, []
+  | A.Body (Equation (pos, lhs, rhs)) -> 
+    let rhs, gen_nodes = desugar_expr global_ctx ctx node_name rhs in 
+    A.Body (Equation (pos, lhs, rhs)), gen_nodes
+  | AnnotProperty (pos, name, e, k) -> 
+    let e, gen_nodes = desugar_expr global_ctx ctx node_name e in 
+    AnnotProperty(pos, name, e, k), gen_nodes
+  | IfBlock (pos, cond, nis1, nis2) -> 
+    let nis1, gen_nodes1 = List.map (desugar_node_item global_ctx ctx node_name) nis1 |> List.split in
+    let nis2, gen_nodes2 = List.map (desugar_node_item global_ctx ctx node_name) nis2 |> List.split in
+    let cond, gen_nodes3 = desugar_expr global_ctx ctx node_name cond in
+    A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
+  | FrameBlock (pos, vars, nes, nis) -> 
+    let nes = List.map (fun x -> A.Body x) nes in
+    let nes, gen_nodes1 = List.map (desugar_node_item global_ctx ctx node_name) nes |> List.split in
+    let nes = List.map (fun ne -> match ne with
+      | A.Body (A.Equation _ as eq) -> eq
+      | _ -> assert false
+    ) nes in
+    let nis, gen_nodes2 = List.map (desugar_node_item global_ctx ctx node_name) nis |> List.split in
+    FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
+  | Body (Assert (pos, e)) ->
+    let e, gen_nodes = desugar_expr global_ctx ctx node_name e in 
+    Body (Assert (pos, e)), gen_nodes
+  | AnnotMain _ -> ni, []
 
 let define_output: A.clocked_typed_decl -> A.node_item = 
 fun output ->
