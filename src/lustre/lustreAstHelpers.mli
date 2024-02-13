@@ -92,6 +92,10 @@ val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
     while excluding node call identifiers *)
 
+val vars_of_type: lustre_type -> SI.t
+(** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
+    while excluding node call identifiers and refinement type bound variables *)
+
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 (** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
 
