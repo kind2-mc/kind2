@@ -21,6 +21,9 @@ module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
 module SI = A.SI
 
+(* [i] is module state used to guarantee newly created identifiers are unique *)
+let i = ref 0
+
 let unwrap = 
   function 
   | Some v -> v 
@@ -31,11 +34,12 @@ let unwrap_res =
   | Ok v -> v 
   | Error _ -> assert false
 
-let ref_type_to_contract: A.lustre_type -> Ctx.tc_context -> HString.t -> HString.t -> A.declaration option
-= fun ty ctx ty_name node_id -> match ty with 
+let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
+= fun ctx ty node_id -> match ty with 
   | RefinementType (pos, (_, id, ty), expr) -> 
     let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
-    let gen_node_id = HString.concat2 ty_name (HString.mk_hstring "_node") in
+    let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) 
+                                      (HString.mk_hstring "_node") in
     let is_extern = true in
     let params = [] in 
     let vars = AH.vars_without_node_call_ids expr in
@@ -44,7 +48,10 @@ let ref_type_to_contract: A.lustre_type -> Ctx.tc_context -> HString.t -> HStrin
       let ty = Ctx.lookup_ty ctx id |> unwrap in
       let ty = Chk.expand_type ctx ty |> unwrap_res in
       let is_const = Ctx.member_val ctx id in
-      let call_params = Ctx.lookup_node_param_ids ctx node_id |> unwrap in
+      let call_params = (match node_id with 
+      | Some node_id -> Ctx.lookup_node_param_ids ctx node_id |> unwrap 
+      | None -> []
+      ) in
       let is_global_const = is_const && not (List.mem id call_params) in
       if is_global_const 
       then None 
@@ -59,12 +66,43 @@ let ref_type_to_contract: A.lustre_type -> Ctx.tc_context -> HString.t -> HStrin
       match ty with 
         | A.RefinementType (_, (_, id2, _), expr) -> 
           let expr =  (AH.substitute_naive id2 (Ident(pos, id)) expr) in
-          Some (A.Assume (pos, None, true, expr)) (*!! Same issue as below *)
+          Some (A.Assume (pos, None, false, expr))
         | _ -> None 
     ) inputs in 
     (* Add guarantee for 'expr' *) 
-    (*!! Soft vs weak guarantee (3rd element)? *)
-    let guarantee = A.Guarantee (pos, None, true, expr) in
+    let guarantee = A.Guarantee (pos, None, false, expr) in
     let contract = Some (guarantee :: assumptions) in
     Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, locals, node_items, contract)))
   | _ -> None
+
+let handle_inputs: Ctx.tc_context -> HString.t -> A.const_clocked_typed_decl -> A.declaration option list 
+= fun ctx node_id decl ->
+  assert false
+
+let handle_outputs: Ctx.tc_context -> HString.t -> A.clocked_typed_decl -> A.declaration option list 
+= fun ctx node_id decl ->
+  assert false
+
+let handle_locals: Ctx.tc_context -> HString.t -> A.node_local_decl -> A.declaration option list 
+= fun ctx node_id decl ->
+  assert false
+
+let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
+= fun ctx decls -> 
+  let gen_decls =
+    List.map (fun decl -> 
+      match decl with 
+      | A.TypeDecl (_, AliasType (_, _, ty))
+      | A.ConstDecl (_, FreeConst (_, _, ty))
+      | A.ConstDecl (_, TypedConst (_, _, _, ty)) -> [(ref_type_to_contract ctx ty None)]
+      | A.TypeDecl (_, FreeType _)
+      | A.ConstDecl (_, UntypedConst _) -> []
+      | A.NodeDecl (_, (id, _, _, inputs, outputs, locals, _, _))
+      | A.FuncDecl (_, (id, _, _, inputs, outputs, locals, _, _)) -> 
+        List.map (handle_inputs ctx id) inputs @ List.map (handle_outputs ctx id) outputs @ List.map (handle_locals ctx id) locals
+        |> List.flatten
+      | A.ContractNodeDecl _ 
+      | A.NodeParamInst _ -> [] (*TODO*)
+    ) decls |> List.flatten |> List.filter_map Fun.id
+  in
+  decls @ gen_decls
