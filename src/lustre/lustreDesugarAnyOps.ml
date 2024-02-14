@@ -67,7 +67,7 @@ fun global_ctx ctx node_name ->
     ) inputs in
     let name = mk_fresh_fn_name pos node_name in
     let generated_node = 
-      A.NodeDecl (span, 
+      A.FuncDecl (span, 
       (name, true, [], inputs, 
       [pos, id, ty, A.ClockTrue], [], [], Some contract)) 
     in
