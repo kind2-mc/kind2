@@ -49,7 +49,6 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | AnyOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
@@ -98,7 +97,6 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument to the node call '"
     ^ HString.string_of_hstring node ^ "'"
-  | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
@@ -570,7 +568,6 @@ let no_calls_to_node ctx = function
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
-  | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
 
 (* Note: this check is simpler if done after the contract imports have all been
