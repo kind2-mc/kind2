@@ -37,6 +37,8 @@ let unwrap_res =
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
 = fun ctx ty node_id -> match ty with 
   | RefinementType (pos, (_, id, ty), expr) as ref_type -> 
+    (* Only generate contracts if realizability checking is enabled *)
+    if not (List.mem `CONTRACTCK (Flags.enabled ())) then None else
     let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
     let ty_str = Lib.string_of_t A.pp_print_lustre_type ref_type |> HString.mk_hstring in
     let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) 
