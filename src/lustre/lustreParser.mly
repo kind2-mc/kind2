@@ -914,7 +914,7 @@ pexpr(Q):
 
   (* A quantified expression *)
   | FORALL; q = Q;
-    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, quantified_typed_idents); e = pexpr(Q)
     %prec prec_forall
     { let pos = mk_pos $startpos in
       if not q then
@@ -922,7 +922,7 @@ pexpr(Q):
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Forall, List.flatten vars, e) }
   | EXISTS; q = Q;
-    vars = tlist(LPAREN, SEMICOLON, RPAREN, exists_typed_idents); e = pexpr(Q)
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, quantified_typed_idents); e = pexpr(Q)
     %prec prec_exists
     { let pos = mk_pos $startpos in
       if not q then
@@ -1215,7 +1215,7 @@ lustre_type_or_history:
   | HISTORY ; LPAREN ; i = ident ; RPAREN
     { A.History (mk_pos $startpos, i) }
 
-exists_typed_idents:
+quantified_typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type_or_history
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
