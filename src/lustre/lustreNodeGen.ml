@@ -787,9 +787,10 @@ and compile_ast_expr
     let bounds = bounds @
       List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
         vars in
-    H.add_seq !map.quant_vars (H.to_seq quant_var_map);
+    let quant_vars = H.to_seq quant_var_map in
+    H.add_seq !map.quant_vars quant_vars;
     let result = compile_unary bounds (mk vars) expr in
-    H.clear !map.quant_vars;
+    Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
     result
 
   and compile_equality bounds polarity expr1 expr2 =
