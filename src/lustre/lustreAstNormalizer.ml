@@ -609,6 +609,216 @@ let normalize_list f list =
   in let list, gids, warnings = List.fold_left over_list ([], empty (), []) list in
   List.rev list, gids, warnings
 
+(** [desugar_history_in_expr c p e] desugars type constructors of
+    the form history(x) occurring in [e] using [c] for the name of
+    the counter variable and [p] as a prefix for the name of
+    the history variables. It returns the set of variables passed as
+    argument to the type constructors history and an expression that is
+    the result of desugaring the type constructors ocurring in [e] *)
+let desugar_history_in_expr ctx ctr_id prefix expr =
+  let mk_range pos idx_id =
+    A.BinaryOp (pos, And,
+      CompOp (pos, Lte,
+        Const (pos, Num (HString.mk_hstring "0")),
+        Ident(pos, idx_id)
+      ),
+      CompOp (pos, Lte, Ident(pos, idx_id), Ident(pos, ctr_id))
+    )
+  in
+  let rec r map expr =
+  match expr with
+  | A.Quantifier (pos, kind, idents, e) -> (
+    let vars, map, idents, constrs =
+      List.fold_left
+        (fun (vars, map, idents, constrs) (pos, bv, ty) ->
+          match ty with
+          | A.History (_, i) -> (
+            let hist_varid =
+              HString.mk_hstring
+                (Format.asprintf "%s_%a" prefix HString.pp_print_hstring i)
+            in
+            match kind with
+            | Exists -> (
+              let c = mk_range pos bv in
+              StringSet.add i vars,
+              StringMap.add bv hist_varid map,
+              (pos, bv, A.Int pos) :: idents,
+              c :: constrs
+            )
+            | Forall -> (
+              let idx_varid =
+                HString.mk_hstring
+                  (Format.asprintf "_idx_%a" HString.pp_print_hstring bv)
+              in
+              let c =
+                let e' =
+                  let eq =
+                    let lhs = A.Ident(pos, bv) in
+                    let rhs =
+                      A.ArrayIndex(pos,
+                        Ident(pos, hist_varid), Ident(pos, idx_varid))
+                    in
+                    A.CompOp(pos, A.Eq, lhs, rhs)
+                  in
+                  A.BinaryOp (pos, A.And, mk_range pos idx_varid, eq)
+                in
+                A.Quantifier (pos, A.Exists, [(pos, idx_varid, A.Int pos)], e')
+              in
+              let base_ty = Ctx.lookup_ty ctx i |> get in
+              StringSet.add i vars, map,
+              (pos, bv, base_ty) :: idents,
+              c :: constrs
+            )
+          )
+          | _ -> vars, map, (pos, bv, ty) :: idents, constrs
+        )
+        (StringSet.empty, map, [], [])
+        idents
+    in
+    let vars', e' = r map e in
+    let e' =
+      match constrs with
+      | [] -> e'
+      | [c] -> (
+        match kind with
+        | Exists -> A.BinaryOp(pos, And, c, e')
+        | Forall -> A.BinaryOp(pos, Impl, c, e')
+      )
+      | _ -> (
+        let conj =
+          List.fold_left
+            (fun acc c -> A.BinaryOp(pos, And, c, acc))
+            (List.hd constrs)
+            (List.tl constrs)
+        in
+        match kind with
+        | Exists -> BinaryOp(pos, And, conj, e')
+        | Forall -> BinaryOp(pos, Impl, conj, e')
+      )
+    in
+    StringSet.union vars vars',
+    Quantifier (pos, kind, List.rev idents, e')
+  )
+  | Ident (pos, id) -> (
+    match StringMap.find_opt id map with
+    | None -> StringSet.empty, expr
+    | Some hist_varid ->
+      StringSet.empty, ArrayIndex(pos, Ident(pos, hist_varid), expr)
+  )
+  | ModeRef _ -> StringSet.empty, expr
+  | RecordProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, RecordProject (pos, e', idx)
+  | TupleProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, TupleProject (pos, e', idx)
+  | Const _ -> StringSet.empty, expr
+  | UnaryOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, UnaryOp (pos, op, e')
+  | BinaryOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    BinaryOp (pos, op, e1', e2')
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, e3' = r map e3 in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    TernaryOp (pos, op, e1', e2', e3')
+  | ConvOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, ConvOp (pos, op, e')
+  | CompOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    CompOp (pos, op, e1', e2')
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | RecordExpr (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, RecordExpr (pos, ident, expr_list')
+  | GroupExpr (pos, kind, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, GroupExpr (pos, kind, expr_list')
+  | StructUpdate (pos, e1, idx_list, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    StructUpdate (pos, e1', idx_list, e2')
+  | ArrayConstr (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayConstr (pos, e1', e2')
+  | ArrayIndex (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayIndex (pos, e1', e2')
+  | When (pos, e, c) ->
+    let vars, e' = r map e in
+    vars, When (pos, e', c)
+  | Pre (pos, e) ->
+    let vars, e' = r map e in
+    vars, Pre (pos, e')
+  | Arrow (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    Arrow (pos, e1', e2')
+  | Call(pos, id, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, Call(pos, id, expr_list')
+  | Merge (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, Merge (pos, ident, expr_list')
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list' = desugar_expr_list map expr_list in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    Activate (pos, ident, e1', e2', expr_list')
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list1' = desugar_expr_list map expr_list1 in
+    let vars4, expr_list2' = desugar_expr_list map expr_list2 in
+    StringSet.(vars1 |> union vars2 |> union vars3 |> union vars4),
+    Condact (pos, e1', e2', id, expr_list1', expr_list2')
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let vars1, e' = r map e in
+    let vars2, expr_list' = desugar_expr_list map expr_list in
+    StringSet.union vars1 vars2,
+    RestartEvery (pos, ident, expr_list', e')
+  and desugar_expr_list map expr_list =
+    let vars, expr_list' =
+        expr_list
+        |> List.map (fun e -> r map e)
+        |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    expr_list'
+  and desugar_idx_expr_list map record_list =
+    let vars, idx_exp_list' =
+      record_list
+      |> List.map
+        (fun (i, e) -> let vars, e' = r map e in vars, (i, e'))
+      |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    idx_exp_list'
+  in
+  r StringMap.empty expr
+
+
 let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
@@ -858,7 +1068,7 @@ and normalize_node info map
 and desugar_history info expr =
   let prefix = "_history" in
   let history_arg_vars, expr =
-    AH.desugar_history ctr_id prefix expr
+    desugar_history_in_expr info.context ctr_id prefix expr
   in
   let info, h_gids =
     StringSet.fold
@@ -1168,9 +1378,10 @@ and normalize_contract info map ivars ovars items =
 
 and normalize_equation info map = function
   | Assert (pos, expr) ->
-    let nexpr, map, warnings = abstract_expr true info map true expr in
+    let info, h_gids, expr = desugar_history info expr in
+    let nexpr, gids, warnings = abstract_expr true info map true expr in
     let warnings = mk_warning pos UseOfAssertionWarning :: warnings in
-    A.Assert (pos, nexpr), map, warnings
+    A.Assert (pos, nexpr), union h_gids gids, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
