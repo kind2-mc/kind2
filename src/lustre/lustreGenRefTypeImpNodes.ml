@@ -34,6 +34,41 @@ let unwrap_res =
   | Ok v -> v 
   | Error _ -> assert false
 
+let node_decl_to_contract
+= fun (id, _, params, inputs, outputs, locals, _, contract) ->
+  if not (List.mem `CONTRACTCK (Flags.enabled ())) then None else
+  let contract = match contract with | None -> [] | Some contract -> contract in 
+  let contract = List.filter_map (fun ci -> 
+    match ci with 
+    (* Since we're checking feasibility of input assumptions, the assumptions become guarantees *)
+    | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
+    | _ -> None
+  ) contract in
+  let ty_contract_items = List.map (fun (_, _, ty, _, _) -> match ty with 
+    | A.RefinementType (pos, _, expr) -> 
+      let guarantee = A.Guarantee (pos, None, false, expr) in
+      [guarantee]
+    | _ -> []
+  ) inputs |> List.flatten in
+  let ty_contract_items2 = List.map (fun (_, _, ty, _) -> match ty with 
+    | A.RefinementType (pos, _, expr) -> 
+      let assumption = A.Assume (pos, None, false, expr) in
+      [assumption]
+    | _ -> []
+  ) outputs |> List.flatten in
+  let contract = ty_contract_items @ ty_contract_items2 @ contract in
+  let contract = if contract = [] then None else Some contract in
+  let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
+  let extern = true in 
+  let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
+  let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) id in
+  i := !i + 1;
+  let inputs, outputs = 
+    List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
+    List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
+  in
+  Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs, outputs, locals, node_items, contract)))
+
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
 = fun ctx ty node_id -> match ty with 
   | RefinementType (pos, (_, id, ty), expr) as ref_type -> 
@@ -79,37 +114,24 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
     Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, locals, node_items, contract)))
   | _ -> None
 
-let handle_inputs: Ctx.tc_context -> HString.t -> A.const_clocked_typed_decl -> A.declaration option 
-= fun ctx node_id (_, _, ty, _, _) ->
-  ref_type_to_contract ctx ty (Some node_id)
-
-let handle_outputs: Ctx.tc_context -> HString.t -> A.clocked_typed_decl -> A.declaration option 
-= fun ctx node_id (_, _, ty, _) ->
-  ref_type_to_contract ctx ty (Some node_id)
-
-let handle_locals: Ctx.tc_context -> HString.t -> A.node_local_decl -> A.declaration option 
-= fun ctx node_id -> function 
-  | A.NodeVarDecl (_, (_, _, ty, _)) 
-  | A.NodeConstDecl (_, TypedConst (_, _, _, ty))
-  | A.NodeConstDecl (_, FreeConst (_, _, ty)) -> ref_type_to_contract ctx ty (Some node_id)
-  | A.NodeConstDecl (_, UntypedConst _) -> None
-
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
 = fun ctx decls -> 
-  let gen_decls =
-    List.map (fun decl -> 
-      match decl with 
-      | A.TypeDecl (_, AliasType (_, _, ty))
-      | A.ConstDecl (_, FreeConst (_, _, ty))
-      | A.ConstDecl (_, TypedConst (_, _, _, ty)) -> [(ref_type_to_contract ctx ty None)]
-      | A.TypeDecl (_, FreeType _)
-      | A.ConstDecl (_, UntypedConst _) -> []
-      | A.NodeDecl (_, ((id, _, _, inputs, outputs, locals, _, _) as decl))
-      | A.FuncDecl (_, ((id, _, _, inputs, outputs, locals, _, _) as decl)) -> 
-        let ctx = Chk.get_node_ctx ctx decl |> unwrap_res in
-        List.map (handle_inputs ctx id) inputs @ List.map (handle_outputs ctx id) outputs @ List.map (handle_locals ctx id) locals
-      | A.ContractNodeDecl _ 
-      | A.NodeParamInst _ -> [] (*TODO*)
-    ) decls |> List.flatten |> List.filter_map Fun.id
-  in
-  decls @ gen_decls
+  List.fold_left (fun acc decl -> 
+    match decl with 
+    | A.TypeDecl (_, AliasType (_, _, ty))
+    | A.ConstDecl (_, FreeConst (_, _, ty))
+    | A.ConstDecl (_, TypedConst (_, _, _, ty)) -> 
+      (match (ref_type_to_contract ctx ty None) with  
+      | None -> decl :: acc
+      | Some decl2 -> decl :: decl2 :: acc)
+    | A.TypeDecl (_, FreeType _)
+    | A.ConstDecl (_, UntypedConst _) -> decl :: acc
+    | A.NodeDecl (_, decl2)
+    | A.FuncDecl (_, decl2) -> 
+      (* let ctx = Chk.get_node_ctx ctx decl2 |> unwrap_res in *)
+      (match node_decl_to_contract decl2 with 
+      | None -> decl :: acc
+      | Some decl2 -> decl :: decl2 :: acc)
+    | A.ContractNodeDecl _ 
+    | A.NodeParamInst _ -> decl :: acc (*TODO*)
+  ) [] decls 
