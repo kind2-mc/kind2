@@ -1780,7 +1780,7 @@ and normalize_ty info map id ty =
     let info =  { info with context = Ctx.add_ty info.context id2 ty }; in
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info map expr in
-    A.RefinementType (p1, (p2, id2, ty), nexpr), union h_gids gids, warnings
+    A.RefinementType (p1, (p2, id, ty), nexpr), union h_gids gids, warnings
     
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
   | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | TVar _ | IntRange _ 
