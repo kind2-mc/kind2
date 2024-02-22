@@ -61,8 +61,7 @@ let node_decl_to_contract
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let extern = true in 
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
-  let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) id in
-  i := !i + 1;
+  let gen_node_id = HString.concat2 (HString.mk_hstring "_inputs_") id in
   let inputs, outputs = 
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
