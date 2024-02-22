@@ -115,6 +115,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
 
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
 = fun ctx decls -> 
+  (*!! Right now, you have to mark (non)-imported nodes as MAIN in order to check their realizability *)
   List.fold_left (fun acc decl -> 
     match decl with 
     | A.TypeDecl (_, AliasType (_, _, ty))
@@ -133,4 +134,4 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
       | Some decl2 -> decl :: decl2 :: acc)
     | A.ContractNodeDecl _ 
     | A.NodeParamInst _ -> decl :: acc (*TODO*)
-  ) [] decls 
+  ) [] decls |> List.rev

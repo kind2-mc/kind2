@@ -313,7 +313,7 @@ let pp_print_realizability_result_pt
 
   let print_not_unknown_result tag =
     let inputs_tag_len = 8 in
-    if String.sub scope_str 0 inputs_tag_len = "_inputs_" then 
+    if String.length scope_str > 8 && String.sub scope_str 0 inputs_tag_len = "_inputs_" then 
       Format.fprintf
         fmt
         "@[<hov>%t Inputs to node %s were proven %s after %.3fs.@]@.@."
