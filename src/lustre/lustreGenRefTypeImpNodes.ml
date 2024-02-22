@@ -24,8 +24,6 @@ module SI = A.SI
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
-let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ())
-
 let unwrap = 
   function 
   | Some v -> v 
@@ -38,7 +36,7 @@ let unwrap_res =
 
 let node_decl_to_contract
 = fun (id, _, params, inputs, outputs, locals, _, contract) ->
-  if not contractck_enabled then None else
+  if not (List.mem `CONTRACTCK (Flags.enabled ())) then None else
   let contract = match contract with | None -> [] | Some contract -> contract in 
   let contract = List.filter_map (fun ci -> 
     match ci with 
@@ -74,7 +72,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
 = fun ctx ty node_id -> match ty with 
   | RefinementType (pos, (_, id, ty), expr) as ref_type -> 
     (* Only generate contracts if realizability checking is enabled *)
-    if not contractck_enabled then None else
+    if not (List.mem `CONTRACTCK (Flags.enabled ())) then None else
     let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
     let ty_str = Lib.string_of_t A.pp_print_lustre_type ref_type |> HString.mk_hstring in
     let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) 
@@ -130,7 +128,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
     | A.NodeDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
-        if not contractck_enabled then decl else
+        if not (List.mem `CONTRACTCK (Flags.enabled ())) then decl else
         A.NodeDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
       in
       (match node_decl_to_contract decl2 with 
@@ -138,7 +136,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
       | Some decl2 -> decl :: decl2 :: acc)
     | A.FuncDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
-        if not contractck_enabled then decl else
+        if not (List.mem `CONTRACTCK (Flags.enabled ())) then decl else
         A.FuncDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
       in
       (match node_decl_to_contract decl2 with 
