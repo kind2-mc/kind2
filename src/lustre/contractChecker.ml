@@ -316,7 +316,7 @@ let pp_print_realizability_result_pt
     if String.length scope_str > 8 && String.sub scope_str 0 inputs_tag_len = "_inputs_" then 
       Format.fprintf
         fmt
-        "@[<hov>%t Inputs to node %s were proven %s after %.3fs.@]@.@."
+        "@[<hov>%t Environment of node %s were proven %s after %.3fs.@]@.@."
         tag
         (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
         (Realizability.result_to_string result)
