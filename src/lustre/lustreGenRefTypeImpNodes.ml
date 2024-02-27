@@ -60,8 +60,8 @@ let node_decl_to_contracts
     | A.NodeConstDecl (_, FreeConst (_, _, A.RefinementType (pos, _, expr))) 
     | A.NodeConstDecl (_, TypedConst (_, _, _, A.RefinementType (pos, _, expr)))
     | A.NodeVarDecl (_, (_, _, A.RefinementType (pos, _, expr), _)) -> 
-      let assumption = A.Assume (pos, None, false, expr) in
-      [assumption]
+      let guarantee = A.Guarantee (pos, None, false, expr) in
+      [guarantee]
     | _ -> []
   ) locals |> List.flatten in 
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -164,4 +164,5 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.NodeParamInst _ -> decl :: acc (*TODO*)
   ) [] decls |> List.rev
 
-  (* TODO: Check if refinement types nested in other types works for realizability checks*)
+  (* TODO: Check if refinement types nested in other types works for realizability checks
+     TODO: Make sure correct assumes and guarantees are generated, don't need redundant ones for ref types *)
