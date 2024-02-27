@@ -79,11 +79,11 @@ let node_decl_to_contracts
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
   let gen_node_id = HString.concat2 (HString.mk_hstring "_inputs_") id in
   let gen_node_id2 = HString.concat2 (HString.mk_hstring "_contract_") id in
-  let inputs, outputs = 
+  let inputs2, outputs2 = 
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
   in
-  Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs, outputs, locals, node_items, contract)),
+  Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, locals, node_items, contract)),
         A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, contract2)))
 
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
