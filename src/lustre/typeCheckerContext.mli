@@ -155,6 +155,9 @@ val extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
 val extract_ret_ctx: LA.clocked_typed_decl -> tc_context
 (** Extracts the output stream as a typing context  *)
 
+val extract_loc_ctx: LA.node_local_decl -> tc_context
+(** Extracts the local stream as a typing context  *)
+
 val extract_consts: LA.const_clocked_typed_decl -> tc_context
 (** Extracts constants as a typing constant  *)
 

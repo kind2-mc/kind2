@@ -1139,11 +1139,16 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
                 ; Debug.parse "TC declaration node %a done }" LA.pp_print_ident node_name ;
                 [])
       else (
-        (* add local variable binding in the context *)
+
+        (* TODO: Need to perform error checking of this 
+           TODO: See if returning warnings is really necessary. If not, remove from type of (outside) function. *)
         let* local_var_ctxts_warnings = R.seq (List.map (local_var_binding ctx_plus_ips node_name) ldecls) in
-        let local_var_ctxts, warnings = List.split local_var_ctxts_warnings in
-        (* Local TC context is input vars + output vars + local const + var decls *)
-        let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
+
+        (* add local variable binding in the context *)
+        let local_ctx = List.fold_left union ctx_plus_ops_and_ips  
+          (List.map extract_loc_ctx ldecls)
+        in
+
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
         let check_items = R.seq_ (List.map (do_item local_ctx) items) in
@@ -1157,7 +1162,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
         in
         Debug.parse "TC declaration node %a done }"
           LA.pp_print_ident node_name;
-        check_items >> check_lhs_eqns >> R.ok (List.flatten warnings)))
+        check_items >> check_lhs_eqns >> R.ok []))
 
 and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function

@@ -239,7 +239,7 @@ main: p = list(decl) EOF { List.flatten p }
 
 
 (* A declaration is a type, a constant, a node or a function declaration *)
-decl:
+decl: 
   | d = const_decl { List.map 
                        (function e -> A.ConstDecl (mk_span $startpos $endpos, e)) 
                        d }
@@ -294,8 +294,8 @@ const_decl_body:
     { List.map (function e -> A.FreeConst (mk_pos $startpos, e, t)) (h :: l) } 
 
   (* Defined constant without a type *)
-  | s = ident; EQUALS; e = expr; SEMICOLON 
-    { [A.UntypedConst (mk_pos $startpos, s, e)] }
+  | ident; EQUALS; expr; SEMICOLON 
+    { fail_at_position (mk_pos $startpos) "Untyped constants not supported" }
 
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
