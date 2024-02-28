@@ -44,6 +44,26 @@ let node_decl_to_contracts
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
     | _ -> None
   ) base_contract in
+  (* let input_contract_items = List.map (fun (_, _, ty, _, _) -> match ty with 
+    | A.RefinementType (pos, _, expr) -> 
+      let guarantee = A.Guarantee (pos, None, false, expr) in
+      [guarantee]
+    | _ -> []
+  ) inputs |> List.flatten in
+  let output_contract_items = List.map (fun (_, _, ty, _) -> match ty with 
+    | A.RefinementType (pos, _, expr) -> 
+      let assumption = A.Assume (pos, None, false, expr) in
+      [assumption]
+    | _ -> []
+  ) outputs |> List.flatten in *)
+  (* let local_contract_items = List.map (fun local_decl -> match local_decl with 
+    | A.NodeConstDecl (_, FreeConst (_, _, A.RefinementType (pos, _, expr))) 
+    | A.NodeConstDecl (_, TypedConst (_, _, _, A.RefinementType (pos, _, expr)))
+    | A.NodeVarDecl (_, (_, _, A.RefinementType (pos, _, expr), _)) -> 
+      let guarantee = A.Guarantee (pos, None, false, expr) in
+      [guarantee]
+    | _ -> []
+  ) locals |> List.flatten in  *)
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)

@@ -1,7 +1,7 @@
 
 type my_record = struct { f1: bool };
 
-const C: my_record = my_record { f1=true; t=false };
+const C = my_record { f1=true; t=false };
 
 node N() returns (o: bool);
 let

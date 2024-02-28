@@ -1,5 +1,5 @@
-const n: int = 11;
-const w: int = 5;
+const n = 11;
+const w = 5;
 
 node y (const a: int) returns (b: int^n);
 let

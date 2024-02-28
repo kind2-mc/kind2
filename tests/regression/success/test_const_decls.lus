@@ -1,7 +1,7 @@
 type a;
 
-const r3_l: int = 1;
-const r3_u: int = 2;
+const r3_l = 1;
+const r3_u = 2;
 type r3 = subrange [r3_l, r3_u] of int;
 
 -- Declare an alias for the built-in type real
@@ -26,7 +26,7 @@ type i = { one: i2;  two : bool; };
 
 -- A constant of the type of the record, name of the record is
 -- required
-const i: i = i { one = i2 { a = 1; b = true }; two = true };
+const i = i { one = i2 { a = 1; b = true }; two = true };
 
 -- A constant of type bool
 const i_two : bool = i.two;
@@ -65,23 +65,23 @@ const a1, a2, a3: a;
 
 const a4: subrange [-1,2] of int;
 
--- Define constant with a type, will be checked 
-const b01: int = 1;
-      pi: real = 3.14;
+-- Define constants without a type, will be inferred
+const b01 = 1;
+      pi = 3.14;
 
 -- Define constant with a type, will be checked 
 const c1 : bool = true;
-      c2: int = 5;
+      c2 = 5;
 
 -- Use decimal or hexa-decimal notations for numerical constants
 
-const c3: int = 0xA0f ;
-      c4: real = .45e-45 ;
-      c5: real = 0.2E+3 ;
-      c6: real = 0x3.1f4p-5 ;
+const c3 = 0xA0f ;
+      c4 = .45e-45 ;
+      c5 = 0.2E+3 ;
+      c6 = 0x3.1f4p-5 ;
 
 type complex1 = { re: real; im: real };
-const j: complex1 = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
+const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
 
 const c100:int = 1 + 1;

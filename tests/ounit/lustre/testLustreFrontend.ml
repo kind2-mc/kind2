@@ -513,11 +513,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test not a field of record 02" (fun () ->
     match load_file "./lustreTypeChecker/not_a_field_of_record.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
     | _ -> false);
   mk_test "test no value for field 01" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_01.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
     | _ -> false);
   mk_test "test no value for field 02" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_02.lus" with
@@ -589,7 +589,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test expected record type" (fun () ->
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
   mk_test "test provided invalid type" (fun () ->
     match load_file "./lustreTypeChecker/provided.lus" with

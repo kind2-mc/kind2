@@ -2,7 +2,7 @@ type two = int ;
 
 type one = { blah: two } ;
 
-const two_c: real = 0.0 ;
+const two_c = 0.0 ;
 
 -- node two: real -> real
 node two (in: real) returns (out: real) ;

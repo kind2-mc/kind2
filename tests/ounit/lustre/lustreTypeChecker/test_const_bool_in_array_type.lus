@@ -1,5 +1,5 @@
-const n: int = 5;
-const t: bool = false;
+const n = 5;
+const t = false;
 
 node f(x : bool) returns (b1 : bool^n);
 var b: bool^t; -- should fail here

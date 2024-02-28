@@ -1,5 +1,5 @@
 
-const C: undeclared = undeclared { f=true };
+const C = undeclared { f=true };
 
 node N() returns (o:bool);
 let

@@ -1,4 +1,4 @@
-const N: int = 5;
+const N = 5;
 
 node arrays3(y:int) returns (A,B,C: int^N);
 let

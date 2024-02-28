@@ -10,7 +10,7 @@ tel
 node y (const a: bool) returns (b: int);
 
 -- Local constant declarations
-const c : int = 1; d: int = 2;
+const c : int = 1; d = 2;
 
 -- Local variable declarations 
 var t : y_t;

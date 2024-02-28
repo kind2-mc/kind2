@@ -281,10 +281,6 @@ let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
   = fun op -> let (i, ty) = LH.extract_op_ty op in
               singleton_ty i ty
 (** Extracts the output stream as a typing context  *)
-
-let extract_loc_ctx: LA.node_local_decl -> tc_context 
-  = fun local -> let (i, ty) = LH.extract_loc_ty local in
-                 singleton_ty i ty 
               
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
   = fun (pos, i, ty, _, is_const) ->

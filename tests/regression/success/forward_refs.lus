@@ -28,4 +28,4 @@ type one = { blah: two } ;
 
 type two = real ;
 
-const two_const: real = 0.0 ;
+const two_const = 0.0 ;

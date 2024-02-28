@@ -27,8 +27,8 @@ type w = t^3^5;
 -- type p = enum { start, loop, end }; 
 
 
--- Typed constant declaration
-const x: int = 1;
+-- Untyped constant declaration
+const x = 1;
 
 -- Typed constant declaration
 const y: int = 2;
@@ -74,7 +74,7 @@ const v2: v = [ t, t, t, t ];
 -- Must fail: not enough elements for array
 -- const v3: v = [ t ];
 
-const w: v^5 = [v, v, v, v, v];
+const w = [v, v, v, v, v];
 
 -- Not supported: enumerated types
 -- const p = start;

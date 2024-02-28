@@ -1,32 +1,32 @@
 const
 -- Boiler characteristics
-  N_pump: int = 4;
-  C: int = 1000;
-  M1: int = 150;	
-  N1: int = 400;
-  N2: int = 600;
-  M2: int = 850;
-  V: int = 10;
-  W: int = 25;
-  P: int = 15;
+  N_pump = 4;
+  C = 1000;
+  M1 = 150;	
+  N1 = 400;
+  N2 = 600;
+  M2 = 850;
+  V = 10;
+  W = 25;
+  P = 15;
 -- Controller characteristics
-  NB_stop: int = 3;
-  Dt: int = 5;
-  startup: int = 1;
-  initialize: int = 2;
-  normal: int = 3;
-  degraded: int = 4;
-  rescue: int = 5;
-  emergency: int = 6;
-  open: int = 1;
-  closed: int = 0;
-  off: int = 0;
-  on: int = 1;
-  switched_on: int = 2;
-  none: int = 3;
-  ok: int = 0;
-  signalled: int = 1;
-  acked: int = 2;
+  NB_stop = 3;
+  Dt = 5;
+  startup = 1;
+  initialize = 2;
+  normal = 3;
+  degraded = 4;
+  rescue = 5;
+  emergency = 6;
+  open = 1;
+  closed = 0;
+  off = 0;
+  on = 1;
+  switched_on = 2;
+  none = 3;
+  ok = 0;
+  signalled = 1;
+  acked = 2;
 
 ----------------------Operator----------------------------------------
 

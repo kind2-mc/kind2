@@ -1,4 +1,4 @@
-const N: int = 3;
+const N = 3;
 
 type rec = {
   x: int;

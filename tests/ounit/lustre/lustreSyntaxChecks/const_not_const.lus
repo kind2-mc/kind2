@@ -1,5 +1,5 @@
-const i: int = 1;
-const a: int = i -> 0;
+const i = 1;
+const a = i -> 0;
 
 node n (x: int) returns (b: bool);
 let

@@ -1,2 +1,2 @@
-const arr: bool^3 = false^3;
-const e: bool = arr[5]; -- should fail
+const arr = false^3;
+const e = arr[5]; -- should fail

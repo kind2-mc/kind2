@@ -1,4 +1,4 @@
-const c: bool = true;
+const c = true;
 
 node n(x:int) returns (y:int); -- should fail as c has a name clash 
 var c:int;

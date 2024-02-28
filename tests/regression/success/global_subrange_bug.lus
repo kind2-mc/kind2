@@ -1,7 +1,7 @@
 
 type S02 = subrange [0, 2] of int;
 
-const X: int = 2;
+const X = 2;
 const Y: subrange [0, 4] of int = X;
 const M: S02 = Y;
 

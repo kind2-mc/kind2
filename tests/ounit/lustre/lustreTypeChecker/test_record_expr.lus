@@ -8,7 +8,7 @@ type i = { one: i2;  two : bool; };
 
 -- A constant of the type of the record, name of the record is
 -- required
-const i_const: i = i { one = i2 { a = 1; b = true }; two = true };
+const i_const = i { one = i2 { a = 1; b = true }; two = true };
 
 -- A constant of type bool
 const i_two : bool = i_const.two;
