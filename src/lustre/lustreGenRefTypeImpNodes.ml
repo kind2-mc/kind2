@@ -44,7 +44,7 @@ let node_decl_to_contracts
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
     | _ -> None
   ) base_contract in
-  let input_contract_items = List.map (fun (_, _, ty, _, _) -> match ty with 
+  (* let input_contract_items = List.map (fun (_, _, ty, _, _) -> match ty with 
     | A.RefinementType (pos, _, expr) -> 
       let guarantee = A.Guarantee (pos, None, false, expr) in
       [guarantee]
@@ -55,15 +55,15 @@ let node_decl_to_contracts
       let assumption = A.Assume (pos, None, false, expr) in
       [assumption]
     | _ -> []
-  ) outputs |> List.flatten in
-  let local_contract_items = List.map (fun local_decl -> match local_decl with 
+  ) outputs |> List.flatten in *)
+  (* let local_contract_items = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (_, FreeConst (_, _, A.RefinementType (pos, _, expr))) 
     | A.NodeConstDecl (_, TypedConst (_, _, _, A.RefinementType (pos, _, expr)))
     | A.NodeVarDecl (_, (_, _, A.RefinementType (pos, _, expr), _)) -> 
       let guarantee = A.Guarantee (pos, None, false, expr) in
       [guarantee]
     | _ -> []
-  ) locals |> List.flatten in 
+  ) locals |> List.flatten in  *)
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
@@ -71,9 +71,7 @@ let node_decl_to_contracts
       Some (pos, id, ty, cl)
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
-  let contract = input_contract_items @ output_contract_items @ contract in
   let contract = if contract = [] then None else Some contract in
-  let contract2 = Some (base_contract @ local_contract_items) in
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let extern = true in 
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
@@ -84,7 +82,7 @@ let node_decl_to_contracts
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
   in
   Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, locals, node_items, contract)),
-        A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, contract2)))
+        A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
 
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
 = fun ctx ty node_id -> match ty with 
@@ -165,4 +163,5 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
   ) [] decls |> List.rev
 
   (* TODO: Check if refinement types nested in other types works for realizability checks
-     TODO: Make sure correct assumes and guarantees are generated, don't need redundant ones for ref types *)
+     TODO: Make sure correct assumes and guarantees are generated, don't need redundant ones for ref types.
+     TODO: Do more testing *)
