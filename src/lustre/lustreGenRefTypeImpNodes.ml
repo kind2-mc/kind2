@@ -24,6 +24,9 @@ module SI = A.SI
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
+let inputs_tag = ".inputs_"
+let contract_tag = ".contract_"
+
 let unwrap = 
   function 
   | Some v -> v 
@@ -75,8 +78,8 @@ let node_decl_to_contracts
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let extern = true in 
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
-  let gen_node_id = HString.concat2 (HString.mk_hstring "_inputs_") id in
-  let gen_node_id2 = HString.concat2 (HString.mk_hstring "_contract_") id in
+  let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
+  let gen_node_id2 = HString.concat2 (HString.mk_hstring contract_tag) id in
   let inputs2, outputs2 = 
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
