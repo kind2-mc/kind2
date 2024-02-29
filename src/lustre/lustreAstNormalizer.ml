@@ -914,10 +914,9 @@ and normalize_node info map
   in
   (* Record subrange constraints on locals
     and finish setting up the typing context for the node body *)
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
-    ctx
-    locals
+  let ctx = locals 
+    |> List.map Ctx.extract_loc_ctx
+    |> (List.fold_left Ctx.union ctx)
   in
   let info = { info with context = ctx } in
   let gids6 = locals

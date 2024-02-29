@@ -113,13 +113,10 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
 val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error ]) result 
-
-val local_var_binding: tc_context ->  HString.t -> LA.node_local_decl -> (tc_context * [> `LustreTypeCheckerWarning of Lib.position * warning_kind ] list, [> error]) result 
-
 val get_node_ctx : tc_context ->
-  HString.t * 'b * 'c * LA.const_clocked_typed_decl list *
+  'a * 'b * 'c * LA.const_clocked_typed_decl list *
   LA.clocked_typed_decl list * LA.node_local_decl list * 'd * 'e ->
-  (tc_context, [> error ]) result
+  tc_context
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->

@@ -268,41 +268,27 @@ fun global_ctx decls ->
   List.fold_left (fun decls decl ->
     match decl with
     | A.NodeDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
-    (
-      match Chk.get_node_ctx global_ctx d with 
-        | Ok ctx ->
-          let items = if not ext then define_undefined_variables outputs items else items in 
-          let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
-          let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
-          let gen_nodes = List.flatten gen_nodes in
-          decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
-        (* If there is an error in context collection, it will be detected later in type checking *)
-        | Error _ -> decl :: decls
-    )
+      let ctx = Chk.get_node_ctx global_ctx d in
+      let items = if not ext then define_undefined_variables outputs items else items in 
+      let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
+      let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
+      let gen_nodes = List.flatten gen_nodes in
+      decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
     | A.FuncDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
-    (
-      match Chk.get_node_ctx global_ctx d with 
-        | Ok ctx -> 
-          let items = if not ext then define_undefined_variables outputs items else items in 
-          let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
-          let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
-          let gen_nodes = List.flatten gen_nodes in
-          decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
-        (* If there is an error in context collection, it will be detected later in type checking *)
-        | Error _ -> decl :: decls
-    )
+      let ctx = Chk.get_node_ctx global_ctx d in
+      let items = if not ext then define_undefined_variables outputs items else items in 
+      let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
+      let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
+      let gen_nodes = List.flatten gen_nodes in
+      decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
     | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) -> 
-      (
-        match Chk.get_node_ctx global_ctx (id, (), (), inputs, outputs, [], (), ()) with (* Unit type params are unused in function *)
-          | Ok ctx -> 
-            let contract, gen_nodes = desugar_contract global_ctx ctx id (Some contract) in
-            let contract = match contract with 
-              | Some contract -> contract 
-              | None -> assert false in (* Must have a contract *)
-            decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
-          (* If there is an error in context collection, it will be detected later in type checking *)
-          | Error _ -> decl :: decls
-      )
+      (* Unit type params are unused in function *)
+      let ctx = Chk.get_node_ctx global_ctx (id, (), (), inputs, outputs, [], (), ()) in
+      let contract, gen_nodes = desugar_contract global_ctx ctx id (Some contract) in
+      let contract = match contract with 
+        | Some contract -> contract 
+        | None -> assert false in (* Must have a contract *)
+      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
     | _ -> decl :: decls
   ) [] decls in 
 decls

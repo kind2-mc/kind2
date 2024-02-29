@@ -25,7 +25,6 @@ module AH = LustreAstHelpers
 module AD = LustreAstDependencies
 module AIC = LustreAstInlineConstants
 module Ctx = TypeCheckerContext
-module Chk = LustreTypeChecker
 
 module StringMap = HString.HStringMap
 
@@ -102,10 +101,6 @@ let union_ a b =
 let empty_ = R.ok G.empty
 
 let zero = A.Const (Lib.dummy_pos, A.Num (HString.mk_hstring "0"))
-
-let unwrap result = match result with
-  | Ok r -> r
-  | Error _ -> assert false
 
 let rec expr_index_layers = function
   | A.ArrayIndex (_, e, _) -> 1 + expr_index_layers e
@@ -272,7 +267,7 @@ let rec check_inductive_array_dependencies ctx ns = function
   | [] -> Ok ()
 
 and check_node_decl ctx ns decl =
-  let (node_id, _, _, inputs, outputs, locals, items, _) = decl in
+  let (_, _, _, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -286,15 +281,11 @@ and check_node_decl ctx ns decl =
     |> List.map Ctx.extract_ret_ctx
     |> (List.fold_left Ctx.union ctx)
   in
-  let ctx = Ctx.union
-    (Ctx.union constants_ctx ctx)
-    (Ctx.union input_ctx output_ctx)
+  let local_ctx = locals 
+    |> List.map Ctx.extract_loc_ctx
+    |> (List.fold_left Ctx.union ctx)
   in
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
-    ctx
-    locals
-  in
+  let ctx = List.fold_left Ctx.union ctx [constants_ctx; input_ctx; output_ctx; local_ctx] in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
   (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in

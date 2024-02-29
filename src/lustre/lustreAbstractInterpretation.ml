@@ -263,19 +263,15 @@ and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
     |> List.map Ctx.extract_ret_ctx
     |> (List.fold_left Ctx.union ty_ctx)
   in
-  let ty_ctx = Ctx.union
-    (Ctx.union constants_ctx ty_ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ty_ctx = List.fold_left Ctx.union ty_ctx [constants_ctx; input_ctx; output_ctx] in
   let ctx = IMap.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
-  let ty_ctx = List.fold_left
-    (fun ctx local -> TC.local_var_binding ctx id local |> unwrap |> fst)
-    ty_ctx
-    locals 
+  let ty_ctx = locals 
+    |> List.map Ctx.extract_loc_ctx
+    |> (List.fold_left Ctx.union ty_ctx)
   in
   let gids_node = GeneratedIdentifiers.StringMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
