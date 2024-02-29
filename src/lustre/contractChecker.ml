@@ -314,8 +314,7 @@ let pp_print_realizability_result_pt
   let print_not_unknown_result tag =
     let inputs_tag_len = 8 in
     let contract_tag_len = 10 in
-    if String.length scope_str > inputs_tag_len && 
-       String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.gen_contract_inputs_tag then 
+    if String.length scope_str > inputs_tag_len && String.sub scope_str 0 inputs_tag_len = "_inputs_" then 
       Format.fprintf
         fmt
         "@[<hov>%t Environment of node %s was proven %s after %.3fs.@]@.@."
@@ -323,8 +322,7 @@ let pp_print_realizability_result_pt
         (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
         (Realizability.result_to_string result)
         (Stat.get_float Stat.analysis_time) 
-    else if String.length scope_str > contract_tag_len && 
-            String.sub scope_str 0 contract_tag_len = LustreGenRefTypeImpNodes.gen_contract_tag then
+    else if String.length scope_str > contract_tag_len && String.sub scope_str 0 contract_tag_len = "_contract_" then
       Format.fprintf
         fmt
         "@[<hov>%t Contract of node %s was proven %s after %.3fs.@]@.@."

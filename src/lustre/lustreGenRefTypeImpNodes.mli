@@ -18,9 +18,6 @@
  (** @author Rob Lorch *)
 
 
-val gen_contract_tag : string
-val gen_contract_inputs_tag : string
-
 module A = LustreAst
 module Ctx = TypeCheckerContext
 
