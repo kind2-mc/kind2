@@ -234,10 +234,6 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
 (*                      Lustre Ast Dependencies Checks                         *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
-  (* mk_test "test local shadowing global" (fun () ->
-    match load_file "./lustreAstDependencies/test_shadowing.lus" with
-    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
-    | _ -> false); *)
   mk_test "test cyclic definition of contracts" (fun () ->
     match load_file "./lustreAstDependencies/circular_contracts.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
@@ -481,6 +477,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test shadowed mode def" (fun () ->
     match load_file "./lustreTypeChecker/mode_reqs_by_idents_shadowing.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
+  mk_test "test local shadowing global" (fun () ->
+    match load_file "./lustreTypeChecker/test_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
   mk_test "test expected type 1" (fun () ->

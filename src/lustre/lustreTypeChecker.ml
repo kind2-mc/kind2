@@ -1126,9 +1126,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
                 ; Debug.parse "TC declaration node %a done }" LA.pp_print_ident node_name ;
                 [])
       else (
-
-        pp_print_tc_context Format.std_formatter ctx_plus_ips;
-        
         (* add local variable bindings to the context *)
         let local_ctx = List.fold_left union ctx_plus_ops_and_ips  
           (List.map extract_loc_ctx ldecls)
@@ -1141,8 +1138,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> `Lus
             check_type_well_formed local_ctx Local (Some node_name) ty 
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) in 
-        
-
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
         let check_items = R.seq_ (List.map (do_item local_ctx) items) in
