@@ -69,12 +69,6 @@ let (let*) = R.(>>=)
 
 let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
-(* This looks unsafe, but we only apply unwrap when we know from earlier stages
-   in the pipeline that an error is not possible. *)
-let unwrap result = match result with
-  | Ok r -> r
-  | Error _ -> assert false
-
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle pos expr_type =
   i := !i + 1;
