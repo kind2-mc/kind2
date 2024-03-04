@@ -621,7 +621,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1 }
   in 
-  let gids, warnings = normalize_gids info gids in
+  let gids, warnings = normalize_gids info gids decls in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
     let (normal_item, map, warnings) =
@@ -660,11 +660,26 @@ and normalize_declaration info map = function
   | ContractNodeDecl (_, _) -> None, StringMap.empty, []
   | decl -> Some decl, StringMap.empty, []
 
-and normalize_gids info gids_map = 
+and normalize_gids info gids_map decls = 
   (* Convert gids_map to a new gids_map with normalized equations *)
   let gids_map, warnings = StringMap.fold (fun id gids (gids_map, warnings)  -> 
     (* Normalize all equations in gids *)
     let res = List.map (fun (_, _, lhs, expr) ->
+      (* Collect context from the corresponding declaration *)
+      let decl = List.find (fun decl -> match decl with 
+      | A.ContractNodeDecl (_, (id2, _, _, _, _))
+      | A.NodeDecl (_, (id2, _, _, _, _, _, _, _)) 
+      | A.FuncDecl (_, (id2, _, _, _, _, _, _, _)) -> id = id2
+      | _ -> assert false
+      ) decls in 
+      let inputs, outputs, locals = match decl with 
+      | A.ContractNodeDecl (_, (_, _, ips, ops, _)) -> ips, ops, []
+      | A.NodeDecl (_, (_, _, _, ips, ops, locs, _, _)) 
+      | A.FuncDecl (_, (_, _, _, ips, ops, locs, _, _)) -> ips, ops, locs
+      | _ -> assert false
+      in
+      let ctx = Chk.get_node_ctx info.context ((), (), (), inputs, outputs, locals, (), ()) |> unwrap in
+      let info = { info with context = ctx; } in
       let nexpr, gids, warnings = normalize_expr info gids_map expr in
       gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
     ) gids.equations in
@@ -1326,6 +1341,8 @@ and normalize_expr ?guard info map =
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
+      A.pp_print_expr Format.std_formatter expr;
+      Ctx.pp_print_tc_context Format.std_formatter info.context;
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
