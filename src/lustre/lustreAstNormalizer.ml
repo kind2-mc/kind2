@@ -1341,8 +1341,6 @@ and normalize_expr ?guard info map =
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
-      A.pp_print_expr Format.std_formatter expr;
-      Ctx.pp_print_tc_context Format.std_formatter info.context;
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
