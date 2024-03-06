@@ -224,44 +224,6 @@ fun global_ctx ctx node_name ni ->
       Body (Assert (pos, e)), gen_nodes
     | AnnotMain _ -> ni, []
 
-let define_output: A.clocked_typed_decl -> A.node_item = 
-fun output ->
-  let (pos, id, ty, _) = output in
-  A.Body (Equation (pos, StructDef(pos, [SingleIdent(pos, id)]), 
-                         AnyOp(pos, (pos, id, ty), Const(pos, True), None)))
-
-let is_undefined_output: A.clocked_typed_decl -> A.node_item list -> bool = 
-fun output items -> 
-  (* Search for definition *)
-  let (_, id, _, _) = output in
-  let rec find_def item = match item with 
-    | A.Body (A.Equation (_, StructDef (_, sis), _)) -> 
-      let definition = List.find_opt (fun si -> match si with 
-        | A.SingleIdent (_, id2) -> id = id2
-        | ArrayDef (_, id2, _) -> id = id2
-        | _ -> assert false
-      ) sis in 
-      definition != None
-    | IfBlock (_, _, nes1, nes2) -> 
-      List.map find_def nes1 @ (List.map find_def nes2) 
-      |> List.filter Fun.id |> (fun lst -> List.length lst > 0)
-    | FrameBlock (_, vars, _, _) -> 
-      let definition = List.find_opt (fun (_, id2) -> id = id2) vars in 
-      definition != None
-    | A.Body (Assert _)  | AnnotMain _ | AnnotProperty _ -> false  
-  in
-  let definition = List.find_opt find_def items in 
-  (* If no definition, then output is undefined *)
-  definition = None
-
-  
-let define_undefined_variables: A.clocked_typed_decl list -> A.node_item list -> A.node_item list
-= fun outputs items -> 
-  let items2 = List.map (fun output -> 
-    if is_undefined_output output items then [define_output output] else []
-  ) outputs |> List.flatten in 
-  items @ items2
-
 let desugar_any_ops: Ctx.tc_context -> A.declaration list -> A.declaration list = 
 fun global_ctx decls -> 
   let decls =
@@ -270,8 +232,7 @@ fun global_ctx decls ->
     | A.NodeDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
     (
       match Chk.get_node_ctx global_ctx d with 
-        | Ok ctx ->
-          let items = if not ext then define_undefined_variables outputs items else items in 
+        | Ok ctx -> 
           let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
           let gen_nodes = List.flatten gen_nodes in
@@ -282,8 +243,7 @@ fun global_ctx decls ->
     | A.FuncDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
     (
       match Chk.get_node_ctx global_ctx d with 
-        | Ok ctx -> 
-          let items = if not ext then define_undefined_variables outputs items else items in 
+        | Ok ctx ->  
           let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
           let gen_nodes = List.flatten gen_nodes in

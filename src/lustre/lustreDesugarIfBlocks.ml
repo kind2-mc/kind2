@@ -245,13 +245,14 @@ let get_tree_type ctx lhs =
     | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
-let rec fill_ite_with_oracles expr ty =
+let rec fill_ite_with_oracles ctx expr ty =
   match expr with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
-      let e1, gids1, decls1 = fill_ite_with_oracles e1 ty in
-      let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
+      let e1, gids1, decls1 = fill_ite_with_oracles ctx e1 ty in
+      let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
+      let ty = Chk.expand_type ctx ty |> unwrap in
       let (expr, gids) = (mk_fresh_ib_oracle p ty) in
       (match expr with
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
@@ -314,7 +315,7 @@ let extract_equations_from_if node_id ctx ib =
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
-  let res = List.map2 fill_ite_with_oracles ites tys in
+  let res = List.map2 (fill_ite_with_oracles ctx) ites tys in
   let ites = List.map (fun (x, _, _) -> x) res in
   let gids = List.map (fun (_, y, _) -> y) res in
   let new_decls = List.map (fun (_, _, z) -> z) res |> List.flatten in
