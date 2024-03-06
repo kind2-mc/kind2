@@ -133,6 +133,12 @@ val expand_type : tc_context ->
     [> `LustreTypeCheckerError of Lib.position * error_kind ] )
   result
 
+val get_base_type : tc_context ->
+  tc_type ->
+  ( tc_type,
+    [> `LustreTypeCheckerError of Lib.position * error_kind ] )
+  result
+  
 val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 

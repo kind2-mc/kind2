@@ -437,6 +437,35 @@ let rec expand_type ctx = function
     expand_type ctx ty
   | ty -> R.ok (expand_nested_type_syn ctx ty)
 
+let rec get_base_type ctx = function 
+| LA.History (pos, i) -> (
+  match lookup_ty ctx i with
+  | None -> type_error pos (UnboundIdentifier i)
+  | Some ty -> get_base_type ctx ty
+)
+| LA.RefinementType (_, (_, _, ty), _) -> 
+  get_base_type ctx ty
+| LA.IntRange (pos, _, _) -> R.ok (LA.Int pos)
+| LA.ArrayType (pos, (ty, expr)) ->  
+  let* ty = get_base_type ctx ty in
+  R.ok (LA.ArrayType (pos, (ty, expr)))
+| LA.TupleType (pos, tys) ->
+  let* tys = R.seq (List.map (get_base_type ctx) tys) in
+  R.ok (LA.TupleType (pos, tys))
+| LA.GroupType (pos, tys) -> 
+  let* tys = R.seq (List.map (get_base_type ctx) tys) in
+  R.ok (LA.GroupType (pos, tys))
+| LA.RecordType (pos, id, tis) ->
+  let* tis = 
+    R.seq (List.map (fun (pos, id, ty) -> let* ty = get_base_type ctx ty in R.ok (pos, id, ty)) tis) 
+  in
+  R.ok (LA.RecordType (pos, id, tis))
+| LA.TArr (pos, ty1, ty2) -> 
+  let* ty1 = get_base_type ctx ty1 in 
+  let* ty2 = get_base_type ctx ty2 in 
+  R.ok (LA.TArr (pos, ty1, ty2))
+| ty -> R.ok ty
+
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)

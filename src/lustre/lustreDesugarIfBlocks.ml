@@ -252,7 +252,7 @@ let rec fill_ite_with_oracles ctx expr ty =
       let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
-      let ty = Chk.expand_type ctx ty |> unwrap in
+      let ty = Chk.get_base_type ctx ty |> unwrap in
       let (expr, gids) = (mk_fresh_ib_oracle p ty) in
       (match expr with
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
