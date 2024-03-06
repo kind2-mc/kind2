@@ -962,22 +962,7 @@ and normalize_ghost_declaration info map = function
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
-  let constants_ctx = inputs
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let input_ctx = inputs
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let output_ctx = outputs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let ctx = Ctx.union
-    (Ctx.union constants_ctx info.context)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ctx = Chk.add_io_node_ctx info.context inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs *)
@@ -1002,14 +987,9 @@ and normalize_node info map
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
-  (* Record subrange constraints on locals
-    and finish setting up the typing context for the node body *)
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap)
-    ctx
-    locals
-  in
+  let ctx = Chk.add_local_node_ctx ctx locals |> unwrap in
   let info = { info with context = ctx } in
+  (* Record subrange constraints on locals *)
   let gids3 = locals
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 

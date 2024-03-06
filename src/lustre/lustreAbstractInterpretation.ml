@@ -231,52 +231,18 @@ and interpret_decl ty_ctx gids = function
 
 and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
   (* Setup the typing context *)
-  let constants_ctx = ins
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let input_ctx = ins
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let output_ctx = outs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let ty_ctx = Ctx.union
-    (Ctx.union constants_ctx ty_ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
   interpret_contract id empty_context ty_ctx contract
 
 and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
-  let constants_ctx = ins
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let input_ctx = ins
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let output_ctx = outs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let ty_ctx = Ctx.union
-    (Ctx.union constants_ctx ty_ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
   let ctx = IMap.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
-  let ty_ctx = List.fold_left
-    (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
-    ty_ctx
-    locals 
-  in
+  let ty_ctx = TC.add_local_node_ctx ty_ctx locals |> unwrap in
   let gids_node = GeneratedIdentifiers.StringMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
     (fun id (_, ty) ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
