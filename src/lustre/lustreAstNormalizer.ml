@@ -831,19 +831,20 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1 }
   in 
-  let gids, warnings = normalize_gids info gids in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
-    let (normal_item, map, warnings) =
+    let (normal_item, accum, warnings) =
       normalize_declaration info accum item in
     (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
-    StringMap.merge union_keys2 map accum,
+    accum,
     warnings @ warnings_accum
-  in let ast, map, warnings = List.fold_left over_declarations
-    ([], gids, warnings) decls
-  in let ast = List.rev ast in
+  in
+  let ast, map, warnings =
+    List.fold_left over_declarations ([], gids, []) decls
+  in
+  let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
     ^^ "Generated Identifiers:\n%a\n\n"
@@ -860,6 +861,25 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
 
   Res.ok (ast, map, warnings)
 
+and normalize_gid_equations info gids_map node_id =
+  match StringMap.find_opt node_id gids_map with
+  | None -> empty(), []
+  | Some gids -> (
+    (* Normalize all equations in gids *)
+    let res = List.map (fun (_, _, lhs, expr) ->
+      let nexpr, gids, warnings = normalize_expr info gids_map expr in
+      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
+    ) gids.equations in
+    let gids_list, warnings, eqs = split3 res in
+    (* Take out old equations that were not normalized *)
+    let gids = { gids with equations = [] } in
+    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
+    (* Keep equations generated during normalization *)
+    let eqs2 = gids.equations in
+    let gids = { gids with equations = eqs @ eqs2; } in
+    (gids, List.flatten warnings)
+  )
+
 and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
@@ -867,29 +887,13 @@ and normalize_declaration info map = function
   | FuncDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.FuncDecl (span, normal_decl)), map, warnings
-  | ContractNodeDecl (_, _) -> None, StringMap.empty, []
-  | decl -> Some decl, StringMap.empty, []
-
-and normalize_gids info gids_map = 
-  (* Convert gids_map to a new gids_map with normalized equations *)
-  let gids_map, warnings = StringMap.fold (fun id gids (gids_map, warnings)  -> 
-    (* Normalize all equations in gids *)
-    let res = List.map (fun (_, _, lhs, expr) ->
-      let nexpr, gids, warnings = normalize_expr info gids_map expr in
-      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
-    ) gids.equations in
-    let gids_list, warnings2, eqs = split3 res in
-    (* Take out old equations that were not normalized *)
-    let gids = { gids with equations = [] } in
-    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
-    let warnings2 = List.flatten warnings2 in
-    (* Keep equations generated during normalization *)
-    let eqs2 = gids.equations in
-    let gids = { gids with equations = eqs @ eqs2; } in
-    let gids_map = StringMap.add id gids gids_map in
-    (gids_map, warnings @ warnings2)
-  ) gids_map (gids_map, []) in
-  gids_map, warnings
+  | ContractNodeDecl (_, (id, _, ips, ops, _)) ->
+    let ctx = Chk.add_io_node_ctx info.context ips ops in
+    let info = { info with context = ctx } in
+    let ngids, warnings = normalize_gid_equations info map id in
+    let map = StringMap.add id ngids map in
+    None, map, warnings
+  | decl -> Some decl, map, []
 
 and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
   let contract_ref = cref in
@@ -1040,9 +1044,11 @@ and normalize_node info map
       gids4'.history_vars
       (empty ())
   in
-  let gids = union_list [gids1; gids2; gids3; gids4'; gids5'; gids6] in
-  let map = StringMap.singleton node_id gids in
-  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2
+  let new_gids = union_list [gids1; gids2; gids3; gids4'; gids5'; gids6] in
+  let old_gids, warnings3 = normalize_gid_equations info map node_id in
+  let map = StringMap.add node_id (union old_gids new_gids) map in
+  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
+  map, warnings1 @ warnings2 @ warnings3
 
 
 and desugar_history info expr =
