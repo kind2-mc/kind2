@@ -38,8 +38,10 @@ type pred_def = UfSymbol.t * (Var.t list * Term.t)
 (* Instance of a subsystem *)
 type instance = 
   {
+    (* Unique identifier of the instance *)
+    uid : int;
 
-    (* Position as a unique identifier of the instance *)
+    (* Position of the call *)
     pos : position;
 
     (* Map from state variables of the called system to the state variables of

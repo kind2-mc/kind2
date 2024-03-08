@@ -568,6 +568,7 @@ let rec add_subsystem' trans_sys instance accum =
 (* Add instance of called node to list of subsystems *)
 let add_subsystem
     trans_sys
+    uid
     pos
     map_up
     map_down
@@ -576,7 +577,8 @@ let add_subsystem
     subsystems =
 
   let instance =
-    { TransSys.pos; 
+    { TransSys.uid;
+      TransSys.pos; 
       TransSys.map_up; 
       TransSys.map_down; 
       TransSys.guard_clock;
@@ -630,6 +632,7 @@ let register_call_bound globals map_up sv =
    condition *)
 let call_terms_of_node_call mk_fresh_state_var globals
     { N.call_node_name ;
+      N.call_id        ;
       N.call_pos       ;
       N.call_inputs    ;
       N.call_oracles   ;
@@ -699,10 +702,11 @@ let call_terms_of_node_call mk_fresh_state_var globals
          let inst_state_var =
            let name =
              let row, col = row_col_of_pos call_pos in
-             Format.asprintf "inst_%a_l%dc%d_%a"
+             Format.asprintf "inst_%a_l%dc%d_%a_%d"
                (I.pp_print_ident true) call_node_name
                row col
                StateVar.pp_print_state_var state_var
+               call_id
            in
            mk_fresh_state_var
              ?is_const:(Some (StateVar.is_const state_var))
@@ -952,7 +956,7 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_pos; N.call_node_name; N.call_cond = [] }
+  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -991,6 +995,7 @@ let rec constraints_of_node_calls
     let subsystems =
       add_subsystem
         trans_sys
+        call_id
         call_pos
         state_var_map_up
         state_var_map_down
@@ -1018,7 +1023,7 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
+  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -1056,7 +1061,7 @@ let rec constraints_of_node_calls
     
     (* Add node instance to list of subsystems and guard with not restart *)
     let subsystems =
-      add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
+      add_subsystem trans_sys call_id call_pos state_var_map_up state_var_map_down
         (fun i t ->  
            Term.mk_implies
              [Var.mk_state_var_instance restart i |> Term.mk_var
@@ -1092,7 +1097,8 @@ let rec constraints_of_node_calls
 
 
   (* Node call with activation condition *)
-  | { N.call_pos; 
+  | { N.call_id;
+      N.call_pos;
       N.call_node_name; 
       N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
@@ -1467,6 +1473,7 @@ let rec constraints_of_node_calls
     let subsystems =
       add_subsystem
         trans_sys
+        call_id
         call_pos
         state_var_map_up
         state_var_map_down
