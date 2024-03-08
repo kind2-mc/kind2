@@ -73,6 +73,7 @@ val trans_sys_of_analysis:
   ?preserve_sig:bool ->
   ?slice_nodes:bool ->
   ?add_functional_constraints: bool ->
+  ?slice_to_prop:Property.t ->
   'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
