@@ -61,6 +61,9 @@ type call_cond =
     dummy position. *)
 type node_call = {
 
+  call_id : int;
+  (* A unique numerical id *)
+
   call_pos : position;
   (** Position of node call in input file *)
 

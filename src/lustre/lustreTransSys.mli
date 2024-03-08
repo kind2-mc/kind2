@@ -20,6 +20,7 @@ type settings = {
   preserve_sig: bool;
   slice_nodes: bool;
   add_functional_constraints: bool;
+  slice_to_prop: Property.t option;
 }
 
 val default_settings: settings

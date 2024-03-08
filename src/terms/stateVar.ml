@@ -209,6 +209,7 @@ let string_of_state_var s = string_of_t pp_print_state_var s
 (* Accessor function                                                     *)
 (* ********************************************************************* *)
 
+let uid { Hashcons.tag } = tag
 
 (* Identifier of a state variable *)
 let name_of_state_var { Hashcons.node = (n, _) } = n
