@@ -7,91 +7,9 @@ on:
     - cron: "0 8 * * *"
 
 jobs:
-  kind2-linux-bin:
+  get-nightly-ready:
     if: github.repository == 'kind2-mc/kind2'
     runs-on: ubuntu-latest
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        driver-opts: network=host
-
-    - name: Build and push to local registry
-      uses: docker/build-push-action@v5
-      with:
-        file: docker/Dockerfile
-        context: ./
-        target: builder
-        push: true
-        tags: localhost:5000/name/kind2:latest
-    
-    - name: Extract kind 2 binary
-      id: extract
-      uses: shrink/actions-docker-extract@v3
-      with:
-        image: localhost:5000/name/kind2:latest
-        path: /home/opam/kind2-build/bin/kind2
-
-    - name: Upload kind2 binary
-      uses: actions/upload-artifact@v4
-      with:
-        path: ${{ steps.extract.outputs.destination }}
-        name: linux-x86_64
-
-
-  kind2-macos-bin:
-    if: github.repository == 'kind2-mc/kind2'
-    strategy:
-      matrix:
-        os: [ macos-12, macos-14 ]
-        ocaml-version: [ 5.1.1 ]
-        include:
-          - os: macos-12
-            pkg-name: macos-x86_64
-          - os: macos-14
-            pkg-name: macos-arm64
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up OCaml ${{ matrix.ocaml-version }}+flambda
-      uses: ocaml/setup-ocaml@v2
-      with:
-        ocaml-compiler: ocaml-variants.${{ matrix.ocaml-version }}+options,ocaml-option-flambda
-
-    - name: Install Kind2 OCaml dependencies
-      run: opam install -y . --deps-only
-
-    - name: Build Kind 2
-      run: opam exec make static
-
-    - name: Strip binary
-      run: strip bin/kind2
-
-    - name: Upload Kind 2 binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.pkg-name }}
-        path: bin/kind2
-
-  get-ready-release:
-    if: github.repository == 'kind2-mc/kind2' && !failure()
-    runs-on: ubuntu-latest
-    needs: [kind2-linux-bin, kind2-macos-bin]
-
-    steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -112,34 +30,66 @@ jobs:
         git tag -f nightly
         git push --tags -f
 
-
-  upload-artifact:
-    if: github.repository == 'kind2-mc/kind2' && !failure()
-    runs-on: ubuntu-latest
-    needs: [get-ready-release]
+  build:
+    if: github.repository == 'kind2-mc/kind2'
+    needs: [get-nightly-ready]
     strategy:
       matrix:
-        version: [linux-x86_64, macos-x86_64, macos-arm64]
+        os: [ ubuntu-latest, macos-12, macos-14 ]
+        ocaml-version: [ 5.1.1 ]
 
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Download binary
-      uses: actions/download-artifact@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Kind 2 linux binary
+      if: runner.os == 'Linux'
+      uses: docker/build-push-action@v5
       with:
-        name: ${{ matrix.version }}
+        file: docker/Dockerfile
+        context: ./
+        target: builder
+        load: true
+        tags: kind2:latest
+
+    - name: Extract Kind 2 linux binary
+      id: extract
+      if: runner.os == 'Linux'
+      uses: shrink/actions-docker-extract@v3
+      with:
+        image: kind2:latest
+        path: /home/opam/kind2-build/bin/kind2
+        destination: ./bin/kind2
+
+    - name: Build Kind 2 macOS binary
+      if: runner.os == 'macOS'
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
     
+    - name: Strip Kind 2 macOS binary
+      if: runner.os == 'macOS'
+      run: strip ./bin/kind2
+
     - name: Create tar.gz file
       id: create_tarball
       run: |
+        cd bin
         chmod u+x kind2
         date=$(date "+%Y-%m-%d")
-        tarball=kind2-$date-${{ matrix.version }}.tar.gz
+        if [[ "$RUNNER_OS" != "Linux" ]]; then
+          tag="linux-x86_64"
+        else
+          tag="${{ matrix.os }}-$(uname -m)"
+        fi
+        tarball=kind2-$date-$tag.tar.gz
         tar -czf $tarball kind2
-        echo "filename=$tarball" >> $GITHUB_OUTPUT
-    
+        echo "filepath=./bin/$tarball" >> $GITHUB_OUTPUT
+
     - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh release upload nightly \
-          ${{ steps.create_tarball.outputs.filename }} \
+          ${{ steps.create_tarball.outputs.filepath }} \
           --repo $GITHUB_REPOSITORY
