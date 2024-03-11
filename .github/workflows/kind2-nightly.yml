@@ -66,6 +66,7 @@ jobs:
 
     - name: Build Kind 2 macOS binary
       if: runner.os == 'macOS'
+      uses: ./.github/actions/build-kind2
       with:
         ocaml-version: ${{ matrix.ocaml-version }}
     
