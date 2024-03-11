@@ -15,10 +15,10 @@ runs:
     shell: bash
     run: |
       if [[ "${{ inputs.flambda }}" == "true" ]]; then
-        echo "compiler=ocaml-variants.${{ input.ocaml-version }}+options,ocaml-option-flambda" >> $GITHUB_OUTPUT
+        echo "compiler=ocaml-variants.${{ inputs.ocaml-version }}+options,ocaml-option-flambda" >> $GITHUB_OUTPUT
         echo "tag=${{ inputs.ocaml-version }}-flambda" >> $GITHUB_OUTPUT
       else
-        echo "compiler=${{ input.ocaml-version }}" >> $GITHUB_OUTPUT
+        echo "compiler=${{ inputs.ocaml-version }}" >> $GITHUB_OUTPUT
         echo "tag=${{ inputs.ocaml-version }}" >> $GITHUB_OUTPUT
       fi
 
