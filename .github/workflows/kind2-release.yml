@@ -56,7 +56,12 @@ jobs:
           --repo $GITHUB_REPOSITORY
 
   build:
-    if: github.repository == 'kind2-mc/kind2'
+    if: |
+      always()
+      && github.repository == 'kind2-mc/kind2'
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
+
     needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
