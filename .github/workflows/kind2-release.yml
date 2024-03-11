@@ -12,7 +12,7 @@ on:
 
 jobs:
   get-nightly-ready:
-    if: github.repository == 'kind2-mc/kind2' && !startsWith(github.event.ref, ''refs/tags/v'')
+    if: github.repository == 'kind2-mc/kind2' && !startsWith(github.event.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -37,7 +37,7 @@ jobs:
         git push --tags -f
 
   create-new-release:
-    if: github.repository == 'kind2-mc/kind2' && startsWith(github.event.ref, ''refs/tags/v'')
+    if: github.repository == 'kind2-mc/kind2' && startsWith(github.event.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
