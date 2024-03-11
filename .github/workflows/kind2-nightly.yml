@@ -62,7 +62,7 @@ jobs:
       with:
         image: kind2:latest
         path: /home/opam/kind2-build/bin/kind2
-        destination: ./bin/kind2
+        destination: ./bin/
 
     - name: Build Kind 2 macOS binary
       if: runner.os == 'macOS'
@@ -80,7 +80,7 @@ jobs:
         cd bin
         chmod u+x kind2
         date=$(date "+%Y-%m-%d")
-        if [[ "$RUNNER_OS" != "Linux" ]]; then
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
           tag="linux-x86_64"
         else
           tag="${{ matrix.os }}-$(uname -m)"
