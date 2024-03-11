@@ -97,12 +97,13 @@ jobs:
       uses: ./.github/actions/build-kind2
       with:
         ocaml-version: ${{ matrix.ocaml-version }}
+        flambda: true
     
     - name: Strip Kind 2 macOS binary
       if: runner.os == 'macOS'
       run: strip ./bin/kind2
 
-    - name: Create assert
+    - name: Create asset
       id: create_asset
       run: |
         cd bin
