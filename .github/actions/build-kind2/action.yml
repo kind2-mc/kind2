@@ -1,0 +1,19 @@
+name: Build Kind 2
+description: Build Kind 2 on current runner
+inputs:
+  ocaml-version:
+    description: The OCaml compiler version
+
+runs:
+  using: composite
+  steps:
+  - name: Set up OCaml ${{ inputs.ocaml-version }}
+    uses: ocaml/setup-ocaml@v2
+    with:
+      ocaml-compiler: ${{ inputs.ocaml-version }}
+
+  - name: Install OCaml dependencies
+    run: opam install -y . --deps-only
+  
+  - name: Build Kind2
+    run: opam exec make
