@@ -13,7 +13,9 @@ runs:
       ocaml-compiler: ${{ inputs.ocaml-version }}
 
   - name: Install OCaml dependencies
+    shell: bash
     run: opam install -y . --deps-only
   
   - name: Build Kind2
+    shell: bash
     run: opam exec make
