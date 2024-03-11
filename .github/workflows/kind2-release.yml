@@ -1,95 +1,44 @@
 name: Kind 2 Release
 
 on:
+  workflow_dispatch:
+  # Run the nightly build at 8 AM UTC / 2 AM Central
+  schedule:
+    - cron: "0 8 * * *"
   push:
     # Sequence of patterns matched against refs/tags
     tags:
       - 'v*'
 
 jobs:
-  kind2-linux-bin:
-    if: github.repository == 'kind2-mc/kind2'
+  get-nightly-ready:
+    if: github.repository == 'kind2-mc/kind2' && !startsWith(github.event.ref, ''refs/tags/v'')
     runs-on: ubuntu-latest
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        driver-opts: network=host
+    - name: Delete old assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ids=$(gh release view nightly --json assets --jq '.assets | map(.name) | .[]')
+        for id in $ids;
+        do
+          gh release delete-asset nightly $id -y
+        done
 
-    - name: Build and push to local registry
-      uses: docker/build-push-action@v5
-      with:
-        file: docker/Dockerfile
-        context: ./
-        target: builder
-        push: true
-        tags: localhost:5000/name/kind2:latest
-    
-    - name: Extract kind 2 binary
-      id: extract
-      uses: shrink/actions-docker-extract@v3
-      with:
-        image: localhost:5000/name/kind2:latest
-        path: /home/opam/kind2-build/bin/kind2
-
-    - name: Upload kind2 binary
-      uses: actions/upload-artifact@v4
-      with:
-        path: ${{ steps.extract.outputs.destination }}
-        name: linux-x86_64
-
-
-  kind2-macos-bin:
-    if: github.repository == 'kind2-mc/kind2'
-    strategy:
-      matrix:
-        os: [ macos-12, macos-14 ]
-        ocaml-version: [ 5.1.1 ]
-        include:
-          - os: macos-12
-            pkg-name: macos-x86_64
-          - os: macos-14
-            pkg-name: macos-arm64
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up OCaml ${{ matrix.ocaml-version }}+flambda
-      uses: ocaml/setup-ocaml@v2
-      with:
-        ocaml-compiler: ocaml-variants.${{ matrix.ocaml-version }}+options,ocaml-option-flambda
-
-    - name: Install Kind2 OCaml dependencies
-      run: opam install -y . --deps-only
-
-    - name: Build Kind 2
-      run: opam exec make static
-
-    - name: Strip binary
-      run: strip bin/kind2
-
-    - name: Upload Kind 2 binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.pkg-name }}
-        path: bin/kind2
+    - name: Update nightly tag
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git tag -f nightly
+        git push --tags -f
 
   create-new-release:
-    if: github.repository == 'kind2-mc/kind2'
+    if: github.repository == 'kind2-mc/kind2' && startsWith(github.event.ref, ''refs/tags/v'')
     runs-on: ubuntu-latest
-    needs: [kind2-linux-bin, kind2-macos-bin]
 
     steps:
     - name: Create new release
@@ -105,34 +54,74 @@ jobs:
         gh release create $GITHUB_REF_NAME --verify-tag --draft \
           --title "Kind 2 $GITHUB_REF_NAME" --notes-file Release_Notes.txt \
           --repo $GITHUB_REPOSITORY
-    
-  upload-artifact:
+
+  build:
     if: github.repository == 'kind2-mc/kind2'
-    runs-on: ubuntu-latest
-    needs: [create-new-release]
+    needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
-        version: [linux-x86_64, macos-x86_64, macos-arm64]
+        os: [ ubuntu-latest, macos-12, macos-14 ]
+        ocaml-version: [ 5.1.1 ]
 
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Download binary
-      uses: actions/download-artifact@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Kind 2 linux binary
+      if: runner.os == 'Linux'
+      uses: docker/build-push-action@v5
       with:
-        name: ${{ matrix.version }}
+        file: docker/Dockerfile
+        context: ./
+        target: builder
+        load: true
+        tags: kind2:latest
+
+    - name: Extract Kind 2 linux binary
+      id: extract
+      if: runner.os == 'Linux'
+      uses: shrink/actions-docker-extract@v3
+      with:
+        image: kind2:latest
+        path: /home/opam/kind2-build/bin/kind2
+        destination: ./bin/
+
+    - name: Build Kind 2 macOS binary
+      if: runner.os == 'macOS'
+      uses: ./.github/actions/build-kind2
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
     
-    - name: Create tar.gz file
-      id: create_tarball
+    - name: Strip Kind 2 macOS binary
+      if: runner.os == 'macOS'
+      run: strip ./bin/kind2
+
+    - name: Create assert
+      id: create_asset
       run: |
+        cd bin
         chmod u+x kind2
-        version=$GITHUB_REF_NAME
-        tarball=kind2-$version-${{ matrix.version }}.tar.gz
+        if [[ "$GITHUB_REF" =~ ^refs/tags/v.* ]]; then
+          vtag=$GITHUB_REF_NAME
+          echo "release=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+        else
+          vtag=$(date "+%Y-%m-%d")
+          echo "release=nightly" >> $GITHUB_OUTPUT
+        fi
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          ptag="linux-x86_64"
+        else
+          ptag="${{ matrix.os }}-$(uname -m)"
+        fi
+        tarball=kind2-$vtag-$ptag.tar.gz
         tar -czf $tarball kind2
-        echo "filename=$tarball" >> $GITHUB_OUTPUT
-    
+        echo "filepath=./bin/$tarball" >> $GITHUB_OUTPUT
+
     - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release upload $GITHUB_REF_NAME \
-           ${{ steps.create_tarball.outputs.filename }} \
-           --repo $GITHUB_REPOSITORY
+        gh release upload ${{ steps.create_asset.outputs.release }} \
+          ${{ steps.create_asset.outputs.filepath }} \
+          --repo $GITHUB_REPOSITORY
