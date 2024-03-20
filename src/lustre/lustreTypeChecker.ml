@@ -1724,29 +1724,33 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*) 
  
-(** Collects a node's context. *)
-let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
-  let constants_ctx = inputs
+let add_io_node_ctx ctx inputs outputs =
+  let ctx = inputs
     |> List.map extract_consts
     |> (List.fold_left union ctx)
   in
-  let input_ctx = inputs
+  let ctx = inputs
     |> List.map extract_arg_ctx
     |> (List.fold_left union ctx)
   in
-  let output_ctx = outputs
+  let ctx = outputs
     |> List.map extract_ret_ctx
     |> (List.fold_left union ctx)
   in
-  let ctx = union
-    (union constants_ctx ctx)
-    (union input_ctx output_ctx) in
-  let rec helper ctx locals = match locals with
-    | local :: locals -> 
-      let* ctx = local_var_binding ctx local in 
+  ctx
+
+let add_local_node_ctx ctx locals =
+  let rec helper ctx = function
+    | local :: locals ->
+      let* ctx = local_var_binding ctx local in
       helper ctx locals
-    | [] -> R.ok ctx in
+    | [] -> R.ok ctx
+  in
   helper ctx locals
+
+let add_full_node_ctx ctx inputs outputs locals =
+  let ctx = add_io_node_ctx ctx inputs outputs in
+  add_local_node_ctx ctx locals
 
 
 let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
