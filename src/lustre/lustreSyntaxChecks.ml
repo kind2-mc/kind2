@@ -107,7 +107,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
-  | NodeCallInGlobalTypeDecl id -> "Illegal node call or choose operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
+  | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
@@ -734,7 +734,7 @@ and check_ty_ref_tys i = function
   | LA.RefinementType (pos, _, _) -> syntax_error pos (GlobalConstRefType i)
   | _ -> Ok ()
 
-and check_declaration: context -> LA.declaration -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list * LA.declaration, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ty) ) -> 
@@ -751,7 +751,7 @@ and check_declaration: context -> LA.declaration -> ([> `LustreSyntaxChecksWarni
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl: H.t -> context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->
   let composed_checks i ctx e =
     (no_dangling_identifiers ctx e)
@@ -784,7 +784,7 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items: context -> LA.node_local_decl -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result 
+and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
 = fun ctx local -> match local with
   | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
   | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
@@ -860,8 +860,8 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     let* warnings = (check_contract true ctx common_contract_checks contract) in
     (Ok (warnings, decl))
 
-and check_items: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
-  LA.node_item list -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result 
+and check_items: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+  LA.node_item list -> ([> warning] list, 'a) result 
 = fun ctx f items ->
   (* Record duplicate properties if we find them *)
   let over_props props = function
@@ -872,8 +872,8 @@ and check_items: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarnin
       else Ok (StringSet.add name props)
     | _ -> Ok props
   in
-  let check_item: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind] as 'a)) result) ->
-    LA.node_item -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result = fun ctx f -> function
+  let check_item: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+    LA.node_item -> ([> warning] list, 'a) result = fun ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx' = build_equation_ctx ctx lhs in
       let StructDef (_, struct_items) = lhs in
@@ -935,8 +935,8 @@ and no_assert_in_frame_init pos = function
   | _ -> Res.ok ()
 
 
-and check_contract: bool -> context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
-  LA.contract -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result 
+and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+  LA.contract -> ([> warning] list, 'a) result 
 = fun is_contract_node ctx f contract ->
   let ctx = build_contract_ctx ctx contract in
   let check_list e = Res.seq (List.map (check_expr ctx f) e) in
@@ -971,8 +971,8 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> `LustreSyntaxC
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
-and check_expr: context -> (context -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, ([> `LustreSyntaxChecksError of Lib.position * error_kind ] as 'a)) result) ->
-  LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
+and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+  LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let res = f ctx expr in
   let check = function
     | LA.RecordProject (_, e, _)
@@ -1090,7 +1090,7 @@ let no_mismatched_clock is_bool e =
       clocks_match_result pos clk_exp clock
     | _ -> Ok []
   in
-  let check_merge: LA.expr -> ( [> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list, [> `LustreSyntaxChecksError of Lib.position * error_kind ])
+  let check_merge: LA.expr -> ( [> warning] list, [> error])
     result = function
     | LA.Merge (_, clock, exprs) ->
       if not is_bool then

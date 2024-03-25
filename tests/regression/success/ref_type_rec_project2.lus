@@ -5,6 +5,5 @@ type R = subtype { rec: T2 | rec.snd > 5 };
 
 node M(z: R) returns (y: T1);
 let
-  --!! This example should not fail (check recursively for base record type)
   y = T1 { fst = 1; snd = z.snd };
 tel
