@@ -837,8 +837,10 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
+  | History (_, id) -> SI.singleton id 
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ | History _ | TArr _ -> SI.empty
+  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
