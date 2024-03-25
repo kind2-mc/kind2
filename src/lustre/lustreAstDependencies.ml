@@ -1000,7 +1000,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
     (
     match c with
     | FreeConst _ -> R.ok ad
-    | UntypedConst (pos, i, e) -> 
+    | UntypedConst (pos, i, e)
+    | TypedConst (pos, i, e, _) ->
       let union g v = union_dependency_analysis_data g
       (singleton_dependency_analysis_data empty_hs v pos)
       in
@@ -1010,16 +1011,6 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let effective_vars2 = LA.SI.elements vars2 in
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
-    | TypedConst (pos, i, e, _) ->
-      let union g v = union_dependency_analysis_data g
-        (singleton_dependency_analysis_data empty_hs v pos)
-      in
-      let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
-      let effective_vars = LA.SI.elements vars in
-      let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
-      let effective_vars2 = LA.SI.elements vars2 in
-      let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-      R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos) 
     )
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
     let union g v = 
