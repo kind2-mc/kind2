@@ -423,76 +423,49 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
-let rec expand_type_syn_reftype_history ctx = function
+let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
+  let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
+  match ty with
+  | LA.IntRange (pos, _, _) ->
+    if expand_subrange then R.ok (LA.Int pos) else R.ok ty
   | LA.History (pos, i) -> (
     match lookup_ty ctx i with
     | None -> type_error pos (UnboundIdentifier i)
-    | Some ty -> expand_type_syn_reftype_history ctx ty
+    | Some ty -> rec_call ty
   )
-  | LA.RefinementType (_, (_, _, ty), _) -> 
-    expand_type_syn_reftype_history ctx ty 
+  | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, i) as ty -> 
     (match lookup_ty_syn ctx i with
     | None -> R.ok ty
     | Some ty' -> R.ok ty')
   | TupleType (p, tys) ->
-    let* tys = R.seq (List.map (expand_type_syn_reftype_history ctx) tys) in
+    let* tys = R.seq (List.map rec_call tys) in
     R.ok (LA.TupleType (p, tys))
   | GroupType (p, tys) ->
-    let* tys = R.seq (List.map (expand_type_syn_reftype_history ctx) tys) in
+    let* tys = R.seq (List.map rec_call tys) in
     R.ok (LA.GroupType (p, tys))
   | RecordType (p, name, tys) ->
     let* tys = R.seq (List.map (fun (p, i, t) -> 
-      let* t = expand_type_syn_reftype_history ctx t in 
+      let* t = rec_call t in
       R.ok (p, i, t)
     ) tys) in
     R.ok (LA.RecordType (p, name, tys))
   | ArrayType (p, (ty, e)) ->
-    let* ty = expand_type_syn_reftype_history ctx ty in
+    let* ty = rec_call ty in
     R.ok (LA.ArrayType (p, (ty, e)))
   | TArr (p, ty1, ty2) -> 
-    let* ty1 = expand_type_syn_reftype_history ctx ty1 in 
-    let* ty2 = expand_type_syn_reftype_history ctx ty2 in 
+    let* ty1 = rec_call ty1 in
+    let* ty2 = rec_call ty2 in
     R.ok (LA.TArr (p, ty1, ty2))
   | ty -> R.ok ty
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types and history types to their base types.
-    This function purposefully does not chase int ranges to their base types (int) 
-    because we sometimes want to retain int range info, e.g. in abstract interpretation. *)
+    In addition, chases int ranges to their base types (int)
+    if [expand_subrange] is true.
+*)
 
-let rec expand_type_syn_reftype_history_subrange ctx = function 
-  | LA.IntRange (pos, _, _) -> R.ok (LA.Int pos)
-  | LA.History (pos, i) -> (
-    match lookup_ty ctx i with
-    | None -> type_error pos (UnboundIdentifier i)
-    | Some ty -> expand_type_syn_reftype_history_subrange ctx ty
-  )
-  | LA.RefinementType (_, (_, _, ty), _) -> 
-    expand_type_syn_reftype_history_subrange ctx ty 
-  | UserType (_, i) as ty -> 
-    (match lookup_ty_syn ctx i with
-    | None -> R.ok ty
-    | Some ty' -> R.ok ty')
-  | TupleType (p, tys) ->
-    let* tys = R.seq (List.map (expand_type_syn_reftype_history_subrange ctx) tys) in
-    R.ok (LA.TupleType (p, tys))
-  | GroupType (p, tys) ->
-    let* tys = R.seq (List.map (expand_type_syn_reftype_history_subrange ctx) tys) in
-    R.ok (LA.GroupType (p, tys))
-  | RecordType (p, name, tys) ->
-    let* tys = R.seq (List.map (fun (p, i, t) -> 
-      let* t = expand_type_syn_reftype_history_subrange ctx t in 
-      R.ok (p, i, t)
-    ) tys) in
-    R.ok (LA.RecordType (p, name, tys))
-  | ArrayType (p, (ty, e)) ->
-    let* ty = expand_type_syn_reftype_history_subrange ctx ty in
-    R.ok (LA.ArrayType (p, (ty, e)))
-  | TArr (p, ty1, ty2) -> 
-    let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in 
-    let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in 
-    R.ok (LA.TArr (p, ty1, ty2))
-  | ty -> R.ok ty
+let expand_type_syn_reftype_history_subrange ctx =
+  expand_type_syn_reftype_history ~expand_subrange:true ctx
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
