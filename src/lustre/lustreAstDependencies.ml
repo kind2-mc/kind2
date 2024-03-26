@@ -300,7 +300,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  | RefinementType (_, _, expr) -> mk_graph_expr expr
+  | RefinementType (_, (_, _, ty), expr) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr expr)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -365,7 +365,6 @@ let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_prefix  i pos 
-  | AliasType (pos, i, LA.RefinementType (_, (_, _, ty), _)) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos;
   | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
 
 (***********************************************************
