@@ -234,3 +234,12 @@ val is_type_array: tc_context -> LA.lustre_type -> (bool, HString.t) result
 val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lustre_type) -> (bool, HString.t) result
 (** returns [true] if the first component of the type is of the same width 
   as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
+
+val type_contains_subrange : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
+
+val type_contains_ref : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
+
+val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)

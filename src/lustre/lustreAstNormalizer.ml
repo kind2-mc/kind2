@@ -476,12 +476,12 @@ let mk_range_expr ctx expr_type expr =
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | _ -> []
@@ -628,7 +628,7 @@ let add_subrange_constraints info node_id kind vars =
   vars
   |> List.filter (fun (_, id) -> 
     let ty = get_type_of_id info node_id id in
-    AH.type_contains_subrange ty)
+    Ctx.type_contains_subrange info.context ty)
   |> List.fold_left (fun acc (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
@@ -638,7 +638,7 @@ let add_subrange_constraints info node_id kind vars =
 let add_ref_type_constraints info kind vars =
   vars
   |> List.filter (fun (_, _, ty) -> 
-    AH.type_contains_ref ty)
+    Ctx.type_contains_ref info.context ty)
   |> List.fold_left (fun acc (p, id, ty) ->
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
     union acc (mk_fresh_refinement_type_constraint kind info p (A.Ident (p, id)) ty))
@@ -924,7 +924,7 @@ and normalize_node info map
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
-        AH.type_contains_subrange ty || AH.type_contains_ref ty
+        Ctx.type_contains_subrange ctx ty || Ctx.type_contains_ref ctx ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
@@ -1266,7 +1266,7 @@ and normalize_contract info map ivars ovars items =
               fun (pos, i, ty) -> 
                 let ty, gids, warnings = normalize_ty info map i ty in
                 let new_id = StringMap.find i info.interpretation in
-                if AH.type_contains_subrange ty || AH.type_contains_ref ty then
+                if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   (pos, i, ty),
                   union gids (
                   union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
@@ -1473,7 +1473,7 @@ and normalize_expr ?guard info map =
         let ty' = Ctx.expand_nested_type_syn info.context ty in
         let ty = Chk.expand_type info.context ty |> unwrap in
         A.pp_print_lustre_type Format.std_formatter ty;
-        AH.type_contains_enum_subrange_reftype ty'
+        Ctx.type_contains_enum_subrange_reftype info.context ty'
       )
     in
     let constraints =

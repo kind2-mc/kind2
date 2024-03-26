@@ -538,3 +538,51 @@ let rec is_machine_type_of_associated_width: tc_context -> (tc_type * tc_type) -
       | None -> Error (id)
       | Some ty -> is_machine_type_of_associated_width ctx (ty, ty2))
   | _ -> Ok false
+
+let rec type_contains_subrange ctx = function
+  | LA.IntRange _ -> true
+  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ctx ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_subrange ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+    | Some ty -> type_contains_subrange ctx ty
+    | _ -> assert false)
+  | _ -> false
+
+  let rec type_contains_ref ctx = function
+  | LA.RefinementType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
+  | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+      | Some ty -> type_contains_ref ctx ty
+      | _ -> assert false)
+  | _ -> false
+
+let rec type_contains_enum_subrange_reftype ctx = function
+  | LA.IntRange _
+  | EnumType _ 
+  | RefinementType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+      | Some ty -> type_contains_enum_subrange_reftype ctx ty
+      | _ -> assert false)
+  | _ -> false

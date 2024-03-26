@@ -130,40 +130,6 @@ let rec expr_contains_id id = function
   | RestartEvery (_, _, expr_list, e) -> 
     expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-    
-
-let rec type_contains_subrange = function
-  | IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ty
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_subrange ty
-  | _ -> false
-
-let rec type_contains_ref = function
-  | RefinementType _ -> true
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_ref ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_ref ty
-  | _ -> false
-
-let rec type_contains_enum_subrange_reftype = function
-  | IntRange _
-  | EnumType _ 
-  | RefinementType _ -> true
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ty
-  | _ -> false
 
 (* Substitute t for var. AnyOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function

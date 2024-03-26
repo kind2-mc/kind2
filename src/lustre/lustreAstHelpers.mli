@@ -48,15 +48,6 @@ val type_arity : lustre_type -> int * int
     where `a` is the number of inputs and `b` is the number of outputs,
     every other type has arity `(0, 0)` *)
 
-val type_contains_subrange : lustre_type -> bool
-(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
-
-val type_contains_ref : lustre_type -> bool
-(** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
-
-val type_contains_enum_subrange_reftype : lustre_type -> bool
-(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
-
 val type_contains_array : lustre_type -> bool 
 (** Returns true if the lustre type expression contains an array or if it is an array *)
 
