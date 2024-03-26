@@ -423,48 +423,78 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
-(* Expand type, taking into account History and Refinement type constructors *)
-let rec expand_type ctx = function
+let rec expand_type_syn_reftype_history ctx = function
   | LA.History (pos, i) -> (
     match lookup_ty ctx i with
     | None -> type_error pos (UnboundIdentifier i)
-    | Some ty -> 
-      let ty = expand_nested_type_syn ctx ty in
-      expand_type ctx ty
+    | Some ty -> expand_type_syn_reftype_history ctx ty
   )
   | LA.RefinementType (_, (_, _, ty), _) -> 
-    let ty = expand_nested_type_syn ctx ty in
-    expand_type ctx ty
-  | ty -> R.ok (expand_nested_type_syn ctx ty)
+    expand_type_syn_reftype_history ctx ty 
+  | UserType (_, i) as ty -> 
+    (match lookup_ty_syn ctx i with
+    | None -> R.ok ty
+    | Some ty' -> R.ok ty')
+  | TupleType (p, tys) ->
+    let* tys = R.seq (List.map (expand_type_syn_reftype_history ctx) tys) in
+    R.ok (LA.TupleType (p, tys))
+  | GroupType (p, tys) ->
+    let* tys = R.seq (List.map (expand_type_syn_reftype_history ctx) tys) in
+    R.ok (LA.GroupType (p, tys))
+  | RecordType (p, name, tys) ->
+    let* tys = R.seq (List.map (fun (p, i, t) -> 
+      let* t = expand_type_syn_reftype_history ctx t in 
+      R.ok (p, i, t)
+    ) tys) in
+    R.ok (LA.RecordType (p, name, tys))
+  | ArrayType (p, (ty, e)) ->
+    let* ty = expand_type_syn_reftype_history ctx ty in
+    R.ok (LA.ArrayType (p, (ty, e)))
+  | TArr (p, ty1, ty2) -> 
+    let* ty1 = expand_type_syn_reftype_history ctx ty1 in 
+    let* ty2 = expand_type_syn_reftype_history ctx ty2 in 
+    R.ok (LA.TArr (p, ty1, ty2))
+  | ty -> R.ok ty
+(** Chases the type (and nested types) to its base form to resolve type synonyms. 
+    Also simplifies refinement types and history types to their base types.
+    This function purposefully does not chase int ranges to their base types (int) 
+    because we sometimes want to retain int range info, e.g. in abstract interpretation. *)
 
-let rec get_base_type ctx = function 
-| LA.History (pos, i) -> (
-  match lookup_ty ctx i with
-  | None -> type_error pos (UnboundIdentifier i)
-  | Some ty -> get_base_type ctx ty
-)
-| LA.RefinementType (_, (_, _, ty), _) -> 
-  get_base_type ctx ty
-| LA.IntRange (pos, _, _) -> R.ok (LA.Int pos)
-| LA.ArrayType (pos, (ty, expr)) ->  
-  let* ty = get_base_type ctx ty in
-  R.ok (LA.ArrayType (pos, (ty, expr)))
-| LA.TupleType (pos, tys) ->
-  let* tys = R.seq (List.map (get_base_type ctx) tys) in
-  R.ok (LA.TupleType (pos, tys))
-| LA.GroupType (pos, tys) -> 
-  let* tys = R.seq (List.map (get_base_type ctx) tys) in
-  R.ok (LA.GroupType (pos, tys))
-| LA.RecordType (pos, id, tis) ->
-  let* tis = 
-    R.seq (List.map (fun (pos, id, ty) -> let* ty = get_base_type ctx ty in R.ok (pos, id, ty)) tis) 
-  in
-  R.ok (LA.RecordType (pos, id, tis))
-| LA.TArr (pos, ty1, ty2) -> 
-  let* ty1 = get_base_type ctx ty1 in 
-  let* ty2 = get_base_type ctx ty2 in 
-  R.ok (LA.TArr (pos, ty1, ty2))
-| ty -> R.ok ty
+let rec expand_type_syn_reftype_history_subrange ctx = function 
+  | LA.IntRange (pos, _, _) -> R.ok (LA.Int pos)
+  | LA.History (pos, i) -> (
+    match lookup_ty ctx i with
+    | None -> type_error pos (UnboundIdentifier i)
+    | Some ty -> expand_type_syn_reftype_history_subrange ctx ty
+  )
+  | LA.RefinementType (_, (_, _, ty), _) -> 
+    expand_type_syn_reftype_history_subrange ctx ty 
+  | UserType (_, i) as ty -> 
+    (match lookup_ty_syn ctx i with
+    | None -> R.ok ty
+    | Some ty' -> R.ok ty')
+  | TupleType (p, tys) ->
+    let* tys = R.seq (List.map (expand_type_syn_reftype_history_subrange ctx) tys) in
+    R.ok (LA.TupleType (p, tys))
+  | GroupType (p, tys) ->
+    let* tys = R.seq (List.map (expand_type_syn_reftype_history_subrange ctx) tys) in
+    R.ok (LA.GroupType (p, tys))
+  | RecordType (p, name, tys) ->
+    let* tys = R.seq (List.map (fun (p, i, t) -> 
+      let* t = expand_type_syn_reftype_history_subrange ctx t in 
+      R.ok (p, i, t)
+    ) tys) in
+    R.ok (LA.RecordType (p, name, tys))
+  | ArrayType (p, (ty, e)) ->
+    let* ty = expand_type_syn_reftype_history_subrange ctx ty in
+    R.ok (LA.ArrayType (p, (ty, e)))
+  | TArr (p, ty1, ty2) -> 
+    let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in 
+    let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in 
+    R.ok (LA.TArr (p, ty1, ty2))
+  | ty -> R.ok ty
+(** Chases the type (and nested types) to its base form to resolve type synonyms. 
+    Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
@@ -484,23 +514,23 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty = infer_type_expr ctx e in
-    let* rec_ty = expand_type ctx rec_ty in
+    let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
     (match rec_ty with
     | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
-        | Some ty -> expand_type ctx ty
+        | Some ty -> expand_type_syn_reftype_history ctx ty
         | None -> type_error pos (NotAFieldOfRecord fld))
     | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
 
   | LA.TupleProject (pos, e1, i) ->
     let* tup_ty = infer_type_expr ctx e1 in
-    let* tup_ty = expand_type ctx tup_ty in
+    let* tup_ty = expand_type_syn_reftype_history ctx tup_ty in
     (match tup_ty with
     | LA.TupleType (pos, tys) as ty ->
         if List.length tys <= i
         then type_error pos (TupleIndexOutOfBounds (i, ty))
-        else expand_type ctx (List.nth tys i)
+        else expand_type_syn_reftype_history ctx (List.nth tys i)
     | ty -> type_error pos (IlltypedTupleProjection ty))
 
   (* Values *)
@@ -618,11 +648,11 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
   | LA.ArrayIndex (pos, e, i) ->
     let* index_type = infer_type_expr ctx i in
-    let* index_type = expand_type ctx index_type in
+    let* index_type = expand_type_syn_reftype_history ctx index_type in
     if is_expr_int_type ctx i
     then 
       let* ty = infer_type_expr ctx e in 
-      let* ty = expand_type ctx ty in 
+      let* ty = expand_type_syn_reftype_history ctx ty in 
       match ty with 
       | LA.ArrayType (_, (b_ty, _)) -> R.ok b_ty
       | ty -> type_error pos (IlltypedArrayIndex ty)

@@ -133,39 +133,38 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
 
-let expand_type_syn: tc_context -> tc_type -> tc_type
-  = fun ctx ->
-  function
-  | UserType (_, i) as ty->
-     (match lookup_ty_syn ctx i with
-      | None -> ty
-      | Some ty' -> ty')
-  | ty -> ty 
-(** Chases the type to its base form to resolve type synonyms *)
-
-let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
+let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType _ as ty -> 
-    expand_nested_type_syn ctx (expand_type_syn ctx ty)
+  | UserType (_, i) as ty -> 
+    (match lookup_ty_syn ctx i with
+    | None -> ty
+    | Some ty' -> ty')
   | TupleType (p, tys) ->
-    let tys = List.map (expand_nested_type_syn ctx) tys in
+    let tys = List.map (expand_type_syn ctx) tys in
     TupleType (p, tys)
   | GroupType (p, tys) ->
-    let tys = List.map (expand_nested_type_syn ctx) tys in
+    let tys = List.map (expand_type_syn ctx) tys in
     GroupType (p, tys)
   | RecordType (p, name, tys) ->
-    let tys = List.map (fun (p, i, t) -> p, i, expand_nested_type_syn ctx t) tys in
+    let tys = List.map (fun (p, i, t) -> p, i, expand_type_syn ctx t) tys in
     RecordType (p, name, tys)
   | ArrayType (p, (ty, e)) ->
-    let ty = expand_nested_type_syn ctx ty in
+    let ty = expand_type_syn ctx ty in
     ArrayType (p, (ty, e))
+  | TArr (p, ty1, ty2) -> 
+    let ty1 = expand_type_syn ctx ty1 in 
+    let ty2 = expand_type_syn ctx ty2 in 
+    TArr (p, ty1, ty2)
+  | LA.RefinementType (p1, (p2, id, ty), e) -> 
+    let ty = expand_type_syn ctx ty in
+    LA.RefinementType (p1, (p2, id, ty), e)
   | ty -> ty
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->
   match (IMap.find_opt i (ctx.ty_ctx)) with
-  | Some ty -> Some (expand_nested_type_syn ctx ty) 
+  | Some ty -> Some (expand_type_syn ctx ty) 
   | None -> None
 (** Picks out the type of the identifier to type context map *)
 

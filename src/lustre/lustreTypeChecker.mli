@@ -127,13 +127,13 @@ val build_node_fun_ty : Lib.position ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
 
-val expand_type : tc_context ->
+val expand_type_syn_reftype_history : tc_context ->
   tc_type ->
   ( tc_type,
     [> error] )
   result
 
-val get_base_type : tc_context ->
+val expand_type_syn_reftype_history_subrange : tc_context ->
   tc_type ->
   ( tc_type,
     [> error] )

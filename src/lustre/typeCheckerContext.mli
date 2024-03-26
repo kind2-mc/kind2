@@ -88,7 +88,7 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
     
-val expand_nested_type_syn: tc_context -> tc_type -> tc_type
+val expand_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
 val lookup_ty: tc_context -> LA.ident -> tc_type option
