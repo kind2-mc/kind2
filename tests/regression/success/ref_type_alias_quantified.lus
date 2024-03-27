@@ -1,0 +1,6 @@
+type T1 = subtype {x : int | x > 5};
+
+node N() returns (r:bool);
+let
+  check forall (x:T1) x>5;
+tel
