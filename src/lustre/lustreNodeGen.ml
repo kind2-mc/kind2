@@ -1549,7 +1549,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = GI.StringMap.bindings gids.GI.locals in
-    let over_generated_locals glocals (id, (is_ghost, expr_type)) =
+    let over_generated_locals glocals (id, expr_type) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
@@ -1560,7 +1560,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index
           (* (if Type.is_array index_type then index else X.empty_index) *)
           index_type
-          (if is_ghost then Some N.KGhost else None)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -1595,7 +1595,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KGhost)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -1640,7 +1640,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KLocal)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
