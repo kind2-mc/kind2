@@ -93,5 +93,5 @@ node imported R(x: s1) returns (y:s1);
 
 node main (x: s1) returns (y: s1)
 let
-  y = R(pre x);
+  y = R(x);
 tel

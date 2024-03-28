@@ -148,7 +148,8 @@ and lustre_type =
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
   | History of position * ident
-  | TArr of position * lustre_type * lustre_type  
+  | TArr of position * lustre_type * lustre_type 
+  | RefinementType of position * typed_ident * expr
 
 
 (* A declaration of an unclocked type *)
@@ -563,7 +564,7 @@ let rec pp_print_expr ppf =
     | AnyOp (p, id, e1, Some e2) ->
 
       Format.fprintf ppf
-      "%aany { %a | %a assuming %a }"
+      "%aany { %a | %a } assuming %a"
       ppos p
       pp_print_typed_ident id
       pp_print_expr e1
@@ -643,6 +644,11 @@ and pp_print_lustre_type ppf = function
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
        pp_print_lustre_type ret_ty 
+  | RefinementType (_, (_, id, ty), expr1) ->
+    Format.fprintf ppf "subtype { %a: %a | %a }"
+      pp_print_ident id 
+      pp_print_lustre_type ty 
+      pp_print_expr expr1 
   | History (_, i) ->
     Format.fprintf ppf
       "history(%a)" (pp_print_ident) i

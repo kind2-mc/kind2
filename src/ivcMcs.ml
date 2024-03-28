@@ -158,6 +158,7 @@ let rec unannot_pos = function
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
+  | RefinementType (_,id,e) -> RefinementType (dpos,id,e)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin

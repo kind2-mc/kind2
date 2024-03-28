@@ -16,19 +16,6 @@
 
  *)
 
-(**
-  @author Rob Lorch   
- *)
-
- type warning = [
-  | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
-  | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
-  | `LustreTypeCheckerWarning of Lib.position * LustreTypeChecker.warning_kind
-  | `LustreSyntaxChecksWarning of Lib.position * LustreSyntaxChecks.warning_kind
-]
-
-val warning_position : [< warning] -> Lib.position
-    
-val warning_message : [< warning] -> string
-
-val sort_warnings_by_pos : warning list -> warning list
+(** @author Rob Lorch *)
+                    
+val flatten_ref_types: TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list

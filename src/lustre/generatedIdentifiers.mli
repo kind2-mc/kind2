@@ -61,6 +61,11 @@ type t = {
     * HString.t (* Generated name for Range Expression *)
     * LustreAst.expr) (* Computed ranged expr *)
     list;
+  refinement_type_constraints: (source
+    * Lib.position
+    * HString.t (* Generated name for refinement type constraint *)
+    * LustreAst.expr) 
+    list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)

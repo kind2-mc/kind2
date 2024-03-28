@@ -87,11 +87,8 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
-
+    
 val expand_type_syn: tc_context -> tc_type -> tc_type
-(** Chases the type to its base form to resolve type synonyms *)
-
-val expand_nested_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
 val lookup_ty: tc_context -> LA.ident -> tc_type option
@@ -209,3 +206,40 @@ val arity_of_expr: tc_context -> LA.expr -> int
 
 val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
 (** Traverse a group expr list *)
+
+val is_type_num: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a number type i.e. Int, Real, IntRange, or Machine Integer *)
+
+val is_type_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type, i.e. Int, or IntRange *)
+
+val is_type_real_or_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a real or integer type, i.e, Real, Int, or IntRange *)
+
+val is_type_int_or_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type or machine int, i.e. Int, IntRange, or Machine Integer *)
+
+val is_type_unsigned_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an unsigned machine int. i.e. UInt, UInt32 etc.  *)
+
+val is_type_signed_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an signed machine int. i.e. Int, Int32 etc.  *)
+
+val is_type_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a signed or unsiged machine integer.  *)
+
+val is_type_array: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an array type *)
+
+val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lustre_type) -> (bool, HString.t) result
+(** returns [true] if the first component of the type is of the same width 
+  as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
+
+val type_contains_subrange : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
+
+val type_contains_ref : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
+
+val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)

@@ -1,0 +1,22 @@
+type Nat = subtype { n: int | n >= 0 };
+
+-- Refining record type with refinements
+type T2 = struct { fst: Nat; snd: Nat };
+type T1 = struct { fst: Nat; snd: T2 };
+type R1 = subtype { rec: T1 | true };
+
+-- Refining array with refinements
+type T3 = Nat^3;
+type R2 = subtype { rec: T3 | true };
+
+-- Refining tuple type with refinements
+type T4 = [Nat, Nat];
+type R3 = subtype { rec: T4 | true };
+
+node M(z1: R1; z2: R2; z3: R3) returns (y1: T1; y2: T3; y3: T4);
+let
+  y1 = z1;
+  y2 = z2;
+  y3 = z3;
+tel
+

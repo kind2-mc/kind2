@@ -361,7 +361,7 @@ and simplify_expr ?(is_guarded = false) ctx =
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 
-let rec inline_constants_of_lustre_type ctx = function
+let rec inline_constants_of_lustre_type ctx ty = match ty with
   | LA.IntRange (pos, lbound, ubound) ->
     let lbound' = match lbound with 
       | None -> None
@@ -387,7 +387,14 @@ let rec inline_constants_of_lustre_type ctx = function
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in
     TArr (pos, ty1', ty2')
-  | ty -> ty
+  | RefinementType (pos, (pos2, id, ty), expr) ->
+    let ty' = inline_constants_of_lustre_type ctx ty in 
+    RefinementType (pos, (pos2, id, ty'), expr)
+    
+  | History _ | Int _ | TVar _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
+  | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
+  | UserType _ | AbstractType _ | EnumType _ -> ty
+
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
   = fun ctx ->

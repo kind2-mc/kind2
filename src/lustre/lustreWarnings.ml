@@ -19,15 +19,21 @@
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
   | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
+  | `LustreTypeCheckerWarning of Lib.position * LustreTypeChecker.warning_kind
+  | `LustreSyntaxChecksWarning of Lib.position * LustreSyntaxChecks.warning_kind
 ]
 
 let warning_position warning = match warning with
   | `LustreDesugarFrameBlocksWarning (pos, _) -> pos
   | `LustreAstNormalizerWarning (pos, _) -> pos
+  | `LustreTypeCheckerWarning (pos, _) -> pos
+  | `LustreSyntaxChecksWarning (pos, _) -> pos
 
 let warning_message warning = match warning with
   | `LustreDesugarFrameBlocksWarning (_, kind) -> LustreDesugarFrameBlocks.warning_message kind
   | `LustreAstNormalizerWarning (_, kind) -> LustreAstNormalizer.warning_message kind
+  | `LustreTypeCheckerWarning (_, kind) -> LustreTypeChecker.warning_message kind
+  | `LustreSyntaxChecksWarning (_, kind) -> LustreSyntaxChecks.warning_message kind
 
 let sort_warnings_by_pos l =
   List.sort (fun w1 w2 -> Lib.compare_pos (warning_position w1) (warning_position w2)) l

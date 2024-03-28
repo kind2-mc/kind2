@@ -1,0 +1,4 @@
+node N() returns (n: [subtype {m: int | m >= 0}, int]);
+let
+  n = {1, 2};
+tel

@@ -1,0 +1,7 @@
+node N(x: int) returns (y: int);
+(*@contract
+  var ghost: subtype { x: int | x >= 0 } = -1;
+*)
+let
+  check true;
+tel

@@ -1,0 +1,10 @@
+node N(x1: int; x2: subtype { z: int | z > M(x1)};) returns (y: int)
+let
+  y = x2; 
+  check true -> (y > pre x1);
+tel
+
+node M(x: int) returns (y: int)
+let
+  y = pre x;
+tel

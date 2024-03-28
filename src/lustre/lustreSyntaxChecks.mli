@@ -19,6 +19,8 @@
   
   @author Andrew Marmaduke *)
 
+module LA = LustreAst
+
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t * Lib.position
@@ -34,6 +36,8 @@ type error_kind = Unknown of string
   | NodeCallInFunction of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
+  | NodeCallInGlobalTypeDecl of HString.t
+  | GlobalConstRefType of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -55,9 +59,18 @@ type error = [
 
 val error_message : error_kind -> string
 
-val syntax_check : LustreAst.t -> (LustreAst.t, [> error]) result
+type warning_kind =
+  | UnusedBoundVariableWarning of HString.t
 
-val no_mismatched_clock : bool -> LustreAst.expr -> (unit, [> error]) result
+type warning = [
+  | `LustreSyntaxChecksWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
+
+val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
+
+val no_mismatched_clock : bool -> LA.expr -> ([> warning ] list, [> error]) result
 (** Conservative syntactic check of clock arguments for merge expressions.
   To eventually be replaced with more general clock inference/checking.
 

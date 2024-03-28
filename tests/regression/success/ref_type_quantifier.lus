@@ -1,0 +1,5 @@
+
+node N() returns (y:int);
+let
+  check forall (i: subtype {x : int | x >= 0 }) 2*i>=0;
+tel
