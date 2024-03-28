@@ -2149,12 +2149,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
     let sv = H.find !map.state_var (mk_ident id) in
-    let effective_contract = guarantees != [] || modes != [] in
     let constraint_kind = match source with
       | GI.Input -> Some N.Assumption
       | Local -> None
-      | Output -> if not ext && not effective_contract then
-          None else Some N.Guarantee
+      | Output -> Some N.Guarantee
       | Ghost -> Some N.Guarantee
     in match constraint_kind with
       | Some N.Assumption ->
