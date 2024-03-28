@@ -1250,7 +1250,7 @@ let mk_local_for_expr
                 ctx
               with Not_found -> {
                 ctx with node = Some (
-                  N.set_state_var_source node state_var N.KGhost
+                  N.set_state_var_source node state_var N.Generated
                 )
               }
             ) else ctx
@@ -1586,9 +1586,8 @@ let trace_svars_of ctx expr = match ctx with
           | N.Input
           | N.Output -> mem, to_do
           | N.Local
-          | N.KLocal
           | N.Ghost
-          | N.KGhost
+          | N.Generated
           (* | N.Alias (_,_) *)
           | N.Call -> (
             let svars =

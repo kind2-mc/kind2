@@ -245,7 +245,7 @@ and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
   let ty_ctx = TC.add_local_node_ctx ty_ctx locals |> unwrap in
   let gids_node = GeneratedIdentifiers.StringMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
-    (fun id (_, ty) ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
+    (fun id ty ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
