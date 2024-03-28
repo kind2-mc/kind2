@@ -1,6 +1,8 @@
 type T1 = subtype {x : int | x > 5};
 
-node N() returns (r:bool);
+node N(x:subtype {x : subtype {x : int | x > 5} | x > 0}) returns (r:bool);
 let
-  check forall (x:T1) x>5;
+  check forall (x:subtype {x : T1 | x > 0}) x>5;
+  check forall (x:subtype {x : subtype {x : int | x > 5} | x > 0}) x>5;
+  check x > 5;
 tel

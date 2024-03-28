@@ -84,6 +84,57 @@ let flatten_ref_types_local_decl ctx = function
     NodeVarDecl (pos, (pos2, id, flatten_ref_type ctx ty, cl))
   | decl -> decl 
 
+
+let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.expr = 
+  fun ctx e -> 
+  let rec_call = flatten_ref_types_expr ctx in  
+  match e with
+  (* Quantified expressions *)
+  | Quantifier (p, q, tis, e) ->
+    let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
+    Quantifier (p, q, tis, rec_call e)
+  (* Everything else *)
+  | Ident _ 
+  | ModeRef _ as e -> e 
+  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
+  | TupleProject (p, e, i) -> TupleProject (p, rec_call e, i)
+  | Const _ as e -> e
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
+  | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 
+  | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, rec_call e1, rec_call e2, rec_call e3)
+  | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
+  | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, rec_call e)) flds))
+  | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
+  | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
+  | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
+  | ArrayIndex (p, e1, e2) -> ArrayIndex (p, rec_call e1, rec_call e2)
+  | When (p, e, c) -> When (p, rec_call e, c) 
+  | Condact (p, e1, e2, i, es1, es2) ->
+    Condact (p, rec_call e1
+              , rec_call e2
+              , i
+              , List.map rec_call es1
+              , List.map rec_call es2)
+  | Activate (p, i, e1, e2, es) ->
+    Activate(p, i
+              , rec_call e1
+              , rec_call e2
+              , List.map rec_call es)
+  | Merge (p, i, es) ->
+    Merge (p, i, List.map (fun (i, e) -> i, rec_call e) es)
+  | RestartEvery (p, i, es, e) ->
+    RestartEvery (p, i, List.map rec_call es, rec_call e)
+  | Pre (p, e) -> Pre(p, rec_call e)
+  | Arrow (p, e1, e2) ->  Arrow (p, rec_call e1, rec_call e2)
+  | Call (p, i, es) -> Call (p, i, List.map rec_call es) 
+
+let flatten_ref_types_item ctx item = 
+  match item with 
+  | A.AnnotProperty (p, id, expr, k) -> A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
+  | Body _ | FrameBlock _ | IfBlock _ | AnnotMain _ -> item
+
 let flatten_ref_types ctx sorted_node_contract_decls = 
   List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ty)) -> 
@@ -96,6 +147,7 @@ let flatten_ref_types ctx sorted_node_contract_decls =
         (pos, id, flatten_ref_type ctx ty, cl)
       ) ops in
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
+      let items = List.map (flatten_ref_types_item ctx) items in
       NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
     | FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) -> 
       let ips = List.map (fun (pos, id, ty, cl, b) -> 
@@ -105,6 +157,7 @@ let flatten_ref_types ctx sorted_node_contract_decls =
         (pos, id, flatten_ref_type ctx ty, cl)
       ) ops in
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
+      let items = List.map (flatten_ref_types_item ctx) items in
       FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
     | NodeParamInst (pos, (id1, id2, tys)) -> 
       let tys = List.map (flatten_ref_type ctx) tys in 
