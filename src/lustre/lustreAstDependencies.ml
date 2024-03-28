@@ -108,9 +108,9 @@ type node_summary = ((int list) IntMap.t) IMap.t
     we would substitute the indices with the actual call parameters
     during the circularity analysis for equations.
 
-    For functions and imported nodes we assume that
-    output streams do not depend on any of the input streams.
-    This restriction is in place to avoid rejecting valid programs.
+    For imported nodes and functions we make the conservative assumption
+    that each output stream is dependent on the current values 
+    of all the arguments.
     
     We generate the node summary entry by doing a rechablility analysis 
     for each of the output streams equations. 
@@ -1202,8 +1202,8 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
-    For imported nodes and imported functions we assume that output streams do not depend on
-    any of the input streams. This restriction is in place to avoid rejecting valid programs.
+    For imported nodes and imported functions we assume that output streams depend on 
+    every input stream.
  *)
 
 
@@ -1328,7 +1328,7 @@ let check_node_equations: dependency_analysis_data
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
     let* _ = check_no_input_output_local_duplicate ips ops locals in
-    analyze_circ_node_equations ad.nsummary items
+    analyze_circ_node_equations ad.nsummary2 items
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl

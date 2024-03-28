@@ -1,0 +1,5 @@
+
+node P() returns ();
+let
+  check forall (k1: int) ((exists (k2:int) k1=k2*k2) => k1>=0);
+tel

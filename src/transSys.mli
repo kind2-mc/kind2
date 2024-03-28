@@ -73,9 +73,16 @@ type pred_def = UfSymbol.t * (Var.t list * Term.t)
 (** Instance of a subsystem *)
 type instance = 
   {
+    uid : int;
+    (** Unique identifier of the instance *)
 
     pos : Lib.position;
-    (** Position as a unique identifier of the instance *)
+    (** Position of the call.
+
+        It is used as a unique identifier, which works provided
+        the call is not expanded in the definition of an array.
+        TODO: Change code to use uid for equality instead.
+    *)
 
     map_down : StateVar.t StateVar.StateVarMap.t;
     (** Map from the state variables of this system to the state

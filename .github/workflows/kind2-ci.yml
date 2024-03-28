@@ -11,13 +11,17 @@ jobs:
   kind2-build:
     strategy:
       matrix:
-        os: [ ubuntu-20.04, macos-12 ]
-        ocaml-version: [ 4.09.1 ]
+        os: [ ubuntu-20.04, macos-12, macos-14 ]
         include:
           - os: macos-12
             pkg_update: brew update
+            ocaml-version: 4.09.1
+          - os: macos-14
+            pkg_update: brew update
+            ocaml-version: 4.10.2 # Oldest version available
           - os: ubuntu-20.04
             pkg_update: sudo apt-get update -y
+            ocaml-version: 4.09.1
 
     runs-on: ${{ matrix.os }}
 
@@ -25,24 +29,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Update package information
-      run: ${{ matrix.pkg_update }}
-
-    - name: Set up OCaml ${{ matrix.ocaml-version }}
-      uses: ocaml/setup-ocaml@v2
-      with:
-        ocaml-compiler: ${{ matrix.ocaml-version }}
-
-    - name: Install Kind2 OCaml dependencies
-      run: opam install -y . --deps-only
-
     - name: Make OCaml warnings fatal
       run: |
         head -n1 dune-project > dune-workspace
         echo '(profile strict)' >> dune-workspace
 
-    - name: Build Kind2
-      run: opam exec make
+    - name: Update package information
+      run: ${{ matrix.pkg_update }}
+
+    - name: Build Kind 2
+      uses: ./.github/actions/build-kind2
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
 
     - name: Install Z3 (Ubuntu)
       if: runner.os == 'Linux'

@@ -177,10 +177,3 @@ val rename_contract_vars : expr -> expr
 
 val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
 (** Get the name associated with a property *)
-
-val desugar_history : HString.t -> string -> expr -> HString.HStringSet.t * expr
-(** [desugar_history c p e] desugars type constructors of the form history(x) occurring in [e]
-    using [c] for the name of the counter variable and [p] as a prefix for the name of
-    the history variables. It returns the set of variables passed as argument to the
-    type constructors history and an expression that is the result of desusgaring
-    the type constructors ocurring in [e] *)

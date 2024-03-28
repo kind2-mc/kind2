@@ -683,6 +683,216 @@ let normalize_list f list =
   in let list, gids, warnings = List.fold_left over_list ([], empty (), []) list in
   List.rev list, gids, warnings
 
+(** [desugar_history_in_expr c p e] desugars type constructors of
+    the form history(x) occurring in [e] using [c] for the name of
+    the counter variable and [p] as a prefix for the name of
+    the history variables. It returns the set of variables passed as
+    argument to the type constructors history and an expression that is
+    the result of desugaring the type constructors ocurring in [e] *)
+let desugar_history_in_expr ctx ctr_id prefix expr =
+  let mk_range pos idx_id =
+    A.BinaryOp (pos, And,
+      CompOp (pos, Lte,
+        Const (pos, Num (HString.mk_hstring "0")),
+        Ident(pos, idx_id)
+      ),
+      CompOp (pos, Lte, Ident(pos, idx_id), Ident(pos, ctr_id))
+    )
+  in
+  let rec r map expr =
+  match expr with
+  | A.Quantifier (pos, kind, idents, e) -> (
+    let vars, map, idents, constrs =
+      List.fold_left
+        (fun (vars, map, idents, constrs) (pos, bv, ty) ->
+          match ty with
+          | A.History (_, i) -> (
+            let hist_varid =
+              HString.mk_hstring
+                (Format.asprintf "%s_%a" prefix HString.pp_print_hstring i)
+            in
+            match kind with
+            | Exists -> (
+              let c = mk_range pos bv in
+              StringSet.add i vars,
+              StringMap.add bv hist_varid map,
+              (pos, bv, A.Int pos) :: idents,
+              c :: constrs
+            )
+            | Forall -> (
+              let idx_varid =
+                HString.mk_hstring
+                  (Format.asprintf "_idx_%a" HString.pp_print_hstring bv)
+              in
+              let c =
+                let e' =
+                  let eq =
+                    let lhs = A.Ident(pos, bv) in
+                    let rhs =
+                      A.ArrayIndex(pos,
+                        Ident(pos, hist_varid), Ident(pos, idx_varid))
+                    in
+                    A.CompOp(pos, A.Eq, lhs, rhs)
+                  in
+                  A.BinaryOp (pos, A.And, mk_range pos idx_varid, eq)
+                in
+                A.Quantifier (pos, A.Exists, [(pos, idx_varid, A.Int pos)], e')
+              in
+              let base_ty = Ctx.lookup_ty ctx i |> get in
+              StringSet.add i vars, map,
+              (pos, bv, base_ty) :: idents,
+              c :: constrs
+            )
+          )
+          | _ -> vars, map, (pos, bv, ty) :: idents, constrs
+        )
+        (StringSet.empty, map, [], [])
+        idents
+    in
+    let vars', e' = r map e in
+    let e' =
+      match constrs with
+      | [] -> e'
+      | [c] -> (
+        match kind with
+        | Exists -> A.BinaryOp(pos, And, c, e')
+        | Forall -> A.BinaryOp(pos, Impl, c, e')
+      )
+      | _ -> (
+        let conj =
+          List.fold_left
+            (fun acc c -> A.BinaryOp(pos, And, c, acc))
+            (List.hd constrs)
+            (List.tl constrs)
+        in
+        match kind with
+        | Exists -> BinaryOp(pos, And, conj, e')
+        | Forall -> BinaryOp(pos, Impl, conj, e')
+      )
+    in
+    StringSet.union vars vars',
+    Quantifier (pos, kind, List.rev idents, e')
+  )
+  | Ident (pos, id) -> (
+    match StringMap.find_opt id map with
+    | None -> StringSet.empty, expr
+    | Some hist_varid ->
+      StringSet.empty, ArrayIndex(pos, Ident(pos, hist_varid), expr)
+  )
+  | ModeRef _ -> StringSet.empty, expr
+  | RecordProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, RecordProject (pos, e', idx)
+  | TupleProject (pos, e, idx) ->
+    let vars, e' = r map e in
+    vars, TupleProject (pos, e', idx)
+  | Const _ -> StringSet.empty, expr
+  | UnaryOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, UnaryOp (pos, op, e')
+  | BinaryOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    BinaryOp (pos, op, e1', e2')
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, e3' = r map e3 in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    TernaryOp (pos, op, e1', e2', e3')
+  | ConvOp (pos, op, e) ->
+    let vars, e' = r map e in
+    vars, ConvOp (pos, op, e')
+  | CompOp (pos, op, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    CompOp (pos, op, e1', e2')
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | RecordExpr (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, RecordExpr (pos, ident, expr_list')
+  | GroupExpr (pos, kind, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, GroupExpr (pos, kind, expr_list')
+  | StructUpdate (pos, e1, idx_list, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    StructUpdate (pos, e1', idx_list, e2')
+  | ArrayConstr (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayConstr (pos, e1', e2')
+  | ArrayIndex (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    ArrayIndex (pos, e1', e2')
+  | When (pos, e, c) ->
+    let vars, e' = r map e in
+    vars, When (pos, e', c)
+  | Pre (pos, e) ->
+    let vars, e' = r map e in
+    vars, Pre (pos, e')
+  | Arrow (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    Arrow (pos, e1', e2')
+  | Call(pos, id, expr_list) ->
+    let vars, expr_list' = desugar_expr_list map expr_list in
+    vars, Call(pos, id, expr_list')
+  | Merge (pos, ident, expr_list) ->
+    let vars, expr_list' = desugar_idx_expr_list map expr_list in
+    vars, Merge (pos, ident, expr_list')
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list' = desugar_expr_list map expr_list in
+    StringSet.(vars1 |> union vars2 |> union vars3),
+    Activate (pos, ident, e1', e2', expr_list')
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    let vars3, expr_list1' = desugar_expr_list map expr_list1 in
+    let vars4, expr_list2' = desugar_expr_list map expr_list2 in
+    StringSet.(vars1 |> union vars2 |> union vars3 |> union vars4),
+    Condact (pos, e1', e2', id, expr_list1', expr_list2')
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let vars1, e' = r map e in
+    let vars2, expr_list' = desugar_expr_list map expr_list in
+    StringSet.union vars1 vars2,
+    RestartEvery (pos, ident, expr_list', e')
+  and desugar_expr_list map expr_list =
+    let vars, expr_list' =
+        expr_list
+        |> List.map (fun e -> r map e)
+        |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    expr_list'
+  and desugar_idx_expr_list map record_list =
+    let vars, idx_exp_list' =
+      record_list
+      |> List.map
+        (fun (i, e) -> let vars, e' = r map e in vars, (i, e'))
+      |> List.split
+    in
+    List.fold_left
+      (fun acc vars -> StringSet.union acc vars)
+      StringSet.empty
+      vars,
+    idx_exp_list'
+  in
+  r StringMap.empty expr
+
+
 let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
@@ -695,19 +905,20 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1 }
   in 
-  let gids, warnings = normalize_gids info gids in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
-    let (normal_item, map, warnings) =
+    let (normal_item, accum, warnings) =
       normalize_declaration info accum item in
     (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
-    StringMap.merge union_keys2 map accum,
+    accum,
     warnings @ warnings_accum
-  in let ast, map, warnings = List.fold_left over_declarations
-    ([], gids, warnings) decls
-  in let ast = List.rev ast in
+  in
+  let ast, map, warnings =
+    List.fold_left over_declarations ([], gids, []) decls
+  in
+  let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
     ^^ "Generated Identifiers:\n%a\n\n"
@@ -724,6 +935,25 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
 
   Res.ok (ast, map, warnings)
 
+and normalize_gid_equations info gids_map node_id =
+  match StringMap.find_opt node_id gids_map with
+  | None -> empty(), []
+  | Some gids -> (
+    (* Normalize all equations in gids *)
+    let res = List.map (fun (_, _, lhs, expr) ->
+      let nexpr, gids, warnings = normalize_expr info gids_map expr in
+      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
+    ) gids.equations in
+    let gids_list, warnings, eqs = split3 res in
+    (* Take out old equations that were not normalized *)
+    let gids = { gids with equations = [] } in
+    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
+    (* Keep equations generated during normalization *)
+    let eqs2 = gids.equations in
+    let gids = { gids with equations = eqs @ eqs2; } in
+    (gids, List.flatten warnings)
+  )
+
 and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
@@ -731,29 +961,13 @@ and normalize_declaration info map = function
   | FuncDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.FuncDecl (span, normal_decl)), map, warnings
-  | ContractNodeDecl (_, _) -> None, StringMap.empty, []
-  | decl -> Some decl, StringMap.empty, []
-
-and normalize_gids info gids_map = 
-  (* Convert gids_map to a new gids_map with normalized equations *)
-  let gids_map, warnings = StringMap.fold (fun id gids (gids_map, warnings)  -> 
-    (* Normalize all equations in gids *)
-    let res = List.map (fun (_, _, lhs, expr) ->
-      let nexpr, gids, warnings = normalize_expr info gids_map expr in
-      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
-    ) gids.equations in
-    let gids_list, warnings2, eqs = split3 res in
-    (* Take out old equations that were not normalized *)
-    let gids = { gids with equations = [] } in
-    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
-    let warnings2 = List.flatten warnings2 in
-    (* Keep equations generated during normalization *)
-    let eqs2 = gids.equations in
-    let gids = { gids with equations = eqs @ eqs2; } in
-    let gids_map = StringMap.add id gids gids_map in
-    (gids_map, warnings @ warnings2)
-  ) gids_map (gids_map, []) in
-  gids_map, warnings
+  | ContractNodeDecl (_, (id, _, ips, ops, _)) ->
+    let ctx = Chk.add_io_node_ctx info.context ips ops in
+    let info = { info with context = ctx } in
+    let ngids, warnings = normalize_gid_equations info map id in
+    let map = StringMap.add id ngids map in
+    None, map, warnings
+  | decl -> Some decl, map, []
 
 and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
   (* Normalize types *)
@@ -847,22 +1061,7 @@ and normalize_ghost_declaration info map = function
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
-  let constants_ctx = inputs
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let input_ctx = inputs
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let output_ctx = outputs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union info.context)
-  in
-  let ctx = Ctx.union
-    (Ctx.union constants_ctx info.context)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ctx = Chk.add_io_node_ctx info.context inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Normalize types *)
@@ -903,7 +1102,7 @@ and normalize_node info map
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids8, warnings4 = match contract with
+  let ncontracts, gids6, warnings4 = match contract with
     | Some contract ->
       let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fst
       in
@@ -914,15 +1113,10 @@ and normalize_node info map
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
-  (* Record subrange constraints on locals
-    and finish setting up the typing context for the node body *)
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
-    ctx
-    locals
-  in
+  let ctx = Chk.add_local_node_ctx ctx node_id locals |> unwrap in
   let info = { info with context = ctx } in
-  let gids6 = locals
+  (* Record subrange constraints on locals *)
+  let gids7 = locals
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
@@ -955,7 +1149,7 @@ and normalize_node info map
     Flags.check_reach () && List.exists reachability_prop_with_bounds items
   in
   (* Normalize equations and the contract *)
-  let nitems, gids7, warnings5 = normalize_list (normalize_item info map) items in
+  let nitems, gids8, warnings5 = normalize_list (normalize_item info map) items in
   let gids7' = union gids7 gids8 in
   let gids8' =
     if exists_reachability_prop_with_bounds ||
@@ -973,17 +1167,19 @@ and normalize_node info map
       gids7'.history_vars
       (empty ())
   in
-  let gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                         gids4; gids5; gids6; gids7'; gids8'; gids9] in
-  let map = StringMap.singleton node_id gids in
-  let warnings = List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 in
-  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings
+  let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
+                             gids4; gids5; gids6; gids7'; gids8'; gids9] in
+  let old_gids, warnings6 = normalize_gid_equations info map node_id in
+  let map = StringMap.add node_id (union old_gids new_gids) map in
+  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
+  map, 
+  List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 @ warnings6
 
 
 and desugar_history info expr =
   let prefix = "_history" in
   let history_arg_vars, expr =
-    AH.desugar_history ctr_id prefix expr
+    desugar_history_in_expr info.context ctr_id prefix expr
   in
   let info, h_gids =
     StringSet.fold
@@ -1305,9 +1501,10 @@ and normalize_contract info map ivars ovars items =
 
 and normalize_equation info map = function
   | Assert (pos, expr) ->
-    let nexpr, map, warnings = abstract_expr true info map true expr in
+    let info, h_gids, expr = desugar_history info expr in
+    let nexpr, gids, warnings = abstract_expr true info map true expr in
     let warnings = mk_warning pos UseOfAssertionWarning :: warnings in
-    A.Assert (pos, nexpr), map, warnings
+    A.Assert (pos, nexpr), union h_gids gids, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in

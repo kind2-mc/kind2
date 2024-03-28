@@ -98,6 +98,9 @@ type call_cond =
 (* A call of a node *)
 type node_call = {
 
+  (* A unique numerical id *)
+  call_id : int;
+
   (* Position of node call in input file *)
   call_pos : position;
 

@@ -1,0 +1,38 @@
+name: Build Kind 2
+description: Build Kind 2 on current runner
+inputs:
+  ocaml-version:
+    description: The OCaml compiler version
+  flambda:
+    default: false
+    type: boolean
+
+runs:
+  using: composite
+  steps:
+  - name: Set OCaml compiler variant
+    id: ocaml-variant
+    shell: bash
+    run: |
+      echo "::group::Set OCaml compiler variant"
+      if [[ "${{ inputs.flambda }}" == "true" ]]; then
+        echo "compiler=ocaml-variants.${{ inputs.ocaml-version }}+options,ocaml-option-flambda" >> $GITHUB_OUTPUT
+        echo "tag=${{ inputs.ocaml-version }}-flambda" >> $GITHUB_OUTPUT
+      else
+        echo "compiler=${{ inputs.ocaml-version }}" >> $GITHUB_OUTPUT
+        echo "tag=${{ inputs.ocaml-version }}" >> $GITHUB_OUTPUT
+      fi
+      echo "::endgroup::"
+
+  - name: Set up OCaml ${{ steps.ocaml-variant.outputs.tag }}
+    uses: ocaml/setup-ocaml@v2
+    with:
+      ocaml-compiler: ${{ steps.ocaml-variant.outputs.compiler }}
+
+  - name: Install OCaml dependencies
+    shell: bash
+    run: opam install -y . --deps-only
+  
+  - name: Build Kind2
+    shell: bash
+    run: opam exec make

@@ -13,7 +13,7 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
- *)
+*)
 
 module A = LustreAst
 module Ctx = TypeCheckerContext
@@ -229,9 +229,9 @@ fun global_ctx decls ->
   let decls =
   List.fold_left (fun decls decl ->
     match decl with
-    | A.NodeDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
+    | A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
     (
-      match Chk.get_node_ctx global_ctx d with 
+      match Chk.add_full_node_ctx global_ctx id inputs outputs locals with
         | Ok ctx -> 
           let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
@@ -240,9 +240,9 @@ fun global_ctx decls ->
         (* If there is an error in context collection, it will be detected later in type checking *)
         | Error _ -> decl :: decls
     )
-    | A.FuncDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
+    | A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
     (
-      match Chk.get_node_ctx global_ctx d with 
+      match Chk.add_full_node_ctx global_ctx id inputs outputs locals with
         | Ok ctx ->  
           let items, gen_nodes = List.map (desugar_node_item global_ctx ctx id) items |> List.split in 
           let contract, gen_nodes2 = desugar_contract global_ctx ctx id contract in
@@ -251,17 +251,14 @@ fun global_ctx decls ->
         (* If there is an error in context collection, it will be detected later in type checking *)
         | Error _ -> decl :: decls
     )
-    | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) -> 
+    | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
       (
-        match Chk.get_node_ctx global_ctx (id, (), (), inputs, outputs, [], (), ()) with (* Unit type params are unused in function *)
-          | Ok ctx -> 
-            let contract, gen_nodes = desugar_contract global_ctx ctx id (Some contract) in
-            let contract = match contract with 
-              | Some contract -> contract 
-              | None -> assert false in (* Must have a contract *)
-            decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
-          (* If there is an error in context collection, it will be detected later in type checking *)
-          | Error _ -> decl :: decls
+        let ctx = Chk.add_io_node_ctx global_ctx inputs outputs in
+        let contract, gen_nodes = desugar_contract global_ctx ctx id (Some contract) in
+        let contract = match contract with
+          | Some contract -> contract
+          | None -> assert false in (* Must have a contract *)
+        decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
       )
     | _ -> decl :: decls
   ) [] decls in 

@@ -2397,7 +2397,8 @@ let mk_inst init_flag sys formal_vars =
       ) StateVar.StateVarMap.(empty, empty) formal_vars
   in
   sys,
-  [ { TransSys.pos = Lib.dummy_pos;
+  [ { TransSys.uid = -1;
+      TransSys.pos = Lib.dummy_pos;
       map_down;
       map_up;
       guard_clock = (fun _ t -> t);

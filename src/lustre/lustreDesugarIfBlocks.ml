@@ -343,14 +343,14 @@ let rec desugar_node_item node_id ctx ni = match ni with
 
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
-  | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+  | A.FuncDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
-  | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+  | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
