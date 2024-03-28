@@ -1617,7 +1617,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KGhost)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
