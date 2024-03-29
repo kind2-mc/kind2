@@ -302,7 +302,18 @@ let of_channel old_frontend only_parse in_ch =
         let* (ctx, gids, decls, toplevel_nodes, _) = type_check declarations in
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
-          | Some s -> [LustreIdent.mk_string_ident s]
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in
+            let main_lustre_node = LN.node_of_name s_ident nodes in
+            if main_lustre_node.is_extern then 
+            [s_ident] 
+            (* If checking realizability and main node is not external (imported), then 
+               we are actually checking realizability of Kind 2-generated imported nodes representing 
+               the (1) the main node's contract instrumented with type info and 
+                   (2) the main node's enviornment *)
+            else [s_ident; 
+                  LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+                  LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t

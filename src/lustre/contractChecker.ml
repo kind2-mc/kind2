@@ -312,8 +312,8 @@ let pp_print_realizability_result_pt
   let scope_str = Scope.to_string scope in 
 
   let print_not_unknown_result tag =
-    let inputs_tag_len = 8 in
-    let contract_tag_len = 10 in
+    let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
+    let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
     if String.length scope_str > inputs_tag_len && 
        String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then 
       Format.fprintf
