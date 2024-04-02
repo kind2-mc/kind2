@@ -25,6 +25,8 @@ module SI = LA.SI
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
+type const_scope = Global | Local
+
 module IMap : sig
   (* everything that [Stdlib.Map] gives us  *)
   include (Map.S with type key = LA.ident)
@@ -41,7 +43,7 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_store = (LA.expr * tc_type option) IMap.t 
+type const_store = (LA.expr * tc_type option * const_scope) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
@@ -104,10 +106,11 @@ val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 (** Lookup a node type *)
 
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
+(** Track whether node parameters are constant or not *)
 
 val lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
 
-val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
+val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * const_scope) option
 (** Lookup a constant identifier *)
 
 val lookup_variants: tc_context -> LA.ident -> LA.ident list option
@@ -137,10 +140,10 @@ val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
                   
-val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
+val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
 (** Adds a constant variable along with its expression and type  *)
 
-val add_untyped_const : tc_context -> LA.ident -> LA.expr -> tc_context
+val add_untyped_const : tc_context -> LA.ident -> LA.expr -> const_scope -> tc_context
 (** Adds a constant variable along with its type  *)
 
 val union: tc_context -> tc_context -> tc_context
@@ -149,7 +152,7 @@ val union: tc_context -> tc_context -> tc_context
 val singleton_ty: LA.ident -> tc_type -> tc_context
 (** Lifts the type binding as a typing context  *)
 
-val singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context
+val singleton_const: LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
 (** Lifts the constant binding as a typing context  *)
 
 val extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context

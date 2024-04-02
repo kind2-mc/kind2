@@ -47,10 +47,12 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_store = (LA.expr * tc_type option) IMap.t 
+type const_scope = Global | Local
+
+type const_store = (LA.expr * tc_type option * const_scope) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
- *  Bool or an Int at constant propogation phase of type checking *)
+ *  Bool or an Int at constant propogation phase of type checking. *)
 
 type ty_set = SI.t
 (** set of valid user type identifiers *)
@@ -184,7 +186,7 @@ let lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
   | Some l -> Some (List.map fst l)
   | None -> None
 
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
+let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * const_scope) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
 
@@ -227,12 +229,12 @@ let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)
 
-let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
-  = fun ctx i e ty -> {ctx with vl_ctx = IMap.add i (e, (Some ty)) ctx.vl_ctx} 
+let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
+  = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
 
-let add_untyped_const : tc_context -> LA.ident -> LA.expr -> tc_context
-= fun ctx i e -> {ctx with vl_ctx = IMap.add i (e, None) ctx.vl_ctx} 
+let add_untyped_const : tc_context -> LA.ident -> LA.expr -> const_scope -> tc_context
+= fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
 
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun _ _ v2 -> Some v2)
@@ -266,8 +268,8 @@ let singleton_ty: LA.ident -> tc_type -> tc_context
   = fun i ty -> add_ty empty_tc_context i ty
 (** Lifts the type binding as a typing context  *)
 
-let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
-  fun i e ty -> add_const empty_tc_context i e ty
+let singleton_const: LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context =
+  fun i e ty sc -> add_const empty_tc_context i e ty sc
 (** Lifts the constant binding as a typing context  *)
 
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
@@ -283,7 +285,7 @@ let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
   = fun (pos, i, ty, _, is_const) ->
   if is_const
-  then singleton_const i (LA.Ident (pos, i)) ty
+  then singleton_const i (LA.Ident (pos, i)) ty Local
   else empty_tc_context 
 (** Extracts constants as a typing constant  *)
 
@@ -324,7 +326,7 @@ let pp_print_tymap: Format.formatter -> ty_store -> unit
 (** Pretty print type binding context *)
                
 let pp_print_vstore: Format.formatter -> const_store -> unit
-  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty))
+  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty, _))
     -> pp_print_val_binding ppf (i, (e, ty)))  ", " ppf (IMap.bindings m)
 (** Pretty print value store *)
 

@@ -736,6 +736,18 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
+let rec vars_of_type = function 
+  | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)
+  | TupleType (_, tys) | GroupType (_, tys) -> 
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+  | RecordType (_, _, tis) -> 
+    let vars = List.map (fun (_, _, ty) -> vars_of_type ty) tis in 
+    List.fold_left SI.union SI.empty vars
+  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
+  | History (_, id) -> SI.singleton id 
+  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
+  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
+
 
 let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)

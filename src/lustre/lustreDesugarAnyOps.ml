@@ -23,7 +23,8 @@ module AH = LustreAstHelpers
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
-let mk_fresh_fn_name pos node_name =
+let mk_fresh_fn_name: Lib.position -> HString.t -> HString.t = 
+fun pos node_name ->
   i := !i + 1;
   let node_name = HString.concat2 node_name (HString.mk_hstring ".") in
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
@@ -32,7 +33,9 @@ let mk_fresh_fn_name pos node_name =
   let name = HString.concat2 name pos in
   HString.concat2 node_name name
 
-let rec desugar_expr ctx node_name = function
+let rec desugar_expr: Ctx.tc_context -> HString.t -> A.expr -> A.expr * A.declaration list =
+fun ctx node_name -> 
+  function
   | A.AnyOp (pos, (_, id, ty), expr1, expr2_opt) -> 
     let span = { A.start_pos = pos; A.end_pos = Lib.dummy_pos } in
     let contract = match expr2_opt with 
@@ -42,21 +45,28 @@ let rec desugar_expr ctx node_name = function
     in
     let inputs =
       let vars_of_expr1 = AH.vars_without_node_call_ids expr1 in
-      match expr2_opt with
-      | None -> Ctx.SI.elements (Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id))
+      let vars_of_exprs = match expr2_opt with
+      | None -> (Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id))
       | Some expr2 ->
         let vars_of_expr1_and_expr2 =
           Ctx.SI.union vars_of_expr1 (AH.vars_without_node_call_ids expr2)
         in
-        Ctx.SI.elements (Ctx.SI.diff vars_of_expr1_and_expr2 (Ctx.SI.singleton id))
+        (Ctx.SI.diff vars_of_expr1_and_expr2 (Ctx.SI.singleton id)) in 
+      Ctx.SI.union vars_of_exprs (AH.vars_of_type ty) |> Ctx.SI.elements
     in
-    (* Constants don't need to be passed as a parameter to generated node *)
-    let inputs = List.filter (fun i -> not (Ctx.member_val ctx i)) inputs in 
+    (* Global constants don't need to be passed as arguments to generated nodes *)
+    let inputs = List.filter (fun i -> 
+      match Ctx.lookup_const ctx i with 
+        | Some (_, _, Ctx.Global) -> false 
+        | _ -> true
+    ) inputs in 
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let ctx = Ctx.add_ty ctx id ty in
     let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
-      | Some ty -> p, inp, ty, cl, false 
+      | Some ty -> 
+        let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
+        p, inp, ty, cl, is_const 
       | None -> assert false
     ) inputs in
     let name = mk_fresh_fn_name pos node_name in
@@ -154,8 +164,9 @@ let rec desugar_expr ctx node_name = function
     let expr_list, gen_nodes = List.map (desugar_expr ctx node_name) expr_list |> List.split in
     Call (pos, id, expr_list), List.flatten gen_nodes
 
-let desugar_contract_item ctx node_name ci = 
-  match ci with 
+let desugar_contract_item: Ctx.tc_context -> HString.t -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+fun ctx node_name ->
+  function
   | A.GhostVars (pos, lhs, e) -> 
     let e, gen_nodes = desugar_expr ctx node_name e in 
     A.GhostVars (pos, lhs, e), gen_nodes
@@ -179,16 +190,18 @@ let desugar_contract_item ctx node_name ci =
     let (exprs, gen_nodes) = List.map (desugar_expr ctx node_name) exprs |> List.split in 
     ContractCall (pos, i, exprs, ids), List.flatten gen_nodes
   | GhostConst _ 
-  | AssumptionVars _ -> ci, []
+  | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract ctx node_name contract = 
+let desugar_contract: Ctx.tc_context -> HString.t -> A.contract_node_equation list option -> A.contract_node_equation list option * A.declaration list =
+fun ctx node_name contract -> 
   match contract with 
   | Some contract_items -> 
     let items, gen_nodes = (List.map (desugar_contract_item ctx node_name) contract_items) |> List.split in
     Some items, List.flatten gen_nodes
   | None -> None, []
 
-let rec desugar_node_item ctx node_name ni =
+let rec desugar_node_item: Ctx.tc_context -> HString.t -> A.node_item -> A.node_item * A.declaration list =
+fun ctx node_name ni ->
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) -> 
     let rhs, gen_nodes = desugar_expr ctx node_name rhs in 
@@ -216,7 +229,8 @@ let rec desugar_node_item ctx node_name ni =
   | AnnotMain _ -> ni, []
     
 
-let desugar_any_ops ctx decls = 
+let desugar_any_ops: Ctx.tc_context -> A.declaration list -> A.declaration list = 
+fun ctx decls -> 
   let decls =
   List.fold_left (fun decls decl ->
     match decl with
@@ -254,4 +268,3 @@ let desugar_any_ops ctx decls =
     | _ -> decl :: decls
   ) [] decls in 
   decls
-

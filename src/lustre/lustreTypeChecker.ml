@@ -324,9 +324,9 @@ let check_expr_is_constant ctx kind e =
   | Ok _ -> R.ok ()
   | Error (pos, exn_fn) -> type_error pos (exn_fn kind)
 
-let check_and_add_constant_definition ctx i e ty =
+let check_and_add_constant_definition ctx i e ty sc =
   match R.seq_ (infer_const_attr ctx e) with
-  | Ok _ -> R.ok (add_ty (add_const ctx i e ty) i ty)
+  | Ok _ -> R.ok (add_ty (add_const ctx i e ty sc) i ty)
   | Error (pos, exn_fn) ->
     let where =
       "definition of constant '" ^ HString.string_of_hstring i ^ "'"
@@ -1334,13 +1334,13 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
     check_type_well_formed ctx ty
     >> if member_ty ctx i
        then type_error pos (Redeclaration i)
-       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
+       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty Global) i ty)
   | LA.UntypedConst (pos, i, e) ->
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
       let* ty = infer_type_expr ctx e in
-      check_and_add_constant_definition ctx i e ty
+      check_and_add_constant_definition ctx i e ty Global
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
     check_type_well_formed ctx exp_ty >>
@@ -1348,7 +1348,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
       type_error pos (Redeclaration i)
     else
       check_type_expr (add_ty ctx i exp_ty) e exp_ty
-      >> check_and_add_constant_definition ctx i e exp_ty
+      >> check_and_add_constant_definition ctx i e exp_ty Global
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
@@ -1393,7 +1393,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
           (* 3. Lift all enum constants (terms) with associated user type of enum name *)
             (enum_type_bindings
           (* 4. Lift all the enum constants (terms) into the value store as constants *)
-            @ enum_const_bindings))
+            @ (Lib.list_apply enum_const_bindings Global)))
         else
           type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
       | _ -> R.ok (add_ty_syn ctx i ty))
@@ -1569,7 +1569,7 @@ and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type, [> error]) result
   = fun pos ctx args rets ->
-  let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
+  let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty Local)
                         ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
