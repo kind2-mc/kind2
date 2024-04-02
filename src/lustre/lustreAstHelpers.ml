@@ -1449,11 +1449,12 @@ let rec rename_contract_vars = function
     (try
       (* Test that this name is an internal name *)
       let _ = int_of_string (List.nth components 0) in
-      let _ = String.equal (List.nth components 1) "contract" in
-      (* This is a renamed contract variable, with #_contract_name format *)
-      let id = components |> List.tl |> List.tl |> String.concat "_" in
-      let id = HString.mk_hstring id in
-      Ident (p, id)
+      if String.equal (List.nth components 1) "contract" then
+        (* This is a renamed contract variable, with #_contract_name format *)
+        let id = components |> List.tl |> List.tl |> String.concat "_" in
+        let id = HString.mk_hstring id in
+        Ident (p, id)
+      else e
     with _ -> e)
   | ModeRef (_, _) as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
