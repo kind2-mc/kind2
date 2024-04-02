@@ -324,9 +324,9 @@ let check_expr_is_constant ctx kind e =
   | Ok _ -> R.ok ()
   | Error (pos, exn_fn) -> type_error pos (exn_fn kind)
 
-let check_and_add_constant_definition ctx i e ty =
+let check_and_add_constant_definition ctx i e ty sc =
   match R.seq_ (infer_const_attr ctx e) with
-  | Ok _ -> R.ok (add_ty (add_const ctx i e ty) i ty)
+  | Ok _ -> R.ok (add_ty (add_const ctx i e ty sc) i ty)
   | Error (pos, exn_fn) ->
     let where =
       "definition of constant '" ^ HString.string_of_hstring i ^ "'"
@@ -1032,7 +1032,7 @@ and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error
     | LA.NodeConstDecl (_, const_decls) ->
       Debug.parse "Extracting typing context from const declaration: %a"
         LA.pp_print_const_decl const_decls
-      ; tc_ctx_const_decl ctx const_decls 
+      ; tc_ctx_const_decl ctx Local const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
       if (member_ty ctx v) then type_error pos (Redeclaration v)
       else check_type_well_formed ctx ty
@@ -1238,7 +1238,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
 (* Difference between this and tc_ctx_contract_node_eqn? *)
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx -> function
-  | GhostConst c -> tc_ctx_const_decl ctx c
+  | GhostConst c -> tc_ctx_const_decl ctx Local c
   | GhostVars vs -> tc_ctx_contract_vars ctx vs
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
@@ -1327,20 +1327,20 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     ) in
     Equation(pos1, lhs, expr)
 
-and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) result
-  = fun ctx ->
+and tc_ctx_const_decl: tc_context -> const_scope -> LA.const_decl -> (tc_context, [> error]) result
+  = fun ctx sc ->
   function
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
        then type_error pos (Redeclaration i)
-       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
+       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty sc) i ty)
   | LA.UntypedConst (pos, i, e) ->
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
       let* ty = infer_type_expr ctx e in
-      check_and_add_constant_definition ctx i e ty
+      check_and_add_constant_definition ctx i e ty sc
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
     check_type_well_formed ctx exp_ty >>
@@ -1348,7 +1348,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) re
       type_error pos (Redeclaration i)
     else
       check_type_expr (add_ty ctx i exp_ty) e exp_ty
-      >> check_and_add_constant_definition ctx i e exp_ty
+      >> check_and_add_constant_definition ctx i e exp_ty sc
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
@@ -1393,7 +1393,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
           (* 3. Lift all enum constants (terms) with associated user type of enum name *)
             (enum_type_bindings
           (* 4. Lift all the enum constants (terms) into the value store as constants *)
-            @ enum_const_bindings))
+            @ (Lib.list_apply enum_const_bindings Global)))
         else
           type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
       | _ -> R.ok (add_ty_syn ctx i ty))
@@ -1415,7 +1415,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
 
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) ctx =
   function
-  | LA.GhostConst c -> tc_ctx_const_decl ctx c
+  | LA.GhostConst c -> tc_ctx_const_decl ctx Local c
   | LA.GhostVars vs -> tc_ctx_contract_vars ctx vs
   | LA.Mode (pos, mname, _, _) ->
     if ignore_modes then R.ok ctx
@@ -1483,7 +1483,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> (tc_context, [> error]) result
     = fun ctx' ->
     function
-    | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
+    | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' Global const_decl
     | LA.NodeDecl ({LA.start_pos=pos}, node_decl) ->
       tc_ctx_of_node_decl pos ctx' node_decl
     | LA.FuncDecl ({LA.start_pos=pos}, node_decl) ->
@@ -1505,7 +1505,7 @@ and build_type_and_const_context (* : tc_context -> LA.t -> (tc_context, [> erro
     let* ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     build_type_and_const_context ctx' rest
   | ConstDecl (_, const_decl) :: rest ->
-    let* ctx' = tc_ctx_const_decl ctx const_decl in
+    let* ctx' = tc_ctx_const_decl ctx Global const_decl in
     build_type_and_const_context ctx' rest                   
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
@@ -1569,7 +1569,7 @@ and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type, [> error]) result
   = fun pos ctx args rets ->
-  let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
+  let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty Local)
                         ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
