@@ -311,10 +311,13 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option)) -> unit
-  = fun ppf (i, (v, ty)) ->
-  Format.fprintf ppf "(%a:%a :-> %a)"
-    LA.pp_print_ident i (Lib.pp_print_option LA.pp_print_lustre_type) ty LA.pp_print_expr v
+let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * const_scope)) -> unit
+  = fun ppf (i, (v, ty, sc)) ->
+  Format.fprintf ppf "(%a:%a :-> %a (%s))"
+    LA.pp_print_ident i 
+    (Lib.pp_print_option LA.pp_print_lustre_type) ty 
+    LA.pp_print_expr v
+    (if sc = Local then "local" else "global")
 (** Pretty print value bindings (used for constants)*)
 
 let pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
@@ -326,8 +329,8 @@ let pp_print_tymap: Format.formatter -> ty_store -> unit
 (** Pretty print type binding context *)
                
 let pp_print_vstore: Format.formatter -> const_store -> unit
-  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty, _))
-    -> pp_print_val_binding ppf (i, (e, ty)))  ", " ppf (IMap.bindings m)
+  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty, sc))
+    -> pp_print_val_binding ppf (i, (e, ty, sc)))  ", " ppf (IMap.bindings m)
 (** Pretty print value store *)
 
 let pp_print_u_types: Format.formatter -> SI.t -> unit

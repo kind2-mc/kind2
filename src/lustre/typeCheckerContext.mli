@@ -181,7 +181,7 @@ val pp_print_type_syn: Format.formatter -> (LA.ident * tc_type) -> unit
 val pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
 (** Pretty print type bindings*)  
 
-val pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option)) -> unit
+val pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * const_scope)) -> unit
 (** Pretty print value bindings (used for constants)*)
 
 val pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
