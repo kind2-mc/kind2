@@ -96,9 +96,6 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
-type source = 
-  | InputVar | OutputVar | LocalVar | GlobalVar | GhostVar
-
 val error_message: error_kind -> string
 
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 

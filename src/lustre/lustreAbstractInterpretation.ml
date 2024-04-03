@@ -194,7 +194,7 @@ let rec interpret_program ty_ctx gids = function
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx TC.GhostVar node_id eqns |> unwrap |> fst
+  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id eqns |> unwrap |> fst
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))

@@ -47,9 +47,14 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_scope = Global | Local
+type source = 
+| Input
+| Output
+| Local
+| Global
+| Ghost
 
-type const_store = (LA.expr * tc_type option * const_scope) IMap.t 
+type const_store = (LA.expr * tc_type option * source) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking. *)
@@ -187,7 +192,7 @@ let lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
   | Some l -> Some (List.map fst l)
   | None -> None
 
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * const_scope) option
+let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * source) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
 
@@ -230,11 +235,11 @@ let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)
 
-let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
+let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
   = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
 
-let add_untyped_const : tc_context -> LA.ident -> LA.expr -> const_scope -> tc_context
+let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
 = fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
 
 let union: tc_context -> tc_context -> tc_context
@@ -269,7 +274,7 @@ let singleton_ty: LA.ident -> tc_type -> tc_context
   = fun i ty -> add_ty empty_tc_context i ty
 (** Lifts the type binding as a typing context  *)
 
-let singleton_const: LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context =
+let singleton_const: LA.ident -> LA.expr -> tc_type -> source -> tc_context =
   fun i e ty sc -> add_const empty_tc_context i e ty sc
 (** Lifts the constant binding as a typing context  *)
 
@@ -312,7 +317,7 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * const_scope)) -> unit
+let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
   = fun ppf (i, (v, ty, sc)) ->
   Format.fprintf ppf "(%a:%a :-> %a (%s))"
     LA.pp_print_ident i 
