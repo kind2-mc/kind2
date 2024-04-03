@@ -38,40 +38,42 @@ let rec flatten_ref_type ctx ty = match ty with
   | RefinementType (pos, (pos2, id, ty), expr) -> 
     let ty = flatten_ref_type ctx ty in
     let rec chase_refinements ty = match ty with 
-      | A.RefinementType (_, (_, id2, ty2), expr2) -> 
-        let cons = chase_refinements ty2 in
-        (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
-      | RecordType (_, _, tis) ->
-        List.map (fun (_, id2, ty) -> 
-          let exprs = chase_refinements ty in 
-          List.map (AH.substitute_naive id (A.RecordProject(pos, Ident(pos, id), id2))) exprs
-        ) tis |> List.flatten
-      | TupleType (pos, tys) | GroupType (pos, tys) -> 
-        List.mapi (fun i ty ->
-          let exprs = chase_refinements ty in
-          List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
-        ) tys |> List.flatten
-      | ArrayType (pos, (ty, len)) -> 
-        let dummy_index = AN.mk_fresh_dummy_index () in
+    | A.RefinementType (_, (_, id2, ty2), expr2) -> 
+      let cons = chase_refinements ty2 in
+      (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
+    | RecordType (_, _, tis) ->
+      List.map (fun (_, id2, ty) -> 
+        let exprs = chase_refinements ty in 
+        List.map (AH.substitute_naive id (A.RecordProject(pos, Ident(pos, id), id2))) exprs
+      ) tis |> List.flatten
+    | TupleType (pos, tys) | GroupType (pos, tys) -> 
+      List.mapi (fun i ty ->
         let exprs = chase_refinements ty in
-        List.map (fun expr -> 
-          let expr = AH.substitute_naive id (A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index))) expr in
-          let bound1 = 
-            A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
-          in 
-          let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
-          let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
-          A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
-        ) exprs
-      | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
-      | Bool _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
-      | History _ | TArr _ | UserType _  ->[]
+        List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
+      ) tys |> List.flatten
+    | ArrayType (pos, (ty, len)) -> 
+      let dummy_index = AN.mk_fresh_dummy_index () in
+      let exprs = chase_refinements ty in
+      List.map (fun expr -> 
+        let expr = AH.substitute_naive id (A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index))) expr in
+        let bound1 = 
+          A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
+        in 
+        let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
+        let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
+        A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
+      ) exprs
+    | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
+    | Bool _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | History _ | TArr _ | UserType _ -> []
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
-    RefinementType (pos, (pos2, id, ty), expr)
+    (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
+      | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
+      | _ -> assert false)
   | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
   | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
 
