@@ -89,10 +89,6 @@ val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
     while excluding node call identifiers *)
 
-val vars_of_type: lustre_type -> SI.t
-(** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
-    while excluding node call identifiers and refinement type bound variables *)
-
 val vars_without_node_call_ids_current: expr -> SI.t
 (** [vars_without_node_call_ids_current e] is like vars_without_node_call_ids, 
     but only those vars that are not under a 'pre' expression *)
@@ -108,6 +104,10 @@ val defined_vars_with_pos: node_item -> (Lib.position * index) list
 
 val vars_of_ty_ids: typed_ident -> SI.t
 (** returns a singleton set with the only identifier in a typed identifier declaration *)
+
+val vars_of_type: lustre_type -> SI.t
+(** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
+    while excluding node call identifiers and refinement type bound variables *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)

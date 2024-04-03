@@ -1,0 +1,10 @@
+const q: int;
+
+node M(const n: int; const m: int) returns (A: int^n)
+(*@contract
+assume n > 0;
+*)
+let 
+  A = any { A: int^n | A[0] + m + q > 5} ;
+  check A[0] + m + q > 5;
+tel

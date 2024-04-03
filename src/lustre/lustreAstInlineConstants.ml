@@ -104,7 +104,7 @@ let rec eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result = fun
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
-      | Some (const_expr, _) ->
+      | Some (const_expr, _, _) ->
          if is_normal_form ctx const_expr
          then int_value_of_const const_expr
          else (match const_expr with
@@ -150,7 +150,7 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> (bool, [> error]) result = fun c
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
-      | Some (const_expr, _) ->
+      | Some (const_expr, _, _) ->
          if is_normal_form ctx const_expr
          then bool_value_of_const const_expr
          else (match const_expr with
@@ -284,7 +284,7 @@ and simplify_expr ?(is_guarded = false) ctx =
   | LA.Const _ as c -> c
   | LA.Ident (_, i) as ident ->
      (match (TC.lookup_const ctx i) with
-      | Some (const_expr, _) ->
+      | Some (const_expr, _, _) ->
          (match const_expr with
           | LA.Ident (_, i') as ident' ->
              if HString.compare i i' = 0 (* If This is a free constant *)
@@ -425,10 +425,10 @@ let rec inline_constants_of_node_locals ctx = function
   | (LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e)))) :: t ->
     let e' = simplify_expr ctx e in
     let ctx = match (TC.lookup_ty ctx i) with
-      | None -> TC.add_untyped_const ctx i e'
+      | None -> TC.add_untyped_const ctx i e' Local
       | Some ty ->
         let ty' = inline_constants_of_lustre_type ctx ty in
-        TC.add_const ctx i e' ty'
+        TC.add_const ctx i e' ty' Local
     in
     let decl' = LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e'))) in
     let ctx', t' = inline_constants_of_node_locals ctx t in
@@ -436,7 +436,7 @@ let rec inline_constants_of_node_locals ctx = function
   | (LA.NodeConstDecl (pos1, (LA.TypedConst (pos2, i, e, ty)))) :: t ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     let e' = simplify_expr ctx e in
-    let ctx' = TC.add_const ctx i e' ty' in
+    let ctx' = TC.add_const ctx i e' ty' Local in
     let ctx'', t' = inline_constants_of_node_locals ctx' t in
     let decl' = LA.NodeConstDecl (pos1, (TypedConst (pos2, i, e', ty'))) in
     ctx'', decl' :: t'
@@ -504,16 +504,16 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     let e' = simplify_expr ctx e in
     (match (TC.lookup_ty ctx i) with
       | None ->
-          (TC.add_untyped_const ctx i e'
+          (TC.add_untyped_const ctx i e' Global
           , ConstDecl (span, UntypedConst (pos', i, e')))
       | Some ty ->
         let ty' = inline_constants_of_lustre_type ctx ty in
-        let ctx' = TC.add_ty (TC.add_const ctx i e' ty') i ty' in
+        let ctx' = TC.add_ty (TC.add_const ctx i e' ty' Global) i ty' in
         (ctx', ConstDecl (span, UntypedConst (pos', i, e'))))
   | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     let e' = simplify_expr ctx e in
-    let ctx' = TC.add_ty (TC.add_const ctx i e' ty') i ty' in
+    let ctx' = TC.add_ty (TC.add_const ctx i e' ty' Global) i ty' in
     (ctx', ConstDecl (span, TypedConst (pos', i, e', ty')))
   | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in

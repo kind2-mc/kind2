@@ -97,7 +97,7 @@ type warning = [
 val warning_message : warning_kind -> string
 
 type source = 
-  | Input | Output | Local | Global | Ghost
+  | InputVar | OutputVar | LocalVar | GlobalVar | GhostVar
 
 val error_message: error_kind -> string
 
