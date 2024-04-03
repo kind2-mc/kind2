@@ -305,15 +305,15 @@ let of_channel old_frontend only_parse in_ch =
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in
             let main_lustre_node = LN.node_of_name s_ident nodes in
-            if main_lustre_node.is_extern then 
-            [s_ident] 
             (* If checking realizability and main node is not external (imported), then 
                we are actually checking realizability of Kind 2-generated imported nodes representing 
                the (1) the main node's contract instrumented with type info and 
                    (2) the main node's enviornment *)
-            else [s_ident; 
-                  LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
-                  LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+            if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+              [s_ident; 
+              LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+              LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+            else [s_ident]
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t
