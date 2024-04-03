@@ -1471,8 +1471,6 @@ and normalize_expr ?guard info map =
     let enum_subrange_reftype_vars =
       vars |> List.filter (fun (_, _, ty) ->
         let ty' = Ctx.expand_nested_type_syn info.context ty in
-        let ty = Chk.expand_type info.context ty |> unwrap in
-        A.pp_print_lustre_type Format.std_formatter ty;
         AH.type_contains_enum_subrange_reftype ty'
       )
     in
