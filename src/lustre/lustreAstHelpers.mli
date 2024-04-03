@@ -104,6 +104,9 @@ val defined_vars_with_pos: node_item -> (Lib.position * index) list
 val vars_of_ty_ids: typed_ident -> SI.t
 (** returns a singleton set with the only identifier in a typed identifier declaration *)
 
+val calls_of_expr: expr -> SI.t 
+(** [calls_of_expr e] returns all node/function names for those nodes/functions called in [e] *)
+
 val vars_of_type: lustre_type -> SI.t
 (** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
     while excluding node call identifiers and refinement type bound variables *)
