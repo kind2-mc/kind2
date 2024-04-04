@@ -1,0 +1,9 @@
+type T = subtype { n: int | n >= 0 };
+type U = subtype { m: T | m mod 2 = 0 }; 
+
+
+node M(x: U;) returns (y: int);
+let
+  y = x;
+  check y >= 0 and y mod 2 = 0;
+tel

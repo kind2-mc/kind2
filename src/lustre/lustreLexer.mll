@@ -236,6 +236,7 @@ let keyword_table = mk_hashtbl [
   "bool", BOOL ;
   "subrange", SUBRANGE ;
   "of", OF ;
+  "subtype", SUBTYPE ;
   (* "array", ARRAY) ; *)
   "struct", STRUCT ;
   "enum", ENUM ;
@@ -457,7 +458,6 @@ rule token = parse
   | ".." { DOTDOT }
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
-  | '}' { RCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
   | "<<" { LPARAMBRACKET }

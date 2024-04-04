@@ -80,12 +80,14 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val mk_fresh_dummy_index : 'a -> HString.t
+
 val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
   LustreAst.t ->
     GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
-   [> `LustreAstNormalizerWarning of Lib.position * warning_kind] list, [> error])
+   [> warning] list, [> error])
   result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit
