@@ -43,30 +43,9 @@ let node_decl_to_contracts
   let base_contract = match contract with | None -> [] | Some contract -> contract in 
   let contract = List.filter_map (fun ci -> 
     match ci with 
-    (* Since we're checking feasibility of input assumptions, the assumptions become guarantees *)
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
     | _ -> None
   ) base_contract in
-  (* let input_contract_items = List.map (fun (_, _, ty, _, _) -> match ty with 
-    | A.RefinementType (pos, _, expr) -> 
-      let guarantee = A.Guarantee (pos, None, false, expr) in
-      [guarantee]
-    | _ -> []
-  ) inputs |> List.flatten in
-  let output_contract_items = List.map (fun (_, _, ty, _) -> match ty with 
-    | A.RefinementType (pos, _, expr) -> 
-      let assumption = A.Assume (pos, None, false, expr) in
-      [assumption]
-    | _ -> []
-  ) outputs |> List.flatten in *)
-  (* let local_contract_items = List.map (fun local_decl -> match local_decl with 
-    | A.NodeConstDecl (_, FreeConst (_, _, A.RefinementType (pos, _, expr))) 
-    | A.NodeConstDecl (_, TypedConst (_, _, _, A.RefinementType (pos, _, expr)))
-    | A.NodeVarDecl (_, (_, _, A.RefinementType (pos, _, expr), _)) -> 
-      let guarantee = A.Guarantee (pos, None, false, expr) in
-      [guarantee]
-    | _ -> []
-  ) locals |> List.flatten in  *)
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
@@ -84,6 +63,8 @@ let node_decl_to_contracts
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
   in
+  (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
+     for the input node's inputs/environment *)
   Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, locals, node_items, contract)),
         A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
 
