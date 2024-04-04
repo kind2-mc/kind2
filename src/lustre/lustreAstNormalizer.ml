@@ -266,6 +266,13 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
+  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+    Format.fprintf ppf "(%a, %a, %a, %a)"
+      pp_print_source source
+      Lib.pp_print_position pos
+      HString.pp_print_hstring id
+      A.pp_print_expr rexpr
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -276,13 +283,14 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
+    (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -392,7 +400,7 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
 
 let mk_range_expr ctx expr_type expr = 
   let rec mk ctx n expr_type expr = 
-    let expr_type = Ctx.expand_nested_type_syn ctx expr_type in
+    let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
     | A.EnumType (_, _, values) -> (
       let eqs =
@@ -409,7 +417,7 @@ let mk_range_expr ctx expr_type expr =
     )
     | A.IntRange (_, l, u) ->
       let original_ty = Chk.infer_type_expr ctx expr |> unwrap in
-      let original_ty = Ctx.expand_nested_type_syn ctx original_ty in
+      let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
           let eval_int_expr_opt expr = match expr with 
@@ -465,17 +473,23 @@ let mk_range_expr ctx expr_type expr =
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
+      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | _ -> assert false
+    | _ -> []
   in
   mk ctx 0 expr_type expr
+
+let mk_fresh_dummy_index _ =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_index") in
+  name
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   let expr = A.Ident(pos, constrained_name) in
@@ -496,6 +510,57 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   in
   List.fold_left union (empty ()) gids
 
+let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> source -> A.lustre_type -> (source * A.expr) list
+ = fun ctx id source ty -> 
+  let ty = Ctx.expand_type_syn ctx ty in
+  match ty with 
+  | A.RefinementType (_, (_, id2, _), expr) -> 
+    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
+       in terms of x instead of y *)
+    let expr = AH.substitute_naive id2 id expr in
+    [(source, expr)]
+  | TupleType (pos, tys) 
+  | GroupType (pos, tys) -> List.mapi (fun i ty ->
+      mk_ref_type_expr ctx (A.TupleProject(pos, id, i)) source ty
+    ) tys |> List.flatten
+  | RecordType (p, _, tis) -> 
+    List.map (fun (_, id2, ty) -> 
+      let expr = A.RecordProject(p, id, id2) in
+      mk_ref_type_expr ctx expr source ty
+    ) tis |> List.flatten
+  | ArrayType (_, (ty, len)) -> 
+    let pos = AH.pos_of_expr id in
+    let dummy_index = mk_fresh_dummy_index () in
+    let exprs_sources = mk_ref_type_expr ctx (A.ArrayIndex(pos, id, Ident(pos, dummy_index))) source ty in 
+    List.map (fun (source, expr) -> 
+      let bound1 = 
+        A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
+      in 
+      let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
+      let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
+      source, A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
+    ) exprs_sources
+  | _ -> []
+
+
+let mk_fresh_refinement_type_constraint source info pos id expr_type =
+  let ref_type_exprs = mk_ref_type_expr info.context id source expr_type in
+  let gids = List.map (fun (source, ref_type_expr) ->
+    i := !i + 1;
+    let output_expr = AH.rename_contract_vars ref_type_expr in
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
+    let nexpr = A.Ident (pos, name) in
+    let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
+    let gids = { (empty ()) with
+      refinement_type_constraints = [(source, pos, name, output_expr)];
+      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_expr)]; }
+    in
+    gids)
+    ref_type_exprs
+  in
+  List.fold_left union (empty ()) gids
+
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -504,8 +569,6 @@ let mk_fresh_oracle expr_type expr =
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
-
-
 
 let mk_fresh_call info id map pos cond restart args defaults =
   let called_node = StringMap.find id map in 
@@ -549,11 +612,13 @@ let add_step_counter info =
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info node_id id =
-  let ty = (match AI.get_type info.abstract_interp_context node_id id with
-  | Some ty -> ty
-  | None -> let ty = Ctx.lookup_ty info.context id |> get in ty)
+  let ty = (match AI.get_type info.abstract_interp_context node_id id, 
+                  Ctx.lookup_ty info.context id |> get with
+  | _, (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
+  | Some ty, _ -> ty
+  | None, ty -> ty)
   in
-  Ctx.expand_nested_type_syn info.context ty
+  Ctx.expand_type_syn info.context ty
 
 (* If [expr] is already an id then we don't create a fresh local *)
 let should_not_abstract force expr = not force && AH.expr_is_id expr
@@ -562,11 +627,20 @@ let add_subrange_constraints info node_id kind vars =
   vars
   |> List.filter (fun (_, id) -> 
     let ty = get_type_of_id info node_id id in
-    AH.type_contains_subrange ty)
+    Ctx.type_contains_subrange info.context ty)
   |> List.fold_left (fun acc (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
     union acc (mk_fresh_subrange_constraint kind info p id ty))
+    (empty ())
+
+let add_ref_type_constraints info kind vars =
+  vars
+  |> List.filter (fun (_, _, ty) -> 
+    Ctx.type_contains_ref info.context ty)
+  |> List.fold_left (fun acc (p, id, ty) ->
+    let ty = AIC.inline_constants_of_lustre_type info.context ty in
+    union acc (mk_fresh_refinement_type_constraint kind info p (A.Ident (p, id)) ty))
     (empty ())
 
 let get_history_type ctx id =
@@ -893,6 +967,15 @@ and normalize_declaration info map = function
   | decl -> Some decl, map, []
 
 and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
+  (* Normalize types *)
+  let ivars, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
+    let ty, gids, warnings = normalize_ty info map id ty in 
+    (p, id, ty, cl, c), gids, warnings
+  ) ivars |> split3 in
+  let ovars, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
+    let ty, gids, warnings = normalize_ty info map id ty in 
+    (p, id, ty, cl), gids, warnings
+  ) ovars |> split3 in
   let contract_ref = cref in
   let ivars_names = List.map (fun (_, id, _, _, _) -> id) ivars in
   let ovars_names = List.map (fun (_, id, _, _) -> id) ovars in
@@ -936,18 +1019,27 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
      Future improvement: filter out variables based on subtyping relation
      on their types instead of equality.
   *)
-  let gids1 =
+  let gids3 =
     let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
     let vars = compute_vars inputs vars in
     add_subrange_constraints info id Input vars
   in
-  let gids2 = 
+  let gids4 = 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     let vars = compute_vars outputs vars in
     add_subrange_constraints info id Output vars
   in
-  let nbody, gids3, warnings = normalize_contract info map ivars ovars body in
-  nbody, union (union gids1 gids2) gids3, warnings, StringMap.empty
+  let gids5 =
+    let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
+    add_ref_type_constraints info Input vars
+  in
+  let gids6 = 
+    let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
+    add_ref_type_constraints info Output vars
+  in
+  let nbody, gids7, warnings3 = normalize_contract info map ivars ovars body in
+  let gids = List.fold_left union (empty ()) [union_list gids1; union_list gids2; gids3; gids4; gids5; gids6; gids7] in
+  nbody, gids, List.flatten (warnings1 @ warnings2) @ warnings3, StringMap.empty
 
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
@@ -955,10 +1047,13 @@ and normalize_ghost_declaration info map = function
     let nexpr, map, warnings = normalize_expr ?guard:None info map expr in
     A.UntypedConst (pos, new_id, nexpr), map, warnings
   | TypedConst (pos, id, expr, ty) ->
+    let ty, map1, warnings1 = normalize_ty info map id ty in
     let new_id = StringMap.find id info.interpretation in
-    let nexpr, map, warnings = normalize_expr ?guard:None info map expr in
-    A.TypedConst (pos, new_id, nexpr, ty), map, warnings
-  | e -> e, empty (), []
+    let nexpr, map2, warnings2 = normalize_expr ?guard:None info map expr in
+    A.TypedConst (pos, new_id, nexpr, ty), union map1 map2, warnings1 @ warnings2
+  | FreeConst (pos, id, ty) -> 
+    let ty, map, warnings = normalize_ty info map id ty in
+    FreeConst (pos, id, ty), map, warnings
 
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
@@ -966,20 +1061,47 @@ and normalize_node info map
   let ctx = Chk.add_io_node_ctx info.context inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
-  (* Record subrange constraints on inputs, outputs *)
-  let gids1 =
-    let vars = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
-    add_subrange_constraints info node_id Input vars
+  (* Normalize types *)
+  let inputs, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
+    let ty, gids, warnings = normalize_ty info map id ty in 
+    (p, id, ty, cl, c), gids, warnings
+  ) inputs |> split3 in
+  let outputs, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
+    let ty, gids, warnings = normalize_ty info map id ty in 
+    (p, id, ty, cl), gids, warnings
+  ) outputs |> split3 in
+  let locals, gids3, warnings3 = List.map (fun decl -> 
+    match decl with 
+    | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
+      let ty, gids, warnings = normalize_ty info map id ty in 
+      A.NodeConstDecl (p1, FreeConst (p2, id, ty)), gids, warnings
+    | A.NodeConstDecl (p1, UntypedConst (p2, id, e)) ->
+      A.NodeConstDecl (p1, UntypedConst (p2, id, e)), empty (), []
+    | A.NodeConstDecl (p, TypedConst (p2, id, e, ty)) -> 
+      let ty, gids, warnings = normalize_ty info map id ty in
+      A.NodeConstDecl (p, TypedConst (p2, id, e, ty)), gids, warnings
+    | A.NodeVarDecl (p1, (p2, id, ty, cl)) -> 
+      let ty, gids, warnings = normalize_ty info map id ty in 
+      A.NodeVarDecl (p1, (p2, id, ty, cl)), gids, warnings
+  ) locals |> split3 in
+  (* Record subrange and refinement type constraints on inputs, outputs *)
+  let gids4 =
+    let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) inputs in
+    let vars' = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
+    union (add_subrange_constraints info node_id Input vars') 
+          (add_ref_type_constraints info Input vars) 
   in
-  let gids2 = 
-    let vars = List.map (fun (p,id,_,_) -> (p,id)) outputs in
-    add_subrange_constraints info node_id Output vars
+  let gids5 = 
+    let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) outputs in
+    let vars' = List.map (fun (p,id,_,_) -> (p,id)) outputs in
+    union (add_subrange_constraints info node_id Output vars') 
+          (add_ref_type_constraints info Output vars)
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids5, warnings1 = match contract with
+  let ncontracts, gids6, warnings4 = match contract with
     | Some contract ->
-      let ctx = Chk.tc_ctx_of_contract info.context contract |> unwrap
+      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fst
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
@@ -988,20 +1110,21 @@ and normalize_node info map
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
-  let ctx = Chk.add_local_node_ctx ctx locals |> unwrap in
+  let ctx = Chk.add_local_node_ctx ctx node_id locals |> unwrap in
   let info = { info with context = ctx } in
   (* Record subrange constraints on locals *)
-  let gids3 = locals
+  let gids7 = locals
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
-        AH.type_contains_subrange ty
+        Ctx.type_contains_subrange ctx ty || Ctx.type_contains_ref ctx ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Local info p id ty)
+        let gids = union acc (mk_fresh_subrange_constraint Local info p id ty)
+        in union gids (mk_fresh_refinement_type_constraint Local info p (A.Ident (p, id)) ty)
       | _ -> assert false)
       (empty ())
   in
@@ -1023,29 +1146,31 @@ and normalize_node info map
     Flags.check_reach () && List.exists reachability_prop_with_bounds items
   in
   (* Normalize equations and the contract *)
-  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
-  let gids4' = union gids4 gids5 in
-  let gids5' =
+  let nitems, gids8, warnings5 = normalize_list (normalize_item info map) items in
+  let gids7' = union gids7 gids8 in
+  let gids8' =
     if exists_reachability_prop_with_bounds ||
-       not (StringMap.is_empty gids4'.history_vars) then (
+       not (StringMap.is_empty gids7'.history_vars) then (
       add_step_counter info
     )
     else
       empty ()
   in
-  let gids6 =
+  let gids9 =
     StringMap.fold
       (fun id h_id acc ->
         union acc (add_history_var_and_equation info id h_id)
       )
-      gids4'.history_vars
+      gids7'.history_vars
       (empty ())
   in
-  let new_gids = union_list [gids1; gids2; gids3; gids4'; gids5'; gids6] in
-  let old_gids, warnings3 = normalize_gid_equations info map node_id in
+  let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
+                             gids4; gids5; gids6; gids7'; gids8'; gids9] in
+  let old_gids, warnings6 = normalize_gid_equations info map node_id in
   let map = StringMap.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
-  map, warnings1 @ warnings2 @ warnings3
+  map, 
+  List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 @ warnings6
 
 
 and desugar_history info expr =
@@ -1170,7 +1295,7 @@ and rename_ghost_variables info contract =
   | (A.GhostConst (UntypedConst (_, id, _))
   | GhostConst (TypedConst (_, id, _, _))) :: t ->
     let ty = Ctx.lookup_ty info.context id |> get in
-    let ty = Ctx.expand_nested_type_syn info.context ty in
+    let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info t in
@@ -1178,7 +1303,7 @@ and rename_ghost_variables info contract =
   (* Recurse through each declaration one at a time *)
   | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
     let ty = Ctx.lookup_ty info.context id |> get in
-    let ty = Ctx.expand_nested_type_syn info.context ty in
+    let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
@@ -1329,24 +1454,36 @@ and normalize_contract info map ivars ovars items =
           else empty ()
         )
         in
-        let gids3 = (
-          let gids_list = (
+
+        let tis, gids3, warnings2 = (
+          let tis, gids_list, warnings = (
             List.map (
-              fun (_, i, ty) -> 
-              let new_id = StringMap.find i info.interpretation in
-              if AH.type_contains_subrange ty then
-                mk_fresh_subrange_constraint Ghost info pos new_id ty
-              else empty ()
+              fun (pos, i, ty) -> 
+                let ty, gids, warnings = normalize_ty info map i ty in
+                let new_id = StringMap.find i info.interpretation in
+                if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
+                  (pos, i, ty),
+                  union gids (
+                  union (mk_fresh_subrange_constraint Ghost info pos new_id ty)
+                        (mk_fresh_refinement_type_constraint Ghost info pos (A.Ident (pos, new_id)) ty)), 
+                  warnings
+                else (pos, i, ty), gids, []
             )
-            tis
+            tis |> split3
           ) in
-          List.fold_left union (empty ()) gids_list
+          tis, List.fold_left union (empty ()) gids_list, List.flatten warnings
         ) in
 
         (* Get new identifiers for LHS *)
-        let new_tis = List.map (fun (p, id, e) -> 
-          (p, StringMap.find id info.interpretation, e)) tis in
-        GhostVars (pos, GhostVarDec(pos2, new_tis), nexpr), union (union gids1 gids2) gids3, warnings, StringMap.empty
+        let tis = List.map (fun (p, id, ty) -> 
+          (p, StringMap.find id info.interpretation, ty)
+        ) tis
+        in
+
+        GhostVars (pos, GhostVarDec(pos2, tis), nexpr), 
+        union (union gids1 gids2) gids3, 
+        warnings @ warnings2, 
+        StringMap.empty
       
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), [], StringMap.empty
@@ -1526,23 +1663,24 @@ and normalize_expr ?guard info map =
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
-  in let mk_enum_subrange_constraints info vars =
-    let enum_subrange_vars =
+  in let mk_enum_subrange_reftype_constraints info vars =
+    let enum_subrange_reftype_vars =
       vars |> List.filter (fun (_, _, ty) ->
-        let ty = Ctx.expand_nested_type_syn info.context ty in
-        AH.type_contains_enum_or_subrange ty
+        let ty' = Ctx.expand_type_syn info.context ty in
+        Ctx.type_contains_enum_subrange_reftype info.context ty'
       )
     in
     let constraints =
       List.fold_left
         (fun acc (_, id, ty) ->
           let expr = A.Ident(dpos, id) in
-          let range_exprs = mk_range_expr info.context ty expr in
+          let range_exprs =  List.map fst (mk_range_expr info.context ty expr) @ 
+                             List.map snd (mk_ref_type_expr info.context expr Local ty) in
           range_exprs :: acc
         )
         []
-        enum_subrange_vars
-      |> List.flatten |> List.map fst
+        enum_subrange_reftype_vars
+      |> List.flatten 
     in
     match constraints with
     | [] -> None
@@ -1765,7 +1903,7 @@ and normalize_expr ?guard info map =
     let nexpr, gids, warnings = normalize_expr ?guard info map expr in
     let nexpr =
       let constraints =
-        mk_enum_subrange_constraints info vars
+        mk_enum_subrange_reftype_constraints info vars
       in
       match constraints, kind with
       | None, _ -> nexpr
@@ -1828,3 +1966,17 @@ and expand_node_calls_in_place info var count expr =
     let e = A.RestartEvery (p, id, expr_list, r e) in
     expand_node_call info e var count
   | e -> e
+
+and normalize_ty info map id ty = 
+  match ty with 
+  | A.RefinementType (p1, (p2, id2, ty), expr) -> 
+    let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
+    let info =  { info with context = Ctx.add_ty info.context id2 ty }; in
+    let info, h_gids, expr = desugar_history info expr in
+    let nexpr, gids, warnings = normalize_expr info map expr in
+    A.RefinementType (p1, (p2, id, ty), nexpr), union h_gids gids, warnings
+    
+  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
+  | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | TVar _ | IntRange _ 
+  | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
+  | ArrayType _ | EnumType _ | TArr _ -> ty, empty (), []

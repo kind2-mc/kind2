@@ -75,6 +75,7 @@ let mk_span start_pos end_pos =
 %token BOOL
 %token SUBRANGE
 %token OF
+%token SUBTYPE
 %token HISTORY
     
 (* Tokens for arrays *)
@@ -202,8 +203,7 @@ let mk_span start_pos end_pos =
     
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT 
-%left BAR
+%nonassoc WHEN CURRENT ASSUMING BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -354,16 +354,16 @@ lustre_type:
 
   (* Predefined types *)
   | BOOL { A.Bool (mk_pos $startpos) }
-  | INT { A.Int (mk_pos $startpos)}
-  | REAL { A.Real (mk_pos $startpos)}
-  | UINT8 { A.UInt8 (mk_pos $startpos)}
-  | UINT16 { A.UInt16 (mk_pos $startpos)}
-  | UINT32 { A.UInt32 (mk_pos $startpos)}
-  | UINT64 { A.UInt64 (mk_pos $startpos)}
-  | INT8 { A.Int8 (mk_pos $startpos)}
-  | INT16 { A.Int16 (mk_pos $startpos)}
-  | INT32 { A.Int32 (mk_pos $startpos)}
-  | INT64 { A.Int64 (mk_pos $startpos)}
+  | INT { A.Int (mk_pos $startpos) }
+  | REAL { A.Real (mk_pos $startpos) }
+  | UINT8 { A.UInt8 (mk_pos $startpos) }
+  | UINT16 { A.UInt16 (mk_pos $startpos) }
+  | UINT32 { A.UInt32 (mk_pos $startpos) }
+  | UINT64 { A.UInt64 (mk_pos $startpos) }
+  | INT8 { A.Int8 (mk_pos $startpos) }
+  | INT16 { A.Int16 (mk_pos $startpos) }
+  | INT32 { A.Int32 (mk_pos $startpos) }
+  | INT64 { A.Int64 (mk_pos $startpos) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 
@@ -372,7 +372,7 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { A.IntRange (mk_pos $startpos, l, u)}
+    { A.IntRange (mk_pos $startpos, l, u) }
 
   (* User-defined type *)
   | s = ident { A.UserType (mk_pos $startpos, s) }
@@ -387,6 +387,9 @@ lustre_type:
 
   (* Array type (V6) *)
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
+
+  (* Refinement type *)
+  | t = refinement_type { t }
 
 (* A tuple type *)
 tuple_type:
@@ -408,6 +411,15 @@ record_type:
 (* An array type (V6) *)
 array_type: 
   | t = lustre_type; CARET; s = expr { t, s }
+
+refinement_type_base:
+  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  { id, e }
+
+(* Refinement type *)
+refinement_type:
+  | SUBTYPE; r = refinement_type_base
+    { let (id, e) = r in A.RefinementType (mk_pos $startpos, id, e) } 
 
 (*
   (* Alternate syntax: array [size] of type *)
@@ -943,12 +955,19 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* 'Any' operation *)
-  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e = pexpr(Q); RCURLYBRACKET
-    { A.AnyOp (mk_pos $startpos, id, e, None) } 
-  | ANY; LCURLYBRACKET; id = typed_ident; BAR; e1 = pexpr(Q); ASSUMING; e2 = pexpr(Q); RCURLYBRACKET
-    { A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
+  | ANY; r = refinement_type_base
+    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e, None) } 
+  | ANY; r = refinement_type_base ASSUMING; e2 = pexpr(Q)
+    { let (id, e1) = r in A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
   | ANY; ty = lustre_type;
-    { A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), Const(mk_pos $startpos, True), None)}
+    { 
+      match ty with 
+        | RefinementType (_, id, e) -> 
+          A.AnyOp(mk_pos $startpos, id, e, None)
+        | _ ->
+          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), 
+                      Const(mk_pos $startpos, True), None)
+    }
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
@@ -1208,7 +1227,14 @@ typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
-
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr;
+    (* Pair each identifier with the type *)
+    { 
+      match l with 
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
+    
 lustre_type_or_history:
   | t = lustre_type
     { t }

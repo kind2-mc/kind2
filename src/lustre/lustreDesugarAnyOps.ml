@@ -24,7 +24,7 @@ module AH = LustreAstHelpers
 let i = ref 0
 
 let mk_fresh_fn_name: Lib.position -> HString.t -> HString.t = 
-fun pos node_name ->
+fun pos node_name -> 
   i := !i + 1;
   let node_name = HString.concat2 node_name (HString.mk_hstring ".") in
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
@@ -258,37 +258,37 @@ fun ctx decls ->
   let decls =
   List.fold_left (fun decls decl ->
     match decl with
-    | A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) ->
+    | A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
     (
-      match Chk.add_full_node_ctx ctx inputs outputs locals with
-      | Ok ctx ->
-        let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
-        let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-        let gen_nodes = List.flatten gen_nodes in
-        decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
-      (* If there is an error in context collection, it will be detected later in type checking *)
-      | Error _ -> decl :: decls
+      match Chk.add_full_node_ctx ctx id inputs outputs locals with
+        | Ok ctx -> 
+          let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
+          let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
+          let gen_nodes = List.flatten gen_nodes in
+          decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
+        (* If there is an error in context collection, it will be detected later in type checking *)
+        | Error _ -> decl :: decls
     )
-    | A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) ->
+    | A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
     (
-      match Chk.add_full_node_ctx ctx inputs outputs locals with
-      | Ok ctx ->
-        let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
-        let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-        let gen_nodes = List.flatten gen_nodes in
-        decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
-      (* If there is an error in context collection, it will be detected later in type checking *)
-      | Error _ -> decl :: decls
+      match Chk.add_full_node_ctx ctx id inputs outputs locals with
+        | Ok ctx ->  
+          let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
+          let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
+          let gen_nodes = List.flatten gen_nodes in
+          decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
+        (* If there is an error in context collection, it will be detected later in type checking *)
+        | Error _ -> decl :: decls
     )
     | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
-    (
-      let ctx = Chk.add_io_node_ctx ctx inputs outputs in
-      let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
-      let contract = match contract with
-        | Some contract -> contract
-        | None -> assert false in (* Must have a contract *)
-      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
-    )
+      (
+        let ctx = Chk.add_io_node_ctx ctx inputs outputs in
+        let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
+        let contract = match contract with
+          | Some contract -> contract
+          | None -> assert false in (* Must have a contract *)
+        decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
+      )
     | _ -> decl :: decls
   ) [] decls in 
   decls

@@ -40,16 +40,13 @@ val pos_of_expr : expr -> Lib.position
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
+val expr_contains_id : ident -> expr -> bool
+(** Checks if the expression contains a particular identifier *)
+
 val type_arity : lustre_type -> int * int
 (** Returns the arity of a type, a function (TArr) has arity `(a, b)`
     where `a` is the number of inputs and `b` is the number of outputs,
     every other type has arity `(0, 0)` *)
-
-val type_contains_subrange : lustre_type -> bool
-(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
-
-val type_contains_enum_or_subrange : lustre_type -> bool
-(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
 
 val type_contains_array : lustre_type -> bool 
 (** Returns true if the lustre type expression contains an array or if it is an array *)
@@ -92,6 +89,10 @@ val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
     while excluding node call identifiers *)
 
+val vars_without_node_call_ids_current: expr -> SI.t
+(** [vars_without_node_call_ids_current e] is like vars_without_node_call_ids, 
+    but only those vars that are not under a 'pre' expression *)
+
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 (** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
 
@@ -125,34 +126,6 @@ val extract_op_ty: clocked_typed_decl -> ident * lustre_type
 
 val is_const_arg: const_clocked_typed_decl -> bool
 (** Returns [true] if the node input stream is a constant  *)
-
-val is_type_num: lustre_type -> bool
-(** returns [true] if the type is a number type i.e. Int, Real, IntRange, or Machine Integer *)
-
-val is_type_int: lustre_type -> bool
-(** returns [true] if the type is an integer type, i.e. Int, or IntRange *)
-
-val is_type_real_or_int: lustre_type -> bool
-(** returns [true] if the type is a real or integer type, i.e, Real, Int, or IntRange *)
-
-val is_type_int_or_machine_int: lustre_type -> bool
-(** returns [true] if the type is an integer type or machine int, i.e. Int, IntRange, or Machine Integer *)
-
-val is_type_unsigned_machine_int: lustre_type -> bool
-(** returns [true] if the type is an unsigned machine int. i.e. UInt, UInt32 etc.  *)
-
-val is_type_signed_machine_int: lustre_type -> bool
-(** returns [true] if the type is an signed machine int. i.e. Int, Int32 etc.  *)
-
-val is_type_machine_int: lustre_type -> bool
-(** returns [true] if the type is a signed or unsiged machine integer.  *)
-
-val is_type_array: lustre_type -> bool
-(** returns [true] if the type is an array type *)
-
-val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
-(** returns [true] if the first component of the type is of the same width 
-    as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
 
 val is_type_or_const_decl: declaration -> bool
 (** returns [true] if it is a type or a constant declaration  *)

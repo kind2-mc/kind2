@@ -124,6 +124,7 @@ type lustre_type =
   (* TArr is always constructed as GroupType -> GroupType
    *  as we can have more than one arguments and return 
    *  values  *)
+  | RefinementType of position * typed_ident * expr
   
 (** A Lustre expression *)
 and expr =

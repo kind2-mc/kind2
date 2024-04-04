@@ -47,9 +47,14 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_scope = Global | Local
+type source = 
+| Input
+| Output
+| Local
+| Global
+| Ghost
 
-type const_store = (LA.expr * tc_type option * const_scope) IMap.t 
+type const_store = (LA.expr * tc_type option * source) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking. *)
@@ -76,6 +81,8 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; enum_vars:enum_variants
                   }
 (** The type checker global context *)
+
+let (let*) = Res.(>>=)
 
 let empty_tc_context: tc_context =
   { ty_syns = IMap.empty
@@ -133,32 +140,31 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
 
-let expand_type_syn: tc_context -> tc_type -> tc_type
-  = fun ctx ->
-  function
-  | UserType (_, i) as ty->
-     (match lookup_ty_syn ctx i with
-      | None -> ty
-      | Some ty' -> ty')
-  | ty -> ty 
-(** Chases the type to its base form to resolve type synonyms *)
-
-let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
+let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType _ as ty -> 
-    expand_nested_type_syn ctx (expand_type_syn ctx ty)
+  | UserType (_, i) as ty -> 
+    (match lookup_ty_syn ctx i with
+    | None -> ty
+    | Some ty' -> ty')
   | TupleType (p, tys) ->
-    let tys = List.map (expand_nested_type_syn ctx) tys in
+    let tys = List.map (expand_type_syn ctx) tys in
     TupleType (p, tys)
   | GroupType (p, tys) ->
-    let tys = List.map (expand_nested_type_syn ctx) tys in
+    let tys = List.map (expand_type_syn ctx) tys in
     GroupType (p, tys)
   | RecordType (p, name, tys) ->
-    let tys = List.map (fun (p, i, t) -> p, i, expand_nested_type_syn ctx t) tys in
+    let tys = List.map (fun (p, i, t) -> p, i, expand_type_syn ctx t) tys in
     RecordType (p, name, tys)
   | ArrayType (p, (ty, e)) ->
-    let ty = expand_nested_type_syn ctx ty in
+    let ty = expand_type_syn ctx ty in
     ArrayType (p, (ty, e))
+  | TArr (p, ty1, ty2) -> 
+    let ty1 = expand_type_syn ctx ty1 in 
+    let ty2 = expand_type_syn ctx ty2 in 
+    TArr (p, ty1, ty2)
+  | LA.RefinementType (p1, (p2, id, ty), e) -> 
+    let ty = expand_type_syn ctx ty in
+    LA.RefinementType (p1, (p2, id, ty), e)
   | ty -> ty
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
@@ -186,7 +192,7 @@ let lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
   | Some l -> Some (List.map fst l)
   | None -> None
 
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * const_scope) option
+let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * source) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
 
@@ -229,11 +235,11 @@ let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)
 
-let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
+let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
   = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
 
-let add_untyped_const : tc_context -> LA.ident -> LA.expr -> const_scope -> tc_context
+let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
 = fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
 
 let union: tc_context -> tc_context -> tc_context
@@ -268,7 +274,7 @@ let singleton_ty: LA.ident -> tc_type -> tc_context
   = fun i ty -> add_ty empty_tc_context i ty
 (** Lifts the type binding as a typing context  *)
 
-let singleton_const: LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context =
+let singleton_const: LA.ident -> LA.expr -> tc_type -> source -> tc_context =
   fun i e ty sc -> add_const empty_tc_context i e ty sc
 (** Lifts the constant binding as a typing context  *)
 
@@ -311,7 +317,7 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * const_scope)) -> unit
+let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
   = fun ppf (i, (v, ty, sc)) ->
   Format.fprintf ppf "(%a:%a :-> %a (%s))"
     LA.pp_print_ident i 
@@ -407,3 +413,185 @@ let rec traverse_group_expr_list f ctx proj es =
     else f proj e
   )
   | _ -> assert false
+
+  let rec is_type_num: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  | Int _
+    | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _  
+    | Int8 _   
+    | Int16 _    
+    | Int32 _    
+    | Int64 _    
+    | IntRange _
+    | Real _ -> Ok true
+  | RefinementType (_, (_, _, ty), _) -> is_type_num ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_num ctx ty)
+  | _ -> Ok false
+
+let rec is_type_int: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  | Int _
+  | IntRange _ -> Ok true
+  | RefinementType (_, (_, _, ty), _) -> is_type_int ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_int ctx ty)
+  | _ -> Ok false
+
+let rec is_type_real_or_int: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  | Real _
+  | Int _
+  | IntRange _ -> Ok true
+  | RefinementType (_, (_, _, ty), _) -> is_type_real_or_int ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_real_or_int ctx ty)
+  | _ -> Ok false
+
+let rec is_type_int_or_machine_int: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  |  Int _
+     | UInt8 _       
+     | UInt16 _   
+     | UInt32 _   
+     | UInt64 _  
+     | Int8 _   
+     | Int16 _    
+     | Int32 _    
+     | Int64 _    
+     | IntRange _ -> Ok true
+  | RefinementType (_, (_, _, ty), _) -> is_type_int_or_machine_int ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_int_or_machine_int ctx ty)
+  | _ -> Ok false
+
+let rec is_type_unsigned_machine_int: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _ -> Ok true    
+  | RefinementType (_, (_, _, ty), _) -> is_type_unsigned_machine_int ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_unsigned_machine_int ctx ty)
+  | _ -> Ok false  
+
+let rec is_type_signed_machine_int: tc_context -> tc_type -> (bool, HString.t) result
+  = fun ctx ty -> match ty with
+  | Int8 _       
+    | Int16 _   
+    | Int32 _   
+    | Int64 _ -> Ok true 
+  | RefinementType (_, (_, _, ty), _) -> is_type_signed_machine_int ctx ty 
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_signed_machine_int ctx ty) 
+  | _ -> Ok false  
+       
+let is_type_machine_int: tc_context -> tc_type -> (bool, HString.t) result = fun ctx ty ->
+  let* b1 = is_type_signed_machine_int ctx ty in 
+  let* b2 = is_type_unsigned_machine_int ctx ty in 
+  Ok (b1 || b2)
+
+let rec is_type_array : tc_context -> tc_type -> (bool, HString.t) result 
+  = fun ctx ty -> match ty with
+  | ArrayType _ -> Ok true
+  | RefinementType (_, (_, _, ty), _) -> is_type_array ctx ty
+  | History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id) 
+      | Some ty -> is_type_unsigned_machine_int ctx ty)
+  | _ -> Ok false
+
+let rec is_machine_type_of_associated_width: tc_context -> (tc_type * tc_type) -> (bool, HString.t) result
+= fun ctx tys -> match tys with
+  | Int8 _, UInt8 _       
+    | Int16 _,UInt16 _   
+    | Int32 _, UInt32 _   
+    | Int64 _, UInt64 _
+    | UInt8 _, UInt8 _       
+    | UInt16 _,UInt16 _   
+    | UInt32 _, UInt32 _   
+    | UInt64 _, UInt64 _ -> Ok true
+  | RefinementType (_, (_, _, ty1), _), ty2 -> is_machine_type_of_associated_width ctx (ty1, ty2)
+  | ty1, RefinementType (_, (_, _, ty2), _) -> is_machine_type_of_associated_width ctx (ty1, ty2)
+  | ty1, History (_, id) -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id)
+      | Some ty -> is_machine_type_of_associated_width ctx (ty1, ty))
+  | History (_, id), ty2 -> 
+    let ty = lookup_ty ctx id in 
+    (match ty with 
+      | None -> Error (id)
+      | Some ty -> is_machine_type_of_associated_width ctx (ty, ty2))
+  | _ -> Ok false
+
+let rec type_contains_subrange ctx = function
+  | LA.IntRange _ -> true
+  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ctx ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_subrange ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+    | Some ty -> type_contains_subrange ctx ty
+    | _ -> assert false)
+  | _ -> false
+
+  let rec type_contains_ref ctx = function
+  | LA.RefinementType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
+  | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+      | Some ty -> type_contains_ref ctx ty
+      | _ -> assert false)
+  | _ -> false
+
+let rec type_contains_enum_subrange_reftype ctx = function
+  | LA.IntRange _
+  | EnumType _ 
+  | RefinementType _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+      | Some ty -> type_contains_enum_subrange_reftype ctx ty
+      | _ -> assert false)
+  | _ -> false

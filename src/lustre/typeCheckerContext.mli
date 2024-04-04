@@ -25,7 +25,12 @@ module SI = LA.SI
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
-type const_scope = Global | Local
+type source = 
+| Input
+| Output
+| Local
+| Global
+| Ghost
 
 module IMap : sig
   (* everything that [Stdlib.Map] gives us  *)
@@ -43,7 +48,7 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_store = (LA.expr * tc_type option * const_scope) IMap.t 
+type const_store = (LA.expr * tc_type option * source) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
@@ -89,11 +94,8 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
-
+    
 val expand_type_syn: tc_context -> tc_type -> tc_type
-(** Chases the type to its base form to resolve type synonyms *)
-
-val expand_nested_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
 val lookup_ty: tc_context -> LA.ident -> tc_type option
@@ -110,7 +112,7 @@ val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list op
 
 val lookup_node_param_ids: tc_context -> LA.ident -> HString.t list option
 
-val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * const_scope) option
+val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * source) option
 (** Lookup a constant identifier *)
 
 val lookup_variants: tc_context -> LA.ident -> LA.ident list option
@@ -140,10 +142,10 @@ val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
                   
-val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
+val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
 (** Adds a constant variable along with its expression and type  *)
 
-val add_untyped_const : tc_context -> LA.ident -> LA.expr -> const_scope -> tc_context
+val add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
 (** Adds a constant variable along with its type  *)
 
 val union: tc_context -> tc_context -> tc_context
@@ -152,7 +154,7 @@ val union: tc_context -> tc_context -> tc_context
 val singleton_ty: LA.ident -> tc_type -> tc_context
 (** Lifts the type binding as a typing context  *)
 
-val singleton_const: LA.ident -> LA.expr -> tc_type -> const_scope -> tc_context
+val singleton_const: LA.ident -> LA.expr -> tc_type -> source -> tc_context
 (** Lifts the constant binding as a typing context  *)
 
 val extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
@@ -181,7 +183,7 @@ val pp_print_type_syn: Format.formatter -> (LA.ident * tc_type) -> unit
 val pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
 (** Pretty print type bindings*)  
 
-val pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * const_scope)) -> unit
+val pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
 (** Pretty print value bindings (used for constants)*)
 
 val pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
@@ -212,3 +214,40 @@ val arity_of_expr: tc_context -> LA.expr -> int
 
 val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
 (** Traverse a group expr list *)
+
+val is_type_num: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a number type i.e. Int, Real, IntRange, or Machine Integer *)
+
+val is_type_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type, i.e. Int, or IntRange *)
+
+val is_type_real_or_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a real or integer type, i.e, Real, Int, or IntRange *)
+
+val is_type_int_or_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an integer type or machine int, i.e. Int, IntRange, or Machine Integer *)
+
+val is_type_unsigned_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an unsigned machine int. i.e. UInt, UInt32 etc.  *)
+
+val is_type_signed_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an signed machine int. i.e. Int, Int32 etc.  *)
+
+val is_type_machine_int: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is a signed or unsiged machine integer.  *)
+
+val is_type_array: tc_context -> LA.lustre_type -> (bool, HString.t) result
+(** returns [true] if the type is an array type *)
+
+val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lustre_type) -> (bool, HString.t) result
+(** returns [true] if the first component of the type is of the same width 
+  as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
+
+val type_contains_subrange : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
+
+val type_contains_ref : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
+
+val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)

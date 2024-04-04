@@ -31,6 +31,7 @@ type error_kind = Unknown of string
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
   | NotAFieldOfRecord of HString.t
+  | AssumptionOnCurrentOutput of HString.t
   | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
@@ -86,22 +87,31 @@ type error = [
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
+type warning_kind =
+  | UnusedBoundVariableWarning of HString.t
+
+type warning = [
+  | `LustreTypeCheckerWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
+
 val error_message: error_kind -> string
 
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
      
-val type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result  
+val type_check_infer_globals: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> error]) result
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_context, [> error]) result
+val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
 
-val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result
+val local_var_binding: tc_context ->  HString.t -> LA.node_local_decl -> (tc_context * [> warning ] list, [> error]) result 
 
 val add_io_node_ctx :
   tc_context ->
@@ -111,11 +121,13 @@ val add_io_node_ctx :
 
 val add_local_node_ctx :
   tc_context ->
+  HString.t ->
   LA.node_local_decl list ->
   (tc_context, [> error ]) result
 
 val add_full_node_ctx :
   tc_context ->
+  HString.t ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
@@ -123,9 +135,23 @@ val add_full_node_ctx :
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->
+  HString.t ->
   LA.const_clocked_typed_decl list ->
-  LA.clocked_typed_decl list -> (tc_type, [> error ]) result
+  LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
 
+val expand_type_syn_reftype_history : ?expand_subrange:bool ->
+  tc_context ->
+  tc_type ->
+  ( tc_type,
+    [> error] )
+  result
+
+val expand_type_syn_reftype_history_subrange : tc_context ->
+  tc_type ->
+  ( tc_type,
+    [> error] )
+  result
+  
 val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
