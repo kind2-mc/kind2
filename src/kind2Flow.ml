@@ -262,7 +262,8 @@ let status_of_exn process status = function
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
-  | IC3.UnsupportedFeature msg -> (
+  | IC3.UnsupportedFeature msg 
+  | IC3IA.UnsupportedFeature msg -> (
     KEvent.log L_warn "%s" msg;
     status
   )
@@ -524,14 +525,7 @@ let create_processes modules sys =
   | [] -> processes, []
   | _ -> (
     if Flags.IC3IA.max_processes () > 0 then
-      let open TermLib in
-      let open TermLib.FeatureSet in
-      match TransSys.get_logic sys with
-      | `Inferred l when mem A l ->
-        KEvent.log L_warn 
-          "IC3IA disabled: arrays are not supported." ;
-        processes, []
-      | _ -> (
+      (
         let qe_itp_support_model =
           let check_system_is_supported itp_solver =
             let supported =

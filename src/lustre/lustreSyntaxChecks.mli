@@ -68,12 +68,9 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
-val syntax_check : LA.t -> (([> `LustreSyntaxChecksWarning of Lib.position * warning_kind] list * LA.declaration list), 
-                            [> `LustreSyntaxChecksError of Lib.position * error_kind ]) result
+val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
 
-val no_mismatched_clock : bool -> LA.expr -> ([> `LustreSyntaxChecksWarning of Lib.position * warning_kind ] list,
-                                              [> `LustreSyntaxChecksError of Lib.position * error_kind ])
-  result
+val no_mismatched_clock : bool -> LA.expr -> ([> warning ] list, [> error]) result
 (** Conservative syntactic check of clock arguments for merge expressions.
   To eventually be replaced with more general clock inference/checking.
 

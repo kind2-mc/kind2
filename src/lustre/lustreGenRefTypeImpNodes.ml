@@ -103,7 +103,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
     let inputs = SI.diff vars (SI.singleton id) |> SI.elements in
     let inputs = List.filter_map (fun id -> 
       let ty = Ctx.lookup_ty ctx id |> unwrap in
-      let ty = Chk.expand_type ctx ty |> unwrap_res in
+      let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap_res in
       let is_const = Ctx.member_val ctx id in
       let call_params = (match node_id with 
       | Some node_id -> Ctx.lookup_node_param_ids ctx node_id |> unwrap 

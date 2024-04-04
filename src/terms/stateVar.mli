@@ -91,6 +91,9 @@ val import : t -> t
 
 (** {1 Accessor functions} *)
 
+(** Return a unique numerical identifier *)
+val uid : t -> int
+
 (** Return a previously declared state variable *)
 val state_var_of_string : string * string list -> t 
 

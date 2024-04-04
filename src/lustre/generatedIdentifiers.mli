@@ -36,8 +36,8 @@ type t = {
     * LustreAst.expr
     * LustreAst.expr)
     StringMap.t;
-  locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type)
+  locals : 
+  (LustreAst.lustre_type)
     StringMap.t;
   contract_calls :
     (Lib.position

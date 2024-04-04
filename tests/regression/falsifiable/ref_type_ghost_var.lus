@@ -1,6 +1,5 @@
 node N(x: int) returns (y: int);
 (*@contract
-  --!! Does adding a guarantee cause a problem if this is an imported node?
   var ghost: subtype { x: int | x >= 0 } = -1;
 *)
 let

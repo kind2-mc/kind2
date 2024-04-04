@@ -40,22 +40,13 @@ val pos_of_expr : expr -> Lib.position
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
-val expr_contains_id : index -> expr -> bool
+val expr_contains_id : ident -> expr -> bool
 (** Checks if the expression contains a particular identifier *)
 
 val type_arity : lustre_type -> int * int
 (** Returns the arity of a type, a function (TArr) has arity `(a, b)`
     where `a` is the number of inputs and `b` is the number of outputs,
     every other type has arity `(0, 0)` *)
-
-val type_contains_subrange : lustre_type -> bool
-(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
-
-val type_contains_ref : lustre_type -> bool
-(** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
-
-val type_contains_enum_subrange_reftype : lustre_type -> bool
-(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
 
 val type_contains_array : lustre_type -> bool 
 (** Returns true if the lustre type expression contains an array or if it is an array *)
@@ -98,10 +89,6 @@ val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
     while excluding node call identifiers *)
 
-val vars_of_type: lustre_type -> SI.t
-(** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
-    while excluding node call identifiers and refinement type bound variables *)
-
 val vars_without_node_call_ids_current: expr -> SI.t
 (** [vars_without_node_call_ids_current e] is like vars_without_node_call_ids, 
     but only those vars that are not under a 'pre' expression *)
@@ -117,6 +104,10 @@ val defined_vars_with_pos: node_item -> (Lib.position * index) list
 
 val vars_of_ty_ids: typed_ident -> SI.t
 (** returns a singleton set with the only identifier in a typed identifier declaration *)
+
+val vars_of_type: lustre_type -> SI.t
+(** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
+    while excluding node call identifiers and refinement type bound variables *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
@@ -186,10 +177,3 @@ val rename_contract_vars : expr -> expr
 
 val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
 (** Get the name associated with a property *)
-
-val desugar_history : HString.t -> string -> expr -> HString.HStringSet.t * expr
-(** [desugar_history c p e] desugars type constructors of the form history(x) occurring in [e]
-    using [c] for the name of the counter variable and [p] as a prefix for the name of
-    the history variables. It returns the set of variables passed as argument to the
-    type constructors history and an expression that is the result of desusgaring
-    the type constructors ocurring in [e] *)

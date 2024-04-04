@@ -245,13 +245,16 @@ let get_tree_type ctx lhs =
     | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
-let rec fill_ite_with_oracles expr ty =
+let rec fill_ite_with_oracles ctx expr ty =
   match expr with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
-      let e1, gids1, decls1 = fill_ite_with_oracles e1 ty in
-      let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
+      let e1, gids1, decls1 = fill_ite_with_oracles ctx e1 ty in
+      let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
+      (* We convert ty to its base type, including mapping subrange types to ints,
+         because oracles should not fulfill type-related proof obligations *)
+      let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in
       let (expr, gids) = (mk_fresh_ib_oracle p ty) in
       (match expr with
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
@@ -314,7 +317,7 @@ let extract_equations_from_if node_id ctx ib =
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
-  let res = List.map2 fill_ite_with_oracles ites tys in
+  let res = List.map2 (fill_ite_with_oracles ctx) ites tys in
   let ites = List.map (fun (x, _, _) -> x) res in
   let gids = List.map (fun (_, y, _) -> y) res in
   let new_decls = List.map (fun (_, _, z) -> z) res |> List.flatten in
@@ -340,14 +343,14 @@ let rec desugar_node_item node_id ctx ni = match ni with
 
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
-  | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+  | A.FuncDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
-  | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+  | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in

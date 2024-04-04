@@ -274,27 +274,7 @@ let rec check_inductive_array_dependencies ctx ns = function
 and check_node_decl ctx ns decl =
   let (node_id, _, _, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
-  let constants_ctx = inputs
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let input_ctx = inputs
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let output_ctx = outputs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let ctx = Ctx.union
-    (Ctx.union constants_ctx ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx node_id local |> unwrap |> fst)
-    ctx
-    locals
-  in
+  let ctx = Chk.add_full_node_ctx ctx node_id inputs outputs locals |> unwrap in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
   (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in

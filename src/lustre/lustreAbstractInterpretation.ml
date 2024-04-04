@@ -194,7 +194,7 @@ let rec interpret_program ty_ctx gids = function
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx TC.Ghost node_id eqns |> unwrap |> fst
+  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id eqns |> unwrap |> fst
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
@@ -231,55 +231,21 @@ and interpret_decl ty_ctx gids = function
 
 and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
   (* Setup the typing context *)
-  let constants_ctx = ins
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let input_ctx = ins
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let output_ctx = outs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let ty_ctx = Ctx.union
-    (Ctx.union constants_ctx ty_ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
   interpret_contract id empty_context ty_ctx contract
 
 and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
-  let constants_ctx = ins
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let input_ctx = ins
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let output_ctx = outs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ty_ctx)
-  in
-  let ty_ctx = Ctx.union
-    (Ctx.union constants_ctx ty_ctx)
-    (Ctx.union input_ctx output_ctx)
-  in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
   let ctx = IMap.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
-  let ty_ctx = List.fold_left
-    (fun ctx local -> TC.local_var_binding ctx id local |> unwrap |> fst)
-    ty_ctx
-    locals 
-  in
+  let ty_ctx = TC.add_local_node_ctx ty_ctx id locals |> unwrap in
   let gids_node = GeneratedIdentifiers.StringMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
-    (fun id (_, ty) ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
+    (fun id ty ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
@@ -311,7 +277,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
   List.fold_left2 (fun acc lhs (expr, p) -> match lhs with
       | LA.SingleIdent (_, id) ->
         let ty1 = Ctx.lookup_ty ty_ctx id |> get in
-        let ty1 = TC.expand_type ty_ctx ty1 |> unwrap in
+        let ty1 = TC.expand_type_syn_reftype_history ty_ctx ty1 |> unwrap in
         let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
         let ty, is_restricted = restrict_type_by ty1 restrict_ty in
         if is_restricted then
@@ -319,7 +285,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
         else acc
       | LA.ArrayDef (_, array, indices) ->
         let array_type = Ctx.lookup_ty ty_ctx array |> get in
-        let array_type = TC.expand_type ty_ctx array_type |> unwrap in
+        let array_type = TC.expand_type_syn_reftype_history ty_ctx array_type |> unwrap in
         let ty_ctx, ty1, sizes = List.fold_left (fun (acc, ty, sizes) idx ->
             match ty with
             | LA.ArrayType (_, (idx_ty, size)) -> 
@@ -442,7 +408,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
     let ty = TC.infer_type_expr ty_ctx e |> unwrap
     in
-    TC.expand_type ty_ctx ty |> unwrap
+    TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap
   in
   match f expr with
   | Some ty -> ty
@@ -452,7 +418,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       | Some id_ty -> id_ty
       | None -> 
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
-        TC.expand_type ty_ctx id_ty |> unwrap)
+        TC.expand_type_syn_reftype_history ty_ctx id_ty |> unwrap)
     | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
     | TernaryOp (_, Ite, _, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
@@ -466,7 +432,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
     | RecordProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
-      let parent_ty = TC.expand_type ty_ctx parent_ty |> unwrap in
+      let parent_ty = TC.expand_type_syn_reftype_history ty_ctx parent_ty |> unwrap in
       (match parent_ty with
         | LA.RecordType (_, _, idents) ->
           let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
@@ -498,7 +464,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   let infer e =
     let ty = TC.infer_type_expr ty_ctx e |> unwrap
     in
-    let ty = TC.expand_type ty_ctx ty |> unwrap in 
+    let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
   in
   match expr with
@@ -508,12 +474,12 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       extract_bounds_from_type ty
     | None ->
       let ty = Ctx.lookup_ty ty_ctx id |> get in
-      let ty = TC.expand_type ty_ctx ty |> unwrap in
+      let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
       extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
   | RecordProject (_, e, p) -> 
     let ty = infer e in 
-    let ty = TC.expand_type ty_ctx ty |> unwrap in
+    let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
     (match ty with
       | LA.RecordType (_, _, nested) ->
         let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
@@ -712,7 +678,7 @@ let interpret_const_decl ctx pos_map ty_ctx = function
   | ConstDecl (_, UntypedConst (_, id, e)) -> 
     (* Get inferred bounds from expr *)
     let ty = Ctx.lookup_ty ty_ctx id |> get in
-    let ty = TC.expand_type ty_ctx ty |> unwrap in
+    let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
     let ty = most_general_int_ty ty in 
     let ty = interpret_expr_by_type dnode_id ctx ty_ctx ty 0 e in
     let pos = LustreAstHelpers.pos_of_expr e in
@@ -734,7 +700,7 @@ and check_global_const_subrange ty_ctx ctx pos_map =
   in
   IMap.fold (fun id inferred_range acc ->
     let actual_ty = Ctx.lookup_ty ty_ctx id |> get in
-    let actual_ty = TC.expand_type ty_ctx actual_ty |> unwrap in
+    let actual_ty = TC.expand_type_syn_reftype_history ty_ctx actual_ty |> unwrap in
     (* Check if inferred range is outside of declared type *)
     compare_ranges id pos_map actual_ty inferred_range :: acc
   )

@@ -57,6 +57,6 @@ val pos_list_map : (Lib.position * eq_or_framecond) list HString.HStringHashtbl.
 val desugar_frame_blocks :
   A.declaration list ->
     (A.declaration list *
-    [> `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind ] list,
-    [> `LustreDesugarFrameBlocksError of Lib.position * error_kind ])
+    [> warning] list,
+    [> error])
     result

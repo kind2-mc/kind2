@@ -71,7 +71,8 @@ type identifier_maps = {
   node_name : HString.t option;
   assume_count : int;
   guarantee_count : int;
-  poracle_count : int
+  poracle_count : int;
+  call_count : int;
 }
 
 
@@ -124,7 +125,8 @@ let empty_identifier_maps node_name = {
   node_name = node_name;
   assume_count = 0;
   guarantee_count = 0;
-  poracle_count = 1
+  poracle_count = 1;
+  call_count = 1;
 }
 
 let empty_compiler_state () = { 
@@ -788,9 +790,10 @@ and compile_ast_expr
     let bounds = bounds @
       List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
         vars in
-    H.add_seq !map.quant_vars (H.to_seq quant_var_map);
+    let quant_vars = H.to_seq quant_var_map in
+    H.add_seq !map.quant_vars quant_vars;
     let result = compile_unary bounds (mk vars) expr in
-    H.clear !map.quant_vars;
+    Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
     result
 
   and compile_equality bounds polarity expr1 expr2 =
@@ -1248,7 +1251,10 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
     | None, Some r -> [N.CRestart r]
     | Some c, Some r -> [N.CActivate c; N.CRestart r]
   in
+  let call_id = !map.call_count in
+  map := {!map with call_count = call_id + 1 };
   let node_call = {
+    N.call_id = call_id;
     N.call_pos = pos;
     N.call_node_name = ident;
     N.call_cond = cond_state_var;
@@ -1543,7 +1549,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = GI.StringMap.bindings gids.GI.locals in
-    let over_generated_locals glocals (id, (is_ghost, expr_type)) =
+    let over_generated_locals glocals (id, expr_type) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
@@ -1554,7 +1560,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           index
           (* (if Type.is_array index_type then index else X.empty_index) *)
           index_type
-          (if is_ghost then Some N.KGhost else None)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -1589,7 +1595,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KGhost)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -1611,7 +1617,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KGhost)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -1634,7 +1640,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           ident
           index
           index_type
-          (Some N.KLocal)
+          (Some N.Generated)
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -2094,12 +2100,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       (source, contract_scope, is_original, pos, id, rexpr)
     =
       let sv = H.find !map.state_var (mk_ident id) in
-      let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
         | GI.Input -> Some N.Assumption
         | Local -> None
-        | Output -> if not ext && not effective_contract then
-            None else Some N.Guarantee
+        | Output -> Some N.Guarantee
         | Ghost -> Some N.Guarantee
       in
       if is_original then
@@ -2143,12 +2147,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
     let sv = H.find !map.state_var (mk_ident id) in
-    let effective_contract = guarantees != [] || modes != [] in
     let constraint_kind = match source with
       | GI.Input -> Some N.Assumption
       | Local -> None
-      | Output -> if not ext && not effective_contract then
-          None else Some N.Guarantee
+      | Output -> Some N.Guarantee
       | Ghost -> Some N.Guarantee
     in match constraint_kind with
       | Some N.Assumption ->
