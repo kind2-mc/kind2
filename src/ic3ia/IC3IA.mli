@@ -30,7 +30,7 @@
 exception UnsupportedFeature of string
 
 (** Entry point *)
-val main : bool -> Property.t -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+val main : bool -> bool -> Property.t -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
     
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit

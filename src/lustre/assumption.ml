@@ -229,7 +229,7 @@ let create_assumpion_trans fmt_assump sys solver vars fp prop =
 
 
 type 'a analyze_func =
-  bool -> bool -> 
+  bool -> bool -> bool ->
   Lib.kind_module list ->
   'a InputSystem.t ->
   Analysis.param ->
@@ -1027,7 +1027,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         Lib.set_log_level L_off ;
 
-        analyze false false modules in_sys param sys' ;
+        analyze false false false modules in_sys param sys' ;
 
         Lib.set_log_level old_log_level;
 

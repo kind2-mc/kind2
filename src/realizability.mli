@@ -22,7 +22,7 @@
 *)
 
 type 'a analyze_func =
-  Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 type unrealizable_result
 

@@ -73,7 +73,7 @@ val generate_assumption_vg:
   'a InputSystem.t -> TransSys.t -> 'a pair_of_filters -> Property.t -> response
 
 type 'a analyze_func =
-  bool -> bool -> 
+  bool -> bool -> bool -> 
   Lib.kind_module list ->
   'a InputSystem.t ->
   Analysis.param ->
