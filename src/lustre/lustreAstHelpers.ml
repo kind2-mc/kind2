@@ -733,6 +733,44 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
+let rec calls_of_expr: expr -> iset =
+  function
+  (* Node calls *)
+  | Call (_, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
+  | Condact (_, e1, e2, i, es1, es2) ->
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
+                          List.map calls_of_expr es1 @ List.map calls_of_expr es2))
+  | Activate (_, i, e1, e2, es) -> 
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
+  | RestartEvery (_, i, es, e) -> 
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e :: List.map calls_of_expr es))
+  (* Everything else *)
+  | Ident _ -> SI.empty
+  | ModeRef _ -> SI.empty
+  | RecordProject (_, e, _) -> calls_of_expr e 
+  | TupleProject (_, e, _) -> calls_of_expr e
+  | Const _ -> SI.empty
+  | UnaryOp (_,_,e) -> calls_of_expr e
+  | BinaryOp (_,_,e1, e2) -> calls_of_expr e1 |> SI.union (calls_of_expr e2)
+  | TernaryOp (_,_, e1, e2, e3) -> calls_of_expr e1 |> SI.union (calls_of_expr e2) |> SI.union (calls_of_expr e3) 
+  | ConvOp  (_,_,e) -> calls_of_expr e
+  | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> SI.union (calls_of_expr e2)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map calls_of_expr (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map calls_of_expr es)
+  | StructUpdate (_, e1, _, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayConstr (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayIndex (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | Quantifier (_, _, _, e) -> calls_of_expr e
+  | When (_, e, _) -> calls_of_expr e
+  | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> SI.flatten
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (calls_of_expr e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (calls_of_expr e1) (calls_of_expr e2)) (SI.singleton i)
+  | Pre (_, e) -> calls_of_expr e
+  | Arrow (_, e1, e2) ->  SI.union (calls_of_expr e1) (calls_of_expr e2)
+
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
   let vars = vars_without_node_call_ids_current in
