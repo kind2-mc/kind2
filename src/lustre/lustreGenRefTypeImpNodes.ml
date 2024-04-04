@@ -134,7 +134,6 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
 
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
 = fun ctx decls -> 
-  (*!! Right now, you have to mark (non)-imported nodes as MAIN in order to check their realizability *)
   List.fold_left (fun acc decl -> 
     match decl with 
     | A.TypeDecl (_, AliasType (_, _, ty))
@@ -148,6 +147,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.NodeDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
         if not (List.mem `CONTRACTCK (Flags.enabled ())) then decl else
+        (* To prevent slicing, we mark generated imported nodes as main nodes *)
         A.NodeDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
       in
       (match node_decl_to_contracts decl2 with 
@@ -156,15 +156,12 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.FuncDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
         if not (List.mem `CONTRACTCK (Flags.enabled ())) then decl else
+        (* To prevent slicing, we mark generated imported nodes as main nodes *)
         A.FuncDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
       in
       (match node_decl_to_contracts decl2 with 
       | None -> decl :: acc
       | Some (decl2, decl3) -> decl :: decl2 :: decl3 :: acc)
     | A.ContractNodeDecl _ 
-    | A.NodeParamInst _ -> decl :: acc (*TODO*)
+    | A.NodeParamInst _ -> decl :: acc
   ) [] decls |> List.rev
-
-  (* TODO: Check if refinement types nested in other types works for realizability checks
-     TODO: Make sure correct assumes and guarantees are generated, don't need redundant ones for ref types.
-     TODO: Do more testing *)
