@@ -18,6 +18,6 @@
 
 type t =
   | GenericCall of Lib.kind_module
-  | IC3IA_Call of bool * Property.t * string
+  | IC3IA_Call of bool * bool * Property.t * string
 
 val get_kind_module : t -> Lib.kind_module
