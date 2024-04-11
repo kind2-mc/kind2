@@ -55,6 +55,7 @@ let node_decl_to_contracts
   let contract = if contract = [] then None else Some contract in
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let extern = true in 
+  (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
   let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
   let gen_node_id2 = HString.concat2 (HString.mk_hstring contract_tag) id in
@@ -94,6 +95,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
     ) inputs in
     let outputs = [(pos, id, ty, A.ClockTrue)] in
     let locals = [] in 
+    (* To prevent slicing, we mark generated imported nodes as main nodes *)
     let node_items = [A.AnnotMain(pos, true)] in 
     (* Add assumption for each variable with a refinement type in 'expr' *)
     let assumptions = List.filter_map (fun (_, id, _, _, _) -> 
@@ -124,16 +126,14 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
     | A.NodeDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
-        (* To prevent slicing, we mark generated imported nodes as main nodes *)
-        A.NodeDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
+        A.NodeDecl(span, (id, extern, params, inputs, outputs, locals, node_items, contract)) 
       in
       (match node_decl_to_contracts decl2 with 
       | None -> decl :: acc
       | Some (decl2, decl3) -> decl :: decl2 :: decl3 :: acc)
     | A.FuncDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
       let decl = 
-        (* To prevent slicing, we mark generated imported nodes as main nodes *)
-        A.FuncDecl(span, (id, extern, params, inputs, outputs, locals, AnnotMain(Lib.dummy_pos, true) :: node_items, contract)) 
+        A.FuncDecl(span, (id, extern, params, inputs, outputs, locals, node_items, contract)) 
       in
       (match node_decl_to_contracts decl2 with 
       | None -> decl :: acc
