@@ -191,7 +191,7 @@ let rec fmt_declarations fmt = function
     | Ast.NodeDecl (_, (wan, _, two,tri,far,fiv,six,contract)) -> (
       let contract_info = match contract with
         | None -> ([],[],[],[])
-        | Some c -> collect_contracts ([],[],[],[]) c
+        | Some (_, c) -> collect_contracts ([],[],[],[]) c
       in
       fmt_node_decl fmt (wan,two,tri,far,fiv,six) contract_info
     )

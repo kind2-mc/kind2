@@ -538,20 +538,21 @@ contract_decl:
        p,
        List.flatten i,
        List.flatten o,
-       e) }
+       (mk_pos $startpos, e)) }
 
 
+//!! Contract stuff 
 contract_spec:
   (* Block contract, parenthesis star (PS). *)
   | CONTRACT_PSATBLOCK ;
     eqs = contract_in_block
     PSBLOCKEND
-    { eqs }
+    { (mk_pos $startpos, eqs) }
   (* Block contract, slash star (SS). *)
   | CONTRACT_SSATBLOCK ;
     eqs = contract_in_block
     SSBLOCKEND
-    { eqs }
+    { (mk_pos $startpos, eqs) }
 
 
 (* A node declaration as an instance of a paramterized node *)

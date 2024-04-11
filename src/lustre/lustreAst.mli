@@ -283,7 +283,7 @@ type contract_node_equation =
   | AssumptionVars of contract_assump_vars
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract = contract_node_equation list
+type contract = position * (contract_node_equation list)
 
   (*   contract_ghost_const list * contract_ghost_var list * ( *)
   (*   contract_assume list * contract_guarantee list * *)

@@ -484,7 +484,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
 
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
-  = fun pos (i, _, ips, ops, c) ->
+  = fun pos (i, _, ips, ops, (_, c)) ->
   let i = (HString.concat2 contract_prefix i) in
   let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
   let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops |> List.flatten in
@@ -522,7 +522,7 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
   let cg = connect_g_pos
              (match contract_opt with
               | None -> empty_dependency_analysis_data
-              | Some c -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+              | Some (_, c) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
                             (List.map (mk_graph_contract_node_eqn i) c))
              (HString.concat2 node_prefix i) pos in
 
@@ -618,18 +618,19 @@ let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) r
 
     
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
-  = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
-      = fun (ps, qs) -> fun e ->
-      match e with
-      | LA.GhostConst _
-      | LA.GhostVars _
-      | LA.ContractCall _
-      | LA.Mode _ -> e::ps, qs
-      | LA.Guarantee _
-      | LA.Assume _
-      | LA.AssumptionVars _ -> ps, e::qs
-    in
-    List.fold_left (split_eqns) ([],[])
+  = fun (_, eqns) -> 
+    let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
+        = fun ((p1, ps), (p2, qs)) -> fun e ->
+        match e with
+        | LA.GhostConst _
+        | LA.GhostVars _
+        | LA.ContractCall _
+        | LA.Mode _ -> (p1, e::ps), (p2, qs)
+        | LA.Guarantee _
+        | LA.Assume _
+        | LA.AssumptionVars _ -> (p1, ps), (p2, e::qs)
+      in
+    List.fold_left split_eqns ((Lib.dummy_pos, []), (Lib.dummy_pos, [])) eqns
     
 let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   = fun m proj expr ->
@@ -729,7 +730,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
    variable assignment. Here, only one of the identifiers (the first) is associated
    with the full equation, while the others are associated with no equation. This is
    so we can check for identifier redeclaration while not having repeated equations. *)
-let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contract -> ((LA.contract_node_equation option IMap.t), [> error]) result
+let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contract_node_equation list -> ((LA.contract_node_equation option IMap.t), [> error]) result
   = fun m ->
   function
   | [] -> R.ok m
@@ -1047,7 +1048,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
   
    
 let mk_graph_contract_decl2 
-  = fun ad (_ , _, _, _, c) ->
+  = fun ad (_ , _, _, _, (_, c)) ->
     let* d = R.seq (List.map (mk_graph_contract_node_eqn2 ad) c) in
     R.ok (List.fold_left union_dependency_analysis_data ad d)           
 
@@ -1075,7 +1076,7 @@ let check_no_input_output_duplicate ips ops =
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> (LA.contract_node_decl, [> error]) result
-  = fun ad ((i, params , ips, ops, contract) as decl) ->
+  = fun ad ((i, params , ips, ops, (p, contract)) as decl) ->
   let* _ = check_no_input_output_duplicate ips ops in
   Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i;
   let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
@@ -1089,14 +1090,14 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         | Some p -> graph_error p (CyclicDependency ids))
   in
   let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
-  let (to_sort_eqns, rest) = split_contract_equations contract in
+  let ((_, to_sort_eqns), (p, rest)) = split_contract_equations (p, contract) in
   let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
   let* contract' = extract_decls eqn_map equational_vars in
   Debug.parse "sorted contract equations for contract %a %a"
     LA.pp_print_ident i
     (Lib.pp_print_list LA.pp_print_contract_item "\n") contract';
   R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
-    >> R.ok(i, params , ips, ops, contract' @ rest)
+    >> R.ok(i, params , ips, ops, (p, contract' @ rest))
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
       - The assumptions and guarantees are added to the bottom of the list as 
@@ -1225,8 +1226,8 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
 (** Traverses all the contract equations to make a contract export list. *)
 
 let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_summary
-  = fun m (i, _, _, _, contract) ->
-  let export_ids = List.concat (List.map (get_contract_exports m) contract) in
+  = fun m (i, _, _, _, (_, eqns)) ->
+  let export_ids = List.concat (List.map (get_contract_exports m) eqns) in
   IMap.add i export_ids m 
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             

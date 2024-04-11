@@ -38,9 +38,12 @@ let unwrap_res =
   | Error _ -> assert false
 
 let node_decl_to_contracts
-= fun (id, _, params, inputs, outputs, locals, _, contract) ->
+= fun (id, _, params, inputs, outputs, locals, _, (contract:(A.contract option))) ->
   if not (List.mem `CONTRACTCK (Flags.enabled ())) then None else
-  let base_contract = match contract with | None -> [] | Some contract -> contract in 
+  let pos, base_contract = match contract with 
+  | None -> Lib.dummy_pos, [] 
+  | Some (pos, contract) -> pos, contract 
+  in 
   let contract = List.filter_map (fun ci -> 
     match ci with 
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
@@ -53,7 +56,7 @@ let node_decl_to_contracts
       Some (pos, id, ty, cl)
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
-  let contract = if contract = [] then None else Some contract in
+  let contract = if contract = [] then None else Some (pos, contract) in
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let extern = true in 
   let node_items = [A.AnnotMain(Lib.dummy_pos, true)] in 
@@ -66,7 +69,7 @@ let node_decl_to_contracts
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, locals, node_items, contract)),
-        A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
+        A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some (pos, base_contract))))
 
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
 = fun ctx ty node_id -> match ty with 
@@ -109,7 +112,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
     ) inputs in 
     (* Add guarantee for 'expr' *) 
     let guarantee = A.Guarantee (pos, None, false, expr) in
-    let contract = Some (guarantee :: assumptions) in
+    let contract = Some (Lib.dummy_pos, guarantee :: assumptions) in
     Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, locals, node_items, contract)))
   | _ -> None
 

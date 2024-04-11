@@ -73,7 +73,7 @@ fun ctx node_name ->
     let generated_node = 
       A.NodeDecl (span, 
       (name, true, [], inputs, 
-      [pos, id, ty, A.ClockTrue], [], [], Some contract)) 
+      [pos, id, ty, A.ClockTrue], [], [], Some (Lib.dummy_pos, contract))) 
     in
     A.Call(pos, name, inputs_call), [generated_node]
 
@@ -192,12 +192,12 @@ fun ctx node_name ->
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> HString.t -> A.contract_node_equation list option -> A.contract_node_equation list option * A.declaration list =
+let desugar_contract: Ctx.tc_context -> HString.t -> A.contract option -> A.contract option * A.declaration list =
 fun ctx node_name contract -> 
   match contract with 
-    | Some contract_items -> 
+    | Some (pos, contract_items) -> 
       let items, gen_nodes = (List.map (desugar_contract_item ctx node_name) contract_items) |> List.split in
-      Some items, List.flatten gen_nodes
+      Some (pos, items), List.flatten gen_nodes
     | None -> None, []
 
 let rec desugar_node_item: Ctx.tc_context -> HString.t -> A.node_item -> A.node_item * A.declaration list =
