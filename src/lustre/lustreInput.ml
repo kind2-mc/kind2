@@ -313,9 +313,8 @@ let of_channel old_frontend only_parse in_ch =
                the (1) the main node's contract instrumented with type info and 
                    (2) the main node's enviornment *)
             if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-              [s_ident; 
-              LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
-              LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+              [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
             else [s_ident]
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
