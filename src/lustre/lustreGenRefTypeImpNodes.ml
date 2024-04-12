@@ -65,7 +65,7 @@ let node_decl_to_contracts
   in
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
-  Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, locals, node_items, contract)),
+  Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract)),
         A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
 
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
@@ -93,8 +93,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
       then None 
       else Some (pos, id, ty, A.ClockTrue, is_const)
     ) inputs in
-    let outputs = [(pos, id, ty, A.ClockTrue)] in
-    let locals = [] in 
+    let outputs = [(pos, id, ty, A.ClockTrue)] in 
     (* To prevent slicing, we mark generated imported nodes as main nodes *)
     let node_items = [A.AnnotMain(pos, true)] in 
     (* Add assumption for each variable with a refinement type in 'expr' *)
@@ -109,7 +108,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
     (* Add guarantee for 'expr' *) 
     let guarantee = A.Guarantee (pos, None, false, expr) in
     let contract = Some (guarantee :: assumptions) in
-    Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, locals, node_items, contract)))
+    Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, [], node_items, contract)))
   | _ -> None
 
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
