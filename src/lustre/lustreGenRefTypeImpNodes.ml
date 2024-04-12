@@ -70,11 +70,10 @@ let node_decl_to_contracts
 
 let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> A.declaration option
 = fun ctx ty -> match ty with 
-  | RefinementType (pos, (_, id, ty), expr) as ref_type -> 
+  | RefinementType (pos, (_, id, ty), expr) -> 
     let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
-    let ty_str = Lib.string_of_t A.pp_print_lustre_type ref_type |> HString.mk_hstring in
     let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) 
-                                      ty_str in
+                      (HString.mk_hstring "_subtype") in
     i := !i + 1;
     let is_extern = true in
     let params = [] in 
