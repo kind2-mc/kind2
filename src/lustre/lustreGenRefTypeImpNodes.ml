@@ -65,7 +65,6 @@ let type_to_contract: HString.t -> A.lustre_type -> A.declaration
   let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
   let pos = Lib.dummy_pos in 
   let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
-  i := !i + 1;
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
   NodeDecl (span, (gen_node_id, true, [], [], [(pos, id, ty, A.ClockTrue)], [], node_items, None))
