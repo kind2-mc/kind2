@@ -172,8 +172,8 @@ let type_check declarations =
     let sorted_node_contract_decls = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
       then 
-        LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts @
-        LGI.gen_imp_nodes global_ctx sorted_node_contract_decls 
+        LGI.gen_imp_nodes const_inlined_type_and_consts @
+        LGI.gen_imp_nodes sorted_node_contract_decls 
       else sorted_node_contract_decls
     in
 

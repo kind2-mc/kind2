@@ -16,26 +16,13 @@
  *)
 
 module A = LustreAst
-module AH = LustreAstHelpers
-module Chk = LustreTypeChecker
-module Ctx = TypeCheckerContext
-module SI = A.SI
 
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
 let inputs_tag = ".inputs_"
 let contract_tag = ".contract_"
-
-let unwrap = 
-  function 
-  | Some v -> v 
-  | None -> assert false
-
-let unwrap_res = 
-  function 
-  | Ok v -> v 
-  | Error _ -> assert false
+let type_tag = ".type_"
 
 let node_decl_to_contracts
 = fun (id, _, params, inputs, outputs, locals, _, contract) ->
@@ -68,53 +55,28 @@ let node_decl_to_contracts
   Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract)),
         A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
 
-let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> A.declaration option
-= fun ctx ty -> match ty with 
-  | RefinementType (pos, (_, id, ty), expr) -> 
-    let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
-    let gen_node_id = HString.concat2 (HString.mk_hstring (string_of_int !i)) 
-                      (HString.mk_hstring "_subtype") in
-    i := !i + 1;
-    let is_extern = true in
-    let params = [] in 
-    let vars = AH.vars_without_node_call_ids expr in
-    let inputs = SI.diff vars (SI.singleton id) |> SI.elements in
-    let inputs = List.filter_map (fun id -> 
-      let ty = Ctx.lookup_ty ctx id |> unwrap in
-      let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap_res in
-      let is_const = Ctx.member_val ctx id in
-      if is_const 
-      then None 
-      else Some (pos, id, ty, A.ClockTrue, is_const)
-    ) inputs in
-    let outputs = [(pos, id, ty, A.ClockTrue)] in 
-    (* To prevent slicing, we mark generated imported nodes as main nodes *)
-    let node_items = [A.AnnotMain(pos, true)] in 
-    (* Add assumption for each variable with a refinement type in 'expr' *)
-    let assumptions = List.filter_map (fun (_, id, _, _, _) -> 
-      let ty = Ctx.lookup_ty ctx id |> unwrap in 
-      match ty with 
-        | A.RefinementType (_, (_, id2, _), expr) -> 
-          let expr =  (AH.substitute_naive id2 (Ident(pos, id)) expr) in
-          Some (A.Assume (pos, None, false, expr))
-        | _ -> None 
-    ) inputs in 
-    (* Add guarantee for 'expr' *) 
-    let guarantee = A.Guarantee (pos, None, false, expr) in
-    let contract = Some (guarantee :: assumptions) in
-    Some (NodeDecl (span, (gen_node_id, is_extern, params, inputs, outputs, [], node_items, contract)))
-  | _ -> None
+(* NOTE: Currently, we do not allow global constants to have refinement types. 
+   If we decide to support this in the future, then we need to add necessary refinement type information 
+   to the generated imported node. For example, if "ty" is a refinement type 
+   Nat = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
+   captured as an assumption in the output imported node. *)
+let type_to_contract: HString.t -> A.lustre_type -> A.declaration
+= fun id ty -> 
+  let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
+  let pos = Lib.dummy_pos in 
+  let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
+  i := !i + 1;
+  (* To prevent slicing, we mark generated imported nodes as main nodes *)
+  let node_items = [A.AnnotMain(pos, true)] in 
+  NodeDecl (span, (gen_node_id, true, [], [], [(pos, id, ty, A.ClockTrue)], [], node_items, None))
 
-let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list 
-= fun ctx decls -> 
+let gen_imp_nodes: A.declaration list -> A.declaration list 
+= fun decls -> 
   List.fold_left (fun acc decl -> 
     match decl with 
-    | A.TypeDecl (_, AliasType (_, _, ty))
-    | A.ConstDecl (_, FreeConst (_, _, ty))
-    | A.ConstDecl (_, TypedConst (_, _, _, ty)) -> 
-      (match (ref_type_to_contract ctx ty) with  
-      | None -> decl :: acc
-      | Some decl2 -> decl :: decl2 :: acc)
+    | A.ConstDecl (_, FreeConst _)
+    | A.ConstDecl (_, TypedConst _) -> acc
+    | A.TypeDecl (_, AliasType (_, id, ty)) -> type_to_contract id ty :: acc
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
     | A.NodeDecl (span, ((id, extern, params, inputs, outputs, locals, node_items, contract) as decl2)) -> 
