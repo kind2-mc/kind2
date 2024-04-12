@@ -17,9 +17,6 @@
 
 module A = LustreAst
 
-(* [i] is module state used to guarantee newly created identifiers are unique *)
-let i = ref 0
-
 let inputs_tag = ".inputs_"
 let contract_tag = ".contract_"
 let type_tag = ".type_"
