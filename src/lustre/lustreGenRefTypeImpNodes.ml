@@ -58,7 +58,7 @@ let node_decl_to_contracts
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
    to the generated imported node. For example, if "ty" is a refinement type 
-   Nat = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
+   T = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
    captured as an assumption in the output imported node. *)
 let type_to_contract: HString.t -> A.lustre_type -> A.declaration
 = fun id ty -> 
