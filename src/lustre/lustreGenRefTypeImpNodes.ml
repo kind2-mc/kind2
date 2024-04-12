@@ -68,8 +68,8 @@ let node_decl_to_contracts
   Some (A.NodeDecl (span, (gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract)),
         A.NodeDecl (span, (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)))
 
-let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option -> A.declaration option
-= fun ctx ty node_id -> match ty with 
+let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> A.declaration option
+= fun ctx ty -> match ty with 
   | RefinementType (pos, (_, id, ty), expr) as ref_type -> 
     let span = { A.start_pos = Lib.dummy_pos; end_pos = Lib.dummy_pos } in
     let ty_str = Lib.string_of_t A.pp_print_lustre_type ref_type |> HString.mk_hstring in
@@ -84,12 +84,7 @@ let ref_type_to_contract: Ctx.tc_context -> A.lustre_type -> HString.t option ->
       let ty = Ctx.lookup_ty ctx id |> unwrap in
       let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap_res in
       let is_const = Ctx.member_val ctx id in
-      let call_params = (match node_id with 
-      | Some node_id -> Ctx.lookup_node_param_ids ctx node_id |> unwrap 
-      | None -> []
-      ) in
-      let is_global_const = is_const && not (List.mem id call_params) in
-      if is_global_const 
+      if is_const 
       then None 
       else Some (pos, id, ty, A.ClockTrue, is_const)
     ) inputs in
@@ -118,7 +113,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.TypeDecl (_, AliasType (_, _, ty))
     | A.ConstDecl (_, FreeConst (_, _, ty))
     | A.ConstDecl (_, TypedConst (_, _, _, ty)) -> 
-      (match (ref_type_to_contract ctx ty None) with  
+      (match (ref_type_to_contract ctx ty) with  
       | None -> decl :: acc
       | Some decl2 -> decl :: decl2 :: acc)
     | A.TypeDecl (_, FreeType _)
