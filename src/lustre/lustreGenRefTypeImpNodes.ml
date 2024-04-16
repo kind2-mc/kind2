@@ -23,7 +23,6 @@ let type_tag = ".type_"
 
 let node_decl_to_contracts 
 = fun pos (id, extern, params, inputs, outputs, locals, _, contract) ->
-  if extern then [(id, extern, params, inputs, outputs, locals, [A.AnnotMain(pos, true)], contract)] else
   let base_contract = match contract with | None -> [] | Some contract -> contract in 
   let contract = List.filter_map (fun ci -> 
     match ci with 
@@ -38,7 +37,7 @@ let node_decl_to_contracts
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
   let contract = if contract = [] then None else Some contract in
-  let extern = true in 
+  let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
   let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
@@ -49,8 +48,12 @@ let node_decl_to_contracts
   in
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
-  [(gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract);
-   (gen_node_id2, extern, params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)]
+  if extern then 
+    (id, extern', params, inputs, outputs, locals, [A.AnnotMain(pos, true)], contract),
+    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract) 
+  else
+    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract),
+    (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
@@ -75,13 +78,11 @@ let gen_imp_nodes: A.declaration list -> A.declaration list
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
     | A.NodeDecl (span, decl) -> 
-      let decls = node_decl_to_contracts span.start_pos decl in
-      let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in 
-      (decls @ acc)
+      let decl1, decl2 = node_decl_to_contracts span.start_pos decl in
+      NodeDecl (span, decl1) :: NodeDecl(span, decl2) :: acc
     | A.FuncDecl (span, decl) -> 
-      let decls = node_decl_to_contracts span.start_pos decl in
-      let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in 
-      (decls @ acc)
+      let decl1, decl2 = node_decl_to_contracts span.start_pos decl in
+      FuncDecl (span, decl1) :: FuncDecl(span, decl2) :: acc
     | A.ContractNodeDecl _ 
     | A.NodeParamInst _ -> decl :: acc
   ) [] decls |> List.rev
