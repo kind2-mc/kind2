@@ -979,6 +979,23 @@ let filter_locals is_visible locals =
       | false -> acc
     ) [] locals
 
+let get_node_type_and_name scope =
+  let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
+  let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
+  let type_tag_len = String.length LustreGenRefTypeImpNodes.type_tag in
+  let scope_str = Scope.to_string scope in
+  if String.length scope_str > inputs_tag_len && 
+      String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
+    "Environment", (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
+  else if String.length scope_str > contract_tag_len && 
+          String.sub scope_str 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
+    "Contract", (String.sub scope_str contract_tag_len (String.length scope_str - contract_tag_len))
+  else if String.length scope_str > type_tag_len && 
+    String.sub scope_str 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
+    "Type", (String.sub scope_str type_tag_len (String.length scope_str - type_tag_len))
+  else
+    "Contract", Scope.to_string scope 
+
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
@@ -990,7 +1007,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 (* Take first node to print *)
 | (
   trace, Node (
-    { N.name; N.inputs; N.outputs; N.locals;
+    { N.inputs; N.outputs; N.locals;
       N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
@@ -998,16 +1015,21 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_visible = N.state_var_is_visible node in
 
-  let is_state, name =
+  let scope = LustreNode.scope_of_node node in
+  let node_type, node_name = get_node_type_and_name scope in
+
+  let is_state, node_name =
     match N.node_is_state_handler node with
-    | None -> false, name
-    | Some state -> true, I.mk_string_ident state
+    | None -> false, node_name
+    | Some state -> true, state
   in
   
   let title =
     if is_function then "Function"
     else if is_state then "State"
-    else "Node"
+    else if node_type = "Environment" then "Environment of"
+    else if node_type = "Inputs" then "Inputs of"
+    else node_type
   in
   
   (* Remove first dimension from index *)
@@ -1083,10 +1105,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let globals = if is_top then get_constants const_map [] else [] in
 
-  let constants =
-    let scope = LustreNode.scope_of_node node in
-    get_constants const_map scope
-  in
+  let constants = get_constants const_map scope in
 
   let ident_width, val_width, globals' =
     globals |> streams_to_values model ident_width val_width []
@@ -1110,7 +1129,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
-      @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
+      @{<b>%s@} @{<blue>%s@} (%a)@,  @[<v>\
         %a\
         %a\
         %a\
@@ -1121,8 +1140,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
       @]\
     @,@]"
     title
-    (I.pp_print_ident false) 
-    name
+    node_name
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
     (pp_print_modes_section_pt ident_width val_width mode_ident) modes

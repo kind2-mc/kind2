@@ -310,7 +310,7 @@ let pp_print_realizability_result_pt
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
   let print_not_unknown_result tag =
-    let node_type, node_name = KEvent.get_node_type_and_name scope in
+    let node_type, node_name = LustrePath.get_node_type_and_name scope in
     Format.fprintf
       fmt
       "@[<hov>%t %s%s %s was proven %s after %.3fs.@]@.@."
@@ -532,7 +532,7 @@ let pp_print_satisfiability_result_pt param fmt result =
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-  let node_type, node_name = KEvent.get_node_type_and_name scope in
+  let node_type, node_name = LustrePath.get_node_type_and_name scope in
   match result with
   | Unknown -> (
     Format.fprintf 

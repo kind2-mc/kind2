@@ -1623,25 +1623,8 @@ let number_of_subsystem_assumptions info =
   ) Scope.Map.empty
   |> Scope.Map.bindings
 
-let get_node_type_and_name scope =
-  let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
-  let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
-  let type_tag_len = String.length LustreGenRefTypeImpNodes.type_tag in
-  let scope_str = Scope.to_string scope in
-  if String.length scope_str > inputs_tag_len && 
-      String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
-    "Environment", (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
-  else if String.length scope_str > contract_tag_len && 
-          String.sub scope_str 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
-    "Contract", (String.sub scope_str contract_tag_len (String.length scope_str - contract_tag_len))
-  else if String.length scope_str > type_tag_len && 
-    String.sub scope_str 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
-    "Type", (String.sub scope_str type_tag_len (String.length scope_str - type_tag_len))
-  else
-    "Contract", Scope.to_string scope 
-
 let log_contractck_analysis_start scope =
-  let node_type, node_name = get_node_type_and_name scope in
+  let node_type, node_name = LustrePath.get_node_type_and_name scope in
   if Flags.log_level () <> L_off then (
     match get_log_format () with
     | F_pt -> (

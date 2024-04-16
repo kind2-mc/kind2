@@ -45,6 +45,10 @@ val pp_print_path_in_csv :
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
+(** Retrieve information about Kind 2-generated nodes *)
+val get_node_type_and_name : Scope.t -> string * string
+
+
 (** Reconstruct Lustre streams from state variables *)
 val reconstruct_lustre_streams :
   LustreNode.t SubSystem.t list -> 
