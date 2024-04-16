@@ -174,6 +174,9 @@ val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> 
 *)
 val prop_invariant : TransSys.t -> string -> Certificate.t -> Term.TermSet.t
 
+(** Retrieve information about Kind 2-generated nodes *)
+val get_node_type_and_name : Scope.t -> string * string
+
 (* Log a property disproved during the computation of a Minimal Cut Set *)
 val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
