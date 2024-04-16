@@ -237,11 +237,13 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-
     let node_type, node_name = LustrePath.get_node_type_and_name scope in
-    Format.fprintf fmt "@{<b>%s%s@} @{<blue>%s@}@ " 
-    node_type 
-    (if node_type = "Environment" || node_type = "Inputs" then " of" else "")
+    Format.fprintf fmt "@{<b>%s@} @{<blue>%s@}@ " 
+    (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Node") 
     node_name ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;

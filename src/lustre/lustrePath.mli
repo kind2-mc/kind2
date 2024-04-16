@@ -20,6 +20,8 @@
 
     @author Kevin Clancy, Christoph Sticksel *)
 
+type node_type = Environment | Contract | Type | User
+
 (** Output a counterexample as a Lustre execution in XML format *)
 val pp_print_path_xml :
   TransSys.t ->
@@ -46,7 +48,7 @@ val pp_print_path_in_csv :
   Format.formatter -> Model.path -> unit
 
 (** Retrieve information about Kind 2-generated nodes *)
-val get_node_type_and_name : Scope.t -> string * string
+val get_node_type_and_name : Scope.t -> node_type * string
 
 
 (** Reconstruct Lustre streams from state variables *)

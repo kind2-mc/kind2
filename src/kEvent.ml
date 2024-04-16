@@ -1629,10 +1629,13 @@ let log_contractck_analysis_start scope =
     match get_log_format () with
     | F_pt -> (
       Format.fprintf !log_ppf "\
-        @.%a@{<b>Checking@} %s%s @{<blue>%s@}@.@."
+        @.%a@{<b>Checking@} %s @{<blue>%s@}@.@."
         Pretty.print_double_line ()
-        (String.lowercase_ascii node_type)
-        (if node_type = "Type" then "" else " of")
+        (match node_type with 
+        | Environment -> "environment of"
+        | Contract -> "contract of"
+        | Type -> "type"
+        | User -> "contract of imported node")
         node_name
     )
     | F_xml -> (

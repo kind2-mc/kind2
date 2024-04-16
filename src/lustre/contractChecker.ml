@@ -313,10 +313,13 @@ let pp_print_realizability_result_pt
     let node_type, node_name = LustrePath.get_node_type_and_name scope in
     Format.fprintf
       fmt
-      "@[<hov>%t %s%s %s was proven %s after %.3fs.@]@.@."
+      "@[<hov>%t %s %s was proven %s after %.3fs.@]@.@."
       tag
-      node_type
-      (if node_type = "Type" then "" else " of node")
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
       node_name
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
@@ -537,11 +540,14 @@ let pp_print_satisfiability_result_pt param fmt result =
   | Unknown -> (
     Format.fprintf 
       fmt
-      "@[<hov>%t Could not determine whether the %s%s \
+      "@[<hov>%t Could not determine whether the %s \
         %s is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (String.lowercase_ascii node_type)
-      (if node_type = "Type" then "" else " of")
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
       node_name
       (Stat.get_float Stat.analysis_time)
   )
@@ -554,10 +560,13 @@ let pp_print_satisfiability_result_pt param fmt result =
     in
     Format.fprintf 
       fmt
-      "@[<hov>%t %s%s %s was proven %s after %.3fs.@]@.@."
+      "@[<hov>%t %s %s was proven %s after %.3fs.@]@.@."
       tag
-      node_type
-      (if node_type = "Type" then "" else " of node")
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
       node_name
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)

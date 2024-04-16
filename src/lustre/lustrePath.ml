@@ -40,6 +40,8 @@ type t =
     N.call_cond list *
     ((I.t * position) list * t) list
 
+type node_type = Environment | Contract | Type | User
+
 
 (* ********************************************************************** *)
 (* Reconstruct a model for a node hierarchy                               *)
@@ -986,15 +988,15 @@ let get_node_type_and_name scope =
   let scope_str = Scope.to_string scope in
   if String.length scope_str > inputs_tag_len && 
       String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
-    "Environment", (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
+    Environment, (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
   else if String.length scope_str > contract_tag_len && 
           String.sub scope_str 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
-    "Contract", (String.sub scope_str contract_tag_len (String.length scope_str - contract_tag_len))
+    Contract, (String.sub scope_str contract_tag_len (String.length scope_str - contract_tag_len))
   else if String.length scope_str > type_tag_len && 
     String.sub scope_str 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
-    "Type", (String.sub scope_str type_tag_len (String.length scope_str - type_tag_len))
+    Type, (String.sub scope_str type_tag_len (String.length scope_str - type_tag_len))
   else
-    "Contract", Scope.to_string scope 
+    User, Scope.to_string scope 
 
 
 (* Output sequences of values for each stream of the nodes in the list
@@ -1027,9 +1029,11 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   let title =
     if is_function then "Function"
     else if is_state then "State"
-    else if node_type = "Environment" then "Environment of"
-    else if node_type = "Inputs" then "Inputs of"
-    else node_type
+    else (match node_type with 
+    | Environment -> "Environment of"
+    | Contract -> "Contract of"
+    | Type -> "Type"
+    | User -> "Node")
   in
   
   (* Remove first dimension from index *)
