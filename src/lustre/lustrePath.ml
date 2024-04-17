@@ -981,22 +981,21 @@ let filter_locals is_visible locals =
       | false -> acc
     ) [] locals
 
-let get_node_type_and_name scope =
+let get_node_type_and_name name =
   let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
   let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
   let type_tag_len = String.length LustreGenRefTypeImpNodes.type_tag in
-  let scope_str = Scope.to_string scope in
-  if String.length scope_str > inputs_tag_len && 
-      String.sub scope_str 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
-    Environment, (String.sub scope_str inputs_tag_len (String.length scope_str - inputs_tag_len))
-  else if String.length scope_str > contract_tag_len && 
-          String.sub scope_str 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
-    Contract, (String.sub scope_str contract_tag_len (String.length scope_str - contract_tag_len))
-  else if String.length scope_str > type_tag_len && 
-    String.sub scope_str 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
-    Type, (String.sub scope_str type_tag_len (String.length scope_str - type_tag_len))
+  if String.length name > inputs_tag_len && 
+      String.sub name 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
+    Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
+  else if String.length name > contract_tag_len && 
+          String.sub name 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
+    Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
+  else if String.length name > type_tag_len && 
+    String.sub name 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
+    Type, (String.sub name type_tag_len (String.length name - type_tag_len))
   else
-    User, Scope.to_string scope 
+    User, name
 
 
 (* Output sequences of values for each stream of the nodes in the list
@@ -1009,7 +1008,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 (* Take first node to print *)
 | (
   trace, Node (
-    { N.inputs; N.outputs; N.locals;
+    { N.name; N.inputs; N.outputs; N.locals;
       N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
@@ -1017,8 +1016,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_visible = N.state_var_is_visible node in
 
-  let scope = LustreNode.scope_of_node node in
-  let node_type, node_name = get_node_type_and_name scope in
+  let node_type, node_name = get_node_type_and_name (I.string_of_ident true name) in
 
   let is_state, node_name =
     match N.node_is_state_handler node with
@@ -1109,6 +1107,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let globals = if is_top then get_constants const_map [] else [] in
 
+  let scope = LustreNode.scope_of_node node in
   let constants = get_constants const_map scope in
 
   let ident_width, val_width, globals' =
@@ -1406,11 +1405,13 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   ) :: tl when N.node_is_visible node ->
 
     let is_visible = N.state_var_is_visible node in
+
+    let _, node_name = get_node_type_and_name (I.string_of_ident true name) in
   
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, name
-      | Some state -> true, I.mk_string_ident state
+      | None -> false, node_name
+      | Some state -> true, state
     in
 
     let title =
@@ -1471,9 +1472,9 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     in
 
     (* Pretty-print this node *)
-    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
+    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%s\"%a>@]"
       title
-      (I.pp_print_ident false) name
+      name
       pp_print_call_xml trace;
 
     pp_print_active_modes_xml ppf active_modes;
@@ -1821,11 +1822,12 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
+    let _, node_name = get_node_type_and_name (I.string_of_ident true name) in
 
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, name
-      | Some state -> true, I.mk_string_ident state
+      | None -> false, node_name
+      | Some state -> true, state
     in
 
     let title =
@@ -1847,11 +1849,12 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
     Format.fprintf ppf
        "@,{@[<v 1>@,\
         \"blockType\" : \"%s\",@,\
-        \"name\" : \"%a\"\
+        \"name\" : \"%s\"\
         %a%a%a%a\
         @]@,}%s\
        "
-       title (I.pp_print_ident false) name
+       title 
+       name
        pp_print_call_json trace
        pp_print_active_modes_json active_modes
        (pp_print_streams_json is_top const_map) (node, model, call_conds)

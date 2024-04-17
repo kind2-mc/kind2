@@ -48,7 +48,7 @@ val pp_print_path_in_csv :
   Format.formatter -> Model.path -> unit
 
 (** Retrieve information about Kind 2-generated nodes *)
-val get_node_type_and_name : Scope.t -> node_type * string
+val get_node_type_and_name : string -> node_type * string
 
 
 (** Reconstruct Lustre streams from state variables *)

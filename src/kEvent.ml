@@ -1624,7 +1624,7 @@ let number_of_subsystem_assumptions info =
   |> Scope.Map.bindings
 
 let log_contractck_analysis_start scope =
-  let node_type, node_name = LustrePath.get_node_type_and_name scope in
+  let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
   if Flags.log_level () <> L_off then (
     match get_log_format () with
     | F_pt -> (
@@ -1639,22 +1639,36 @@ let log_contractck_analysis_start scope =
         node_name
     )
     | F_xml -> (
+      let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
       Format.fprintf !log_ppf "@.@.\
           <AnalysisStart \
-            top=\"%a\"\
+            top=\"%s\",@,\
+            context=\"%s\"\
           />@.@.\
         "
-        Scope.pp_print_scope scope ;
+        node_name 
+        (match node_type with 
+        | Environment -> "environment"
+        | Contract -> "contract"
+        | Type -> "type"
+        | User -> "node");
       analysis_start_not_closed := true
     )
     | F_json -> (
+      let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
-          \"top\" : \"%a\"\
+            top=\"%s\",@,\
+            context=\"%s\"\
           @]@.}@.\
         "
-        Scope.pp_print_scope scope ;
+        node_name 
+        (match node_type with 
+        | Environment -> "environment"
+        | Contract -> "contract"
+        | Type -> "type"
+        | User -> "node");
       analysis_start_not_closed := true
 
     )
