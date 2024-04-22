@@ -24,7 +24,7 @@ let type_tag = ".type_"
 let node_decl_to_contracts 
 = fun pos (id, extern, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some contract -> contract in 
-  let contract = List.filter_map (fun ci -> 
+  let contract' = List.filter_map (fun ci -> 
     match ci with 
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
     | _ -> None
@@ -36,7 +36,7 @@ let node_decl_to_contracts
       Some (pos, id, ty, cl)
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
-  let contract = if contract = [] then None else Some contract in
+  let contract' = if contract' = [] then None else Some contract' in
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
@@ -49,11 +49,11 @@ let node_decl_to_contracts
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
-    (id, extern', params, inputs, outputs, locals, [A.AnnotMain(pos, true)], contract),
-    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract) 
+    (gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract'),
+    (id, extern, params, inputs, outputs, locals, [A.AnnotMain(pos, true)], contract)
   else
-    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract),
-    (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, Some base_contract)
+    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract'),
+    (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract)
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
