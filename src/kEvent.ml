@@ -1642,8 +1642,8 @@ let log_contractck_analysis_start scope =
       let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
       Format.fprintf !log_ppf "@.@.\
           <AnalysisStart \
-            top=\"%s\",@,\
-            context=\"%s\"\
+            top=\"%s\" \
+            context=\"%s\" \
           />@.@.\
         "
         node_name 
@@ -1659,8 +1659,8 @@ let log_contractck_analysis_start scope =
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
-            top=\"%s\",@,\
-            context=\"%s\"\
+          \"top\" : \"%s\",@,\
+          \"context\" : \"%s\"\
           @]@.}@.\
         "
         node_name 
