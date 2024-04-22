@@ -16,13 +16,19 @@
  *)
 
 module A = LustreAst
+module Chk = LustreTypeChecker
+module Ctx = TypeCheckerContext
 
 let inputs_tag = ".inputs_"
 let contract_tag = ".contract_"
 let type_tag = ".type_"
 
+let unwrap = function 
+  | Ok x -> x 
+  | Error _ -> assert false
+
 let node_decl_to_contracts 
-= fun pos (id, extern, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (id, extern, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some contract -> contract in 
   let contract' = List.filter_map (fun ci -> 
     match ci with 
@@ -46,6 +52,12 @@ let node_decl_to_contracts
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
   in
+  (* Since we are omitting assumptions from environment realizablity checks,
+     we need to chase base types for environment inputs *)
+  let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
+    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+    (p, id, ty, cl, b)
+  ) inputs2 in
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
@@ -68,8 +80,8 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> A.declaratio
   let node_items = [A.AnnotMain(pos, true)] in 
   NodeDecl (span, (gen_node_id, true, [], [], [(pos, id, ty, A.ClockTrue)], [], node_items, None))
 
-let gen_imp_nodes: A.declaration list -> A.declaration list 
-= fun decls -> 
+let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list 
+= fun ctx decls -> 
   List.fold_left (fun acc decl -> 
     match decl with 
     | A.ConstDecl (_, FreeConst _)
@@ -78,10 +90,10 @@ let gen_imp_nodes: A.declaration list -> A.declaration list
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
     | A.NodeDecl (span, decl) -> 
-      let decl1, decl2 = node_decl_to_contracts span.start_pos decl in
+      let decl1, decl2 = node_decl_to_contracts span.start_pos ctx decl in
       NodeDecl (span, decl1) :: NodeDecl(span, decl2) :: acc
     | A.FuncDecl (span, decl) -> 
-      let decl1, decl2 = node_decl_to_contracts span.start_pos decl in
+      let decl1, decl2 = node_decl_to_contracts span.start_pos ctx decl in
       FuncDecl (span, decl1) :: FuncDecl(span, decl2) :: acc
     | A.ContractNodeDecl _ 
     | A.NodeParamInst _ -> decl :: acc
