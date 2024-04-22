@@ -339,6 +339,9 @@
                 "top": {
                     "$ref": "#/definitions/scope"
                 },
+                "context": {
+                    "enum": ["type","imported node","contract","environment"]
+                },
                 "concrete": {
                     "type": "array",
                     "items": { "$ref": "#/definitions/scope" }

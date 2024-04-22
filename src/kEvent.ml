@@ -1651,7 +1651,7 @@ let log_contractck_analysis_start scope =
         | Environment -> "environment"
         | Contract -> "contract"
         | Type -> "type"
-        | User -> "node");
+        | User -> "imported node");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1668,7 +1668,7 @@ let log_contractck_analysis_start scope =
         | Environment -> "environment"
         | Contract -> "contract"
         | Type -> "type"
-        | User -> "node");
+        | User -> "imported node");
       analysis_start_not_closed := true
 
     )
