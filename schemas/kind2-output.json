@@ -340,7 +340,7 @@
                     "$ref": "#/definitions/scope"
                 },
                 "context": {
-                    "enum": ["type","imported node","contract","environment"]
+                    "enum": ["type","contract","environment"]
                 },
                 "concrete": {
                     "type": "array",

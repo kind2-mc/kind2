@@ -26,7 +26,6 @@
   <xs:simpleType name="Context">
     <xs:restriction base="xs:string">
       <xs:enumeration value="type"/>
-      <xs:enumeration value="imported node"/>
       <xs:enumeration value="contract"/>
       <xs:enumeration value="environment"/>
     </xs:restriction>
