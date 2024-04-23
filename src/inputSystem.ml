@@ -282,7 +282,7 @@ let contract_check_params (type s) (input_system : s t) =
   match input_system with
   | Lustre (main_subs, _, _) -> (
     S.all_subsystems_of_list main_subs
-    |> List.filter (fun s -> not s.S.has_impl)
+    |> List.filter (fun s -> not s.S.has_impl) 
     |> List.map param_for_subsystem
   )
   | Native _ -> []

@@ -1189,6 +1189,21 @@ module Contracts = struct
     )
   let check_modes () = !check_modes
 
+  let check_environment_default = true
+  let check_environment = ref check_environment_default
+  let _ = add_spec
+    "--check_environment"
+    (bool_arg check_environment)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Check realizability of contract environments@ \
+        Default: %a\
+      @]"
+      fmt_bool check_environment_default
+    )
+  let check_environment () = !check_environment
+
   let check_implem_default = true
   let check_implem = ref check_implem_default
   let _ = add_spec

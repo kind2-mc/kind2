@@ -309,15 +309,20 @@ let pp_print_realizability_result_pt
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-
   let print_not_unknown_result tag =
+    let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
     Format.fprintf
       fmt
-      "@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@."
+      "@[<hov>%t %s %s was proven %s after %.3fs.@]@.@."
       tag
-      Scope.pp_print_scope scope
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
+      node_name
       (Realizability.result_to_string result)
-      (Stat.get_float Stat.analysis_time) ;
+      (Stat.get_float Stat.analysis_time) 
   in
 
   match result with
@@ -530,14 +535,20 @@ let pp_print_satisfiability_result_pt param fmt result =
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
+  let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
   match result with
   | Unknown -> (
     Format.fprintf 
       fmt
-      "@[<hov>%t Could not determine whether the contract of \
-        %a is satisfiable or not after %.3fs.@]@."
+      "@[<hov>%t Could not determine whether the %s \
+        %s is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      Scope.pp_print_scope scope
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
+      node_name
       (Stat.get_float Stat.analysis_time)
   )
   | _ -> (
@@ -549,9 +560,14 @@ let pp_print_satisfiability_result_pt param fmt result =
     in
     Format.fprintf 
       fmt
-      "@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@."
+      "@[<hov>%t %s %s was proven %s after %.3fs.@]@.@."
       tag
-      Scope.pp_print_scope scope
+      (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | User -> "Contract of imported node")
+      node_name
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)
   )

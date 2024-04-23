@@ -824,7 +824,7 @@ let run in_sys =
           ) ;
           
           Stat.start_timer Stat.analysis_time ;
-          match result with
+          (match result with
           | Unrealizable _ -> (
             if Flags.Contracts.check_contract_is_sat () then (
               KEvent.log L_note "Checking satisfiability of contract..." ;
@@ -838,7 +838,7 @@ let run in_sys =
                 result ;
             )
           )
-          | _ -> () ;
+          | _ -> ()) ;
 
           KEvent.log_analysis_end ()
         )

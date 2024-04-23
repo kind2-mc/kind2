@@ -45,6 +45,8 @@ module LDF = LustreDesugarFrameBlocks
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
 module LDN = LustreDesugarAnyOps
+module LFR = LustreFlattenRefinementTypes
+module LGI = LustreGenRefTypeImpNodes
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -164,30 +166,39 @@ let type_check declarations =
     let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 9. Flatten refinement types *)
-    let sorted_node_contract_decls = LustreFlattenRefinementTypes.flatten_ref_types global_ctx sorted_node_contract_decls in
+    let sorted_node_contract_decls = LFR.flatten_ref_types global_ctx sorted_node_contract_decls in
 
-    (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
+    (* Step 10. Generate imported nodes associated with refinement types if realizability checking is enabled *)
+    let sorted_node_contract_decls = 
+      if List.mem `CONTRACTCK (Flags.enabled ()) 
+      then 
+        LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts @
+        LGI.gen_imp_nodes global_ctx sorted_node_contract_decls 
+      else sorted_node_contract_decls
+    in
+
+    (* Step 11. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
 
-    (* Step 11. Desugar imperative if block to ITEs *)
+    (* Step 12. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
-    (* Step 12. Desugar frame blocks by adding node equations and guarding oracles. *)
+    (* Step 13. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in 
 
-    (* Step 13. Inline constants in node equations *)
+    (* Step 14. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 14. Check that inductive array equations are well-founded *)
+    (* Step 15. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-    (* Step 15. Infer tighter subrange constraints with abstract interpretation *)
+    (* Step 16. Infer tighter subrange constraints with abstract interpretation *)
     let* _ = LIA.interpret_global_consts inlined_global_ctx const_inlined_type_and_consts in
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 16. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 17. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings5) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
@@ -297,7 +308,17 @@ let of_channel old_frontend only_parse in_ch =
         let* (ctx, gids, decls, toplevel_nodes, _) = type_check declarations in
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
-          | Some s -> [LustreIdent.mk_string_ident s]
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in
+            let main_lustre_node = LN.node_of_name s_ident nodes in
+            (* If checking realizability and main node is not external (imported), then 
+               we are actually checking realizability of Kind 2-generated imported nodes representing 
+               the (1) the main node's contract instrumented with type info and 
+                   (2) the main node's enviornment *)
+            if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+              [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+            else [s_ident]
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t
