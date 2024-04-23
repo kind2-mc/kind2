@@ -61,11 +61,10 @@ let node_decl_to_contracts
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
-    (gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract'),
-    (id, extern, params, inputs, outputs, locals, [A.AnnotMain(pos, true)], contract)
+    [(gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract')]
   else
-    (gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract'),
-    (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract)
+    [(gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract');
+     (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract)]
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
@@ -86,19 +85,31 @@ let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list
   List.fold_left (fun acc decl -> 
     match decl with 
     | A.ConstDecl (_, FreeConst _)
-    | A.ConstDecl (_, TypedConst _) -> acc
+    | A.ConstDecl (_, TypedConst _) -> decl :: acc
     | A.TypeDecl (_, AliasType (p, id, ty)) -> 
       (match type_to_contract p ctx id ty with 
-      | Some decl -> decl :: acc
-      | None -> acc)
+      | Some decl1 -> decl :: decl1 :: acc
+      | None -> decl :: acc)
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> decl :: acc
-    | A.NodeDecl (span, decl) -> 
-      let decl1, decl2 = node_decl_to_contracts span.start_pos ctx decl in
-      NodeDecl (span, decl1) :: NodeDecl(span, decl2) :: acc
-    | A.FuncDecl (span, decl) -> 
-      let decl1, decl2 = node_decl_to_contracts span.start_pos ctx decl in
-      FuncDecl (span, decl1) :: FuncDecl(span, decl2) :: acc
+    | A.NodeDecl (span, ((p, e, ps, ips, ops, locs, _, c) as node_decl)) -> 
+      (* Add main annotations to imported nodes *)
+      let node_decl = 
+        if e then p, e, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c 
+        else node_decl 
+      in
+      let decls = node_decl_to_contracts span.start_pos ctx node_decl in
+      let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
+      A.NodeDecl(span, node_decl) :: decls @ acc
+    | A.FuncDecl (span, ((p, e, ps, ips, ops, locs, _, c) as func_decl)) -> 
+      (* Add main annotations to imported functions *)
+      let func_decl = 
+        if e then p, e, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c 
+        else func_decl 
+      in
+      let decls = node_decl_to_contracts span.start_pos ctx func_decl in
+      let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
+      A.FuncDecl(span, func_decl) :: decls @ acc
     | A.ContractNodeDecl _ 
     | A.NodeParamInst _ -> decl :: acc
   ) [] decls |> List.rev
