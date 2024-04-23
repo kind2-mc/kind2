@@ -61,10 +61,12 @@ let node_decl_to_contracts
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
-    [(gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract')]
+    let environment = gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract' in
+    if Flags.Contracts.check_environment () then [environment] else []
   else
-    [(gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract');
-     (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract)]
+    let environment = gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract' in 
+    let contract = (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
+    if Flags.Contracts.check_environment () then [environment; contract] else [contract]
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
