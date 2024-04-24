@@ -98,7 +98,7 @@ Conceptually, the refinement types can be viewed as an augmentation of
 
 .. code-block::
 
-   node M(x1: Even; x2: Odd) returns (y: Odd);
+   node M(x1: int; x2: int) returns (y: int);
    (*@contract
       assume x1 mod 2 = 0; 
       assume x2 mod 2 = 1;
@@ -127,7 +127,7 @@ If an output variable with a refinement type is left undefined, Kind 2 will spec
 ranges over its __base__ type.
 
   .. code-block::
-  
+
    node M() returns (y: Nat);
    let
    tel
@@ -151,7 +151,7 @@ of type ``int``, then the node call ``M(x)`` is legal.
 
 While all of the above are syntactically valid, 
 Kind 2 may still fail type-related proof obligations. 
-For example, in node call previously discussed ``M(z)``
+For example, in the node call ``M(z)``
 (where ``z`` has type ``int`` and ``M`` takes a single parameter of type ``Nat``),
 ``M``'s typing assumption on its input will be violated if ``z`` is undefined. 
 
@@ -163,7 +163,9 @@ refinement types that are __unrealizable__. In other words, it is possible
 to specify refinement type contraints that are unimplementable (impossible to satisfy with any implementation).
 
 As an example, the following node interface is unrealizable:
+
   .. code-block::
+
    node M(x: int) returns (y: int | 0 <= y and y <= x);
 
 Output variable ``y``'s refinement type states that ``y`` must be between 0 and ``x``.
@@ -172,6 +174,7 @@ However, if input ``x`` is negative, then no value for ``y`` will satisfy its ty
 One way to make the above interface realizable is to add a refinement type for ``x``:
 
   .. code-block::
+  
    node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 
 To check the realizability refinement types, one can call ``kind2 <filename> --enable CONTRACTCK``.
