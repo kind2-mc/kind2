@@ -156,7 +156,7 @@ For example, in the node call ``M(z)``
 ``M``'s typing assumption on its input will be violated if ``z`` is undefined. 
 
 Realizability
-----------
+-------------
 
 Because refinement types are essentially contract augmentations, it is possible to specify 
 refinement types that are __unrealizable__. In other words, it is possible 
@@ -174,7 +174,7 @@ However, if input ``x`` is negative, then no value for ``y`` will satisfy its ty
 One way to make the above interface realizable is to add a refinement type for ``x``:
 
   .. code-block::
-  
+
    node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 
 To check the realizability refinement types, one can call ``kind2 <filename> --enable CONTRACTCK``.
@@ -186,7 +186,7 @@ Kind 2 performs four types of realizability checks:
 4. Individual refinement types, i.e., that a global refinement type declaration is realizable
 
 Restrictions
-------
+------------
 
 Currently, global constants with refinement types (like the following example) are not supported.
 
