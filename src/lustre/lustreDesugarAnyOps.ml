@@ -211,12 +211,12 @@ fun ctx node_name fun_ids ci ->
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation list option -> A.contract_node_equation list option * A.declaration list =
+let desugar_contract: Ctx.tc_context -> HString.t -> HString.t list -> A.contract option -> A.contract option * A.declaration list =
 fun ctx node_name fun_ids contract -> 
   match contract with 
-  | Some contract_items -> 
+  | Some (pos, contract_items) -> 
     let items, gen_nodes = (List.map (desugar_contract_item ctx node_name fun_ids) contract_items) |> List.split in
-    Some items, List.flatten gen_nodes
+    Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
 let rec desugar_node_item: Ctx.tc_context -> HString.t -> HString.t list -> A.node_item -> A.node_item * A.declaration list =

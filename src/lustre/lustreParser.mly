@@ -541,7 +541,6 @@ contract_decl:
        (mk_pos $startpos, e)) }
 
 
-//!! Contract stuff 
 contract_spec:
   (* Block contract, parenthesis star (PS). *)
   | CONTRACT_PSATBLOCK ;
