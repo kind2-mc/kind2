@@ -97,6 +97,7 @@ Conceptually, the refinement types can be viewed as an augmentation of
 ``M``'s contract as follows:
 
 .. code-block::
+
    node M(x1: Even; x2: Odd) returns (y: Odd);
    (*@contract
       assume x1 mod 2 = 0; 
@@ -126,6 +127,7 @@ If an output variable with a refinement type is left undefined, Kind 2 will spec
 ranges over its __base__ type.
 
   .. code-block::
+  
    node M() returns (y: Nat);
    let
    tel
