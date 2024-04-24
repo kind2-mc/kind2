@@ -11,7 +11,7 @@ Kind 2 supports refinement types. A refinement type is comprised of two componen
 Declarations
 ------------
 
-Refinement types can be declared with the syntax ``subtype { var: base_type | P(var) }``. 
+Refinement types have syntax of the form ``subtype { var: base_type | P(var) }``. 
 
 For example, the following
 
@@ -168,7 +168,7 @@ As an example, the following node interface is unrealizable:
 
    node M(x: int) returns (y: int | 0 <= y and y <= x);
 
-Output variable ``y``'s refinement type states that ``y`` must be between 0 and ``x``.
+Output variable ``y``'s refinement type states that ``y`` must be between ``0`` and ``x``.
 However, if input ``x`` is negative, then no value for ``y`` will satisfy its type.
 
 One way to make the above interface realizable is to add a refinement type for ``x``:
