@@ -23,7 +23,7 @@ module ScMap = Scope.Map
 
 
 type 'a analyze_func =
-  Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 type unrealizable_result =
   | BaseCase of Term.t
@@ -633,10 +633,10 @@ let compute_dependent_conflict_and_deadlocking_trace
 let compute_deadlocking_trace_and_conflict
   analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result =
 
-  let sys =
+  let sys, slice_to_prop =
     let scope = (Analysis.info_of_param param).top in
     match InputSystem.get_lustre_node in_sys scope with
-    | None -> sys
+    | None -> sys, false
     | Some { LustreNode.is_function } ->
       if is_function && Flags.Contracts.enforce_func_congruence () then (
         (* Recompute transition system adding functional constraints *)
@@ -644,9 +644,9 @@ let compute_deadlocking_trace_and_conflict
           InputSystem.trans_sys_of_analysis
             ~add_functional_constraints:true in_sys param
         in
-        sys
+        sys, false
       )
-      else sys
+      else sys, true
   in
 
   let vr, cex, is_base, offset, contr_vars =
@@ -675,7 +675,7 @@ let compute_deadlocking_trace_and_conflict
       let old_log_level = Lib.get_log_level () in
       Lib.set_log_level L_off ;
 
-      analyze modules in_sys param sys ;
+      analyze slice_to_prop modules in_sys param sys ;
 
       Lib.set_log_level old_log_level;
 

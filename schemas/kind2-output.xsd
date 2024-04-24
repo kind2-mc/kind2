@@ -22,6 +22,15 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Context of realizability check -->
+  <xs:simpleType name="Context">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="type"/>
+      <xs:enumeration value="contract"/>
+      <xs:enumeration value="environment"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- Time unit. Can only be "sec" for now. -->
   <xs:simpleType name="TimeUnit">
     <xs:restriction base="xs:string">
@@ -192,6 +201,7 @@
 
   <xs:complexType name="AnalysisStartType">
     <xs:attribute name="top" type="xs:string"  use="required"/>
+    <xs:attribute name="context" type="Context"/>
     <xs:attribute name="concrete" type="xs:string"/>
     <xs:attribute name="abstract" type="xs:string"/>
     <xs:attribute name="assumptions" type="xs:string"/>

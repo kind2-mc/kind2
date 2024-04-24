@@ -934,17 +934,20 @@ let main_ic3ia fwd prop in_sys param sys =
 
    SMTSolver.delete_instance solver
 
-let main fwd prop in_sys param sys =
+let main fwd slice_to_prop prop in_sys param sys =
 
   let param = Analysis.param_clone param in
 
   let sys =
-    (* Only slice if the property does not contain instantiated variables *)
-    (* The current slicing procedure works on the input system, not the transition system *)
-    match prop.Property.prop_source with
-    | Assumption _ -> sys (* An instantiated var is also involved, local sofar var *)
-    | Instantiated _ -> sys
-    | _ -> fst (InputSystem.trans_sys_of_analysis ~slice_to_prop:prop in_sys param)
+    if slice_to_prop then (
+      (* Only slice if the property does not contain instantiated variables *)
+      (* The current slicing procedure works on the input system, not the transition system *)
+      match prop.Property.prop_source with
+      | Assumption _ -> sys (* An instantiated var is also involved, local sofar var *)
+      | Instantiated _ -> sys
+      | _ -> fst (InputSystem.trans_sys_of_analysis ~slice_to_prop:prop in_sys param)
+    )
+    else sys
   in
   (*Format.printf "%a" (TransSys.pp_print_subsystems true) sys;*)
 

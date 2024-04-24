@@ -119,7 +119,7 @@ let kill_useless_engines child_pids =
 
 let check_pending_processes run_process pending_processes sys child_pids =
   pending_processes := !pending_processes |> List.filter (function
-    | ProcessCall.IC3IA_Call (_, prop, _) -> (
+    | ProcessCall.IC3IA_Call (_, _, prop, _) -> (
       match TransSys.get_prop_status sys prop.prop_name with
       | PropUnknown | PropKTrue _ -> true
       | _ -> false

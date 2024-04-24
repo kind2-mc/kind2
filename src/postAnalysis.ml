@@ -59,7 +59,7 @@ module type PostAnalysis = sig
     Analysis.param ->
     (* A function running an analysis with some modules. *)
     (
-      bool -> bool -> Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
+      bool -> bool -> bool -> Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
     ) ->
     (* Results for the current system. *)
     Analysis.results
@@ -512,7 +512,7 @@ module RunContractGen: PostAnalysis = struct
           ) "@ "
         ) teks ;
         try
-          analyze true false
+          analyze true false false
             teks
             (* [
               `INVGEN ; `INVGENOS ;
