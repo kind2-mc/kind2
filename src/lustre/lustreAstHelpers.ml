@@ -19,9 +19,6 @@
 open LustreAst
 open LustreReporting
 
-module StringMap = HString.HStringMap
-module StringSet = HString.HStringSet
-
 type iset = LustreAst.SI.t
 
 let (let*) = Res.(>>=)
@@ -130,40 +127,6 @@ let rec expr_contains_id id = function
   | RestartEvery (_, _, expr_list, e) -> 
     expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-    
-
-let rec type_contains_subrange = function
-  | IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ty
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_subrange ty
-  | _ -> false
-
-let rec type_contains_ref = function
-  | RefinementType _ -> true
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_ref ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_ref ty
-  | _ -> false
-
-let rec type_contains_enum_subrange_reftype = function
-  | IntRange _
-  | EnumType _ 
-  | RefinementType _ -> true
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ty
-  | _ -> false
 
 (* Substitute t for var. AnyOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
@@ -770,6 +733,44 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
+let rec calls_of_expr: expr -> iset =
+  function
+  (* Node calls *)
+  | Call (_, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
+  | Condact (_, e1, e2, i, es1, es2) ->
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
+                          List.map calls_of_expr es1 @ List.map calls_of_expr es2))
+  | Activate (_, i, e1, e2, es) -> 
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
+  | RestartEvery (_, i, es, e) -> 
+    SI.union (SI.singleton i)
+             (SI.flatten (calls_of_expr e :: List.map calls_of_expr es))
+  (* Everything else *)
+  | Ident _ -> SI.empty
+  | ModeRef _ -> SI.empty
+  | RecordProject (_, e, _) -> calls_of_expr e 
+  | TupleProject (_, e, _) -> calls_of_expr e
+  | Const _ -> SI.empty
+  | UnaryOp (_,_,e) -> calls_of_expr e
+  | BinaryOp (_,_,e1, e2) -> calls_of_expr e1 |> SI.union (calls_of_expr e2)
+  | TernaryOp (_,_, e1, e2, e3) -> calls_of_expr e1 |> SI.union (calls_of_expr e2) |> SI.union (calls_of_expr e3) 
+  | ConvOp  (_,_,e) -> calls_of_expr e
+  | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> SI.union (calls_of_expr e2)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map calls_of_expr (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map calls_of_expr es)
+  | StructUpdate (_, e1, _, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayConstr (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayIndex (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | Quantifier (_, _, _, e) -> calls_of_expr e
+  | When (_, e, _) -> calls_of_expr e
+  | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> SI.flatten
+  | AnyOp (_, (_, i, _), e, None) -> SI.diff (calls_of_expr e) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (calls_of_expr e1) (calls_of_expr e2)) (SI.singleton i)
+  | Pre (_, e) -> calls_of_expr e
+  | Arrow (_, e1, e2) ->  SI.union (calls_of_expr e1) (calls_of_expr e2)
+
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
   let vars = vars_without_node_call_ids_current in
@@ -837,8 +838,10 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
+  | History (_, id) -> SI.singleton id 
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ | History _ | TArr _ -> SI.empty
+  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
@@ -1491,11 +1494,12 @@ let rec rename_contract_vars = function
     (try
       (* Test that this name is an internal name *)
       let _ = int_of_string (List.nth components 0) in
-      let _ = String.equal (List.nth components 1) "contract" in
-      (* This is a renamed contract variable, with #_contract_name format *)
-      let id = components |> List.tl |> List.tl |> String.concat "_" in
-      let id = HString.mk_hstring id in
-      Ident (p, id)
+      if String.equal (List.nth components 1) "contract" then
+        (* This is a renamed contract variable, with #_contract_name format *)
+        let id = components |> List.tl |> List.tl |> String.concat "_" in
+        let id = HString.mk_hstring id in
+        Ident (p, id)
+      else e
     with _ -> e)
   | ModeRef (_, _) as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
@@ -1542,178 +1546,6 @@ let rec rename_contract_vars = function
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
-
-
-let desugar_history ctr_id prefix expr =
-  let rec r map expr =
-  match expr with
-  | Quantifier (pos, kind, idents, e) -> (
-    let vars, map, idents, constrs =
-      List.fold_left
-        (fun (vars, map, idents, constrs) (pos, bv, ty) ->
-          match ty with
-          | History (_, i) ->
-            let hist_varid =
-              HString.mk_hstring
-                (Format.asprintf "%s_%a" prefix HString.pp_print_hstring i)
-            in
-            let c =
-              BinaryOp (pos, And,
-                CompOp (pos, Lte,
-                  Const (pos, Num (HString.mk_hstring "0")),
-                  Ident(pos, bv)
-                ),
-                CompOp (pos, Lte, Ident(pos, bv), Ident(pos, ctr_id))
-              )
-            in
-            StringSet.add i vars,
-            StringMap.add bv hist_varid map,
-            (pos, bv, Int pos) :: idents,
-            c :: constrs
-          | _ -> vars, map, (pos, bv, ty) :: idents, constrs
-        )
-        (StringSet.empty, map, [], [])
-        idents
-    in
-    let vars', e' = r map e in
-    let e' =
-      match constrs with
-      | [] -> e'
-      | [c] ->
-        assert (kind = Exists);
-        BinaryOp(pos, And, c, e')
-      | _ -> (
-        assert (kind = Exists);
-        let conj =
-          List.fold_left
-            (fun acc c -> BinaryOp(pos, And, c, acc))
-            (List.hd constrs)
-            (List.tl constrs)
-        in
-        BinaryOp(pos, And, conj, e')
-      )
-    in
-    StringSet.union vars vars',
-    Quantifier (pos, kind, List.rev idents, e')
-  )
-  | Ident (pos, id) -> (
-    match StringMap.find_opt id map with
-    | None -> StringSet.empty, expr
-    | Some hist_varid ->
-      StringSet.empty, ArrayIndex(pos, Ident(pos, hist_varid), expr)
-  )
-  | ModeRef _ -> StringSet.empty, expr
-  | RecordProject (pos, e, idx) ->
-    let vars, e' = r map e in
-    vars, RecordProject (pos, e', idx)
-  | TupleProject (pos, e, idx) ->
-    let vars, e' = r map e in
-    vars, TupleProject (pos, e', idx)
-  | Const _ -> StringSet.empty, expr
-  | UnaryOp (pos, op, e) ->
-    let vars, e' = r map e in
-    vars, UnaryOp (pos, op, e')
-  | BinaryOp (pos, op, e1, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    BinaryOp (pos, op, e1', e2')
-  | TernaryOp (pos, op, e1, e2, e3) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    let vars3, e3' = r map e3 in
-    StringSet.(vars1 |> union vars2 |> union vars3),
-    TernaryOp (pos, op, e1', e2', e3')
-  | ConvOp (pos, op, e) ->
-    let vars, e' = r map e in
-    vars, ConvOp (pos, op, e')
-  | CompOp (pos, op, e1, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    CompOp (pos, op, e1', e2')
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | RecordExpr (pos, ident, expr_list) ->
-    let vars, expr_list' = desugar_idx_expr_list map expr_list in
-    vars, RecordExpr (pos, ident, expr_list')
-  | GroupExpr (pos, kind, expr_list) ->
-    let vars, expr_list' = desugar_expr_list map expr_list in
-    vars, GroupExpr (pos, kind, expr_list')
-  | StructUpdate (pos, e1, idx_list, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    StructUpdate (pos, e1', idx_list, e2')
-  | ArrayConstr (pos, e1, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    ArrayConstr (pos, e1', e2')
-  | ArrayIndex (pos, e1, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    ArrayIndex (pos, e1', e2')
-  | When (pos, e, c) ->
-    let vars, e' = r map e in
-    vars, When (pos, e', c)
-  | Pre (pos, e) ->
-    let vars, e' = r map e in
-    vars, Pre (pos, e')
-  | Arrow (pos, e1, e2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    StringSet.union vars1 vars2,
-    Arrow (pos, e1', e2')
-  | Call(pos, id, expr_list) ->
-    let vars, expr_list' = desugar_expr_list map expr_list in
-    vars, Call(pos, id, expr_list')
-  | Merge (pos, ident, expr_list) ->
-    let vars, expr_list' = desugar_idx_expr_list map expr_list in
-    vars, Merge (pos, ident, expr_list')
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    let vars3, expr_list' = desugar_expr_list map expr_list in
-    StringSet.(vars1 |> union vars2 |> union vars3),
-    Activate (pos, ident, e1', e2', expr_list')
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    let vars3, expr_list1' = desugar_expr_list map expr_list1 in
-    let vars4, expr_list2' = desugar_expr_list map expr_list2 in
-    StringSet.(vars1 |> union vars2 |> union vars3 |> union vars4),
-    Condact (pos, e1', e2', id, expr_list1', expr_list2')
-  | RestartEvery (pos, ident, expr_list, e) ->
-    let vars1, e' = r map e in
-    let vars2, expr_list' = desugar_expr_list map expr_list in
-    StringSet.union vars1 vars2,
-    RestartEvery (pos, ident, expr_list', e')
-  and desugar_expr_list map expr_list =
-    let vars, expr_list' =
-        expr_list
-        |> List.map (fun e -> r map e)
-        |> List.split
-    in
-    List.fold_left
-      (fun acc vars -> StringSet.union acc vars)
-      StringSet.empty
-      vars,
-    expr_list'
-  and desugar_idx_expr_list map record_list =
-    let vars, idx_exp_list' =
-      record_list
-      |> List.map
-        (fun (i, e) -> let vars, e' = r map e in vars, (i, e'))
-      |> List.split
-    in
-    List.fold_left
-      (fun acc vars -> StringSet.union acc vars)
-      StringSet.empty
-      vars,
-    idx_exp_list'
-  in
-  r StringMap.empty expr
 
 let name_of_prop pos name k =
   match name with 

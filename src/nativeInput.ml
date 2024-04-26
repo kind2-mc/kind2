@@ -233,6 +233,7 @@ let subsystems_of_sexpr = function
     in
 
     let inst = {
+      TransSys.uid = -1;
       TransSys.pos = Lib.dummy_pos;
       map_down;
       map_up;

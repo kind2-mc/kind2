@@ -45,7 +45,7 @@ type 'a result =
 | Error of string
 
 type 'a analyze_func =
-    bool -> bool ->
+    bool -> bool -> bool ->
     Lib.kind_module list ->
     'a InputSystem.t ->
     Analysis.param ->
@@ -546,7 +546,7 @@ let make_ts_analyzer in_sys ?(stop_after_disprove=true) ?(no_copy=false) param a
   let param = Analysis.param_clone param in
   let sys = if no_copy then sys else TS.copy sys in
   let modules = Flags.enabled () in
-  sys, (fun sys -> analyze false stop_after_disprove modules in_sys param sys)
+  sys, (fun sys -> analyze false stop_after_disprove false modules in_sys param sys)
 
 let props_names props =
   List.map (fun { Property.prop_name = n } -> n) props

@@ -72,9 +72,6 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
-  (* Invisible Kind 2 local. *)
-  | KLocal
-
   (* Tied to a node call. *)
   | Call
 
@@ -82,7 +79,7 @@ type state_var_source =
   | Ghost
 
   (* Invisble Kind 2 ghost stream *)
-  | KGhost
+  | Generated
 
   (* Oracle input stream *)
   | Oracle
@@ -97,6 +94,9 @@ type call_cond =
 
 (* A call of a node *)
 type node_call = {
+
+  (* A unique numerical id *)
+  call_id : int;
 
   (* Position of node call in input file *)
   call_pos : position;
@@ -809,10 +809,9 @@ let pp_print_node_debug ppf
       | (sv, Input) -> p sv "in"
       | (sv, Output) -> p sv "out"
       | (sv, Local) -> p sv "loc"
-      | (sv, KLocal) -> p sv "k-loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
-      | (sv, KGhost) -> p sv "k-gh"
+      | (sv, Generated) -> p sv "gen"
       | (sv, Oracle) -> p sv "or"
       (* | (sv, Alias (sub, _)) -> p sv (
         Format.asprintf "al(%a)"
@@ -1473,10 +1472,9 @@ let pp_print_state_var_source ppf = function
   | Oracle -> Format.fprintf ppf "oracle"
   | Output -> Format.fprintf ppf "output"
   | Local -> Format.fprintf ppf "local"
-  | KLocal -> Format.fprintf ppf "invisible local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
-  | KGhost -> Format.fprintf ppf "invisble ghost"
+  | Generated -> Format.fprintf ppf "invisible (generated)"
   (* | Alias (sv, _) ->
     Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv *)
 
@@ -1534,8 +1532,7 @@ let state_var_is_visible node state_var =
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Oracle
-    | KGhost
-    | KLocal -> false
+    | Generated -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input

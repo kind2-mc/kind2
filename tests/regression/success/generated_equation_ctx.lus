@@ -1,0 +1,8 @@
+node imported W(b: bool) returns (a: int; r: bool);
+
+node main(c : bool) returns (t: int; a: int; b: bool);
+let
+  if c then
+    a, b = W(t = 34);
+  fi
+tel

@@ -37,7 +37,7 @@ let mk_fresh_temp_var ty =
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_proj") in
   let gids2 = { (GI.empty ()) with 
-    locals = GI.StringMap.singleton name (false, ty);
+    locals = GI.StringMap.singleton name ty;
   } in
   name, gids2
 
@@ -157,14 +157,14 @@ let desugar_node_item ctx ni = match ni with
 
 (** Remove multiple assignment from if and frame blocks in a single declaration. *)
 let desugar_node_decl ctx decl = match decl with
-  | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let ctx = Chk.get_node_ctx ctx d in
+  | A.FuncDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx cctds ctds nlds in
     let res = List.map (desugar_node_item ctx) nis in
     let nis, gids = List.split res in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     A.FuncDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)), GI.StringMap.singleton node_id gids
-  | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let ctx = Chk.get_node_ctx ctx d in
+  | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
+    let ctx = Chk.add_full_node_ctx ctx cctds ctds nlds in
     let res = List.map (desugar_node_item ctx) nis in
     let nis, gids = List.split res in
     let gids = List.fold_left GI.union (GI.empty ()) gids in

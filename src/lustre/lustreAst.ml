@@ -345,10 +345,7 @@ let pp_print_clock_expr ppf = function
 let rec pp_print_expr ppf = 
 
   let ppos ppf p =
-    (if false then Format.fprintf else Format.ifprintf)
-      ppf
-      "%a" 
-      pp_print_position p
+    Format.ifprintf ppf "%a" pp_print_position p
   in
 
   (* Pretty-print a string *)

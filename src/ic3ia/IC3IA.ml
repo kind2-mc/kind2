@@ -18,6 +18,8 @@
 
 open Lib
 
+exception UnsupportedFeature of string
+
 module TS = Term.TermSet
 module CS = Cube.CubeSet
 module CM = Cube.CubeMap
@@ -847,8 +849,8 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
   loop frames 1
 
 
-let main fwd prop in_sys param sys =
-   
+let main_ic3ia fwd prop in_sys param sys =
+
    let solver = mk_solver sys in
 
    let prop_name = prop.Property.prop_name in
@@ -931,3 +933,48 @@ let main fwd prop in_sys param sys =
   | Terminate -> ();
 
    SMTSolver.delete_instance solver
+
+let main fwd slice_to_prop prop in_sys param sys =
+
+  let param = Analysis.param_clone param in
+
+  let sys =
+    if slice_to_prop then (
+      (* Only slice if the property does not contain instantiated variables *)
+      (* The current slicing procedure works on the input system, not the transition system *)
+      match prop.Property.prop_source with
+      | Assumption _ -> sys (* An instantiated var is also involved, local sofar var *)
+      | Instantiated _ -> sys
+      | _ -> fst (InputSystem.trans_sys_of_analysis ~slice_to_prop:prop in_sys param)
+    )
+    else sys
+  in
+  (*Format.printf "%a" (TransSys.pp_print_subsystems true) sys;*)
+
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  (match TransSys.get_logic sys with
+  | `Inferred l when mem A l ->
+    let msg =
+      Format.sprintf "IC3IA disabled for property %s: arrays are not supported."
+        prop.Property.prop_name
+    in
+    raise (UnsupportedFeature msg)
+  | _ -> () ) ;
+
+  let check_system_is_supported itp_solver =
+    if TransSys.subsystem_includes_function_symbol sys then
+      let msg =
+        Format.sprintf "IC3IA (%s) disabled for property %s: system includes an abstract function. \
+          Use MathSAT or SMTInterpol instead."
+          itp_solver prop.Property.prop_name
+      in
+      raise (UnsupportedFeature msg)
+  in
+
+  (match Flags.Smt.itp_solver () with
+  | `cvc5_QE -> check_system_is_supported "cvc5qe"
+  | `Z3_QE -> check_system_is_supported "Z3qe"
+  | _ -> () ) ;
+
+  main_ic3ia fwd prop in_sys param sys

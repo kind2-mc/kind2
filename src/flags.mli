@@ -489,9 +489,11 @@ module Contracts : sig
   (** Check modes. *)
   val check_modes : unit -> bool
 
+  (** Check realizability of node environments. *)
+  val check_environment : unit -> bool
+
   (** Check modes. *)
   val check_implem : unit -> bool
-
 
   (** Contract generation. *)
   val contract_gen : unit -> bool

@@ -109,9 +109,9 @@ let main_of_process = function
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
   )
-  | IC3IA_Call (fwd, prop, instance_name) ->
+  | IC3IA_Call (fwd, slice_to_prop, prop, instance_name) ->
     SMTLIBSolver.trace_suffix := instance_name ;
-    IC3IA.main fwd prop
+    IC3IA.main fwd slice_to_prop prop
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
@@ -262,7 +262,8 @@ let status_of_exn process status = function
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
-  | IC3.UnsupportedFeature msg -> (
+  | IC3.UnsupportedFeature msg 
+  | IC3IA.UnsupportedFeature msg -> (
     KEvent.log L_warn "%s" msg;
     status
   )
@@ -515,7 +516,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, kind_module) :: !child_pids
 
 
-let create_processes modules sys =
+let create_processes slice_to_prop modules sys =
   let ic3ia_module, other_modules = modules |> List.partition (
     function `IC3IA -> true | _ -> false)
   in
@@ -524,14 +525,7 @@ let create_processes modules sys =
   | [] -> processes, []
   | _ -> (
     if Flags.IC3IA.max_processes () > 0 then
-      let open TermLib in
-      let open TermLib.FeatureSet in
-      match TransSys.get_logic sys with
-      | `Inferred l when mem A l ->
-        KEvent.log L_warn 
-          "IC3IA disabled: arrays are not supported." ;
-        processes, []
-      | _ -> (
+      (
         let qe_itp_support_model =
           let check_system_is_supported itp_solver =
             let supported =
@@ -553,11 +547,11 @@ let create_processes modules sys =
             (fun acc p ->
               match Flags.Smt.itp_solver () with
               | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
-                IC3IA_Call (false, p, fresh_ic3ia_instance_name ())
-                :: IC3IA_Call (true, p, fresh_ic3ia_instance_name ()) :: acc
+                IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ())
+                :: IC3IA_Call (true, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
               | `cvc5_QE | `Z3_QE -> acc
               | _ ->
-                IC3IA_Call (false, p, fresh_ic3ia_instance_name ()) :: acc
+                IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
             )
             []
             (TSys.get_real_properties sys)
@@ -620,7 +614,7 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
     modules
 
 (** Performs an analysis. *)
-let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
+let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_real_properties sys |> not && not ignore_props then
@@ -648,7 +642,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       let modules = process_bmc_modules sys modules in
       let modules = process_ic3_modules modules in
 
-      let to_run, pending = create_processes modules sys in
+      let to_run, pending = create_processes slice_to_prop modules sys in
 
       (* Start all child processes. *)
       to_run |> List.iter (
@@ -830,7 +824,7 @@ let run in_sys =
           ) ;
           
           Stat.start_timer Stat.analysis_time ;
-          match result with
+          (match result with
           | Unrealizable _ -> (
             if Flags.Contracts.check_contract_is_sat () then (
               KEvent.log L_note "Checking satisfiability of contract..." ;
@@ -844,7 +838,7 @@ let run in_sys =
                 result ;
             )
           )
-          | _ -> () ;
+          | _ -> ()) ;
 
           KEvent.log_analysis_end ()
         )
@@ -952,7 +946,7 @@ let run in_sys =
 
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup true false false modules in_sys param sys ;
+        analyze msg_setup true false false true modules in_sys param sys ;
         (* ...and loop. *)
         loop ac ()
 

@@ -19,6 +19,9 @@
 
 
 module A = LustreAst
-module Ctx = TypeCheckerContext
 
-val gen_imp_nodes : Ctx.tc_context -> A.declaration list -> A.declaration list
+val inputs_tag : string 
+val contract_tag : string
+val type_tag : string
+
+val gen_imp_nodes : TypeCheckerContext.tc_context ->  A.declaration list -> A.declaration list

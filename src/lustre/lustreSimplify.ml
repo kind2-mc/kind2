@@ -1739,7 +1739,7 @@ and eval_node_call
             let ctx =
               C.current_node_map ctx (
                 fun node ->
-                  N.set_state_var_source_if_undef node state_var' N.KLocal
+                  N.set_state_var_source_if_undef node state_var' N.Generated
               )
             in
             (* Add expression as input *)
@@ -1900,7 +1900,8 @@ and eval_node_call
       let res = D.map E.mk_var output_state_vars in
       (* Create node call *)
       let node_call = 
-        { N.call_pos = pos;
+        { N.call_id = -1; (* Call_id is not implemented in old frontend *)
+          N.call_pos = pos;
           N.call_node_name = ident;
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;

@@ -108,9 +108,9 @@ type node_summary = ((int list) IntMap.t) IMap.t
     we would substitute the indices with the actual call parameters
     during the circularity analysis for equations.
 
-    For functions and imported nodes we assume that
-    output streams do not depend on any of the input streams.
-    This restriction is in place to avoid rejecting valid programs.
+    For imported nodes and functions we make the conservative assumption
+    that each output stream is dependent on the current values 
+    of all the arguments.
     
     We generate the node summary entry by doing a rechablility analysis 
     for each of the output streams equations. 
@@ -300,7 +300,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  | RefinementType (_, _, expr) -> mk_graph_expr expr
+  | RefinementType (_, (_, _, ty), expr) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr expr)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -365,7 +365,6 @@ let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_prefix  i pos 
-  | AliasType (pos, i, LA.RefinementType (_, (_, _, ty), _)) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos;
   | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
 
 (***********************************************************
@@ -428,9 +427,10 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | Real _ | TVar _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ | TArr _ -> []
+  | Bool _ | Real _ | TVar _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ -> []
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
@@ -1000,7 +1000,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
     (
     match c with
     | FreeConst _ -> R.ok ad
-    | UntypedConst (pos, i, e) -> 
+    | UntypedConst (pos, i, e)
+    | TypedConst (pos, i, e, _) ->
       let union g v = union_dependency_analysis_data g
       (singleton_dependency_analysis_data empty_hs v pos)
       in
@@ -1010,16 +1011,6 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let effective_vars2 = LA.SI.elements vars2 in
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
-    | TypedConst (pos, i, e, _) ->
-      let union g v = union_dependency_analysis_data g
-        (singleton_dependency_analysis_data empty_hs v pos)
-      in
-      let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
-      let effective_vars = LA.SI.elements vars in
-      let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
-      let effective_vars2 = LA.SI.elements vars2 in
-      let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-      R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos) 
     )
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
     let union g v = 
@@ -1212,8 +1203,8 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
-    For imported nodes and imported functions we assume that output streams do not depend on
-    any of the input streams. This restriction is in place to avoid rejecting valid programs.
+    For imported nodes and imported functions we assume that output streams depend on 
+    every input stream.
  *)
 
 
@@ -1338,7 +1329,7 @@ let check_node_equations: dependency_analysis_data
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
     let* _ = check_no_input_output_local_duplicate ips ops locals in
-    analyze_circ_node_equations ad.nsummary items
+    analyze_circ_node_equations ad.nsummary2 items
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl

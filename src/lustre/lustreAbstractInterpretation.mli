@@ -44,6 +44,5 @@ val interpret_program: TypeCheckerContext.tc_context -> GeneratedIdentifiers.t G
 
 val interpret_global_consts: TypeCheckerContext.tc_context -> LustreAst.declaration list ->
   ( unit,
-    [> `LustreAbstractInterpretationError of
-       Lib.position * error_kind ] )
+    [> error] )
   result

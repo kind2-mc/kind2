@@ -403,6 +403,7 @@ let trans_sys_of_analysis (type s)
 ?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
 ?(add_functional_constraints = Flags.Contracts.enforce_func_congruence ())
+?slice_to_prop
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (main_subs, globals, ast) -> (
@@ -413,7 +414,8 @@ let trans_sys_of_analysis (type s)
             {
               preserve_sig;
               slice_nodes;
-              add_functional_constraints
+              add_functional_constraints;
+              slice_to_prop
             }
           in
           trans_sys_of_nodes

@@ -229,7 +229,7 @@ let create_assumpion_trans fmt_assump sys solver vars fp prop =
 
 
 type 'a analyze_func =
-  bool -> bool -> 
+  bool -> bool -> bool ->
   Lib.kind_module list ->
   'a InputSystem.t ->
   Analysis.param ->
@@ -908,10 +908,22 @@ let satisfy_input_requirements in_sys param top =
 
 let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
-  match TSys.get_split_properties sys with
-  | _, [], [] -> Success { init = Term.t_true; trans = Term.t_true }
-  | _, [], _ -> Unknown
-  | _, invalid, _ -> (
+  let valid, invalid, unknown = TSys.get_split_properties sys in
+  let invalid_inv =
+    List.filter (fun p -> p.Property.prop_kind = Invariant) invalid
+  in
+  match invalid_inv, unknown with
+  | [], [] -> Success { init = Term.t_true; trans = Term.t_true }
+  | [], _ -> Unknown
+  | invalid, _ -> (
+
+    let sys =
+      let valid =
+        List.filter (fun p -> p.Property.prop_kind = Invariant) valid
+      in
+      let props = valid @ invalid in
+      TSys.set_subsystem_properties sys (TSys.scope_of_trans_sys sys) props
+    in
 
     let get_min_k props =
       let k_list =
@@ -1015,7 +1027,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         Lib.set_log_level L_off ;
 
-        analyze false false modules in_sys param sys' ;
+        analyze false false false modules in_sys param sys' ;
 
         Lib.set_log_level old_log_level;
 

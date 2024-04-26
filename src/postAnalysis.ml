@@ -59,7 +59,7 @@ module type PostAnalysis = sig
     Analysis.param ->
     (* A function running an analysis with some modules. *)
     (
-      bool -> bool -> Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
+      bool -> bool -> bool -> Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
     ) ->
     (* Results for the current system. *)
     Analysis.results
@@ -212,18 +212,34 @@ module RunAssumptionGen: PostAnalysis = struct
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
       (* Check all properties are valid. *)
-      match TSys.get_split_properties sys with
-      | [], [], [] -> error (
+      let valid, invalid, unknown = TSys.get_split_properties sys in
+      let valid_rch =
+        valid |> List.filter (fun p ->
+          match p.Property.prop_kind with Reachable _ -> true | _ -> false)
+      in
+      let invalid_inv =
+        List.filter (fun p -> p.Property.prop_kind = Invariant) invalid
+      in
+      match unknown with
+      | [] -> (
+        match invalid_inv, valid_rch with
+        | [], _ -> error (
+          fun fmt ->
+            Format.fprintf fmt
+              "No invalid properties, assumption generation disabled."
+        )
+        | _, [] -> Ok sys
+        | _ -> error (
+          fun fmt ->
+            Format.fprintf fmt
+              "Unreachable property detected, assumption generation disabled."
+        )
+      )
+      | _ -> error (
         fun fmt ->
           Format.fprintf fmt
-            "No properties, assumption generation disabled."
+            "Unknown property detected, assumption generation disabled."
       )
-      | _, [], _ -> error (
-        fun fmt ->
-          Format.fprintf fmt
-            "No invalid properties, assumption generation disabled."
-      )
-      | _ -> Ok sys
     )
     |> Res.chain (fun sys ->
       try (
@@ -496,7 +512,7 @@ module RunContractGen: PostAnalysis = struct
           ) "@ "
         ) teks ;
         try
-          analyze true false
+          analyze true false false
             teks
             (* [
               `INVGEN ; `INVGENOS ;

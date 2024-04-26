@@ -33,7 +33,6 @@ module P = Property
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
-module SCM = Scope.Map
 module TM = Type.TypeMap
 
 
@@ -41,26 +40,29 @@ type settings = {
   preserve_sig: bool;
   slice_nodes: bool;
   add_functional_constraints: bool;
+  slice_to_prop: P.t option
 }
 
 let default_settings = {
   preserve_sig = false ;
   slice_nodes = Flags.slice_nodes () ;
   add_functional_constraints = Flags.Contracts.enforce_func_congruence () ;
+  slice_to_prop = None
 }
 
-
+(*
 (* Hash map from node scopes to their index for fresh state variables.
    Used to make sure fresh state variables are indeed fresh after a restart,
    without risking to reach [MAXINT]. *)
-let scope_index_map = ref SCM.empty
+let scope_index_map = ref Scope.Map.empty
 (* Returns a fresh index for a scope. *)
 let index_of_scope s =
   let curr =
-    try !scope_index_map |> SCM.find s with Not_found -> 0
+    try !scope_index_map |> Scope.Map.find s with Not_found -> 0
   in
-  scope_index_map := !scope_index_map |> SCM.add s (curr + 1) ;
+  scope_index_map := !scope_index_map |> Scope.Map.add s (curr + 1) ;
   curr
+*)
 
 (* Transition system and information needed when calling it *)
 type node_def = {
@@ -89,7 +91,7 @@ type node_def = {
      Properties of the callees of the node *)
   properties : P.t list;
 
-  history_svars: (StateVar.t * StateVar.t) list TM.t;
+  history_svars: (StateVar.t list) SVM.t TM.t;
 
   ctr_svars: StateVar.t list ;
 }
@@ -491,11 +493,10 @@ let add_constraints_of_type init terms state_var =
   )
 
   else (
-
     (* Get bounds of integer range *)
     let l, u = 
       (if Type.is_int_range state_var_type
-      then Type.bounds_of_int_range state_var_type
+      then None, None
       else Type.bounds_of_enum state_var_type |> (fun (a, b) -> Some a, Some b))
     in
     let 
@@ -566,6 +567,7 @@ let rec add_subsystem' trans_sys instance accum =
 (* Add instance of called node to list of subsystems *)
 let add_subsystem
     trans_sys
+    uid
     pos
     map_up
     map_down
@@ -574,7 +576,8 @@ let add_subsystem
     subsystems =
 
   let instance =
-    { TransSys.pos; 
+    { TransSys.uid;
+      TransSys.pos; 
       TransSys.map_up; 
       TransSys.map_down; 
       TransSys.guard_clock;
@@ -628,6 +631,7 @@ let register_call_bound globals map_up sv =
    condition *)
 let call_terms_of_node_call mk_fresh_state_var globals
     { N.call_node_name ;
+      N.call_id        ;
       N.call_pos       ;
       N.call_inputs    ;
       N.call_oracles   ;
@@ -694,11 +698,20 @@ let call_terms_of_node_call mk_fresh_state_var globals
       (fun state_var (locals, call_locals, (state_var_map_up, state_var_map_down)) -> 
 
          (* Create a fresh state variable in the caller *)
-         let inst_state_var = 
+         let inst_state_var =
+           let name =
+             let row, col = row_col_of_pos call_pos in
+             Format.asprintf "inst_%a_l%dc%d_%a_%d"
+               (I.pp_print_ident true) call_node_name
+               row col
+               StateVar.pp_print_state_var state_var
+               call_id
+           in
            mk_fresh_state_var
              ?is_const:(Some (StateVar.is_const state_var))
              ?for_inv_gen:(Some true)
              ?inst_for_sv:(Some state_var)
+             name
              (StateVar.type_of_state_var state_var)
          in
 
@@ -729,16 +742,22 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
   let node_hist_svars =
     let lifted_hist_svars =
-      history_svars |> TM.map (fun l ->
-        l |> List.map (fun (sv, h_sv) ->
+      history_svars |> TM.map (fun m ->
+        SVM.fold (fun sv l acc ->
           let sv' = lift_state_var state_var_map_up sv in
-          let h_sv' = lift_state_var state_var_map_up h_sv in
-          sv', h_sv'
+          let l' =
+            List.map (fun h_sv -> lift_state_var state_var_map_up h_sv) l
+          in
+          SVM.add sv' l' acc
         )
+        m
+        SVM.empty
       )
     in
     TM.union
-      (fun _ l1 l2 -> Some (l1 @ l2))
+      (fun _ m1 m2 -> Some (SVM.union (fun _ l1 l2 ->
+        Some (l1 @ l2)
+      ) m1 m2))
       lifted_hist_svars
       node_hist_svars
   in
@@ -936,7 +955,7 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_pos; N.call_node_name; N.call_cond = [] }
+  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -975,6 +994,7 @@ let rec constraints_of_node_calls
     let subsystems =
       add_subsystem
         trans_sys
+        call_id
         call_pos
         state_var_map_up
         state_var_map_down
@@ -1002,7 +1022,7 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
+  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -1040,7 +1060,7 @@ let rec constraints_of_node_calls
     
     (* Add node instance to list of subsystems and guard with not restart *)
     let subsystems =
-      add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
+      add_subsystem trans_sys call_id call_pos state_var_map_up state_var_map_down
         (fun i t ->  
            Term.mk_implies
              [Var.mk_state_var_instance restart i |> Term.mk_var
@@ -1076,7 +1096,8 @@ let rec constraints_of_node_calls
 
 
   (* Node call with activation condition *)
-  | { N.call_pos; 
+  | { N.call_id;
+      N.call_pos;
       N.call_node_name; 
       N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
@@ -1131,11 +1152,19 @@ let rec constraints_of_node_calls
           else
 
             (* Create fresh shadow variable for input *)
-            let shadow_sv = 
+            let shadow_sv =
+              let name =
+                let row, col = row_col_of_pos call_pos in
+                Format.asprintf "shw_%a_l%dc%d_%a"
+                  (I.pp_print_ident true) call_node_name
+                  row col
+                  StateVar.pp_print_state_var formal_sv
+              in
               mk_fresh_state_var
                 ?is_const:None
                 ?for_inv_gen:(Some false)
                 ?inst_for_sv:(Some formal_sv)
+                name
                 (StateVar.type_of_state_var formal_sv) 
             in
 
@@ -1218,10 +1247,18 @@ let rec constraints_of_node_calls
     in
 
     let has_ticked =
+      let name =
+        let row, col = row_col_of_pos call_pos in
+        Format.asprintf "tck_%a_l%dc%d_%a"
+          (I.pp_print_ident true) call_node_name
+          row col 
+          StateVar.pp_print_state_var clock
+      in
       mk_fresh_state_var
         ?is_const:None
         ?for_inv_gen:(Some false)
         ?inst_for_sv:(Some clock)
+        name
         Type.t_bool
     in
 
@@ -1435,6 +1472,7 @@ let rec constraints_of_node_calls
     let subsystems =
       add_subsystem
         trans_sys
+        call_id
         call_pos
         state_var_map_up
         state_var_map_down
@@ -1496,11 +1534,15 @@ let constraints_of_history_congruence
       let acc =
         List.fold_left
           (fun acc (sv2, h_sv2) ->
-            let sv_eq =
-              if StateVar.equal_state_vars sv1 sv2 then Term.t_true
-              else mk_eq sv1 sv2
+            let cond =
+              if StateVar.equal_state_vars sv1 sv2 then None
+              else
+                let name =
+                  Format.sprintf "eq_vars_%d_%d" (StateVar.uid sv1) (StateVar.uid sv2)
+                in 
+                Some (name, mk_eq sv1 sv2)
             in
-            (sv_eq, mk_eq h_sv1 h_sv2) :: acc
+            (cond, mk_eq h_sv1 h_sv2) :: acc
           )
           acc
           tl
@@ -1508,7 +1550,29 @@ let constraints_of_history_congruence
       mk_pairs acc tl
     in
     TM.fold
-      (fun _ l acc -> mk_pairs acc l)
+      (fun _ m acc ->
+        let l =
+          SVM.bindings m
+          |> List.map (fun (sv, l) -> (sv, List.hd l))
+        in
+        SVM.fold (fun _ l' acc ->
+          match l' with
+          | []  -> assert false
+          | [_] -> acc
+          | _ -> (
+            let eqs =
+              l' |> List.map (fun h_sv ->
+                Var.mk_state_var_instance h_sv TransSys.init_base
+                |> Term.mk_var
+              )
+              |> Term.mk_eq
+            in
+            (None, eqs) :: acc
+          )
+        )
+        m
+        (mk_pairs acc l)
+      )
       history_svars
       []
   in
@@ -1518,13 +1582,18 @@ let constraints_of_history_congruence
   *)
   let all_inputs_equal, rest =
     pairs
-    |> List.partition (fun (t, _) -> Term.equal t Term.t_true)
+    |> List.fold_left (fun (l1, l2) (cond, o) ->
+        match cond with
+        | None -> (o :: l1, l2)
+        | Some (name, i) -> (l1, (name, (i, o)) :: l2)
+      )
+      ([], [])
   in
 
   let add_constraints_for_vars_equal init_terms trans_terms =
     let init_terms =
       all_inputs_equal
-      |> List.fold_left (fun init_terms (_,o_base) ->
+      |> List.fold_left (fun init_terms o_base ->
         o_base :: init_terms
       )
       init_terms
@@ -1532,7 +1601,7 @@ let constraints_of_history_congruence
 
     let trans_terms =
       all_inputs_equal
-      |> List.fold_left (fun trans_terms (_,o_base) ->
+      |> List.fold_left (fun trans_terms o_base ->
         let offset =
           Numeral.(TransSys.trans_base - TransSys.init_base)
         in
@@ -1546,12 +1615,13 @@ let constraints_of_history_congruence
 
   let add_constraints_for_rest init_terms trans_terms =
     let local_and_terms =
-      rest |> List.map (fun terms ->
+      rest |> List.map (fun (name, terms) ->
         let fresh_svar =
           mk_fresh_state_var
             ?is_const:(Some false)
             ?for_inv_gen:(Some true)
             ?inst_for_sv:None
+            name
             Type.t_bool
         in
         (fresh_svar, terms)
@@ -1968,14 +2038,14 @@ let rec trans_sys_of_node'
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
-          ?(basename=I.inst_ident)
           ?is_const
           ?for_inv_gen
           ?inst_for_sv
+          name
           state_var_type =
 
         (* Increment counter for fresh state variables *)
-        let index = index_of_scope scope in
+        (*let index = index_of_scope scope in*)
 
         (* Create state variable *)
         let fsv =
@@ -1983,8 +2053,9 @@ let rec trans_sys_of_node'
             ~is_input:false
             ?is_const:is_const
             ?for_inv_gen:for_inv_gen
-            ((I.push_index basename index)
-             |> I.string_of_ident true)
+            name
+            (*((I.push_index I.inst_ident index) 
+             |> I.string_of_ident true)*)
             (N.scope_of_node node @ I.reserved_scope)
             state_var_type
         in
@@ -2304,7 +2375,7 @@ let rec trans_sys_of_node'
             trans_terms
           =
             constraints_of_node_calls
-              (mk_fresh_state_var ~basename:I.inst_ident)
+              mk_fresh_state_var
               globals
               trans_sys_defs
               []  (* No lifted locals *)
@@ -2321,15 +2392,22 @@ let rec trans_sys_of_node'
           let history_svars =
             let history_svars' =
               history_svars |> TM.map (fun l ->
-                l |> List.filter (fun (sv, h_sv) ->
-                  List.exists (StateVar.equal_state_vars sv) all_state_vars
-                  &&
-                  List.exists (StateVar.equal_state_vars h_sv) all_state_vars
+                l |> List.fold_left (fun acc (sv, h_sv) ->
+                  if List.exists (StateVar.equal_state_vars sv) all_state_vars
+                     &&
+                     List.exists (StateVar.equal_state_vars h_sv) all_state_vars
+                  then
+                    SVM.add sv [h_sv] acc
+                  else
+                    acc
                 )
+                SVM.empty
               )
             in
             TM.union
-              (fun _ l1 l2 -> Some (l1 @ l2))
+              (fun _ m1 m2 -> Some (SVM.union (fun _ l1 l2 ->
+                Some (l1 @ l2)
+              ) m1 m2))
               history_svars'
               lifted_hist_svars
           in
@@ -2341,7 +2419,7 @@ let rec trans_sys_of_node'
           =
             if I.equal node_name top_name then
               constraints_of_history_congruence
-                (mk_fresh_state_var ~basename:I.eq_vars_ident)
+                mk_fresh_state_var
                 history_svars
                 init_terms
                 trans_terms
@@ -2760,12 +2838,19 @@ let trans_sys_of_nodes
     let preserve_sig, slice_nodes =
       options.preserve_sig, options.slice_nodes
     in
-    S.slice_to_abstraction
-      ~preserve_sig slice_nodes analysis_param subsystem'
+    match options.slice_to_prop with
+    | None -> 
+      S.slice_to_abstraction
+        ~preserve_sig slice_nodes analysis_param subsystem'
+    | Some prop ->
+      let vars =
+        Term.state_vars_of_term prop.P.prop_term
+      in
+      S.slice_to_abstraction_and_property
+        ~preserve_sig analysis_param vars subsystem'
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in
-
 
   let { trans_sys } =   
 

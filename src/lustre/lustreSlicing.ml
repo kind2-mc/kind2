@@ -136,8 +136,7 @@ let rec describe_cycle node accum = function
          tl
 
      (* Skip oracles and calls *)
-     | N.KGhost
-     | N.KLocal
+     | N.Generated
      | N.Call
      (*| N.Alias (_,_)*)
      | N.Oracle -> describe_cycle node accum tl
@@ -1120,7 +1119,9 @@ let root_and_leaves_of_impl
         |> SVS.union (roots_of_props props)
                                           
       (* Use instead of roots from properties and contracts *)
-      | Some r -> r )
+      | Some r -> 
+        (roots_of_contract_ass contract)
+        |> SVS.union r )
 
     |> add_roots_of_asserts asserts
 

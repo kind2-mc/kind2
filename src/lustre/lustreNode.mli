@@ -61,6 +61,9 @@ type call_cond =
     dummy position. *)
 type node_call = {
 
+  call_id : int;
+  (* A unique numerical id *)
+
   call_pos : position;
   (** Position of node call in input file *)
 
@@ -107,10 +110,9 @@ type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
-| KLocal  (** Kind 2 invisible local variable *)
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
-| KGhost  (** Kind 2 invisible ghost variable *)
+| Generated  (** Kind 2 invisible generated variable *)
 | Oracle  (** Generated non-deterministic input *)
 (*| Alias of
   StateVar.t * state_var_source option (** Alias for another state variable. *) *)

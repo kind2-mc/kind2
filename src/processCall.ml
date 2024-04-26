@@ -18,7 +18,7 @@
 
 type t =
   | GenericCall of Lib.kind_module
-  | IC3IA_Call of bool * Property.t * string
+  | IC3IA_Call of bool * bool * Property.t * string
 
 let get_kind_module = function
   | GenericCall m -> m

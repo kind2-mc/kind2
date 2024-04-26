@@ -25,6 +25,7 @@ module AH = LustreAstHelpers
 module AD = LustreAstDependencies
 module AIC = LustreAstInlineConstants
 module Ctx = TypeCheckerContext
+module Chk = LustreTypeChecker
 
 module StringMap = HString.HStringMap
 
@@ -269,23 +270,7 @@ let rec check_inductive_array_dependencies ctx ns = function
 and check_node_decl ctx ns decl =
   let (_, _, _, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
-  let constants_ctx = inputs
-    |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let input_ctx = inputs
-    |> List.map Ctx.extract_arg_ctx
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let output_ctx = outputs
-    |> List.map Ctx.extract_ret_ctx
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let local_ctx = locals 
-    |> List.map Ctx.extract_loc_ctx
-    |> (List.fold_left Ctx.union ctx)
-  in
-  let ctx = List.fold_left Ctx.union ctx [constants_ctx; input_ctx; output_ctx; local_ctx] in
+  let ctx = Chk.add_full_node_ctx ctx inputs outputs locals in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
   (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in
