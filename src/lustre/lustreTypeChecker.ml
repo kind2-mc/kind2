@@ -206,6 +206,34 @@ let (>>) = R.(>>)
 let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (** [type_error] returns an [Error] of [tc_result] *)
 
+
+(********************************
+ * Functions to update context  *
+ ********************************)
+let add_io_node_ctx ctx inputs outputs =
+  let ctx = inputs
+    |> List.map extract_consts
+    |> (List.fold_left union ctx)
+  in
+  let ctx = inputs
+    |> List.map extract_arg_ctx
+    |> (List.fold_left union ctx)
+  in
+  let ctx = outputs
+    |> List.map extract_ret_ctx
+    |> (List.fold_left union ctx)
+  in
+  ctx
+
+let add_local_node_ctx ctx locals =
+  locals 
+    |> List.map extract_loc_ctx
+    |> (List.fold_left union ctx)
+
+let add_full_node_ctx ctx inputs outputs locals =
+  let ctx = add_io_node_ctx ctx inputs outputs in
+  add_local_node_ctx ctx locals
+
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -1152,9 +1180,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
                 [])
       else (
         (* add local variable bindings to the context *)
-        let local_ctx = List.fold_left union ctx_plus_ops_and_ips  
-          (List.map extract_loc_ctx ldecls)
-        in
+        let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check well-formedness of locals' types *)
         let* warnings = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeVarDecl (_, (_, _, ty, _))
@@ -1850,31 +1876,6 @@ let rec type_check_group: tc_context -> LA.t ->  ([> warning] list, [> error]) r
 (** By this point, all the circularity should be resolved,
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*) 
- 
-let add_io_node_ctx ctx inputs outputs =
-  let ctx = inputs
-    |> List.map extract_consts
-    |> (List.fold_left union ctx)
-  in
-  let ctx = inputs
-    |> List.map extract_arg_ctx
-    |> (List.fold_left union ctx)
-  in
-  let ctx = outputs
-    |> List.map extract_ret_ctx
-    |> (List.fold_left union ctx)
-  in
-  ctx
-
-let add_local_node_ctx ctx locals =
-  locals 
-    |> List.map extract_loc_ctx
-    |> (List.fold_left union ctx)
-
-let add_full_node_ctx ctx inputs outputs locals =
-  let ctx = add_io_node_ctx ctx inputs outputs in
-  add_local_node_ctx ctx locals
-
 
 let type_check_decl_grps: tc_context -> LA.t list -> ([> warning] list, [> error]) result list
   = fun ctx decls ->
