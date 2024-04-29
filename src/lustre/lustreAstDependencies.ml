@@ -618,7 +618,7 @@ let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) r
 
     
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
-  = fun (_, eqns) -> 
+  = fun (p, eqns) -> 
     let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
         = fun ((p1, ps), (p2, qs)) -> fun e ->
         match e with
@@ -630,7 +630,7 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
         | LA.Assume _
         | LA.AssumptionVars _ -> (p1, ps), (p2, e::qs)
       in
-    List.fold_left split_eqns ((Lib.dummy_pos, []), (Lib.dummy_pos, [])) eqns
+    List.fold_left split_eqns ((p, []), (p, [])) eqns
     
 let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   = fun m proj expr ->

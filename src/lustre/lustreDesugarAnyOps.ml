@@ -38,7 +38,7 @@ fun ctx node_name fun_ids expr ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
   | A.AnyOp (pos, (_, id, ty), expr1, expr2_opt) -> 
-    let span = { A.start_pos = pos; A.end_pos = Lib.dummy_pos } in
+    let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = match expr2_opt with 
       | None -> [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)]
       | Some expr2 -> [A.Assume (AH.pos_of_expr expr2, None, false, expr2);
@@ -87,11 +87,11 @@ fun ctx node_name fun_ids expr ->
       if has_pre_arrow_or_node_call then
         A.NodeDecl (span, 
         (name, true, [], inputs, 
-        [pos, id, ty, A.ClockTrue], [], [], Some (Lib.dummy_pos, contract))) 
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))) 
       else 
         A.FuncDecl (span, 
         (name, true, [], inputs, 
-        [pos, id, ty, A.ClockTrue], [], [], Some (Lib.dummy_pos, contract)))  
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
     A.Call(pos, name, inputs_call), [generated_node]
 
