@@ -1310,7 +1310,7 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info map ivars ovars items =
+and normalize_contract info map ivars ovars (p, items) =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
@@ -1380,7 +1380,7 @@ and normalize_contract info map ivars ovars items =
           }
         in
         let called_node = StringMap.find name info.contract_calls_info in
-        let normalized_call, gids2, warnings2, interp = 
+        let (_, normalized_call), gids2, warnings2, interp = 
           normalize_node_contract info map cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
@@ -1493,7 +1493,7 @@ and normalize_contract info map ivars ovars items =
     gids := union !gids gids';
     warnings := !warnings @ warnings';
   done;
-  !result, !gids, !warnings
+  (p, !result), !gids, !warnings
 
 
 and normalize_equation info map = function

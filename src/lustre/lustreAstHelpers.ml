@@ -636,7 +636,7 @@ let contract_node_equation_has_pre_or_arrow = function
 
 Does not (cannot) check contract calls recursively, checks only inputs and
 outputs. *)
-let contract_has_pre_or_arrow l =
+let contract_has_pre_or_arrow (_, l) =
   List.map contract_node_equation_has_pre_or_arrow l
   |> some_of_list
 

@@ -1507,7 +1507,7 @@ and eval_node_contract_call
 
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx =
-    contract |> List.map (fun item -> item, is_candidate)
+    contract |> snd |> List.map (fun item -> item, is_candidate)
     |> eval_node_contract_spec known ctx call_pos svar_scope
       inputs outputs locals
   in
@@ -1799,7 +1799,7 @@ and eval_node_decl
   let contract_spec =
     match contract_spec with
     | None -> None
-    | Some spec -> Some (
+    | Some (_, spec) -> Some (
       spec |> List.map (fun item -> item, false)
     )
   in
