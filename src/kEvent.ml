@@ -794,8 +794,10 @@ let prop_attributes_xml trans_sys prop_name =
           Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
           lnum cnum pp_print_fname fname
     )
-    | Property.Candidate None -> ""
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate None -> " source=\"Candidate\""
+    | Property.Candidate (Some source) -> 
+      Format.asprintf " source=\"Candidate(%s)\""
+      (Property.string_of_source source)
     | Property.Instantiated (_, prop) ->
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) ->
@@ -1157,8 +1159,10 @@ let prop_attributes_json ppf trans_sys prop_name =
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
     )
-    | Property.Candidate None -> ()
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate None -> Format.fprintf ppf "\"source\" : \"Candidate\",@,"
+    | Property.Candidate (Some source) -> 
+      Format.fprintf ppf "\"source\" : \"Candidate(%s)\",@,"
+      (Property.string_of_source source)
   in
 
   get_attributes prop.Property.prop_source
