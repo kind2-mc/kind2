@@ -311,7 +311,14 @@ let proved_pt mdl level trans_sys k prop =
   if 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
   then (
-    let cand_or_prop = (if TransSys.is_candidate trans_sys prop then  "Candidate" else "Property") in
+
+    let property = TransSys.property_of_name trans_sys prop in
+    let prop_type = match property.prop_source with 
+      | Candidate None -> "Candidate property"
+      | Candidate Some (Generated _) -> "Generated candidate property"
+      | Generated _ -> "Generated property"
+      | _ -> "Property"
+    in
     let k_val = (function ppf -> match k with
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
@@ -322,7 +329,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
         success_tag
-        cand_or_prop
+        prop_type
         prop
         k_val
         pp_print_kind_module_pt mdl
@@ -332,7 +339,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         ("@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or more %tby %a after %.3fs.@.@.")
         failure_tag
-        cand_or_prop
+        prop_type
         prop
         ts
         k_val
@@ -343,7 +350,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or less %tby %a after %.3fs.@.@."
         failure_tag
-        cand_or_prop
+        prop_type
         prop
         ts
         k_val
@@ -354,7 +361,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable at step %d %tby %a after %.3fs.@.@."
         failure_tag
-        cand_or_prop
+        prop_type
         prop
         ts
         k_val
@@ -365,7 +372,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable between steps %d and %d %tby %a after %.3fs.@.@."
         failure_tag
-        cand_or_prop
+        prop_type
         prop
         ts1
         ts2
@@ -377,7 +384,7 @@ let proved_pt mdl level trans_sys k prop =
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable %tby %a after %.3fs.@.@."
         failure_tag
-        cand_or_prop
+        prop_type
         prop
         k_val
         pp_print_kind_module_pt mdl
