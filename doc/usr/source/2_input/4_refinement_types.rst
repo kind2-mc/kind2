@@ -13,7 +13,7 @@ Declarations
 
 Refinement types have syntax of the form ``subtype { var: base_type | P(var) }``. 
 
-For example, `type Nat = subtype { x: int | x >= 0 }`
+For example, ``type Nat = subtype { x: int | x >= 0 }``
 declares a refinement type ``Nat`` over the base type ``int``, 
 where the values of ``Nat`` are all the nonnegative integers.
 When assigning a refinement type to a node input, output, or local variable, Kind 2 also 
@@ -45,7 +45,7 @@ declares a refinement type ``LessThan100`` whose base type ``Nat`` is itself a r
 Note that we can still recursively chase base types until we reach a primitive type.
 In this case, ``LessThan100``'s recursively chased primitive base type is ``int``.
 
-Additionally, refinement types can be components of more complicated types.
+Additionally, refinement types can be components of more complicated types:
 
 .. code-block::
 
@@ -89,7 +89,7 @@ Consider the following example:
 Kind2 will attempt to prove that node ``M``'s output ``y`` respects type ``Odd``
 while assuming that input ``x1`` has type ``Even`` and input ``x2`` has type ``Odd``.
 More intuitively, Kind 2 will prove
-that adding an even and an odd integer will result in an odd integer. 
+that adding an even and an odd integer results in an odd integer. 
 Conceptually, the refinement types can be viewed as an augmentation of
 ``M``'s contract as follows:
 
@@ -109,7 +109,7 @@ Conceptually, the refinement types can be viewed as an augmentation of
 If an output variable with a refinement type is left undefined, Kind 2 will specify that the value 
 ranges over a recursively chased base type.
 
-  .. code-block::
+.. code-block::
 
    node M() returns (y: Nat | y < 100);
    let
@@ -136,7 +136,7 @@ While all of the above are syntactically valid,
 Kind 2 may still fail type-related proof obligations. 
 For example, in the node call ``M(z)``
 (where ``z`` has type ``int`` and ``M`` takes a single parameter of type ``Nat``),
-``M``'s typing assumption on its input will be violated if ``z`` is undefined. 
+``M``'s typing assumption on its input will be violated if ``z`` can be negative. 
 
 Realizability
 -------------
@@ -147,7 +147,7 @@ to specify refinement type contraints that are unimplementable (impossible to sa
 
 As an example, the following node interface is unrealizable:
 
-  .. code-block::
+.. code-block::
 
    node M(x: int) returns (y: int | 0 <= y and y <= x);
 
@@ -156,7 +156,7 @@ However, if input ``x`` is negative, then no value for ``y`` will satisfy its ty
 
 One way to make the above interface realizable is to add a refinement type for ``x``:
 
-  .. code-block::
+.. code-block::
 
    node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 
