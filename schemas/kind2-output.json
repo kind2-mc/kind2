@@ -639,15 +639,7 @@
                     "type": "integer"
                 },
                 "source": {
-                    "enum": [
-                        "Assumption",
-                        "Guarantee",
-                        "Generated",
-                        "NonVacuityCheck",
-                        "OneModeActive",
-                        "Ensure",
-                        "PropAnnot"
-                    ]
+                    "type": "string"
                 },
                 "runtime": {
                     "$ref": "#/definitions/runtime"
