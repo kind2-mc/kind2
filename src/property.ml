@@ -100,7 +100,7 @@ and prop_source =
      properties *)
   | Candidate of prop_source option
 
-let string_of_source = function 
+let rec string_of_source = function 
 | PropAnnot _ -> "PropAnnot"
 | Generated _ -> "Generated"
 | Instantiated _ -> "Instantiated"
@@ -109,7 +109,8 @@ let string_of_source = function
 | GuaranteeOneModeActive _ -> "OneModeActive"
 | GuaranteeModeImplication _ -> "ModeImplication"
 | NonVacuityCheck _ -> "NonVacuityCheck"
-| Candidate _ -> "Candidate"
+| Candidate None -> "Candidate"
+| Candidate (Some source) -> "Candidate(" ^ string_of_source source ^ ")"
 
 
 let copy t = { t with prop_status = t.prop_status }
