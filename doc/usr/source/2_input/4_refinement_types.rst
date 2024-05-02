@@ -5,7 +5,7 @@ Refinement Types
 ================
 
 Kind 2 supports refinement types. A refinement type is comprised of two components: 
-(i) a __base type__, and
+(i) a **base type**, and
 (ii) a predicate that restricts the members of the base type.
 
 Declarations
@@ -13,12 +13,7 @@ Declarations
 
 Refinement types have syntax of the form ``subtype { var: base_type | P(var) }``. 
 
-For example, the following
-
-.. code-block::
-
-   type Nat = subtype { x: int | x >= 0 };
-
+For example, `type Nat = subtype { x: int | x >= 0 }`
 declares a refinement type ``Nat`` over the base type ``int``, 
 where the values of ``Nat`` are all the nonnegative integers.
 When assigning a refinement type to a node input, output, or local variable, Kind 2 also 
@@ -38,7 +33,7 @@ The above example can be equivalently expressed using the full syntax:
 
    node N(x: subtype { n: int | n >= 0 }) returns (y: subtype { n: int | y >= 0});
 
-The base type being refined can be __any__ type, not just a primitive type. 
+The base type being refined can be *any* type, not just a primitive type. 
 For example,
 
 .. code-block::
@@ -47,6 +42,8 @@ For example,
    type LessThan100 = { x: Nat | x < 100 };
 
 declares a refinement type ``LessThan100`` whose base type ``Nat`` is itself a refinement type.
+Note that we can still recursively chase base types until we reach a primitive type.
+In this case, ``LessThan100``'s recursively chased primitive base type is ``int``.
 
 Additionally, refinement types can be components of more complicated types.
 
@@ -58,9 +55,9 @@ Additionally, refinement types can be components of more complicated types.
 
 Above, we declare a type ``NatArray``, an array of natural numbers.
 
-Since Lustre is a declarative language, there is no conceptual ordering between sets of input,
-output, and local variables. A consequence of this is that refinement type predicates can 
-contain variables that are defined before or after the current variable in the input file.
+Since Lustre is a declarative language, there is no conceptual ordering between variable declarations
+(input, output, and local variables). A consequence of this is that refinement type predicates can 
+contain variables that are defined before *or after* the current variable in the input file.
 For example, the following is legal.
 
 .. code-block::
@@ -69,8 +66,6 @@ For example, the following is legal.
 
 Above, the predicate in ``x``'s type references ``y``, which is allowed even though 
 ``y`` comes after ``x`` in the list of node outputs. 
-This is analogous to the fact that ordering of node equations and contract elements 
-does not matter.
 
 Semantics
 ---------
@@ -91,8 +86,10 @@ Consider the following example:
       --%MAIN;
    tel
 
-When Kind 2 is called on node ``M``, it attempts to prove that ``y`` respects type ``Odd``
-while assuming that ``x1`` has type ``Even`` and ``x2`` has type ``Odd``.
+Kind2 will attempt to prove that node ``M``'s output ``y`` respects type ``Odd``
+while assuming that input ``x1`` has type ``Even`` and input ``x2`` has type ``Odd``.
+More intuitively, Kind 2 will prove
+that adding an even and an odd integer will result in an odd integer. 
 Conceptually, the refinement types can be viewed as an augmentation of
 ``M``'s contract as follows:
 
@@ -109,33 +106,19 @@ Conceptually, the refinement types can be viewed as an augmentation of
       --%MAIN;
    tel
 
-Above, Kind 2 will prove that ``y`` respects its refinement type (intuitively, Kind 2 will prove
-that adding an even and an odd integer will result in an odd integer). 
-
-Note that refinement type variables can be arguments to any operation supported 
-by their base type. For example, the above expression ``x1 + x2`` is well-typed
-because ``x1`` and ``x2`` both have a base type of ``int``, and ``+`` 
-is well-defined for integers. 
-
-If the base type of a refinement type is 
-nested within other types, then base primitive types are recursively 
-computed. For example, if ``x`` has type 
-``subtype { n: subtype { m: int | m > 0 } | n < 5 }``,
-then ``x + x`` is well-typed because ``x``'s base type is ``int``.
-
 If an output variable with a refinement type is left undefined, Kind 2 will specify that the value 
-ranges over its __base__ type.
+ranges over a recursively chased base type.
 
   .. code-block::
 
-   node M() returns (y: Nat);
+   node M() returns (y: Nat | y < 100);
    let
    tel
 
-In the above example, ``M``'s return value ``y`` will range over all integers, 
-not just natural numbers. This is because ``y`` is an output variable,
+In the above example, ``M``'s return value ``y`` will range over *all integers*, 
+not just natural numbers less than 100. This is because ``y`` is an output variable,
 and therefore its refinement type is viewed as a proof obligation. 
-In this case, Kind 2 will report that ``y`` violates its refinement type predicate. 
+In this case, Kind 2 will report that ``y`` violates its refinement type. 
 
 Operations
 ----------
@@ -159,7 +142,7 @@ Realizability
 -------------
 
 Because refinement types are essentially contract augmentations, it is possible to specify 
-refinement types that are __unrealizable__. In other words, it is possible 
+refinement types that are *unrealizable*. In other words, it is possible 
 to specify refinement type contraints that are unimplementable (impossible to satisfy with any implementation).
 
 As an example, the following node interface is unrealizable:
