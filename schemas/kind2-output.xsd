@@ -22,6 +22,19 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Property source-->
+  <xs:simpleType name="PropSource">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Assumption"/>
+      <xs:enumeration value="Guarantee"/>
+      <xs:enumeration value="Generated"/>
+      <xs:enumeration value="NonVacuityCheck"/>
+      <xs:enumeration value="OneModeActive"/>
+      <xs:enumeration value="Ensure"/>
+      <xs:enumeration value="PropAnnot"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- Context of realizability check -->
   <xs:simpleType name="Context">
     <xs:restriction base="xs:string">
@@ -355,7 +368,8 @@
     <xs:attribute name="line" type="NonNegativeInteger"/>
     <xs:attribute name="column" type="NonNegativeInteger"/>
     <xs:attribute name="scope" type="xs:string"/>
-    <xs:attribute name="source" type="xs:string"/>
+    <xs:attribute name="source" type="PropSource"/>
+    <xs:attribute name="isCandidate" type="xs:boolean"/>
   </xs:complexType>
 
   <xs:complexType name="PostAnalysisStartType">
