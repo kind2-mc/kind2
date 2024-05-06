@@ -103,7 +103,8 @@ val copy : t -> t
 (** Pretty-prints a property source. *)
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
-val string_of_source : prop_source -> string
+(** Returns true iff the input property source is candidate *)
+val is_candidate : prop_source -> bool
 
 (** Pretty-prints a property status. *)
 val pp_print_prop_status : Format.formatter -> prop_status -> unit
