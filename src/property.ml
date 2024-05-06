@@ -100,7 +100,7 @@ and prop_source =
      properties *)
   | Candidate of prop_source option
 
-let rec is_candidate = function 
+let is_candidate = function 
 | Candidate _ -> true
 | PropAnnot _ | Generated _ | Instantiated _ | Assumption _ 
 | Guarantee _ | GuaranteeOneModeActive _ | GuaranteeModeImplication _
