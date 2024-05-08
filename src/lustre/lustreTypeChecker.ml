@@ -1624,22 +1624,29 @@ and check_range_bound ctx e =
 and check_ref_type_assumptions ctx src nname bound_var e =
   let vars = LH.vars_without_node_call_ids_current e |> SI.elements in
   let inputs = (match nname with 
-    | Some nname -> lookup_node_param_attr ctx nname
-    | None -> None
+  | Some nname -> lookup_node_param_attr ctx nname
+  | None -> None
   )
   in
   match src with 
   | Input -> (
+    (* Filter out variables that are inputs, bound variables,
+       or global constants. *)
     let vars = List.filter (fun var -> 
       match inputs with 
-        | None -> false 
-        | Some inputs -> 
-          not (List.mem var (List.map fst inputs)) && var != bound_var
-    ) vars
+      | None -> false 
+      | Some inputs -> 
+        not (List.mem var (List.map fst inputs)) && 
+        var != bound_var
+    ) vars |> List.filter (fun i -> 
+      match lookup_const ctx i with 
+      | Some (_, _, Global) -> false 
+      | _ -> true
+    )  
     in
     match vars with 
-      | [] -> R.ok ()
-      | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
+    | [] -> R.ok ()
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
