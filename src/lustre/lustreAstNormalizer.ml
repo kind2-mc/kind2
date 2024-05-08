@@ -1115,17 +1115,21 @@ and normalize_node info map
   (* Record subrange constraints on locals *)
   let gids7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _)) -> 
+      | A.NodeVarDecl (_, (_, id, _, _)) 
+      | A.NodeConstDecl (_, FreeConst (_, id, _)) 
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
         Ctx.type_contains_subrange ctx ty || Ctx.type_contains_ref ctx ty
-      | _ -> false)
+      | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun acc l -> match l with
-      | A.NodeVarDecl (p, (_, id, _, _)) -> 
+      | A.NodeVarDecl (p, (_, id, _, _)) 
+      | A.NodeConstDecl (p, FreeConst (_, id, _)) 
+      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
         let gids = union acc (mk_fresh_subrange_constraint Local info p id ty)
         in union gids (mk_fresh_refinement_type_constraint Local info p (A.Ident (p, id)) ty)
-      | _ -> assert false)
+      | A.NodeConstDecl (_, UntypedConst _)-> assert false)
       (empty ())
   in
   let items =
