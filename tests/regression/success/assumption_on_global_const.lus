@@ -1,6 +1,6 @@
 const c: int;
 
-node N(const t: int; x: int | x < c) returns (y: int;);
+node N(x: int | x < c) returns ();
 let
    check true;
 tel
