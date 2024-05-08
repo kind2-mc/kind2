@@ -1,0 +1,6 @@
+const c: int;
+
+node N(x: int | x < c) returns ();
+let
+   check true;
+tel
