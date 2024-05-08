@@ -1112,8 +1112,8 @@ and normalize_node info map
   in
   let ctx = Chk.add_local_node_ctx ctx node_id locals |> unwrap in
   let info = { info with context = ctx } in
-    (* Record subrange constraints on locals *)
-    let gids7 = locals
+  (* Record subrange constraints on locals *)
+  let gids7 = locals
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) 
       | A.NodeConstDecl (_, FreeConst (_, id, _)) 
