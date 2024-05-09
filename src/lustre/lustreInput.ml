@@ -165,10 +165,7 @@ let type_check declarations =
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
-    (* Step 9. Flatten refinement types *)
-    let sorted_node_contract_decls = LFR.flatten_ref_types global_ctx sorted_node_contract_decls in
-
-    (* Step 10. Generate imported nodes associated with refinement types if realizability checking is enabled *)
+    (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
     let sorted_node_contract_decls = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
       then 
@@ -176,6 +173,9 @@ let type_check declarations =
         LGI.gen_imp_nodes global_ctx sorted_node_contract_decls 
       else sorted_node_contract_decls
     in
+
+    (* Step 10. Flatten refinement types *)
+    let sorted_node_contract_decls = LFR.flatten_ref_types global_ctx sorted_node_contract_decls in
 
     (* Step 11. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
