@@ -1,4 +1,4 @@
-.. _2_input/3_machine_ints:
+.. _2_input/4_refinement_types:
 
 
 Refinement Types
