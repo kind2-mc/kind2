@@ -1969,12 +1969,15 @@ and expand_node_calls_in_place info var count expr =
 
 and normalize_ty info map id ty = 
   match ty with 
-  | A.RefinementType (p1, (p2, id2, ty), expr) -> 
+  | A.RefinementType (p1, (p2, id2, ty2), expr) -> 
     let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
-    let info =  { info with context = Ctx.add_ty info.context id2 ty }; in
+    let info =  { info with context = 
+      let ctx = Ctx.add_ty info.context id2 ty2 in 
+      Ctx.add_ty ctx id ty 
+    }; in
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info map expr in
-    A.RefinementType (p1, (p2, id, ty), nexpr), union h_gids gids, warnings
+    A.RefinementType (p1, (p2, id, ty2), nexpr), union h_gids gids, warnings
     
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
   | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | TVar _ | IntRange _ 
