@@ -193,13 +193,13 @@ let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
-and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id eqns |> unwrap |> fst
+and interpret_contract node_id ctx ty_ctx contract =
+  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id contract |> unwrap |> fst
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
     ctx
-    eqns
+    (snd contract)
 
 and interpret_contract_eqn node_id ctx ty_ctx = function
   | LA.GhostConst _ -> empty_context

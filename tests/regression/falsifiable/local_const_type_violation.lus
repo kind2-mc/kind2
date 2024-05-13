@@ -1,0 +1,5 @@
+node N() returns ();
+   const c1: subtype { n: int | n > 0 } = -1;
+   const c2: subrange [0,*] of int = -1;
+let
+tel

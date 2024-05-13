@@ -278,7 +278,7 @@ type contract_node_equation =
   | AssumptionVars of contract_assump_vars
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract = contract_node_equation list
+type contract = position * (contract_node_equation list)
 
 
 (* A node or function declaration
@@ -1094,7 +1094,7 @@ let pp_print_contract fmt contract =
 
 let pp_print_contract_spec ppf = function
 | None -> ()
-| Some contract ->
+| Some (_, contract) ->
   Format.fprintf 
     ppf
     "@[<v 2>(*@contract@ %a@]@ *)@ "
@@ -1102,7 +1102,7 @@ let pp_print_contract_spec ppf = function
 
 
 (* Pretty-prints a contract node. *)
-let pp_print_contract_node_decl ppf (n,p,i,o,e)
+let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
  =
      Format.fprintf
        ppf

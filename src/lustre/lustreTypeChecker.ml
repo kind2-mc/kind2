@@ -1357,7 +1357,7 @@ and tc_ctx_contract_eqn: tc_context -> HString.t -> LA.contract_node_equation ->
       (IMap.bindings m), []) 
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning] list, [> error]) result
-  = fun ctx (cname, _, args, rets, contract) ->
+  = fun ctx (cname, _, args, rets, (p, contract)) ->
   let arg_ids = LA.SI.of_list (List.map (fun arg -> LH.extract_ip_ty arg |> fst) args) in
   let ret_ids = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
   Debug.parse "TC Contract Decl: %a {" LA.pp_print_ident cname;
@@ -1371,11 +1371,11 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning
   let ctxs, warnings = List.split ctxs_warnings in
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
-  check_type_contract (arg_ids, ret_ids) local_ctx contract
+  check_type_contract (arg_ids, ret_ids) local_ctx (p, contract)
     >> R.ok (Debug.parse "TC Contract Decl %a done }" LA.pp_print_ident cname; List.flatten warnings)
 
 and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract -> (unit, [> error]) result
-  = fun node_params ctx eqns ->
+  = fun node_params ctx (_, eqns) ->
   R.seq_ (List.map (check_contract_node_eqn node_params ctx) eqns)
 
 and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_node_equation -> (unit, [> error]) result
@@ -1543,7 +1543,7 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (ctx, warnings) =
   | _ -> R.ok (ctx, warnings)
                          
 and tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning] list, [> error ]) result 
-= fun ?(ignore_modes = false) ctx src cname con ->
+= fun ?(ignore_modes = false) ctx src cname (_, con) ->
   R.seq_chain (tc_ctx_contract_node_eqn ~ignore_modes src cname) (ctx, []) con
 
 and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> error]) result
@@ -1569,7 +1569,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
           (fun (k, v) -> (HString.concat (HString.mk_hstring "::") [cc;k], v))
           (IMap.bindings m)))
       | _ -> R.ok [] in
-    fun cname ctx contract ->
+    fun cname ctx (_, contract) ->
     (R.seq_chain
       (fun (exp_acc, lctx) e ->
         exports_from_eqn lctx e >>= fun id_tys ->
@@ -1655,22 +1655,29 @@ and check_range_bound ctx e =
 and check_ref_type_assumptions ctx src nname bound_var e =
   let vars = LH.vars_without_node_call_ids_current e |> SI.elements in
   let inputs = (match nname with 
-    | Some nname -> lookup_node_param_attr ctx nname
-    | None -> None
+  | Some nname -> lookup_node_param_attr ctx nname
+  | None -> None
   )
   in
   match src with 
   | Input -> (
+    (* Filter out variables that are inputs, bound variables,
+       or global constants. *)
     let vars = List.filter (fun var -> 
       match inputs with 
-        | None -> false 
-        | Some inputs -> 
-          not (List.mem var (List.map fst inputs)) && var != bound_var
-    ) vars
+      | None -> false 
+      | Some inputs -> 
+        not (List.mem var (List.map fst inputs)) && 
+        var != bound_var
+    ) vars |> List.filter (fun i -> 
+      match lookup_const ctx i with 
+      | Some (_, _, Global) -> false 
+      | _ -> true
+    )  
     in
     match vars with 
-      | [] -> R.ok ()
-      | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
+    | [] -> R.ok ()
+    | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
   )
   | Output | Local | Ghost | Global -> R.ok ()
 

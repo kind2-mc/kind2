@@ -38,7 +38,7 @@ fun ctx node_name fun_ids expr ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
   | A.AnyOp (pos, (_, id, ty), expr1, expr2_opt) -> 
-    let span = { A.start_pos = pos; A.end_pos = Lib.dummy_pos } in
+    let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = match expr2_opt with 
       | None -> [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)]
       | Some expr2 -> [A.Assume (AH.pos_of_expr expr2, None, false, expr2);
@@ -87,11 +87,11 @@ fun ctx node_name fun_ids expr ->
       if has_pre_arrow_or_node_call then
         A.NodeDecl (span, 
         (name, true, [], inputs, 
-        [pos, id, ty, A.ClockTrue], [], [], Some contract)) 
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))) 
       else 
         A.FuncDecl (span, 
         (name, true, [], inputs, 
-        [pos, id, ty, A.ClockTrue], [], [], Some contract)) 
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
     A.Call(pos, name, inputs_call), [generated_node]
 
@@ -211,12 +211,12 @@ fun ctx node_name fun_ids ci ->
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation list option -> A.contract_node_equation list option * A.declaration list =
+let desugar_contract: Ctx.tc_context -> HString.t -> HString.t list -> A.contract option -> A.contract option * A.declaration list =
 fun ctx node_name fun_ids contract -> 
   match contract with 
-  | Some contract_items -> 
+  | Some (pos, contract_items) -> 
     let items, gen_nodes = (List.map (desugar_contract_item ctx node_name fun_ids) contract_items) |> List.split in
-    Some items, List.flatten gen_nodes
+    Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
 let rec desugar_node_item: Ctx.tc_context -> HString.t -> HString.t list -> A.node_item -> A.node_item * A.declaration list =

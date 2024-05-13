@@ -1718,7 +1718,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in
   let (ghost_locals, ghost_equations, modes) =
     match contract with
-    | Some contract -> compile_contract_variables cstate gids ctx map [] node_scope contract
+    | Some (_, contract) -> compile_contract_variables cstate gids ctx map [] node_scope contract
     | None -> [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
@@ -2067,14 +2067,14 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let (assumes, guarantees) =
     match contract with
-    | Some contract -> compile_contract cstate gids ctx map [] node_scope contract
+    | Some (_, contract) -> compile_contract cstate gids ctx map [] node_scope contract
     | None -> [], []
   (* ****************************************************************** *)
   (* Collect Variables for Assumption Generation                        *)
   (* ****************************************************************** *)
   in let assumption_svars =
     match contract with
-    | Some contract -> (
+    | Some (_, contract) -> (
       contract |> List.fold_left (fun acc decl ->
         match decl with
         | A.AssumptionVars (_, vars) ->

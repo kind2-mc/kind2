@@ -29,7 +29,7 @@ let unwrap = function
 
 let node_decl_to_contracts 
 = fun pos ctx (id, extern, params, inputs, outputs, locals, _, contract) ->
-  let base_contract = match contract with | None -> [] | Some contract -> contract in 
+  let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract' = List.filter_map (fun ci -> 
     match ci with 
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
@@ -42,7 +42,7 @@ let node_decl_to_contracts
       Some (pos, id, ty, cl)
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
-  let contract' = if contract' = [] then None else Some contract' in
+  let contract' = if contract' = [] then None else Some (pos, contract') in
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 

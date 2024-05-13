@@ -285,14 +285,14 @@ function
 
 let build_global_ctx (decls:LustreAst.t) =
   let get_imports = function
-    | Some eqns -> List.fold_left (fun a e -> match e with
+    | Some (_, eqns) -> List.fold_left (fun a e -> match e with
       | LA.ContractCall (_, i, _, _) -> StringSet.add i a
       | _ -> a)
       StringSet.empty eqns
     | None -> StringSet.empty
   in
   let is_only_assumptive = function
-    | Some eqns -> List.fold_left (fun a e -> match e with
+    | Some (_, eqns) -> List.fold_left (fun a e -> match e with
       | LA.Guarantee _ | Mode _ -> false
       | _ -> a)
       true eqns
@@ -366,7 +366,7 @@ let build_global_ctx (decls:LustreAst.t) =
       (stateful, imports, only_assumptive)
   in
   let over_contract_decls acc = function
-    | LA.ContractNodeDecl (_, (i, _, _, _, eqns)) ->
+    | LA.ContractNodeDecl (_, (i, _, _, _, (_, eqns))) ->
       let stateful, imports, only_assumptive =
         List.fold_left
           over_contract_eq
@@ -378,7 +378,7 @@ let build_global_ctx (decls:LustreAst.t) =
   in
   List.fold_left over_contract_decls ctx contract_decls
 
-let build_contract_ctx ctx (eqns:LustreAst.contract) =
+let build_contract_ctx ctx eqns =
   let over_eqns acc = function
     | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
@@ -836,8 +836,8 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* warnings2 = (match contract with
-  | Some c -> no_stateful_contract_imports ctx c
-    >> check_contract false ctx function_contract_checks c
+  | Some (p, c) -> no_stateful_contract_imports ctx c
+    >> check_contract false ctx function_contract_checks (p, c)
   | None -> Ok []) in 
   let* warnings3 = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
@@ -933,7 +933,7 @@ and no_assert_in_frame_init pos = function
 
 and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.contract -> ([> warning] list, 'a) result 
-= fun is_contract_node ctx f contract ->
+= fun is_contract_node ctx f (_, contract) ->
   let ctx = build_contract_ctx ctx contract in
   let check_list e = Res.seq (List.map (check_expr ctx f) e) in
   let check_contract_item ctx f = function

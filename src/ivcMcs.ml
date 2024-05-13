@@ -424,8 +424,8 @@ let minimize_node_decl ue loc_core
     let spec = 
     begin match spec with
       | None -> None
-      | Some spec -> List.map (minimize_contract_node_eq ue lst) spec 
-      |> List.flatten |> (fun s -> if s = [] then None else Some s)
+      | Some (p, spec) -> List.map (minimize_contract_node_eq ue lst) spec 
+      |> List.flatten |> (fun s -> if s = [] then None else Some (p, s))
     end
     in
     let locals = List.map (minimize_node_local_decl ue lst) locals in
@@ -445,7 +445,7 @@ let minimize_node_decl ue loc_core
     else minimize_with_lst []
   )
 
-let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
+let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, (p, body)) =
   let lst = scopes_of_loc_core loc_core
     |> List.map (get_model_elements_of_scope loc_core)
     |> List.flatten
@@ -460,7 +460,7 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
     then [A.Guarantee (dpos, None, false, A.Const(dpos, A.True))]
     else body
   in
-  (id, tparams, inputs, outputs, body)
+  (id, tparams, inputs, outputs, (p, body))
 
 let minimize_decl ue loc_core = function
   | A.NodeDecl (span, ndecl) ->
