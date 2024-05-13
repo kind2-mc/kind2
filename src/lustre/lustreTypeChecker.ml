@@ -1691,7 +1691,9 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   )
   | LA.RefinementType (pos, (_, i, ty), e) ->
     let ctx = add_ty ctx i ty in
-    (if is_const then check_expr_is_constant ctx "type of constant" e 
+    (if is_const then 
+      let ctx = add_const ctx i (LA.Ident (pos, i)) ty Local in
+      check_expr_is_constant ctx "type of constant" e 
     else R.ok ()) >>
     check_type_expr ctx e (Bool pos) >>
     check_ref_type_assumptions ctx src nname i e >>
