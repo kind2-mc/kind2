@@ -375,6 +375,16 @@ let check_and_add_constant_definition ctx i e ty sc =
     in
     type_error pos (exn_fn where)
 
+(* Here, call check_and_add_constant_definition *)
+let check_and_add_local_node_ctx ctx locals =
+  let* local_ctx = R.seq (List.map (fun loc -> match loc with
+  | LA.NodeConstDecl (_, TypedConst (_, i, e, ty)) -> 
+    check_and_add_constant_definition ctx i e ty Local
+  | NodeConstDecl _ as decl -> R.ok (extract_loc_ctx decl)
+  | NodeVarDecl _ as decl -> R.ok (extract_loc_ctx decl)
+  ) locals) in 
+  R.ok (List.fold_left union ctx local_ctx) 
+
 let check_constant_args ctx i arg_exprs =
   let check param_attr =
     let arg_attr =
@@ -1179,8 +1189,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
                 ; Debug.parse "TC declaration node %a done }" LA.pp_print_ident node_name ;
                 [])
       else (
-        (* add local variable bindings to the context *)
-        let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
+        (* Add local variable bindings to the context *)
+        let* local_ctx = check_and_add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check well-formedness of locals' types *)
         let* warnings = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeVarDecl (_, (_, _, ty, _))
