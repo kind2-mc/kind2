@@ -1133,7 +1133,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
   Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
   let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
-  let loc_ids = LA.SI.of_list (List.map (fun a -> LH.extract_loc_ty a |> fst) ldecls) in
+  let loc_ids = LA.SI.of_list (List.map (fun a -> LH.extract_loc_ty a |> fun (id, _, _) -> id) ldecls) in
 
   (* check if any of the arg ids or return ids already exist in the typing context.
       Fail if they do. 
@@ -1503,7 +1503,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
     R.ok (add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_)->
+  = fun pos ctx (nname, _, _ , ip, op, _, _, _)->
   Debug.parse
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname

@@ -288,9 +288,13 @@ let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
               singleton_ty i ty
 (** Extracts the output stream as a typing context  *)
 
+(*!! Mark as locals *)
 let extract_loc_ctx: LA.node_local_decl -> tc_context 
-  = fun local -> let (i, ty) = LH.extract_loc_ty local in
-                 singleton_ty i ty 
+  = fun local -> 
+    let (i, ty, e_opt) = LH.extract_loc_ty local in
+    match e_opt with 
+    | Some e ->  (add_ty (add_const empty_tc_context i e ty Local) i ty)
+    | None -> singleton_ty i ty
               
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
   = fun (pos, i, ty, _, is_const) ->
