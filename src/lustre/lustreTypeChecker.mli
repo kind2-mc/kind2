@@ -80,6 +80,7 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
+  | GlobalConstRefType of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

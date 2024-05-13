@@ -95,6 +95,7 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
+  | GlobalConstRefType of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -186,6 +187,7 @@ let error_message kind = match kind with
     ^ Lib.string_of_t LA.pp_print_expr e
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
+  | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1614,10 +1616,16 @@ and build_type_and_const_context: tc_context -> LA.t -> (tc_context * [> warning
   | LA.TypeDecl (_, ty_decl) :: rest ->
     let* ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     build_type_and_const_context ctx' rest
-  | ConstDecl (_, const_decl) :: rest ->
-    let* ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
-    let* ctx', warnings2 = build_type_and_const_context ctx' rest in 
-    R.ok (ctx', warnings1 @ warnings2)   
+  | LA.ConstDecl (_, (TypedConst (p, i, _, ty) as const_decl)) :: rest 
+  | LA.ConstDecl (_, ((FreeConst (p, i, ty)) as const_decl)) :: rest -> 
+    let ty = expand_type_syn ctx ty in
+    if type_contains_ref ctx ty then type_error p (GlobalConstRefType i)
+    else (
+      let* ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
+      let* ctx', warnings2 = build_type_and_const_context ctx' rest in 
+      R.ok (ctx', warnings1 @ warnings2)   
+    )
+  | LA.ConstDecl (_, UntypedConst _) :: _ -> assert false
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
