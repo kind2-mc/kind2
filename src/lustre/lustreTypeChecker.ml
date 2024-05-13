@@ -375,16 +375,6 @@ let check_and_add_constant_definition ctx i e ty sc =
     in
     type_error pos (exn_fn where)
 
-(* Here, call check_and_add_constant_definition *)
-let check_and_add_local_node_ctx ctx locals =
-  let* local_ctx = R.seq (List.map (fun loc -> match loc with
-  | LA.NodeConstDecl (_, TypedConst (_, i, e, ty)) -> 
-    check_and_add_constant_definition ctx i e ty Local
-  | NodeConstDecl _ as decl -> R.ok (extract_loc_ctx decl)
-  | NodeVarDecl _ as decl -> R.ok (extract_loc_ctx decl)
-  ) locals) in 
-  R.ok (List.fold_left union ctx local_ctx) 
-
 let check_constant_args ctx i arg_exprs =
   let check param_attr =
     let arg_attr =
@@ -1190,13 +1180,16 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
                 [])
       else (
         (* Add local variable bindings to the context *)
-        let* local_ctx = check_and_add_local_node_ctx ctx_plus_ops_and_ips ldecls in
+        let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check well-formedness of locals' types *)
         let* warnings = R.seq (List.map (fun local_decl -> match local_decl with 
-          | LA.NodeVarDecl (_, (_, _, ty, _))
-          | LA.NodeConstDecl (_, TypedConst (_, _, _, ty))
+          | LA.NodeConstDecl (_, TypedConst (_, _, e, ty)) -> 
+            let* _ = (check_expr_is_constant local_ctx "constant definition" e) in
+            (check_type_well_formed local_ctx Local (Some node_name) true ty)
+          | LA.NodeVarDecl (_, (_, _, ty, _)) -> 
+            check_type_well_formed local_ctx Local (Some node_name) false ty 
           | LA.NodeConstDecl (_, FreeConst (_, _, ty)) ->
-            check_type_well_formed local_ctx Local (Some node_name) ty 
+            check_type_well_formed local_ctx Local (Some node_name) true ty 
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) in 
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
@@ -1440,7 +1433,7 @@ and tc_ctx_const_decl: tc_context -> source -> HString.t option  -> LA.const_dec
   = fun ctx src nname ->
   function
   | LA.FreeConst (pos, i, ty) ->
-    let* warnings = check_type_well_formed ctx src nname ty in
+    let* warnings = check_type_well_formed ctx src nname true ty in
     if member_ty ctx i
     then type_error pos (Redeclaration i)
     else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty src) i ty, warnings)
@@ -1453,7 +1446,7 @@ and tc_ctx_const_decl: tc_context -> source -> HString.t option  -> LA.const_dec
       R.ok (ctx, [])
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
-    let* warnings = check_type_well_formed ctx src nname exp_ty in
+    let* warnings = check_type_well_formed ctx src nname true exp_ty in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
@@ -1466,7 +1459,7 @@ and tc_ctx_contract_vars: tc_context -> HString.t -> LA.contract_ghost_vars -> (
   = fun ctx cname (_, GhostVarDec (_, tis), _) ->
     R.seq_chain
       (fun ctx (pos, i, ty) ->
-        check_type_well_formed ctx Ghost (Some cname) ty
+        check_type_well_formed ctx Ghost (Some cname) false ty
         >> if member_ty ctx i
           then type_error pos (Redeclaration i)
           else R.ok (add_ty ctx i ty)
@@ -1481,7 +1474,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
   = fun ctx ->
   function
   | LA.AliasType (_, i, ty) ->
-    check_type_well_formed ctx Global None ty >> (match ty with
+    check_type_well_formed ctx Global None false ty >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
           && (List.for_all (fun e -> not (member_val ctx e)) econsts)
@@ -1673,23 +1666,25 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
-and check_type_well_formed: tc_context -> source -> HString.t option -> tc_type -> ([> warning] list, [> error]) result
-  = fun ctx src nname ->
+and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
+  = fun ctx src nname is_const ->
   function
   | LA.TArr (_, arg_ty, res_ty) ->
-    let* warnings1 = check_type_well_formed ctx src nname arg_ty in
-    let* warnings2 = check_type_well_formed ctx src nname res_ty in 
+    let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
+    let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
     R.ok (warnings1 @ warnings2)
   | LA.RecordType (_, _, idTys) ->
       let* warnings = (R.seq (List.map (fun (_, _, ty)
-        -> check_type_well_formed ctx src nname ty) idTys)) in 
+        -> check_type_well_formed ctx src nname is_const ty) idTys)) in 
       R.ok (List.flatten warnings)
   | LA.ArrayType (_, (b_ty, s)) -> (
     check_array_size_expr ctx s
-    >> check_type_well_formed ctx src nname b_ty
+    >> check_type_well_formed ctx src nname is_const b_ty
   )
   | LA.RefinementType (pos, (_, i, ty), e) ->
     let ctx = add_ty ctx i ty in
+    (if is_const then check_expr_is_constant ctx "type of constant" e 
+    else R.ok ()) >>
     check_type_expr ctx e (Bool pos) >>
     check_ref_type_assumptions ctx src nname i e >>
     let warnings1 = 
@@ -1697,13 +1692,13 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> tc_type 
       then [mk_warning pos (UnusedBoundVariableWarning i)] 
       else []
     in
-    let* warnings2 = check_type_well_formed ctx src nname ty in
+    let* warnings2 = check_type_well_formed ctx src nname is_const ty in
     R.ok (warnings1 @ warnings2)
   | LA.TupleType (_, tys) ->
-    let* warnings = R.seq (List.map (check_type_well_formed ctx src nname) tys) in
+    let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in
     R.ok (List.flatten warnings)
   | LA.GroupType (_, tys) ->
-    let* warnings = R.seq (List.map (check_type_well_formed ctx src nname) tys) in 
+    let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in 
     R.ok (List.flatten warnings)
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
@@ -1737,8 +1732,8 @@ and build_node_fun_ty: Lib.position -> tc_context -> HString.t
   let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.GroupType (pos, ops) in
   let arg_ty = if List.length ips = 1 then List.hd ips else LA.GroupType (pos, ips) in
-  let* warnings1 = check_type_well_formed fun_ctx Output (Some nname) ret_ty in
-  let* warnings2 = check_type_well_formed fun_ctx Input (Some nname) arg_ty in
+  let* warnings1 = check_type_well_formed fun_ctx Output (Some nname) false ret_ty in
+  let* warnings2 = check_type_well_formed fun_ctx Input (Some nname) false arg_ty in
   R.ok (LA.TArr (pos, arg_ty, ret_ty), warnings1 @ warnings2)
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 

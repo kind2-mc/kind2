@@ -754,8 +754,8 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
 and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->
   let composed_checks i ctx e =
-    (no_dangling_identifiers ctx e)
-    >> (no_node_calls_in_constant i e) >> Ok []
+    (no_dangling_identifiers ctx e) >> 
+    (no_node_calls_in_constant i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 
@@ -793,10 +793,6 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx =
-    (* Locals are not visible in contracts *)
-    build_local_ctx ctx [] inputs outputs
-  in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
@@ -806,8 +802,14 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (match contract with
-  | Some c -> check_contract false ctx common_contract_checks c
+  | Some c -> 
+    let ctx =
+      (* Locals are not visible in contracts *)
+      build_local_ctx ctx [] inputs outputs
+    in
+    check_contract false ctx common_contract_checks c
   | None -> Ok ([])) in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* warnings3 = (check_items
   (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
