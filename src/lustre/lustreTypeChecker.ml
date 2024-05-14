@@ -1717,9 +1717,11 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.GroupType (_, tys) ->
     let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in 
     R.ok (List.flatten warnings)
-  | LA.UserType (pos, i) ->
+  | LA.UserType (pos, i) as ty ->
     if (member_ty_syn ctx i || member_u_types ctx i)
-    then R.ok ([]) else type_error pos (UndeclaredType i)
+    then 
+      let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty
+    else type_error pos (UndeclaredType i)
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with
     | None, None -> type_error pos IntervalMustHaveBound

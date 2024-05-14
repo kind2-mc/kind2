@@ -300,7 +300,8 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  | RefinementType (_, (_, _, ty), expr) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr expr)
+  (* Circular dependencies in refinement type predicates are allowed *)
+  | RefinementType (_, (_, _, ty), _) -> mk_graph_type ty
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -1303,6 +1304,21 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
   >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
 
+let analyze_circ_node_locals: LA.node_local_decl list -> (unit, [> error]) result =
+  fun locals ->
+  Debug.parse "Checking circularity in node locals";
+  let ad = List.fold_left (fun acc local -> match local with 
+  | LA.NodeConstDecl (_, const_decl) -> 
+    union_dependency_analysis_data acc (mk_graph_const_decl const_decl)
+  | NodeVarDecl _ -> acc) empty_dependency_analysis_data locals in
+  (try (R.ok (G.topological_sort ad.graph_data)) with
+    | G.CyclicGraphException ids ->
+      match (find_id_pos ad.id_pos_data (List.hd ids)) with
+        | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+        | Some p -> graph_error p (CyclicDependency ids))
+  >> R.ok ()
+(** Check for node locals *)
+
 let check_no_input_output_local_duplicate ips ops locals =
   let add m pos i = check_and_add m pos empty_hs i () in
   let* map =
@@ -1330,7 +1346,8 @@ let check_node_equations: dependency_analysis_data
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
     let* _ = check_no_input_output_local_duplicate ips ops locals in
-    analyze_circ_node_equations ad.nsummary2 items
+    analyze_circ_node_equations ad.nsummary2 items >> 
+    analyze_circ_node_locals locals
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl
