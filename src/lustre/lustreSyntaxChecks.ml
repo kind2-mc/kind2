@@ -1027,7 +1027,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | AnyOp (pos, (_, i, ty), e, None) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
-        (* When using "choose type" (e.g. "choose int") syntax, the parser automatically 
+        (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with name "_" that is trivially unused in 'e' *)
         if not (LAH.expr_contains_id i e) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
@@ -1038,7 +1038,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | AnyOp (pos, (_, i, ty), e1, Some e2) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
-        (* When using "choose type" (e.g. "choose int") syntax, the parser automatically 
+        (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with name "_" that is trivially unused in 'e1' *)
         if not (LAH.expr_contains_id i e1) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
