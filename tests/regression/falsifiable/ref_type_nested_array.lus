@@ -1,7 +1,6 @@
 type Nat = subtype { n: int | n >= 0 };
-const m: Nat;
 
-node M(x: int; z: int^m) returns (y: Nat^m);
+node M(const m: Nat; x: int; z: int^m) returns (y: Nat^m);
 let
   y = z;
   check true;

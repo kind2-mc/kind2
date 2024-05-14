@@ -80,6 +80,7 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
+  | GlobalConstRefType of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -111,8 +112,6 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
 
 val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
 
-val local_var_binding: tc_context ->  HString.t -> LA.node_local_decl -> (tc_context * [> warning ] list, [> error]) result 
-
 val add_io_node_ctx :
   tc_context ->
   LA.const_clocked_typed_decl list ->
@@ -121,17 +120,15 @@ val add_io_node_ctx :
 
 val add_local_node_ctx :
   tc_context ->
-  HString.t ->
   LA.node_local_decl list ->
-  (tc_context, [> error ]) result
+  tc_context
 
 val add_full_node_ctx :
   tc_context ->
-  HString.t ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
-  (tc_context, [> error ]) result
+  tc_context
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->

@@ -124,6 +124,9 @@ val extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
 val extract_op_ty: clocked_typed_decl -> ident * lustre_type
 (** returns the pair of identifier and its type from the node output streams *)
 
+val extract_loc_ty: node_local_decl -> ident * lustre_type * expr option
+(** returns the pair of identifier and its type from the node local streams *)
+
 val is_const_arg: const_clocked_typed_decl -> bool
 (** Returns [true] if the node input stream is a constant  *)
 

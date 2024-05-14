@@ -242,7 +242,7 @@ and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
-  let ty_ctx = TC.add_local_node_ctx ty_ctx id locals |> unwrap in
+  let ty_ctx = TC.add_local_node_ctx ty_ctx locals in
   let gids_node = GeneratedIdentifiers.StringMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
     (fun id ty ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx

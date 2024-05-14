@@ -103,10 +103,6 @@ let empty_ = R.ok G.empty
 
 let zero = A.Const (Lib.dummy_pos, A.Num (HString.mk_hstring "0"))
 
-let unwrap result = match result with
-  | Ok r -> r
-  | Error _ -> assert false
-
 let rec expr_index_layers = function
   | A.ArrayIndex (_, e, _) -> 1 + expr_index_layers e
   | _ -> 0
@@ -272,9 +268,9 @@ let rec check_inductive_array_dependencies ctx ns = function
   | [] -> Ok ()
 
 and check_node_decl ctx ns decl =
-  let (node_id, _, _, inputs, outputs, locals, items, _) = decl in
+  let (_, _, _, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
-  let ctx = Chk.add_full_node_ctx ctx node_id inputs outputs locals |> unwrap in
+  let ctx = Chk.add_full_node_ctx ctx inputs outputs locals in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
   (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in

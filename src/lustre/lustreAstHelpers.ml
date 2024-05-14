@@ -871,6 +871,14 @@ let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
 let extract_op_ty: clocked_typed_decl -> ident * lustre_type
   = fun (_, i, ty, _) -> (i, ty)
 
+(* Output expr_opt contains an expression iff the input decl is a constant *)
+let extract_loc_ty: node_local_decl -> ident * lustre_type * expr option
+  = fun decl -> match decl with 
+  | NodeConstDecl (_, FreeConst (p, i, ty)) -> i, ty, Some (Ident (p, i)) 
+  | NodeConstDecl (_, TypedConst (_, i, e, ty)) -> i, ty, Some e
+  | NodeVarDecl (_, (_, i, ty, _)) -> i, ty, None
+  | NodeConstDecl (_, UntypedConst _) -> assert false 
+
 let is_const_arg: const_clocked_typed_decl -> bool
   = fun (_, _, _, _, is_const) -> is_const
 

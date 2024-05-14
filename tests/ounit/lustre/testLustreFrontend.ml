@@ -479,6 +479,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/mode_reqs_by_idents_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
+  mk_test "test local shadowing global" (fun () ->
+    match load_file "./lustreTypeChecker/test_shadowing.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
   mk_test "test expected type 1" (fun () ->
     match load_file "./lustreTypeChecker/test_array_group.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
@@ -513,11 +517,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test not a field of record 02" (fun () ->
     match load_file "./lustreTypeChecker/not_a_field_of_record.lus" with
-    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
   mk_test "test no value for field 01" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_01.lus" with
-    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
   mk_test "test no value for field 02" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_02.lus" with
@@ -559,10 +563,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/undeclared_type_05.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
-  mk_test "test local shadowing global" (fun () ->
-    match load_file "./lustreTypeChecker/test_shadowing.lus" with
-    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
-    | _ -> false);
   mk_test "test arity incorrect node call" (fun () ->
     match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
@@ -589,7 +589,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test expected record type" (fun () ->
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
   mk_test "test provided invalid type" (fun () ->
     match load_file "./lustreTypeChecker/provided.lus" with

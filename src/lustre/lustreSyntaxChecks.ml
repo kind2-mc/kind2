@@ -54,7 +54,6 @@ type error_kind = Unknown of string
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
-  | GlobalConstRefType of HString.t
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -108,7 +107,6 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ " has a refinable contract"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
-  | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
     ^ variant ^ "s cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -730,10 +728,6 @@ and check_ty_node_calls i ty =
         else Ok ()
     | _ -> Ok ()
 
-and check_ty_ref_tys i = function 
-  | LA.RefinementType (pos, _, _) -> syntax_error pos (GlobalConstRefType i)
-  | _ -> Ok ()
-
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
@@ -741,9 +735,9 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
-      | LA.FreeConst (_, i, ty) -> check_ty_ref_tys i ty >> Ok []
+      | LA.FreeConst _ -> Ok []
       | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
-      | TypedConst (_, i, e, ty) -> check_ty_ref_tys i ty >> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
+      | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -754,8 +748,8 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
 and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->
   let composed_checks i ctx e =
-    (no_dangling_identifiers ctx e)
-    >> (no_node_calls_in_constant i e) >> Ok []
+    (no_dangling_identifiers ctx e) >> 
+    (no_node_calls_in_constant i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 
@@ -793,10 +787,6 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx =
-    (* Locals are not visible in contracts *)
-    build_local_ctx ctx [] inputs outputs
-  in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
@@ -806,8 +796,14 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (match contract with
-  | Some c -> check_contract false ctx common_contract_checks c
+  | Some c -> 
+    let ctx =
+      (* Locals are not visible in contracts *)
+      build_local_ctx ctx [] inputs outputs
+    in
+    check_contract false ctx common_contract_checks c
   | None -> Ok ([])) in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* warnings3 = (check_items
   (build_local_ctx ctx locals [] []) (* Add locals to ctx *)

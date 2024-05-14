@@ -69,11 +69,9 @@ let (let*) = R.(>>=)
 
 let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
-(* This looks unsafe, but we only apply unwrap when we know from earlier stages
-   in the pipeline that an error is not possible. *)
-let unwrap result = match result with
-  | Ok r -> r
-  | Error _ -> assert false
+let unwrap = function 
+| Ok r -> r 
+| Error _ -> assert false
 
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle pos expr_type =
@@ -344,13 +342,13 @@ let rec desugar_node_item node_id ctx ni = match ni with
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
-    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
+    let ctx = Chk.add_full_node_ctx ctx cctds ctds nlds in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) ->
-    let ctx = Chk.add_full_node_ctx ctx node_id cctds ctds nlds |> unwrap in
+    let ctx = Chk.add_full_node_ctx ctx cctds ctds nlds in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
