@@ -623,16 +623,24 @@ let name_and_svs_of_node_call in_sys s args =
   (name, (*List.sort_uniq StateVar.compare_state_vars*)SVSet.of_list svs)
 
 (* The order matters, for this reason we can't use Term.state_vars_of_term *)
-let rec find_vars t =
+let rec first_var t =
   match Term.destruct t with
-  | Var v -> [v]
-  | Const _ -> []
+  | Var v -> Some v
+  | Const _ -> None
   | App (_, lst) ->
-    List.map find_vars lst
-    |> List.flatten
+    let rec loop = function
+    | [] -> None
+    | t :: ts ->
+      match first_var t with
+      | None -> loop ts
+      | Some v -> Some v
+    in
+    loop lst
 
 let sv_of_term t =
-  find_vars t |> List.hd |> Var.state_var_of_state_var_instance
+  match first_var t with
+  | None -> assert false
+  | Some v -> Var.state_var_of_state_var_instance v
 
 let locs_of_eq_term in_sys t =
   try
