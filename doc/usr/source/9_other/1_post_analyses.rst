@@ -10,6 +10,7 @@ directly related to verification. The current post-analysis treatments available
 * compilation to Rust,
 * test generation,
 * contract generation,
+* assumption generation,
 * invariant printing, and
 * inductive validity core generation
 
@@ -52,20 +53,22 @@ treatment are:
 
 .. We have to use the explicit grid table form to allow for wrapping in cells
 
-+---------------------+-----------------------------------------------+----------------------------------------+
-| Treatment           | Conditions                                    | Notes                                  |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| certification       | last analysis proved the system safe          | will fail if node is partially defined |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| compilation to Rust |                                               |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| test generation     | system has a contract with more than one mode |                                        |
-|                     | and the last analysis proved the system safe  |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| contract generation |                                               | experimental                           |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| invariant printing  |                                               |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| inductive validity  | last analysis proved the system safe          |                                        |
-| core generation     |                                               |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
++-----------------------+-----------------------------------------------+----------------------------------------+
+| Treatment             | Conditions                                    | Notes                                  |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| certification         | last analysis proved the system safe          | will fail if node is partially defined |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| compilation to Rust   |                                               |                                        |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| test generation       | system has a contract with more than one mode |                                        |
+|                       | and the last analysis proved the system safe  |                                        |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| contract generation   |                                               | experimental                           |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| assumption generation | last analysis falsified some property         | generates non-temporal constraints     |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| invariant printing    |                                               |                                        |
++-----------------------+-----------------------------------------------+----------------------------------------+
+| inductive validity    | last analysis proved the system safe          |                                        |
+| core generation       |                                               |                                        |
++-----------------------+-----------------------------------------------+----------------------------------------+
