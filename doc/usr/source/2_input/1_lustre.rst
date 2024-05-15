@@ -1115,7 +1115,7 @@ Because of this limitation, some checks may fail even if,
 in a broader context where all constraints included in
 the model are considered, the imported node would actually be considered
 realizable. To mitigate this issue, Kind 2 offers an extended version of
-the binder, ``any { x: T | P(x) assuming Q }``, that
+the binder, ``any { x: T | P(x) } assuming { Q }``, that
 allows the user to specify an assumption ``Q`` that
 should be taken into account in the realizability check.
 For instance, the realizability check for the ``any`` expression
@@ -1128,7 +1128,7 @@ was not included.
    var b: int;
    let
      b = a + 10;
-     z = any { x: int | a <= x and x <= b assuming a<=b };
+     z = any { x: int | a <= x and x <= b } assuming { a<=b };
      check z>=a+10 => z=b;
    tel
 
