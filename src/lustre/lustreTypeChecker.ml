@@ -1183,11 +1183,12 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
       else (
         (* Add local variable bindings to the context *)
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
-        (* Check well-formedness of locals' types *)
+        (* Check locals' types and their well-formedness *)
         let* warnings = R.seq (List.map (fun local_decl -> match local_decl with 
-          | LA.NodeConstDecl (_, TypedConst (_, _, e, ty)) -> 
-            let* _ = (check_expr_is_constant local_ctx "constant definition" e) in
-            (check_type_well_formed local_ctx Local (Some node_name) true ty)
+          | LA.NodeConstDecl (_, (TypedConst (_, i, e, ty))) -> 
+            let* _ = check_expr_is_constant local_ctx "constant definition" e in
+            let* _ = check_type_expr (add_ty local_ctx i ty) e ty in 
+            check_type_well_formed local_ctx Local (Some node_name) true ty
           | LA.NodeVarDecl (_, (_, _, ty, _)) -> 
             check_type_well_formed local_ctx Local (Some node_name) false ty 
           | LA.NodeConstDecl (_, FreeConst (_, _, ty)) ->
