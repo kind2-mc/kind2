@@ -1,3 +1,24 @@
+# Unreleased
+
+New features:
+- Support for [refinement types](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/4_refinement_types.html)
+- A new built-in operator, [any](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#nondeterministic-choice-operator), to denote an arbitrary stream of values
+- Realizability checks for contracts of non-imported nodes and refinement types
+  - It also checks the realizability of a node's assumption. The check can be disabled by passing `--check_environment false`
+- A new type constructor, [history](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/6_history_type.html), to refer to an unbounded number of previous values of a stream
+
+Improvements:
+- Optimize encoding of counters in reachability queries
+- Apply slicing per IC3IA engine instance
+- Fix issue where checks on assumptions of called nodes were not instantiated if an intermediate node has no properties
+
+Changes:
+- For imported nodes and functions, Kind 2 now makes the conservative assumption that each output stream is dependent on the current values of all the inputs. The user must refine the model to rule out false positives of circular dependencies
+- A call to a node without contract but with at least one output that has a subrange type is now abstracted. Subrange types are now a special case of refinement types, which are handled as an extension of the contract's node, or as the only specification if none is provided
+- Undefined initial values and values of undefined output streams with a subrange type range over the base integer type.
+- The type of constants must be provided in their declaration
+- Now invariant generation engines always start generating invariants from the top
+
 # Kind 2 v2.1.1
 
 This release includes some minor improvements and various fixes. Notably:
