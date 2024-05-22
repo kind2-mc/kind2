@@ -65,7 +65,7 @@ jobs:
     needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-12, macos-14 ]
+        os: [ ubuntu-latest, macos-11, macos-14 ]
         ocaml-version: [ 5.1.1 ]
 
     runs-on: ${{ matrix.os }}
