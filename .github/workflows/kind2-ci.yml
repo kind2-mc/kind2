@@ -11,9 +11,9 @@ jobs:
   kind2-build:
     strategy:
       matrix:
-        os: [ ubuntu-20.04, macos-11, macos-14 ]
+        os: [ ubuntu-20.04, macos-12, macos-14 ]
         include:
-          - os: macos-11
+          - os: macos-12
             pkg_update: brew update
             ocaml-version: 4.09.1
           - os: macos-14
