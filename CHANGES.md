@@ -1,4 +1,4 @@
-# Unreleased
+# Kind 2 v2.2.0
 
 New features:
 - Support for [refinement types](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/4_refinement_types.html)

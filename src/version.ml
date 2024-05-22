@@ -1,6 +1,6 @@
 let package_name = "kind2"
 
-let base_version = "v2.1.1"
+let base_version = "v2.2.0"
 
 let version =
   (match Build_info.V1.version () with

@@ -23,9 +23,9 @@ copyright = '2015-2023, Board of Trustees of the University of Iowa'
 author = 'Kind 2 Team'
 
 # The short X.Y version
-version = 'v2.1'
+version = 'v2.2'
 # The full version, including alpha/beta/rc tags
-release = 'v2.1.1'
+release = 'v2.2.0'
 
 nitpicky = True
 
@@ -250,7 +250,7 @@ latex_elements = {
 
             \sffamily\Large \textbf{\Huge {Kind 2 User Documentation}}
 
-            \sffamily\Large \textbf{Version 2.1.1}
+            \sffamily\Large \textbf{Version 2.2.0}
 
             \newdateformat{monthdayyear}{%
                 \monthname[\THEMONTH] \THEDAY, \THEYEAR}
