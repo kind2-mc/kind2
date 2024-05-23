@@ -6,6 +6,7 @@ New features:
 - Realizability checks for contracts of non-imported nodes and refinement types
   - It also checks the realizability of a node's assumption. The check can be disabled by passing `--check_environment false`
 - A new type constructor, [history](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/6_history_type.html), to refer to an unbounded number of previous values of a stream
+- Automatic [generation of assumptions](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/13_assumption_generation.html) to ensure the satisfaction of a node's properties
 
 Improvements:
 - Optimized encoding of counters in reachability queries
