@@ -1,9 +1,14 @@
 .. _2_input/1_lustre:
 
-Lustre Input
+Kind 2 Input
 ============
 
-Lustre is a functional, synchronous dataflow language. Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6. See the file `examples/syntax-test.lus <https://github.com/kind2-mc/kind2/blob/develop/examples/syntax-test.lus>`_ for examples of all supported language constructs.
+Kind 2 reads input models written in an extension of the dataflow Lustre language
+(see this `primer <https://kind.cs.uiowa.edu/kind2_user_docs/lustre_primer.pdf>`_ for
+a quick introduction to the Lustre language).
+Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6.
+See the file `examples/syntax-test.lus <https://github.com/kind2-mc/kind2/blob/develop/examples/syntax-test.lus>`_ for
+examples of all supported language constructs.
 
 Properties and top-level node
 -----------------------------

@@ -26,7 +26,7 @@ SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 is a command-line tool. 
 It takes as input a Lustre file annotated with properties to be proven
-invariant (see `Lustre Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
+invariant (see `Kind 2 Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by
 external tools, Kind 2 can output its results in JSON and XML formats
