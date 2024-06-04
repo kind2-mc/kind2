@@ -309,19 +309,36 @@ let of_channel old_frontend only_parse in_ch =
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
           | Some s -> 
-            let s_ident = LustreIdent.mk_string_ident s in
-            let main_lustre_node = LN.node_of_name s_ident nodes in
-            (* If checking realizability, then 
-               we are actually checking realizability of Kind 2-generated imported nodes representing 
-               the (1) the main node's contract instrumented with type info and 
-                   (2) the main node's enviornment *)
-            if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-              [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
-               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-            else if main_lustre_node.is_extern && List.mem `CONTRACTCK (Flags.enabled ()) then 
-              [s_ident;
-               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-            else [s_ident]
+            let s_ident = LustreIdent.mk_string_ident s in (
+            (* In the following try blocks, LN.node_of_name can throw Not_found *)
+            try 
+              let main_lustre_node =  LN.node_of_name s_ident nodes in 
+              (* If checking realizability, then 
+                we are actually checking realizability of Kind 2-generated imported nodes representing 
+                the (1) the main node's contract instrumented with type info and 
+                    (2) the main node's enviornment *)
+              if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+                [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+              else if main_lustre_node.is_extern && List.mem `CONTRACTCK (Flags.enabled ()) then 
+                [s_ident;
+                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+              else [s_ident]
+
+            (* User specified main node could refer to a global type declaration (when checking realizability) *)
+            with Not_found -> try
+              let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
+              let _ = LN.node_of_name s_ident nodes in  
+              [s_ident]
+
+            (* User-specified main node in command-line input might not exist *)
+            with Not_found -> 
+              let msg =
+                Format.asprintf "Main node '%a' not found in input"
+                  (LustreIdent.pp_print_ident false) s_ident
+              in
+              raise (NoMainNode msg)
+          )
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t
@@ -337,16 +354,6 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      (* Check that main nodes all exist *)
-      main_nodes |> List.iter (fun mn ->
-        if not (LN.exists_node_of_name mn nodes) then
-          (* This can only happen when the name is passed as command-line argument *)
-          let msg =
-            Format.asprintf "Main node '%a' not found in input"
-              (LustreIdent.pp_print_ident false) mn
-          in
-          raise (NoMainNode msg)
-      ) ;
       let nodes = List.map (fun ({ LustreNode.name } as n) ->
           if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
             { n with is_main = true }
