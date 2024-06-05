@@ -16,6 +16,8 @@
 
 *)
 
+exception Not_in_LIA
+
 type psummand = Numeral.t * (Var.t option)
 
 type poly = psummand list
@@ -370,7 +372,8 @@ let multiply_two_polys (pt1: poly) (pt2: poly) : poly =
     | _, [(i, None)] -> poly_times_num pt1 i
 
     | _ ->
-      failwith "Can only multiply two polys when at least one of them is constant."
+      (* failwith "Can only multiply two polys when at least one of them is constant." *)
+      raise Not_in_LIA
 
 (*
 (* Multiply up a list of presburger terms of at least one element. *)

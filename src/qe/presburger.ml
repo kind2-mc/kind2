@@ -88,7 +88,10 @@ let multiply_iformula_list (ifl: iformula list) : poly =
       List.fold_left 
         (fun accum e ->
           match accum, e with
-            | pl1, (Poly pl2) -> multiply_two_polys pl1 pl2
+            | pl1, (Poly pl2) -> (
+              try multiply_two_polys pl1 pl2
+              with Poly.Not_in_LIA -> raise Not_in_LIA
+            )
             | _ -> 
               failwith "multiply_iformula_list can only multiply polynomials.")
         pl 
