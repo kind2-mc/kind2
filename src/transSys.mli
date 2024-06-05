@@ -39,6 +39,7 @@
     @author Adrien Champion
 *)
 
+exception PropertyNotFound of string
 
 (* Dependencies: initial state predicate may occur in the transition
    relation in condacts, and if we support reset. *)

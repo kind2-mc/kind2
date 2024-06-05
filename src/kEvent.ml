@@ -2227,82 +2227,97 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       update_trans_sys' trans_sys invars prop_status tl
 
     (* Property found true for k steps *)
-    | (m, PropStatus (p, (Property.PropKTrue k as s))) :: tl -> 
+    | (m, PropStatus (p, (Property.PropKTrue k as s))) :: tl -> (
 
-      (* Change property status in transition system *)
-      TransSys.set_prop_ktrue trans_sys k p;
+      try
+        (* Change property status in transition system *)
+        TransSys.set_prop_ktrue trans_sys k p;
 
-      (* Continue with propert status added to accumulator *)
-      update_trans_sys'
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        tl
-
-    (* Property found invariant *)
-    | (m, PropStatus (p, (Property.PropInvariant cert as s))) :: tl -> 
-
-      (* Output proved property *)
-      log_proved m L_warn trans_sys None p;
-
-      (* Change property status (of all instances with name [p]) *)
-      TransSys.set_prop_invariant trans_sys p cert;
-
-      let term =
-        TransSys.props_list_of_bound trans_sys Numeral.zero
-        |> List.assoc p
-      in
-
-      (* Retrieve scope to add to invariants. *)
-      let scope = TransSys.scope_of_trans_sys trans_sys in
-
-      let invars =
-        try (* Add proved property as invariant *)
-          TransSys.add_invariant trans_sys term cert false
-          |> insert_inv scope invars false
-        with Not_found -> (* Skip if named property not found *)
+        (* Continue with property status added to accumulator *)
+        update_trans_sys'
+          trans_sys
           invars
-      in
+          ((m, (p, s)) :: prop_status)
+          tl
 
-      let invars =
-        (* Get property by name *)
-        let prop = TransSys.property_of_name trans_sys p in
-        match prop.Property.prop_source with
-        | Property.Assumption (_, (_, pos)) -> (
-          (* If property is a contract assumption that a caller had to prove,
-             check whether the other assumptions have been proved invariant too.
-             If so, set SoFar(assumptions) invariant in transition system.
-          *)
-          match check_sofar_invariance trans_sys pos with
-          | Some inv -> insert_inv scope invars false inv
-          | None -> invars
-        )
-        | _ -> invars
-      in
+      with TransSys.PropertyNotFound _->
+        (* Continue without changes *)
+        update_trans_sys' trans_sys invars prop_status tl
+    )
+    (* Property found invariant *)
+    | (m, PropStatus (p, (Property.PropInvariant cert as s))) :: tl -> (
 
-      (* Continue with property status added to accumulator *)
-      update_trans_sys'
-        trans_sys 
-        invars
-        ( (m, (p, s)) :: prop_status )
-        tl
+      try
+        (* Change property status (of all instances with name [p]) *)
+        TransSys.set_prop_invariant trans_sys p cert;
 
+        (* Output proved property *)
+        log_proved m L_warn trans_sys None p;
+
+        let term =
+          TransSys.props_list_of_bound trans_sys Numeral.zero
+          |> List.assoc p
+        in
+
+        (* Retrieve scope to add to invariants. *)
+        let scope = TransSys.scope_of_trans_sys trans_sys in
+
+        let invars =
+          try (* Add proved property as invariant *)
+            TransSys.add_invariant trans_sys term cert false
+            |> insert_inv scope invars false
+          with Not_found -> (* Skip if named property not found *)
+            invars
+        in
+
+        let invars =
+          (* Get property by name *)
+          let prop = TransSys.property_of_name trans_sys p in
+          match prop.Property.prop_source with
+          | Property.Assumption (_, (_, pos)) -> (
+            (* If property is a contract assumption that a caller had to prove,
+              check whether the other assumptions have been proved invariant too.
+              If so, set SoFar(assumptions) invariant in transition system.
+            *)
+            match check_sofar_invariance trans_sys pos with
+            | Some inv -> insert_inv scope invars false inv
+            | None -> invars
+          )
+          | _ -> invars
+        in
+
+        (* Continue with property status added to accumulator *)
+        update_trans_sys'
+          trans_sys
+          invars
+          ( (m, (p, s)) :: prop_status )
+          tl
+
+      with TransSys.PropertyNotFound _->
+        (* Continue without changes *)
+        update_trans_sys' trans_sys invars prop_status tl
+    )
     (* Property found false *)
-    | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> 
+    | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> (
 
-      (* Output disproved property *)
-      log_cex true m L_warn input_sys analysis trans_sys p cex ;
+      try
+        (* Change property status in transition system *)
+        TransSys.set_prop_false trans_sys p cex;
 
-      (* Change property status in transition system *)
-      TransSys.set_prop_false trans_sys p cex;
+        (* Output disproved property *)
+        log_cex true m L_warn input_sys analysis trans_sys p cex ;
 
-      (* Continue with property status added to accumulator *)
-      update_trans_sys' 
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        tl
+        (* Continue with property status added to accumulator *)
+        update_trans_sys'
+          trans_sys
+          invars
+          ((m, (p, s)) :: prop_status)
+          tl
 
+      with TransSys.PropertyNotFound _->
+        (* Continue without changes *)
+        update_trans_sys' trans_sys invars prop_status tl
+    )
     (* Property found false *)
     | (m, StepCex (p, cex)) :: tl -> 
 
