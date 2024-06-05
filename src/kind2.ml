@@ -135,7 +135,8 @@ let setup : unit -> any_input = fun () ->
   | LustreAst.Parser_error  ->
      (* We should have printed the appropriate message so just 'gracefully' exit *)
      KEvent.terminate_log () ; exit ExitCodes.parse_error
-  | LustreInput.NoMainNode msg ->
+  | LustreInput.NoMainNode msg
+  | LustreInput.MainTypeWithoutRealizability msg ->
      KEvent.log L_fatal "Error reading input file '%s': %s" in_file msg ;
      KEvent.terminate_log () ; exit ExitCodes.error
   | Sys_error msg ->

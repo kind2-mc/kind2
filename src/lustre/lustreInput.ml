@@ -66,6 +66,7 @@ let (let*) = Res.(>>=)
 let (>>) = Res.(>>)
 
 exception NoMainNode of string
+exception MainTypeWithoutRealizability of string
 
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
@@ -348,7 +349,7 @@ let of_channel old_frontend only_parse in_ch =
               let msg =
                 Format.asprintf "Option --lus_main_type can only be used when realizability checking is enabled (--enable CONTRACTCK)"
               in
-              raise (NoMainNode msg)
+              raise (MainTypeWithoutRealizability msg)
             else (
               try 
                 let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
