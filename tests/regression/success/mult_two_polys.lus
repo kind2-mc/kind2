@@ -1,0 +1,24 @@
+node s2 (n: int) returns (x: int);
+var n0: int;
+let
+  n0 = n -> pre n0;
+  x = n0 -> pre x + n0;
+tel
+
+node s3 (n: int) returns (x: int);
+var mult: int;
+var n0: int;
+let
+  mult = 1 -> pre mult + 1;
+  n0 = n -> pre n0;
+  x = n0 * mult;
+tel
+
+node check_s3 (n: int) returns (x: bool);
+var x1: int;
+var x2: int;
+let 
+  x1 = s2(n);
+  x2 = s3(n);
+  check x1 = x2;
+tel

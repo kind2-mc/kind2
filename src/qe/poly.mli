@@ -23,6 +23,8 @@
     @author Ruoyu Zhang
 *)
 
+exception Not_in_LIA
+
 (** psummand is a constant or a variable with coefficient *)
 type psummand = Numeral.t * (Var.t option)
 
