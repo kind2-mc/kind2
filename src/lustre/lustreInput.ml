@@ -310,7 +310,6 @@ let of_channel old_frontend only_parse in_ch =
         let main_nodes = match Flags.lus_main () with
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in (
-            (* In the following try blocks, LN.node_of_name can throw Not_found *)
             try 
               let main_lustre_node =  LN.node_of_name s_ident nodes in 
               (* If checking realizability, then 
@@ -324,13 +323,6 @@ let of_channel old_frontend only_parse in_ch =
                 [s_ident;
                 LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
               else [s_ident]
-
-            (* User specified main node could refer to a global type declaration (when checking realizability) *)
-            with Not_found -> try
-              let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
-              let _ = LN.node_of_name s_ident nodes in  
-              [s_ident]
-
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
               let msg =
@@ -349,6 +341,30 @@ let of_channel old_frontend only_parse in_ch =
                 s |> HString.string_of_hstring |> LustreIdent.mk_string_ident)
           )
         in
+        let main_nodes = match Flags.lus_main_type () with
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in 
+            if not (List.mem `CONTRACTCK (Flags.enabled ())) then
+              let msg =
+                Format.asprintf "Option --lus_main_type can only be used when realizability checking is enabled (--enable CONTRACTCK)"
+              in
+              raise (NoMainNode msg)
+            else (
+              try 
+                let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
+                let _ = LN.node_of_name s_ident nodes in  
+                match Flags.lus_main () with 
+                | Some _ -> s_ident :: main_nodes
+                | None -> [s_ident]
+              (* User-specified type alias in command-line input might not exist *)
+              with Not_found -> 
+                let msg =
+                  Format.asprintf "Type alias '%a' not found in input"
+                    (LustreIdent.pp_print_ident false) s_ident
+                in
+                raise (NoMainNode msg)
+            )
+          | None -> main_nodes in
         Ok (nodes, globals, main_nodes)
     in
 
