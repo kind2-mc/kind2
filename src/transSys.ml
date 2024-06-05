@@ -22,6 +22,8 @@ module P = Property
 module SVM = StateVar.StateVarMap
 (* module SVS = StateVar.StateVarSet *)
 
+exception PropertyNotFound of string
+
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
 
@@ -1401,7 +1403,7 @@ let set_prop_status { properties } p s =
     ) false
   in
 
-  if not found then raise Not_found
+  if not found then raise (PropertyNotFound p)
 
 
 let set_prop_invariant trans_sys p cert = 
@@ -1425,7 +1427,7 @@ let set_prop_unknown { properties } p =
       | _ -> found
     ) false
   in
-  if not found then raise Not_found
+  if not found then raise (PropertyNotFound p)
 
 (* Return current status of all properties *)
 let get_prop_status_all_nocands t = 
