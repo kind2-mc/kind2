@@ -21,22 +21,28 @@ module Ast = LustreAst
 let pp_print_fname_json ppf fname =
   if fname = "" then () else Format.fprintf ppf "\"file\" : \"%s\",@," fname
 
-let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
+let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } =
   function
-  | LustreAst.AliasType (_, id, _) | LustreAst.FreeType (_, id) ->
+  | LustreAst.AliasType (p, id, _) | LustreAst.FreeType (p, id) ->
       let file, slnum, scnum = Lib.file_row_col_of_pos spos in
       let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+      (* TypeCheckerContext.pp_print_tc_context Format.std_formatter ctx; *)
+      (* print_endline (HString.string_of_hstring id); *)
+      let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, id)) in
+      let contains_ref = TypeCheckerContext.type_contains_ref ctx ty in
       Format.fprintf ppf
         ",@.{@[<v 1>@,\
          \"objectType\" : \"lsp\",@,\
          \"source\" : \"lsp\",@,\
          \"kind\" : \"typeDecl\",@,\
          \"name\" : \"%a\",@,\
+         \"containsRefinementType\" : \"%b\",@,\
          %a\"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
          \"endColumn\" : %d@]@.}@."
         HString.pp_print_hstring id
+        contains_ref
         pp_print_fname_json file
         slnum scnum
         elnum ecnum
@@ -140,12 +146,12 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     pp_print_fname_json file slnum scnum elnum
     ecnum
 
-let print_ast_info declarations =
+let print_ast_info ctx declarations =
   List.iter
     (fun decl ->
       match decl with
       | LustreAst.TypeDecl (span, type_decl) ->
-          lsp_type_decl_json !Lib.log_ppf span type_decl
+          lsp_type_decl_json !Lib.log_ppf ctx span type_decl
       | LustreAst.ConstDecl (span, const_decl) ->
           lsp_const_decl_json !Lib.log_ppf span const_decl
       | LustreAst.NodeDecl (span, node) -> lsp_node_json !Lib.log_ppf span node

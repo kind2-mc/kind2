@@ -166,6 +166,10 @@ let type_check declarations =
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
+    (* Provide lsp info if option is enabled *)
+    if Flags.log_format_json () && Flags.Lsp.lsp () then
+      LspInfo.print_ast_info global_ctx declarations;
+
     (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
     let sorted_node_contract_decls = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
@@ -269,10 +273,6 @@ let of_channel old_frontend only_parse in_ch =
   (* Get declarations from channel. *)
   let* declarations = ast_of_channel in_ch in
 
-  (* Provide lsp info if option is enabled *)
-  if Flags.log_format_json () && Flags.Lsp.lsp () then
-    LspInfo.print_ast_info declarations;
-
   if old_frontend then
     Log.log L_note "Old front-end enabled" ;
 
@@ -360,7 +360,7 @@ let of_channel old_frontend only_parse in_ch =
               (* User-specified type alias in command-line input might not exist *)
               with Not_found -> 
                 let msg =
-                  Format.asprintf "Type alias '%a' not found in input"
+                  Format.asprintf "No refinement type with alias '%a' found in input"
                     (LustreIdent.pp_print_ident false) s_ident
                 in
                 raise (NoMainNode msg)
