@@ -525,7 +525,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _)
-  | Call (_, id, _) ->
+  | Call (_, _, id, _) ->
     let ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let output_ty = match ty with
       | TArr (_, _, GroupType (_, tys)) -> List.nth tys proj

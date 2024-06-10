@@ -93,7 +93,7 @@ fun ctx node_name fun_ids expr ->
         (name, true, [], inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
-    A.Call(pos, name, inputs_call), [generated_node]
+    A.Call(pos, None, name, inputs_call), [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
@@ -178,9 +178,9 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
-  | Call (pos, id, expr_list) ->
+  | Call (pos, ps, id, expr_list) ->
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
-    Call (pos, id, expr_list), List.flatten gen_nodes
+    Call (pos, ps, id, expr_list), List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

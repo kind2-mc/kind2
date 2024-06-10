@@ -354,9 +354,9 @@ and simplify_expr ?(is_guarded = false) ctx =
       | Error _ -> e')*)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
-  | Call (pos, i, es) ->
+  | Call (pos, ps, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~is_guarded:false ctx e) es in
-    Call (pos, i, es')
+    Call (pos, ps, i, es')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)

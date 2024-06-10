@@ -183,7 +183,7 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (pos, HString.mk_hstring (rand_function_name_for n typ),
+          (pos, None, HString.mk_hstring (rand_function_name_for n typ),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
@@ -192,7 +192,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (pos, HString.mk_hstring (rand_function_name_for n typ),
+            (pos, None, HString.mk_hstring (rand_function_name_for n typ),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
@@ -244,8 +244,8 @@ let rec minimize_node_call_args ue lst expr =
     match expr with
     | A.Const _ | A.Ident _ | A.ModeRef _
     -> expr
-    | A.Call (pos, ident, args) ->
-      A.Call (pos, ident, List.mapi (minimize_arg ident) args)
+    | A.Call (pos, ps, ident, args) ->
+      A.Call (pos, ps, ident, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
@@ -280,7 +280,7 @@ and ast_contains p ast =
     else match ast with
     | A.Const _ | A.Ident _ | A.ModeRef _
       -> false
-    | A.Call (_, _, args) ->
+    | A.Call (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)

@@ -233,7 +233,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | Pre _ -> empty_
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
   (* Node calls *)
-  | Call (_, i, es) ->
+  | Call (_, _, i, es) ->
     let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in
     let node_map = AD.IMap.find i ns in
     let dep_args = AD.IntMap.find proj node_map in

@@ -352,7 +352,7 @@ let rec infer_const_attr ctx exp =
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
-  | Call (_, i, _) -> (
+  | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
     | Some (TArr (_, _, exp_ret_tys)) -> (
@@ -668,7 +668,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   | LA.When (_, e, _) -> infer_type_expr ctx e
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
-    >> infer_type_expr ctx (Call (pos, node, args))
+    >> infer_type_expr ctx (Call (pos, None, node, args))
     >>= fun r_ty ->
     R.seq (List.map (infer_type_expr ctx) defaults)
     >>= (fun d_tys -> 
@@ -677,7 +677,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         (type_error pos IlltypedDefaults))
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx cond (Bool pos)
-    >> infer_type_expr ctx (Call (pos, node, args))
+    >> infer_type_expr ctx (Call (pos, None, node, args))
   | LA.Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
       let mcases_ids, mcases_exprs = List.split mcases in
@@ -692,7 +692,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
-    >> infer_type_expr ctx (LA.Call (pos, node, args))
+    >> infer_type_expr ctx (LA.Call (pos, None, node, args))
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx e
@@ -704,7 +704,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
-  | LA.Call (pos, i, arg_exprs) -> (
+  | LA.Call (pos, ps, i, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result =
     fun ctx args ->
@@ -869,13 +869,13 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
-    >> check_type_expr ctx (Call (pos, node, args)) exp_ty
+    >> check_type_expr ctx (Call (pos, None, node, args)) exp_ty
     >>  R.seq (List.map (infer_type_expr ctx) defaults)
     >>= fun d_tys -> R.guard_with (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
                       (type_error pos IlltypedDefaults)
   | Activate (pos, node, cond, _, args) -> 
     check_type_expr ctx cond (Bool pos)
-    >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
+    >> check_type_expr ctx (Call (pos, None, node, args)) exp_ty 
   | Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
     let mcases_ids, mcases_exprs = List.split mcases in
@@ -887,7 +887,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
       >> check_merge_clock e ty
   | RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
-    >> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
+    >> check_type_expr ctx (LA.Call (pos, None, node, args)) exp_ty
 
   (* Temporal operators *)
   | Pre (_, e) -> check_type_expr ctx e exp_ty
@@ -896,7 +896,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >> check_type_expr ctx e2 exp_ty
 
   (* Node calls *)
-  | Call (pos, i, args) ->
+  | Call (pos, ps, i, args) ->
     let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in

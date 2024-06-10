@@ -54,7 +54,7 @@ let pos_of_expr = function
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _ , _) | Call (pos , _ , _ )
+  | Arrow (pos , _ , _) | Call (pos, _ , _ , _ )
   | AnyOp (pos, _, _, _)
   -> pos
 
@@ -86,7 +86,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> true
 
 let rec type_contains_array = function
@@ -110,7 +110,7 @@ let rec expr_contains_id id = function
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
-  | Call (_, _, expr_list) | GroupExpr (_, _, expr_list)
+  | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
   | RecordExpr (_, _, expr_list) | Merge (_, _, expr_list)
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
@@ -178,8 +178,8 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
+  | Call (pos, ps, id, expr_list) ->
+    Call (pos, ps, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -229,8 +229,8 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+  | Call (pos, ps, id, expr_list) ->
+    Call (pos, ps, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
 let rec apply_subst_in_type sigma = function
   | ArrayType (pos, (ty, expr)) -> (
@@ -275,7 +275,7 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
@@ -357,7 +357,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
 
@@ -446,7 +446,7 @@ let rec has_pre_or_arrow = function
 
   
   
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     List.map has_pre_or_arrow l
     |> some_of_list
 
@@ -689,7 +689,7 @@ let rec vars_of_node_calls_h obs =
   | Pre (_, e) -> vars obs e
   | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map (vars true) es)
+  | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
@@ -731,12 +731,12 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec calls_of_expr: expr -> iset =
   function
   (* Node calls *)
-  | Call (_, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
+  | Call (_, _, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
   | Condact (_, e1, e2, i, es1, es2) ->
     SI.union (SI.singleton i)
              (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
@@ -809,7 +809,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
@@ -978,7 +978,7 @@ let rec replace_with_constants: expr -> expr =
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
   (* Node calls *)
-  | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
+  | Call (p, ps, i, es) -> Call (p, ps, i, List.map replace_with_constants es) 
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -1057,7 +1057,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
   (* Node calls *)
-  | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
+  | Call (p, ps, i, es) -> Call (p, ps, i, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
   match expr with
@@ -1085,7 +1085,7 @@ let rec replace_idents locals1 locals2 expr =
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
-  | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map (replace_idents locals1 locals2) l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1286,8 +1286,15 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
-    | Call (_, xi, xl), Call (_, yi, yl) ->
+    | Call (_, None, xi, xl), Call (_, None, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
+    | Call (_, Some xl1, xi, xl2), Call (_, Some yl1, yi, yl2) 
+        when List.length xl1 == List.length xl2 ->
+      let l1 = List.map2 (fun x1 x2 -> 
+        HString.equal x1 x2
+      ) xl1 yl1 |> List.fold_left (&&) true in
+      rlist xl2 yl2 |> join >>= fun l2 -> 
+      Ok (l1 && l2 && xi = yi)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1476,9 +1483,13 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | Call (_, i, l) ->
+      | Call (_, None, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, HString.hash i, l_hash)
+      | Call (_, Some ps, i, l) ->
+        let ps_hash = List.map HString.hash ps in
+        let l_hash = List.map (r (depth + 1)) l in
+        Hashtbl.hash (24, ps_hash, HString.hash i, l_hash)
       | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)
@@ -1545,8 +1556,8 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
+  | Call (pos, ps, id, expr_list) ->
+    Call (pos, ps, id, List.map (fun e -> rename_contract_vars e) expr_list)
 
 let name_of_prop pos name k =
   match name with 

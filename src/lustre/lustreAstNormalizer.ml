@@ -839,9 +839,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
-  | Call(pos, id, expr_list) ->
+  | Call(pos, ps, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
-    vars, Call(pos, id, expr_list')
+    vars, Call(pos, ps, id, expr_list')
   | Merge (pos, ident, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, Merge (pos, ident, expr_list')
@@ -1615,7 +1615,7 @@ and expand_node_call info expr var count =
 
 and combine_args_with_const info args flags =
   let output_arity = List.map (fun e -> match e with
-    | A.Call (_, i, _) ->
+    | A.Call (_, _, i, _) ->
       (* This node type is guaranteed to exist by type checking *)
       let node_type = Ctx.lookup_node_ty info.context i |> get in
       (match node_type with
@@ -1699,7 +1699,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, id, args) ->
+  | Call (pos, _, id, args) ->
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
@@ -1752,7 +1752,7 @@ and normalize_expr ?guard info map =
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
-      | clock_value, A.Call (pos, id, args) ->
+      | clock_value, A.Call (pos, _, id, args) ->
         let flags = StringMap.find id info.node_is_input_const in
         let cond_expr = match HString.string_of_hstring clock_value with
           | "true" -> A.Ident (pos, clock_id)
@@ -1957,9 +1957,9 @@ and expand_node_calls_in_place info var count expr =
   | Activate (p, n, e1, e2, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.Activate (p, n, r e1, r e2, expr_list)
-  | Call (p, n, expr_list) ->
+  | Call (p, ps, n, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
-    expand_node_call info (A.Call (p, n, expr_list)) var count
+    expand_node_call info (A.Call (p, ps, n, expr_list)) var count
   | Condact (p, e1, e2, id, expr_list1, expr_list2) ->
     let expr_list1 = List.map (fun e -> r e) expr_list1 in
     let expr_list2 = List.map (fun e -> r e) expr_list2 in

@@ -53,7 +53,6 @@ type clock_expr =
   | ClockNeg of ident
   | ClockConstr of ident * ident
 
-
 (* Some symbols for lustre expressions *)
 type conversion_operator =
   | ToInt | ToReal
@@ -123,7 +122,7 @@ type expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * ident * expr list
+  | Call of position * ident list option * ident * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -185,10 +184,6 @@ type const_decl =
 (* A variable declaration *)
 type var_decl = position * ident * lustre_type * clock_expr
 *)
-
-(* A static parameter of a node *)
-type node_param =
-  | TypeParam of ident
 
 
 (* A local declaration in a node *)
@@ -287,7 +282,7 @@ Boolean flag indicates whether node / function is extern. *)
 type node_decl =
   ident
   * bool
-  * node_param list
+  * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
@@ -299,11 +294,10 @@ type node_decl =
    specification. *)
 type contract_node_decl =
   ident
-  * node_param list
+  * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * contract
-
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
@@ -550,7 +544,16 @@ let rec pp_print_expr ppf =
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 
-    | Call (p, id, l) ->
+    | Call (p, Some params, id, l) ->
+
+      Format.fprintf ppf
+        "%a%a<%a>(%a)"
+        ppos p
+        pp_print_ident id
+        (pp_print_list pp_print_ident ";") params
+        (pp_print_list pp_print_expr ",@ ") l
+
+    | Call (p, None, id, l) ->
 
       Format.fprintf ppf
         "%a%a(%a)"
@@ -743,9 +746,7 @@ let pp_print_const_decl ppf = function
 
 
 (* Pretty-print a single static node parameter *)
-let pp_print_node_param ppf = function
-
-  | TypeParam t ->
+let pp_print_node_param ppf t = 
     Format.fprintf ppf "type %a" pp_print_ident t
 
 
@@ -1156,7 +1157,6 @@ let pp_print_node_or_fun_decl is_fun ppf (
         pp_print_contract_spec r
         pp_print_node_local_decl l
         (pp_print_list pp_print_node_item "@ ") e
-
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function

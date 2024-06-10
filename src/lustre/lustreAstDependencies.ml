@@ -338,7 +338,7 @@ and mk_graph_expr ?(only_modes = false)
       singleton_dependency_analysis_data empty_hs (List.fold_left HString.concat2 contract_prefix (Lib.drop_last ids)) pos
     else
       singleton_dependency_analysis_data mode_prefix (List.hd ids) pos 
-  | LA.Call (_, _, es) ->
+  | LA.Call (_, _, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
@@ -419,7 +419,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
-  | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Call (pos, _, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
 
 let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -674,7 +674,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
-    let call_vars = r (Call (pos, node_id, es)) in
+    let call_vars = r (Call (pos, None, node_id, es)) in
     let default_vars =
       match List.nth_opt ds proj with
       | None -> SI.empty (* Ignore if arity is not correct *)
@@ -682,13 +682,13 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     in
     SI.union default_vars (SI.union (SI.union (r clk_exp) (r r_exp)) call_vars)
   | Activate (pos, node_id, clk_exp, r_exp, es) ->
-    let call_vars = r (Call (pos, node_id, es)) in
+    let call_vars = r (Call (pos, None, node_id, es)) in
     SI.union (SI.union (r clk_exp) (r r_exp)) call_vars
   | Merge (_, i, es) ->
     let result = es |> (List.map (fun (_, e) -> r e)) |> SI.flatten in
     SI.add i result
   | RestartEvery (pos, node_id, es, clk_exp) ->
-    let call_vars = r (Call (pos, node_id, es)) in
+    let call_vars = r (Call (pos, None, node_id, es)) in
     SI.union (r clk_exp) call_vars
 
   (* Temporal operators *)
@@ -696,7 +696,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
   (* Node calls *)
-  | Call (_, i, es) ->
+  | Call (_, _, i, es) ->
     (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
     Format.eprintf "call: %a @." HString.pp_print_hstring i;  *)
     let arg_vars = List.map r es in
@@ -833,7 +833,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
-     let node_call = LA.Call(pos, n, e1s) in
+     let node_call = LA.Call(pos, None, n, e1s) in
      mk_graph_expr2 m node_call >>= fun gs ->
      R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
      let default_gs = List.concat d_gs in
@@ -841,7 +841,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
      else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
-     let node_call = LA.Call(pos, n, es) in
+     let node_call = LA.Call(pos, None, n, es) in
      mk_graph_expr2 m node_call
   | LA.Merge (pos, clk_id, cs) -> (
      R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
@@ -866,7 +866,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
       )
   )
   | LA.RestartEvery (p, n, es, clk_exp) ->
-     let node_call = LA.Call(p, n, es) in
+     let node_call = LA.Call(p, None, n, es) in
      let* call_g = mk_graph_expr2 m node_call in
      let* clk_g = mk_graph_expr2 m clk_exp in
      let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
@@ -892,7 +892,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
-  | LA.Call (_, i, es) ->
+  | LA.Call (_, _, i, es) ->
      (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->

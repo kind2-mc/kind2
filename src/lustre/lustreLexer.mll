@@ -460,8 +460,8 @@ rule token = parse
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
-  | "<<" { LPARAMBRACKET }
-  | ">>" { RPARAMBRACKET }
+  | "<" { LPARAMBRACKET }
+  | ">" { RPARAMBRACKET }
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }
