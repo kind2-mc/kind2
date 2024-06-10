@@ -161,7 +161,7 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * ident list option * ident * expr list
+  | Call of position * lustre_type list option * ident * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

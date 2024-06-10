@@ -1288,11 +1288,10 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | Call (_, None, xi, xl), Call (_, None, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
-    | Call (_, Some xl1, xi, xl2), Call (_, Some yl1, yi, yl2) 
-        when List.length xl1 == List.length xl2 ->
-      let l1 = List.map2 (fun x1 x2 -> 
-        HString.equal x1 x2
-      ) xl1 yl1 |> List.fold_left (&&) true in
+    | Call (_, Some xts, xi, xl2), Call (_, Some yts, yi, yl2) when List.length xts == List.length yts ->
+      List.map2 (fun xt yt -> 
+        syn_type_equal depth_limit xt yt
+      ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
     | _ -> Ok (false)
@@ -1483,13 +1482,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | Call (_, None, i, l) ->
+      | Call (_, _, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, HString.hash i, l_hash)
-      | Call (_, Some ps, i, l) ->
-        let ps_hash = List.map HString.hash ps in
-        let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (24, ps_hash, HString.hash i, l_hash)
       | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)

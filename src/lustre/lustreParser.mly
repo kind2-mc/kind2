@@ -1143,13 +1143,12 @@ node_call:
 
   (* Call a node with static parameters *)
   | s = ident; 
-    p = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); 
+    ps = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); 
     LPAREN; 
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      (* A.Call (mk_pos $startpos, Some p, s, a) *)
-      fail_no_position "Still don't support node calls with parameters" 
+      A.Call (mk_pos $startpos, Some ps, s, a) 
     }
 
 
