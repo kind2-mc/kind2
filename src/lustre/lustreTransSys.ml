@@ -456,7 +456,6 @@ let add_constraints_of_type init terms state_var =
           | None, None -> Term.mk_bool true
     in
 
-    (*!! Int range constraints for global constants, I think *)
     let qct =
       List.fold_left
         (fun acc (ty, iv) ->
