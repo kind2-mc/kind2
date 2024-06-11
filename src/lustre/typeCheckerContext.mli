@@ -85,6 +85,9 @@ val member_node: tc_context -> LA.ident -> bool
   
 val member_u_types : tc_context -> LA.ident -> bool
 (** Checks of the type identifier is a user defined type *)
+
+val member_ty_vars : tc_context -> LA.ident -> bool
+(** Checks of the type identifier is a type variable *)
   
 val member_val: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a constant  *)
@@ -165,6 +168,9 @@ val extract_ret_ctx: LA.clocked_typed_decl -> tc_context
 
 val extract_loc_ctx: LA.node_local_decl -> tc_context
 (** Extracts the local stream as a typing context  *)
+
+val extract_ty_var_ctx: LA.ident -> tc_context
+(** Extracts the type variable as a typing context *)
 
 val extract_consts: LA.const_clocked_typed_decl -> tc_context
 (** Extracts constants as a typing constant  *)

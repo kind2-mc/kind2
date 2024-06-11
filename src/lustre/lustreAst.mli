@@ -113,6 +113,7 @@ type lustre_type =
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * ident
+  | TypeVariable of position * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | GroupType of position * lustre_type list

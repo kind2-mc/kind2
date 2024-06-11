@@ -229,14 +229,14 @@ and interpret_decl ty_ctx gids = function
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
 
-and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
+and interpret_contract_node ty_ctx (id, ps, ins, outs, contract) =
   (* Setup the typing context *)
-  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ps ins outs in
   interpret_contract id empty_context ty_ctx contract
 
-and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
+and interpret_node ty_ctx gids (id, _, ps, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
-  let ty_ctx = TC.add_io_node_ctx ty_ctx ins outs in
+  let ty_ctx = TC.add_io_node_ctx ty_ctx ps ins outs in
   let ctx = IMap.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
@@ -441,7 +441,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
         | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false)
+        | EnumType _ | TArr _ | RefinementType _ | History _ | TypeVariable _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
@@ -488,7 +488,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
       | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-      | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
+      | EnumType _ | TArr _ | RefinementType _ | History _ | TypeVariable _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in

@@ -958,8 +958,8 @@ and normalize_declaration info map = function
   | FuncDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.FuncDecl (span, normal_decl)), map, warnings
-  | ContractNodeDecl (_, (id, _, ips, ops, _)) ->
-    let ctx = Chk.add_io_node_ctx info.context ips ops in
+  | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
+    let ctx = Chk.add_io_node_ctx info.context ps ips ops in
     let info = { info with context = ctx } in
     let ngids, warnings = normalize_gid_equations info map id in
     let map = StringMap.add id ngids map in
@@ -1058,7 +1058,7 @@ and normalize_ghost_declaration info map = function
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
-  let ctx = Chk.add_io_node_ctx info.context inputs outputs in
+  let ctx = Chk.add_io_node_ctx info.context params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Normalize types *)
