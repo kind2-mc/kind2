@@ -62,6 +62,9 @@ type const_store = (LA.expr * tc_type option * source) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
+type ty_var_store = ty_set IMap.t
+(** A store of type variable IDs for each node ID *)
+
 type contract_exports = (ty_store) IMap.t
 (** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
 
@@ -79,7 +82,8 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
                       contract_exports 
                   ; enum_vars:enum_variants
-                  ; ty_vars: ty_set               (* stores all the type variables currently in scope *)
+                  (*!! TODO: Make this a map *)
+                  ; ty_vars: ty_var_store        (* stores the type variables associated with each node *)
                   }
 (** The type checker global context *)
 
@@ -95,7 +99,7 @@ let empty_tc_context: tc_context =
   ; u_types = SI.empty
   ; contract_export_ctx = IMap.empty
   ; enum_vars = IMap.empty
-  ; ty_vars = SI.empty
+  ; ty_vars = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -121,11 +125,7 @@ let member_node: tc_context -> LA.ident -> bool
 
 let member_u_types : tc_context -> LA.ident -> bool
   = fun ctx i -> SI.mem i ctx.u_types
-(** Checks of the type identifier is a user defined type *)
-
-let member_ty_vars : tc_context -> LA.ident -> bool
-  = fun ctx i -> SI.mem i ctx.ty_vars
-(** Checks of the type identifier is a type variable *)
+(** Checks if the type identifier is a user defined type *)
 
 let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
@@ -189,6 +189,10 @@ let lookup_node_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.node_ctx)
 (** Lookup a node type  *)
 
+let lookup_node_ty_vars: tc_context -> LA.ident -> ty_set option
+  = fun ctx i -> IMap.find_opt i (ctx.ty_vars)
+(** Lookup a node's type variables *)
+
 let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
   = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
 
@@ -222,6 +226,12 @@ let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with node_ctx = IMap.add i ty (ctx.node_ctx)}
 (**  Add the type of the node *)
 
+let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
+  = fun ctx i ty_vars -> 
+    let ty_vars = List.fold_left (fun acc id -> SI.add id acc) SI.empty ty_vars in
+    {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
+(**  Add the type variables of the node *)
+
 let add_node_param_attr : tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
   = fun ctx i args ->
   let v =
@@ -244,10 +254,6 @@ let remove_ty: tc_context -> LA.ident -> tc_context
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
   = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
-
-let add_ty_var: tc_context -> LA.ident -> tc_context
-  = fun ctx i -> {ctx with ty_vars = SI.singleton i} 
-(** Adds a type variable *)
 
 let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
 = fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
@@ -277,7 +283,9 @@ let union: tc_context -> tc_context -> tc_context
                                               (ctx2.contract_export_ctx))
                     ; enum_vars = (IMap.union (fun _ _ v2 -> Some v2)
                       (ctx1.enum_vars) (ctx2.enum_vars))
-                    ; ty_vars = SI.union ctx1.ty_vars ctx2.ty_vars
+                    ; ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.ty_vars)
+                                   (ctx2.ty_vars))
                      }
 (** Unions the two typing contexts *)
 
@@ -289,10 +297,6 @@ let singleton_const: LA.ident -> LA.expr -> tc_type -> source -> tc_context =
   fun i e ty sc -> add_const empty_tc_context i e ty sc
 (** Lifts the constant binding as a typing context  *)
 
-let singleton_ty_var: LA.ident -> tc_context =
-  fun i -> add_ty_var empty_tc_context i
-(** Lifts the type variable as a typing context  *)
-
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
   = fun input -> let (i, ty) = LH.extract_ip_ty input in
                  (singleton_ty i ty) 
@@ -303,10 +307,6 @@ let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
               singleton_ty i ty
 (** Extracts the output stream as a typing context  *)
 
-let extract_ty_var_ctx: LA.ident -> tc_context
-  = fun input -> (singleton_ty_var input) 
-(** Extracts the type variable as a typing context *)
-
 let extract_loc_ctx: LA.node_local_decl -> tc_context 
   = fun local -> 
     let (i, ty, e_opt) = LH.extract_loc_ty local in
@@ -315,13 +315,6 @@ let extract_loc_ctx: LA.node_local_decl -> tc_context
     | None -> singleton_ty i ty
 (** Extracts a local decl as a typing constant  *)
               
-let extract_consts: LA.const_clocked_typed_decl -> tc_context
-  = fun (pos, i, ty, _, is_const) ->
-  if is_const
-  then singleton_const i (LA.Ident (pos, i)) ty Local
-  else empty_tc_context 
-(** Extracts constants as a typing constant  *)
-
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
   = fun (pos, i, ty, _, is_const) ->
   if is_const
@@ -351,6 +344,13 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
+let pp_print_ty_var_binding: Format.formatter -> (LA.ident * ty_set) -> unit
+  = fun ppf (i, ty_vars) ->
+    Format.fprintf ppf "(%a:{%a})" 
+    LA.pp_print_ident i 
+    (Lib.pp_print_list HString.pp_print_hstring ",") (SI.elements ty_vars)
+(** Pretty print type bindings*)  
+
 let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
   = fun ppf (i, (v, ty, sc)) ->
   Format.fprintf ppf "(%a:%a :-> %a (%s))"
@@ -377,8 +377,8 @@ let pp_print_u_types: Format.formatter -> SI.t -> unit
   = fun ppf m -> Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
 (** Pretty print declared user types *)
 
-let pp_print_type_variables: Format.formatter -> SI.t -> unit
-  = fun ppf m -> Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
+let pp_print_type_variables: Format.formatter -> ty_var_store -> unit
+  = fun ppf m -> Lib.pp_print_list pp_print_ty_var_binding ", " ppf (IMap.bindings m)
 (** Pretty print declared user types *)
 
 let pp_print_contract_exports: Format.formatter -> contract_exports -> unit

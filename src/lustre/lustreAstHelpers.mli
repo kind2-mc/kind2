@@ -60,6 +60,9 @@ val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
     to the expressions of (possibly dependent) type [t]
     AnyOp and Quantifier are not supported due to introduction of bound variables. *)
     
+val apply_type_subst_in_type : (HString.t * lustre_type) list -> lustre_type -> lustre_type
+(** [apply_subst_in_type s t] applies the substitution defined by association list [s]
+    to type [t]. *)
 
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)

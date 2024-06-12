@@ -114,7 +114,6 @@ val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t 
 
 val add_io_node_ctx :
   tc_context ->
-  LA.ident list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   tc_context
@@ -126,7 +125,6 @@ val add_local_node_ctx :
 
 val add_full_node_ctx :
   tc_context ->
-  LA.ident list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
@@ -135,7 +133,6 @@ val add_full_node_ctx :
 val build_node_fun_ty : Lib.position ->
   tc_context ->
   HString.t ->
-  LA.ident list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
 

@@ -85,9 +85,6 @@ val member_node: tc_context -> LA.ident -> bool
   
 val member_u_types : tc_context -> LA.ident -> bool
 (** Checks of the type identifier is a user defined type *)
-
-val member_ty_vars : tc_context -> LA.ident -> bool
-(** Checks of the type identifier is a type variable *)
   
 val member_val: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a constant  *)
@@ -110,6 +107,9 @@ val lookup_contract_ty: tc_context -> LA.ident -> tc_type option
 val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 (** Lookup a node type *)
 
+val lookup_node_ty_vars: tc_context -> HString.t -> ty_set option
+(** Lookup a node's type variables *)
+
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
 (** Track whether node parameters are constant or not *)
 
@@ -129,6 +129,9 @@ val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 
 val add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add node/function type binding into the typing context *)
+
+val add_ty_vars_node: tc_context -> HString.t -> HString.t list -> tc_context 
+(** Add node/function type variables into the typing context *)
 
 val add_node_param_attr: tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
 (** Track whether node parameters are constant or not *)
@@ -168,9 +171,6 @@ val extract_ret_ctx: LA.clocked_typed_decl -> tc_context
 
 val extract_loc_ctx: LA.node_local_decl -> tc_context
 (** Extracts the local stream as a typing context  *)
-
-val extract_ty_var_ctx: LA.ident -> tc_context
-(** Extracts the type variable as a typing context *)
 
 val extract_consts: LA.const_clocked_typed_decl -> tc_context
 (** Extracts constants as a typing constant  *)

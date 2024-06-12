@@ -259,19 +259,19 @@ fun ctx decls ->
   List.fold_left (fun decls decl ->
     match decl with
     | A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
-      let ctx = Chk.add_full_node_ctx ctx params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx inputs outputs locals in
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
     | A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract)) -> 
-      let ctx = Chk.add_full_node_ctx ctx params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx inputs outputs locals in
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
     | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
-      let ctx = Chk.add_io_node_ctx ctx params inputs outputs in
+      let ctx = Chk.add_io_node_ctx ctx inputs outputs in
       let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract

@@ -212,11 +212,7 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (********************************
  * Functions to update context  *
  ********************************)
-let add_io_node_ctx ctx params inputs outputs =
-  let ctx = params 
-    |> List.map extract_ty_var_ctx
-    |> (List.fold_left union ctx)
-  in
+let add_io_node_ctx ctx inputs outputs =
   let ctx = inputs
     |> List.map extract_consts
     |> (List.fold_left union ctx)
@@ -236,8 +232,8 @@ let add_local_node_ctx ctx locals =
     |> List.map extract_loc_ctx
     |> (List.fold_left union ctx)
 
-let add_full_node_ctx ctx params inputs outputs locals =
-  let ctx = add_io_node_ctx ctx params inputs outputs in
+let add_full_node_ctx ctx inputs outputs locals =
+  let ctx = add_io_node_ctx ctx inputs outputs in
   add_local_node_ctx ctx locals
 
 (**********************************************
@@ -449,6 +445,19 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     (* Do substitution to express exp_arg_tys and exp_ret_tys in terms of the current context *)
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
+
+let instantiate_type_variables: tc_context -> LA.ident -> LA.lustre_type -> LA.lustre_type list option -> LA.lustre_type
+= fun ctx nname ty params -> 
+  match params with 
+  | None -> ty 
+  | Some tys -> 
+    (* In "ty", substitute each type variable for corresponding type from "tys" *)
+    let ty_vars = lookup_node_ty_vars ctx nname in 
+    match ty_vars with 
+    | None -> assert false 
+    | Some ty_vars -> 
+      let substitution = List.combine (SI.elements ty_vars) tys in (*!! unsafe*) 
+      LustreAstHelpers.apply_type_subst_in_type substitution ty
 
 let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
   let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
@@ -708,7 +717,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
-  | LA.Call (pos, ps, i, arg_exprs) -> (
+  | LA.Call (pos, params, i, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result =
     fun ctx args ->
@@ -720,8 +729,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     | Some call_params, Some node_ty -> (
       (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
+      let node_ty = instantiate_type_variables ctx i node_ty params in
       let exp_arg_tys, exp_ret_tys = match node_ty with 
-        | TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
+        | LA.TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
         | _ -> assert false 
       in
       let* given_arg_tys = infer_type_node_args ctx arg_exprs in
@@ -900,7 +910,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >> check_type_expr ctx e2 exp_ty
 
   (* Node calls *)
-  | Call (pos, ps, i, args) ->
+  | Call (pos, params, i, args) ->
     let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
@@ -1134,7 +1144,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> e
 
 and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warning] list, [> error]) result
   = fun pos ctx
-        (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
+        (node_name, is_extern, _, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -1156,10 +1166,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
   
   >>
     (* (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params; *)
-    (* Add node type variables to context *)
-    let ctx = List.fold_left union ctx
-      (List.map extract_ty_var_ctx params)
-    in
     (* store the input constants passed in the input *)
     let ip_constants_ctx = List.fold_left union ctx
       (List.map extract_consts input_vars)
@@ -1526,8 +1532,9 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   then type_error pos (Redeclaration nname)
   else 
     let ctx = add_node_param_attr ctx nname ip in
-    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ps ip op in
-    R.ok (add_ty_node ctx nname fun_ty, warnings)
+    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ip op in
+    let ctx = add_ty_node ctx nname fun_ty in 
+    R.ok (add_ty_vars_node ctx nname ps, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (ctx, warnings) =
@@ -1597,9 +1604,10 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos (Redeclaration cname)
-    else build_node_fun_ty pos ctx cname params inputs outputs >>= fun (fun_ty, warnings) ->
+    else build_node_fun_ty pos ctx cname inputs outputs >>= fun (fun_ty, warnings) ->
         extract_exports cname ctx contract >>= fun export_ctx  ->  
-        R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty, warnings)
+        let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
+        R.ok (add_ty_vars_node ctx cname params, warnings)
 
 and tc_ctx_of_declaration: (tc_context * [> warning] list) -> LA.declaration -> (tc_context * [> warning] list, [> error]) result
     = fun (ctx', warnings) ->
@@ -1730,14 +1738,22 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
       let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty
-    else if (member_ty_vars ctx i) 
-    then 
-      (*!! Converting to TypeVariable here, but this context is forgotten later. 
-           Still need some principled way of mapping identifiers to type variables rather than UserTypes. *)
-      check_type_well_formed ctx src nname is_const (LA.TypeVariable (pos, i))
-    else 
-      (pp_print_tc_context Format.std_formatter ctx;
-      type_error pos (UndeclaredType i))
+    else (
+      match nname with 
+      | None -> check_type_well_formed ctx src nname is_const (LA.TypeVariable (pos, i))
+      | Some nname -> 
+        match lookup_node_ty_vars ctx nname with 
+        | Some ty_vars -> 
+          if (SI.mem i ty_vars) 
+          then 
+            (*!! Converting to TypeVariable here, but this context is forgotten later. 
+                Still need some principled way of mapping identifiers to type variables rather than UserTypes. *)
+            check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
+          else 
+            (pp_print_tc_context Format.std_formatter ctx;
+            type_error pos (UndeclaredType i))
+        | None -> check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
+    )
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with
     | None, None -> type_error pos IntervalMustHaveBound
@@ -1756,14 +1772,12 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
  * We do not want types such as int^true to creep in the typing context *)
        
 and build_node_fun_ty: Lib.position -> tc_context -> HString.t
-                       -> LA.ident list
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type * [> warning] list, [> error]) result
-  = fun pos ctx nname params args rets ->
+  = fun pos ctx nname args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty Local)
-                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
-  let fun_ctx = List.fold_left union fun_const_ctx (List.map extract_ty_var_ctx params) in 
-  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_ip_ty args) in   
+                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in 
+  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_op_ty rets) in 
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
   let ips = List.map snd (List.map LH.extract_ip_ty args) in

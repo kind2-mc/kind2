@@ -232,6 +232,29 @@ let rec apply_subst_in_expr sigma = function
   | Call (pos, ps, id, expr_list) ->
     Call (pos, ps, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
+(* Same as apply_subst_in_type, but the substitution occurs at the type level *)
+let rec apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
+= fun sigma ty -> match ty with
+  | UserType (pos, i) -> (
+    match List.assoc_opt i sigma with
+      | Some ty -> ty
+      | None -> UserType (pos, i)
+  )
+  | ArrayType (pos, (ty, expr)) -> 
+    ArrayType (pos, (apply_type_subst_in_type sigma ty, expr))
+  | TupleType(pos, tys) -> 
+    TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | GroupType(pos, tys) -> 
+    GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | TArr(pos, ty1, ty2) ->
+    TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis 
+    in
+    RecordType (pos, name, tis)
+  | ty -> ty
+
 let rec apply_subst_in_type sigma = function
   | ArrayType (pos, (ty, expr)) -> (
     let expr = apply_subst_in_expr sigma expr in 
