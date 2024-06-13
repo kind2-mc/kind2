@@ -1532,9 +1532,10 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   then type_error pos (Redeclaration nname)
   else 
     let ctx = add_node_param_attr ctx nname ip in
+    let ctx = add_ty_vars_node ctx nname ps in
     let* fun_ty, warnings = build_node_fun_ty pos ctx nname ip op in
     let ctx = add_ty_node ctx nname fun_ty in 
-    R.ok (add_ty_vars_node ctx nname ps, warnings)
+    R.ok (ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (ctx, warnings) =
@@ -1606,8 +1607,9 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     then type_error pos (Redeclaration cname)
     else build_node_fun_ty pos ctx cname inputs outputs >>= fun (fun_ty, warnings) ->
         extract_exports cname ctx contract >>= fun export_ctx  ->  
+        let ctx = add_ty_vars_node ctx cname params in
         let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
-        R.ok (add_ty_vars_node ctx cname params, warnings)
+        R.ok (ctx, warnings)
 
 and tc_ctx_of_declaration: (tc_context * [> warning] list) -> LA.declaration -> (tc_context * [> warning] list, [> error]) result
     = fun (ctx', warnings) ->
@@ -1752,7 +1754,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
           else 
             (pp_print_tc_context Format.std_formatter ctx;
             type_error pos (UndeclaredType i))
-        | None -> check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
+        | None -> type_error pos (UndeclaredType i)
     )
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with
