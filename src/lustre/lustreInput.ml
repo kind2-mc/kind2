@@ -293,7 +293,19 @@ let of_channel old_frontend only_parse in_ch =
           (* Command-line flag for main node given? *)
           match Flags.lus_main () with
           (* Use given identifier to choose main node *)
-          | Some s -> [LustreIdent.mk_string_ident s]
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in (
+            try 
+              let _ = LN.node_of_name s_ident nodes in 
+              [s_ident]
+            (* User-specified main node in command-line input might not exist *)
+            with Not_found -> 
+              let msg =
+                Format.asprintf "Main node '%a' not found in input"
+                  (LustreIdent.pp_print_ident false) s_ident
+              in
+              raise (NoMainNode msg) 
+            )
           (* No main node name given on command-line *)
           | None -> (
             try
@@ -303,6 +315,11 @@ let of_channel old_frontend only_parse in_ch =
               (* No main node found
                 This only happens when there are no nodes in the input. *)
               raise (NoMainNode "No main node defined in input"))
+        in
+        let nodes, globals, main_nodes = 
+          match Flags.lus_main_type () with 
+          | Some _ -> raise (NoMainNode "Flag --lus_main_type not supported in old front-end")
+          | None -> nodes, globals, main_nodes
         in
         Ok (nodes, globals, main_nodes)
       else
