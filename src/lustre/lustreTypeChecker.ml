@@ -1743,7 +1743,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
       let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty
     else (
       match nname with 
-      | None -> check_type_well_formed ctx src nname is_const (LA.TypeVariable (pos, i))
+      | None -> type_error pos (UndeclaredType i)
       | Some nname -> 
         match lookup_node_ty_vars ctx nname with 
         | Some ty_vars -> 
