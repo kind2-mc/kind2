@@ -241,7 +241,7 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, _, args, defaults) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
       pp_print_position pos
@@ -570,7 +570,7 @@ let mk_fresh_oracle expr_type expr =
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
 
-let mk_fresh_call info id map pos cond restart args defaults =
+let mk_fresh_call info id map pos cond restart params args defaults =
   let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
@@ -589,7 +589,7 @@ let mk_fresh_call info id map pos cond restart args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, args, defaults) in
+  let call = (pos, name, cond, restart, id, params, args, defaults) in
   let gids = { (empty ()) with calls = [call] } in
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
@@ -1699,7 +1699,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, _, id, args) ->
+  | Call (pos, None, id, args) ->
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
@@ -1707,7 +1707,17 @@ and normalize_expr ?guard info map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids2 = mk_fresh_call info id map pos cond restart nargs None in
+    let nexpr, gids2 = mk_fresh_call info id map pos cond restart [] nargs None in
+    nexpr, union gids1 gids2, warnings
+  | Call (pos, Some params, id, args) ->
+    let flags = StringMap.find id info.node_is_input_const in
+    let cond = A.Const (Lib.dummy_pos, A.True) in
+    let restart =  A.Const (Lib.dummy_pos, A.False) in
+    let nargs, gids1, warnings = normalize_list
+      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
+      (combine_args_with_const info args flags)
+    in
+    let nexpr, gids2 = mk_fresh_call info id map pos cond restart params nargs None in
     nexpr, union gids1 gids2, warnings
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = StringMap.find id info.node_is_input_const in
@@ -1720,7 +1730,7 @@ and normalize_expr ?guard info map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info map) defaults in
-    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart [] nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
@@ -1733,7 +1743,7 @@ and normalize_expr ?guard info map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
+    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart [] nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
@@ -1748,7 +1758,7 @@ and normalize_expr ?guard info map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
+        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart [] nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
@@ -1764,7 +1774,7 @@ and normalize_expr ?guard info map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
+        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart [] nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         let warnings = warnings1 @ warnings2 in
         (clock_value, nexpr), gids, warnings

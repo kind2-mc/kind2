@@ -571,7 +571,13 @@ let compile_contract_item map count scope kind pos name expr =
     contract_sv
 
 let rec compile ctx gids decls =
-  let over_decls cstate decl = compile_declaration cstate gids ctx decl in
+  let node_decls_map = List.fold_left (fun acc decl -> match decl with 
+    | (A.NodeDecl (_, (id, _, _, _, _, _, _, _)) as decl)
+    | (FuncDecl (_, (id, _, _, _, _, _, _, _)) as decl)  -> 
+      StringMap.add id decl acc
+    | TypeDecl _ | ConstDecl _ | ContractNodeDecl _ | NodeParamInst _ -> acc
+  ) StringMap.empty decls in
+  let over_decls cstate decl = compile_declaration cstate gids ctx node_decls_map decl in
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
@@ -589,6 +595,7 @@ and compile_ast_type
   map
   = function
   | A.TVar _ -> assert false
+  | A.TypeVariable _ -> failwith "trying to compile type variable"
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
   | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
@@ -1413,7 +1420,8 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals items contract =
+and compile_node_decl gids_map is_function cstate ctx node_decls_map i ext inputs outputs locals items contract =
+  let gids = StringMap.find i gids_map in
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
   let is_extern = ext in
@@ -1687,9 +1695,29 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Node Calls, to put in the map for oracles    *)
   (* ****************************************************************** *)
   in
-  let () =
-    let over_calls = fun () (_, var, _, _, ident, _, _) ->
+  let cstate =
+    let over_calls = fun cstate (_, var, _, _, ident, ps, _, _) ->
       let node_id = mk_ident ident in
+      let ips, ops, locs, nis, c = 
+        match StringMap.find ident node_decls_map with
+        | A.FuncDecl (_, (_, _, _, ips, ops, locs, nis, c))  
+        | A.NodeDecl (_, (_, _, _, ips, ops, locs, nis, c)) -> 
+          ips, ops, locs, nis, c
+        | _ -> assert false
+      in
+      let ips = List.map (fun (pos, id, ty, cl, const) -> 
+        let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
+        (pos, id, ty, cl, const)
+      ) ips in 
+      let ops = List.map (fun (pos, id, ty, cl) -> 
+        let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
+        (pos, id, ty, cl)
+      )  ops in
+      (* If the call is polymorphic, we compile the node now (on the fly) *)
+      let cstate = 
+        compile_node_decl gids_map is_function cstate ctx node_decls_map 
+                          ident ext ips ops locs nis c
+      in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
@@ -1709,9 +1737,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         in
         X.fold over_vars called_node.outputs X.empty
       in
-      ()
+      cstate
     in
-    List.fold_left over_calls () gids.calls
+    List.fold_left over_calls cstate gids.calls
   (* ****************************************************************** *)
   (* Contract State Variables                                           *)
   (* ****************************************************************** *)
@@ -1786,7 +1814,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
-    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults) ->
+    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, _, args, defaults) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
@@ -2378,7 +2406,9 @@ and compile_type_decl pos ctx cstate = function
     { cstate with
       type_alias }
 
-and compile_declaration cstate gids ctx decl =
+and compile_declaration: compiler_state -> GI.t StringMap.t -> Ctx.tc_context ->
+                         A.declaration StringMap.t -> A.declaration -> compiler_state
+= fun cstate gids ctx node_decls_map decl ->
 (*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)
   match decl with
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
@@ -2387,14 +2417,26 @@ and compile_declaration cstate gids ctx decl =
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = GI.StringMap.find i gids in
-    compile_node_decl gids true cstate ctx i ext inputs outputs locals items contract
+    compile_node_decl gids true cstate ctx node_decls_map i ext inputs outputs locals items contract
   | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = GI.StringMap.find i gids in
-    compile_node_decl gids false cstate ctx i ext inputs outputs locals items contract
+    compile_node_decl gids false cstate ctx node_decls_map i ext inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
   | A.ContractNodeDecl _ -> cstate
+  (*!! We want to compile NodeDecls and FuncDecls with parameters when they are called,
+       as needed, so that we can instantiate copies with the correct types.
+       So we don't compile them right here. 
+
+       But we also might need to compile them here, in case they are analyzed without 
+       being called. So will need to handle both cases. 
+
+       Also need to make sure it works with multiple different instantiations-- will need 
+       to update call identifier and node name identifier so no clashes
+  *)
+  | A.NodeDecl _ 
+  | A.FuncDecl _ -> cstate
   (* guaranteed by LustreSyntaxChecks *)
-  | A.NodeParamInst _ | A.NodeDecl _ | A.FuncDecl _ -> assert false
+  | A.NodeParamInst _ -> assert false
+
+  

@@ -129,6 +129,13 @@ val add_full_node_ctx :
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
   tc_context
+
+val instantiate_type_variables : 
+  tc_context ->
+    HString.t ->
+    tc_type ->
+    tc_type list option ->
+    tc_type
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->
