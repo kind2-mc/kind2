@@ -594,8 +594,8 @@ and compile_ast_type
   (ctx:Ctx.tc_context)
   map
   = function
-  | A.TVar _ -> assert false
-  | A.TypeVariable _ -> failwith "trying to compile type variable"
+  | A.TVar _ 
+  | A.TypeVariable _ -> assert false
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
   | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
@@ -1698,26 +1698,30 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i ext input
   let cstate =
     let over_calls = fun cstate (_, var, _, _, ident, ps, _, _) ->
       let node_id = mk_ident ident in
-      let ips, ops, locs, nis, c = 
-        match StringMap.find ident node_decls_map with
-        | A.FuncDecl (_, (_, _, _, ips, ops, locs, nis, c))  
-        | A.NodeDecl (_, (_, _, _, ips, ops, locs, nis, c)) -> 
-          ips, ops, locs, nis, c
-        | _ -> assert false
-      in
-      let ips = List.map (fun (pos, id, ty, cl, const) -> 
-        let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
-        (pos, id, ty, cl, const)
-      ) ips in 
-      let ops = List.map (fun (pos, id, ty, cl) -> 
-        let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
-        (pos, id, ty, cl)
-      )  ops in
-      (* If the call is polymorphic, we compile the node now (on the fly) *)
-      let cstate = 
+      (* If the call is polymorphic, we compile the node now (on the fly)
+         and update cstate *)
+      let cstate = match ps with 
+      | [] -> cstate 
+      | _ -> (
+        let ips, ops, locs, nis, c = 
+          match StringMap.find ident node_decls_map with
+          | A.FuncDecl (_, (_, _, _, ips, ops, locs, nis, c))  
+          | A.NodeDecl (_, (_, _, _, ips, ops, locs, nis, c)) -> 
+            ips, ops, locs, nis, c
+          | _ -> assert false
+        in
+        let ips = List.map (fun (pos, id, ty, cl, const) -> 
+          let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
+          (pos, id, ty, cl, const)
+        ) ips in 
+        let ops = List.map (fun (pos, id, ty, cl) -> 
+          let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
+          (pos, id, ty, cl)
+        )  ops in
+        
         compile_node_decl gids_map is_function cstate ctx node_decls_map 
                           ident ext ips ops locs nis c
-      in
+        ) in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
