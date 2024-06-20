@@ -1743,7 +1743,8 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         | Some params -> Ctx.SI.elements params 
         in
         (* Create fresh identifier for instantiated polymorphic node *)
-        let pident = HString.concat2 ident (!k |> string_of_int |> HString.mk_hstring) in
+        let prefix =  ".poly" ^ (!k |> string_of_int) ^ "_" in
+        let pident = HString.concat2 (HString.mk_hstring prefix) ident  in
         k := !k + 1;
         (* Compile instantiated version of called polymorphic node *)
         (*!! Need updated values for is_function, ext *)
