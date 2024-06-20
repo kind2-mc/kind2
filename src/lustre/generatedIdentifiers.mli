@@ -51,6 +51,7 @@ type t = {
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
     * HString.t (* node name *)
+    * HString.t option (* node name, polymorphic instantiation *)
     * (LustreAst.lustre_type list) (* param instantiations *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)

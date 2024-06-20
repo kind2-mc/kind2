@@ -241,7 +241,7 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, _, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, _, _, args, defaults) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
       pp_print_position pos
@@ -589,7 +589,7 @@ let mk_fresh_call info id map pos cond restart params args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, params, args, defaults) in
+  let call = (pos, name, cond, restart, id, None, params, args, defaults) in
   let gids = { (empty ()) with calls = [call] } in
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
