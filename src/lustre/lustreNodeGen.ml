@@ -1727,12 +1727,16 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
           | _ -> assert false
         in
         let ips = List.map (fun (pos, id, ty, cl, const) -> 
-          let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
-          (pos, id, ty, cl, const)
+          let ty = LustreTypeChecker.instantiate_type_variables ctx pos ident ty (Some ps) in
+          match ty with 
+          | Ok ty -> (pos, id, ty, cl, const)
+          | Error _ -> assert false
         ) ips in 
         let ops = List.map (fun (pos, id, ty, cl) -> 
-          let ty = LustreTypeChecker.instantiate_type_variables ctx ident ty (Some ps) in
-          (pos, id, ty, cl)
+          let ty = LustreTypeChecker.instantiate_type_variables ctx pos ident ty (Some ps) in
+          match ty with 
+          | Ok ty -> (pos, id, ty, cl)
+          | Error _ -> assert false
         )  ops in
         let params = match Ctx.lookup_node_ty_vars ctx ident with 
         | None -> []

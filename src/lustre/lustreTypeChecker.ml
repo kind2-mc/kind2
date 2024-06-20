@@ -96,6 +96,7 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
+  | InvalidPolymorphicCall of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -188,6 +189,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
+  | InvalidPolymorphicCall id -> "Call to node '" ^ HString.string_of_hstring id ^ "' is given an incorrect number of type parameters"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -446,18 +448,23 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
-let instantiate_type_variables: tc_context -> LA.ident -> LA.lustre_type -> LA.lustre_type list option -> LA.lustre_type
-= fun ctx nname ty params -> 
+let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list option -> (tc_type, [> error ]) result
+= fun ctx pos nname ty params -> 
   match params with 
-  | None -> ty 
+  | None -> R.ok ty 
   | Some tys -> 
     (* In "ty", substitute each type variable for corresponding type from "tys" *)
     let ty_vars = lookup_node_ty_vars ctx nname in 
     match ty_vars with 
     | None -> assert false 
     | Some ty_vars -> 
-      let substitution = List.combine (SI.elements ty_vars) tys in (*!! unsafe*) 
-      LustreAstHelpers.apply_type_subst_in_type substitution ty
+      let* substitution = 
+        try 
+          R.ok (List.combine (SI.elements ty_vars) tys) 
+        with Invalid_argument _ -> 
+          type_error pos (InvalidPolymorphicCall nname)
+      in 
+      R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
 
 let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
   let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
@@ -729,7 +736,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     | Some call_params, Some node_ty -> (
       (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
-      let node_ty = instantiate_type_variables ctx i node_ty params in
+      let* node_ty = instantiate_type_variables ctx pos i node_ty params in
       let exp_arg_tys, exp_ret_tys = match node_ty with 
         | LA.TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
         | _ -> assert false 
@@ -920,7 +927,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     | Some ty, Some call_params -> 
       (* Express ty in terms of the current context *)
       let ty = update_ty_with_ctx ty call_params ctx args in
-      let ty = instantiate_type_variables ctx i ty params in
+      let* ty = instantiate_type_variables ctx pos i ty params in
       let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
       if b then R.ok ()
       else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))

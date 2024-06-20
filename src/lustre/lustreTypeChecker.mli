@@ -81,6 +81,7 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
+  | InvalidPolymorphicCall of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -131,11 +132,12 @@ val add_full_node_ctx :
   tc_context
 
 val instantiate_type_variables : 
-  tc_context ->
-    HString.t ->
-    tc_type ->
-    tc_type list option ->
-    tc_type
+  tc_context -> 
+  Lib.position -> 
+  HString.t -> 
+  tc_type -> 
+  tc_type list option -> 
+  (tc_type, [> error ]) result
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->
