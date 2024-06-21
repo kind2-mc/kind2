@@ -307,12 +307,12 @@ let tag_pt level tag str =
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop = 
+
+  let property = TransSys.property_of_name trans_sys prop in
   (* Only output if status was unknown *)
   if 
-    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
+    not (Property.prop_status_known (Property.get_prop_status property))
   then (
-
-    let property = TransSys.property_of_name trans_sys prop in
     let prop_type = match property.prop_source with 
       | Candidate None -> "Candidate property"
       | Candidate Some (Generated _) -> "Generated candidate property"
@@ -2230,7 +2230,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     (* Property found true for k steps *)
     | (m, PropStatus (p, (Property.PropKTrue k as s))) :: tl -> (
 
-      try
+      try (
         (* Change property status in transition system *)
         TransSys.set_prop_ktrue trans_sys k p;
 
@@ -2240,7 +2240,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
           invars
           ((m, (p, s)) :: prop_status)
           tl
-
+      )
       with TransSys.PropertyNotFound _->
         (* Continue without changes *)
         update_trans_sys' trans_sys invars prop_status tl
@@ -2248,12 +2248,12 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     (* Property found invariant *)
     | (m, PropStatus (p, (Property.PropInvariant cert as s))) :: tl -> (
 
-      try
-        (* Change property status (of all instances with name [p]) *)
-        TransSys.set_prop_invariant trans_sys p cert;
-
+      try (
         (* Output proved property *)
         log_proved m L_warn trans_sys None p;
+
+        (* Change property status (of all instances with name [p]) *)
+        TransSys.set_prop_invariant trans_sys p cert;
 
         let term =
           TransSys.props_list_of_bound trans_sys Numeral.zero
@@ -2293,7 +2293,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
           invars
           ( (m, (p, s)) :: prop_status )
           tl
-
+      )
       with TransSys.PropertyNotFound _->
         (* Continue without changes *)
         update_trans_sys' trans_sys invars prop_status tl
@@ -2301,12 +2301,12 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     (* Property found false *)
     | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> (
 
-      try
-        (* Change property status in transition system *)
-        TransSys.set_prop_false trans_sys p cex;
-
+      try (
         (* Output disproved property *)
         log_cex true m L_warn input_sys analysis trans_sys p cex ;
+
+        (* Change property status in transition system *)
+        TransSys.set_prop_false trans_sys p cex;
 
         (* Continue with property status added to accumulator *)
         update_trans_sys'
@@ -2314,7 +2314,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
           invars
           ((m, (p, s)) :: prop_status)
           tl
-
+      )
       with TransSys.PropertyNotFound _->
         (* Continue without changes *)
         update_trans_sys' trans_sys invars prop_status tl

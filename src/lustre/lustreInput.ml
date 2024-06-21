@@ -66,6 +66,7 @@ let (let*) = Res.(>>=)
 let (>>) = Res.(>>)
 
 exception NoMainNode of string
+exception MainTypeWithoutRealizability of string
 
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
@@ -164,6 +165,10 @@ let type_check declarations =
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+
+    (* Provide lsp info if option is enabled *)
+    if Flags.log_format_json () && Flags.Lsp.lsp () then
+      LspInfo.print_ast_info global_ctx declarations;
 
     (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
     let sorted_node_contract_decls = 
@@ -268,10 +273,6 @@ let of_channel old_frontend only_parse in_ch =
   (* Get declarations from channel. *)
   let* declarations = ast_of_channel in_ch in
 
-  (* Provide lsp info if option is enabled *)
-  if Flags.log_format_json () && Flags.Lsp.lsp () then
-    LspInfo.print_ast_info declarations;
-
   if old_frontend then
     Log.log L_note "Old front-end enabled" ;
 
@@ -292,7 +293,19 @@ let of_channel old_frontend only_parse in_ch =
           (* Command-line flag for main node given? *)
           match Flags.lus_main () with
           (* Use given identifier to choose main node *)
-          | Some s -> [LustreIdent.mk_string_ident s]
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in (
+            try 
+              let _ = LN.node_of_name s_ident nodes in 
+              [s_ident]
+            (* User-specified main node in command-line input might not exist *)
+            with Not_found -> 
+              let msg =
+                Format.asprintf "Main node '%a' not found in input"
+                  (LustreIdent.pp_print_ident false) s_ident
+              in
+              raise (NoMainNode msg) 
+            )
           (* No main node name given on command-line *)
           | None -> (
             try
@@ -303,25 +316,39 @@ let of_channel old_frontend only_parse in_ch =
                 This only happens when there are no nodes in the input. *)
               raise (NoMainNode "No main node defined in input"))
         in
+        let nodes, globals, main_nodes = 
+          match Flags.lus_main_type () with 
+          | Some _ -> raise (NoMainNode "Flag --lus_main_type not supported in old front-end")
+          | None -> nodes, globals, main_nodes
+        in
         Ok (nodes, globals, main_nodes)
       else
         let* (ctx, gids, decls, toplevel_nodes, _) = type_check declarations in
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
           | Some s -> 
-            let s_ident = LustreIdent.mk_string_ident s in
-            let main_lustre_node = LN.node_of_name s_ident nodes in
-            (* If checking realizability, then 
-               we are actually checking realizability of Kind 2-generated imported nodes representing 
-               the (1) the main node's contract instrumented with type info and 
-                   (2) the main node's enviornment *)
-            if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-              [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
-               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-            else if main_lustre_node.is_extern && List.mem `CONTRACTCK (Flags.enabled ()) then 
-              [s_ident;
-               LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-            else [s_ident]
+            let s_ident = LustreIdent.mk_string_ident s in (
+            try 
+              let main_lustre_node =  LN.node_of_name s_ident nodes in 
+              (* If checking realizability, then 
+                we are actually checking realizability of Kind 2-generated imported nodes representing 
+                the (1) the main node's contract instrumented with type info and 
+                    (2) the main node's enviornment *)
+              if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+                [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
+                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+              else if main_lustre_node.is_extern && List.mem `CONTRACTCK (Flags.enabled ()) then 
+                [s_ident;
+                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
+              else [s_ident]
+            (* User-specified main node in command-line input might not exist *)
+            with Not_found -> 
+              let msg =
+                Format.asprintf "Main node '%a' not found in input"
+                  (LustreIdent.pp_print_ident false) s_ident
+              in
+              raise (NoMainNode msg)
+          )
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t
@@ -332,21 +359,35 @@ let of_channel old_frontend only_parse in_ch =
                 s |> HString.string_of_hstring |> LustreIdent.mk_string_ident)
           )
         in
+        let main_nodes = match Flags.lus_main_type () with
+          | Some s -> 
+            let s_ident = LustreIdent.mk_string_ident s in 
+            if not (List.mem `CONTRACTCK (Flags.enabled ())) then
+              let msg =
+                Format.asprintf "Option --lus_main_type can only be used when realizability checking is enabled (--enable CONTRACTCK)"
+              in
+              raise (MainTypeWithoutRealizability msg)
+            else (
+              try 
+                let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
+                let _ = LN.node_of_name s_ident nodes in  
+                match Flags.lus_main () with 
+                | Some _ -> s_ident :: main_nodes
+                | None -> [s_ident]
+              (* User-specified type alias in command-line input might not exist *)
+              with Not_found -> 
+                let msg =
+                  Format.asprintf "No refinement type with alias '%a' found in input"
+                    (LustreIdent.pp_print_ident false) s_ident
+                in
+                raise (NoMainNode msg)
+            )
+          | None -> main_nodes in
         Ok (nodes, globals, main_nodes)
     in
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      (* Check that main nodes all exist *)
-      main_nodes |> List.iter (fun mn ->
-        if not (LN.exists_node_of_name mn nodes) then
-          (* This can only happen when the name is passed as command-line argument *)
-          let msg =
-            Format.asprintf "Main node '%a' not found in input"
-              (LustreIdent.pp_print_ident false) mn
-          in
-          raise (NoMainNode msg)
-      ) ;
       let nodes = List.map (fun ({ LustreNode.name } as n) ->
           if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
             { n with is_main = true }

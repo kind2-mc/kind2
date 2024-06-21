@@ -106,6 +106,7 @@
 *)
 
 exception NoMainNode of string
+exception MainTypeWithoutRealizability of string
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -128,7 +129,8 @@ type error = [
     If a syntax or semantic error is detected, it triggers
     a [Parser_error] exception. If [only_parse] is false, and
     the Lustre model doesn't include a main node, it triggers a
-    {!NoMainNode} exception.
+    {!NoMainNode} exception. If --lus_main_type is used without CONTRACTCK 
+    enabled, it triggers a {!MainTypeWithoutRealizability} exception.
 *)
 val of_file :
   ?old_frontend:bool -> bool -> string ->

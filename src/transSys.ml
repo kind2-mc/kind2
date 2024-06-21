@@ -1338,9 +1338,12 @@ let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
 let property_of_name t name =
 
   (* Return the first property with the given name *)
-  List.find
-    (fun { P.prop_name } -> prop_name = name )
-    t.properties
+  try
+    List.find
+      (fun { P.prop_name } -> prop_name = name )
+      t.properties
+  with Not_found ->
+    raise (PropertyNotFound name)
 
 
 (* Get term of property by name *)

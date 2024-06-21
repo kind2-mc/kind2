@@ -53,7 +53,7 @@ let node_decl_to_contracts
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
     List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
   in
-  (* Since we are omitting assumptions from environment realizablity checks,
+  (* Since we are omitting assumptions from environment realizability checks,
      we need to chase base types for environment inputs *)
   let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
     let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
@@ -74,10 +74,9 @@ let node_decl_to_contracts
    to the generated imported node. For example, if "ty" is a refinement type 
    T = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
    captured as an assumption in the output imported node. *)
-let type_to_contract: Lib.position -> Ctx.tc_context -> HString.t -> A.lustre_type -> A.declaration option
-= fun pos ctx id ty -> 
+let type_to_contract: Lib.position ->HString.t -> A.lustre_type -> A.declaration option
+= fun pos id ty -> 
   let span = { A.start_pos = pos; end_pos = pos } in
-  if not (Ctx.type_contains_ref ctx ty) then None else
   let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
@@ -90,7 +89,7 @@ let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list
     | A.ConstDecl (_, FreeConst _)
     | A.ConstDecl (_, TypedConst _) -> decl :: acc
     | A.TypeDecl (_, AliasType (p, id, ty)) -> 
-      (match type_to_contract p ctx id ty with 
+      (match type_to_contract p id ty with 
       | Some decl1 -> decl :: decl1 :: acc
       | None -> decl :: acc)
     | A.TypeDecl (_, FreeType _)

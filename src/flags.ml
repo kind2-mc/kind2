@@ -2906,6 +2906,24 @@ module Global = struct
         "
     )
   let lus_main () = !lus_main
+ 
+
+  let lus_main_type_default = None
+
+  let lus_main_type = ref lus_main_type_default
+  let _ = add_spec
+    "--lus_main_type"
+    (Arg.String (fun str -> lus_main_type := Some str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> is a type alias identifier from the Lustre input file@ \
+          Designate a type declaration for which the corresponding generated node@ \
+          is the top node for realizability analysis@ \
+          Default: all type aliases \
+        "
+    )
+  let lus_main_type () = !lus_main_type
 
 
   (* Input format. *)
@@ -3683,6 +3701,7 @@ let check_reach = Global.check_reach
 let check_nonvacuity = Global.check_nonvacuity
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
+let lus_main_type = Global.lus_main_type
 let debug = Global.debug
 let debug_log = Global.debug_log
 let exit_code_mode = Global.exit_code_mode
