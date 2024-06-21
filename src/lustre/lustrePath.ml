@@ -982,21 +982,22 @@ let filter_locals is_visible locals =
     ) [] locals
 
 let get_node_type_and_name name =
-  let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
-  let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
-  let type_tag_len = String.length LustreGenRefTypeImpNodes.type_tag in
-  let poly_gen_node_tag_len = String.length LustreNodeGen.poly_gen_node_tag in
+  let open LustreGenRefTypeImpNodes in
+  let inputs_tag_len = String.length inputs_tag in
+  let contract_tag_len = String.length contract_tag in
+  let type_tag_len = String.length type_tag in
+  let poly_gen_node_tag_len = String.length poly_gen_node_tag in
   if String.length name > inputs_tag_len && 
-     String.sub name 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
+     String.sub name 0 inputs_tag_len = inputs_tag then
     Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
   else if String.length name > contract_tag_len && 
-          String.sub name 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
+          String.sub name 0 contract_tag_len = contract_tag then 
     Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
   else if String.length name > type_tag_len && 
-          String.sub name 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
+          String.sub name 0 type_tag_len = type_tag then 
     Type, (String.sub name type_tag_len (String.length name - type_tag_len))
   else if String.length name > poly_gen_node_tag_len && 
-          String.sub name 0 poly_gen_node_tag_len = LustreNodeGen.poly_gen_node_tag then 
+          String.sub name 0 poly_gen_node_tag_len = poly_gen_node_tag then 
     let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
     let re = Str.regexp "^[0-9]+" in
     let len_prefix = 

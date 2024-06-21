@@ -78,8 +78,6 @@ type identifier_maps = {
 (* Module state for creating fresh identifiers for instantiated parametric nodes *)
 let k = ref 0
 
-let poly_gen_node_tag = ".poly"
-
 (*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
@@ -1742,7 +1740,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         | Some params -> Ctx.SI.elements params 
         in
         (* Create fresh identifier for instantiated polymorphic node *)
-        let prefix =  poly_gen_node_tag ^ (!k |> string_of_int) ^ "_" in
+        let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (!k |> string_of_int) ^ "_" in
         let pident = HString.concat2 (HString.mk_hstring prefix) ident  in
         k := !k + 1;
         (* Compile instantiated version of called polymorphic node *)

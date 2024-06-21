@@ -23,5 +23,6 @@ module A = LustreAst
 val inputs_tag : string 
 val contract_tag : string
 val type_tag : string
+val poly_gen_node_tag : string
 
 val gen_imp_nodes : TypeCheckerContext.tc_context ->  A.declaration list -> A.declaration list

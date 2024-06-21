@@ -336,6 +336,26 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
+let clean_polymorphic_info scopes = 
+  let scopes = List.map (fun scope -> 
+    let poly_gen_node_tag_len = String.length LustreGenRefTypeImpNodes.poly_gen_node_tag in
+    if String.length scope > poly_gen_node_tag_len && 
+       String.sub scope 0 poly_gen_node_tag_len = LustreGenRefTypeImpNodes.poly_gen_node_tag then 
+      let s = String.sub scope poly_gen_node_tag_len (String.length scope - poly_gen_node_tag_len) in
+      let re = Str.regexp "^[0-9]+" in
+      let len_prefix = 
+        if Str.string_match re s 0 then
+          String.length (Str.matched_string s) + 1
+        else 1
+      in
+      (String.sub s len_prefix (String.length s - len_prefix))
+    else
+      scope
+  ) scopes in
+  (* Remove duplicate node names (occurs when a node has multiple polymorphic instantiations) *)
+  let module StringSet = Set.Make(String) in 
+  scopes |> StringSet.of_list |> StringSet.elements
+
 let pp_print_param verbose fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
@@ -360,8 +380,8 @@ let pp_print_param verbose fmt param =
           | [] -> ()
           | concrete ->
             let concrete = List.map Scope.to_string concrete in
-            (* let _ = List.map LustrePath.get_node_type_and_name concrete in  *)
-            (* let concrete = List.map snd concrete in *)
+            (* Remove Kind 2-generated info from node names of polymorphic node instantiations *)
+            let concrete = clean_polymorphic_info concrete in
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
               (pp_print_list Format.pp_print_string ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
