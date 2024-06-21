@@ -82,7 +82,6 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
                       contract_exports 
                   ; enum_vars:enum_variants
-                  (*!! TODO: Make this a map *)
                   ; ty_vars: ty_var_store        (* stores the type variables associated with each node *)
                   }
 (** The type checker global context *)

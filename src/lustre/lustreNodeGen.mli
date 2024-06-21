@@ -19,6 +19,9 @@
   
   @author Andrew Marmaduke *)
 
+
+val poly_gen_node_tag : string
+
 val compile : TypeCheckerContext.tc_context
 -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t
 -> LustreAst.declaration list

@@ -985,18 +985,28 @@ let get_node_type_and_name name =
   let inputs_tag_len = String.length LustreGenRefTypeImpNodes.inputs_tag in
   let contract_tag_len = String.length LustreGenRefTypeImpNodes.contract_tag in
   let type_tag_len = String.length LustreGenRefTypeImpNodes.type_tag in
+  let poly_gen_node_tag_len = String.length LustreNodeGen.poly_gen_node_tag in
   if String.length name > inputs_tag_len && 
-      String.sub name 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
+     String.sub name 0 inputs_tag_len = LustreGenRefTypeImpNodes.inputs_tag then
     Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
   else if String.length name > contract_tag_len && 
           String.sub name 0 contract_tag_len = LustreGenRefTypeImpNodes.contract_tag then 
     Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
   else if String.length name > type_tag_len && 
-    String.sub name 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
+          String.sub name 0 type_tag_len = LustreGenRefTypeImpNodes.type_tag then 
     Type, (String.sub name type_tag_len (String.length name - type_tag_len))
+  else if String.length name > poly_gen_node_tag_len && 
+          String.sub name 0 poly_gen_node_tag_len = LustreNodeGen.poly_gen_node_tag then 
+    let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
+    let re = Str.regexp "^[0-9]+" in
+    let len_prefix = 
+      if Str.string_match re s 0 then
+        String.length (Str.matched_string s) + 1
+      else 1
+    in
+    Type, (String.sub s len_prefix (String.length s - len_prefix))
   else
     User, name
-
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)

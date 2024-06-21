@@ -682,6 +682,7 @@ let prop_status_pt level prop_status_kind =
     Pretty.print_line ()
     (pp_print_list 
        (fun ppf ((p, s, k)) -> 
+          let p = LustrePath.get_node_type_and_name p |> snd in
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"

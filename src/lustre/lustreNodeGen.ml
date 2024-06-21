@@ -78,6 +78,8 @@ type identifier_maps = {
 (* Module state for creating fresh identifiers for instantiated parametric nodes *)
 let k = ref 0
 
+let poly_gen_node_tag = ".poly"
+
 (*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
@@ -246,9 +248,6 @@ let mk_state_var
   let compute_expr expr =
     try
       let t = H.find !map.expr expr_ident in
-      E.pp_print_lustre_expr true Format.std_formatter expr;
-      (* X.pp_print_index true Format.std_formatter index; *)
-      X.pp_print_trie_expr true Format.std_formatter t;
       X.add index expr t
     with Not_found -> X.singleton index expr
   in
@@ -1743,7 +1742,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         | Some params -> Ctx.SI.elements params 
         in
         (* Create fresh identifier for instantiated polymorphic node *)
-        let prefix =  ".poly" ^ (!k |> string_of_int) ^ "_" in
+        let prefix =  poly_gen_node_tag ^ (!k |> string_of_int) ^ "_" in
         let pident = HString.concat2 (HString.mk_hstring prefix) ident  in
         k := !k + 1;
         (* Compile instantiated version of called polymorphic node *)

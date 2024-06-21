@@ -336,19 +336,6 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 let pp_print_param verbose fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
@@ -372,8 +359,11 @@ let pp_print_param verbose fmt param =
         ( match concrete with
           | [] -> ()
           | concrete ->
+            let concrete = List.map Scope.to_string concrete in
+            (* let _ = List.map LustrePath.get_node_type_and_name concrete in  *)
+            (* let concrete = List.map snd concrete in *)
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list Scope.pp_print_scope ",@ ") concrete ;
+              (pp_print_list Format.pp_print_string ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
