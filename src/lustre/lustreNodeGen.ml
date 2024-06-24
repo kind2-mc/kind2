@@ -1716,13 +1716,18 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
       let node_id, cstate, calls = match ps with 
       | [] -> node_id, cstate, calls @ [call]
       | _ -> (
-        let ips, ops, locs, nis, c = 
+        let is_function, ext, ips, ops, locs, nis, c = 
           match StringMap.find ident node_decls_map with
-          | A.FuncDecl (_, (_, _, _, ips, ops, locs, nis, c))  
-          | A.NodeDecl (_, (_, _, _, ips, ops, locs, nis, c)) -> 
-            ips, ops, locs, nis, c
+          | A.FuncDecl (_, (_, ext, _, ips, ops, locs, nis, c)) -> 
+            true, ext, ips, ops, locs, nis, c 
+          | A.NodeDecl (_, (_, ext, _, ips, ops, locs, nis, c)) -> 
+            false, ext, ips, ops, locs, nis, c
           | _ -> assert false
         in
+        let nis = List.filter (fun ni -> match ni with 
+        | A.AnnotMain _ -> false 
+        | _ -> true
+        ) nis in
         let ips = List.map (fun (pos, id, ty, cl, const) -> 
           let ty = LustreTypeChecker.instantiate_type_variables ctx pos ident ty (Some ps) in
           match ty with 
@@ -1744,7 +1749,6 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         let pident = HString.concat2 (HString.mk_hstring prefix) ident  in
         k := !k + 1;
         (* Compile instantiated version of called polymorphic node *)
-        (*!! Need updated values for is_function, ext *)
         let cstate = compile_node_decl gids_map is_function cstate ctx node_decls_map 
                                        ident (Some pident) ext params ips ops locs nis c in 
         mk_ident pident, cstate, calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)]                              
