@@ -75,9 +75,6 @@ type identifier_maps = {
   call_count : int;
 }
 
-(* Module state for creating fresh identifiers for instantiated parametric nodes *)
-let k = ref 0
-
 (*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
@@ -576,7 +573,7 @@ let rec compile ctx gids decls =
   let node_decls_map = List.fold_left (fun acc decl -> match decl with 
     | (A.NodeDecl (_, (id, _, _, _, _, _, _, _)) as decl)
     | (FuncDecl (_, (id, _, _, _, _, _, _, _)) as decl)  -> 
-      StringMap.add id decl acc
+      StringMap.add id [decl, []] acc
     | TypeDecl _ | ConstDecl _ | ContractNodeDecl _ | NodeParamInst _ -> acc
   ) StringMap.empty decls in
   let over_decls cstate decl = compile_declaration cstate gids ctx node_decls_map decl in
@@ -1708,19 +1705,19 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
   (* (State Variables for) Node Calls, to put in the map for oracles    *)
   (* ****************************************************************** *)
   in
-  let cstate, calls =
-    let over_calls = fun (cstate, calls) ((id, var, cond, r, ident, _, ps, args, defs) as call) ->
+  let cstate, calls, _ =
+    let over_calls = fun (cstate, calls, node_decls_map) ((id, var, cond, r, ident, _, ps, args, defs) as call) ->
       let node_id = mk_ident ident in
+      let node_id, cstate, calls, node_decls_map = match ps with 
+      | [] -> node_id, cstate, calls @ [call], node_decls_map
       (* If the call is polymorphic, we compile the node now (on the fly)
-         and update cstate *)
-      let node_id, cstate, calls = match ps with 
-      | [] -> node_id, cstate, calls @ [call]
+        and update cstate *)
       | _ -> (
         let is_function, ext, ips, ops, locs, nis, c = 
           match StringMap.find ident node_decls_map with
-          | A.FuncDecl (_, (_, ext, _, ips, ops, locs, nis, c)) -> 
+          | (A.FuncDecl (_, (_, ext, _, ips, ops, locs, nis, c)), _) :: _ -> 
             true, ext, ips, ops, locs, nis, c 
-          | A.NodeDecl (_, (_, ext, _, ips, ops, locs, nis, c)) -> 
+          | (A.NodeDecl (_, (_, ext, _, ips, ops, locs, nis, c)), _) :: _ -> 
             false, ext, ips, ops, locs, nis, c
           | _ -> assert false
         in
@@ -1744,14 +1741,43 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         | None -> []
         | Some params -> Ctx.SI.elements params 
         in
-        (* Create fresh identifier for instantiated polymorphic node *)
-        let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (!k |> string_of_int) ^ "_" in
-        let pident = HString.concat2 (HString.mk_hstring prefix) ident  in
-        k := !k + 1;
-        (* Compile instantiated version of called polymorphic node *)
-        let cstate = compile_node_decl gids_map is_function cstate ctx node_decls_map 
-                                       ident (Some pident) ext params ips ops locs nis c in 
-        mk_ident pident, cstate, calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)]                              
+        (* Check for pre-existing instantiation of the node before compiling a new one *)
+        let decls_tys = StringMap.find ident node_decls_map in 
+        let find_decl (_, tys) = 
+          (List.length tys = List.length ps) &&
+          (List.for_all2 (fun ty p -> match LustreTypeChecker.eq_lustre_type ctx ty p with 
+          | Ok true -> true
+          | _ -> false
+          ) tys ps) 
+        in
+        match Lib.find_opt_index find_decl decls_tys with 
+        | None ->
+          print_endline "got here 1";
+          (* Create fresh identifier for instantiated polymorphic node *)
+          let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (List.length decls_tys |> string_of_int) ^ "_" in
+          print_endline (string_of_int (List.length decls_tys));
+          let pident = HString.concat2 (HString.mk_hstring prefix) ident in
+          print_endline (HString.string_of_hstring ident);
+          print_endline (HString.string_of_hstring pident);
+          (* Remember new instantiation *)
+          let decl = fst (List.hd decls_tys) in
+          let node_decls_map = StringMap.add ident (decls_tys @ [decl, ps]) node_decls_map in
+          (* Compile instantiated version of called polymorphic node *)
+          let cstate = compile_node_decl gids_map is_function cstate ctx node_decls_map 
+                                          ident (Some pident) ext params ips ops locs nis c in 
+          mk_ident pident, 
+          cstate, 
+          calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)],
+          node_decls_map  
+        | Some i ->
+          print_endline "got here 2";
+          (* This polymorphic instantiation already exists *)
+          let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (i |> string_of_int) ^ "_" in
+          let pident = HString.concat2 (HString.mk_hstring prefix) ident in
+          mk_ident pident, 
+          cstate, 
+          calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)],
+          node_decls_map                             
         ) in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
@@ -1772,9 +1798,9 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         in
         X.fold over_vars called_node.outputs X.empty
       in
-      cstate, calls
+      cstate, calls, node_decls_map
     in
-    List.fold_left over_calls (cstate, []) gids.calls
+    List.fold_left over_calls (cstate, [], node_decls_map) gids.calls
   in 
   let gids = { gids with calls = calls }
   (* ****************************************************************** *)
@@ -2446,7 +2472,7 @@ and compile_type_decl pos ctx cstate = function
       type_alias }
 
 and compile_declaration: compiler_state -> GI.t StringMap.t -> Ctx.tc_context ->
-                         A.declaration StringMap.t -> A.declaration -> compiler_state
+                         (A.declaration * A.lustre_type list) list StringMap.t -> A.declaration -> compiler_state
 = fun cstate gids ctx node_decls_map decl ->
 (*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)
   match decl with
