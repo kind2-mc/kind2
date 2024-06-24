@@ -1699,17 +1699,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, None, id, args) ->
-    let flags = StringMap.find id info.node_is_input_const in
-    let cond = A.Const (Lib.dummy_pos, A.True) in
-    let restart =  A.Const (Lib.dummy_pos, A.False) in
-    let nargs, gids1, warnings = normalize_list
-      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-      (combine_args_with_const info args flags)
-    in
-    let nexpr, gids2 = mk_fresh_call info id map pos cond restart [] nargs None in
-    nexpr, union gids1 gids2, warnings
-  | Call (pos, Some params, id, args) ->
+  | Call (pos, params, id, args) ->
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in

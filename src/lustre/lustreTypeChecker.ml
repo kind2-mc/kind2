@@ -448,23 +448,20 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
-let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list option -> (tc_type, [> error ]) result
+let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
 = fun ctx pos nname ty params -> 
-  match params with 
-  | None -> R.ok ty 
-  | Some tys -> 
-    (* In "ty", substitute each type variable for corresponding type from "tys" *)
-    let ty_vars = lookup_node_ty_vars ctx nname in 
-    match ty_vars with 
-    | None -> assert false 
-    | Some ty_vars -> 
-      let* substitution = 
-        try 
-          R.ok (List.combine (SI.elements ty_vars) tys) 
-        with Invalid_argument _ -> 
-          type_error pos (InvalidPolymorphicCall nname)
-      in 
-      R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
+  (* In "ty", substitute each type variable for corresponding type from "tys" *)
+  let ty_vars = lookup_node_ty_vars ctx nname in 
+  match ty_vars with 
+  | None -> assert false 
+  | Some ty_vars -> 
+    let* substitution = 
+      try 
+        R.ok (List.combine (SI.elements ty_vars) params) 
+      with Invalid_argument _ -> 
+        type_error pos (InvalidPolymorphicCall nname)
+    in 
+    R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
 
 let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
   let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
@@ -688,7 +685,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   | LA.When (_, e, _) -> infer_type_expr ctx e
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
-    >> infer_type_expr ctx (Call (pos, None, node, args))
+    >> infer_type_expr ctx (Call (pos, [], node, args))
     >>= fun r_ty ->
     R.seq (List.map (infer_type_expr ctx) defaults)
     >>= (fun d_tys -> 
@@ -697,7 +694,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         (type_error pos IlltypedDefaults))
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx cond (Bool pos)
-    >> infer_type_expr ctx (Call (pos, None, node, args))
+    >> infer_type_expr ctx (Call (pos, [], node, args))
   | LA.Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
       let mcases_ids, mcases_exprs = List.split mcases in
@@ -712,7 +709,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
-    >> infer_type_expr ctx (LA.Call (pos, None, node, args))
+    >> infer_type_expr ctx (LA.Call (pos, [], node, args))
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx e
@@ -890,13 +887,13 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx c (Bool pos)
-    >> check_type_expr ctx (Call (pos, None, node, args)) exp_ty
+    >> check_type_expr ctx (Call (pos, [], node, args)) exp_ty
     >>  R.seq (List.map (infer_type_expr ctx) defaults)
     >>= fun d_tys -> R.guard_with (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
                       (type_error pos IlltypedDefaults)
   | Activate (pos, node, cond, _, args) -> 
     check_type_expr ctx cond (Bool pos)
-    >> check_type_expr ctx (Call (pos, None, node, args)) exp_ty 
+    >> check_type_expr ctx (Call (pos, [], node, args)) exp_ty 
   | Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
     let mcases_ids, mcases_exprs = List.split mcases in
@@ -908,7 +905,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
       >> check_merge_clock e ty
   | RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
-    >> check_type_expr ctx (LA.Call (pos, None, node, args)) exp_ty
+    >> check_type_expr ctx (LA.Call (pos, [], node, args)) exp_ty
 
   (* Temporal operators *)
   | Pre (_, e) -> check_type_expr ctx e exp_ty

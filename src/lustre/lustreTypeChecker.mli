@@ -136,7 +136,7 @@ val instantiate_type_variables :
   Lib.position -> 
   HString.t -> 
   tc_type -> 
-  tc_type list option -> 
+  tc_type list -> 
   (tc_type, [> error ]) result
   
 val build_node_fun_ty : Lib.position ->

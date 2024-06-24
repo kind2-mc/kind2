@@ -93,7 +93,7 @@ fun ctx node_name fun_ids expr ->
         (name, true, [], inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
-    A.Call(pos, None, name, inputs_call), [generated_node]
+    A.Call(pos, [], name, inputs_call), [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []

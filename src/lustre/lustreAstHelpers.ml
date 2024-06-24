@@ -1309,9 +1309,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
-    | Call (_, None, xi, xl), Call (_, None, yi, yl) ->
-      rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
-    | Call (_, Some xts, xi, xl2), Call (_, Some yts, yi, yl2) when List.length xts == List.length yts ->
+    | Call (_, xts, xi, xl2), Call (_, yts, yi, yl2) when List.length xts == List.length yts ->
       List.map2 (fun xt yt -> 
         syn_type_equal depth_limit xt yt
       ) xts yts |> join >>= fun l1 ->

@@ -122,7 +122,7 @@ type expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list option * ident * expr list
+  | Call of position * lustre_type list * ident * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -545,21 +545,21 @@ let rec pp_print_expr ppf =
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 
-    | Call (p, Some params, id, l) ->
+    | Call (p, [], id, l) ->
+
+      Format.fprintf ppf
+        "%a%a(%a)"
+        ppos p
+        pp_print_ident id
+        (pp_print_list pp_print_expr ",@ ") l
+
+    | Call (p, params, id, l) ->
 
       Format.fprintf ppf
         "%a%a<%a>(%a)"
         ppos p
         pp_print_ident id
         (pp_print_list pp_print_lustre_type ";") params
-        (pp_print_list pp_print_expr ",@ ") l
-
-    | Call (p, None, id, l) ->
-
-      Format.fprintf ppf
-        "%a%a(%a)"
-        ppos p
-        pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l
     
     | AnyOp (p, id, e1, Some e2) ->

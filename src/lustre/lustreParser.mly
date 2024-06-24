@@ -1139,7 +1139,7 @@ node_call:
 
   (* Call a node without static parameters *)
   | s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { A.Call (mk_pos $startpos, None, s, a) }
+    { A.Call (mk_pos $startpos, [], s, a) }
 
   (* Call a node with static parameters *)
   | s = ident; 
@@ -1148,7 +1148,7 @@ node_call:
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      A.Call (mk_pos $startpos, Some ps, s, a) 
+      A.Call (mk_pos $startpos, ps, s, a) 
     }
 
 
