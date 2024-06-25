@@ -1143,11 +1143,12 @@ a ``any`` expression holds when model checking the component.
 Polymorphic nodes
 -----------------
 
-There are some situations where the user may wish to express multiple variations of the 
+In some situations where the user may want to express multiple variations of the 
 same node, where the only difference between them lies in types. 
-For example, consider different versions of the ``SafePre``
+For example, consider different type variations of the ``SafePre``
 node that returns the previous value of its single input, but initialized with 
-the first value of the input stream.
+the first value of the input stream. Both polymorphic type parameters and 
+call-site polymorphic arguments are specified with double angle bracket syntax ``<<ty1; ...; tyn>>``.
 
 .. code-block:: none
 
@@ -1185,18 +1186,18 @@ and the specific type arguments at the call site.
    tel
 
 Note that ``SafePre`` can be called 
-with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(x)`` or ``SafePre<<[int, U]>>(x)``,
-where ``U`` is itself a type parameter in the caller's declaration.
+with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(.)`` or ``SafePre<<[int, U]>>(.)``,
+where ``U`` is itself a type parameter in the caller's declaration).
 Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
 
 Another example is a polymorphic node ``PairSwap``, which takes a pair tuple as input and 
-returns a pair tuple as output, which is equal to the input but with the tuple elements swapped.
+returns the corresponding swapped pair tuple as output.
 
 .. code-block:: none
 
-   node PairSwap<<T, U>>(x: [T, U]) returns (y: [U, T]);
+   node PairSwap<<T; U>>(x: [T, U]) returns (y: [U, T]);
    let
-     y = (x.%1, x.%0);
+   y = {x.%1, x.%0};
    tel
 
 For a polymorphic node to typecheck, it must be meaningful for *any* type instantiation
@@ -1209,6 +1210,7 @@ To illustrate these semantics, even though the ``+`` operator is overloaded betw
 the following polymorphic node will give a type error, as it cannot be instantiated with any type.
 
 .. code-block:: none
+
    -- Generates a type error
    node BadPolymorphicAdd<<T>>(x1, x2: T) returns (y: T);
    let
