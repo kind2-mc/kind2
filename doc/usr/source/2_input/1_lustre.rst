@@ -1143,12 +1143,11 @@ a ``any`` expression holds when model checking the component.
 Polymorphic nodes
 -----------------
 
-In some situations where the user may want to express multiple variations of the 
-same node, where the only difference between them lies in types. 
-For example, consider different type variations of the ``SafePre``
-node that returns the previous value of its single input, but initialized with 
-the first value of the input stream. Both polymorphic type parameters and 
-call-site polymorphic arguments are specified with double angle bracket syntax ``<<ty1; ...; tyn>>``.
+In some situations, the user may want to express multiple variations a node, 
+where the only differences between them lie in the input and output types. 
+For example, consider different interface type variations of the ``SafePre``
+node, which returns the previous value of its single input, but initialized with 
+the first value of the input stream. 
 
 .. code-block:: none
 
@@ -1170,7 +1169,8 @@ call-site polymorphic arguments are specified with double angle bracket syntax `
 
 Kind 2 allows the user to express such variations more concisely through *polymorphic nodes*,
 where the user includes a set of polymorphic type parameters in the node declaration
-and the specific type arguments at the call site.
+and the specific type arguments at the call site. Both polymorphic type parameters and 
+call-site polymorphic arguments are specified with double angle bracket syntax ``<<ty1; ...; tyn>>``.
 
 .. code-block:: none
 
@@ -1186,11 +1186,11 @@ and the specific type arguments at the call site.
    tel
 
 Note that ``SafePre`` can be called 
-with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(.)`` or ``SafePre<<[int, U]>>(.)``,
+with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(.)`` and ``SafePre<<[int, U]>>(.)``,
 where ``U`` is itself a type parameter in the caller's declaration).
 Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
 
-Another example is a polymorphic node ``PairSwap``, which takes a pair tuple as input and 
+Another example is a polymorphic node ``PairSwap``, which takes a polymorphic pair tuple as input and 
 returns the corresponding swapped pair tuple as output.
 
 .. code-block:: none
@@ -1200,10 +1200,10 @@ returns the corresponding swapped pair tuple as output.
    y = {x.%1, x.%0};
    tel
 
-For a polymorphic node to typecheck, it must be meaningful for *any* type instantiation
-(in other words, the type parameter is semantically universally quantified). 
-This type of polymorphism is called *parametric polymorphism*, and is sometimes referred to as 
-*generics* in general-purpose programming languages like Java.
+For a polymorphic node to be well-typed, it must be meaningful for *any* type instantiation
+(in other words, the type parameters are semantically universally quantified). 
+This type of polymorphism is called *parametric polymorphism*, and is also sometimes referred to as 
+*generics* in general-purpose programming languages.
 
 To illustrate these semantics, even though the ``+`` operator is overloaded between 
 ``int -> int -> int`` and ``real -> real -> real``, 
