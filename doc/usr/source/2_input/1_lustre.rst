@@ -1139,3 +1139,82 @@ was not included.
 
 Moreover, Kind 2 checks that any specified assumption in
 a ``any`` expression holds when model checking the component.
+
+Polymorphic nodes
+-----------------
+
+There are some situations where the user may wish to express multiple variations of the 
+same node, where the only difference between them lies in types. 
+For example, consider different versions of the ``SafePre``
+node that returns the previous value of its single input, but initialized with 
+the first value of the input stream.
+
+.. code-block:: none
+
+   node SafePreInt(x: int) returns (y: int);
+   let
+     y = x -> pre x;
+   tel
+
+   node SafePreBool(x: bool) returns (y: bool);
+   let
+     y = x -> pre x;
+   tel
+
+   node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+   let
+     y1 = SafePreInt(y1);
+     y2 = SafePreBool(y2);
+   tel
+
+Kind 2 allows the user to express such variations more concisely through *polymorphic nodes*,
+where the user includes a set of polymorphic type parameters in the node declaration
+and the specific type arguments at the call site.
+
+.. code-block:: none
+
+   node SafePre<<T>>(x: T) returns (y: T);
+   let
+     y = x -> pre x;
+   tel
+
+   node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+   let
+     y1 = SafePre<<int>>(y1);
+     y2 = SafePre<<bool>>(y2);
+   tel
+
+Note that ``SafePre`` can be called 
+with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(x)`` or ``SafePre<<[int, U]>>(x)``,
+where ``U`` is itself a type parameter in the caller's declaration.
+Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
+
+Another example is a polymorphic node ``PairSwap``, which takes a pair tuple as input and 
+returns a pair tuple as output, which is equal to the input but with the tuple elements swapped.
+
+.. code-block:: none
+
+   node PairSwap<<T, U>>(x: [T, U]) returns (y: [U, T]);
+   let
+     y = (x.%1, x.%0);
+   tel
+
+For a polymorphic node to typecheck, it must be meaningful for *any* type instantiation
+(in other words, the type parameter is semantically universally quantified). 
+This type of polymorphism is called *parametric polymorphism*, and is sometimes referred to as 
+*generics* in general-purpose programming languages like Java.
+
+To illustrate these semantics, even though the ``+`` operator is overloaded between 
+``int -> int -> int`` and ``real -> real -> real``, 
+the following polymorphic node will give a type error, as it cannot be instantiated with any type.
+
+.. code-block:: none
+   -- Generates a type error
+   node BadPolymorphicAdd<<T>>(x1, x2: T) returns (y: T);
+   let
+     y = x1 + x2;
+   tel
+
+Note that polymorphic nodes can have ``check(.)`` statements just as non-polymorphic nodes.
+When checking properties of polymorphic nodes at the top level, the type parameters are interpreted 
+as abstract types.
