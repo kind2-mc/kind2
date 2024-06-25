@@ -556,7 +556,7 @@ let rec pp_print_expr ppf =
     | Call (p, params, id, l) ->
 
       Format.fprintf ppf
-        "%a%a<%a>(%a)"
+        "%a%a<<%a>>(%a)"
         ppos p
         pp_print_ident id
         (pp_print_list pp_print_lustre_type ";") params
