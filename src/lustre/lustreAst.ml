@@ -258,7 +258,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * ident list
+type contract_call = position * ident * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -1067,12 +1067,21 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
     (pp_print_list pp_print_contract_ensure "@ ") enss
     (cond_new_line ((reqs,enss) <> ([],[]))) ()
 
-let pp_print_contract_call fmt (_, id, in_params, out_params) =
-  Format.fprintf
-    fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
-    pp_print_ident id
-    (pp_print_list pp_print_expr ", ") in_params
-    (pp_print_list pp_print_ident ", ") out_params
+let pp_print_contract_call fmt (_, id, tys, in_params, out_params) =
+  match tys with 
+  | [] ->
+    Format.fprintf
+      fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
+      pp_print_ident id
+      (pp_print_list pp_print_expr ", ") in_params
+      (pp_print_list pp_print_ident ", ") out_params
+  | tys ->
+    Format.fprintf
+      fmt "@[<hov 2>import %a<<%a>>(@,%a@,) returns (@,%a@,) ;@]"
+      pp_print_ident id
+      (pp_print_list pp_print_lustre_type "; ") tys
+      (pp_print_list pp_print_expr ", ") in_params
+      (pp_print_list pp_print_ident ", ") out_params
 
 let pp_print_contract_assump_vars fmt (_, vars) =
   Format.fprintf

@@ -438,7 +438,7 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
 = fun node_name -> function
   | LA.AssumptionVars _ -> empty_dependency_analysis_data
-  | LA.ContractCall (pos, i, es, _) ->
+  | LA.ContractCall (pos, i, _, es, _) ->
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix i pos)
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
@@ -756,7 +756,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contr
       mk_contract_eqn_map m'' eqns
   | (LA.GhostVars (_, (GhostVarDec(_, [])), _)) :: eqns -> 
     mk_contract_eqn_map m eqns
-  | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 
+  | (LA.ContractCall (pos, i, _, _, _) as cc ) :: eqns -> 
     let* m' = check_and_add m pos contract_prefix i (Some cc) in
     mk_contract_eqn_map m' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
@@ -981,7 +981,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
   = fun ad ->
   function
   | LA.AssumptionVars _ -> R.ok ad
-  | LA.ContractCall (pos, i, es, _) ->
+  | LA.ContractCall (pos, i, _, es, _) ->
     R.ok (connect_g_pos 
       (List.fold_left union_dependency_analysis_data ad
         (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
@@ -1059,7 +1059,7 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
   function
   | LA.Assume (_, _, _, e) ->
     check_eqn_no_current_vals ids ad e
-  | LA.ContractCall (_, _, es, _ ) ->
+  | LA.ContractCall (_, _, _, es, _ ) ->
     R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) es)
   (* | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
@@ -1220,7 +1220,7 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
   | LA.Mode (_, i, _, _) -> [i]
   | LA.GhostVars (_, (GhostVarDec (_, tis)), _) -> 
     List.map (fun (_, i, _) -> i) tis
-  | LA.ContractCall (_, cc, _, _) ->
+  | LA.ContractCall (_, cc, _, _, _) ->
      (match (IMap.find_opt cc m) with
      | Some ids -> List.map (fun i -> HString.concat (HString.mk_hstring "::") [cc;i]) ids
      | None -> failwith ("Undeclared contract " ^ (HString.string_of_hstring cc) ^ ". Should not happen!"))  

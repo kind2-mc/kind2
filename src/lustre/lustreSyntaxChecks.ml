@@ -286,7 +286,7 @@ function
 let build_global_ctx (decls:LustreAst.t) =
   let get_imports = function
     | Some (_, eqns) -> List.fold_left (fun a e -> match e with
-      | LA.ContractCall (_, i, _, _) -> StringSet.add i a
+      | LA.ContractCall (_, i, _, _, _) -> StringSet.add i a
       | _ -> a)
       StringSet.empty eqns
     | None -> StringSet.empty
@@ -352,7 +352,7 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports, false)
-    | ContractCall (_, i, ins, _) ->
+    | ContractCall (_, i, _, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
@@ -654,7 +654,7 @@ let no_stateful_contract_imports ctx contract =
       | None -> Ok ()
     in
     let over_eqn acc = function
-      | LA.ContractCall (pos, i, _, _) ->
+      | LA.ContractCall (pos, i, _, _, _) ->
         acc >> (check_import_stateful StringSet.empty pos i i)
       | _ -> acc
     in
@@ -949,7 +949,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       | UntypedConst (_, i, e)
       | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
     )
-    | ContractCall (pos, i, args, outputs) -> (
+    | ContractCall (pos, i, _, args, outputs) -> (
       if StringMap.mem i ctx.contracts then (
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>

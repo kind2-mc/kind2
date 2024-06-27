@@ -495,11 +495,17 @@ mode_equation:
   }
 
 contract_import:
-  IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
-    A.ContractCall (mk_pos $startpos, n, in_params, out_params)
-  }
+  | IMPORTCONTRACT ; n = ident ;
+    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
+    { A.ContractCall (mk_pos $startpos, n, [], in_params, out_params) }
+  | IMPORTCONTRACT ; n = ident ;
+    tys = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type);
+    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
+    { A.ContractCall (mk_pos $startpos, n, tys, in_params, out_params) }
+
+   
 
 assumption_vars:
   ASSUMP_VARS ; ids = ident_list_pos; SEMICOLON

@@ -264,7 +264,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * ident list
+type contract_call = position * ident * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list

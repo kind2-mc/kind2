@@ -451,10 +451,10 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
 let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
 = fun ctx pos nname ty params -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
-  let ty_vars = lookup_node_ty_vars ctx nname in 
-  match ty_vars with 
-  | None -> assert false 
-  | Some ty_vars -> 
+  match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
+  | None, None -> assert false 
+  | Some ty_vars, _ 
+  | _, Some ty_vars ->
     let* substitution = 
       try 
         R.ok (List.combine (SI.elements ty_vars) params) 
@@ -1367,7 +1367,7 @@ and tc_ctx_contract_eqn: tc_context -> HString.t -> LA.contract_node_equation ->
   | Guarantee _ -> R.ok (ctx, [])
   | AssumptionVars _ -> R.ok (ctx, [])
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos), []) 
-  | ContractCall (_, cc, _, _) ->
+  | ContractCall (_, cc, _, _, _) ->
     match (lookup_contract_exports ctx cc) with
     | None -> failwith ("Cannot find exports for contract "
       ^ (HString.string_of_hstring cc))
@@ -1423,7 +1423,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                                 (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                 (Bool pos))
       
-    | ContractCall (pos, cname, args, rets) ->
+    | ContractCall (pos, cname, params, args, rets) ->
       let* ret_tys = R.seq (List.map (infer_type_expr ctx)
         (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
@@ -1439,6 +1439,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
       let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
       (match (lookup_contract_ty ctx cname) with
       | Some inf_ty -> 
+          let* inf_ty = instantiate_type_variables ctx pos cname inf_ty params in
           R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
             (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
@@ -1555,7 +1556,7 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (ctx, warnings) =
     else if (member_ty ctx mname) then
       type_error pos (Redeclaration mname)
     else R.ok (add_ty ctx mname (Bool pos), warnings)
-  | LA.ContractCall (p, cc, _, _) ->
+  | LA.ContractCall (p, cc, _, _, _) ->
     (match (lookup_contract_exports ctx cc) with
     | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring cc)))
     | Some m -> R.ok (List.fold_left
@@ -1584,7 +1585,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
         if (member_ty ctx mname)
         then type_error pos (Redeclaration mname)
         else R.ok [(mname, (LA.Bool pos))] 
-      | LA.ContractCall (p, cc, _, _) ->
+      | LA.ContractCall (p, cc, _, _, _) ->
         (match (lookup_contract_exports ctx cc) with
         | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring cc)))
         | Some m -> R.ok (List.map

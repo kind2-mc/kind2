@@ -650,7 +650,7 @@ let contract_node_equation_has_pre_or_arrow = function
       List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
       |> some_of_list
   )
-| ContractCall (_, _, ins, _) ->
+| ContractCall (_, _, _, ins, _) ->
   some_of_list (List.map has_pre_or_arrow ins)
 | AssumptionVars _ -> None
 

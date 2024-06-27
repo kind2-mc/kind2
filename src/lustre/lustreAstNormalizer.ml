@@ -1349,7 +1349,7 @@ and normalize_contract info map ivars ovars (p, items) =
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
         Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
-      | ContractCall (pos, name, inputs, outputs) ->
+      | ContractCall (pos, name, params, inputs, outputs) ->
         let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info map) inputs in
         let noutputs = List.map
           (fun id ->
@@ -1395,7 +1395,7 @@ and normalize_contract info map ivars ovars (p, items) =
             gids.contract_calls
           }
         in
-        ContractCall (pos, cref, inputs, outputs), gids, warnings, interp
+        ContractCall (pos, cref, params, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration info map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
