@@ -1360,7 +1360,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (ghost_locals2, ghost_equations2, modes2) =
-    let over_calls (gls, ges, ms) (_, id, params, _, _) =
+    let over_calls (gls, ges, ms) (_, id, _, _, _) =
       let (_, contract_scope, contract_eqns) =
         (GI.StringMap.find id gids.GI.contract_calls)
       in
@@ -1388,7 +1388,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
-    let over_calls (ams, gs) (_, id, params, _, _) =
+    let over_calls (ams, gs) (_, id, _, _, _) =
       let (_, scope, contract_eqns) =
         GI.StringMap.find id gids.GI.contract_calls
       in
@@ -1813,6 +1813,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
   (* Oracles                                                            *)
   (* ****************************************************************** *)
   in
+  (*!! Might need to update types of oracles here *)
   let (oracles, oracle_state_var_map) =
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
