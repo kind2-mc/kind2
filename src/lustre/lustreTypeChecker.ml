@@ -1610,11 +1610,12 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos (Redeclaration cname)
-    else build_node_fun_ty pos ctx cname inputs outputs >>= fun (fun_ty, warnings) ->
-        extract_exports cname ctx contract >>= fun export_ctx  ->  
-        let ctx = add_ty_vars_node ctx cname params in
-        let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
-        R.ok (ctx, warnings)
+    else  
+      let ctx = add_ty_vars_contract ctx cname params in
+      let* fun_ty, warnings = build_node_fun_ty pos ctx cname inputs outputs in
+      let* export_ctx = extract_exports cname ctx contract in  
+      let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
+      R.ok (ctx, warnings)
 
 and tc_ctx_of_declaration: (tc_context * [> warning] list) -> LA.declaration -> (tc_context * [> warning] list, [> error]) result
     = fun (ctx', warnings) ->
@@ -1749,17 +1750,19 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
       match nname with 
       | None -> type_error pos (UndeclaredType i)
       | Some nname -> 
-        match lookup_node_ty_vars ctx nname with 
-        | Some ty_vars -> 
+        match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
+        | Some ty_vars, _ 
+        | _, Some ty_vars -> 
           if (SI.mem i ty_vars) 
           then 
-            (*!! Converting to TypeVariable here, but this context is forgotten later. 
-                Still need some principled way of mapping identifiers to type variables rather than UserTypes. *)
             check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
           else 
             (pp_print_tc_context Format.std_formatter ctx;
             type_error pos (UndeclaredType i))
-        | None -> type_error pos (UndeclaredType i)
+        | None, None -> 
+          print_endline (HString.string_of_hstring nname);
+          print_endline (HString.string_of_hstring i);
+          type_error pos (UndeclaredType i)
     )
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with

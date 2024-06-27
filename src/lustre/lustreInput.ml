@@ -145,7 +145,7 @@ let type_check declarations =
     (* Step 1. Basic syntax checks on declarations  *)
     let* warnings1, declarations = LS.syntax_check declarations in
 
-    (* Step 2. Split program into top level const and type delcs, and node/contract decls *)
+    (* Step 2. Split program into top level const and type decls, and node/contract decls *)
     let (const_type_decls, node_contract_src) = LH.split_program declarations in
 
     (* Step 3. Dependency analysis on the top level declarations.  *)

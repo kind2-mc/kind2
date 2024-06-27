@@ -1752,7 +1752,6 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         in
         match Lib.find_opt_index find_decl decls_tys with 
         | None ->
-          print_endline "got here 1";
           (* Create fresh identifier for instantiated polymorphic node *)
           let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (List.length decls_tys |> string_of_int) ^ "_" in
           print_endline (string_of_int (List.length decls_tys));
@@ -1770,7 +1769,6 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
           calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)],
           node_decls_map  
         | Some i ->
-          print_endline "got here 2";
           (* This polymorphic instantiation already exists *)
           let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (i |> string_of_int) ^ "_" in
           let pident = HString.concat2 (HString.mk_hstring prefix) ident in

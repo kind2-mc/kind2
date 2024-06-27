@@ -82,7 +82,8 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
                       contract_exports 
                   ; enum_vars:enum_variants
-                  ; ty_vars: ty_var_store        (* stores the type variables associated with each node *)
+                  ; ty_vars: ty_var_store           (* stores the type variables associated with each node *)
+                  ; contract_ty_vars: ty_var_store  (* stores the type variables associated with each contract *)
                   }
 (** The type checker global context *)
 
@@ -99,6 +100,7 @@ let empty_tc_context: tc_context =
   ; contract_export_ctx = IMap.empty
   ; enum_vars = IMap.empty
   ; ty_vars = IMap.empty
+  ; contract_ty_vars = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -192,6 +194,10 @@ let lookup_node_ty_vars: tc_context -> LA.ident -> ty_set option
   = fun ctx i -> IMap.find_opt i (ctx.ty_vars)
 (** Lookup a node's type variables *)
 
+let lookup_contract_ty_vars: tc_context -> LA.ident -> ty_set option
+  = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
+(** Lookup a contract's type variables *)
+
 let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
   = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
 
@@ -230,6 +236,12 @@ let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
     let ty_vars = List.fold_left (fun acc id -> SI.add id acc) SI.empty ty_vars in
     {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
 (**  Add the type variables of the node *)
+
+let add_ty_vars_contract: tc_context -> LA.ident -> LA.ident list -> tc_context
+  = fun ctx i contract_ty_vars -> 
+    let contract_ty_vars = List.fold_left (fun acc id -> SI.add id acc) SI.empty contract_ty_vars in
+    {ctx with contract_ty_vars = IMap.add i contract_ty_vars (ctx.contract_ty_vars)}
+(**  Add the type variables of the contract *)
 
 let add_node_param_attr : tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
   = fun ctx i args ->
@@ -285,6 +297,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_vars)
                                    (ctx2.ty_vars))
+                    ; contract_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.contract_ty_vars)
+                                   (ctx2.contract_ty_vars))
                      }
 (** Unions the two typing contexts *)
 
@@ -410,7 +425,8 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
        ^^ "Declared Types={%a}\n"
        ^^ "Contract exports={%a}\n"
        ^^ "Enumeration Variants={%a}\n"
-       ^^ "Type variables={%a}\n")
+       ^^ "Type variables={%a}\n"
+       ^^ "Contract type variables={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.node_ctx)
@@ -420,6 +436,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_contract_exports (ctx.contract_export_ctx)
       pp_print_enum_variants (ctx.enum_vars)
       pp_print_type_variables (ctx.ty_vars)
+      pp_print_type_variables (ctx.contract_ty_vars)
 (** Pretty print the complete type checker context*)
                          
 (** {1 Helper functions that uses context }  *)
