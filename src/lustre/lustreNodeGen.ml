@@ -1359,16 +1359,38 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* ****************************************************************** *)
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
-  in let (ghost_locals2, ghost_equations2, modes2) =
-    let over_calls (gls, ges, ms) (_, id, _, _, _) =
+  in let (gids, cstate, ghost_locals2, ghost_equations2, modes2) =
+    let over_calls (gids, cstate, gls, ges, ms) (_, cref, ps, _, _) =
+      let (_, sc, _) = StringMap.find cref gids.GI.contract_calls in
+      let cname = sc |> List.rev |> List.hd |> snd in
+      (* Update cstate with uninstantiated params *)
+      let params = match Ctx.lookup_contract_ty_vars ctx cname with 
+      | None -> [] 
+      | Some params -> Ctx.SI.elements params 
+      in
+      let cstate = List.fold_left (fun acc param -> 
+        let empty_map = ref (empty_identifier_maps None) in
+        let t = compile_ast_type cstate ctx empty_map (A.AbstractType (Lib.dummy_pos, param)) in
+        let type_alias = StringMap.add param t acc.type_alias in
+        { acc with type_alias } 
+      ) cstate params in
+      (* Instantiate polymorphic types in imported contract *)
+      let gids_oracles = List.map (fun (oname, ty, expr) -> 
+        HString.pp_print_hstring Format.std_formatter oname;
+        let ty = LustreTypeChecker.instantiate_type_variables ctx Lib.dummy_pos cname ty ps in 
+        match ty with 
+        | Ok ty -> A.pp_print_lustre_type Format.std_formatter ty; oname, ty, expr
+        | Error _ -> assert false
+      ) gids.GI.oracles in 
+      let gids = { gids with oracles = gids_oracles } in 
       let (_, contract_scope, contract_eqns) =
-        (GI.StringMap.find id gids.GI.contract_calls)
+        (GI.StringMap.find cref gids.GI.contract_calls)
       in
       map := { !map with contract_scope };
-      let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
-      in gl @ gls, ge @ ges, m @ ms
-    in List.fold_left over_calls ([], [], []) contract_calls
-  in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
+      let (gids, cstate, gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
+      in gids, cstate, gl @ gls, ge @ ges, m @ ms
+    in List.fold_left over_calls (gids, cstate, [], [], []) contract_calls
+  in gids, cstate, ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
 
 and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* ****************************************************************** *)
@@ -1740,10 +1762,9 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         (* Instantiate types in oracles of called node *)
         let called_gids = StringMap.find ident gids_map in
         let called_gids_oracles = List.map (fun (id, ty, expr) -> 
-          A.pp_print_lustre_type Format.std_formatter ty;
           let ty = LustreTypeChecker.instantiate_type_variables ctx pos ident ty ps in 
           match ty with 
-          | Ok ty -> A.pp_print_lustre_type Format.std_formatter ty; id, ty, expr
+          | Ok ty -> id, ty, expr
           | Error _ -> assert false
         ) called_gids.oracles in 
         let called_gids = { called_gids with oracles = called_gids_oracles } in 
@@ -1765,10 +1786,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
         | None ->
           (* Create fresh identifier for instantiated polymorphic node *)
           let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (List.length decls_tys |> string_of_int) ^ "_" in
-          print_endline (string_of_int (List.length decls_tys));
           let pident = HString.concat2 (HString.mk_hstring prefix) ident in
-          print_endline (HString.string_of_hstring ident);
-          print_endline (HString.string_of_hstring pident);
           (* Remember new instantiation *)
           let decl = fst (List.hd decls_tys) in
           let node_decls_map = StringMap.add ident (decls_tys @ [decl, ps]) node_decls_map in
@@ -1816,10 +1834,11 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
   (* Contract State Variables                                           *)
   (* ****************************************************************** *)
   in
-  let (ghost_locals, ghost_equations, modes) =
+  let (gids, cstate, ghost_locals, ghost_equations, modes) =
     match contract with
-    | Some (_, contract) -> compile_contract_variables cstate gids ctx map [] node_scope contract
-    | None -> [], [], []
+    | Some (_, contract) -> 
+      compile_contract_variables cstate gids ctx map [] node_scope contract
+    | None -> gids, cstate, [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)

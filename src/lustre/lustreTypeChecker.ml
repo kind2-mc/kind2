@@ -1757,9 +1757,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
           if (SI.mem i ty_vars) 
           then 
             check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
-          else 
-            (pp_print_tc_context Format.std_formatter ctx;
-            type_error pos (UndeclaredType i))
+          else type_error pos (UndeclaredType i)
         | None, None -> 
           print_endline (HString.string_of_hstring nname);
           print_endline (HString.string_of_hstring i);

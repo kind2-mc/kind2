@@ -1357,7 +1357,11 @@ and normalize_contract info map ivars ovars (p, items) =
               (* If output argument is an output of the caller, keep type *)
               match List.find_opt (fun (_, oid, _, _) -> HString.equal id oid) ovars with
               | None -> None
-              | Some (_, _, ty, _) -> Some ty
+              | Some (_, _, ty, _) -> 
+                let ty' = LustreTypeChecker.instantiate_type_variables info.context pos name ty params in 
+                match ty' with 
+                | Ok ty' -> Some ty'
+                | Error _ ->  Some ty
             in
             match StringMap.find_opt id info.interpretation with
             | Some new_id -> (new_id, ty)
@@ -1371,7 +1375,11 @@ and normalize_contract info map ivars ovars (p, items) =
               (* If input argument is an input of the caller, keep type *)
               match List.find_opt (fun (_, id, _, _, _) -> HString.equal i id) ivars with
               | None -> None
-              | Some (_, _, ty, _, _) -> Some ty
+              | Some (_, _, ty, _, _) -> 
+                let ty' = LustreTypeChecker.instantiate_type_variables info.context pos name ty params in 
+                match ty' with 
+                | Ok ty' -> Some ty'
+                | Error _ ->  Some ty
             in
             (i, ty)
           | _ -> assert false)
