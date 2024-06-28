@@ -1706,12 +1706,12 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
   (* ****************************************************************** *)
   in
   let cstate, calls, _ =
-    let over_calls = fun (cstate, calls, node_decls_map) ((id, var, cond, r, ident, _, ps, args, defs) as call) ->
+    let over_calls = fun (cstate, calls, node_decls_map) ((pos, var, cond, r, ident, _, ps, args, defs) as call) ->
       let node_id = mk_ident ident in
       let node_id, cstate, calls, node_decls_map = match ps with 
       | [] -> node_id, cstate, calls @ [call], node_decls_map
       (* If the call is polymorphic, we compile the node now (on the fly)
-        and update cstate *)
+         and update cstate *)
       | _ -> (
         let is_function, ext, ips, ops, locs, nis, c = 
           match StringMap.find ident node_decls_map with
@@ -1737,6 +1737,17 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
           | Ok ty -> (pos, id, ty, cl)
           | Error _ -> assert false
         )  ops in
+        (* Instantiate types in oracles of called node *)
+        let called_gids = StringMap.find ident gids_map in
+        let called_gids_oracles = List.map (fun (id, ty, expr) -> 
+          A.pp_print_lustre_type Format.std_formatter ty;
+          let ty = LustreTypeChecker.instantiate_type_variables ctx pos ident ty ps in 
+          match ty with 
+          | Ok ty -> A.pp_print_lustre_type Format.std_formatter ty; id, ty, expr
+          | Error _ -> assert false
+        ) called_gids.oracles in 
+        let called_gids = { called_gids with oracles = called_gids_oracles } in 
+        let gids_map = StringMap.add ident called_gids gids_map in
         let params = match Ctx.lookup_node_ty_vars ctx ident with 
         | None -> []
         | Some params -> Ctx.SI.elements params 
@@ -1766,7 +1777,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
                                           ident (Some pident) ext params ips ops locs nis c in 
           mk_ident pident, 
           cstate, 
-          calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)],
+          calls @ [(pos, var, cond, r, ident, Some pident, ps, args, defs)],
           node_decls_map  
         | Some i ->
           (* This polymorphic instantiation already exists *)
@@ -1774,7 +1785,7 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
           let pident = HString.concat2 (HString.mk_hstring prefix) ident in
           mk_ident pident, 
           cstate, 
-          calls @ [(id, var, cond, r, ident, Some pident, ps, args, defs)],
+          calls @ [(pos, var, cond, r, ident, Some pident, ps, args, defs)],
           node_decls_map                             
         ) in
       let called_node = N.node_of_name node_id cstate.nodes in
@@ -1813,7 +1824,6 @@ and compile_node_decl gids_map is_function cstate ctx node_decls_map i pi ext pa
   (* Oracles                                                            *)
   (* ****************************************************************** *)
   in
-  (*!! Might need to update types of oracles here *)
   let (oracles, oracle_state_var_map) =
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
