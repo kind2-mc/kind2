@@ -1,0 +1,30 @@
+node N<<T>>(x: T) returns (y: T) 
+let 
+    y = pre x;
+tel
+
+node M<<T2>>(x1: int;) returns (y1: int;)
+let
+    y1 = N<<int>>(x1); 
+    check true -> (y1 = pre x1);
+tel
+
+(*
+    TODO:
+    0. Polymorphic contracts and contract calls
+    1. Try out refinement types as type parameters. They need to be normalized!
+    2. Polymorphic nodes w/ unguarded pres (oracles need to be instantiated with correct type)
+*)
+
+-- Specific implementation-level questions/notes:
+--   * Syntax checks specific to polymorphism?
+--   * Consider shadowing
+--   * Circularity checks specific to polymorphism?
+---  * In node calls, Node<T>(arg), T will initially be parsed as a UserType, but it might actually 
+--     need to be a type variable, depending on the context (if T is a type parameter in the callee).
+--     We can implement it this way, but there might be a clever way to parse to UserType or TypeVariable initially,
+--     rather than in a later pass. It may be useful to see how we're handling AbstractType.
+--     Maybe its correct to leave them as UserType in typed idents, and then we can add the TypeVariable part into the context,
+--     like abstract type
+--   * Remember to allow bracket and paren arguments to refinement types, e.g. Type BNat(n: Nat) = subtype { x: int | 0 <= x and x <= n }
+--   * Test hanging TypeVariable/UserType

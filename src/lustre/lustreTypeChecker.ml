@@ -452,7 +452,14 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
 = fun ctx pos nname ty params -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
   match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
-  | None, None -> assert false 
+  | None, None ->
+    let* substitution = 
+      try 
+        R.ok (List.combine [] params) 
+      with Invalid_argument _ -> 
+        type_error pos (InvalidPolymorphicCall nname)
+    in 
+    R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
   | Some ty_vars, _ 
   | _, Some ty_vars ->
     let* substitution = 

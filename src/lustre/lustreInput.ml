@@ -47,6 +47,7 @@ module LAD = LustreArrayDependencies
 module LDN = LustreDesugarAnyOps
 module LFR = LustreFlattenRefinementTypes
 module LGI = LustreGenRefTypeImpNodes
+module LIP = LustreInstantiatePolyCalls
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -203,7 +204,12 @@ let type_check declarations =
     let* _ = LIA.interpret_global_consts inlined_global_ctx const_inlined_type_and_consts in
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 17. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 17: Instantiate polymorphic nodes with concrete types *)
+    let const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_calls inlined_global_ctx const_inlined_nodes_and_contracts in
+
+    List.iter (fun decl -> LA.pp_print_declaration Format.std_formatter decl; Format.pp_print_string Format.std_formatter "\n") const_inlined_nodes_and_contracts;
+
+    (* Step 18. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings5) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
