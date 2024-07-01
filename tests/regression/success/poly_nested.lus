@@ -1,6 +1,6 @@
 node N<<T>>( const n: int; x: T^n) returns (y: T^n) 
 let 
-    y = x -> pre x;
+    y = x -> pre x; 
 tel
 
 node M<<T2>>(x1: T2^3; x2: bool^5) returns (y1: T2^3; y2: bool^5)

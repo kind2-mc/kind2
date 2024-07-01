@@ -205,7 +205,7 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 17: Instantiate polymorphic nodes with concrete types *)
-    let const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_calls inlined_global_ctx const_inlined_nodes_and_contracts in
+    let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_calls inlined_global_ctx const_inlined_nodes_and_contracts in
 
     List.iter (fun decl -> LA.pp_print_declaration Format.std_formatter decl; Format.pp_print_string Format.std_formatter "\n") const_inlined_nodes_and_contracts;
 

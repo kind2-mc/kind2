@@ -113,6 +113,11 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
 
 val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
 
+val extract_exports: HString.t ->
+  tc_context ->
+  LA.contract ->
+  (tc_context, [> error ]) result
+
 val add_io_node_ctx :
   tc_context ->
   LA.const_clocked_typed_decl list ->

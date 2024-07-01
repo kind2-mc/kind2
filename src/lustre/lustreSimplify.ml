@@ -2091,8 +2091,7 @@ and eval_ast_type ctx = eval_ast_type_flatten false ctx
 (* Evaluate a parsed type expression to a trie of types of indexes,
    optionally flattening/unrolling arrays if 'flatten_arrays' is true. *)
 and eval_ast_type_flatten flatten_arrays ctx = function
-
-  | A.TVar _ -> Lib.todo "Trying to flatten type Variable. Should not happen"
+   
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool _ -> D.singleton D.empty_index Type.t_bool
 

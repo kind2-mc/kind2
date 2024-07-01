@@ -134,7 +134,6 @@ let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
 
 let rec unannot_pos = function
-  | A.TVar (_, i) -> A.TVar (dpos, i)
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
   | A.UInt8 _ -> A.UInt8 dpos

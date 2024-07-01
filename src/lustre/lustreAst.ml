@@ -126,7 +126,6 @@ type expr =
 
 (** A Lustre type *)
 and lustre_type =
-  | TVar of position * ident
   | Bool of position
   | Int of position
   | UInt8 of position
@@ -593,7 +592,6 @@ and pp_print_field_assign ppf (i, e) =
 
 (* Pretty-print a Lustre type *)
 and pp_print_lustre_type ppf = function
-  | TVar (_, i) -> pp_print_ident ppf i
   | Bool _ -> Format.fprintf ppf "bool"
   | Int _ -> Format.fprintf ppf "int"
   | UInt8 _ -> Format.fprintf ppf "uint8"

@@ -99,7 +99,6 @@ type group_expr =
 
 (** A Lustre type *)
 type lustre_type =
-  | TVar of position * ident
   | Bool of position
   | Int of position
   | UInt8 of position

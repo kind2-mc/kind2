@@ -189,7 +189,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
-  | InvalidPolymorphicCall id -> "Call to node '" ^ HString.string_of_hstring id ^ "' is given an incorrect number of type parameters"
+  | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' is given an incorrect number of type parameters"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -457,6 +457,10 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
       try 
         R.ok (List.combine [] params) 
       with Invalid_argument _ -> 
+        Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
+        HString.pp_print_hstring nname 
+        LA.pp_print_lustre_type ty 
+        (Lib.pp_print_list LA.pp_print_lustre_type ", ") params;
         type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
@@ -466,6 +470,10 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
       try 
         R.ok (List.combine (SI.elements ty_vars) params) 
       with Invalid_argument _ -> 
+        Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
+        HString.pp_print_hstring nname 
+        LA.pp_print_lustre_type ty 
+        (Lib.pp_print_list LA.pp_print_lustre_type ", ") params;
         type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
@@ -1781,7 +1789,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
       let* v2 = IC.eval_int_expr ctx e2 in
       if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok ([])
     )
-  | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+  | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
   | AbstractType _ | EnumType _ | History _ | TypeVariable _ -> R.ok ([])
 (** Does it make sense to have this type i.e. is it inhabited? 
@@ -1807,9 +1815,6 @@ and build_node_fun_ty: Lib.position -> tc_context -> HString.t
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun ctx t1 t2 ->
   match (t1, t2) with
-  (* Type Variable *)
-  | TVar (_, i1), TVar (_, i2) -> R.ok (i1 = i2)
-
   (* Simple types *)
   | Bool _, Bool _ -> R.ok true
   | Int _, Int _ -> R.ok true
