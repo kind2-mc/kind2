@@ -407,6 +407,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/poly_hanging_type_var.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test polymorphism 4" (fun () ->
+    match load_file "./lustreTypeChecker/poly_type_checking.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | _ -> false);
   mk_test "test abstract type" (fun () ->
     match load_file "./lustreTypeChecker/abstract_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true

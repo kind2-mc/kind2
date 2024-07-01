@@ -738,6 +738,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   (* Node calls *)
   | LA.Call (pos, params, i, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
+    let* warnings = R.seq (List.map (check_type_well_formed ctx Global None false) params) in
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result =
     fun ctx args ->
       let* arg_tys = R.seq (List.map (infer_type_expr ctx) args) in

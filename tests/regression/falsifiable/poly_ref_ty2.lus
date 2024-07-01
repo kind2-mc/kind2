@@ -1,0 +1,9 @@
+node Poly<<T>>(x: T) returns (y: T) 
+let 
+    y = (x-> pre x);
+tel
+
+node M<<T2>>() returns (y3: int | Poly<<int>>(y3) < 5;)
+let
+    check true -> (Poly<<int>>(y3) = (y3 -> pre y3));
+tel
