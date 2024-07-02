@@ -262,6 +262,9 @@ let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)
 
+let remove_ty_ctx: tc_context -> tc_context 
+  = fun ctx -> {ctx with ty_ctx = IMap.empty}
+
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
   = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)

@@ -153,6 +153,8 @@ val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
 
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
+
+val remove_ty_ctx: tc_context -> tc_context
                   
 val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
 (** Adds a constant variable along with its expression and type  *)

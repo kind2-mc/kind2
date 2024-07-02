@@ -206,6 +206,10 @@ type info = {
   local_group_projection : int
 }
 
+(* At this stage, the type checking functions that take a node_id as input 
+   no longer need the actual node id. *)
+let dummy_nname = Some (HString.mk_hstring "")
+
 let split3 triples =
   let xs = List.map (fun (x, _, _) -> x) triples in
   let ys = List.map (fun (_, y, _) -> y) triples in
@@ -416,7 +420,7 @@ let mk_range_expr ctx expr_type expr =
         [disj, true]
     )
     | A.IntRange (_, l, u) ->
-      let original_ty, _ = Chk.infer_type_expr ctx expr |> unwrap in
+      let original_ty, _ = Chk.infer_type_expr ctx dummy_nname expr |> unwrap in
       let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
@@ -1594,13 +1598,13 @@ and abstract_expr ?guard force info map expr =
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap |> fst
+    else Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst
     in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =
-  let ty = Chk.infer_type_expr info.context expr |> unwrap |> fst in
+  let ty = Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
   let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
   match ty with
@@ -1640,7 +1644,7 @@ and normalize_expr ?guard info map =
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap |> fst
+    else Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst
     in
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
@@ -1664,7 +1668,7 @@ and normalize_expr ?guard info map =
       let pos = AH.pos_of_expr expr in
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else Chk.infer_type_expr info.context expr |> unwrap |> fst
+      else Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
@@ -1790,7 +1794,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
-      else Chk.infer_type_expr info.context expr |> unwrap |> fst, false
+      else Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst, false
       in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info map expr in
     let guard, gids2, warnings2, previously_guarded = match guard with
@@ -1824,7 +1828,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap |> fst
+    else Chk.infer_type_expr info.context dummy_nname expr |> unwrap |> fst
     in
     let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
     let ivars = info.inductive_variables in

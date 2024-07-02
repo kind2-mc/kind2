@@ -163,7 +163,7 @@ val expand_type_syn_reftype_history_subrange : tc_context ->
     [> error] )
   result
   
-val infer_type_expr: tc_context -> LA.expr -> (tc_type * [> warning] list, [> error]) result
+val infer_type_expr: tc_context ->  HString.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
