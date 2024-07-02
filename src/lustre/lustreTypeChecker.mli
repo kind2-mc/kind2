@@ -116,7 +116,7 @@ val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t 
 val extract_exports: HString.t ->
   tc_context ->
   LA.contract ->
-  (tc_context, [> error ]) result
+  (tc_context * [> warning] list, [> error ]) result
 
 val add_io_node_ctx :
   tc_context ->
@@ -163,7 +163,7 @@ val expand_type_syn_reftype_history_subrange : tc_context ->
     [> error] )
   result
   
-val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
+val infer_type_expr: tc_context -> LA.expr -> (tc_type * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result

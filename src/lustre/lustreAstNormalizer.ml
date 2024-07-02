@@ -416,7 +416,7 @@ let mk_range_expr ctx expr_type expr =
         [disj, true]
     )
     | A.IntRange (_, l, u) ->
-      let original_ty = Chk.infer_type_expr ctx expr |> unwrap in
+      let original_ty, _ = Chk.infer_type_expr ctx expr |> unwrap in
       let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
@@ -573,12 +573,13 @@ let mk_fresh_oracle expr_type expr =
 let mk_fresh_call info id map pos cond restart params args defaults =
   let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
+  let has_params = List.length params > 0 in
   let check_cache = CallCache.find_opt
     call_cache
     (id, cond, restart, args, defaults)
   in
-  match check_cache, has_oracles with
-  | Some nexpr, false -> nexpr, empty ()
+  match check_cache, has_oracles, has_params with
+  | Some nexpr, false, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -591,7 +592,7 @@ let mk_fresh_call info id map pos cond restart params args defaults =
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let call = (pos, name, cond, restart, id, None, params, args, defaults) in
   let gids = { (empty ()) with calls = [call] } in
-  CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
+  if not has_params then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
 let add_step_counter info =
@@ -1593,13 +1594,13 @@ and abstract_expr ?guard force info map expr =
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap
+    else Chk.infer_type_expr info.context expr |> unwrap |> fst
     in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =
-  let ty = Chk.infer_type_expr info.context expr |> unwrap in
+  let ty = Chk.infer_type_expr info.context expr |> unwrap |> fst in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
   let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
   match ty with
@@ -1639,7 +1640,7 @@ and normalize_expr ?guard info map =
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap
+    else Chk.infer_type_expr info.context expr |> unwrap |> fst
     in
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
@@ -1663,7 +1664,7 @@ and normalize_expr ?guard info map =
       let pos = AH.pos_of_expr expr in
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else Chk.infer_type_expr info.context expr |> unwrap
+      else Chk.infer_type_expr info.context expr |> unwrap |> fst
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
@@ -1789,7 +1790,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
-      else Chk.infer_type_expr info.context expr |> unwrap, false
+      else Chk.infer_type_expr info.context expr |> unwrap |> fst, false
       in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info map expr in
     let guard, gids2, warnings2, previously_guarded = match guard with
@@ -1823,7 +1824,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap
+    else Chk.infer_type_expr info.context expr |> unwrap |> fst
     in
     let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
     let ivars = info.inductive_variables in

@@ -23,8 +23,13 @@ let gen_poly_decl: Ctx.tc_context -> (A.declaration * A.lustre_type list list) H
   let decl, tyss = GI.StringMap.find nname node_decls_map in 
   let find_decl tys = 
     (List.length tys = List.length ty_args) &&
-    (List.for_all2 (fun ty p -> match Chk.eq_lustre_type ctx ty p with 
-    | Ok true -> true
+    (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic 
+       instantiations with refinement types *)
+    (List.for_all2 (fun ty p -> 
+      match Ctx.type_contains_ref ctx ty, 
+            Ctx.type_contains_ref ctx p, 
+            Chk.eq_lustre_type ctx ty p with 
+    | false, false, Ok true -> true
     | _ -> false
     ) tys ty_args) 
   in
@@ -89,7 +94,7 @@ let gen_poly_decl: Ctx.tc_context -> (A.declaration * A.lustre_type list list) H
       else if is_contract then 
         let c = Option.get c in
         let ctx = Ctx.add_ty_vars_contract ctx pnname ps in
-        let ctx = match Chk.extract_exports pnname ctx c with 
+        let ctx, _ = match Chk.extract_exports pnname ctx c with 
         | Ok ctx -> ctx 
         | Error _ -> assert false 
         in
