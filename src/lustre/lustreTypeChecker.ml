@@ -750,7 +750,10 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   (* Node calls *)
   | LA.Call (pos, ty_args, i, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
-    (*!! Still needs work ("Input" and "false") *)
+    (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
+       guesses in the case that ty_args contains refinement types. This rules out 
+       instantiated polymorphic nodes having ill-formed refinement types (with e.g., assumptions on 
+       current values of output variables).  *)
     let* warnings1 = R.seq (List.map (check_type_well_formed ctx Input nname true) ty_args) in
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type * [> warning] list, [> error]) result =
     fun ctx args ->
