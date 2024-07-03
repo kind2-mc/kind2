@@ -1005,7 +1005,7 @@ let get_node_type_and_name name =
         String.length (Str.matched_string s) + 1
       else 1
     in
-    Type, (String.sub s len_prefix (String.length s - len_prefix))
+    User, (String.sub s len_prefix (String.length s - len_prefix))
   else
     User, name
 
