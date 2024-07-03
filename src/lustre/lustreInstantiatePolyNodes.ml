@@ -382,7 +382,7 @@ let gen_poly_decls_ci
   ctx, Mode (p, id, creqs, cens), decls, node_decls_map
 | AssumptionVars _ -> ctx, ci, [], node_decls_map
 
-let instantiate_polymorphic_calls: Ctx.tc_context -> A.declaration list -> Ctx.tc_context * A.declaration list 
+let instantiate_polymorphic_nodes: Ctx.tc_context -> A.declaration list -> Ctx.tc_context * A.declaration list 
 = fun ctx decls -> 
   (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations 
      created so far) *)

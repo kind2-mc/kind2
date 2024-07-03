@@ -20,5 +20,5 @@
 module A = LustreAst
 module Ctx = TypeCheckerContext
 
-val instantiate_polymorphic_calls :
+val instantiate_polymorphic_nodes :
   Ctx.tc_context -> A.declaration list -> Ctx.tc_context * A.declaration list
