@@ -244,8 +244,8 @@ let rec minimize_node_call_args ue lst expr =
     match expr with
     | A.Const _ | A.Ident _ | A.ModeRef _
     -> expr
-    | A.Call (pos, ps, ident, args) ->
-      A.Call (pos, ps, ident, List.mapi (minimize_arg ident) args)
+    | A.Call (pos, ty_args, ident, args) ->
+      A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)

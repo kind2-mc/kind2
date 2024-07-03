@@ -178,8 +178,8 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | Call (pos, ps, id, expr_list) ->
-    Call (pos, ps, id, List.map (fun e -> substitute_naive var t e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -229,8 +229,8 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | Call (pos, ps, id, expr_list) ->
-    Call (pos, ps, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
 (* Same as apply_subst_in_type, but the substitution occurs at the type level *)
 let rec apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
@@ -1002,7 +1002,7 @@ let rec replace_with_constants: expr -> expr =
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
   (* Node calls *)
-  | Call (p, ps, i, es) -> Call (p, ps, i, List.map replace_with_constants es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es) 
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -1081,7 +1081,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
   (* Node calls *)
-  | Call (p, ps, i, es) -> Call (p, ps, i, List.map abstract_pre_subexpressions es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
   match expr with
@@ -1572,8 +1572,8 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | Call (pos, ps, id, expr_list) ->
-    Call (pos, ps, id, List.map (fun e -> rename_contract_vars e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> rename_contract_vars e) expr_list)
 
 let name_of_prop pos name k =
   match name with 

@@ -178,9 +178,9 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
-  | Call (pos, ps, id, expr_list) ->
+  | Call (pos, ty_args, id, expr_list) ->
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
-    Call (pos, ps, id, expr_list), List.flatten gen_nodes
+    Call (pos, ty_args, id, expr_list), List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

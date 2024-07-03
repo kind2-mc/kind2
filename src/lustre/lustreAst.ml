@@ -552,13 +552,13 @@ let rec pp_print_expr ppf =
         pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l
 
-    | Call (p, params, id, l) ->
+    | Call (p, ty_args, id, l) ->
 
       Format.fprintf ppf
         "%a%a<<%a>>(%a)"
         ppos p
         pp_print_ident id
-        (pp_print_list pp_print_lustre_type ";") params
+        (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") l
     
     | AnyOp (p, id, e1, Some e2) ->

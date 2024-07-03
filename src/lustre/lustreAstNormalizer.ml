@@ -574,15 +574,15 @@ let mk_fresh_oracle expr_type expr =
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
 
-let mk_fresh_call info id map pos cond restart params args defaults =
+let mk_fresh_call info id map pos cond restart ty_args args defaults =
   let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
-  let has_params = List.length params > 0 in
+  let has_ty_args = List.length ty_args > 0 in
   let check_cache = CallCache.find_opt
     call_cache
     (id, cond, restart, args, defaults)
   in
-  match check_cache, has_oracles, has_params with
+  match check_cache, has_oracles, has_ty_args with
   | Some nexpr, false, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
@@ -594,9 +594,9 @@ let mk_fresh_call info id map pos cond restart params args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, None, params, args, defaults) in
+  let call = (pos, name, cond, restart, id, None, ty_args, args, defaults) in
   let gids = { (empty ()) with calls = [call] } in
-  if not has_params then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
+  if not has_ty_args then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
 let add_step_counter info =
@@ -1704,7 +1704,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, params, id, args) ->
+  | Call (pos, ty_args, id, args) ->
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
@@ -1712,7 +1712,7 @@ and normalize_expr ?guard info map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids2 = mk_fresh_call info id map pos cond restart params nargs None in
+    let nexpr, gids2 = mk_fresh_call info id map pos cond restart ty_args nargs None in
     nexpr, union gids1 gids2, warnings
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = StringMap.find id info.node_is_input_const in
@@ -1962,9 +1962,9 @@ and expand_node_calls_in_place info var count expr =
   | Activate (p, n, e1, e2, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.Activate (p, n, r e1, r e2, expr_list)
-  | Call (p, ps, n, expr_list) ->
+  | Call (p, ty_args, n, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
-    expand_node_call info (A.Call (p, ps, n, expr_list)) var count
+    expand_node_call info (A.Call (p, ty_args, n, expr_list)) var count
   | Condact (p, e1, e2, id, expr_list1, expr_list2) ->
     let expr_list1 = List.map (fun e -> r e) expr_list1 in
     let expr_list2 = List.map (fun e -> r e) expr_list2 in

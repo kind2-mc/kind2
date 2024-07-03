@@ -449,18 +449,18 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
   )
 
 let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
-= fun ctx pos nname ty params -> 
+= fun ctx pos nname ty ty_args -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
   match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
   | None, None ->
     let* substitution = 
       try 
-        R.ok (List.combine [] params) 
+        R.ok (List.combine [] ty_args) 
       with Invalid_argument _ -> 
         Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
         HString.pp_print_hstring nname 
         LA.pp_print_lustre_type ty 
-        (Lib.pp_print_list LA.pp_print_lustre_type ", ") params;
+        (Lib.pp_print_list LA.pp_print_lustre_type ", ") ty_args;
         type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
@@ -468,12 +468,12 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
   | _, Some ty_vars ->
     let* substitution = 
       try 
-        R.ok (List.combine (SI.elements ty_vars) params) 
+        R.ok (List.combine (SI.elements ty_vars) ty_args) 
       with Invalid_argument _ -> 
         Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
         HString.pp_print_hstring nname 
         LA.pp_print_lustre_type ty 
-        (Lib.pp_print_list LA.pp_print_lustre_type ", ") params;
+        (Lib.pp_print_list LA.pp_print_lustre_type ", ") ty_args;
         type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
@@ -748,10 +748,10 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
       (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
-  | LA.Call (pos, params, i, arg_exprs) -> (
+  | LA.Call (pos, ty_args, i, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i ;
     (*!! Still needs work ("Input" and "false") *)
-    let* warnings1 = R.seq (List.map (check_type_well_formed ctx Input nname true) params) in
+    let* warnings1 = R.seq (List.map (check_type_well_formed ctx Input nname true) ty_args) in
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type * [> warning] list, [> error]) result =
     fun ctx args ->
       let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx nname) args) in
@@ -763,7 +763,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     | Some call_params, Some node_ty -> (
       (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
-      let* node_ty = instantiate_type_variables ctx pos i node_ty params in
+      let* node_ty = instantiate_type_variables ctx pos i node_ty ty_args in
       let exp_arg_tys, exp_ret_tys = match node_ty with 
         | LA.TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
         | _ -> assert false 
@@ -973,7 +973,7 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     R.ok (warnings1 @ warnings2)
 
   (* Node calls *)
-  | Call (pos, params, i, args) ->
+  | Call (pos, ty_args, i, args) ->
     let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx nname) args) in
     let arg_tys, warnings = List.split arg_tys_warns in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
@@ -984,7 +984,7 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     | Some ty, Some call_params -> 
       (* Express ty in terms of the current context *)
       let ty = update_ty_with_ctx ty call_params ctx args in
-      let* ty = instantiate_type_variables ctx pos i ty params in
+      let* ty = instantiate_type_variables ctx pos i ty ty_args in
       let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
       if b then R.ok (List.flatten warnings)
       else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
