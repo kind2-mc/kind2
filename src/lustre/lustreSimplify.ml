@@ -561,7 +561,7 @@ let rec eval_ast_expr bounds ctx =
           args
           None
 
-      | _, A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with static parameters not supported in old front-end."
+      | _, A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
       
       (* An expression not under a [when], we implicitly clock it *)
       | _, expr -> 
@@ -1048,7 +1048,7 @@ let rec eval_ast_expr bounds ctx =
       args
       None
 
-  | A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with static parameters not supported in old front-end."
+  | A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
 
   (* Node call with reset/restart *)
   | A.RestartEvery (pos, ident, args, cond) ->

@@ -114,7 +114,7 @@ let error_message kind = match kind with
   | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
   | UnboundNodeName id -> "Unbound node identifier '" ^ HString.string_of_hstring id ^ "'"
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
-  | AssumptionOnCurrentOutput id -> "Refinement type references an illegal variable '"  ^ HString.string_of_hstring id ^ "' either an assumption on the current value of an output, or an out-of-scope type argument"
+  | AssumptionOnCurrentOutput id -> "Refinement type references an illegal variable '"  ^ HString.string_of_hstring id ^ "' (either an assumption on the current value of an output, or an out-of-scope type argument)"
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
@@ -189,7 +189,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
-  | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' is given an incorrect number of type parameters"
+  | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1844,8 +1844,6 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
             check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
           else type_error pos (UndeclaredType i)
         | None, None -> 
-          print_endline (HString.string_of_hstring nname);
-          print_endline (HString.string_of_hstring i);
           type_error pos (UndeclaredType i)
     )
   | LA.IntRange (pos, e1, e2) -> (
