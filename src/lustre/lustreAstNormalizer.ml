@@ -245,7 +245,7 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, _, _, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
       pp_print_position pos
@@ -594,7 +594,7 @@ let mk_fresh_call info id map pos cond restart ty_args args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, None, ty_args, args, defaults) in
+  let call = (pos, name, cond, restart, id, args, defaults) in
   let gids = { (empty ()) with calls = [call] } in
   if not has_ty_args then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
@@ -844,9 +844,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
-  | Call(pos, ps, id, expr_list) ->
+  | Call(pos, ty_args, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
-    vars, Call(pos, ps, id, expr_list')
+    vars, Call(pos, ty_args, id, expr_list')
   | Merge (pos, ident, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, Merge (pos, ident, expr_list')
@@ -1354,7 +1354,7 @@ and normalize_contract info map ivars ovars (p, items) =
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
         Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
-      | ContractCall (pos, name, params, inputs, outputs) ->
+      | ContractCall (pos, name, ty_args, inputs, outputs) ->
         let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info map) inputs in
         let noutputs = List.map
           (fun id ->
@@ -1400,7 +1400,7 @@ and normalize_contract info map ivars ovars (p, items) =
             gids.contract_calls
           }
         in
-        ContractCall (pos, cref, params, inputs, outputs), gids, warnings, interp
+        ContractCall (pos, cref, ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration info map decl in
         GhostConst ndecl, map, warnings, StringMap.empty

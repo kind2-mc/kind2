@@ -205,9 +205,9 @@ fun ctx node_name fun_ids ci ->
       List.map (fun (pos, id, (expr, decls)) -> ((pos, id, expr), decls)) |> 
       List.split in 
     Mode (pos, i, reqs, enss), (List.flatten gen_nodes1) @ (List.flatten gen_nodes2)
-  | ContractCall (pos, i, ps, exprs, ids) -> 
+  | ContractCall (pos, i, ty_args, exprs, ids) -> 
     let (exprs, gen_nodes) = List.map rec_call exprs |> List.split in 
-    ContractCall (pos, i, ps, exprs, ids), List.flatten gen_nodes
+    ContractCall (pos, i, ty_args, exprs, ids), List.flatten gen_nodes
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 

@@ -1710,7 +1710,7 @@ and compile_node_decl gids_map is_function cstate ctx i ext params inputs output
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, ident, _, _, _, _)) ->
+    let over_calls = fun () ((_, var, _, _, ident, _, _)) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
@@ -1809,10 +1809,8 @@ and compile_node_decl gids_map is_function cstate ctx i ext params inputs output
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
-    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, pident, _, args, defaults) ->
-      let node_id = match pident with 
-      | None -> mk_ident ident 
-      | Some pident -> mk_ident pident in
+    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults) ->
+      let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
         | Some (A.TArr (_, _, output_types)) ->

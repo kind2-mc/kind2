@@ -500,10 +500,10 @@ contract_import:
     LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
     { A.ContractCall (mk_pos $startpos, n, [], in_params, out_params) }
   | IMPORTCONTRACT ; n = ident ;
-    tys = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type);
+    ty_args = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type);
     LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
     LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
-    { A.ContractCall (mk_pos $startpos, n, tys, in_params, out_params) }
+    { A.ContractCall (mk_pos $startpos, n, ty_args, in_params, out_params) }
 
    
 

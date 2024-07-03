@@ -1503,7 +1503,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> HString.t -> L
                 (Bool pos)) in 
       R.ok (List.flatten warnings)
       
-    | ContractCall (pos, cname, params, args, rets) ->
+    | ContractCall (pos, cname, ty_args, args, rets) ->
       let* ret_tys_warns = R.seq (List.map (infer_type_expr ctx (Some nname))
         (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
@@ -1521,7 +1521,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> HString.t -> L
       let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
       (match (lookup_contract_ty ctx cname) with
       | Some inf_ty -> 
-          let* inf_ty = instantiate_type_variables ctx pos cname inf_ty params in
+          let* inf_ty = instantiate_type_variables ctx pos cname inf_ty ty_args in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
             (R.ok (List.flatten warnings1 @ List.flatten warnings2))
             (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))

@@ -339,12 +339,12 @@ let rec gen_poly_decls_ni
 
 let gen_poly_decls_ci
 = fun ctx node_decls_map ci -> match ci with 
-| A.ContractCall (p, cname, ty :: tys, ips, ops) -> (
-  match gen_poly_decl ctx node_decls_map cname (ty :: tys) with 
+| A.ContractCall (p, cname, ty_arg :: ty_args, ips, ops) -> (
+  match gen_poly_decl ctx node_decls_map cname (ty_arg :: ty_args) with 
   | ctx, pcname, Some decl, node_decls_map -> 
-    ctx, A.ContractCall (p, pcname, ty :: tys, ips, ops), [decl], node_decls_map
+    ctx, A.ContractCall (p, pcname, ty_arg :: ty_args, ips, ops), [decl], node_decls_map
   | ctx, pcname, None, node_decls_map -> 
-    ctx, A.ContractCall (p, pcname, ty :: tys, ips, ops), [], node_decls_map
+    ctx, A.ContractCall (p, pcname, ty_arg :: ty_args, ips, ops), [], node_decls_map
   )
 | A.ContractCall (_, _, [], _, _) -> ctx, ci, [], node_decls_map
 | Assume (p, id, b, expr) -> 
