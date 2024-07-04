@@ -117,14 +117,14 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
     ctx, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
-    let span, is_function, is_contract, ext, ps, ips, ops, locs, nis, c = 
+    let span, is_function, is_contract, ext, ips, ops, locs, nis, c = 
       match GI.StringMap.find nname node_decls_map with
-      | (A.FuncDecl (span, (_, ext, ps, ips, ops, locs, nis, c)), _) -> 
-        span, true, false, ext, ps, ips, ops, locs, nis, c 
-      | (A.NodeDecl (span, (_, ext, ps, ips, ops, locs, nis, c)), _) -> 
-        span, false, false, ext, ps, ips, ops, locs, nis, c
-      | (A.ContractNodeDecl (span, (_, ps, ips, ops, c)), _) -> 
-        span, false, true, false, ps, ips, ops, [], [], Some c
+      | (A.FuncDecl (span, (_, ext, _, ips, ops, locs, nis, c)), _) -> 
+        span, true, false, ext, ips, ops, locs, nis, c 
+      | (A.NodeDecl (span, (_, ext, __FUNCTION__, ips, ops, locs, nis, c)), _) -> 
+        span, false, false, ext, ips, ops, locs, nis, c
+      | (A.ContractNodeDecl (span, (_, _, ips, ops, c)), _) -> 
+        span, false, true, false, ips, ops, [], [], Some c
       | _ -> assert false
     in
     let nis = List.filter (fun ni -> match ni with 
