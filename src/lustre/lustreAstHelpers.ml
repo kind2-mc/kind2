@@ -232,8 +232,65 @@ let rec apply_subst_in_expr sigma = function
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
+
+(* Type level substitutions at the expression level *)
+let rec apply_type_subst_in_expr
+= fun sigma expr -> match expr with
+  | Call (pos, ty_args, id, expr_list) ->
+    let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
+    Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list) 
+  | Quantifier (pos, q, tis, expr) -> 
+    let tis = List.map (fun (p, id, ty) -> 
+      p, id, apply_type_subst_in_type sigma ty
+    ) tis in
+    Quantifier (pos, q, tis, apply_type_subst_in_expr sigma expr)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
+
+  | Ident _ 
+  | ModeRef _  -> expr
+  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2, apply_type_subst_in_expr sigma e3)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, apply_type_subst_in_expr sigma e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | When (pos, e, clock) -> When (pos, apply_type_subst_in_expr sigma e, clock)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
+    let expr_list1 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list1 in
+    let expr_list2 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
+    let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
+    let e = apply_type_subst_in_expr sigma e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, apply_type_subst_in_expr sigma e)
+  | Arrow (pos, e1, e2) -> Arrow (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+
+
 (* Same as apply_subst_in_type, but the substitution occurs at the type level *)
-let rec apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
+and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
 = fun sigma ty -> match ty with
   | UserType (pos, i) -> (
     match List.assoc_opt i sigma with
@@ -241,7 +298,7 @@ let rec apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> l
       | None -> UserType (pos, i)
   )
   | ArrayType (pos, (ty, expr)) -> 
-    ArrayType (pos, (apply_type_subst_in_type sigma ty, expr))
+    ArrayType (pos, (apply_type_subst_in_type sigma ty, apply_type_subst_in_expr sigma expr))
   | TupleType(pos, tys) -> 
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
@@ -253,7 +310,8 @@ let rec apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> l
       List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis 
     in
     RecordType (pos, name, tis)
-  | RefinementType (pos, (pos2, id, ty), expr) -> RefinementType (pos, (pos2, id, apply_type_subst_in_type sigma ty), expr)
+  | RefinementType (pos, (pos2, id, ty), expr) -> 
+    RefinementType (pos, (pos2, id, apply_type_subst_in_type sigma ty), apply_type_subst_in_expr sigma expr)
   | ty -> ty
 
 let rec apply_subst_in_type sigma = function
@@ -261,6 +319,11 @@ let rec apply_subst_in_type sigma = function
     let expr = apply_subst_in_expr sigma expr in 
     let ty = apply_subst_in_type sigma ty in
     ArrayType (pos, (ty, expr))
+  )
+  | RefinementType (pos, (pos2, id, ty), expr) -> (
+    let expr = apply_subst_in_expr sigma expr in 
+    let ty = apply_subst_in_type sigma ty in
+    RefinementType (pos, (pos2, id, ty), expr)
   )
   | TupleType(pos, tys) -> 
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)

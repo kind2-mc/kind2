@@ -1,0 +1,17 @@
+
+node N<<T1; T2>>(z: [T1, T2]) returns (y: [T1, T2]);
+let
+  y = any { x: [T1, T2] | true };
+  check y = z;
+tel
+
+(*
+When desugaring Any Ops:
+
+1. For any type variable in either the starting typed ident, or in calls in the predicate,
+   add the type variable as a parameter to the generated imported node 
+   and to the generated call to that imported node
+
+2. Try nested AnyOps
+
+*)

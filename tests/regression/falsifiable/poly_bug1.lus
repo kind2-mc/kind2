@@ -1,0 +1,10 @@
+node NoPreValue<<T>>(x:T) returns (r:bool);
+let
+  r = true -> x <> pre x;
+tel
+
+node N<<T1>>(z: T1) returns (y: T1);
+let
+  y = any {x:T1 | NoPreValue<<T1>>(x)};
+  check y=z;
+tel

@@ -456,12 +456,7 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
     let* substitution = 
       try 
         R.ok (List.combine [] ty_args) 
-      with Invalid_argument _ -> 
-        Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
-        HString.pp_print_hstring nname 
-        LA.pp_print_lustre_type ty 
-        (Lib.pp_print_list LA.pp_print_lustre_type ", ") ty_args;
-        type_error pos (InvalidPolymorphicCall nname)
+      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
   | Some ty_vars, _ 
@@ -469,14 +464,109 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
     let* substitution = 
       try 
         R.ok (List.combine (SI.elements ty_vars) ty_args) 
-      with Invalid_argument _ -> 
-        Format.fprintf Format.std_formatter "nname: %a, ty: %a, type args: %a"
-        HString.pp_print_hstring nname 
-        LA.pp_print_lustre_type ty 
-        (Lib.pp_print_list LA.pp_print_lustre_type ", ") ty_args;
-        type_error pos (InvalidPolymorphicCall nname)
+      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
+
+let rec instantiate_type_variables_expr: tc_context -> HString.t -> tc_type list -> LA.expr -> (LA.expr, [> error ]) result
+= fun ctx nname ty_args expr -> 
+  let call = instantiate_type_variables_expr ctx nname ty_args in
+  match expr with
+  | Call (pos, old_ty_args, id, es) ->
+    let* ty_args = R.seq (List.map (fun ty_arg -> 
+      instantiate_type_variables ctx pos nname ty_arg ty_args
+    ) old_ty_args) in
+    let* es = R.seq (List.map call es) in
+    Ok (LA.Call (pos, ty_args, id, es))
+  | Quantifier (pos, q, tis, e) -> 
+    let* tis = R.seq (List.map (fun (p, id, ty) -> 
+      let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
+      R.ok (p, id, ty)
+    ) tis) in 
+    let* e = call e in 
+    R.ok (LA.Quantifier (pos, q, tis, e))
+  | Ident _ 
+  | ModeRef _ -> R.ok expr
+  | RecordProject (pos, e, idx) -> 
+    let* e = call e in 
+    R.ok (LA.RecordProject (pos, e, idx))
+  | TupleProject (pos, e, idx) -> 
+    let* e = call e in
+    R.ok (LA.TupleProject (pos, e, idx))
+  | Const (_, _) as e -> R.ok e
+  | UnaryOp (pos, op, e) -> 
+    let* e = call e in
+    R.ok (LA.UnaryOp (pos, op, e))
+  | BinaryOp (pos, op, e1, e2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in 
+    R.ok (LA.BinaryOp (pos, op, e1, e2))
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in 
+    let* e3 = call e3 in
+    R.ok (LA.TernaryOp (pos, op, e1, e2, e3))
+  | ConvOp (pos, op, e) -> 
+    let* e = call e in
+    R.ok (LA.ConvOp (pos, op, e))
+  | CompOp (pos, op, e1, e2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in
+    R.ok (LA.CompOp (pos, op, e1, e2))
+  | RecordExpr (pos, ident, expr_list) ->
+    let* expr_list = R.seq (List.map (fun (id, expr) -> 
+      let* expr = call expr in 
+      R.ok (id, expr)
+      ) expr_list) in
+    R.ok (LA.RecordExpr (pos, ident, expr_list))
+  | GroupExpr (pos, kind, expr_list) ->
+    let* expr_list = R.seq (List.map call expr_list) in
+    R.ok (LA.GroupExpr (pos, kind, expr_list))
+  | StructUpdate (pos, e1, idx, e2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in
+    R.ok (LA.StructUpdate (pos, e1, idx, e2))
+  | ArrayConstr (pos, e1, e2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in
+    R.ok (LA.ArrayConstr (pos, e1, e2))
+  | ArrayIndex (pos, e1, e2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in
+    R.ok (LA.ArrayIndex (pos, e1, e2))
+  | When (pos, e, clock) -> 
+    let* e = call e in
+    R.ok (LA.When (pos, e, clock))
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in 
+    let* expr_list1 = R.seq (List.map call expr_list1) in 
+    let* expr_list2 = R.seq (List.map call expr_list2) in 
+    R.ok (LA.Condact (pos, e1, e2, id, expr_list1, expr_list2))
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let* e1 = call e1 in 
+    let* e2 = call e2 in 
+    let* expr_list = R.seq (List.map call expr_list) in 
+    R.ok (LA.Activate (pos, ident, e1, e2, expr_list))
+  | Merge (pos, ident, expr_list) ->
+    let* expr_list = R.seq (List.map (fun (id, expr) -> 
+      let* expr = call expr in 
+      R.ok (id, expr)
+    ) expr_list) in 
+    R.ok (LA.Merge (pos, ident, expr_list))
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let* e = call e in 
+    let* expr_list = R.seq (List.map call expr_list) in 
+    R.ok (LA.RestartEvery (pos, ident, expr_list, e))
+  | Pre (pos, e) -> 
+    let* e = call e in
+    R.ok (LA.Pre (pos, e))
+  | Arrow (pos, e1, e2) -> 
+    let* e1 = call e1 in 
+    let* e2 = call e2 in
+    R.ok (LA.Arrow (pos, e1, e2))
+  | AnyOp _ -> assert false (* Polymorphism is handled after any ops are desugared *)
+
 
 let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
   let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
