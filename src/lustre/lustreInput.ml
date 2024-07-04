@@ -157,7 +157,7 @@ let type_check declarations =
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
-    
+
     (* Step 6. Desugar nondeterministic choice operators *)
     let node_contract_src = LDN.desugar_any_ops inlined_ctx node_contract_src in
 

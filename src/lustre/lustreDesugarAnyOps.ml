@@ -83,17 +83,29 @@ fun ctx node_name fun_ids expr ->
       let node_calls1 = AH.calls_of_expr expr1 |> Ctx.SI.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
       (AH.has_pre_or_arrow expr1 != None) || (node_calls1 != []) 
     in
+    (* The generated imported node might be polymorphic, so we find all the needed type variables *)
+    let ty_params = 
+      Ctx.SI.union (Ctx.ty_vars_of_type ctx node_name ty) 
+                   (Ctx.ty_vars_of_expr ctx node_name expr1)
+      |> Ctx.SI.elements
+    in 
+    let ty_params = match expr2_opt with 
+    | Some expr2 -> ty_params @ Ctx.SI.elements (Ctx.ty_vars_of_expr ctx node_name expr2)
+    | None -> ty_params 
+    in
+    let ty_vars = List.map (fun id -> A.UserType (pos, id)) ty_params in
+    
     let generated_node = 
       if has_pre_arrow_or_node_call then
         A.NodeDecl (span, 
-        (name, true, [], inputs, 
+        (name, true, ty_params, inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))) 
       else 
         A.FuncDecl (span, 
-        (name, true, [], inputs, 
+        (name, true, ty_params, inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
-    A.Call(pos, [], name, inputs_call), [generated_node]
+    A.Call(pos, ty_vars, name, inputs_call), [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []

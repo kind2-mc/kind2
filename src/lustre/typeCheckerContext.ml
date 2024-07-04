@@ -654,3 +654,65 @@ let rec type_contains_enum_subrange_reftype ctx = function
       | Some ty -> type_contains_enum_subrange_reftype ctx ty
       | _ -> assert false)
   | _ -> false
+
+let rec ty_vars_of_expr ctx node_name expr = 
+  let call = ty_vars_of_expr ctx node_name in match expr with 
+  (* Node calls *)
+  | LA.Call (_, tys, _, es) -> 
+    SI.union (SI.flatten (List.map (ty_vars_of_type ctx node_name) tys))
+              (SI.flatten (List.map call es))
+  | AnyOp (_, (_, _, ty), e, None) -> 
+    SI.union (call e) (ty_vars_of_type ctx node_name ty)
+  (* Quantified expressions *)
+  | Quantifier (_, _, qs, e) -> 
+    SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
+  | Ident _ -> SI.empty
+  | ModeRef _ -> SI.empty
+  | RecordProject (_, e, _) -> call e 
+  | TupleProject (_, e, _) -> call e
+  (* Values *)
+  | Const _ -> SI.empty
+  (* Operators *)
+  | UnaryOp (_,_,e) -> call e
+  | BinaryOp (_,_,e1, e2) -> call e1 |> SI.union (call e2)
+  | TernaryOp (_,_, e1, e2, e3) -> call e1 |> SI.union (call e2) |> SI.union (call e3) 
+  | ConvOp  (_,_,e) -> call e
+  | CompOp (_,_,e1, e2) -> (call e1) |> SI.union (call e2)
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
+  (* Update of structured expressions *)
+  | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
+  | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
+  | ArrayIndex (_, e1, e2) -> SI.union (call e1) (call e2)
+  (* Clock operators *)
+  | When (_, e, _) -> call e
+  | Condact (_, e1, e2, _, es1, es2) ->
+    SI.flatten (call e1 :: call e2:: (List.map call es1) @ (List.map call es2))
+  | Activate (_, _, e1, e2, es) -> SI.flatten (call e1 :: call e2 :: List.map call es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map call |> SI.flatten
+  | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
+  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (call e1) (call e2)) (SI.singleton i)
+  (* Temporal operators *)
+  | Pre (_, e) -> call e
+  | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
+
+and ty_vars_of_type ctx node_name ty = 
+  let call = ty_vars_of_type ctx node_name in 
+  match ty with
+  | UserType (_, id) -> (
+    match lookup_ty_syn ctx node_name with 
+    | Some _ -> SI.empty
+    | None -> SI.singleton id
+    )
+  | RefinementType (_, (_, _, ty), e) 
+  | ArrayType (_, (ty, e)) -> 
+    SI.union (call ty) (ty_vars_of_expr ctx node_name e)
+  | TupleType (_, tys) | GroupType (_, tys) -> 
+    List.fold_left SI.union SI.empty (List.map call tys)
+  | RecordType (_, _, tis) -> 
+    let vars = List.map (fun (_, _, ty) -> call ty) tis in 
+    List.fold_left SI.union SI.empty vars
+  | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
+  | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
+  | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | TypeVariable _ -> SI.empty
