@@ -206,7 +206,7 @@ let type_check declarations =
 
     (* Step 17. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx const_inlined_nodes_and_contracts in
-
+    
     (* Step 18. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings5) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids

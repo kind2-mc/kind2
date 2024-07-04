@@ -164,8 +164,6 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       | _, Some ps -> Ctx.SI.elements ps
     in
     let ps = List.filter_map (fun ty_var -> 
-      print_endline (HString.string_of_hstring ty_var);
-      List.iter (fun ty_var -> print_endline (HString.string_of_hstring ty_var)) ps;
       if List.mem ty_var caller_ps then Some ty_var else None
     ) ty_vars in
     (* Create fresh identifier for instantiated polymorphic node *)
@@ -251,7 +249,22 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       ctx, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) exprs in 
     let ctx, pnname, decls2, node_decls_map  = gen_poly_decl ctx caller_nname node_decls_map  nname (ty :: tys) in
-    ctx, Call (pos, ty :: tys, pnname, exprs), decls1 @ decls2, node_decls_map
+    
+    let ty_vars = List.map (Ctx.ty_vars_of_type ctx nname) (ty :: tys) in
+    let ty_vars = List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements in
+    let caller_ps = match caller_nname with 
+    | None -> [] 
+    | Some caller_nname ->
+      match Ctx.lookup_node_ty_vars ctx caller_nname, 
+                          Ctx.lookup_contract_ty_vars ctx caller_nname with 
+      | None, None -> []
+      | Some ps, _ 
+      | _, Some ps -> Ctx.SI.elements ps
+    in
+    let ty_args = List.filter_map (fun ty_var -> 
+      if List.mem ty_var caller_ps then Some (A.UserType (pos, ty_var)) else None
+    ) ty_vars in
+    ctx, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
   | Ident _ 
   | Call _ 
   | Const _
