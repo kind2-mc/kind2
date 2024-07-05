@@ -928,7 +928,7 @@ let rec vars_of_type = function
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ | TypeVariable _ -> SI.empty
+  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function

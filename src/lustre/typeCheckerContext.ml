@@ -715,4 +715,4 @@ and ty_vars_of_type ctx node_name ty =
     List.fold_left SI.union SI.empty vars
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | TypeVariable _ -> SI.empty
+  | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ -> SI.empty

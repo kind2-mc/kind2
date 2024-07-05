@@ -441,7 +441,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
         | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ | TypeVariable _ -> assert false)
+        | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
@@ -488,7 +488,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
       | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-      | EnumType _ | TArr _ | RefinementType _ | History _ | TypeVariable _ -> assert false) 
+      | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in

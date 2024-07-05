@@ -139,7 +139,6 @@ and lustre_type =
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * ident
-  | TypeVariable of position * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | GroupType of position * lustre_type list
@@ -613,8 +612,7 @@ and pp_print_lustre_type ppf = function
       pp_print_opt l
       pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
-  | UserType (_, s) 
-  | TypeVariable (_, s) -> 
+  | UserType (_, s) -> 
     Format.fprintf ppf "%a" pp_print_ident s
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s

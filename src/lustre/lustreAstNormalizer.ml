@@ -1987,4 +1987,4 @@ and normalize_ty info node_id map id ty =
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
   | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ | TypeVariable _ -> ty, empty (), []
+  | ArrayType _ | EnumType _ | TArr _ -> ty, empty (), []

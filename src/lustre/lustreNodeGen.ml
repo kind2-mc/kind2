@@ -587,7 +587,6 @@ and compile_ast_type
   (ctx:Ctx.tc_context)
   map
   = function
-  | A.TypeVariable _ -> assert false
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
   | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)

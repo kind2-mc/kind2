@@ -393,7 +393,7 @@ let rec inline_constants_of_lustre_type ctx ty = match ty with
     
   | History _ | Int _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
-  | UserType _ | AbstractType _ | EnumType _ | TypeVariable _ -> ty
+  | UserType _ | AbstractType _ | EnumType _ -> ty
 
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation

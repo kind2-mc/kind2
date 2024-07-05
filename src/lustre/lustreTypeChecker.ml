@@ -1930,8 +1930,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
         | Some ty_vars, _ 
         | _, Some ty_vars -> 
           if (SI.mem i ty_vars) 
-          then 
-            check_type_well_formed ctx src (Some nname) is_const (LA.TypeVariable (pos, i))
+          then R.ok []
           else type_error pos (UndeclaredType i)
         | None, None -> 
           type_error pos (UndeclaredType i)
@@ -1949,7 +1948,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
     )
   | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
-  | AbstractType _ | EnumType _ | History _ | TypeVariable _ -> R.ok ([])
+  | AbstractType _ | EnumType _ | History _ -> R.ok ([])
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        

@@ -2287,8 +2287,6 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   | RefinementType (pos, _, _) -> fail_at_position pos "Refinement types not supported in old front-end"
 
-  | TypeVariable (pos, _) -> fail_at_position pos "Type variables not supported in old front-end"
-
 (*
 
 (* Standalone Lustre simplifier for testing *)
