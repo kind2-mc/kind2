@@ -1358,7 +1358,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       (* Update cstate with uninstantiated params *)
       let params = match Ctx.lookup_contract_ty_vars ctx cname with 
       | None -> [] 
-      | Some params -> Ctx.SI.elements params 
+      | Some params -> params 
       in
       let cstate = List.fold_left (fun acc param -> 
         let empty_map = ref (empty_identifier_maps None) in

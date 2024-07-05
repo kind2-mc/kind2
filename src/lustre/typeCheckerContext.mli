@@ -107,10 +107,10 @@ val lookup_contract_ty: tc_context -> LA.ident -> tc_type option
 val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 (** Lookup a node type *)
 
-val lookup_node_ty_vars: tc_context -> HString.t -> ty_set option
+val lookup_node_ty_vars: tc_context -> HString.t -> HString.t list option
 (** Lookup a node's type variables *)
 
-val lookup_contract_ty_vars: tc_context -> HString.t -> ty_set option
+val lookup_contract_ty_vars: tc_context -> HString.t -> HString.t list option
 (** Lookup a node's type variables *)
 
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option

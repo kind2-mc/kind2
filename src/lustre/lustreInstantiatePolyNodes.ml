@@ -161,7 +161,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
                           Ctx.lookup_contract_ty_vars ctx caller_nname with 
       | None, None -> []
       | Some ps, _ 
-      | _, Some ps -> Ctx.SI.elements ps
+      | _, Some ps -> ps
     in
     let ps = List.filter_map (fun ty_var -> 
       if List.mem ty_var caller_ps then Some ty_var else None
@@ -259,7 +259,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
                           Ctx.lookup_contract_ty_vars ctx caller_nname with 
       | None, None -> []
       | Some ps, _ 
-      | _, Some ps -> Ctx.SI.elements ps
+      | _, Some ps -> ps
     in
     let ty_args = List.filter_map (fun ty_var -> 
       if List.mem ty_var caller_ps then Some (A.UserType (pos, ty_var)) else None

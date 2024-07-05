@@ -463,7 +463,7 @@ let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_ty
   | _, Some ty_vars ->
     let* substitution = 
       try 
-        R.ok (List.combine (SI.elements ty_vars) ty_args) 
+        R.ok (List.combine ty_vars ty_args) 
       with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
@@ -1929,7 +1929,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
         match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
         | Some ty_vars, _ 
         | _, Some ty_vars -> 
-          if (SI.mem i ty_vars) 
+          if (List.mem i ty_vars) 
           then R.ok []
           else type_error pos (UndeclaredType i)
         | None, None -> 

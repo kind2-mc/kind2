@@ -62,7 +62,7 @@ type const_store = (LA.expr * tc_type option * source) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
-type ty_var_store = ty_set IMap.t
+type ty_var_store = (HString.t list) IMap.t
 (** A store of type variable IDs for each node ID *)
 
 type contract_exports = (ty_store) IMap.t
@@ -141,7 +141,7 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
                   then Some ty
                   else lookup_ty_syn ctx uid
                | _ -> Some ty )
-  | None -> IMap.find_opt i (ctx.ty_syns)
+  | None -> None
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
@@ -190,11 +190,11 @@ let lookup_node_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.node_ctx)
 (** Lookup a node type  *)
 
-let lookup_node_ty_vars: tc_context -> LA.ident -> ty_set option
+let lookup_node_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.ty_vars)
 (** Lookup a node's type variables *)
 
-let lookup_contract_ty_vars: tc_context -> LA.ident -> ty_set option
+let lookup_contract_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
 (** Lookup a contract's type variables *)
 
@@ -233,13 +233,11 @@ let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 
 let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i ty_vars -> 
-    let ty_vars = List.fold_left (fun acc id -> SI.add id acc) SI.empty ty_vars in
     {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
 (**  Add the type variables of the node *)
 
 let add_ty_vars_contract: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i contract_ty_vars -> 
-    let contract_ty_vars = List.fold_left (fun acc id -> SI.add id acc) SI.empty contract_ty_vars in
     {ctx with contract_ty_vars = IMap.add i contract_ty_vars (ctx.contract_ty_vars)}
 (**  Add the type variables of the contract *)
 
@@ -361,11 +359,11 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_ty_var_binding: Format.formatter -> (LA.ident * ty_set) -> unit
+let pp_print_ty_var_binding: Format.formatter -> (LA.ident * HString.t list) -> unit
   = fun ppf (i, ty_vars) ->
     Format.fprintf ppf "(%a:{%a})" 
     LA.pp_print_ident i 
-    (Lib.pp_print_list HString.pp_print_hstring ",") (SI.elements ty_vars)
+    (Lib.pp_print_list HString.pp_print_hstring ",") (ty_vars)
 (** Pretty print type bindings*)  
 
 let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit

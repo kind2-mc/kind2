@@ -496,14 +496,14 @@ mode_equation:
 
 contract_import:
   | IMPORTCONTRACT ; n = ident ;
-    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
-    { A.ContractCall (mk_pos $startpos, n, [], in_params, out_params) }
-  | IMPORTCONTRACT ; n = ident ;
-    ty_args = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type);
+    ty_args = call_static_params;
     LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
     LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
     { A.ContractCall (mk_pos $startpos, n, ty_args, in_params, out_params) }
+
+call_static_params: 
+  | { [] }
+  | ty_args = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); { ty_args }
 
    
 
@@ -1142,19 +1142,13 @@ pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
       
 (* A node or function call *)
 node_call:
-
-  (* Call a node without static parameters *)
-  | s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { A.Call (mk_pos $startpos, [], s, a) }
-
-  (* Call a node with static parameters *)
   | s = ident; 
-    ps = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); 
+    ty_args = call_static_params;
     LPAREN; 
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      A.Call (mk_pos $startpos, ps, s, a) 
+      A.Call (mk_pos $startpos, ty_args, s, a) 
     }
 
 
