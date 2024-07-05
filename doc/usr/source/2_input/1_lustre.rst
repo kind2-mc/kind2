@@ -1143,7 +1143,7 @@ a ``any`` expression holds when model checking the component.
 Polymorphic nodes
 -----------------
 
-In some situations, the user may want to express multiple variations a node, 
+In some situations, the user may want to express multiple variations of a node, 
 where the only differences between them lie in the input and output types. 
 For example, consider different interface type variations of the ``SafePre``
 node, which returns the previous value of its single input, but initialized with 
