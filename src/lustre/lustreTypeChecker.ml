@@ -1306,7 +1306,7 @@ and check_type_const_decl: tc_context -> HString.t option -> LA.const_decl -> tc
 
 and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warning] list, [> error]) result
   = fun pos ctx
-        (node_name, is_extern, _, input_vars, output_vars, ldecls, items, contract)
+        (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -1319,13 +1319,19 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
       the old type checking flow. 
       This behavior can be relaxed once the backend supports it.    
     *)
-
   R.seq_chain (fun _ i ->
-      (if (member_ty ctx i) then
-          type_error pos (Redeclaration i)
-        else R.ok()))
-    () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids @ LA.SI.elements loc_ids)
-  
+    if (member_ty ctx i) then
+      type_error pos (Redeclaration i)
+    else R.ok ()
+  ) () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids @ LA.SI.elements loc_ids)
+  >>
+  (* Analogous check for shadowing at the type level    
+    *)
+  R.seq_chain (fun _ i ->
+    if (member_ty_syn ctx i) then
+      type_error pos (Redeclaration i)
+    else R.ok ()
+  ) () (params)
   >>
     (* (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params; *)
     (* store the input constants passed in the input *)
