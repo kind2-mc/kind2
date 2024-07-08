@@ -93,8 +93,8 @@ fun ctx node_name fun_ids expr ->
     | Some expr2 -> ty_params @ Ctx.SI.elements (Ctx.ty_vars_of_expr ctx node_name expr2)
     | None -> ty_params 
     in
+    let ty_params = List.filter (fun p -> not (Ctx.member_ty_syn ctx p)) ty_params in 
     let ty_vars = List.map (fun id -> A.UserType (pos, id)) ty_params in
-    
     let generated_node = 
       if has_pre_arrow_or_node_call then
         A.NodeDecl (span, 

@@ -1325,8 +1325,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
     else R.ok ()
   ) () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids @ LA.SI.elements loc_ids)
   >>
-  (* Analogous check for shadowing at the type level    
-    *)
+  (* Analogous check for shadowing at the type level *)
   R.seq_chain (fun _ i ->
     if (member_ty_syn ctx i) then
       type_error pos (Redeclaration i)
