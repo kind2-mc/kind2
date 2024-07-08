@@ -1,0 +1,10 @@
+type T;
+
+node N() returns (y: T);
+let
+tel
+
+node M<<T>>() returns (y3: T)
+let
+    y3 = N();
+tel

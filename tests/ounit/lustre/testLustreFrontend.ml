@@ -455,6 +455,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/enum_02.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
+  mk_test "test type redeclaration" (fun () ->
+    match load_file "./lustreTypeChecker/type_redeclaration.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
   mk_test "test inlined contract 1" (fun () ->
     match load_file "./lustreTypeChecker/inlined_contract_01.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
