@@ -209,7 +209,7 @@ val results_clean : results -> results
 
 (** If the node was originally polymorphic, display information about its 
    monomorphization cleanly *)
-val clean_polymorphic_info : Scope.t list -> TransSys.t -> string list
+val clean_polymorphic_info :  TransSys.t -> Scope.t -> string
 
 (** Pretty printer for [param]. *)
 val pp_print_param: bool -> TransSys.t -> Format.formatter -> param -> unit

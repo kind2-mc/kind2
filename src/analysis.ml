@@ -338,17 +338,17 @@ let results_clean = Scope.Map.filter (
 
 (* If the node was originally polymorphic, display information about its 
    monomorphization cleanly *)
-let clean_polymorphic_info concrete sys = 
-  let ty_argss = List.map (fun sc -> 
+let clean_polymorphic_info sys sc = 
+  let ty_args = 
     TransSys.find_subsystem_of_scope sys sc 
     |>  TransSys.get_ty_args
-  ) concrete in
-  let concrete = List.map Scope.to_string concrete in
-  let concrete = List.map (fun scope -> 
-    let poly_gen_node_tag_len = String.length LustreGenRefTypeImpNodes.poly_gen_node_tag in
-    if String.length scope > poly_gen_node_tag_len && 
-       String.sub scope 0 poly_gen_node_tag_len = LustreGenRefTypeImpNodes.poly_gen_node_tag then 
-      let s = String.sub scope poly_gen_node_tag_len (String.length scope - poly_gen_node_tag_len) in
+  in
+  let sc = Scope.to_string sc in
+  let poly_gen_node_tag_len = String.length LustreGenRefTypeImpNodes.poly_gen_node_tag in
+  let sc = 
+    if String.length sc > poly_gen_node_tag_len && 
+       String.sub sc 0 poly_gen_node_tag_len = LustreGenRefTypeImpNodes.poly_gen_node_tag then 
+      let s = String.sub sc poly_gen_node_tag_len (String.length sc - poly_gen_node_tag_len) in
       let re = Str.regexp "^[0-9]+" in
       let len_prefix = 
         if Str.string_match re s 0 then
@@ -357,15 +357,14 @@ let clean_polymorphic_info concrete sys =
       in
       (String.sub s len_prefix (String.length s - len_prefix))
     else
-      scope
-  ) concrete in 
-  List.map2 (fun sc ty_args -> match ty_args with
+      sc
+  in 
+  match ty_args with
   | [] -> sc 
   | ty_args -> 
     Format.asprintf "%s<<%a>>"
       sc
       (Lib.pp_print_list LustreAst.pp_print_lustre_type "; ") ty_args
-  ) concrete ty_argss
 
 let pp_print_param verbose sys fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
@@ -390,14 +389,14 @@ let pp_print_param verbose sys fmt param =
         ( match concrete with
           | [] -> ()
           | concrete ->
-            let concrete = clean_polymorphic_info concrete sys in
+            let concrete = List.map (clean_polymorphic_info sys) concrete in
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
               (pp_print_list Format.pp_print_string ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
           | abstract ->
-            let abstract = clean_polymorphic_info abstract sys in
+            let abstract = List.map (clean_polymorphic_info sys) abstract in
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
           (pp_print_list Format.pp_print_string ",@ ") abstract) ;
         Format.fprintf fmt "@]")

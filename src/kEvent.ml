@@ -1701,8 +1701,8 @@ let log_analysis_start sys param =
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = Analysis.clean_polymorphic_info concrete sys in
-      let abstract = Analysis.clean_polymorphic_info abstract sys in
+      let concrete = List.map (Analysis.clean_polymorphic_info sys) concrete in
+      let abstract = List.map (Analysis.clean_polymorphic_info sys) abstract in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1730,8 +1730,8 @@ let log_analysis_start sys param =
       in
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = Analysis.clean_polymorphic_info concrete sys in
-      let abstract = Analysis.clean_polymorphic_info abstract sys in
+      let concrete = List.map (Analysis.clean_polymorphic_info sys) concrete in
+      let abstract = List.map (Analysis.clean_polymorphic_info sys) abstract in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
