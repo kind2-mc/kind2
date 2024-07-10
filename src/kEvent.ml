@@ -21,7 +21,6 @@ open Lib
 
 module TSet = Term.TermSet
 module SMap = Scope.Map
-module StringSet = Set.Make(String)
 
 include Log
 
@@ -1702,12 +1701,8 @@ let log_analysis_start sys param =
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = 
-        List.map Scope.to_string concrete 
-        |> List.map LustrePath.get_node_type_and_name 
-        |> List.map snd
-        |> StringSet.of_list |> StringSet.elements
-      in
+      let concrete = Analysis.clean_polymorphic_info concrete sys in
+      let abstract = Analysis.clean_polymorphic_info abstract sys in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1721,7 +1716,7 @@ let log_analysis_start sys param =
         "
         Scope.pp_print_scope info.Analysis.top
         (pp_print_list Format.pp_print_string ",") concrete
-        (pp_print_list Scope.pp_print_scope ",") abstract
+        (pp_print_list Format.pp_print_string ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
             Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
           )
@@ -1735,12 +1730,8 @@ let log_analysis_start sys param =
       in
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = 
-        List.map Scope.to_string concrete 
-        |> List.map LustrePath.get_node_type_and_name 
-        |> List.map snd
-        |> StringSet.of_list |> StringSet.elements
-      in
+      let concrete = Analysis.clean_polymorphic_info concrete sys in
+      let abstract = Analysis.clean_polymorphic_info abstract sys in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1755,7 +1746,7 @@ let log_analysis_start sys param =
         "
         Scope.pp_print_scope info.Analysis.top
         (pp_print_list_attrib Format.pp_print_string) concrete
-        (pp_print_list_attrib pp_print_scope_str) abstract
+        (pp_print_list_attrib Format.pp_print_string) abstract
         (pp_print_list_attrib (fun fmt (scope, cpt) ->
             Format.fprintf fmt "[%a,%d]" pp_print_scope_str scope cpt
           )

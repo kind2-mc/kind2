@@ -397,8 +397,9 @@ let pp_print_param verbose sys fmt param =
         ( match abstract with
           | [] -> ()
           | abstract ->
+            let abstract = clean_polymorphic_info abstract sys in
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
-          (pp_print_list Scope.pp_print_scope ",@ ") abstract) ;
+          (pp_print_list Format.pp_print_string ",@ ") abstract) ;
         Format.fprintf fmt "@]")
     (concrete, abstract)
 
