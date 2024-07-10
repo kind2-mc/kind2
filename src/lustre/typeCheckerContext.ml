@@ -47,6 +47,9 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
+type ty_arg_store = tc_type list IMap.t 
+(** A store of monomorphized node names and their type arguments *)
+
 type source = 
 | Input
 | Output
@@ -81,9 +84,13 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                                                      this is poor mans kind (type of type) context *)
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
                       contract_exports 
-                  ; enum_vars:enum_variants
-                  ; ty_vars: ty_var_store           (* stores the type variables associated with each node *)
-                  ; contract_ty_vars: ty_var_store  (* stores the type variables associated with each contract *)
+                  ; enum_vars: enum_variants
+                  ; ty_vars:                      (* stores the type variables associated with each node *)
+                      ty_var_store              
+                  ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
+                      ty_var_store  
+                  ; ty_args:                      (* stores the type arguments associated with each (monomorphized) node *)
+                      ty_arg_store               
                   }
 (** The type checker global context *)
 
@@ -101,6 +108,7 @@ let empty_tc_context: tc_context =
   ; enum_vars = IMap.empty
   ; ty_vars = IMap.empty
   ; contract_ty_vars = IMap.empty
+  ; ty_args = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -194,6 +202,10 @@ let lookup_node_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.ty_vars)
 (** Lookup a node's type variables *)
 
+let lookup_node_ty_args: tc_context -> LA.ident -> LA.lustre_type list option
+  = fun ctx i -> IMap.find_opt i (ctx.ty_args)
+(** Lookup a node's type variables *)
+
 let lookup_contract_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
 (** Lookup a contract's type variables *)
@@ -234,6 +246,11 @@ let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i ty_vars -> 
     {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
+(**  Add the type variables of the node *)
+
+let add_ty_args_node: tc_context -> LA.ident -> LA.lustre_type list -> tc_context
+  = fun ctx i ty_args -> 
+    {ctx with ty_args = IMap.add i ty_args (ctx.ty_args)}
 (**  Add the type variables of the node *)
 
 let add_ty_vars_contract: tc_context -> LA.ident -> LA.ident list -> tc_context
@@ -301,6 +318,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; contract_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.contract_ty_vars)
                                    (ctx2.contract_ty_vars))
+                    ; ty_args = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.ty_args)
+                                   (ctx2.ty_args))
                      }
 (** Unions the two typing contexts *)
 
@@ -366,6 +386,13 @@ let pp_print_ty_var_binding: Format.formatter -> (LA.ident * HString.t list) -> 
     (Lib.pp_print_list HString.pp_print_hstring ",") (ty_vars)
 (** Pretty print type bindings*)  
 
+let pp_print_ty_arg_binding: Format.formatter -> (LA.ident * LA.lustre_type list) -> unit
+  = fun ppf (i, ty_vars) ->
+    Format.fprintf ppf "(%a:{%a})" 
+    LA.pp_print_ident i 
+    (Lib.pp_print_list LA.pp_print_lustre_type ",") (ty_vars)
+(** Pretty print type bindings*)  
+
 let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
   = fun ppf (i, (v, ty, sc)) ->
   Format.fprintf ppf "(%a:%a :-> %a (%s))"
@@ -394,6 +421,10 @@ let pp_print_u_types: Format.formatter -> SI.t -> unit
 
 let pp_print_type_variables: Format.formatter -> ty_var_store -> unit
   = fun ppf m -> Lib.pp_print_list pp_print_ty_var_binding ", " ppf (IMap.bindings m)
+(** Pretty print declared user types *)
+
+let pp_print_type_arguments: Format.formatter -> ty_arg_store -> unit
+  = fun ppf m -> Lib.pp_print_list pp_print_ty_arg_binding ", " ppf (IMap.bindings m)
 (** Pretty print declared user types *)
 
 let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
@@ -427,7 +458,8 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
        ^^ "Contract exports={%a}\n"
        ^^ "Enumeration Variants={%a}\n"
        ^^ "Type variables={%a}\n"
-       ^^ "Contract type variables={%a}\n")
+       ^^ "Contract type variables={%a}\n"
+       ^^ "Type arguments={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.node_ctx)
@@ -438,6 +470,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_enum_variants (ctx.enum_vars)
       pp_print_type_variables (ctx.ty_vars)
       pp_print_type_variables (ctx.contract_ty_vars)
+      pp_print_type_arguments (ctx.ty_args)
 (** Pretty print the complete type checker context*)
                          
 (** {1 Helper functions that uses context }  *)

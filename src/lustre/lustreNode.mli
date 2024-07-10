@@ -156,6 +156,10 @@ type t = {
   is_extern : bool;
   (** Is the node extern? *)
 
+  
+  ty_args: LustreAst.lustre_type list;
+  (** Node type arguments (if the node was created during monomorphization) *)
+
   instance : StateVar.t;
   (** Distinguished constant state variable uniquely identifying the
       node instance *)

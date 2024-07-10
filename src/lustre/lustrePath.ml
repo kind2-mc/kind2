@@ -660,6 +660,33 @@ let node_path_of_subsystems
       backtrace ;*)
     raise e
 
+let get_node_type_and_name name =
+  let open LustreGenRefTypeImpNodes in
+  let inputs_tag_len = String.length inputs_tag in
+  let contract_tag_len = String.length contract_tag in
+  let type_tag_len = String.length type_tag in
+  let poly_gen_node_tag_len = String.length poly_gen_node_tag in
+  if String.length name > inputs_tag_len && 
+      String.sub name 0 inputs_tag_len = inputs_tag then
+    Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
+  else if String.length name > contract_tag_len && 
+          String.sub name 0 contract_tag_len = contract_tag then 
+    Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
+  else if String.length name > type_tag_len && 
+          String.sub name 0 type_tag_len = type_tag then 
+    Type, (String.sub name type_tag_len (String.length name - type_tag_len))
+  else if String.length name > poly_gen_node_tag_len && 
+          String.sub name 0 poly_gen_node_tag_len = poly_gen_node_tag then 
+    let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
+    let re = Str.regexp "^[0-9]+" in
+    let len_prefix = 
+      if Str.string_match re s 0 then
+        String.length (Str.matched_string s) + 1
+      else 1
+    in
+    User, (String.sub s len_prefix (String.length s - len_prefix))
+  else
+    User, name
 
 (* *************************************************************** *)
 (* Plain-text output                                               *)
@@ -776,13 +803,12 @@ let pp_print_stream_ident_pt ppf (index, state_var) =
     (D.pp_print_index false) index
 
 
-(* Output the the calling node and the position of the call *)
+(* Output the calling node and the position of the call *)
 let pp_print_call_pt ppf (name, pos) = 
- 
-  Format.fprintf
-    ppf
-    "%a%a"
-    (I.pp_print_ident false) name
+  let name = string_of_t (I.pp_print_ident true) name in
+  let _, name = get_node_type_and_name name in
+  Format.fprintf ppf "%s%a"
+    name
     pp_print_pos_pt pos
 
 
@@ -980,34 +1006,6 @@ let filter_locals is_visible locals =
       | true -> (i, sv) :: acc
       | false -> acc
     ) [] locals
-
-let get_node_type_and_name name =
-  let open LustreGenRefTypeImpNodes in
-  let inputs_tag_len = String.length inputs_tag in
-  let contract_tag_len = String.length contract_tag in
-  let type_tag_len = String.length type_tag in
-  let poly_gen_node_tag_len = String.length poly_gen_node_tag in
-  if String.length name > inputs_tag_len && 
-     String.sub name 0 inputs_tag_len = inputs_tag then
-    Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
-  else if String.length name > contract_tag_len && 
-          String.sub name 0 contract_tag_len = contract_tag then 
-    Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
-  else if String.length name > type_tag_len && 
-          String.sub name 0 type_tag_len = type_tag then 
-    Type, (String.sub name type_tag_len (String.length name - type_tag_len))
-  else if String.length name > poly_gen_node_tag_len && 
-          String.sub name 0 poly_gen_node_tag_len = poly_gen_node_tag then 
-    let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
-    let re = Str.regexp "^[0-9]+" in
-    let len_prefix = 
-      if Str.string_match re s 0 then
-        String.length (Str.matched_string s) + 1
-      else 1
-    in
-    User, (String.sub s len_prefix (String.length s - len_prefix))
-  else
-    User, name
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)

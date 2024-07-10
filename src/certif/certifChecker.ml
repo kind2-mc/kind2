@@ -2521,6 +2521,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let obs_sys, _ =
     TS.mk_trans_sys
       [obs_name]
+      []
       None
       init_flag
       (* [] *)

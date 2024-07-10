@@ -175,6 +175,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       if is_function then 
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in
+        let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
         A.FuncDecl (span, (pnname, ext, ps, ips, ops, locs, nis, c))
@@ -190,6 +191,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       else     
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in
+        let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
         NodeDecl (span, (pnname, ext, ps, ips, ops, locs, nis, c))

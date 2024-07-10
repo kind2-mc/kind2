@@ -2305,9 +2305,14 @@ and compile_node_decl gids_map is_function cstate ctx i ext params inputs output
       TM.empty
       (StringMap.bindings gids.GI.history_vars)
   in
+  let ty_args = match Ctx.lookup_node_ty_args ctx i with 
+  | None -> [] 
+  | Some ty_args -> ty_args 
+  in
 
   let (node:N.t) = { name;
     is_extern;
+    ty_args;
     instance;
     init_flag;
     inputs;

@@ -1697,7 +1697,7 @@ let log_analysis_start sys param =
       @.@."
       Pretty.print_double_line ()
       Scope.pp_print_scope info.Analysis.top
-      (Analysis.pp_print_param false) param
+      (Analysis.pp_print_param false sys) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)

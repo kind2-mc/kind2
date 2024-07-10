@@ -336,8 +336,15 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-let clean_polymorphic_info scopes = 
-  let scopes = List.map (fun scope -> 
+(* If the node was originally polymorphic, display information about its 
+   monomorphization cleanly *)
+let clean_polymorphic_info concrete sys = 
+  let ty_argss = List.map (fun sc -> 
+    TransSys.find_subsystem_of_scope sys sc 
+    |>  TransSys.get_ty_args
+  ) concrete in
+  let concrete = List.map Scope.to_string concrete in
+  let concrete = List.map (fun scope -> 
     let poly_gen_node_tag_len = String.length LustreGenRefTypeImpNodes.poly_gen_node_tag in
     if String.length scope > poly_gen_node_tag_len && 
        String.sub scope 0 poly_gen_node_tag_len = LustreGenRefTypeImpNodes.poly_gen_node_tag then 
@@ -351,12 +358,16 @@ let clean_polymorphic_info scopes =
       (String.sub s len_prefix (String.length s - len_prefix))
     else
       scope
-  ) scopes in
-  (* Remove duplicate node names (occurs when a node has multiple polymorphic instantiations) *)
-  let module StringSet = Set.Make(String) in 
-  scopes |> StringSet.of_list |> StringSet.elements
+  ) concrete in 
+  List.map2 (fun sc ty_args -> match ty_args with
+  | [] -> sc 
+  | ty_args -> 
+    Format.asprintf "%s<<%a>>"
+      sc
+      (Lib.pp_print_list LustreAst.pp_print_lustre_type "; ") ty_args
+  ) concrete ty_argss
 
-let pp_print_param verbose fmt param =
+let pp_print_param verbose sys fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
@@ -379,9 +390,7 @@ let pp_print_param verbose fmt param =
         ( match concrete with
           | [] -> ()
           | concrete ->
-            let concrete = List.map Scope.to_string concrete in
-            (* Remove Kind 2-generated info from node names of polymorphic node instantiations *)
-            let concrete = clean_polymorphic_info concrete in
+            let concrete = clean_polymorphic_info concrete sys in
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
               (pp_print_list Format.pp_print_string ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
@@ -574,7 +583,7 @@ let pp_print_result fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true) param
+    (pp_print_param true sys) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"
