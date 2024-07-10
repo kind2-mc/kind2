@@ -1,11 +1,11 @@
-contract countSpec<<Y>>(x78: Y) returns (y78: Y);
+contract C<<Y>>(in: Y) returns (out: Y);
 let
-  guarantee true -> (y78 = (pre x78));
+  guarantee true -> (out = (pre in));
 tel
 
 node N(x: int) returns (y: int) 
 (*@contract 
-    import countSpec<<int>>(x) returns (y);
+    import C<<int>>(x) returns (y);
 *)
 let
     y = (x -> pre x);
