@@ -1689,13 +1689,14 @@ let log_analysis_start sys param =
   if Flags.log_level () <> L_off then begin
     let param = Analysis.shrink_param_to_sys param sys in
     let info = Analysis.info_of_param param in
+    let sc_str = Analysis.clean_polymorphic_info sys info.Analysis.top in
     match get_log_format () with
     | F_pt ->
       Format.fprintf !log_ppf "\
-        @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
+        @.@.%a@{<b>Analyzing @{<blue>%s@}@}@   with %a\
       @.@."
       Pretty.print_double_line ()
-      Scope.pp_print_scope info.Analysis.top
+      sc_str
       (Analysis.pp_print_param false sys) param
 
     | F_xml ->
@@ -1708,26 +1709,24 @@ let log_analysis_start sys param =
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "@.@.\
           <AnalysisStart \
-            top=\"%a\" \
+            top=\"%s\" \
             concrete=\"%a\" \
             abstract=\"%a\" \
             assumptions=\"%a\"\
           />@.@.\
         "
-        Scope.pp_print_scope info.Analysis.top
+        sc_str
         (pp_print_list Format.pp_print_string ",") concrete
         (pp_print_list Format.pp_print_string ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
-            Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+            let sc_str = Analysis.clean_polymorphic_info sys scope in
+            Format.fprintf fmt "(%s,%d)" sc_str cpt
           )
           ","
         ) assumption_count ;
       analysis_start_not_closed := true
 
     | F_json ->
-      let pp_print_scope_str fmt scope =
-        Format.fprintf fmt "\"%a\"" Scope.pp_print_scope scope
-      in
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
       let concrete = List.map (Analysis.clean_polymorphic_info sys) concrete in
@@ -1738,17 +1737,18 @@ let log_analysis_start sys param =
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
-          \"top\" : \"%a\",@,\
+          \"top\" : \"%s\",@,\
           \"concrete\" :%a,@,\
           \"abstract\" :%a,@,\
           \"assumptions\" :%a\
           @]@.}@.\
         "
-        Scope.pp_print_scope info.Analysis.top
+        sc_str
         (pp_print_list_attrib Format.pp_print_string) concrete
         (pp_print_list_attrib Format.pp_print_string) abstract
         (pp_print_list_attrib (fun fmt (scope, cpt) ->
-            Format.fprintf fmt "[%a,%d]" pp_print_scope_str scope cpt
+            let sc_str = Analysis.clean_polymorphic_info sys scope in
+            Format.fprintf fmt "[\"%s\",%d]" sc_str cpt
           )
         ) assumption_count;
       analysis_start_not_closed := true
