@@ -476,6 +476,7 @@ let pp_print_param_of_result fmt { param ; sys } =
           ) else acc
       ) abstraction_map []
     in
+    let refined = List.map (clean_polymorphic_info sys) refined in
     Format.fprintf
       fmt
       "with %d abstract system%s@ \
@@ -486,7 +487,7 @@ let pp_print_param_of_result fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        Scope.pp_print_scope
+        Format.pp_print_string
         ",@ "
       ) refined
 
@@ -520,14 +521,15 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
       (pp_print_list Property.pp_print_prop_quiet ",@ ") reachable
     )
   in
+  let sc_str = clean_polymorphic_info sys (TransSys.scope_of_trans_sys sys) in
   match invariant, falsified, unknown with
   | valid, [], [] ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "%s:@   @[<v>\
         @{<green>safe@} in %.3fs@ \
         %a@ \
         %d invariant %s%t\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       time
       pp_print_param_of_result res
       (List.length valid)
@@ -541,25 +543,25 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
         | _ -> reachability_properties fmt
       )
   | valid, [], unknown ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "%s:@   @[<v>\
         @{<red>timeout@}@ \
         %a@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
   | valid, invalid, unknown ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "%s:@   @[<v>\
         @{<red>unsafe@} in %.3fs@ \
         %a@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       time
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
