@@ -309,6 +309,9 @@ let keyword_table = mk_hashtbl [
   "pre", PRE ;
   "fby", FBY ;
 
+  (* Higher order functions *)
+  "map", MAP ; 
+
   (* |===| Block annotation contract stuff. *)
   "mode", MODE;
   "assume", ASSUME;
