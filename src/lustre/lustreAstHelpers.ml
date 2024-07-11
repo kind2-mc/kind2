@@ -56,6 +56,7 @@ let pos_of_expr = function
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | AnyOp (pos, _, _, _)
+  | Map (pos, _, _, _)
   -> pos
 
 let type_arity ty =
@@ -86,7 +87,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+  | Call _ | Condact _ | RestartEvery _ | AnyOp _ | Map _
     -> true
 
 let rec type_contains_array = function
@@ -106,7 +107,7 @@ let rec expr_contains_id id = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
     -> expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2) | Map (_, _, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
@@ -178,6 +179,7 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
+  | Map (pos, id, e1, e2) -> Map (pos, id, substitute_naive var t e1, substitute_naive var t e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
 

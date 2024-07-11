@@ -418,6 +418,8 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  (* Higher order functions *)
+  | LA.Map (pos, i, e1, e2) -> (HString.concat2 node_prefix i, pos) :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
