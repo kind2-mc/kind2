@@ -239,6 +239,11 @@ function
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
+  (*!! Will need to be updated if we allow general node calls, not just function calls,
+       for mapping function *)
+| Map (_, _, e1, e2) -> 
+  has_stateful_op ctx e1 || has_stateful_op ctx e2
+
 | Call (_, i, l) ->
   StringMap.mem i ctx.nodes ||
   List.fold_left
@@ -689,6 +694,7 @@ let rec expr_only_supported_in_merge observer expr =
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
   | ArrayIndex (_, e1, e2)
+  | Map (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
@@ -985,6 +991,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
     | ArrayIndex (_, e1, e2)
+    | Map (_, _, e1, e2)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 

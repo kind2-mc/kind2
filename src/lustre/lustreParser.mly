@@ -1124,7 +1124,8 @@ pexpr(Q):
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
-  | MAP; LPAREN; i = ident; COMMA; e = expr; RPAREN { A.Map(mk_pos $startpos, i, e) }
+  (* Higher order functions *)
+  | MAP; LPAREN; i = ident; COMMA; CONST; e1 = expr; COMMA; e2 = expr; RPAREN { A.Map(mk_pos $startpos, i, e1, e2) }
 
   (* A node or function call *)
   | e = node_call { e } 

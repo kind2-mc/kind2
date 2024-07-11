@@ -161,7 +161,7 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Higher order functions *)
-  | Map of position * ident * expr 
+  | Map of position * ident * expr * expr
   (* Node calls *)
   | Call of position * ident * expr list
 
