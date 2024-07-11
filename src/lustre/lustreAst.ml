@@ -745,7 +745,7 @@ let pp_print_const_decl ppf = function
 
 (* Pretty-print a single static node parameter *)
 let pp_print_node_param ppf t = 
-    Format.fprintf ppf "type %a" pp_print_ident t
+    Format.fprintf ppf "%a" pp_print_ident t
 
 
 (* Pretty-print a list of static node parameters *)
