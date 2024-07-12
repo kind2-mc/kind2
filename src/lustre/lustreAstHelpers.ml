@@ -272,6 +272,11 @@ let rec has_unguarded_pre ung = function
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
 
+  | Map (_, _, e1, e2) ->  
+    let u1 = has_unguarded_pre ung e1 in 
+    let u2 = has_unguarded_pre ung e2 in 
+    u1 || u2
+
   | ArrayIndex (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
@@ -343,6 +348,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Map (_, _, e1, e2) | ArrayIndex (_, e1, e2)
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
@@ -354,11 +360,6 @@ let rec has_unguarded_pre_no_warn ung = function
     let u3 = has_unguarded_pre_no_warn ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
-    let u1 = has_unguarded_pre_no_warn ung e1 in
-    let u2 = has_unguarded_pre_no_warn ung e2 in
-    u1 || u2
- 
   | GroupExpr (_, _, l) | Call (_, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
@@ -430,7 +431,8 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  
+  | Map (_, _, e1, e2) -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -665,7 +667,8 @@ let rec vars_of_node_calls_h obs =
   | Const _ -> SI.empty
   (* Operators *)
   | UnaryOp (_,_,e) -> vars obs e
-  | BinaryOp (_,_,e1, e2) -> vars obs e1 |> SI.union (vars obs e2)
+  | BinaryOp (_,_,e1, e2)
+  | Map (_, _, e1, e2) -> vars obs e1 |> SI.union (vars obs e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
@@ -732,6 +735,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Higher order functions *)
+  | Map (_, _, e1, e2) -> SI.union (vars e2) (vars e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
@@ -749,6 +754,8 @@ let rec calls_of_expr: expr -> iset =
   | RestartEvery (_, i, es, e) -> 
     SI.union (SI.singleton i)
              (SI.flatten (calls_of_expr e :: List.map calls_of_expr es))
+  | Map (_, i, e1, e2) -> 
+    SI.union (SI.singleton i) (SI.union (calls_of_expr e1) (calls_of_expr e2))
   (* Everything else *)
   | Ident _ -> SI.empty
   | ModeRef _ -> SI.empty
@@ -810,6 +817,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Temporal operators *)
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Higher order functions *)
+  | Map (_, _, e1, e2) -> SI.union (vars e1) (vars e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
@@ -979,6 +988,9 @@ let rec replace_with_constants: expr -> expr =
   | Pre (_, e) -> replace_with_constants e
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
+  (* Higher order functions *)
+  | Map (p, i, e1, e2) -> Map (p, i, replace_with_constants e1, replace_with_constants e2)
+
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
 
@@ -1058,6 +1070,9 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Pre (p, e) -> Pre(p, replace_with_constants e)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
+  (* Higher order functions *)
+  | Map (p, i, e1, e2) -> Map (p, i, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
+
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
                  
@@ -1087,6 +1102,7 @@ let rec replace_idents locals1 locals2 expr =
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
+  | Map (a, b, e1, e2) -> Map (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
@@ -1290,6 +1306,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | Call (_, xi, xl), Call (_, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
+    (*!!MAP*)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1547,6 +1564,7 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | Map (pos, id, e1, e2) -> Map (pos, id, rename_contract_vars e1, rename_contract_vars e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
 
