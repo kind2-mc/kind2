@@ -839,11 +839,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
-  | Map (pos, id, e1, e2) -> 
-    let vars1, e1' = r map e1 in 
-    let vars2, e2' = r map e2 in 
-    StringSet.union vars1 vars2,
-    Map (pos, id, e1', e2')
+  | Map (pos, id, e) -> 
+    let vars, e' = r map e in 
+    vars, Map (pos, id, e')
   | Call (pos, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, id, expr_list')

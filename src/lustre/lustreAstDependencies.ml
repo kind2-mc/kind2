@@ -419,7 +419,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Higher order functions *)
-  | LA.Map (pos, i, e1, e2) -> (HString.concat2 node_prefix i, pos) :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.Map (pos, i, e) -> (HString.concat2 node_prefix i, pos) :: (get_node_call_from_expr e)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
@@ -698,8 +698,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
   (* Higher order functions *)
-  | Map (_, i, e1, e2) -> 
-    let arg_vars = [r e1; r e2] in
+  | Map (_, i, e) -> 
+    let arg_vars = [r e] in
     (* guaranteed not to throw an exception by lustreSyntaxChecks *)
     let node_map = IMap.find i m in
     (match IntMap.find_opt proj node_map with
@@ -913,7 +913,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
   (*!! THIS IS JUST FILLER FOR NOW *)
-  | LA.Map (_, _, e, _) -> mk_graph_expr2 m e
+  | LA.Map (_, _, e) -> mk_graph_expr2 m e
   
   | LA.Call (_, i, es) ->
      (match IMap.find_opt i m with

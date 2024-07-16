@@ -354,7 +354,7 @@ let rec infer_const_attr ctx exp =
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
-  | Map (_, i, _, _) 
+  | Map (_, i, _) 
   | Call (_, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -707,7 +707,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       (type_error pos (IlltypedArrow (ty1, ty2)))
 
   (* Higher order functions *)
-  | LA.Map (pos, i, expr, _) -> (
+  | LA.Map (pos, i, expr) -> (
     Debug.parse "Inferring type of mapping function %a over an array" LA.pp_print_ident i ;
     let* given_arg_ty = infer_type_expr ctx expr in
     let* given_arg_ty, len = match given_arg_ty with 
@@ -928,7 +928,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >> check_type_expr ctx e2 exp_ty
 
   (* Higher order functions *)
-  | Map (pos, i, expr, _) ->
+  | Map (pos, i, expr) ->
     let* arg_ty = infer_type_expr ctx expr in
     let* arg_ty = match arg_ty with 
     | LA.ArrayType (_, (ty, _)) -> R.ok ty 

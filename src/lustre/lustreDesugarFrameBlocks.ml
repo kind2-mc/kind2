@@ -123,7 +123,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill =
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, call e1, call e2, call e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (call) l)
-  | Map (a, b, e1, e2) -> Map (a, b, call e1, call e2)
+  | Map (a, b, e) -> Map (a, b, call e)
   | Call (a, b, l) -> Call (a, b, List.map (call) l)
 
   | Merge (a, b, l) -> Merge (a, b, 

@@ -241,8 +241,8 @@ function
 
   (*!! Will need to be updated if we allow general node calls, not just function calls,
        for mapping function *)
-| Map (_, _, e1, e2) -> 
-  has_stateful_op ctx e1 || has_stateful_op ctx e2
+| Map (_, _, e) -> 
+  has_stateful_op ctx e
 
 | Call (_, i, l) ->
   StringMap.mem i ctx.nodes ||
@@ -686,6 +686,7 @@ let rec expr_only_supported_in_merge observer expr =
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
+  | Map (_, _, e)
   | Quantifier (_, _, _, e) -> r observer e
   | AnyOp (_, _, e, None) -> r false e
   | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
@@ -694,7 +695,6 @@ let rec expr_only_supported_in_merge observer expr =
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
   | ArrayIndex (_, e1, e2)
-  | Map (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
@@ -982,6 +982,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
+    | Map (_, _, e)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
@@ -991,7 +992,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
     | ArrayIndex (_, e1, e2)
-    | Map (_, _, e1, e2)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 
