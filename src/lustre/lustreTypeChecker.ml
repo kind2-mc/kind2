@@ -352,6 +352,7 @@ let rec infer_const_attr ctx exp =
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
+  | Map (_, i, _, _) 
   | Call (_, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with

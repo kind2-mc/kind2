@@ -231,6 +231,7 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | Map (pos, id, e1, e2) -> Map (pos, id, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
@@ -736,7 +737,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Higher order functions *)
-  | Map (_, _, e1, e2) -> SI.union (vars e2) (vars e2)
+  | Map (_, _, e1, e2) -> SI.union (vars e1) (vars e2)
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
@@ -1505,6 +1506,10 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
+      | Map (_, i, e1, e2) -> 
+        let e1_hash = r (depth + 1) e1 in 
+        let e2_hash = r (depth + 1) e2 in 
+        Hashtbl.hash (26, HString.hash i, e1_hash, e2_hash)
   in
   r 0 expr
 

@@ -287,9 +287,10 @@ and ast_contains p ast =
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
       | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
       aux e
+
     | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
-    | A.ArrayIndex (_,e1,e2) 
+    | A.ArrayIndex (_,e1,e2) | A.Map (_, _, e1, e2)
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
     | A.Arrow (_,e1,e2) -> aux e1 || aux e2
     | A.GroupExpr (_,_,es) ->

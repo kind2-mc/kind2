@@ -697,6 +697,24 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Pre (_, _) -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
+  (* Higher order functions *)
+  | Map (_, i, e1, e2) -> 
+    let arg_vars = [r e1; r e2] in
+    (* guaranteed not to throw an exception by lustreSyntaxChecks *)
+    let node_map = IMap.find i m in
+    (match IntMap.find_opt proj node_map with
+      | Some dep_args ->
+        let result = List.fold_left (fun acc idx ->
+            match List.nth_opt arg_vars idx with
+            | Some v -> SI.union acc v
+            (* If the provided file is not arity-correct then ignore those vars *)
+            | None -> acc)
+          SI.empty
+          dep_args
+        in
+        result
+      | None -> SI.empty)
+
   (* Node calls *)
   | Call (_, i, es) ->
     (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
