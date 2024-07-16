@@ -912,6 +912,9 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
+  (*!! THIS IS JUST FILLER FOR NOW *)
+  | LA.Map (_, _, e, _) -> mk_graph_expr2 m e
+  
   | LA.Call (_, i, es) ->
      (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
