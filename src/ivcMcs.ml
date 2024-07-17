@@ -246,9 +246,9 @@ let rec minimize_node_call_args ue lst expr =
     -> expr
     | A.Call (pos, ident, args) ->
       A.Call (pos, ident, List.mapi (minimize_arg ident) args)
-      (*!! Test this with --ivc true. Model elements containing arrays are binary decisions,
-           where either the whole array is relevant to the property, or none of it is 
-           (no analysis of individual elements of arrays) *)
+      (* TODO: More testing with --ivc true once map is supported by the backend. 
+         (Model elements containing arrays are binary decision;
+         there is no fine-grained analysis of individual array elements.) *)
     | A.Map (pos, id, e) -> A.Map (pos, id, minimize_arg id 0 e)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)

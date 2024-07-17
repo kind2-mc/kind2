@@ -242,8 +242,8 @@ function
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
-  (*!! Will need to be updated if we allow general node calls, not just function calls,
-       for mapping function *)
+  (* We only allow functions to be passed to map, 
+     so no need to check the second tuple element *)
 | Map (_, _, e) -> 
   has_stateful_op ctx e
 

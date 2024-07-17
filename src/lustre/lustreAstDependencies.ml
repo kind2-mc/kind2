@@ -912,8 +912,24 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
-  (*!! THIS IS JUST FILLER FOR NOW *)
-  | LA.Map (_, _, e) -> mk_graph_expr2 m e
+  | LA.Map (_, i, e) ->
+    (match IMap.find_opt i m with
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
+      | Some summary ->
+         let sum_bds = IntMap.bindings summary in
+         let* g = mk_graph_expr2 m e in
+         (* For each output stream, return the associated graph of the input expression 
+            whose current value it depends on. If the output stream does not depend on 
+            any input stream's current value, return an empty graph. *)
+         R.ok (List.map (fun (_, b) ->
+              List.fold_left
+                union_dependency_analysis_data
+                empty_dependency_analysis_data
+                (List.map (fun idx -> match List.nth_opt g idx with
+                  | Some data -> data
+                  | None -> empty_dependency_analysis_data)
+                  b)
+           ) sum_bds))
   
   | LA.Call (_, i, es) ->
      (match IMap.find_opt i m with

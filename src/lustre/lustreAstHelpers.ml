@@ -1306,7 +1306,9 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | Call (_, xi, xl), Call (_, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
-    (*!!MAP*)
+    | Map (_, xi, xe), Map (_, yi, ye) -> 
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (e && HString.equal xi yi)
     | _ -> Ok (false)
   in
   r 0 x y
