@@ -1930,6 +1930,9 @@ and normalize_expr ?guard info map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
+  | Map (pos, id, expr) -> 
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in 
+    Map (pos, id, nexpr), gids, warnings
 
 and expand_node_calls_in_place info var count expr =
   let r = expand_node_calls_in_place info var count in
