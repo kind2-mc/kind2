@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | AnyOpInFunction
   | NodeCallInFunction of HString.t
+  | NodeCallInMap of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
@@ -102,6 +103,8 @@ let error_message kind = match kind with
   | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
+  | NodeCallInMap node -> "Illegal call to node '"
+    ^ HString.string_of_hstring node ^ "', map can only call functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
@@ -982,7 +985,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
-    | Map (_, _, e)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
@@ -1054,6 +1056,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr extn_ctx f e1) in 
       let* warnings3 = (check_expr extn_ctx f e2)  in 
       Ok (warnings1 @ warnings2 @ warnings3)
+    | Map (pos, i, e) -> 
+      let check_nodes = StringMap.mem i ctx.nodes in
+      if check_nodes then syntax_error pos (NodeCallInMap i)
+      else check_expr ctx f e
     | Ident _ | ModeRef _ | Const _ -> Ok ([])
   in
   let* warnings1 = res in 

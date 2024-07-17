@@ -106,6 +106,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_node_call.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
     | _ -> false);
+  mk_test "test map that calls node" (fun () ->
+    match load_file "./lustreSyntaxChecks/map_no_node_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInMap _)) -> true
+    | _ -> false);
   mk_test "test function with pre in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
