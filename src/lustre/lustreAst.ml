@@ -122,6 +122,8 @@ type expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Higher order functions *)
+  | Map of position * ident * expr
   (* Node calls *)
   | Call of position * ident * expr list
 
@@ -549,6 +551,14 @@ let rec pp_print_expr ppf =
     | Pre (p, e) -> p1 p "pre" e
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
+
+    | Map (p, id, e) -> 
+      
+      Format.fprintf ppf 
+        "%amap(%a, %a)"
+        ppos p
+        pp_print_ident id 
+        pp_print_expr e
 
     | Call (p, id, l) ->
 

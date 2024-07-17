@@ -56,6 +56,7 @@ let pos_of_expr = function
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | AnyOp (pos, _, _, _)
+  | Map (pos, _, _)
   -> pos
 
 let type_arity ty =
@@ -86,7 +87,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+  | Call _ | Condact _ | RestartEvery _ | AnyOp _ | Map _
     -> true
 
 let rec type_contains_array = function
@@ -102,11 +103,11 @@ let rec type_contains_array = function
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
   | ModeRef (_, _) | Const (_, _) -> false
-  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e) | Map (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
     -> expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2) 
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
@@ -178,6 +179,7 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
+  | Map (pos, id, e) -> Map (pos, id, substitute_naive var t e)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
@@ -229,6 +231,7 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | Map (pos, id, e) -> Map (pos, id, apply_subst_in_expr sigma e)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
@@ -269,6 +272,9 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
+
+  | Map (_, _, e) ->  
+    has_unguarded_pre ung e
 
   | ArrayIndex (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -337,10 +343,11 @@ let rec has_unguarded_pre_no_warn ung = function
   | Const _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
+  | UnaryOp (_, _, e) | When (_, e, _) | Map (_, _, e)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | ArrayIndex (_, e1, e2)
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
@@ -352,11 +359,6 @@ let rec has_unguarded_pre_no_warn ung = function
     let u3 = has_unguarded_pre_no_warn ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
-    let u1 = has_unguarded_pre_no_warn ung e1 in
-    let u2 = has_unguarded_pre_no_warn ung e2 in
-    u1 || u2
- 
   | GroupExpr (_, _, l) | Call (_, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
@@ -421,14 +423,14 @@ let rec has_pre_or_arrow = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
-  | AnyOp (_, _, e, None) -> 
+  | AnyOp (_, _, e, None) | Map (_, _, e) -> 
     has_pre_or_arrow e
 
   | AnyOp (_, _, e1, Some e2) -> 
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2) -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -656,6 +658,9 @@ let rec vars_of_node_calls_h obs =
   let vars obs = vars_of_node_calls_h obs in
   function
   | Ident (_, i) -> if obs then SI.singleton i else SI.empty
+  | Map (_, i, e) -> 
+    let vars' = vars obs e in 
+    if obs then SI.union (SI.singleton i) vars' else vars' 
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
@@ -730,6 +735,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Higher order functions *)
+  | Map (_, _, e) -> vars e
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
@@ -747,6 +754,8 @@ let rec calls_of_expr: expr -> iset =
   | RestartEvery (_, i, es, e) -> 
     SI.union (SI.singleton i)
              (SI.flatten (calls_of_expr e :: List.map calls_of_expr es))
+  | Map (_, i, e) -> 
+    SI.union (SI.singleton i) (calls_of_expr e)
   (* Everything else *)
   | Ident _ -> SI.empty
   | ModeRef _ -> SI.empty
@@ -808,6 +817,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Temporal operators *)
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Higher order functions *)
+  | Map (_, _, e) -> vars e
   (* Node calls *)
   | Call (_, _, es) -> SI.flatten (List.map vars es)
 
@@ -977,6 +988,9 @@ let rec replace_with_constants: expr -> expr =
   | Pre (_, e) -> replace_with_constants e
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
+  (* Higher order functions *)
+  | Map (p, i, e) -> Map (p, i, replace_with_constants e)
+
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
 
@@ -1056,6 +1070,9 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Pre (p, e) -> Pre(p, replace_with_constants e)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
+  (* Higher order functions *)
+  | Map (p, i, e) -> Map (p, i, abstract_pre_subexpressions e)
+
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
                  
@@ -1085,6 +1102,7 @@ let rec replace_idents locals1 locals2 expr =
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
+  | Map (a, b, e) -> Map (a, b, replace_idents locals1 locals2 e)
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
@@ -1288,6 +1306,9 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | Call (_, xi, xl), Call (_, yi, yl) ->
       rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
+    | Map (_, xi, xe), Map (_, yi, ye) -> 
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (e && HString.equal xi yi)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1486,6 +1507,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
+      | Map (_, i, e) -> 
+        let e_hash = r (depth + 1) e in 
+        Hashtbl.hash (26, HString.hash i, e_hash)
   in
   r 0 expr
 
@@ -1545,6 +1569,7 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | Map (pos, id, e) -> Map (pos, id, rename_contract_vars e)
   | Call (pos, id, expr_list) ->
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
 

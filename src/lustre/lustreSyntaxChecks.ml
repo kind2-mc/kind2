@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | AnyOpInFunction
   | NodeCallInFunction of HString.t
+  | NodeCallInMap of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
@@ -102,6 +103,8 @@ let error_message kind = match kind with
   | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
+  | NodeCallInMap node -> "Illegal call to node '"
+    ^ HString.string_of_hstring node ^ "', map can only call functions, not nodes"
   | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
     ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
     ^ HString.string_of_hstring node ^ " has a refinable contract"
@@ -238,6 +241,11 @@ function
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
+
+  (* We only allow functions to be passed to map, 
+     so no need to check the second tuple element *)
+| Map (_, _, e) -> 
+  has_stateful_op ctx e
 
 | Call (_, i, l) ->
   StringMap.mem i ctx.nodes ||
@@ -681,6 +689,7 @@ let rec expr_only_supported_in_merge observer expr =
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
+  | Map (_, _, e)
   | Quantifier (_, _, _, e) -> r observer e
   | AnyOp (_, _, e, None) -> r false e
   | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
@@ -1047,6 +1056,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr extn_ctx f e1) in 
       let* warnings3 = (check_expr extn_ctx f e2)  in 
       Ok (warnings1 @ warnings2 @ warnings3)
+    | Map (pos, i, e) -> 
+      let check_nodes = StringMap.mem i ctx.nodes in
+      if check_nodes then syntax_error pos (NodeCallInMap i)
+      else check_expr ctx f e
     | Ident _ | ModeRef _ | Const _ -> Ok ([])
   in
   let* warnings1 = res in 

@@ -81,7 +81,10 @@ let split3 triples =
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
 *)
-let rec fill_ite_helper frame_pos node_id lhs id fill = function
+let rec fill_ite_helper frame_pos node_id lhs id fill = 
+  fun expr -> 
+  let call = fill_ite_helper frame_pos node_id lhs id fill in 
+  match expr with  
   (* Replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
@@ -101,52 +104,53 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (a, e) -> Pre (a, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | Pre (a, e) -> Pre (a, call e)
+  | Arrow (a, e1, e2) -> Arrow (a, call e1, call e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | When (a, e, b) -> When (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper frame_pos node_id lhs id fill e)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | RecordProject (a, e, b) -> RecordProject (a, call e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, call e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, call e)
+  | When (a, e, b) -> When (a, call e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, call e, b)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, call e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, call e1, call e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, call e1, call e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, call e1, call e2)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, call e1, call e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, call e1, call e2, call e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Call (a, b, l) -> Call (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (call) l)
+  | Map (a, b, e) -> Map (a, b, call e)
+  | Call (a, b, l) -> Call (a, b, List.map (call) l)
 
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map (call) (List.map snd l)))
   
   | RecordExpr (a, b, l) -> RecordExpr (a, b,     
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map (call) (List.map snd l)))
   
   | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l, fill_ite_helper frame_pos node_id lhs id fill e)
+    RestartEvery (a, b, List.map (call) l, call e)
   | Activate (a, b, e, r, l) ->
-    Activate (a, b, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
+    Activate (a, b, (call) e, (call) r, List.map (call) l)
   | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, b, 
-             List.map (fill_ite_helper frame_pos node_id lhs id fill) l1, List.map (fill_ite_helper frame_pos node_id lhs id fill) l2)
+    Condact (a, (call) e, (call) r, b, 
+             List.map (call) l1, List.map (call) l2)
 
   | StructUpdate (a, e1, li, e2) -> 
-    A.StructUpdate (a, fill_ite_helper frame_pos node_id lhs id fill e1, 
+    A.StructUpdate (a, call e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
-              | Index (a, e) -> Index (a, fill_ite_helper frame_pos node_id lhs id fill e)
+              | Index (a, e) -> Index (a, call e)
              ) li, 
-    fill_ite_helper frame_pos node_id lhs id fill e2)
+    call e2)
 
 (** Helper function to generate node equations when an initialized variable in the 
     frame block is left undefined in the frame block body. *)

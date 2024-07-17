@@ -419,7 +419,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       | None -> 
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
         TC.expand_type_syn_reftype_history ty_ctx id_ty |> unwrap)
-    | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
+    | Call _ | Condact _ | Activate _ | RestartEvery _ | Map _ -> ty
     | TernaryOp (_, Ite, _, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
@@ -525,6 +525,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _)
+  | Map (_, id, _) 
   | Call (_, id, _) ->
     let ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let output_ty = match ty with

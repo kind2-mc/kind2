@@ -246,6 +246,10 @@ let rec minimize_node_call_args ue lst expr =
     -> expr
     | A.Call (pos, ident, args) ->
       A.Call (pos, ident, List.mapi (minimize_arg ident) args)
+      (* TODO: More testing with --ivc true once map is supported by the backend. 
+         (Model elements containing arrays are binary decision;
+         there is no fine-grained analysis of individual array elements.) *)
+    | A.Map (pos, id, e) -> A.Map (pos, id, minimize_arg id 0 e)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
@@ -284,9 +288,10 @@ and ast_contains p ast =
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
-      | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
+      | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e) | A.Map (_, _, e)
       | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
       aux e
+
     | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
     | A.ArrayIndex (_,e1,e2) 

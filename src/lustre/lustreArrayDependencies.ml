@@ -232,6 +232,17 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Temporal operators *)
   | Pre _ -> empty_
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
+  (* Higher order functions *)
+  | Map (_, i, e) -> 
+    let arg_vars = [r e] in 
+    let node_map = AD.IMap.find i ns in 
+    let dep_args = AD.IntMap.find proj node_map in 
+    List.fold_left (fun acc idx ->
+        match List.nth_opt arg_vars idx with
+        | Some v -> union_ acc v
+        | None -> acc)
+      empty_
+      dep_args
   (* Node calls *)
   | Call (_, i, es) ->
     let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in

@@ -1258,6 +1258,8 @@ let rec eval_ast_expr bounds ctx =
       pos
       "Activate operator only supported in merge"
 
+  | A.Map (pos, _, _) -> fail_at_position pos "'map' function not supported in old front end"
+
   | A.AnyOp (pos, _, _, _) -> 
     
     fail_at_position pos "'Any' operation not supported in old front end"
@@ -2287,7 +2289,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 (*
 
 (* Standalone Lustre simplifier for testing *)
-let main () = 
+let main () =  d
 
   Debug.initialize ();
   Debug.enable "lustreSimplify" Format.std_formatter;

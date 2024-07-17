@@ -69,6 +69,7 @@ type error_kind = Unknown of string
   | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
+  | IlltypedMap of tc_type
   | ExpectedFunctionType of tc_type
   | IlltypedIdentifier of HString.t * tc_type * tc_type
   | UnificationFailed of tc_type * tc_type
@@ -144,6 +145,7 @@ let error_message kind = match kind with
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
+  | IlltypedMap (ty) -> "Second argument to map must be an array, but found type " ^ string_of_tc_type ty
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
   | IlltypedIdentifier (id, ty1, ty2) -> "Identifier '" ^ HString.string_of_hstring id
     ^ "' does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
@@ -352,6 +354,7 @@ let rec infer_const_attr ctx exp =
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _)
+  | Map (_, i, _) 
   | Call (_, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -702,6 +705,35 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok ty1)
       (type_error pos (IlltypedArrow (ty1, ty2)))
+
+  (* Higher order functions *)
+  | LA.Map (pos, i, expr) -> (
+    Debug.parse "Inferring type of mapping function %a over an array" LA.pp_print_ident i ;
+    let* given_arg_ty = infer_type_expr ctx expr in
+    let* given_arg_ty, len = match given_arg_ty with 
+    | LA.ArrayType (__MODULE__, (ty, len)) -> 
+      R.ok (ty, len) 
+    | _ -> (type_error pos (IlltypedMap given_arg_ty)) 
+    in
+    match (lookup_node_param_ids ctx i), (lookup_node_ty ctx i) with
+    | Some call_params, Some node_ty -> (
+      (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
+      let node_ty = update_ty_with_ctx node_ty call_params ctx [expr] in
+      let pos2, exp_arg_tys, exp_ret_tys = match node_ty with 
+        | TArr (pos2, exp_arg_tys, exp_ret_tys) -> pos2, exp_arg_tys, exp_ret_tys 
+        | _ -> assert false 
+      in
+      let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_ty in
+      if are_equal then (
+        let exp_ret_tys = LA.ArrayType (pos2, (exp_ret_tys, len)) in
+        (check_constant_args ctx i [expr] >> (R.ok exp_ret_tys))
+      )
+      else (
+        (type_error pos (IlltypedCall (exp_arg_tys, given_arg_ty))))
+    )
+    | _, Some ty -> type_error pos (ExpectedFunctionType ty)
+    | _, None -> type_error pos (UnboundNodeName i)
+  )
      
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) -> (
@@ -894,6 +926,23 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   | Arrow (_, e1, e2) ->
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
+
+  (* Higher order functions *)
+  | Map (pos, i, expr) ->
+    let* arg_ty = infer_type_expr ctx expr in
+    let* arg_ty = match arg_ty with 
+    | LA.ArrayType (_, (ty, _)) -> R.ok ty 
+    | _ -> (type_error pos (IlltypedMap arg_ty)) 
+    in
+    (match (lookup_node_ty ctx i), (lookup_node_param_ids ctx i) with
+    | None, _ 
+    | _, None -> type_error pos (UnboundNodeName i)
+    | Some ty, Some call_params -> 
+      (* Express ty in terms of the current context *)
+      let ty = update_ty_with_ctx ty call_params ctx [expr] in
+      let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
+      if b then R.ok ()
+      else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
 
   (* Node calls *)
   | Call (pos, i, args) ->

@@ -1131,6 +1131,9 @@ and compile_ast_expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
+  | A.Map (pos, _, _) -> 
+    internal_error pos "The map function is not yet supported"; 
+    assert false
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)

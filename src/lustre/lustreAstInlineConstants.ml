@@ -277,6 +277,7 @@ and push_pre is_guarded pos =
   | RestartEvery _ as e -> LA.Pre (pos, e)
   | Pre _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
+  | Map _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
 
 and simplify_expr ?(is_guarded = false) ctx =

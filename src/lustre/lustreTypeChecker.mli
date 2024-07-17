@@ -54,6 +54,7 @@ type error_kind = Unknown of string
   | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
+  | IlltypedMap of tc_type
   | ExpectedFunctionType of tc_type
   | IlltypedIdentifier of HString.t * tc_type * tc_type
   | UnificationFailed of tc_type * tc_type

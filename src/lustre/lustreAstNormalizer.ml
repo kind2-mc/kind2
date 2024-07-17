@@ -839,7 +839,10 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
-  | Call(pos, id, expr_list) ->
+  | Map (pos, id, e) -> 
+    let vars, e' = r map e in 
+    vars, Map (pos, id, e')
+  | Call (pos, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, id, expr_list')
   | Merge (pos, ident, expr_list) ->
@@ -1927,6 +1930,9 @@ and normalize_expr ?guard info map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
+  | Map (pos, id, expr) -> 
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in 
+    Map (pos, id, nexpr), gids, warnings
 
 and expand_node_calls_in_place info var count expr =
   let r = expand_node_calls_in_place info var count in

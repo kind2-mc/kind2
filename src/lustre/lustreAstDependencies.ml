@@ -418,6 +418,8 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  (* Higher order functions *)
+  | LA.Map (pos, i, e) -> (HString.concat2 node_prefix i, pos) :: (get_node_call_from_expr e)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
@@ -695,6 +697,24 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Pre (_, _) -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
+  (* Higher order functions *)
+  | Map (_, i, e) -> 
+    let arg_vars = [r e] in
+    (* guaranteed not to throw an exception by lustreSyntaxChecks *)
+    let node_map = IMap.find i m in
+    (match IntMap.find_opt proj node_map with
+      | Some dep_args ->
+        let result = List.fold_left (fun acc idx ->
+            match List.nth_opt arg_vars idx with
+            | Some v -> SI.union acc v
+            (* If the provided file is not arity-correct then ignore those vars *)
+            | None -> acc)
+          SI.empty
+          dep_args
+        in
+        result
+      | None -> SI.empty)
+
   (* Node calls *)
   | Call (_, i, es) ->
     (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
@@ -892,6 +912,25 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
+  | LA.Map (_, i, e) ->
+    (match IMap.find_opt i m with
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
+      | Some summary ->
+         let sum_bds = IntMap.bindings summary in
+         let* g = mk_graph_expr2 m e in
+         (* For each output stream, return the associated graph of the input expression 
+            whose current value it depends on. If the output stream does not depend on 
+            any input stream's current value, return an empty graph. *)
+         R.ok (List.map (fun (_, b) ->
+              List.fold_left
+                union_dependency_analysis_data
+                empty_dependency_analysis_data
+                (List.map (fun idx -> match List.nth_opt g idx with
+                  | Some data -> data
+                  | None -> empty_dependency_analysis_data)
+                  b)
+           ) sum_bds))
+  
   | LA.Call (_, i, es) ->
      (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)

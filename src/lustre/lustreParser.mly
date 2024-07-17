@@ -197,6 +197,9 @@ let mk_span start_pos end_pos =
 %token PRE
 %token FBY
 %token ARROW
+
+(* Tokens for higher order functions *)
+%token MAP
     
 (* Token for end of file marker *)
 %token EOF
@@ -1120,6 +1123,9 @@ pexpr(Q):
       fail_at_position pos "Unsupported operator: fby" }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
+
+  (* Higher order functions *)
+  | MAP; LPAREN; i = ident; COMMA; e = expr; RPAREN { A.Map(mk_pos $startpos, i, e) }
 
   (* A node or function call *)
   | e = node_call { e } 

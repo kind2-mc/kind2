@@ -34,6 +34,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | AnyOpInFunction
   | NodeCallInFunction of HString.t
+  | NodeCallInMap of HString.t
   | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t

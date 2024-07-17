@@ -160,6 +160,8 @@ and expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Higher order functions *)
+  | Map of position * ident * expr
   (* Node calls *)
   | Call of position * ident * expr list
 
