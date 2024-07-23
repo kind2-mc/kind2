@@ -254,3 +254,6 @@ val type_contains_ref : tc_context -> LA.lustre_type -> bool
 
 val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+
+val type_contains_abstract : tc_context -> tc_type -> bool
+(** Returns true if the lustre type expression contains an abstract type (including polymorphic type variable) or if it is an abstract type *)

@@ -81,6 +81,7 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
+  | QuantifiedAbstractType of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
