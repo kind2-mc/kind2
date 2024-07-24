@@ -88,7 +88,8 @@ let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list
     match decl with 
     | A.ConstDecl (_, FreeConst _)
     | A.ConstDecl (_, TypedConst _) -> decl :: acc
-    | A.TypeDecl (_, AliasType (p, id, ty)) -> 
+    (*!! Make sure type decl params desugared by now *)
+    | A.TypeDecl (_, AliasType (p, id, _, ty)) -> 
       (match type_to_contract p id ty with 
       | Some decl1 -> decl :: decl1 :: acc
       | None -> decl :: acc)

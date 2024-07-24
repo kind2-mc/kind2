@@ -365,7 +365,7 @@ let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_prefix  i pos 
-  | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
+  | AliasType (pos, i, _, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
 
 (***********************************************************
  * Type 2: Dependency Analysis Between nodes and contracts *
@@ -565,7 +565,7 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
   | [] -> R.ok m 
 
   | (LA.TypeDecl (span, FreeType (_, i)) as tydecl) :: decls
-  | (LA.TypeDecl (span, AliasType (_, i, _)) as tydecl) :: decls ->
+  | (LA.TypeDecl (span, AliasType (_, i, _, _)) as tydecl) :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos ty_prefix i (Some tydecl) in
     mk_decl_map m' decls 

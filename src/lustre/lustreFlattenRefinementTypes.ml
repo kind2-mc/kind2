@@ -139,8 +139,8 @@ let flatten_ref_types_item ctx item =
 
 let flatten_ref_types ctx sorted_node_contract_decls = 
   List.map (fun decl -> match decl with
-    | A.TypeDecl (pos, AliasType (pos2, id, ty)) -> 
-      A.TypeDecl (pos, AliasType (pos2, id, flatten_ref_type ctx ty))
+    | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
+      A.TypeDecl (pos, AliasType (pos2, id, ps, flatten_ref_type ctx ty))
     | NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) -> 
       let ips = List.map (fun (pos, id, ty, cl, b) -> 
         (pos, id, flatten_ref_type ctx ty, cl, b)

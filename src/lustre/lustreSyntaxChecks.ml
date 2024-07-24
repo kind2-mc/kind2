@@ -302,7 +302,7 @@ let build_global_ctx (decls:LustreAst.t) =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
   let over_decls acc = function
-    | LA.TypeDecl (_, AliasType (_, _, (EnumType (_, _, variants) as ty))) -> 
+    | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) -> 
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
     | ConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_const acc i None
@@ -727,8 +727,8 @@ and check_ty_node_calls i ty =
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
-  | TypeDecl (span, AliasType (pos, id, ty) ) -> 
-    check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ty)))
+  | TypeDecl (span, AliasType (pos, id, ps, ty) ) -> 
+    check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
       | LA.FreeConst _ -> Ok []

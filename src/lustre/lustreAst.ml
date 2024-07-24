@@ -160,7 +160,7 @@ and label_or_index =
 
 (* A declaration of a type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type
+  | AliasType of position * ident * ident list * lustre_type
   | FreeType of position * ident
 
 (* A declaration of a clocked type *)
@@ -693,11 +693,19 @@ and pp_print_label_or_index ppf = function
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function
 
-  | AliasType (_, s, t) -> 
+  | AliasType (_, s, [], t) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a@]" 
       pp_print_ident s 
+      pp_print_lustre_type t
+
+  | AliasType (_, s, p, t) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 2>%a<<%a>> =@ %a@]" 
+      pp_print_ident s 
+      (pp_print_list pp_print_ident ";") p
       pp_print_lustre_type t
 
   | FreeType (_, t) -> 
@@ -745,7 +753,7 @@ let pp_print_const_decl ppf = function
 
 (* Pretty-print a single static node parameter *)
 let pp_print_node_param ppf t = 
-    Format.fprintf ppf "type %a" pp_print_ident t
+    Format.fprintf ppf "%a" pp_print_ident t
 
 
 (* Pretty-print a list of static node parameters *)

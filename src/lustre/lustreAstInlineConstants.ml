@@ -494,9 +494,10 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation
 
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
-  | TypeDecl (span, AliasType (pos, i, t)) ->
+  | TypeDecl (span, AliasType (pos, i, ps, t)) ->
     let t' = inline_constants_of_lustre_type ctx t in
-    TC.add_ty_syn ctx i t', LA.TypeDecl (span, AliasType (pos, i, t'))
+    (*!! Something here? *)
+    TC.add_ty_syn ctx i t', LA.TypeDecl (span, AliasType (pos, i, ps, t'))
   | ConstDecl (span, FreeConst (pos, id, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     ctx, ConstDecl (span, FreeConst (pos, id, ty'))

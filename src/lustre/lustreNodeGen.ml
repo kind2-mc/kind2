@@ -2392,12 +2392,13 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
       other_constants = StringMap.add id expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
-  | A.AliasType (_, ident, ltype) ->
+  | A.AliasType (_, ident, [], ltype) ->
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
       type_alias }
+  | A.AliasType (_, _, _ :: _, _) -> assert false
   | A.FreeType (_, ident) ->
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in

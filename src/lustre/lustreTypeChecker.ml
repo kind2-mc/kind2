@@ -1674,8 +1674,11 @@ and tc_ctx_contract_vars: tc_context -> HString.t -> LA.contract_ghost_vars -> (
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) result
   = fun ctx ->
   function
-  | LA.AliasType (_, i, ty) ->
-    check_type_well_formed ctx Global None false ty >> (match ty with
+  | LA.AliasType (pos, i, ps, ty) ->
+    let ctx' = List.fold_left (fun acc p -> 
+      add_ty_syn acc p (LA.AbstractType (pos, p))
+    ) ctx ps in
+    check_type_well_formed ctx' Global None false ty >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
           && (List.for_all (fun e -> not (member_val ctx e)) econsts)

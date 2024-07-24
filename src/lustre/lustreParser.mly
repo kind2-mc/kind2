@@ -328,12 +328,18 @@ type_decl:
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
      { List.map (fun e -> 
-                 A.AliasType (mk_pos $startpos, e, t)) l }
+                 A.AliasType (mk_pos $startpos, e, [], t)) l }
+
+  (* A type alias with static parameters 
+    (must be a separate rule from previous to avoid shift-reduce conflicts) *)
+  | TYPE; l = ident_list; p = static_params; EQUALS; t = lustre_type; SEMICOLON
+     { List.map (fun e -> 
+                 A.AliasType (mk_pos $startpos, e, p, t)) l }
 
   (* Definition of an enum type*)
   | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
      { List.map (fun e ->
-           A.AliasType (mk_pos $startpos, e,
+           A.AliasType (mk_pos $startpos, e, [],
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
   (* A record type, can only be defined as alias *)
@@ -342,6 +348,7 @@ type_decl:
          (function e -> 
            A.AliasType (mk_pos $startpos, 
                         e, 
+                        [],
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
 

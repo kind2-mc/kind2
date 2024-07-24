@@ -113,7 +113,7 @@ let mem deps (key_type, key_ident) (val_type, val_ident) =
 
 (** Identifier corresponding to a declaration. *)
 let info_of_decl = function
-| A.TypeDecl ({A.start_pos=pos}, A.AliasType (_, ident, _)) ->
+| A.TypeDecl ({A.start_pos=pos}, A.AliasType (_, ident, _, _)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Type
 | A.TypeDecl ({A.start_pos=pos}, A.FreeType (_, ident)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Type
@@ -152,7 +152,7 @@ let insert_decl decl (f_type, f_ident) decls =
     )
     | Type -> (
       function
-      | A.TypeDecl (_, A.AliasType(_, i, _)) -> i = ident
+      | A.TypeDecl (_, A.AliasType(_, i, _, _)) -> i = ident
       | A.TypeDecl (_, A.FreeType(_, i)) -> i = ident
       | _ -> false
     )
