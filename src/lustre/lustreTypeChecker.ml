@@ -189,7 +189,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
-  | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
+  | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -451,16 +451,19 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
 let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
 = fun ctx pos nname ty ty_args -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
-  match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
-  | None, None ->
+  match lookup_node_ty_vars ctx nname, 
+        lookup_contract_ty_vars ctx nname, 
+        lookup_ty_ty_vars ctx nname with 
+  | None, None, None ->
     let* substitution = 
       try 
         R.ok (List.combine [] ty_args) 
       with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
-  | Some ty_vars, _ 
-  | _, Some ty_vars ->
+  | Some ty_vars, _, _ 
+  | _, Some ty_vars, _
+  | _, _, Some ty_vars ->
     let* substitution = 
       try 
         R.ok (List.combine ty_vars ty_args) 
@@ -1927,11 +1930,14 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.GroupType (_, tys) ->
     let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in 
     R.ok (List.flatten warnings)
-  | LA.UserType (pos, _, i) as ty ->
+  | LA.UserType (pos, ty_args, i) as ty ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
-      (* Need to reintroduce this check *)
-      (*!! let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty *)
+      let ty = expand_type_syn ctx ty in
+      (* Check that we are passing the correct number of type arguments *)
+      let* _ = instantiate_type_variables ctx pos i ty ty_args in
+      (*!! Need to reintroduce this check *)
+      (* check_type_well_formed ctx src nname is_const ty *)
       R.ok ([])
     else (
       match nname with 
