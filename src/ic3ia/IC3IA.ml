@@ -940,11 +940,16 @@ let main fwd slice_to_prop prop in_sys param sys =
 
   let sys =
     if slice_to_prop then (
-      (* Only slice if the property does not contain instantiated variables *)
-      (* The current slicing procedure works on the input system, not the transition system *)
+      (* Only slice if the property was already present in the original input system.
+         The current slicing procedure works on the input system, not the transition system *)
       match prop.Property.prop_source with
-      | Assumption _ -> sys (* An instantiated var is also involved, local sofar var *)
       | Instantiated _ -> sys
+      (* Instantiated properties are only included in the transition system *)
+      | Assumption _ -> sys
+      (* An instantiated var, local sofar var, is involved. *)
+      | Generated (None, _) -> sys
+        (* Currently, only generated properties with an associated position were already
+           present in the original input system *)
       | _ -> fst (InputSystem.trans_sys_of_analysis ~slice_to_prop:prop in_sys param)
     )
     else sys
