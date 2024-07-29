@@ -417,7 +417,7 @@ let rec type_extract_array_lens ctx ty = match ty with
   | RecordType (_, _, tis) ->
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
     List.map (type_extract_array_lens ctx) tys |> List.flatten
-  | UserType (_, id) -> 
+  | UserType (_, _, id) -> 
     (match (lookup_ty_syn ctx id) with 
       | Some ty -> type_extract_array_lens ctx ty;
       | None -> [])
@@ -579,7 +579,7 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | Some ty -> rec_call ty
   )
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
-  | UserType (_, i) as ty -> 
+  | UserType (_, _, i) as ty -> 
     (match lookup_ty_syn ctx i with
     | None -> R.ok ty
     | Some ty' -> R.ok ty')
@@ -1678,6 +1678,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
     let ctx' = List.fold_left (fun acc p -> 
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
+    let ctx = add_ty_vars_ty ctx i ps in
     check_type_well_formed ctx' Global None false ty >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
@@ -1685,12 +1686,12 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
         then
           let mk_ident = fun i -> LA.Ident (pos, i) in
           let enum_type_bindings = List.map
-            ((Lib.flip singleton_ty) (LA.UserType (pos, ename)))
+            ((Lib.flip singleton_ty) (LA.UserType (pos, [], ename)))
             econsts
           in
           let enum_const_bindings = Lib.list_apply
             ((List.map2 (Lib.flip singleton_const) (List.map mk_ident econsts) econsts))
-            (LA.UserType (pos, ename))
+            (LA.UserType (pos, [], ename))
           in
           (* Adding enums into the typing context consists of 4 parts *)
           (* 1. add the enum type and variants to the enum context *)
@@ -1926,10 +1927,12 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.GroupType (_, tys) ->
     let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in 
     R.ok (List.flatten warnings)
-  | LA.UserType (pos, i) as ty ->
+  | LA.UserType (pos, _, i) as ty ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
-      let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty
+      (* Need to reintroduce this check *)
+      (*!! let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty *)
+      R.ok ([])
     else (
       match nname with 
       | None -> type_error pos (UndeclaredType i)
@@ -1999,7 +2002,15 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | Int _, IntRange _ -> R.ok true
 
   (* Lustre V6 features *)
-  | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2)
+  | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
+    if List.length ty_args1 = List.length ty_args2
+    then (
+      let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 
+      let r2 = i1 = i2 in 
+      R.ok (r1 && r2)
+    )
+    else R.ok false
+   
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
     if List.length tys1 = List.length tys2
@@ -2037,8 +2048,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
 
   (* special case for type synonyms *)
-  | UserType (pos, u), ty
-  | ty, UserType (pos, u) ->
+  | UserType (pos, _, u), ty
+  | ty, UserType (pos, _, u) ->
     if member_ty_syn ctx u then
       let* ty_alias = (match (lookup_ty_syn ctx u) with
         | None -> type_error pos

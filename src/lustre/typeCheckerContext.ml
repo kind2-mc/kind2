@@ -89,6 +89,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                       ty_var_store              
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
                       ty_var_store  
+                  ; ty_ty_vars: ty_var_store      (* stores the type variables associated with each user type *)
                   ; ty_args:                      (* stores the type arguments associated with each (monomorphized) node *)
                       ty_arg_store               
                   }
@@ -108,6 +109,7 @@ let empty_tc_context: tc_context =
   ; enum_vars = IMap.empty
   ; ty_vars = IMap.empty
   ; contract_ty_vars = IMap.empty
+  ; ty_ty_vars = IMap.empty
   ; ty_args = IMap.empty
   }
 (** The empty context with no information *)
@@ -144,7 +146,7 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->
   match (IMap.find_opt i (ctx.ty_syns)) with
   | Some ty -> (match ty with
-               | LA.UserType (_, uid) ->
+               | LA.UserType (_, _, uid) ->
                   if uid = i 
                   then Some ty
                   else lookup_ty_syn ctx uid
@@ -157,7 +159,7 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType (_, i) as ty -> 
+  | UserType (_, _, i) as ty -> 
     (match lookup_ty_syn ctx i with
     | None -> ty
     | Some ty' -> ty')
@@ -210,6 +212,10 @@ let lookup_contract_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
 (** Lookup a contract's type variables *)
 
+let lookup_ty_ty_vars: tc_context -> LA.ident -> HString.t list option
+  = fun ctx i -> IMap.find_opt i (ctx.ty_ty_vars)
+(** Lookup a node's type variables *)
+
 let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
   = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
 
@@ -246,6 +252,11 @@ let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i ty_vars -> 
     {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
+(**  Add the type variables of the node *)
+
+let add_ty_vars_ty: tc_context -> LA.ident -> LA.ident list -> tc_context
+  = fun ctx i ty_ty_vars -> 
+    {ctx with ty_ty_vars = IMap.add i ty_ty_vars (ctx.ty_ty_vars)}
 (**  Add the type variables of the node *)
 
 let add_ty_args_node: tc_context -> LA.ident -> LA.lustre_type list -> tc_context
@@ -318,6 +329,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; contract_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.contract_ty_vars)
                                    (ctx2.contract_ty_vars))
+                    ; ty_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.ty_ty_vars)
+                                   (ctx2.ty_ty_vars))
                     ; ty_args = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_args)
                                    (ctx2.ty_args))
@@ -459,6 +473,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
        ^^ "Enumeration Variants={%a}\n"
        ^^ "Type variables={%a}\n"
        ^^ "Contract type variables={%a}\n"
+       ^^ "Type decl type variables={%a}\n"
        ^^ "Type arguments={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
@@ -470,6 +485,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_enum_variants (ctx.enum_vars)
       pp_print_type_variables (ctx.ty_vars)
       pp_print_type_variables (ctx.contract_ty_vars)
+      pp_print_type_variables (ctx.ty_ty_vars)
       pp_print_type_arguments (ctx.ty_args)
 (** Pretty print the complete type checker context*)
                          
@@ -731,7 +747,7 @@ let rec ty_vars_of_expr ctx node_name expr =
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
   match ty with
-  | UserType (_, id) -> (
+  | UserType (_, _, id) -> (
     match lookup_ty_syn ctx node_name with 
     | Some _ -> SI.empty
     | None -> SI.singleton id

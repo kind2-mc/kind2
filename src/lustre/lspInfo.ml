@@ -23,10 +23,11 @@ let pp_print_fname_json ppf fname =
 
 let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } =
   function
-  | LustreAst.AliasType (p, id, _, _) | LustreAst.FreeType (p, id) ->
+  | LustreAst.AliasType (p, id, _, _) (*!! Test *)
+  | LustreAst.FreeType (p, id) ->
       let file, slnum, scnum = Lib.file_row_col_of_pos spos in
       let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
-      let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, id)) in
+      let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, [], id)) in
       let contains_ref = TypeCheckerContext.type_contains_ref ctx ty in
       Format.fprintf ppf
         ",@.{@[<v 1>@,\

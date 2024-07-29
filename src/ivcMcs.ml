@@ -146,7 +146,7 @@ let rec unannot_pos = function
   | A.Int64 _ -> A.Int64 dpos
   | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
   | A.Real _ -> A.Real dpos
-  | A.UserType (_,id) -> A.UserType (dpos,id)
+  | A.UserType (_,ps,id) -> A.UserType (dpos,ps,id)
   | A.AbstractType (_, id) -> A.AbstractType (dpos,id)
   | A.TupleType (_,ts) -> A.TupleType (dpos, List.map unannot_pos ts)
   | A.GroupType (_,ts) -> A.GroupType (dpos, List.map unannot_pos ts)

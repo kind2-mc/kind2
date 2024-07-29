@@ -382,7 +382,7 @@ lustre_type:
     { A.IntRange (mk_pos $startpos, l, u) }
 
   (* User-defined type *)
-  | s = ident { A.UserType (mk_pos $startpos, s) }
+  | s = ident; ps = call_static_params { A.UserType (mk_pos $startpos, ps, s) }
 
   (* Tuple type *)
   | t = tuple_type { A.TupleType (mk_pos $startpos, t) } 

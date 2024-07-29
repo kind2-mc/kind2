@@ -291,7 +291,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
       | Some e2 -> mk_graph_expr e2
     in
     union_dependency_analysis_data g1 g2
-  | UserType (pos, i) -> singleton_dependency_analysis_data ty_prefix i pos
+  | UserType (pos, _, i) -> singleton_dependency_analysis_data ty_prefix i pos
   | AbstractType (pos, i) -> singleton_dependency_analysis_data ty_prefix i pos
   | TupleType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
   | GroupType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)

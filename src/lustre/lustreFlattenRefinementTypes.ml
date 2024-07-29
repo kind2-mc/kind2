@@ -21,11 +21,18 @@ module AH = LustreAstHelpers
 module AN = LustreAstNormalizer
 
 let rec flatten_ref_type ctx ty = match ty with
-  | A.UserType (pos, str) -> 
+  | A.UserType (pos, ty_args, str) -> 
     let ty = TypeCheckerContext.lookup_ty_syn ctx str in 
     (match ty with 
-    | Some ty -> flatten_ref_type ctx ty
-    | None -> A.UserType (pos, str))
+    | Some ty -> (
+      match TypeCheckerContext.lookup_ty_ty_vars ctx str with 
+      | Some ps ->
+        let sigma = List.combine ps ty_args in
+        let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+        flatten_ref_type ctx ty
+      | None -> flatten_ref_type ctx ty
+    )
+    | None -> A.UserType (pos, ty_args, str))
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis)

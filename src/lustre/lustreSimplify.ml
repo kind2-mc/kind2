@@ -2169,7 +2169,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   (* User-defined type, look up type in defined types, return subtrie
      of starting with possibly indexed identifier *)
-  | A.UserType (pos, ident) -> (
+  | A.UserType (pos, [], ident) -> (
     let ident = I.mk_string_ident (HString.string_of_hstring ident) in
     try
       (* Find subtrie of types starting with identifier *)
@@ -2178,6 +2178,8 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       (* Type might be forward referenced. *)
       Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
+
+  | A.UserType (pos, _ :: _, _) -> fail_at_position pos "UserTypes with type arguments not supported in old frontend"
 
   (* User-defined abstract types are represented as an integer reference
    * to an object. This reference is wrapped inside an index for that type

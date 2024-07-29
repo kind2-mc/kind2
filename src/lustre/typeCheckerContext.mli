@@ -114,7 +114,10 @@ val lookup_node_ty_args: tc_context -> HString.t -> LA.lustre_type list option
 (** Lookup a node's type arguments *)
 
 val lookup_contract_ty_vars: tc_context -> HString.t -> HString.t list option
-(** Lookup a node's type variables *)
+(** Lookup a contract's type variables *)
+
+val lookup_ty_ty_vars: tc_context -> HString.t -> HString.t list option
+(** Lookup a type's type variables *)
 
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
 (** Track whether node parameters are constant or not *)
@@ -138,6 +141,9 @@ val add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 
 val add_ty_vars_node: tc_context -> HString.t -> HString.t list -> tc_context 
 (** Add node/function type variables into the typing context *)
+
+val add_ty_vars_ty: tc_context -> HString.t -> HString.t list -> tc_context 
+(** Add type declaration type variables into the typing context *)
 
 val add_ty_args_node: tc_context -> HString.t -> LA.lustre_type list -> tc_context 
 (** Add node/function type arguments into the typing context *)

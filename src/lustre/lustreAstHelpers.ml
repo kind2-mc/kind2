@@ -292,10 +292,12 @@ let rec apply_type_subst_in_expr
 (* Same as apply_subst_in_type, but the substitution occurs at the type level *)
 and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
 = fun sigma ty -> match ty with
-  | UserType (pos, i) -> (
+  | UserType (pos, ty_args, i) -> (
+    (*!! Double check *)
     match List.assoc_opt i sigma with
       | Some ty -> ty
-      | None -> UserType (pos, i)
+      | None -> 
+        UserType (pos, List.map (apply_type_subst_in_type sigma) ty_args, i)
   )
   | ArrayType (pos, (ty, expr)) -> 
     ArrayType (pos, (apply_type_subst_in_type sigma ty, apply_type_subst_in_expr sigma expr))
@@ -1421,7 +1423,10 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
         | _ -> Ok false
       in
       Ok (e1 && e2)
-    | UserType (_, x), UserType (_, y)
+    | UserType (_, ty_args1, x), UserType (_, ty_args2, y) -> 
+      let* r1 = rlist ty_args1 ty_args2 |> join in 
+      let r2 = HString.equal x y in 
+      Ok (r1 && r2)
     | AbstractType (_, x), AbstractType (_, y) ->
       Ok (HString.equal x y)
     | TupleType (_, xl), TupleType (_, yl)

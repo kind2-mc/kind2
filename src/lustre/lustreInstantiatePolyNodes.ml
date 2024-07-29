@@ -264,7 +264,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       | _, Some ps -> ps
     in
     let ty_args = List.filter_map (fun ty_var -> 
-      if List.mem ty_var caller_ps then Some (A.UserType (pos, ty_var)) else None
+      if List.mem ty_var caller_ps then Some (A.UserType (pos, [], ty_var)) else None
     ) ty_vars in
     ctx, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
   | Ident _ 
