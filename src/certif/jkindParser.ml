@@ -449,6 +449,7 @@ let of_channel in_ch =
   let sys, _ =
     TransSys.mk_trans_sys
       jkind_scope
+      []
       None
       jk_init_flag
       (* [] *)

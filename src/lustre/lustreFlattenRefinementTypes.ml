@@ -64,7 +64,7 @@ let rec flatten_ref_type ctx ty = match ty with
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
     | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
-    | Bool _ | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
     | History _ | TArr _ | UserType _ -> []
     in
     let constraints = chase_refinements ty in 
@@ -75,7 +75,7 @@ let rec flatten_ref_type ctx ty = match ty with
       | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
   | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
-  | TVar _ | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
+  | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -130,7 +130,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
     RestartEvery (p, i, List.map rec_call es, rec_call e)
   | Pre (p, e) -> Pre(p, rec_call e)
   | Arrow (p, e1, e2) ->  Arrow (p, rec_call e1, rec_call e2)
-  | Call (p, i, es) -> Call (p, i, List.map rec_call es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es) 
 
 let flatten_ref_types_item ctx item = 
   match item with 

@@ -239,7 +239,7 @@ function
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
-| Call (_, i, l) ->
+| Call (_, _, i, l) ->
   StringMap.mem i ctx.nodes ||
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
@@ -286,7 +286,7 @@ function
 let build_global_ctx (decls:LustreAst.t) =
   let get_imports = function
     | Some (_, eqns) -> List.fold_left (fun a e -> match e with
-      | LA.ContractCall (_, i, _, _) -> StringSet.add i a
+      | LA.ContractCall (_, i, _, _, _) -> StringSet.add i a
       | _ -> a)
       StringSet.empty eqns
     | None -> StringSet.empty
@@ -352,7 +352,7 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports, false)
-    | ContractCall (_, i, ins, _) ->
+    | ContractCall (_, i, _, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
@@ -514,7 +514,7 @@ let outputs_at_most_one_definition outputs items =
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
-  | Call (pos, i, _) ->
+  | Call (pos, _, i, _) ->
     let check_nodes = StringMap.mem i ctx.nodes in
     let check_funcs = StringMap.mem i ctx.functions in
     (match check_nodes, check_funcs with
@@ -547,7 +547,7 @@ let no_node_calls_in_constant i e =
   else Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
-  | LA.Call (pos, i, args) ->
+  | LA.Call (pos, _, i, args) ->
     let vars =
       List.fold_left
         (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
@@ -580,7 +580,7 @@ let no_calls_to_node ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | RestartEvery (pos, i, _, _)
-  | Call (pos, i, _) ->
+  | Call (pos, _, i, _) ->
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
@@ -623,7 +623,7 @@ let no_calls_to_nodes_subject_to_refinement ctx expr =
     | LA.Condact (pos, _, _, i, _, _)
     | Activate (pos, i, _, _, _)
     | RestartEvery (pos, i, _, _)
-    | Call (pos, i, _) ->
+    | Call (pos, _, i, _) ->
       check_node_data pos "node" i (StringMap.find_opt i ctx.nodes)
       >> check_node_data pos "function" i (StringMap.find_opt i ctx.functions)
     | _ -> Ok ()
@@ -654,7 +654,7 @@ let no_stateful_contract_imports ctx contract =
       | None -> Ok ()
     in
     let over_eqn acc = function
-      | LA.ContractCall (pos, i, _, _) ->
+      | LA.ContractCall (pos, i, _, _, _) ->
         acc >> (check_import_stateful StringSet.empty pos i i)
       | _ -> acc
     in
@@ -693,7 +693,7 @@ let rec expr_only_supported_in_merge observer expr =
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
   | GroupExpr (_, _, e)
-  | Call (_, _, e) -> r_list observer e
+  | Call (_, _, _, e) -> r_list observer e
   | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
   | Condact (_, e1, e2, _, e3, e4 )
     -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
@@ -701,10 +701,6 @@ let rec expr_only_supported_in_merge observer expr =
     if observer then Ok ()
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
-
-let parametric_nodes_unsupported pos params =
-  if List.length params == 0 then Ok ()
-  else syntax_error pos (UnsupportedParametricDeclaration)
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
@@ -790,8 +786,7 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
-  (parametric_nodes_unsupported span.start_pos params)
-  >> (locals_exactly_one_definition locals items)
+  (locals_exactly_one_definition locals items)
   >> (outputs_at_most_one_definition outputs items)
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
@@ -830,8 +825,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     let* warnings2 = (no_temporal_operator "function contract" e) in 
     Ok (warnings1 @ warnings2)
   in
-  (parametric_nodes_unsupported span.start_pos params)
-  >> (Res.seq_ (List.map no_reachability_modifiers items))
+  (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
@@ -955,7 +949,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       | UntypedConst (_, i, e)
       | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
     )
-    | ContractCall (pos, i, args, outputs) -> (
+    | ContractCall (pos, i, _, args, outputs) -> (
       if StringMap.mem i ctx.contracts then (
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>
@@ -995,7 +989,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings3 = (check_expr ctx f e3) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | GroupExpr (_, _, e)
-    | Call (_, _, e)
+    | Call (_, _, _, e)
       -> check_expr_list ctx f e
     | RecordExpr (_, _, e)
     | Merge (_, _, e)

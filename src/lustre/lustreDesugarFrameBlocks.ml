@@ -101,7 +101,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (a, e) -> Pre (a, fill_ite_helper frame_pos node_id lhs id fill e)
+  | Pre (p, e) -> Pre (p, fill_ite_helper frame_pos node_id lhs id fill e)
   | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
@@ -120,7 +120,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Call (a, b, l) -> Call (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
 
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine

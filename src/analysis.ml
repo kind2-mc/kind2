@@ -336,33 +336,53 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
+(* If the node was originally polymorphic, display information about its 
+   monomorphization cleanly *)
+let clean_polymorphic_info sys sc = 
+  let ty_args = 
+    try 
+      TransSys.find_subsystem_of_scope sys sc 
+      |>  TransSys.get_ty_args
+    with Not_found -> [] 
+  in
+  let sc = Scope.to_string sc in
+  let poly_gen_node_tag_len = String.length LustreGenRefTypeImpNodes.poly_gen_node_tag in
+  let sc = 
+    if String.length sc > poly_gen_node_tag_len && 
+       String.sub sc 0 poly_gen_node_tag_len = LustreGenRefTypeImpNodes.poly_gen_node_tag then 
+      let s = String.sub sc poly_gen_node_tag_len (String.length sc - poly_gen_node_tag_len) in
+      let re = Str.regexp "^[0-9]+" in
+      let len_prefix = 
+        if Str.string_match re s 0 then
+          String.length (Str.matched_string s) + 1
+        else 1
+      in
+      (String.sub s len_prefix (String.length s - len_prefix))
+    else
+      sc
+  in 
+  match ty_args with
+  | [] -> sc 
+  | ty_args -> 
+    Format.asprintf "%s<<%a>>"
+      sc
+      (Lib.pp_print_list LustreAst.pp_print_lustre_type "; ") ty_args
 
-
-
-
-
-
-
-
-
-
-
-
-
-let pp_print_param verbose fmt param =
+let pp_print_param verbose sys fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
+  let sc_str = clean_polymorphic_info sys top in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  Format.fprintf fmt "%s @[<v>top: '%a'%a%a@]"
+  Format.fprintf fmt "%s @[<v>top: '@{<blue>%s@}'%a%a@]"
     ( match param with
       | Interpreter _ -> "Interpreter"
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
       | Refinement _ -> "Refinement")
-    Scope.pp_print_scope top
+    sc_str
 
     (fun fmt -> function
       | [], [] ->
@@ -372,14 +392,16 @@ let pp_print_param verbose fmt param =
         ( match concrete with
           | [] -> ()
           | concrete ->
+            let concrete = List.map (clean_polymorphic_info sys) concrete in
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list Scope.pp_print_scope ",@ ") concrete ;
+              (pp_print_list Format.pp_print_string ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
           | abstract ->
+            let abstract = List.map (clean_polymorphic_info sys) abstract in
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
-          (pp_print_list Scope.pp_print_scope ",@ ") abstract) ;
+          (pp_print_list Format.pp_print_string ",@ ") abstract) ;
         Format.fprintf fmt "@]")
     (concrete, abstract)
 
@@ -392,10 +414,11 @@ let pp_print_param verbose fmt param =
         |> Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
           (pp_print_list
             (fun fmt (s, invs) ->
+              let sc_str = clean_polymorphic_info sys s in
               let os, ts = Invs.len invs in
               if os + ts > 0 then (
-                Format.fprintf fmt "%a: "
-                  Scope.pp_print_scope s ;
+                Format.fprintf fmt "@{<blue>%s@}: "
+                  sc_str ;
                 if verbose then
                   Format.fprintf fmt "%a" Invs.fmt invs
                 else (
@@ -457,6 +480,7 @@ let pp_print_param_of_result fmt { param ; sys } =
           ) else acc
       ) abstraction_map []
     in
+    let refined = List.map (clean_polymorphic_info sys) refined in
     Format.fprintf
       fmt
       "with %d abstract system%s@ \
@@ -467,7 +491,7 @@ let pp_print_param_of_result fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        Scope.pp_print_scope
+        Format.pp_print_string
         ",@ "
       ) refined
 
@@ -501,14 +525,15 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
       (pp_print_list Property.pp_print_prop_quiet ",@ ") reachable
     )
   in
+  let sc_str = clean_polymorphic_info sys (TransSys.scope_of_trans_sys sys) in
   match invariant, falsified, unknown with
   | valid, [], [] ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "@{<blue>%s@}:@   @[<v>\
         @{<green>safe@} in %.3fs@ \
         %a@ \
         %d invariant %s%t\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       time
       pp_print_param_of_result res
       (List.length valid)
@@ -522,25 +547,25 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
         | _ -> reachability_properties fmt
       )
   | valid, [], unknown ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "@{<blue>%s@}:@   @[<v>\
         @{<red>timeout@}@ \
         %a@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
   | valid, invalid, unknown ->
-    Format.fprintf fmt "%a:@   @[<v>\
+    Format.fprintf fmt "@{<blue>%s@}:@   @[<v>\
         @{<red>unsafe@} in %.3fs@ \
         %a@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      sc_str
       time
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
@@ -564,7 +589,7 @@ let pp_print_result fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true) param
+    (pp_print_param true sys) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"

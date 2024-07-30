@@ -71,6 +71,9 @@ type t =
     scope: Scope.t;
     (** Scope of transition system *)
 
+    ty_args: LustreAst.lustre_type list;
+    (** Original Lustre node's type arguments used for monomorphization *)
+
     ctr_state_var : StateVar.t option;
     (** State variable corresponding to the internal counter generated
         for reachability queries. Should be 'None' if there are no reachability
@@ -588,6 +591,9 @@ let scope_of_trans_sys t = t.scope
 
 (* Returns the properties in the transition system. *)
 let get_properties t = t.properties
+
+(* Returns the type arguments in the transition system. *)
+let get_ty_args t = t.ty_args
 
 (* Return all properties *)
 let get_real_properties t = List.filter (
@@ -1687,6 +1693,7 @@ let copy t =
 let mk_trans_sys 
   ?(instance_var_id_start = 0)
   scope
+  ty_args
   instance_state_var
   init_flag_state_var
   (* global_state_vars *)
@@ -1853,6 +1860,7 @@ let mk_trans_sys
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
+      ty_args;
       (* instance_state_var; *)
       ctr_state_var;
       init_flag_state_var;

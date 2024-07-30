@@ -75,7 +75,6 @@ type identifier_maps = {
   call_count : int;
 }
 
-
 (*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
@@ -340,7 +339,7 @@ let flatten_list_indexes (e:'a X.t) =
     |> fst
 
 (* Match bindings from a trie of state variables and bindings for a
-  trie of expressions and produce a list of equations *)
+   trie of expressions and produce a list of equations *)
 let rec expand_tuple' pos accum bounds lhs rhs = 
   (* Format.eprintf "lhs: %a\n"
     (pp_print_list
@@ -588,7 +587,6 @@ and compile_ast_type
   (ctx:Ctx.tc_context)
   map
   = function
-  | A.TVar _ -> assert false
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
   | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
@@ -1353,16 +1351,30 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* ****************************************************************** *)
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
-  in let (ghost_locals2, ghost_equations2, modes2) =
-    let over_calls (gls, ges, ms) (_, id, _, _) =
+  in let (cstate, ghost_locals2, ghost_equations2, modes2) =
+    let over_calls (cstate, gls, ges, ms) (_, cref, _, _, _) =
+      let (_, sc, _) = StringMap.find cref gids.GI.contract_calls in
+      let cname = sc |> List.rev |> List.hd |> snd in
+      (* Update cstate with uninstantiated params *)
+      let params = match Ctx.lookup_contract_ty_vars ctx cname with 
+      | None -> [] 
+      | Some params -> params 
+      in
+      let cstate = List.fold_left (fun acc param -> 
+        let empty_map = ref (empty_identifier_maps None) in
+        let t = compile_ast_type cstate ctx empty_map (A.AbstractType (Lib.dummy_pos, param)) in
+        let type_alias = StringMap.add param t acc.type_alias in
+        { acc with type_alias } 
+      ) cstate params in
+      (* Instantiate polymorphic types in imported contract *)
       let (_, contract_scope, contract_eqns) =
-        (GI.StringMap.find id gids.GI.contract_calls)
+        (GI.StringMap.find cref gids.GI.contract_calls)
       in
       map := { !map with contract_scope };
-      let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
-      in gl @ gls, ge @ ges, m @ ms
-    in List.fold_left over_calls ([], [], []) contract_calls
-  in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
+      let (cstate, gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
+      in cstate, gl @ gls, ge @ ges, m @ ms
+    in List.fold_left over_calls (cstate, [], [], []) contract_calls
+  in cstate, ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
 
 and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* ****************************************************************** *)
@@ -1382,7 +1394,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
-    let over_calls (ams, gs) (_, id, _, _) =
+    let over_calls (ams, gs) (_, id, _, _, _) =
       let (_, scope, contract_eqns) =
         GI.StringMap.find id gids.GI.contract_calls
       in
@@ -1413,7 +1425,8 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals items contract =
+and compile_node_decl gids_map is_function cstate ctx i ext params inputs outputs locals items contract =
+  let gids = StringMap.find i gids_map in
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
   let is_extern = ext in
@@ -1432,6 +1445,14 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in
   let map = ref (empty_identifier_maps (Some i)) in
   let state_var_expr_map = SVT.create 7 in
+  (* Update cstate with uninstantiated params *)
+  let cstate = List.fold_left (fun acc param -> 
+    let empty_map = ref (empty_identifier_maps None) in
+    let t = compile_ast_type cstate ctx empty_map (A.AbstractType (Lib.dummy_pos, param)) in
+    let type_alias = StringMap.add param t acc.type_alias in
+    { acc with type_alias } 
+  ) cstate params 
+  in
   (* ****************************************************************** *)
   (* Node Inputs                                                        *)
   (* ****************************************************************** *)
@@ -1688,7 +1709,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () (_, var, _, _, ident, _, _) ->
+    let over_calls = fun () ((_, var, _, _, ident, _, _)) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
@@ -1712,14 +1733,15 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       ()
     in
     List.fold_left over_calls () gids.calls
+  in 
   (* ****************************************************************** *)
   (* Contract State Variables                                           *)
   (* ****************************************************************** *)
-  in
-  let (ghost_locals, ghost_equations, modes) =
+  let (cstate, ghost_locals, ghost_equations, modes) =
     match contract with
-    | Some (_, contract) -> compile_contract_variables cstate gids ctx map [] node_scope contract
-    | None -> [], [], []
+    | Some (_, contract) -> 
+      compile_contract_variables cstate gids ctx map [] node_scope contract
+    | None -> cstate, [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)
@@ -2283,9 +2305,14 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       TM.empty
       (StringMap.bindings gids.GI.history_vars)
   in
+  let ty_args = match Ctx.lookup_node_ty_args ctx i with 
+  | None -> [] 
+  | Some ty_args -> ty_args 
+  in
 
   let (node:N.t) = { name;
     is_extern;
+    ty_args;
     instance;
     init_flag;
     inputs;
@@ -2378,7 +2405,9 @@ and compile_type_decl pos ctx cstate = function
     { cstate with
       type_alias }
 
-and compile_declaration cstate gids ctx decl =
+and compile_declaration: compiler_state -> GI.t StringMap.t -> Ctx.tc_context ->
+                         A.declaration -> compiler_state
+= fun cstate gids ctx decl ->
 (*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)
   match decl with
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
@@ -2386,15 +2415,14 @@ and compile_declaration cstate gids ctx decl =
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
-  | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = GI.StringMap.find i gids in
-    compile_node_decl gids true cstate ctx i ext inputs outputs locals items contract
-  | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = GI.StringMap.find i gids in
-    compile_node_decl gids false cstate ctx i ext inputs outputs locals items contract
+  | A.FuncDecl (_, (i, ext, params, inputs, outputs, locals, items, contract)) ->
+    compile_node_decl gids true cstate ctx i ext params inputs outputs locals items contract
+  | A.NodeDecl (_, (i, ext, params, inputs, outputs, locals, items, contract)) ->
+    compile_node_decl gids false cstate ctx i ext params inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
   | A.ContractNodeDecl _ -> cstate
-  (* guaranteed by LustreSyntaxChecks *)
-  | A.NodeParamInst _ | A.NodeDecl _ | A.FuncDecl _ -> assert false
+  | A.NodeParamInst _ -> assert false
+
+  

@@ -495,11 +495,17 @@ mode_equation:
   }
 
 contract_import:
-  IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
-    A.ContractCall (mk_pos $startpos, n, in_params, out_params)
-  }
+  | IMPORTCONTRACT ; n = ident ;
+    ty_args = call_static_params;
+    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
+    { A.ContractCall (mk_pos $startpos, n, ty_args, in_params, out_params) }
+
+call_static_params: 
+  | { [] }
+  | ty_args = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); { ty_args }
+
+   
 
 assumption_vars:
   ASSUMP_VARS ; ids = ident_list_pos; SEMICOLON
@@ -554,16 +560,15 @@ contract_spec:
     { (mk_pos $startpos, eqs) }
 
 
-(* A node declaration as an instance of a paramterized node *)
+(* A node declaration as an instance of a parameterized node *)
 node_param_inst: 
   | NODE; 
     n = ident; 
     EQUALS;
     s = ident; 
     p = tlist 
-         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
+         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); 
     SEMICOLON
-        
     { (n, s, p) } 
 
 
@@ -573,7 +578,7 @@ node_sep: DOT | SEMICOLON { }
 
 (* A static parameter is a type *)
 static_param:
-  | TYPE; t = ident { A.TypeParam t }
+  | t = ident { t }
 
 
 (* The static parameters of a node *)
@@ -1134,29 +1139,17 @@ pexpr(Q):
 
 (* A list of expressions *)
 pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
-
-
-(* Static parameters are only types *)
-node_call_static_param:
-  | t = lustre_type { t }
       
-
 (* A node or function call *)
 node_call:
-
-  (* Call a node without static parameters *)
-  | s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { A.Call (mk_pos $startpos, s, a) }
-
-  (* Call a node with static parameters *)
-  | ident; 
-    tlist 
-         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
+  | s = ident; 
+    ty_args = call_static_params;
     LPAREN; 
-    separated_list(COMMA, expr); 
+    a = separated_list(COMMA, expr); 
     RPAREN 
-    { let pos = mk_pos $startpos in
-      fail_at_position pos "Node calls with static parameters are not supported" }
+    { 
+      A.Call (mk_pos $startpos, ty_args, s, a) 
+    }
 
 
 (* An array slice *)

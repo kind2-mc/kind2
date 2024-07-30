@@ -99,7 +99,6 @@ type group_expr =
 
 (** A Lustre type *)
 type lustre_type =
-  | TVar of position * ident
   | Bool of position
   | Int of position
   | UInt8 of position
@@ -161,7 +160,7 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * ident * expr list
+  | Call of position * lustre_type list * ident * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -190,10 +189,6 @@ type const_decl =
   | FreeConst of position * ident * lustre_type
   | UntypedConst of position * ident * expr
   | TypedConst of position * ident * expr * lustre_type
-
-(** A type parameter of a node *)
-type node_param =
-  | TypeParam of ident
 
 (** A local constant or variable declaration of a node *)
 type node_local_decl = 
@@ -267,7 +262,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * ident list
+type contract_call = position * ident * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -303,7 +298,7 @@ type contract = position * (contract_node_equation list)
 type node_decl =
   ident
   * bool
-  * node_param list
+  * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
@@ -319,11 +314,10 @@ type node_decl =
   - its body as a [contract]. *)
 type contract_node_decl =
   ident
-  * node_param list
+  * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * contract
-
 
 (** An instance of a parametric node as a tuple of the identifier for
     the instance, the identifier of the parametric node and the list of
@@ -349,7 +343,7 @@ type declaration =
 type t = declaration list
 
 (** {1 Pretty-printers} *)
-val pp_print_node_param_list : Format.formatter -> node_param list -> unit
+val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
 val pp_print_expr : Format.formatter -> expr -> unit

@@ -548,7 +548,7 @@ let rec eval_ast_expr bounds ctx =
           None
 
       (* A node call, we implicitly clock it *)
-      | clock_value, A.Call (pos, ident, args) -> 
+      | clock_value, A.Call (pos, [], ident, args) -> 
 
         (* Evaluate node call without defaults *)
         try_eval_node_call
@@ -561,6 +561,8 @@ let rec eval_ast_expr bounds ctx =
           args
           None
 
+      | _, A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
+      
       (* An expression not under a [when], we implicitly clock it *)
       | _, expr -> 
 
@@ -1034,7 +1036,7 @@ let rec eval_ast_expr bounds ctx =
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, ident, args)
+  | A.Call (pos, [], ident, args)
   | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
@@ -1045,6 +1047,8 @@ let rec eval_ast_expr bounds ctx =
       (A.Const (dummy_pos, A.False))
       args
       None
+
+  | A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
 
   (* Node call with reset/restart *)
   | A.RestartEvery (pos, ident, args, cond) ->
@@ -2087,8 +2091,7 @@ and eval_ast_type ctx = eval_ast_type_flatten false ctx
 (* Evaluate a parsed type expression to a trie of types of indexes,
    optionally flattening/unrolling arrays if 'flatten_arrays' is true. *)
 and eval_ast_type_flatten flatten_arrays ctx = function
-
-  | A.TVar _ -> Lib.todo "Trying to flatten type Variable. Should not happen"
+   
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool _ -> D.singleton D.empty_index Type.t_bool
 
@@ -2282,7 +2285,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
-  | RefinementType (pos, _, _) -> fail_at_position pos "Refinement types not supported in old frontend"
+  | RefinementType (pos, _, _) -> fail_at_position pos "Refinement types not supported in old front-end"
 
 (*
 

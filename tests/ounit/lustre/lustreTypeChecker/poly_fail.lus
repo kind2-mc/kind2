@@ -1,0 +1,9 @@
+node N<<T>>(x: T) returns (y: T) 
+let 
+    y = x -> pre x;
+tel
+
+node M(x1: int; x2: bool) returns (y1: int; y2: bool)
+let
+    y1 = N<<bool>>(x2);
+tel

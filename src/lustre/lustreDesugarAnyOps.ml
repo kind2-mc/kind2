@@ -83,17 +83,29 @@ fun ctx node_name fun_ids expr ->
       let node_calls1 = AH.calls_of_expr expr1 |> Ctx.SI.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
       (AH.has_pre_or_arrow expr1 != None) || (node_calls1 != []) 
     in
+    (* The generated imported node might be polymorphic, so we find all the needed type variables *)
+    let ty_params = 
+      Ctx.SI.union (Ctx.ty_vars_of_type ctx node_name ty) 
+                   (Ctx.ty_vars_of_expr ctx node_name expr1)
+      |> Ctx.SI.elements
+    in 
+    let ty_params = match expr2_opt with 
+    | Some expr2 -> ty_params @ Ctx.SI.elements (Ctx.ty_vars_of_expr ctx node_name expr2)
+    | None -> ty_params 
+    in
+    let ty_params = List.filter (fun p -> not (Ctx.member_ty_syn ctx p)) ty_params in 
+    let ty_vars = List.map (fun id -> A.UserType (pos, id)) ty_params in
     let generated_node = 
       if has_pre_arrow_or_node_call then
         A.NodeDecl (span, 
-        (name, true, [], inputs, 
+        (name, true, ty_params, inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))) 
       else 
         A.FuncDecl (span, 
-        (name, true, [], inputs, 
+        (name, true, ty_params, inputs, 
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
     in
-    A.Call(pos, name, inputs_call), [generated_node]
+    A.Call(pos, ty_vars, name, inputs_call), [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
@@ -178,9 +190,9 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
-  | Call (pos, id, expr_list) ->
+  | Call (pos, ty_args, id, expr_list) ->
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
-    Call (pos, id, expr_list), List.flatten gen_nodes
+    Call (pos, ty_args, id, expr_list), List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->
@@ -205,9 +217,9 @@ fun ctx node_name fun_ids ci ->
       List.map (fun (pos, id, (expr, decls)) -> ((pos, id, expr), decls)) |> 
       List.split in 
     Mode (pos, i, reqs, enss), (List.flatten gen_nodes1) @ (List.flatten gen_nodes2)
-  | ContractCall (pos, i, exprs, ids) -> 
+  | ContractCall (pos, i, ty_args, exprs, ids) -> 
     let (exprs, gen_nodes) = List.map rec_call exprs |> List.split in 
-    ContractCall (pos, i, exprs, ids), List.flatten gen_nodes
+    ContractCall (pos, i, ty_args, exprs, ids), List.flatten gen_nodes
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 

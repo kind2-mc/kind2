@@ -2005,6 +2005,7 @@ let rec trans_sys_of_node'
 
       (* Node to create a transition system for *)
       let { N.init_flag;
+            N.ty_args;
             N.inputs;
             N.oracles;
             N.outputs;
@@ -2763,6 +2764,7 @@ let rec trans_sys_of_node'
           let trans_sys, _ = 
             TransSys.mk_trans_sys 
               [I.string_of_ident false node_name]
+              ty_args
               None (* instance_state_var *)
               init_flag
               (* [] *) (* global_state_vars *)

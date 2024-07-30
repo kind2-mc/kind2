@@ -1,0 +1,12 @@
+contract C<<Y>>(in: Y) returns (out: Y);
+let
+  guarantee true -> (out = (pre in));
+tel
+
+node N(x: int) returns (y: int) 
+(*@contract 
+    import C<<int>>(x) returns (y);
+*)
+let
+    y = (x -> pre x);
+tel
