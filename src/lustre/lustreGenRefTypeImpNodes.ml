@@ -22,7 +22,7 @@ module Ctx = TypeCheckerContext
 let inputs_tag = ".inputs_"
 let contract_tag = ".contract_"
 let type_tag = ".type_"
-let poly_gen_node_tag = ".poly"
+let poly_gen_node_tag = ".poly_"
 
 let unwrap = function 
   | Ok x -> x 
