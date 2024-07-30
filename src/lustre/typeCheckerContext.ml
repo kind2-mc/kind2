@@ -142,16 +142,28 @@ let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
 (** Checks if the identifier is a constant  *)
 
-let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
-  = fun ctx i ->
-  match (IMap.find_opt i (ctx.ty_syns)) with
-  | Some ty -> (match ty with
-               | LA.UserType (_, _, uid) ->
-                  if uid = i 
-                  then Some ty
-                  else lookup_ty_syn ctx uid
-               | _ -> Some ty )
-  | None -> None
+let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option 
+= fun ctx i ty_args ->
+match (IMap.find_opt i (ctx.ty_syns), IMap.find_opt i (ctx.ty_ty_vars)) with
+| Some ty, Some ps -> 
+  let sigma = List.combine ps ty_args in
+  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+  (match ty with
+             | LA.UserType (_, ty_args, uid) ->
+                if uid = i 
+                then Some ty
+                else lookup_ty_syn ctx uid ty_args
+             | _ -> Some ty)
+| Some ty, None ->  
+  let sigma = List.combine [] ty_args in
+  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+  (match ty with
+    | LA.UserType (_, ty_args, uid) ->
+      if uid = i 
+      then Some ty
+      else lookup_ty_syn ctx uid ty_args
+    | _ -> Some ty)
+| _ -> None
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
@@ -159,8 +171,8 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType (_, _, i) as ty -> 
-    (match lookup_ty_syn ctx i with
+  | UserType (_, ty_args, i) as ty -> 
+    (match lookup_ty_syn ctx i ty_args with
     | None -> ty
     | Some ty' -> ty')
   | TupleType (p, tys) ->
@@ -747,8 +759,8 @@ let rec ty_vars_of_expr ctx node_name expr =
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
   match ty with
-  | UserType (_, _, id) -> (
-    match lookup_ty_syn ctx node_name with 
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx node_name ty_args with 
     | Some _ -> SI.empty
     | None -> SI.singleton id
     )

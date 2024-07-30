@@ -89,7 +89,7 @@ val member_u_types : tc_context -> LA.ident -> bool
 val member_val: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a constant  *)
 
-val lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
+val lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option 
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 

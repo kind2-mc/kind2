@@ -417,8 +417,8 @@ let rec type_extract_array_lens ctx ty = match ty with
   | RecordType (_, _, tis) ->
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
     List.map (type_extract_array_lens ctx) tys |> List.flatten
-  | UserType (_, _, id) -> 
-    (match (lookup_ty_syn ctx id) with 
+  | UserType (_, ty_args, id) -> 
+    (match (lookup_ty_syn ctx id ty_args) with 
       | Some ty -> type_extract_array_lens ctx ty;
       | None -> [])
   | _ -> []
@@ -582,8 +582,8 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | Some ty -> rec_call ty
   )
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
-  | UserType (_, _, i) as ty -> 
-    (match lookup_ty_syn ctx i with
+  | UserType (_, ty_args, i) as ty -> 
+    (match lookup_ty_syn ctx i ty_args with
     | None -> R.ok ty
     | Some ty' -> R.ok ty')
   | TupleType (p, tys) ->
@@ -693,7 +693,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, name, flds) -> (
-    match lookup_ty_syn ctx name with
+    match lookup_ty_syn ctx name [] with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
@@ -2061,10 +2061,10 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
 
   (* special case for type synonyms *)
-  | UserType (pos, _, u), ty
-  | ty, UserType (pos, _, u) ->
+  | UserType (pos, ty_args, u), ty
+  | ty, UserType (pos, ty_args, u) ->
     if member_ty_syn ctx u then
-      let* ty_alias = (match (lookup_ty_syn ctx u) with
+      let* ty_alias = (match (lookup_ty_syn ctx u ty_args) with
         | None -> type_error pos
           (Impossible ("Cannot find definition of Identifier "
             ^ (HString.string_of_hstring u)))
