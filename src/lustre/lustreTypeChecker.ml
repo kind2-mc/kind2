@@ -1678,6 +1678,13 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
   = fun ctx ->
   function
   | LA.AliasType (pos, i, ps, ty) ->
+    (* Disallow shadowing of type variables *)
+    let* _ = R.seq_chain (fun _ i ->
+      if (member_ty_syn ctx i) then
+        type_error pos (Redeclaration i)
+      else R.ok ()
+    ) () ps in
+
     let ctx' = List.fold_left (fun acc p -> 
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
