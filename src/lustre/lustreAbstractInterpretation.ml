@@ -458,6 +458,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let g = interpret_structured_expr f node_id ctx ty_ctx ty in
       Ctx.traverse_group_expr_list g ty_ctx proj es
     )
+    | StructUpdate (_, e, _, _) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
     | _ -> assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
