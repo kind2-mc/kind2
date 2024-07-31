@@ -189,7 +189,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
-  | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' that contains an abstract type (or type variable) cannot be quantified"
+  | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
