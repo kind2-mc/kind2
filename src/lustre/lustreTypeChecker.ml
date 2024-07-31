@@ -1940,9 +1940,9 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.UserType (pos, ty_args, i) as ty ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
-      let ty = expand_type_syn ctx ty in
       (* Check that we are passing the correct number of type arguments *)
       let* _ = instantiate_type_variables ctx pos i ty ty_args in
+      let ty = expand_type_syn ctx ty in
       check_type_well_formed ctx src nname is_const ty
     else (
       match nname with 

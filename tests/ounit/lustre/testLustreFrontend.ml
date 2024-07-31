@@ -463,6 +463,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/inlined_contract_01.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
+  mk_test "test polymorphic type decl 1" (fun () ->
+    match load_file "./lustreTypeChecker/poly_type_decl2.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test polymorphic type decl 2" (fun () ->
+    match load_file "./lustreTypeChecker/poly_type_decl3.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test polymorphic type decl 3" (fun () ->
+    match load_file "./lustreTypeChecker/poly_type_decl4.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
+    | _ -> false);
   mk_test "test int div 1" (fun () ->
     match load_file "./lustreTypeChecker/intdiv_01.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true

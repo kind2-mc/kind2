@@ -1,0 +1,8 @@
+type UserType<<T1; T2>> = [T1, T2];  
+type UserType2<<T>> = [int, UserType<<T; int>>];
+
+node N(x: UserType2<<real>>) returns (y: UserType2<<real>>;);
+let
+  y = x; 
+  check y = x; 
+tel
