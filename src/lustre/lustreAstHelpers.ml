@@ -293,7 +293,6 @@ let rec apply_type_subst_in_expr
 and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
 = fun sigma ty -> match ty with
   | UserType (pos, ty_args, i) -> (
-    (*!! Double check *)
     match List.assoc_opt i sigma with
       | Some ty -> ty
       | None -> 

@@ -1943,9 +1943,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
       let ty = expand_type_syn ctx ty in
       (* Check that we are passing the correct number of type arguments *)
       let* _ = instantiate_type_variables ctx pos i ty ty_args in
-      (*!! Need to reintroduce this check *)
-      (* check_type_well_formed ctx src nname is_const ty *)
-      R.ok ([])
+      check_type_well_formed ctx src nname is_const ty
     else (
       match nname with 
       | None -> type_error pos (UndeclaredType i)
