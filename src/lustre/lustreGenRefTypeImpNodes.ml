@@ -74,26 +74,26 @@ let node_decl_to_contracts
    to the generated imported node. For example, if "ty" is a refinement type 
    T = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
    captured as an assumption in the output imported node. *)
-let type_to_contract: Lib.position ->HString.t -> A.lustre_type -> A.declaration option
-= fun pos id ty -> 
+let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t list -> A.declaration option
+= fun pos id ty ps -> 
   let span = { A.start_pos = pos; end_pos = pos } in
   let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
-  Some (NodeDecl (span, (gen_node_id, true, [], [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
+  Some (NodeDecl (span, (gen_node_id, true, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
 let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list 
 = fun ctx decls -> 
   List.fold_left (fun acc decl -> 
     match decl with 
     | A.ConstDecl (_, FreeConst _)
-    | A.ConstDecl (_, TypedConst _) -> decl :: acc
-    | A.TypeDecl (_, AliasType (p, id, _, ty)) -> 
-      (match type_to_contract p id ty with 
-      | Some decl1 -> decl :: decl1 :: acc
-      | None -> decl :: acc)
+    | A.ConstDecl (_, TypedConst _) -> acc
+    | A.TypeDecl (_, AliasType (p, id, ps, ty)) -> 
+      (match type_to_contract p id ty ps with 
+      | Some decl1 -> decl1 :: acc
+      | None -> acc)
     | A.TypeDecl (_, FreeType _)
-    | A.ConstDecl (_, UntypedConst _) -> decl :: acc
+    | A.ConstDecl (_, UntypedConst _) -> acc
     | A.NodeDecl (span, ((p, e, ps, ips, ops, locs, _, c) as node_decl)) -> 
       (* Add main annotations to imported nodes *)
       let node_decl = 
