@@ -1649,3 +1649,8 @@ let name_of_prop pos name k =
     in
     Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
     |> HString.mk_hstring
+
+let get_const_num_value = function
+  | Const (_, Num x) ->
+    int_of_string_opt (HString.string_of_hstring x)
+  | _ -> None

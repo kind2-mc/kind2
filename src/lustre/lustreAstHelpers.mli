@@ -186,3 +186,5 @@ val rename_contract_vars : expr -> expr
 
 val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
 (** Get the name associated with a property *)
+
+val get_const_num_value : expr -> int option
