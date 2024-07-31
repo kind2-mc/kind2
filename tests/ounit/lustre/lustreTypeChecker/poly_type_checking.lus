@@ -1,0 +1,10 @@
+node N<<T; U>>(x: T) returns (y: U) 
+let 
+  check true;
+tel
+
+node M<<T2>>(x1: int;) returns (y1: int;)
+let
+    y1 = N<<subtype {x: int | x > true}; subtype {x: int | x > 10};>>(-1); 
+    check true;
+tel

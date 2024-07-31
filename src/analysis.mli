@@ -207,12 +207,12 @@ val results_is_empty : results -> bool
 contract. *)
 val results_clean : results -> results
 
-
-
-
+(** If the node was originally polymorphic, display information about its 
+   monomorphization cleanly *)
+val clean_polymorphic_info :  TransSys.t -> Scope.t -> string
 
 (** Pretty printer for [param]. *)
-val pp_print_param: bool -> Format.formatter -> param -> unit
+val pp_print_param: bool -> TransSys.t -> Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
 val pp_print_result_quiet: Format.formatter -> result -> unit

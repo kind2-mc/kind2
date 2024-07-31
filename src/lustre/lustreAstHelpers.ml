@@ -54,7 +54,7 @@ let pos_of_expr = function
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _ , _) | Call (pos , _ , _ )
+  | Arrow (pos , _ , _) | Call (pos, _ , _ , _ )
   | AnyOp (pos, _, _, _)
   -> pos
 
@@ -86,7 +86,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> true
 
 let rec type_contains_array = function
@@ -110,7 +110,7 @@ let rec expr_contains_id id = function
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
-  | Call (_, _, expr_list) | GroupExpr (_, _, expr_list)
+  | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
   | RecordExpr (_, _, expr_list) | Merge (_, _, expr_list)
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
@@ -178,8 +178,8 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> substitute_naive var t e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -229,14 +229,101 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+
+
+(* Type level substitutions at the expression level *)
+let rec apply_type_subst_in_expr
+= fun sigma expr -> match expr with
+  | Call (pos, ty_args, id, expr_list) ->
+    let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
+    Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list) 
+  | Quantifier (pos, q, tis, expr) -> 
+    let tis = List.map (fun (p, id, ty) -> 
+      p, id, apply_type_subst_in_type sigma ty
+    ) tis in
+    Quantifier (pos, q, tis, apply_type_subst_in_expr sigma expr)
+  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
+
+  | Ident _ 
+  | ModeRef _  -> expr
+  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2, apply_type_subst_in_expr sigma e3)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, apply_type_subst_in_expr sigma e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | When (pos, e, clock) -> When (pos, apply_type_subst_in_expr sigma e, clock)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
+    let expr_list1 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list1 in
+    let expr_list2 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
+    let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
+    let e = apply_type_subst_in_expr sigma e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, apply_type_subst_in_expr sigma e)
+  | Arrow (pos, e1, e2) -> Arrow (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+
+
+(* Same as apply_subst_in_type, but the substitution occurs at the type level *)
+and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustre_type
+= fun sigma ty -> match ty with
+  | UserType (pos, i) -> (
+    match List.assoc_opt i sigma with
+      | Some ty -> ty
+      | None -> UserType (pos, i)
+  )
+  | ArrayType (pos, (ty, expr)) -> 
+    ArrayType (pos, (apply_type_subst_in_type sigma ty, apply_type_subst_in_expr sigma expr))
+  | TupleType(pos, tys) -> 
+    TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | GroupType(pos, tys) -> 
+    GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | TArr(pos, ty1, ty2) ->
+    TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis 
+    in
+    RecordType (pos, name, tis)
+  | RefinementType (pos, (pos2, id, ty), expr) -> 
+    RefinementType (pos, (pos2, id, apply_type_subst_in_type sigma ty), apply_type_subst_in_expr sigma expr)
+  | ty -> ty
 
 let rec apply_subst_in_type sigma = function
   | ArrayType (pos, (ty, expr)) -> (
     let expr = apply_subst_in_expr sigma expr in 
     let ty = apply_subst_in_type sigma ty in
     ArrayType (pos, (ty, expr))
+  )
+  | RefinementType (pos, (pos2, id, ty), expr) -> (
+    let expr = apply_subst_in_expr sigma expr in 
+    let ty = apply_subst_in_type sigma ty in
+    RefinementType (pos, (pos2, id, ty), expr)
   )
   | TupleType(pos, tys) -> 
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
@@ -275,7 +362,7 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
@@ -357,7 +444,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
  
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
 
@@ -446,7 +533,7 @@ let rec has_pre_or_arrow = function
 
   
   
-  | GroupExpr (_, _, l) | Call (_, _, l) ->
+  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     List.map has_pre_or_arrow l
     |> some_of_list
 
@@ -627,7 +714,7 @@ let contract_node_equation_has_pre_or_arrow = function
       List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
       |> some_of_list
   )
-| ContractCall (_, _, ins, _) ->
+| ContractCall (_, _, _, ins, _) ->
   some_of_list (List.map has_pre_or_arrow ins)
 | AssumptionVars _ -> None
 
@@ -689,7 +776,7 @@ let rec vars_of_node_calls_h obs =
   | Pre (_, e) -> vars obs e
   | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map (vars true) es)
+  | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
@@ -731,12 +818,12 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec calls_of_expr: expr -> iset =
   function
   (* Node calls *)
-  | Call (_, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
+  | Call (_, _, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
   | Condact (_, e1, e2, i, es1, es2) ->
     SI.union (SI.singleton i)
              (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
@@ -809,7 +896,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, _, es) -> SI.flatten (List.map vars es)
+  | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
@@ -841,7 +928,7 @@ let rec vars_of_type = function
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | TVar _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
+  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
@@ -978,7 +1065,7 @@ let rec replace_with_constants: expr -> expr =
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
   (* Node calls *)
-  | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es) 
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -1057,7 +1144,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
   (* Node calls *)
-  | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
   match expr with
@@ -1085,7 +1172,7 @@ let rec replace_idents locals1 locals2 expr =
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
-  | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map (replace_idents locals1 locals2) l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1286,8 +1373,12 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
-    | Call (_, xi, xl), Call (_, yi, yl) ->
-      rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
+    | Call (_, xts, xi, xl2), Call (_, yts, yi, yl2) when List.length xts == List.length yts ->
+      List.map2 (fun xt yt -> 
+        syn_type_equal depth_limit xt yt
+      ) xts yts |> join >>= fun l1 ->
+      rlist xl2 yl2 |> join >>= fun l2 -> 
+      Ok (l1 && l2 && xi = yi)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1306,7 +1397,6 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     in
     if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
     else match x, y with
-    | TVar (_, x), TVar (_, y) -> Ok (HString.equal x y)
     | Bool _, Bool _
     | Int _, Int _
     | UInt8 _, UInt8 _
@@ -1476,7 +1566,7 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | Call (_, i, l) ->
+      | Call (_, _, i, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, HString.hash i, l_hash)
       | AnyOp (_, (_, i, _), e, None) ->
@@ -1545,8 +1635,8 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | Call (pos, id, expr_list) ->
-    Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
+  | Call (pos, ty_args, id, expr_list) ->
+    Call (pos, ty_args, id, List.map (fun e -> rename_contract_vars e) expr_list)
 
 let name_of_prop pos name k =
   match name with 
@@ -1559,3 +1649,8 @@ let name_of_prop pos name k =
     in
     Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
     |> HString.mk_hstring
+
+let get_const_num_value = function
+  | Const (_, Num x) ->
+    int_of_string_opt (HString.string_of_hstring x)
+  | _ -> None

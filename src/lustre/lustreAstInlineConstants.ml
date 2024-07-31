@@ -354,9 +354,9 @@ and simplify_expr ?(is_guarded = false) ctx =
       | Error _ -> e')*)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
-  | Call (pos, i, es) ->
+  | Call (pos, ty_args, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~is_guarded:false ctx e) es in
-    Call (pos, i, es')
+    Call (pos, ty_args, i, es')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
@@ -391,7 +391,7 @@ let rec inline_constants_of_lustre_type ctx ty = match ty with
     let ty' = inline_constants_of_lustre_type ctx ty in 
     RefinementType (pos, (pos2, id, ty'), expr)
     
-  | History _ | Int _ | TVar _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
+  | History _ | Int _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
   | UserType _ | AbstractType _ | EnumType _ -> ty
 

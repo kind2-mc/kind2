@@ -1,0 +1,14 @@
+node O<<T>>(x: T) returns (y: T);
+let
+  y = x;
+tel
+
+node N<<T>>(x: T) returns (y: T | O<<T>>(y) = y);
+let
+  y = O<<T>>(x);
+tel
+
+node M(x: int) returns (y: int | N<<int>>(y) > 0)
+let 
+  y = 1;
+tel

@@ -1,0 +1,10 @@
+node N<<T>>(x: T) returns (y: T) 
+let 
+    y = pre x;
+tel
+
+node M<<T2>>(x1: int;) returns (y1: int;)
+let
+    y1 = N<<int>>(x1); 
+    check true -> (y1 = pre x1);
+tel

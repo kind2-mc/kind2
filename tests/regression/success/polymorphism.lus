@@ -1,0 +1,22 @@
+node Poly<<T>>(x: T) returns (y: T) 
+let 
+    y = (x-> pre x);
+tel
+
+node M<<T2>>(x1, x2: int; x4: int) returns (y1, y2: int; y3: int | Poly<<int>>(y3) < 5; y4: int)
+(*@contract
+    guarantee y1 = Poly<<int>>(x1);
+    guarantee true;
+*)
+var l: int;
+let
+    l = Poly<<int>>(x1);
+    y1 = Poly<<int>>(x1); 
+    y2 = Poly<<int>>(x2); 
+    y3 = 4;
+    y4 = Poly<<int>>(Poly<<int>>(x4));
+    check true -> (y1 = pre x1);
+    check true -> (y2 = pre x2);
+    check true -> (l = pre x1);
+    check y4 = (y4 -> pre (y4 -> pre x4));
+tel

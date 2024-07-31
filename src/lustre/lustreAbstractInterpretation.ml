@@ -406,7 +406,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
 
 and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e |> unwrap
+    let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
     in
     TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap
   in
@@ -438,7 +438,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
           let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
           t
 
-        | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+        | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
         | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
         | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false)
@@ -458,11 +458,12 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let g = interpret_structured_expr f node_id ctx ty_ctx ty in
       Ctx.traverse_group_expr_list g ty_ctx proj es
     )
+    | StructUpdate (_, e, _, _) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
     | _ -> assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e |> unwrap
+    let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
     in
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
@@ -485,7 +486,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
         let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
         extract_bounds_from_type ty
       
-      | TVar _ | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
+      | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
       | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
@@ -525,7 +526,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _)
-  | Call (_, id, _) ->
+  | Call (_, _, id, _) ->
     let ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let output_ty = match ty with
       | TArr (_, _, GroupType (_, tys)) -> List.nth tys proj

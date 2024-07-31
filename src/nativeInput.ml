@@ -477,6 +477,7 @@ let of_channel in_ch =
         (* Create transition system *)
         let sys, _ = TransSys.mk_trans_sys
             node_scope
+            []
             None
             init_flag
             (* [] *)

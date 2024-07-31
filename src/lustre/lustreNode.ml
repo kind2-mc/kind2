@@ -146,6 +146,9 @@ type t = {
   (* Is the node extern? *)
   is_extern: bool;
 
+  (* Node type arguments *)
+  ty_args: LustreAst.lustre_type list;
+
   (* Constant state variable uniquely identifying the node instance *)
   instance : StateVar.t;
 
@@ -208,6 +211,7 @@ type t = {
 let empty_node name is_extern = {
   name ;
   is_extern ;
+  ty_args = [];
   instance = 
     StateVar.mk_state_var
       ~is_const:true

@@ -134,7 +134,6 @@ let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
 
 let rec unannot_pos = function
-  | A.TVar (_, i) -> A.TVar (dpos, i)
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
   | A.UInt8 _ -> A.UInt8 dpos
@@ -158,7 +157,7 @@ let rec unannot_pos = function
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
-  | RefinementType (_,id,e) -> RefinementType (dpos,id,e)
+  | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -183,7 +182,7 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (pos, HString.mk_hstring (rand_function_name_for n typ),
+          (pos, [], HString.mk_hstring (rand_function_name_for n typ),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
@@ -192,7 +191,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (pos, HString.mk_hstring (rand_function_name_for n typ),
+            (pos, [], HString.mk_hstring (rand_function_name_for n typ),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
@@ -244,8 +243,8 @@ let rec minimize_node_call_args ue lst expr =
     match expr with
     | A.Const _ | A.Ident _ | A.ModeRef _
     -> expr
-    | A.Call (pos, ident, args) ->
-      A.Call (pos, ident, List.mapi (minimize_arg ident) args)
+    | A.Call (pos, ty_args, ident, args) ->
+      A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
@@ -280,7 +279,7 @@ and ast_contains p ast =
     else match ast with
     | A.Const _ | A.Ident _ | A.ModeRef _
       -> false
-    | A.Call (_, _, args) ->
+    | A.Call (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)

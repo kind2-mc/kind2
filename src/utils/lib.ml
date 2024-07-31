@@ -71,6 +71,13 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* List functions                                                         *)
 (* ********************************************************************** *)
 
+let find_opt_index pred lst =
+  let rec aux i = function
+    | [] -> None
+    | x :: xs -> if pred x then Some i else aux (i + 1) xs
+  in
+  aux 0 lst
+
 (* Add element to the head of the list if the option value is not [None] *)
 let ( @:: ) = 
     function

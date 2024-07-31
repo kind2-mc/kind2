@@ -663,6 +663,7 @@ let slice_all_of_node
     ?(keep_asserts = true)
     { N.name;
       N.is_extern; 
+      N.ty_args;
       N.instance;
       N.init_flag;
       N.inputs; 
@@ -685,6 +686,7 @@ let slice_all_of_node
      properties, assertions, contracts and main annotation *)
   { N.name;
     N.is_extern;
+    N.ty_args;
     N.instance;
     N.init_flag;
     N.inputs;

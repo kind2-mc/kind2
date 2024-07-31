@@ -193,6 +193,9 @@ val get_logic : t -> TermLib.logic
 (** Return the scope identifying the transition system *)
 val scope_of_trans_sys : t -> Scope.t
 
+(** Returns the type arguments in a transition system. *)
+val get_ty_args : t -> LustreAst.lustre_type list
+
 (** Returns the properties in a transition system. *)
 val get_properties : t -> Property.t list
 
@@ -244,6 +247,9 @@ val mk_trans_sys :
   (* Name of the transition system *)
   Scope.t ->
 
+  (* Original Lustre node's type arguments used for monomorphization *)
+  LustreAst.lustre_type list ->
+    
   (* State variable for instance identifier *)
   StateVar.t option ->
 

@@ -86,6 +86,8 @@ val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
 
+val find_opt_index : ('a -> bool) -> 'a list -> int option
+
 (** Add element to the head of the list if the option value is not [None].
 
     The function symbol is right-associative and infix:

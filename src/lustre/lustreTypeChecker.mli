@@ -42,8 +42,10 @@ type error_kind = Unknown of string
   | Unsupported of string
   | UnequalArrayExpressionType
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
-  | IlltypedRecordUpdate of tc_type
+  | IlltypedUpdateWithLabel of tc_type
+  | IlltypedUpdateWithIndex of tc_type
   | ExpectedLabel of LA.expr
+  | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
   | IlltypedArrayIndex of tc_type
@@ -82,6 +84,7 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
   | QuantifiedAbstractType of HString.t
+  | InvalidPolymorphicCall of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -113,6 +116,11 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
 
 val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
 
+val extract_exports: HString.t ->
+  tc_context ->
+  LA.contract ->
+  (tc_context * [> warning] list, [> error ]) result
+
 val add_io_node_ctx :
   tc_context ->
   LA.const_clocked_typed_decl list ->
@@ -130,6 +138,21 @@ val add_full_node_ctx :
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
   tc_context
+
+val instantiate_type_variables : 
+  tc_context -> 
+  Lib.position -> 
+  HString.t -> 
+  tc_type -> 
+  tc_type list -> 
+  (tc_type, [> error ]) result
+
+val instantiate_type_variables_expr: 
+  tc_context -> 
+  HString.t -> 
+  tc_type list -> 
+  LA.expr -> 
+  (LA.expr, [> error ]) result
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->
@@ -150,7 +173,7 @@ val expand_type_syn_reftype_history_subrange : tc_context ->
     [> error] )
   result
   
-val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
+val infer_type_expr: tc_context ->  HString.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result

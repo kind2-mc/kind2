@@ -395,6 +395,22 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test polymorphism 1" (fun () ->
+    match load_file "./lustreTypeChecker/poly_fail.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test polymorphism 2" (fun () ->
+    match load_file "./lustreTypeChecker/poly_fail2.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | _ -> false);
+  mk_test "test polymorphism 3" (fun () ->
+    match load_file "./lustreTypeChecker/poly_hanging_type_var.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test polymorphism 4" (fun () ->
+    match load_file "./lustreTypeChecker/poly_type_checking.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | _ -> false);
   mk_test "test abstract type" (fun () ->
     match load_file "./lustreTypeChecker/abstract_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
@@ -437,6 +453,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test redeclaration of enum" (fun () ->
     match load_file "./lustreTypeChecker/enum_02.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
+  mk_test "test type redeclaration" (fun () ->
+    match load_file "./lustreTypeChecker/type_redeclaration.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
   mk_test "test inlined contract 1" (fun () ->

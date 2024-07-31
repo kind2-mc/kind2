@@ -107,6 +107,15 @@ val lookup_contract_ty: tc_context -> LA.ident -> tc_type option
 val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 (** Lookup a node type *)
 
+val lookup_node_ty_vars: tc_context -> HString.t -> HString.t list option
+(** Lookup a node's type variables *)
+
+val lookup_node_ty_args: tc_context -> HString.t -> LA.lustre_type list option
+(** Lookup a node's type arguments *)
+
+val lookup_contract_ty_vars: tc_context -> HString.t -> HString.t list option
+(** Lookup a contract's type variables *)
+
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
 (** Track whether node parameters are constant or not *)
 
@@ -127,6 +136,15 @@ val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 val add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add node/function type binding into the typing context *)
 
+val add_ty_vars_node: tc_context -> HString.t -> HString.t list -> tc_context 
+(** Add node/function type variables into the typing context *)
+
+val add_ty_args_node: tc_context -> HString.t -> LA.lustre_type list -> tc_context 
+(** Add node/function type arguments into the typing context *)
+
+val add_ty_vars_contract: tc_context -> HString.t -> HString.t list -> tc_context 
+(** Add contract type variables into the typing context *)
+
 val add_node_param_attr: tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
 (** Track whether node parameters are constant or not *)
 
@@ -141,6 +159,8 @@ val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
 
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
+
+val remove_ty_ctx: tc_context -> tc_context
                   
 val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
 (** Adds a constant variable along with its expression and type  *)
@@ -257,3 +277,9 @@ val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
 
 val type_contains_abstract : tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an abstract type (including polymorphic type variable) or if it is an abstract type *)
+
+val ty_vars_of_expr: tc_context -> LA.index -> LA.expr -> SI.t
+(** [ty_vars_of_type ctx node_name e] returns all type variable identifiers that appear in the expression [e] *)
+
+val ty_vars_of_type: tc_context -> LA.index -> LA.lustre_type -> SI.t
+(** [ty_vars_of_type ctx node_name ty] returns all type variable identifiers that appear in the type [ty] *)

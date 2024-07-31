@@ -1,0 +1,10 @@
+
+type MyPair = [int, bool];
+
+node N(A:int^3; p1: MyPair) returns (B: int^3; p2: MyPair);
+let
+  B = (A with [0] = 1);
+  p2 = (p1 with .%1 = true);
+  check B[0] = 1;
+  check p2.%1;
+tel
