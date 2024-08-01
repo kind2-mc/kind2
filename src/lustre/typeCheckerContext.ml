@@ -147,22 +147,24 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
 match (IMap.find_opt i (ctx.ty_syns), IMap.find_opt i (ctx.ty_ty_vars)) with
 | Some ty, Some ps -> 
   let sigma = List.combine ps ty_args in
-  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
-  (match ty with
-             | LA.UserType (_, ty_args, uid) ->
-                if uid = i 
-                then Some ty
-                else lookup_ty_syn ctx uid ty_args
-             | _ -> Some ty)
+  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in (
+  match ty with
+  | LA.UserType (_, ty_args, uid) ->
+    if uid = i 
+    then Some ty
+    else lookup_ty_syn ctx uid ty_args
+  | _ -> Some ty
+  )
 | Some ty, None ->  
   let sigma = List.combine [] ty_args in
-  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
-  (match ty with
-    | LA.UserType (_, ty_args, uid) ->
-      if uid = i 
-      then Some ty
-      else lookup_ty_syn ctx uid ty_args
-    | _ -> Some ty)
+  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in (
+  match ty with
+  | LA.UserType (_, ty_args, uid) ->
+    if uid = i 
+    then Some ty
+    else lookup_ty_syn ctx uid ty_args
+  | _ -> Some ty
+  )
 | _ -> None
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 

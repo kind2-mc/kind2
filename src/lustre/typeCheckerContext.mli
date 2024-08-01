@@ -117,7 +117,7 @@ val lookup_contract_ty_vars: tc_context -> HString.t -> HString.t list option
 (** Lookup a contract's type variables *)
 
 val lookup_ty_ty_vars: tc_context -> HString.t -> HString.t list option
-(** Lookup a type's type variables *)
+(** Lookup a user type's type variables *)
 
 val lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
 (** Track whether node parameters are constant or not *)
