@@ -98,6 +98,7 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
+  | QuantifiedAbstractType of HString.t
   | InvalidPolymorphicCall of HString.t
 
 type error = [
@@ -193,6 +194,7 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
+  | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
   | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
 
 type warning_kind = 
@@ -1070,6 +1072,14 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
+    (* Disallow quantification over abstract types *)
+    let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
+      if type_contains_abstract ctx ty 
+      then 
+        type_error pos (QuantifiedAbstractType id) 
+      else 
+        R.ok ()
+    ) qs) in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx nname e exp_ty
