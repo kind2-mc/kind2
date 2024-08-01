@@ -691,7 +691,7 @@ let rec type_contains_abstract ctx = function
     (match lookup_ty_syn ctx id with 
     | Some (AbstractType _) 
     | None -> true 
-    | Some _ -> false)
+    | Some ty -> type_contains_abstract ctx ty)
   | RefinementType (_, (_, _, ty), _) -> type_contains_abstract ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
     List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
