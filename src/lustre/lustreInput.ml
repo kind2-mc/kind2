@@ -337,14 +337,19 @@ let of_channel old_frontend only_parse in_ch =
               (* If checking realizability, then 
                 we are actually checking realizability of Kind 2-generated imported nodes representing 
                 the (1) the main node's contract instrumented with type info and 
-                    (2) the main node's enviornment *)
-              if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);
-                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-              else if main_lustre_node.is_extern && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                [s_ident;
-                LustreIdent.mk_string_ident (LGI.inputs_tag ^ s)]
-              else [s_ident]
+                    (2) the main node's enviornment, if environment checking is enabled *)
+              let main_nodes = 
+                if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+                  [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);]
+                else [s_ident] 
+              in
+              let main_nodes = 
+                if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
+                  LustreIdent.mk_string_ident (LGI.inputs_tag ^ s) :: main_nodes 
+                else 
+                  main_nodes 
+                in 
+              main_nodes
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
               let msg =
