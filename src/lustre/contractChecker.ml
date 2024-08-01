@@ -400,22 +400,27 @@ let pp_print_realizability_result_json
     )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
-        let trace, core =
-          compute_unviable_trace_and_core
-            analyze in_sys param sys u_res
-        in
-        (fun fmt ->
-          let cpd =
-            ME.loc_core_to_print_data in_sys sys core_desc None core
+        try (
+          let trace, core =
+            compute_unviable_trace_and_core
+              analyze in_sys param sys u_res
           in
-          Format.fprintf
-          fmt
-          ",@,%a,@,\
-          \"conflictingSet\" : %a"
-          (KEvent.pp_print_trace_json
-            ~object_name:"deadlockingTrace" in_sys param sys None true)
-          trace
-          (ME.pp_print_core_data_json in_sys param sys) cpd
+          (fun fmt ->
+            let cpd =
+              ME.loc_core_to_print_data in_sys sys core_desc None core
+            in
+            Format.fprintf
+            fmt
+            ",@,%a,@,\
+            \"conflictingSet\" : %a"
+            (KEvent.pp_print_trace_json
+              ~object_name:"deadlockingTrace" in_sys param sys None true)
+            trace
+            (ME.pp_print_core_data_json in_sys param sys) cpd
+          )
+        )
+        with Realizability.Trace_or_conflict_computation_failed _ -> (
+          (fun _ -> ())
         )
       )
       else (fun _ -> ())
@@ -458,21 +463,26 @@ let pp_print_realizability_result_xml
     )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
-        let trace, core =
-          compute_unviable_trace_and_core
-            analyze in_sys param sys u_res
-        in
-        (fun fmt ->
-          let cpd =
-            ME.loc_core_to_print_data in_sys sys core_desc None core
+        try (
+          let trace, core =
+            compute_unviable_trace_and_core
+              analyze in_sys param sys u_res
           in
-          Format.fprintf
-          fmt
-          "@,%a@,%a"
-          (KEvent.pp_print_trace_xml
-            ~tag:"DeadlockingTrace" in_sys param sys None true)
-          trace
-          (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
+          (fun fmt ->
+            let cpd =
+              ME.loc_core_to_print_data in_sys sys core_desc None core
+            in
+            Format.fprintf
+            fmt
+            "@,%a@,%a"
+            (KEvent.pp_print_trace_xml
+              ~tag:"DeadlockingTrace" in_sys param sys None true)
+            trace
+            (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
+          )
+        )
+        with Realizability.Trace_or_conflict_computation_failed _ -> (
+          (fun _ -> ())
         )
       )
       else (fun _ -> ())

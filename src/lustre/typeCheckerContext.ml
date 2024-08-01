@@ -218,7 +218,7 @@ let lookup_node_ty_vars: tc_context -> LA.ident -> HString.t list option
 
 let lookup_node_ty_args: tc_context -> LA.ident -> LA.lustre_type list option
   = fun ctx i -> IMap.find_opt i (ctx.ty_args)
-(** Lookup a node's type variables *)
+(** Lookup a node's type arguments *)
 
 let lookup_contract_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
@@ -274,7 +274,7 @@ let add_ty_vars_ty: tc_context -> LA.ident -> LA.ident list -> tc_context
 let add_ty_args_node: tc_context -> LA.ident -> LA.lustre_type list -> tc_context
   = fun ctx i ty_args -> 
     {ctx with ty_args = IMap.add i ty_args (ctx.ty_args)}
-(**  Add the type variables of the node *)
+(**  Add the type arguments of the node *)
 
 let add_ty_vars_contract: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i contract_ty_vars -> 

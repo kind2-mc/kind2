@@ -1298,7 +1298,7 @@ and eval_node_contract_call
   known ctx scope inputs outputs locals is_candidate (
     call_pos, id, tys, in_params, out_params
   ) = 
-  if tys <> [] then fail_at_position call_pos "Contract calls with type parameters not supports in old frontend" else
+  if tys <> [] then fail_at_position call_pos "Contract calls with type parameters not supported in old frontend" else
     
   let id' = HString.string_of_hstring id in
   let ident = I.mk_string_ident id' in

@@ -149,7 +149,7 @@ val add_ty_args_node: tc_context -> HString.t -> LA.lustre_type list -> tc_conte
 (** Add node/function type arguments into the typing context *)
 
 val add_ty_vars_contract: tc_context -> HString.t -> HString.t list -> tc_context 
-(** Add node/function type variables into the typing context *)
+(** Add contract type variables into the typing context *)
 
 val add_node_param_attr: tc_context -> LA.ident -> LA.const_clocked_typed_decl list -> tc_context
 (** Track whether node parameters are constant or not *)

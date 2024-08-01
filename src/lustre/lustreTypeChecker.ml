@@ -57,8 +57,10 @@ type error_kind = Unknown of string
   | Unsupported of string
   | UnequalArrayExpressionType
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
-  | IlltypedRecordUpdate of tc_type
+  | IlltypedUpdateWithLabel of tc_type
+  | IlltypedUpdateWithIndex of tc_type
   | ExpectedLabel of LA.expr
+  | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
   | IlltypedArrayIndex of tc_type
@@ -127,8 +129,10 @@ let error_message kind = match kind with
   | UnequalArrayExpressionType -> "All expressions must be of the same type in an Array"
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
-  | IlltypedRecordUpdate ty -> "Cannot do an update on non-record type " ^ string_of_tc_type ty
+  | IlltypedUpdateWithLabel ty -> "Expected a record type but found " ^ string_of_tc_type ty
+  | IlltypedUpdateWithIndex ty -> "Expected a tuple type or an array type but found " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
+  | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
   | ExpectedIntegerTypeForSlice -> "Slicing should have integer types"
   | IlltypedArrayIndex ty -> "Indexing can only be done on an array type but found " ^ string_of_tc_type ty
@@ -762,13 +766,13 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     check_array_size_expr ctx nname sup_expr
     >> R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), warnings)
   )
-  | LA.StructUpdate (pos, r, i_or_ls, e) ->
+  | LA.StructUpdate (pos, ue, i_or_ls, e) ->
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
       (match List.hd i_or_ls with
       | LA.Label (pos, l) ->  
-          infer_type_expr ctx nname r
+          infer_type_expr ctx nname ue
           >>= (function 
               | RecordType (_, _, flds) as r_ty, warnings1 ->
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
@@ -779,8 +783,34 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
                         (R.ok (r_ty, warnings1 @ warnings2))
                         (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty)))
                     | None -> type_error pos (NotAFieldOfRecord l)))
-              | r_ty, _ -> type_error pos (IlltypedRecordUpdate r_ty))
-      | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
+              | r_ty, _ -> type_error pos (IlltypedUpdateWithLabel r_ty))
+      | LA.Index (pos, i) ->
+        let* ue_ty, warnings1 = infer_type_expr ctx nname ue in
+        (match ue_ty with
+        | TupleType _ -> (
+          let* idx =
+            match LH.get_const_num_value i with
+            | Some n -> Ok n
+            | None -> type_error pos (ExpectedIntegerLiteral i)
+          in
+          let* e_ty, warnings2 = infer_type_expr ctx nname e in
+          let* warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
+          R.ok (ue_ty, warnings1 @ warnings2 @ warnings3)
+        )
+        | ArrayType (_, (b_ty, _)) -> (
+          let* index_type, warnings1 = infer_type_expr ctx nname i in
+          let* index_type = expand_type_syn_reftype_history ctx index_type in
+          if is_expr_int_type ctx nname i then
+            let* e_ty, warnings2 = infer_type_expr ctx nname e in
+            R.ifM (eq_lustre_type ctx b_ty e_ty)
+              (R.ok (ue_ty, warnings1 @ warnings2))
+              (type_error pos (ExpectedType (e_ty, b_ty)))
+          else
+            type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+        )
+        | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
+        )
+      )
   | LA.ArrayIndex (pos, e, i) ->
     let* index_type, warnings1 = infer_type_expr ctx nname i in
     let* index_type = expand_type_syn_reftype_history ctx index_type in
@@ -979,22 +1009,46 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
             (type_error pos UnequalArrayExpressionType))
 
   (* Update of structured expressions *)
-  | StructUpdate (pos, r, i_or_ls, e) ->
+  | StructUpdate (pos, ue, i_or_ls, e) ->
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
-    else (match List.hd  i_or_ls with
-          | LA.Label (pos, l) ->  
-            let* r_ty, warnings1 = infer_type_expr ctx nname r in (
-              match r_ty with
-              | RecordType (_, _, flds) ->
-                (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-                  (match (List.assoc_opt l typed_fields) with
-                  | Some ty -> 
-                    let* warnings2 = check_type_expr ctx nname e ty in 
-                    R.ok (warnings1 @ warnings2)
-                  | None -> type_error pos (NotAFieldOfRecord l)))
-              | _ -> type_error pos (IlltypedRecordUpdate r_ty))
-          | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
+    else
+      (match List.hd i_or_ls with
+      | LA.Label (pos, l) ->
+        let* r_ty, warnings1 = infer_type_expr ctx nname ue in (
+          match r_ty with
+          | RecordType (_, _, flds) ->
+            (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+              (match (List.assoc_opt l typed_fields) with
+              | Some ty ->
+                let* warnings2 = check_type_expr ctx nname e ty in
+                R.ok (warnings1 @ warnings2)
+              | None -> type_error pos (NotAFieldOfRecord l)))
+          | _ -> type_error pos (IlltypedUpdateWithLabel r_ty))
+      | LA.Index (_, i) ->
+        let* ue_ty, warnings1 = infer_type_expr ctx nname ue in
+        (match ue_ty with
+        | TupleType _ -> (
+          let* idx =
+            match LH.get_const_num_value i with
+            | Some n -> Ok n
+            | None -> type_error pos (ExpectedIntegerLiteral i)
+          in
+          let* e_ty, warnings2 = infer_type_expr ctx nname e in
+          let* warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
+          R.ok (warnings1 @ warnings2 @ warnings3)
+        )
+        | ArrayType (_, (b_ty, _)) -> (
+          let* index_type, warnings1 = infer_type_expr ctx nname i in
+          let* index_type = expand_type_syn_reftype_history ctx index_type in
+          if is_expr_int_type ctx nname i then
+            let* warnings2 = check_type_expr ctx nname e b_ty in
+            R.ok (warnings1 @ warnings2)
+          else
+            type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+        )
+        | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
+        ))
 
   (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
