@@ -716,6 +716,26 @@ let rec type_contains_enum_subrange_reftype ctx = function
       | _ -> assert false)
   | _ -> false
 
+let rec type_contains_abstract ctx = function
+  | LA.UserType (_, ty_args, id) -> 
+    (match lookup_ty_syn ctx id ty_args with 
+    | Some (AbstractType _) 
+    | None -> true 
+    | Some ty -> type_contains_abstract ctx ty)
+  | RefinementType (_, (_, _, ty), _) -> type_contains_abstract ctx ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_abstract ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
+    | Some ty -> type_contains_abstract ctx ty
+    | _ -> assert false)
+  | _ -> false
+
 let rec ty_vars_of_expr ctx node_name expr = 
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
