@@ -156,8 +156,8 @@ match (IMap.find_opt i (ctx.ty_syns), IMap.find_opt i (ctx.ty_ty_vars)) with
   | _ -> Some ty
   )
 | Some ty, None ->  
-  let sigma = List.combine [] ty_args in
-  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in (
+  assert (ty_args = []);
+  let ty = LustreAstHelpers.apply_type_subst_in_type [] ty in (
   match ty with
   | LA.UserType (_, ty_args, uid) ->
     if uid = i 

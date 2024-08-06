@@ -722,7 +722,10 @@ and check_ty_node_calls i ty =
       >> if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
-    | _ -> Ok ()
+    | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
+    | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
+    | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _
+    | AbstractType _ | History _ | TArr _ -> Ok ()
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
