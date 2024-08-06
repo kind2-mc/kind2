@@ -352,6 +352,16 @@ type_decl:
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
 
+  | TYPE; l = ident_list; p = static_params; EQUALS; t = record_type; SEMICOLON
+     { List.map
+         (function e ->
+           A.AliasType (mk_pos $startpos,
+                        e,
+                        p,
+                        A.RecordType (mk_pos $startpos, e, t)))
+         l }
+
+
 expr_opt:
   | e = expr { Some e }
   | MULT { None }

@@ -703,7 +703,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
-      | LA.RecordType (_, _, fld_tys) -> (
+      | LA.RecordType (_, r_name, fld_tys) -> (
         let* matches =
           R.seq_chain
             (fun acc (p, f, ty) ->
@@ -736,7 +736,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
           in
           let* fld_tys_warns = R.seq (List.map (infer_field ctx) matches) in
           let fld_tys, warnings = List.split fld_tys_warns in
-          R.ok (LA.RecordType (pos, name, fld_tys), List.flatten warnings)
+          R.ok (LA.RecordType (pos, r_name, fld_tys), List.flatten warnings)
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)

@@ -1,8 +1,17 @@
 type UserType<<T1; T2>> = [T1, T2];  
 type UserType2<<T>> = [int, UserType<<T; int>>];
 
-node N(x: UserType2<<real>>) returns (y: UserType2<<real>>;);
+type R<<T>> = struct {
+  f1: UserType2<<T>>;
+  f2: bool;
+};
+
+type R_real = R<<real>>;
+
+node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; z: R_real);
 let
-  y = x; 
-  check y = x; 
+  y = x;
+  z = R_real { f1 = x; f2 = true };
+  check y = x;
+  check z.f1 = x;
 tel
