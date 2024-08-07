@@ -8,6 +8,11 @@ type R<<T>> = struct {
 
 type R_real = R<<real>>;
 
+node F<<T>>() returns (z: UserType2<<T>>);
+let
+  z = any { x: UserType2<<T>> | x.%0 > 0 };
+tel
+
 node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; z: R_real);
 let
   y = x;
