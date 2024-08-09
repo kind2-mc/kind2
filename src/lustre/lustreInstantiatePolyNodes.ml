@@ -485,7 +485,8 @@ and gen_poly_decls_ci
 and gen_poly_decls_decls
 = fun ctx node_decls_map decls -> 
   let ctx, decls, node_decls_map = List.fold_left (fun (ctx, acc_decls, acc_node_decls_map) decl -> match decl with
-  | A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) -> 
+  | A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -514,7 +515,8 @@ and gen_poly_decls_decls
       let decl = A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
       ctx, decl :: decls, node_decls_map
     )
-  | NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) -> 
+  | NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -543,7 +545,8 @@ and gen_poly_decls_decls
         let decl = A.NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
         ctx, decl :: decls, node_decls_map
     )
-  | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) -> 
+  | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx cname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some cname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map

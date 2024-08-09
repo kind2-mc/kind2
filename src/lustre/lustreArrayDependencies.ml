@@ -268,9 +268,9 @@ let rec check_inductive_array_dependencies ctx ns = function
   | [] -> Ok ()
 
 and check_node_decl ctx ns decl =
-  let (_, _, _, inputs, outputs, locals, items, _) = decl in
+  let (id, _, params, inputs, outputs, locals, items, _) = decl in
   (* Setup the typing context *)
-  let ctx = Chk.add_full_node_ctx ctx inputs outputs locals in
+  let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
   (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in

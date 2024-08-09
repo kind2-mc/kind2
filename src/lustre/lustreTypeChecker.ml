@@ -220,7 +220,16 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (********************************
  * Functions to update context  *
  ********************************)
-let add_io_node_ctx ctx inputs outputs =
+let add_ty_params_node_ctx ctx nname params =
+  let ctx = add_ty_vars_node ctx nname params in
+  List.fold_left
+    (fun acc p ->
+      add_ty_syn acc p (LA.AbstractType (Lib.dummy_pos, p))
+    )
+    ctx params
+
+let add_io_node_ctx ctx nname params inputs outputs =
+  let ctx = add_ty_params_node_ctx ctx nname params in
   let ctx = inputs
     |> List.map extract_consts
     |> (List.fold_left union ctx)
@@ -240,8 +249,8 @@ let add_local_node_ctx ctx locals =
     |> List.map extract_loc_ctx
     |> (List.fold_left union ctx)
 
-let add_full_node_ctx ctx inputs outputs locals =
-  let ctx = add_io_node_ctx ctx inputs outputs in
+let add_full_node_ctx ctx nname params inputs outputs locals =
+  let ctx = add_io_node_ctx ctx nname params inputs outputs in
   add_local_node_ctx ctx locals
 
 (**********************************************

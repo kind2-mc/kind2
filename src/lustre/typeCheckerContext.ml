@@ -782,13 +782,10 @@ and ty_vars_of_type ctx node_name ty =
   let call = ty_vars_of_type ctx node_name in 
   match ty with
   | UserType (_, ty_args, id) -> (
-    let ty_vars =
-      List.fold_left SI.union SI.empty (List.map call ty_args)
-    in
-    match lookup_ty_syn ctx node_name ty_args with 
-    | Some _ -> ty_vars
-    | None -> SI.add id ty_vars
-    )
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> ty_vars_of_type ctx node_name ty
+    | None -> assert false
+  )
   | RefinementType (_, (_, _, ty), e) 
   | ArrayType (_, (ty, e)) -> 
     SI.union (call ty) (ty_vars_of_expr ctx node_name e)
@@ -798,5 +795,12 @@ and ty_vars_of_type ctx node_name ty =
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
+  | AbstractType (_, id) -> (
+    match lookup_node_ty_vars ctx node_name with
+    | Some tvars ->
+      if List.mem id tvars then SI.singleton id
+      else SI.empty
+    | None -> SI.empty
+  )
   | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ -> SI.empty
+  | Bool _ | IntRange _ | Real _  | EnumType _ -> SI.empty

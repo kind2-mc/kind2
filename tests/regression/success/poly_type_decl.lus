@@ -20,6 +20,12 @@ let
   check z=y;
 tel
 
+node R<<T1>>(y:T1) returns (z:UserType3<<T1>>);
+let
+  z=y;
+  check z=y;
+tel
+
 node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; z: R_real);
 let
   y = x;

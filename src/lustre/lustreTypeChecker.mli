@@ -121,8 +121,16 @@ val extract_exports: HString.t ->
   LA.contract ->
   (tc_context * [> warning] list, [> error ]) result
 
+val add_ty_params_node_ctx :
+  tc_context ->
+  HString.t ->
+  HString.t list ->
+  tc_context
+
 val add_io_node_ctx :
   tc_context ->
+  HString.t ->
+  HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   tc_context
@@ -134,6 +142,8 @@ val add_local_node_ctx :
 
 val add_full_node_ctx :
   tc_context ->
+  HString.t ->
+  HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
   LA.node_local_decl list ->
