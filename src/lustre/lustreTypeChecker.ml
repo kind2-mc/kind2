@@ -1399,6 +1399,11 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
     else R.ok ()
   ) () (params)
   >>
+    let ctx =
+      List.fold_left (fun acc p ->
+        add_ty_syn acc p (LA.AbstractType (pos, p))
+      ) ctx params
+    in
     (* (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params; *)
     (* store the input constants passed in the input *)
     let ip_constants_ctx = List.fold_left union ctx
@@ -1795,7 +1800,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   else 
     let ctx = add_node_param_attr ctx nname ip in
     let ctx = add_ty_vars_node ctx nname ps in
-    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ip op in
+    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ps ip op in
     let ctx = add_ty_node ctx nname fun_ty in 
     R.ok (ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
@@ -1869,7 +1874,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     then type_error pos (Redeclaration cname)
     else  
       let ctx = add_ty_vars_contract ctx cname params in
-      let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname inputs outputs in
+      let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname params inputs outputs in
       let* export_ctx, warnings2 = extract_exports cname ctx contract in  
       let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
       R.ok (ctx, warnings1 @ warnings2)
@@ -2038,12 +2043,17 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and build_node_fun_ty: Lib.position -> tc_context -> HString.t
+and build_node_fun_ty: Lib.position -> tc_context -> HString.t -> HString.t list
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type * [> warning] list, [> error]) result
-  = fun pos ctx nname args rets ->
+  = fun pos ctx nname params args rets ->
+  let fun_ty_vars_ctx =
+    List.fold_left (fun acc p ->
+      add_ty_syn acc p (LA.AbstractType (pos, p))
+    ) ctx params
+  in
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty Local)
-                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in 
+                        fun_ty_vars_ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_op_ty rets) in 
   let ops = List.map snd (List.map LH.extract_op_ty rets) in

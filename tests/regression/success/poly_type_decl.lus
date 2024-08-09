@@ -1,5 +1,6 @@
 type UserType<<T1; T2>> = [T1, T2];  
 type UserType2<<T>> = [int, UserType<<T; int>>];
+type UserType3<<T>> = T;
 
 type R<<T>> = struct {
   f1: UserType2<<T>>;
@@ -11,6 +12,12 @@ type R_real = R<<real>>;
 node F<<T>>() returns (z: UserType2<<T>>);
 let
   z = any { x: UserType2<<T>> | x.%0 > 0 };
+tel
+
+node Q<<T1>>(y:UserType3<<T1>>) returns (z:UserType3<<T1>>);
+let
+  z=y;
+  check z=y;
 tel
 
 node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; z: R_real);

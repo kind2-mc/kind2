@@ -157,6 +157,7 @@ val instantiate_type_variables_expr:
 val build_node_fun_ty : Lib.position ->
   tc_context ->
   HString.t ->
+  HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
 
