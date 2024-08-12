@@ -796,11 +796,13 @@ and ty_vars_of_type ctx node_name ty =
     List.fold_left SI.union SI.empty vars
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | AbstractType (_, id) -> (
-    match lookup_node_ty_vars ctx node_name with
-    | Some tvars ->
+    match lookup_node_ty_vars ctx node_name,
+          lookup_contract_ty_vars ctx node_name with
+    | None, None -> SI.empty
+    | Some tvars, _
+    | _, Some tvars ->
       if List.mem id tvars then SI.singleton id
       else SI.empty
-    | None -> SI.empty
   )
   | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
   | Bool _ | IntRange _ | Real _  | EnumType _ -> SI.empty
