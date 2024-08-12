@@ -741,7 +741,11 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
-  | Ident _ -> SI.empty
+  | Ident (_, id) -> (
+    match lookup_ty ctx id with
+    | None -> SI.empty (* e.g. any bound variable *)
+    | Some ty -> ty_vars_of_type ctx node_name ty
+  )
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
   | TupleProject (_, e, _) -> call e
