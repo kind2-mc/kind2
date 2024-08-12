@@ -298,6 +298,11 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
       | None -> 
         UserType (pos, List.map (apply_type_subst_in_type sigma) ty_args, i)
   )
+  | AbstractType (_, i) as ty -> (
+    match List.assoc_opt i sigma with
+    | Some ty -> ty
+    | None -> ty
+  )
   | ArrayType (pos, (ty, expr)) -> 
     ArrayType (pos, (apply_type_subst_in_type sigma ty, apply_type_subst_in_expr sigma expr))
   | TupleType(pos, tys) -> 
