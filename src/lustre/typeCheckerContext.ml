@@ -144,28 +144,22 @@ let member_val: tc_context -> LA.ident -> bool
 
 let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option 
 = fun ctx i ty_args ->
-match (IMap.find_opt i (ctx.ty_syns), IMap.find_opt i (ctx.ty_ty_vars)) with
-| Some ty, Some ps -> 
-  let sigma = List.combine ps ty_args in
-  let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in (
-  match ty with
-  | LA.UserType (_, ty_args, uid) ->
-    if uid = i 
-    then Some ty
-    else lookup_ty_syn ctx uid ty_args
-  | _ -> Some ty
+  match IMap.find_opt i (ctx.ty_syns) with
+  | Some ty -> (
+    let ps =
+      match IMap.find_opt i (ctx.ty_ty_vars) with
+      | Some ps -> ps
+      | None -> []
+    in
+    let sigma = List.combine ps ty_args in
+    let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+    match ty with
+    | LA.UserType (_, ty_args, uid) ->
+      if uid = i then Some ty
+      else lookup_ty_syn ctx uid ty_args
+    | _ -> Some ty
   )
-| Some ty, None ->  
-  assert (ty_args = []);
-  let ty = LustreAstHelpers.apply_type_subst_in_type [] ty in (
-  match ty with
-  | LA.UserType (_, ty_args, uid) ->
-    if uid = i 
-    then Some ty
-    else lookup_ty_syn ctx uid ty_args
-  | _ -> Some ty
-  )
-| _ -> None
+  | None -> None
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
