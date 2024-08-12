@@ -335,7 +335,7 @@ let rec infer_const_attr ctx exp =
   | ConvOp  (_,_,e) -> r e
   | CompOp (_,_, e1, e2) -> combine (r e1) (r e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) ->
+  | RecordExpr (_, _, _, flds) ->
     List.fold_left
       (fun l1 l2 -> combine l1 l2)
       [R.ok ()]
@@ -531,12 +531,15 @@ let rec instantiate_type_variables_expr: tc_context -> HString.t -> tc_type list
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.CompOp (pos, op, e1, e2))
-  | RecordExpr (pos, ident, expr_list) ->
+  | RecordExpr (pos, ident, ty_args, expr_list) ->
+    let* ty_args = R.seq (List.map (fun ty_arg ->
+      instantiate_type_variables ctx pos nname ty_arg ty_args
+    ) ty_args) in
     let* expr_list = R.seq (List.map (fun (id, expr) -> 
       let* expr = call expr in 
       R.ok (id, expr)
       ) expr_list) in
-    R.ok (LA.RecordExpr (pos, ident, expr_list))
+    R.ok (LA.RecordExpr (pos, ident, ty_args, expr_list))
   | GroupExpr (pos, kind, expr_list) ->
     let* expr_list = R.seq (List.map call expr_list) in
     R.ok (LA.GroupExpr (pos, kind, expr_list))
@@ -707,8 +710,8 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     R.ok (ty, warnings)
 
   (* Structured expressions *)
-  | LA.RecordExpr (pos, name, flds) -> (
-    match lookup_ty_syn ctx name [] with
+  | LA.RecordExpr (pos, name, ty_args, flds) -> (
+    match lookup_ty_syn ctx name ty_args with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
@@ -977,12 +980,13 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   (* Structured expressions *)
-  | RecordExpr (pos, name, flds) ->
+  | RecordExpr (pos, name, ty_args, flds) ->
     let (ids, es) = List.split flds in
     let mk_ty_ident p i t = (p, i, t) in
     let* inf_tys_warns = R.seq (List.map (infer_type_expr ctx nname) es) in
     let inf_tys, warnings = List.split inf_tys_warns in
     let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
+    let* exp_ty = instantiate_type_variables ctx pos name exp_ty ty_args in
     R.ifM (eq_lustre_type ctx exp_ty inf_r_ty)
       (R.ok (List.flatten warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))

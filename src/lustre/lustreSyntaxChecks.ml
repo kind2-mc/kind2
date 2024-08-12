@@ -265,7 +265,7 @@ function
     false l
 
 | Merge (_, _, l)
-| RecordExpr (_, _, l) ->
+| RecordExpr (_, _, _, l) ->
   List.fold_left
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
     false l
@@ -694,7 +694,7 @@ let rec expr_only_supported_in_merge observer expr =
     -> r observer e1 >> r observer e2 >> r observer e3
   | GroupExpr (_, _, e)
   | Call (_, _, _, e) -> r_list observer e
-  | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
+  | RecordExpr (_, _, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
   | Condact (_, e1, e2, _, e3, e4 )
     -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
   | Activate (pos, _, _, _, _) as e ->
@@ -994,7 +994,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | GroupExpr (_, _, e)
     | Call (_, _, _, e)
       -> check_expr_list ctx f e
-    | RecordExpr (_, _, e)
+    | RecordExpr (_, _, _, e)
     | Merge (_, _, e)
       -> let e = List.map (fun (_, e) -> e) e in check_expr_list ctx f e
     | Condact (_, e1, e2, _, e3, e4) -> 

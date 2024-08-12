@@ -107,7 +107,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, rec_call e)) flds))
+  | RecordExpr (p, i, ps, flds) ->
+    let ps = List.map (flatten_ref_type ctx) ps in
+    RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, rec_call e)) flds))
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
   | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 

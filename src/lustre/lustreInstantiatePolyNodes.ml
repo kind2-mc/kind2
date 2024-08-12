@@ -328,12 +328,12 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       ctx, acc_id_exprs @ [id, expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) id_exprs in 
     ctx, Merge (p, id, id_exprs), decls, node_decls_map
-  | RecordExpr (p, id, id_exprs) ->
+  | RecordExpr (p, id, ps, id_exprs) ->
     let ctx, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
       let ctx, expr, decls, node_decls_map = gen_poly_decls_expr ctx caller_nname acc_node_decls_map expr in 
       ctx, acc_id_exprs @ [id, expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) id_exprs in 
-    ctx, RecordExpr (p, id, id_exprs), decls, node_decls_map
+    ctx, RecordExpr (p, id, ps, id_exprs), decls, node_decls_map
   | GroupExpr (p, ge, exprs) ->
     let ctx, exprs, decls, node_decls_map = List.fold_left (fun (ctx, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, expr, decls, node_decls_map = gen_poly_decls_expr ctx caller_nname acc_node_decls_map expr in 

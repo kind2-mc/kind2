@@ -134,12 +134,12 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     CompOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2
-  | RecordExpr (pos, ident, expr_list) ->
+  | RecordExpr (pos, ident, ps, expr_list) ->
     let id_list, exprs_gen_nodes = 
       List.map (fun (i, e) -> (i, (rec_call) e)) expr_list |> List.split 
     in
     let expr_list, gen_nodes = List.split exprs_gen_nodes in
-    RecordExpr (pos, ident, List.combine id_list expr_list), List.flatten gen_nodes
+    RecordExpr (pos, ident, ps, List.combine id_list expr_list), List.flatten gen_nodes
   | GroupExpr (pos, kind, expr_list) ->
     let expr_list, gen_nodes = List.map (rec_call) expr_list |> List.split in
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes

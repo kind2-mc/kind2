@@ -164,7 +164,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | ConvOp (_, _, e) -> r e
   | CompOp (_, _, e1, e2) -> union_ (r e1) (r e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, es) ->
+  | RecordExpr (_, _, _, es) ->
     es |> (List.map (fun (_, e) -> r e)) |> (List.fold_left union_ empty_)
   | GroupExpr (_, A.ExprList, es) -> (
     let g idx exp = process_expr ind_vars ctx ns idx indices exp in

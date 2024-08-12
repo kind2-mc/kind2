@@ -312,7 +312,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
   match ty with
   | LA.RecordType (_, name, ts) -> 
     let f = function
-      | LA.RecordExpr (_, _, es) ->
+      | LA.RecordExpr (_, _, _, es) ->
         let emap = List.fold_left
           (fun acc (id, e) -> IMap.add id e acc)
           IMap.empty es

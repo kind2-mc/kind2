@@ -1147,7 +1147,7 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
     compile_group_expr bounds (fun j i -> X.TupleIndex i :: j) expr_list
-  | A.RecordExpr (_, _, expr_list) -> 
+  | A.RecordExpr (_, _, _, expr_list) ->
     compile_record_expr bounds expr_list
   | A.StructUpdate (_, expr1, index, expr2) ->
     compile_struct_update expr1 index expr2

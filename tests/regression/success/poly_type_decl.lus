@@ -7,12 +7,17 @@ type R<<T>> = struct {
   f2: bool;
 };
 
-type R_real = R<<real>>;
+type Loc<<T>> = struct {
+  x: T;
+  y: T;
+};
+
+type Loc_int = Loc<<int>>;
 
 node F<<T>>() returns (z: UserType2<<T>>; w: int);
 let
   z = any { x: UserType2<<T>> | x.%0 > 0 };
-  w = any { n: int | z.%0 > 0 };
+  w = any { n: int | n>0 and z.%0 > 0 };
 tel
 
 node Q<<T1>>(y:UserType3<<T1>>) returns (z:UserType3<<T1>>);
@@ -27,10 +32,11 @@ let
   check z=y;
 tel
 
-node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; z: R_real);
+node N(x: UserType2<<real>>) returns (y: UserType2<<real>>; w:int; l: Loc_int; z: R<<real>>);
 let
   y = x;
-  z = R_real { f1 = x; f2 = true };
+  z = R<<real>> { f1 = x; f2 = true };
+  l = Loc_int { x=1; y=2 };
   check y = x;
   check z.f1 = x;
 tel

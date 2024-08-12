@@ -900,9 +900,9 @@ pexpr(Q):
     { A.RecordProject (mk_pos $startpos($2), s, t) }
 
   (* A record (not quantified) *)
-  | t = ident; 
+  | t = ident; ps = call_static_params;
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordExpr (mk_pos $startpos, t, f) }
+    { A.RecordExpr (mk_pos $startpos, t, ps, f) }
 
   (* An array concatenation *)
   | pexpr(Q); BAR; pexpr(Q) { 

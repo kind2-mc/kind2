@@ -252,8 +252,8 @@ let rec minimize_node_call_args ue lst expr =
     | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
     | A.ArrayIndex (p,e1, e2) -> A.ArrayIndex (p,aux e1,aux e2)
-    | A.RecordExpr (p,id,lst) ->
-      A.RecordExpr (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
+    | A.RecordExpr (p,id,ps,lst) ->
+      A.RecordExpr (p,id,ps,List.map (fun (i,e) -> (i, aux e)) lst)
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
     | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
@@ -296,7 +296,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.TernaryOp (_,_,e1,e2,e3) ->
       aux e1 || aux e2 || aux e3
-    | A.RecordExpr (_,_,lst) | A.Merge (_,_,lst) ->
+    | A.RecordExpr (_,_,_,lst) | A.Merge (_,_,lst) ->
       List.map (fun (_,e) -> aux e) lst
       |> List.exists (fun x -> x)
     | A.Condact (_,e1,e2,_,es1,es2) ->

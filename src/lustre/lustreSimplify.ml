@@ -737,7 +737,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
-  | A.RecordExpr (pos, record_type, expr_list) -> 
+  | A.RecordExpr (pos, record_type, _, expr_list) ->
 
     let record_ident = I.mk_string_ident (HString.string_of_hstring record_type) in
 

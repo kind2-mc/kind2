@@ -142,7 +142,7 @@ and expr =
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
-  | RecordExpr of position * ident * (ident * expr) list
+  | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr

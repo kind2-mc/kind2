@@ -758,7 +758,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   | ConvOp  (_,_,e) -> call e
   | CompOp (_,_,e1, e2) -> (call e1) |> SI.union (call e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
+  | RecordExpr (_, _, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
