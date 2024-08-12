@@ -82,13 +82,36 @@
   <h4>Main features</h4>
   <p>
   <ul>
-    <li>Input in Lustre V4 and parts of V6 translated to a modular transition system</li>
+    <li>Input in Lustre V4 and parts of V6 with support for:
+      <ul>
+        <li>Signed and unsigned versions of C-style machine integers</li>
+        <li>If-Then-Else and Frame Condition blocks</li>
+        <li>Refinement types</li>
+      </ul>
+    </li>
     <li>Assume/guarantee-based contract language</li>
     <li>Modular and compositional verification</li>
-    <li>Counterexample generation</li>
+    <li>Counterexample and witness generation</li>
     <li>Proof certificate generation</li>
-    <li>Merit and blame assignment</li>
-    <li>Multiple model checking engines
+    <li>Merit and blame assignment analysis through the computation of:
+      <ul>
+        <li>Inductive Validity Cores</li>
+        <li>Minimal Cut Sets</li>
+      </ul>
+    </li>
+    <li>Realizability and satisfiability checking of contracts
+      <ul>
+        <li>Deadlocking trace generation for unrealizable contracts</li>
+      </ul>
+    </li>
+    <li>Non-vacuity checks for:
+      <ul>
+        <li>Conditional properties</li>
+        <li>Contract mode implications</li>
+      </ul>
+    </li>
+    <li>Assumption generation for contracts</li>
+    <li>Multiple model checking engines:
        <ul>
         <li>Bounded Model Checking (BMC)</li>
         <li><em>k</em>-induction with lazy path compression</li>
