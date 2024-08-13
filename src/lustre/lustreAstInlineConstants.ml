@@ -94,7 +94,7 @@ let lift_bool: bool -> LA.constant = function
 let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   function
   | Const _ -> true
-  | RecordExpr (_, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
+  | RecordExpr (_, _, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
   | RecordProject (_, e, _)
     | TupleProject (_, e, _) -> is_normal_form ctx e
   | _ -> false
@@ -259,9 +259,9 @@ and push_pre is_guarded pos =
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
-  | RecordExpr (p, i, es) ->
+  | RecordExpr (p, i, ps, es) ->
     let es' = List.map (fun (i, e) -> (i, r e)) es in
-    RecordExpr (p, i, es')
+    RecordExpr (p, i, ps, es')
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
@@ -342,9 +342,9 @@ and simplify_expr ?(is_guarded = false) ctx =
   | LA.GroupExpr (pos, g, es) ->
      let es' = List.map (fun e -> simplify_expr ~is_guarded ctx e) es in 
      LA.GroupExpr (pos, g, es')
-  | LA.RecordExpr (pos, i, fields) ->
+  | LA.RecordExpr (pos, i, ps, fields) ->
      let fields' = List.map (fun (f, e) -> (f, simplify_expr ~is_guarded ctx e)) fields in
-     LA.RecordExpr (pos, i, fields')
+     LA.RecordExpr (pos, i, ps, fields')
   | LA.ArrayConstr (pos, e1, e2) ->
      let e1' = simplify_expr ~is_guarded ctx e1 in
      let e2' = simplify_expr ~is_guarded ctx e2 in
@@ -494,9 +494,9 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation
 
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
-  | TypeDecl (span, AliasType (pos, i, t)) ->
+  | TypeDecl (span, AliasType (pos, i, ps, t)) ->
     let t' = inline_constants_of_lustre_type ctx t in
-    TC.add_ty_syn ctx i t', LA.TypeDecl (span, AliasType (pos, i, t'))
+    TC.add_ty_syn ctx i t', LA.TypeDecl (span, AliasType (pos, i, ps, t'))
   | ConstDecl (span, FreeConst (pos, id, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     ctx, ConstDecl (span, FreeConst (pos, id, ty'))

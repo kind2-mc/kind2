@@ -1,0 +1,9 @@
+type R = struct { x: int };
+
+type R_alias = R;
+
+node N() returns (r: R_alias);
+let
+  r = R_alias { x = 1 };
+  check r.x = 1;
+tel

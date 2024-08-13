@@ -328,12 +328,18 @@ type_decl:
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
      { List.map (fun e -> 
-                 A.AliasType (mk_pos $startpos, e, t)) l }
+                 A.AliasType (mk_pos $startpos, e, [], t)) l }
+
+  (* A type alias with static parameters 
+    (must be a separate rule from previous to avoid shift-reduce conflicts) *)
+  | TYPE; l = ident_list; p = static_params; EQUALS; t = lustre_type; SEMICOLON
+     { List.map (fun e -> 
+                 A.AliasType (mk_pos $startpos, e, p, t)) l }
 
   (* Definition of an enum type*)
   | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
      { List.map (fun e ->
-           A.AliasType (mk_pos $startpos, e,
+           A.AliasType (mk_pos $startpos, e, [],
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
   (* A record type, can only be defined as alias *)
@@ -342,8 +348,19 @@ type_decl:
          (function e -> 
            A.AliasType (mk_pos $startpos, 
                         e, 
+                        [],
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
+
+  | TYPE; l = ident_list; p = static_params; EQUALS; t = record_type; SEMICOLON
+     { List.map
+         (function e ->
+           A.AliasType (mk_pos $startpos,
+                        e,
+                        p,
+                        A.RecordType (mk_pos $startpos, e, t)))
+         l }
+
 
 expr_opt:
   | e = expr { Some e }
@@ -375,7 +392,7 @@ lustre_type:
     { A.IntRange (mk_pos $startpos, l, u) }
 
   (* User-defined type *)
-  | s = ident { A.UserType (mk_pos $startpos, s) }
+  | s = ident; ps = call_static_params { A.UserType (mk_pos $startpos, ps, s) }
 
   (* Tuple type *)
   | t = tuple_type { A.TupleType (mk_pos $startpos, t) } 
@@ -883,9 +900,9 @@ pexpr(Q):
     { A.RecordProject (mk_pos $startpos($2), s, t) }
 
   (* A record (not quantified) *)
-  | t = ident; 
+  | t = ident; ps = call_static_params;
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordExpr (mk_pos $startpos, t, f) }
+    { A.RecordExpr (mk_pos $startpos, t, ps, f) }
 
   (* An array concatenation *)
   | pexpr(Q); BAR; pexpr(Q) { 

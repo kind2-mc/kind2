@@ -195,7 +195,7 @@ let error_message kind = match kind with
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
-  | InvalidPolymorphicCall id -> "Call to node or contract '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
+  | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -220,7 +220,16 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (********************************
  * Functions to update context  *
  ********************************)
-let add_io_node_ctx ctx inputs outputs =
+let add_ty_params_node_ctx ctx nname params =
+  let ctx = add_ty_vars_node ctx nname params in
+  List.fold_left
+    (fun acc p ->
+      add_ty_syn acc p (LA.AbstractType (Lib.dummy_pos, p))
+    )
+    ctx params
+
+let add_io_node_ctx ctx nname params inputs outputs =
+  let ctx = add_ty_params_node_ctx ctx nname params in
   let ctx = inputs
     |> List.map extract_consts
     |> (List.fold_left union ctx)
@@ -240,8 +249,8 @@ let add_local_node_ctx ctx locals =
     |> List.map extract_loc_ctx
     |> (List.fold_left union ctx)
 
-let add_full_node_ctx ctx inputs outputs locals =
-  let ctx = add_io_node_ctx ctx inputs outputs in
+let add_full_node_ctx ctx nname params inputs outputs locals =
+  let ctx = add_io_node_ctx ctx nname params inputs outputs in
   add_local_node_ctx ctx locals
 
 (**********************************************
@@ -326,7 +335,7 @@ let rec infer_const_attr ctx exp =
   | ConvOp  (_,_,e) -> r e
   | CompOp (_,_, e1, e2) -> combine (r e1) (r e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) ->
+  | RecordExpr (_, _, _, flds) ->
     List.fold_left
       (fun l1 l2 -> combine l1 l2)
       [R.ok ()]
@@ -423,8 +432,8 @@ let rec type_extract_array_lens ctx ty = match ty with
   | RecordType (_, _, tis) ->
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
     List.map (type_extract_array_lens ctx) tys |> List.flatten
-  | UserType (_, id) -> 
-    (match (lookup_ty_syn ctx id) with 
+  | UserType (_, ty_args, id) -> 
+    (match (lookup_ty_syn ctx id ty_args) with 
       | Some ty -> type_extract_array_lens ctx ty;
       | None -> [])
   | _ -> []
@@ -457,16 +466,19 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
 let instantiate_type_variables: tc_context -> Lib.position -> HString.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
 = fun ctx pos nname ty ty_args -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
-  match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
-  | None, None ->
+  match lookup_node_ty_vars ctx nname, 
+        lookup_contract_ty_vars ctx nname, 
+        lookup_ty_ty_vars ctx nname with 
+  | None, None, None ->
     let* substitution = 
       try 
         R.ok (List.combine [] ty_args) 
       with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall nname)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
-  | Some ty_vars, _ 
-  | _, Some ty_vars ->
+  | Some ty_vars, _, _ 
+  | _, Some ty_vars, _
+  | _, _, Some ty_vars ->
     let* substitution = 
       try 
         R.ok (List.combine ty_vars ty_args) 
@@ -519,12 +531,15 @@ let rec instantiate_type_variables_expr: tc_context -> HString.t -> tc_type list
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.CompOp (pos, op, e1, e2))
-  | RecordExpr (pos, ident, expr_list) ->
+  | RecordExpr (pos, ident, ty_args, expr_list) ->
+    let* ty_args = R.seq (List.map (fun ty_arg ->
+      instantiate_type_variables ctx pos nname ty_arg ty_args
+    ) ty_args) in
     let* expr_list = R.seq (List.map (fun (id, expr) -> 
       let* expr = call expr in 
       R.ok (id, expr)
       ) expr_list) in
-    R.ok (LA.RecordExpr (pos, ident, expr_list))
+    R.ok (LA.RecordExpr (pos, ident, ty_args, expr_list))
   | GroupExpr (pos, kind, expr_list) ->
     let* expr_list = R.seq (List.map call expr_list) in
     R.ok (LA.GroupExpr (pos, kind, expr_list))
@@ -585,8 +600,8 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | Some ty -> rec_call ty
   )
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
-  | UserType (_, i) as ty -> 
-    (match lookup_ty_syn ctx i with
+  | UserType (_, ty_args, i) as ty -> 
+    (match lookup_ty_syn ctx i ty_args with
     | None -> R.ok ty
     | Some ty' -> R.ok ty')
   | TupleType (p, tys) ->
@@ -695,12 +710,12 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     R.ok (ty, warnings)
 
   (* Structured expressions *)
-  | LA.RecordExpr (pos, name, flds) -> (
-    match lookup_ty_syn ctx name with
+  | LA.RecordExpr (pos, name, ty_args, flds) -> (
+    match lookup_ty_syn ctx name ty_args with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
-      | LA.RecordType (_, _, fld_tys) -> (
+      | LA.RecordType (_, r_name, fld_tys) -> (
         let* matches =
           R.seq_chain
             (fun acc (p, f, ty) ->
@@ -733,7 +748,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
           in
           let* fld_tys_warns = R.seq (List.map (infer_field ctx) matches) in
           let fld_tys, warnings = List.split fld_tys_warns in
-          R.ok (LA.RecordType (pos, name, fld_tys), List.flatten warnings)
+          R.ok (LA.RecordType (pos, r_name, fld_tys), List.flatten warnings)
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)
@@ -965,12 +980,13 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   (* Structured expressions *)
-  | RecordExpr (pos, name, flds) ->
+  | RecordExpr (pos, name, ty_args, flds) ->
     let (ids, es) = List.split flds in
     let mk_ty_ident p i t = (p, i, t) in
     let* inf_tys_warns = R.seq (List.map (infer_type_expr ctx nname) es) in
     let inf_tys, warnings = List.split inf_tys_warns in
     let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
+    let* exp_ty = instantiate_type_variables ctx pos name exp_ty ty_args in
     R.ifM (eq_lustre_type ctx exp_ty inf_r_ty)
       (R.ok (List.flatten warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))
@@ -1396,6 +1412,11 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
     else R.ok ()
   ) () (params)
   >>
+    let ctx =
+      List.fold_left (fun acc p ->
+        add_ty_syn acc p (LA.AbstractType (pos, p))
+      ) ctx params
+    in
     (* (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params; *)
     (* store the input constants passed in the input *)
     let ip_constants_ctx = List.fold_left union ctx
@@ -1738,20 +1759,31 @@ and tc_ctx_contract_vars: tc_context -> HString.t -> LA.contract_ghost_vars -> (
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) result
   = fun ctx ->
   function
-  | LA.AliasType (_, i, ty) ->
-    check_type_well_formed ctx Global None false ty >> (match ty with
+  | LA.AliasType (pos, i, ps, ty) ->
+    (* Disallow shadowing of type variables *)
+    let* _ = R.seq_chain (fun _ i ->
+      if (member_ty_syn ctx i) then
+        type_error pos (Redeclaration i)
+      else R.ok ()
+    ) () ps in
+
+    let ctx' = List.fold_left (fun acc p -> 
+      add_ty_syn acc p (LA.AbstractType (pos, p))
+    ) ctx ps in
+    let ctx = add_ty_vars_ty ctx i ps in
+    check_type_well_formed ctx' Global None false ty >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
           && (List.for_all (fun e -> not (member_val ctx e)) econsts)
         then
           let mk_ident = fun i -> LA.Ident (pos, i) in
           let enum_type_bindings = List.map
-            ((Lib.flip singleton_ty) (LA.UserType (pos, ename)))
+            ((Lib.flip singleton_ty) (LA.UserType (pos, [], ename)))
             econsts
           in
           let enum_const_bindings = Lib.list_apply
             ((List.map2 (Lib.flip singleton_const) (List.map mk_ident econsts) econsts))
-            (LA.UserType (pos, ename))
+            (LA.UserType (pos, [], ename))
           in
           (* Adding enums into the typing context consists of 4 parts *)
           (* 1. add the enum type and variants to the enum context *)
@@ -1781,7 +1813,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
   else 
     let ctx = add_node_param_attr ctx nname ip in
     let ctx = add_ty_vars_node ctx nname ps in
-    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ip op in
+    let* fun_ty, warnings = build_node_fun_ty pos ctx nname ps ip op in
     let ctx = add_ty_node ctx nname fun_ty in 
     R.ok (ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
@@ -1855,7 +1887,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     then type_error pos (Redeclaration cname)
     else  
       let ctx = add_ty_vars_contract ctx cname params in
-      let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname inputs outputs in
+      let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname params inputs outputs in
       let* export_ctx, warnings2 = extract_exports cname ctx contract in  
       let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
       R.ok (ctx, warnings1 @ warnings2)
@@ -1987,10 +2019,13 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.GroupType (_, tys) ->
     let* warnings = R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) in 
     R.ok (List.flatten warnings)
-  | LA.UserType (pos, i) as ty ->
+  | LA.UserType (pos, ty_args, i) as ty ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
-      let ty = expand_type_syn ctx ty in check_type_well_formed ctx src nname is_const ty
+      (* Check that we are passing the correct number of type arguments *)
+      let* _ = instantiate_type_variables ctx pos i ty ty_args in
+      let ty = expand_type_syn ctx ty in
+      check_type_well_formed ctx src nname is_const ty
     else (
       match nname with 
       | None -> type_error pos (UndeclaredType i)
@@ -2021,12 +2056,17 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and build_node_fun_ty: Lib.position -> tc_context -> HString.t
+and build_node_fun_ty: Lib.position -> tc_context -> HString.t -> HString.t list
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type * [> warning] list, [> error]) result
-  = fun pos ctx nname args rets ->
+  = fun pos ctx nname params args rets ->
+  let fun_ty_vars_ctx =
+    List.fold_left (fun acc p ->
+      add_ty_syn acc p (LA.AbstractType (pos, p))
+    ) ctx params
+  in
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty Local)
-                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in 
+                        fun_ty_vars_ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_op_ty rets) in 
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
@@ -2060,7 +2100,15 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | Int _, IntRange _ -> R.ok true
 
   (* Lustre V6 features *)
-  | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2)
+  | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
+    if List.length ty_args1 = List.length ty_args2
+    then (
+      let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 
+      let r2 = i1 = i2 in 
+      R.ok (r1 && r2)
+    )
+    else R.ok false
+   
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
     if List.length tys1 = List.length tys2
@@ -2098,10 +2146,10 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
 
   (* special case for type synonyms *)
-  | UserType (pos, u), ty
-  | ty, UserType (pos, u) ->
+  | UserType (pos, ty_args, u), ty
+  | ty, UserType (pos, ty_args, u) ->
     if member_ty_syn ctx u then
-      let* ty_alias = (match (lookup_ty_syn ctx u) with
+      let* ty_alias = (match (lookup_ty_syn ctx u ty_args) with
         | None -> type_error pos
           (Impossible ("Cannot find definition of Identifier "
             ^ (HString.string_of_hstring u)))

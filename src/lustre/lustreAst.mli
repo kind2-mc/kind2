@@ -111,7 +111,7 @@ type lustre_type =
   | Int64 of position
   | IntRange of position * expr option * expr option
   | Real of position
-  | UserType of position * ident
+  | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | GroupType of position * lustre_type list
@@ -142,7 +142,7 @@ and expr =
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
-  | RecordExpr of position * ident * (ident * expr) list
+  | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
@@ -174,7 +174,7 @@ and label_or_index =
 
 (** A declaration of an alias or free type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type 
+  | AliasType of position * ident * ident list * lustre_type 
   | FreeType of position * ident
 
 (** An identifier with a type and a clock as used for the type of variables *)

@@ -2074,7 +2074,9 @@ and declaration_to_context ctx = function
 
   let (i, type_expr) = match type_rhs with
     (* Replace type aliases with their right-hand-side *)
-    | A.AliasType (_, i, type_expr) -> (i, type_expr)
+    | A.AliasType (_, i, [], type_expr) -> (i, type_expr)
+    (* Replace type aliases with their right-hand-side *)
+    | A.AliasType (pos, _, _, _) -> fail_at_position pos "AliasTypes with type parameters not supported in old frontend"
     (* Replace free types with an abstract type with no user-accessible
      * representation. *)
     | A.FreeType (_, i) -> (i, A.AbstractType (pos, i))

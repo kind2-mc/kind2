@@ -21,29 +21,34 @@ module Ast = LustreAst
 let pp_print_fname_json ppf fname =
   if fname = "" then () else Format.fprintf ppf "\"file\" : \"%s\",@," fname
 
-let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } =
-  function
-  | LustreAst.AliasType (p, id, _) | LustreAst.FreeType (p, id) ->
-      let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-      let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
-      let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, id)) in
-      let contains_ref = TypeCheckerContext.type_contains_ref ctx ty in
-      Format.fprintf ppf
-        ",@.{@[<v 1>@,\
-         \"objectType\" : \"lsp\",@,\
-         \"source\" : \"lsp\",@,\
-         \"kind\" : \"typeDecl\",@,\
-         \"name\" : \"%a\",@,\
-         \"containsRefinementType\" : \"%b\",@,\
-         %a\"startLine\" : %d,@,\
-         \"startColumn\" : %d,@,\
-         \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@."
-        HString.pp_print_hstring id
-        contains_ref
-        pp_print_fname_json file
-        slnum scnum
-        elnum ecnum
+let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } tyd =
+  let print p id ps =
+    let file, slnum, scnum = Lib.file_row_col_of_pos spos in
+    let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+    let ty_args = List.map (fun id -> LustreAst.AbstractType (p, id)) ps in
+    let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, ty_args, id)) in
+    let contains_ref = TypeCheckerContext.type_contains_ref ctx ty in
+    Format.fprintf ppf
+      ",@.{@[<v 1>@,\
+        \"objectType\" : \"lsp\",@,\
+        \"source\" : \"lsp\",@,\
+        \"kind\" : \"typeDecl\",@,\
+        \"name\" : \"%a\",@,\
+        \"containsRefinementType\" : \"%b\",@,\
+        %a\"startLine\" : %d,@,\
+        \"startColumn\" : %d,@,\
+        \"endLine\" : %d,@,\
+        \"endColumn\" : %d@]@.}@."
+      HString.pp_print_hstring id
+      contains_ref
+      pp_print_fname_json file
+      slnum scnum
+      elnum ecnum
+  in
+  match tyd with
+  | LustreAst.AliasType (p, id, ps, _) -> print p id ps
+  | LustreAst.FreeType (p, id) -> print p id []
+
 
 let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
   function

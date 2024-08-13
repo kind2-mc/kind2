@@ -139,7 +139,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       Some (pos, (List.map (instantiate_type_variables_ci ctx nname ty_args) cis))
     | None -> c 
     in
-    let ips = List.map (fun (pos, id, ty, cl, const) -> 
+    let ips = List.map (fun (pos, id, ty, cl, const) ->
       let ty = Chk.instantiate_type_variables ctx pos nname ty ty_args in
       match ty with 
       | Ok ty -> (pos, id, ty, cl, const)
@@ -152,20 +152,13 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       | Error _ -> assert false
     )  ops in
     (* Pass forward type variables passed from caller to callee *)
-    let ty_vars = List.map (Ctx.ty_vars_of_type ctx nname) ty_args in
-    let ty_vars = List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements in
-    let caller_ps = match caller_nname with 
-    | None -> [] 
-    | Some caller_nname ->
-      match Ctx.lookup_node_ty_vars ctx caller_nname, 
-                          Ctx.lookup_contract_ty_vars ctx caller_nname with 
-      | None, None -> []
-      | Some ps, _ 
-      | _, Some ps -> ps
+    let ps =
+      match caller_nname with
+      | None -> []
+      | Some caller_nname ->
+        let ty_vars = List.map (Ctx.ty_vars_of_type ctx caller_nname) ty_args in
+        List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements
     in
-    let ps = List.filter_map (fun ty_var -> 
-      if List.mem ty_var caller_ps then Some ty_var else None
-    ) ty_vars in
     (* Create fresh identifier for instantiated polymorphic node *)
     let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (List.length tyss |> string_of_int) ^ "_" in
     let pnname = HString.concat2 (HString.mk_hstring prefix) nname in
@@ -251,21 +244,16 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       ctx, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) exprs in 
     let ctx, pnname, decls2, node_decls_map  = gen_poly_decl ctx caller_nname node_decls_map  nname (ty :: tys) in
-    
-    let ty_vars = List.map (Ctx.ty_vars_of_type ctx nname) (ty :: tys) in
-    let ty_vars = List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements in
-    let caller_ps = match caller_nname with 
-    | None -> [] 
-    | Some caller_nname ->
-      match Ctx.lookup_node_ty_vars ctx caller_nname, 
-                          Ctx.lookup_contract_ty_vars ctx caller_nname with 
-      | None, None -> []
-      | Some ps, _ 
-      | _, Some ps -> ps
+
+    let ty_args =
+      match caller_nname with
+      | None -> []
+      | Some caller_nname ->
+        let ty_vars = List.map (Ctx.ty_vars_of_type ctx caller_nname) (ty :: tys) in
+        List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars
+        |> Ctx.SI.elements
+        |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
-    let ty_args = List.filter_map (fun ty_var -> 
-      if List.mem ty_var caller_ps then Some (A.UserType (pos, ty_var)) else None
-    ) ty_vars in
     ctx, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
   | Ident _ 
   | Call _ 
@@ -340,12 +328,12 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       ctx, acc_id_exprs @ [id, expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) id_exprs in 
     ctx, Merge (p, id, id_exprs), decls, node_decls_map
-  | RecordExpr (p, id, id_exprs) ->
+  | RecordExpr (p, id, ps, id_exprs) ->
     let ctx, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
       let ctx, expr, decls, node_decls_map = gen_poly_decls_expr ctx caller_nname acc_node_decls_map expr in 
       ctx, acc_id_exprs @ [id, expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) id_exprs in 
-    ctx, RecordExpr (p, id, id_exprs), decls, node_decls_map
+    ctx, RecordExpr (p, id, ps, id_exprs), decls, node_decls_map
   | GroupExpr (p, ge, exprs) ->
     let ctx, exprs, decls, node_decls_map = List.fold_left (fun (ctx, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, expr, decls, node_decls_map = gen_poly_decls_expr ctx caller_nname acc_node_decls_map expr in 
@@ -485,7 +473,8 @@ and gen_poly_decls_ci
 and gen_poly_decls_decls
 = fun ctx node_decls_map decls -> 
   let ctx, decls, node_decls_map = List.fold_left (fun (ctx, acc_decls, acc_node_decls_map) decl -> match decl with
-  | A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) -> 
+  | A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -514,7 +503,8 @@ and gen_poly_decls_decls
       let decl = A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
       ctx, decl :: decls, node_decls_map
     )
-  | NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) -> 
+  | NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -543,7 +533,8 @@ and gen_poly_decls_decls
         let decl = A.NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
         ctx, decl :: decls, node_decls_map
     )
-  | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) -> 
+  | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
+    let ctx = Chk.add_ty_params_node_ctx ctx cname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some cname) acc_node_decls_map ip in 
       ctx, acc_ips @ [ip], decls @ acc_decls, node_decls_map

@@ -1,0 +1,7 @@
+type UserType<<T>> = [int, T];
+
+node N(x: UserType<<int; bool>>) returns (y: UserType<<int; bool>>)
+let
+    y = x;
+    check y = x;
+tel

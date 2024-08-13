@@ -620,8 +620,8 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, ident) ->
-    StringMap.find ident cstate.type_alias
+  | A.UserType (_, _, ident) ->
+    StringMap.find ident cstate.type_alias 
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton [X.AbstractTypeIndex ident] Type.t_int
@@ -1147,7 +1147,7 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
     compile_group_expr bounds (fun j i -> X.TupleIndex i :: j) expr_list
-  | A.RecordExpr (_, _, expr_list) -> 
+  | A.RecordExpr (_, _, _, expr_list) ->
     compile_record_expr bounds expr_list
   | A.StructUpdate (_, expr1, index, expr2) ->
     compile_struct_update expr1 index expr2
@@ -2392,7 +2392,10 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
       other_constants = StringMap.add id expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
-  | A.AliasType (_, ident, ltype) ->
+  | A.AliasType (_, ident, ps, ltype) ->
+    let cstate = List.fold_left (fun acc p -> 
+      compile_type_decl pos ctx acc (A.FreeType (Lib.dummy_pos, p))
+    ) cstate ps in
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in

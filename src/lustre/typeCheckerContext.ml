@@ -89,6 +89,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                       ty_var_store              
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
                       ty_var_store  
+                  ; ty_ty_vars: ty_var_store      (* stores the type variables associated with each user type *)
                   ; ty_args:                      (* stores the type arguments associated with each (monomorphized) node *)
                       ty_arg_store               
                   }
@@ -108,6 +109,7 @@ let empty_tc_context: tc_context =
   ; enum_vars = IMap.empty
   ; ty_vars = IMap.empty
   ; contract_ty_vars = IMap.empty
+  ; ty_ty_vars = IMap.empty
   ; ty_args = IMap.empty
   }
 (** The empty context with no information *)
@@ -140,15 +142,23 @@ let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
 (** Checks if the identifier is a constant  *)
 
-let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
-  = fun ctx i ->
-  match (IMap.find_opt i (ctx.ty_syns)) with
-  | Some ty -> (match ty with
-               | LA.UserType (_, uid) ->
-                  if uid = i 
-                  then Some ty
-                  else lookup_ty_syn ctx uid
-               | _ -> Some ty )
+let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option 
+= fun ctx i ty_args ->
+  match IMap.find_opt i (ctx.ty_syns) with
+  | Some ty -> (
+    let ps =
+      match IMap.find_opt i (ctx.ty_ty_vars) with
+      | Some ps -> ps
+      | None -> []
+    in
+    let sigma = List.combine ps ty_args in
+    let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+    match ty with
+    | LA.UserType (_, ty_args, uid) ->
+      if uid = i then Some ty
+      else lookup_ty_syn ctx uid ty_args
+    | _ -> Some ty
+  )
   | None -> None
 (** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
@@ -157,8 +167,8 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType (_, i) as ty -> 
-    (match lookup_ty_syn ctx i with
+  | UserType (_, ty_args, i) as ty -> 
+    (match lookup_ty_syn ctx i ty_args with
     | None -> ty
     | Some ty' -> ty')
   | TupleType (p, tys) ->
@@ -210,6 +220,10 @@ let lookup_contract_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ty_vars)
 (** Lookup a contract's type variables *)
 
+let lookup_ty_ty_vars: tc_context -> LA.ident -> HString.t list option
+  = fun ctx i -> IMap.find_opt i (ctx.ty_ty_vars)
+(** Lookup a node's type variables *)
+
 let lookup_node_param_attr: tc_context -> LA.ident -> (HString.t * bool) list option
   = fun ctx i -> IMap.find_opt i (ctx.node_param_attr)
 
@@ -246,6 +260,11 @@ let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty_vars_node: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i ty_vars -> 
     {ctx with ty_vars = IMap.add i ty_vars (ctx.ty_vars)}
+(**  Add the type variables of the node *)
+
+let add_ty_vars_ty: tc_context -> LA.ident -> LA.ident list -> tc_context
+  = fun ctx i ty_ty_vars -> 
+    {ctx with ty_ty_vars = IMap.add i ty_ty_vars (ctx.ty_ty_vars)}
 (**  Add the type variables of the node *)
 
 let add_ty_args_node: tc_context -> LA.ident -> LA.lustre_type list -> tc_context
@@ -318,6 +337,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; contract_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.contract_ty_vars)
                                    (ctx2.contract_ty_vars))
+                    ; ty_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.ty_ty_vars)
+                                   (ctx2.ty_ty_vars))
                     ; ty_args = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_args)
                                    (ctx2.ty_args))
@@ -459,6 +481,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
        ^^ "Enumeration Variants={%a}\n"
        ^^ "Type variables={%a}\n"
        ^^ "Contract type variables={%a}\n"
+       ^^ "Type decl type variables={%a}\n"
        ^^ "Type arguments={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
@@ -470,6 +493,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_enum_variants (ctx.enum_vars)
       pp_print_type_variables (ctx.ty_vars)
       pp_print_type_variables (ctx.contract_ty_vars)
+      pp_print_type_variables (ctx.ty_ty_vars)
       pp_print_type_arguments (ctx.ty_args)
 (** Pretty print the complete type checker context*)
                          
@@ -687,8 +711,8 @@ let rec type_contains_enum_subrange_reftype ctx = function
   | _ -> false
 
 let rec type_contains_abstract ctx = function
-  | LA.UserType (_, id) -> 
-    (match lookup_ty_syn ctx id with 
+  | LA.UserType (_, ty_args, id) -> 
+    (match lookup_ty_syn ctx id ty_args with 
     | Some (AbstractType _) 
     | None -> true 
     | Some ty -> type_contains_abstract ctx ty)
@@ -717,7 +741,11 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
-  | Ident _ -> SI.empty
+  | Ident (_, id) -> (
+    match lookup_ty ctx id with
+    | None -> SI.empty (* e.g. any bound variable *)
+    | Some ty -> ty_vars_of_type ctx node_name ty
+  )
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
   | TupleProject (_, e, _) -> call e
@@ -730,7 +758,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   | ConvOp  (_,_,e) -> call e
   | CompOp (_,_,e1, e2) -> (call e1) |> SI.union (call e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
+  | RecordExpr (_, _, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
@@ -751,11 +779,11 @@ let rec ty_vars_of_expr ctx node_name expr =
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
   match ty with
-  | UserType (_, id) -> (
-    match lookup_ty_syn ctx node_name with 
-    | Some _ -> SI.empty
-    | None -> SI.singleton id
-    )
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> ty_vars_of_type ctx node_name ty
+    | None -> assert false
+  )
   | RefinementType (_, (_, _, ty), e) 
   | ArrayType (_, (ty, e)) -> 
     SI.union (call ty) (ty_vars_of_expr ctx node_name e)
@@ -765,5 +793,14 @@ and ty_vars_of_type ctx node_name ty =
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
+  | AbstractType (_, id) -> (
+    match lookup_node_ty_vars ctx node_name,
+          lookup_contract_ty_vars ctx node_name with
+    | None, None -> SI.empty
+    | Some tvars, _
+    | _, Some tvars ->
+      if List.mem id tvars then SI.singleton id
+      else SI.empty
+  )
   | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ -> SI.empty
+  | Bool _ | IntRange _ | Real _  | EnumType _ -> SI.empty

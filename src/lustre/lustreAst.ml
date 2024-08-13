@@ -104,7 +104,7 @@ type expr =
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
   (* Structured expressions *)
-  | RecordExpr of position * ident * (ident * expr) list
+  | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
@@ -138,7 +138,7 @@ and lustre_type =
   | Int64 of position
   | IntRange of position * expr option * expr option
   | Real of position
-  | UserType of position * ident
+  | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | GroupType of position * lustre_type list
@@ -160,7 +160,7 @@ and label_or_index =
 
 (* A declaration of a type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type
+  | AliasType of position * ident * ident list * lustre_type
   | FreeType of position * ident
 
 (* A declaration of a clocked type *)
@@ -430,12 +430,19 @@ let rec pp_print_expr ppf =
         pp_print_expr e 
         pp_print_index f
 
-    | RecordExpr (p, t, l) -> 
+    | RecordExpr (p, t, ty_args, l) ->
 
       Format.fprintf ppf 
-        "%a@[<hv 1>%a {%a}@]" 
+        "%a@[<hv 1>%a%t {%a}@]"
         ppos p 
         pp_print_ident t
+        (function ppf ->
+          match ty_args with
+          | [] -> ()
+          | _  ->
+            Format.fprintf ppf "<<%a>>"
+              (pp_print_list pp_print_lustre_type ";") ty_args
+        )
         (pp_print_list pp_print_field_assign ";@ ") l
 
     | TupleProject (p, e, f) -> 
@@ -612,8 +619,11 @@ and pp_print_lustre_type ppf = function
       pp_print_opt l
       pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
-  | UserType (_, s) -> 
+  | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s
+  | UserType (_, tys, s) -> 
+    Format.fprintf ppf "%a<<%a>>" pp_print_ident s
+      (pp_print_list pp_print_lustre_type "; ") tys
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 
@@ -693,11 +703,19 @@ and pp_print_label_or_index ppf = function
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function
 
-  | AliasType (_, s, t) -> 
+  | AliasType (_, s, [], t) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a@]" 
       pp_print_ident s 
+      pp_print_lustre_type t
+
+  | AliasType (_, s, p, t) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 2>%a<<%a>> =@ %a@]" 
+      pp_print_ident s 
+      (pp_print_list pp_print_ident ";") p
       pp_print_lustre_type t
 
   | FreeType (_, t) -> 

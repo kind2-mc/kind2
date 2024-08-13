@@ -808,9 +808,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     StringSet.union vars1 vars2,
     CompOp (pos, op, e1', e2')
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | RecordExpr (pos, ident, expr_list) ->
+  | RecordExpr (pos, ident, ps, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
-    vars, RecordExpr (pos, ident, expr_list')
+    vars, RecordExpr (pos, ident, ps, expr_list')
   | GroupExpr (pos, kind, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, GroupExpr (pos, kind, expr_list')
@@ -959,8 +959,8 @@ and normalize_declaration info map = function
   | FuncDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.FuncDecl (span, normal_decl)), map, warnings
-  | ContractNodeDecl (_, (id, _, ips, ops, _)) ->
-    let ctx = Chk.add_io_node_ctx info.context ips ops in
+  | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
+    let ctx = Chk.add_io_node_ctx info.context id ps ips ops in
     let info = { info with context = ctx } in
     let ngids, warnings = normalize_gid_equations info map id in
     let map = StringMap.add id ngids map in
@@ -1059,7 +1059,7 @@ and normalize_ghost_declaration info node_id map = function
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
-  let ctx = Chk.add_io_node_ctx info.context inputs outputs in
+  let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
   (* Normalize types *)
@@ -1875,7 +1875,7 @@ and normalize_expr ?guard info node_id map =
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | AnyOp _ -> assert false (* desugared earlier in pipeline *)
-  | RecordExpr (pos, id, id_expr_list) ->
+  | RecordExpr (pos, id, ps, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
       let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
       (id, nexpr), gids, warnings
@@ -1883,7 +1883,7 @@ and normalize_expr ?guard info node_id map =
     let nid_expr_list, gids, warnings = normalize_list 
       (normalize' ?guard info map)
       id_expr_list in
-    RecordExpr (pos, id, nid_expr_list), gids, warnings
+    RecordExpr (pos, id, ps, nid_expr_list), gids, warnings
   | GroupExpr (pos, kind, expr_list) ->
     let nexpr_list, gids, warnings = normalize_list
       (normalize_expr ?guard info node_id map)
@@ -1949,9 +1949,9 @@ and expand_node_calls_in_place info node_id var count expr =
   | GroupExpr (p, k, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.GroupExpr (p, k, expr_list)
-  | RecordExpr (p, n, expr_list) ->
+  | RecordExpr (p, n, ps, expr_list) ->
     let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
-    A.RecordExpr (p, n, expr_list)
+    A.RecordExpr (p, n, ps, expr_list)
   | Merge (p, n, expr_list) ->
     let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
     A.Merge (p, n, expr_list)

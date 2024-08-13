@@ -127,7 +127,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     (List.map fst l)
     (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
   
-  | RecordExpr (a, b, l) -> RecordExpr (a, b,     
+  | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
     List.combine
     (List.map fst l)
     (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))

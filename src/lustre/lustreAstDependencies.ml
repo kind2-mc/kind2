@@ -291,7 +291,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
       | Some e2 -> mk_graph_expr e2
     in
     union_dependency_analysis_data g1 g2
-  | UserType (pos, i) -> singleton_dependency_analysis_data ty_prefix i pos
+  | UserType (pos, _, i) -> singleton_dependency_analysis_data ty_prefix i pos
   | AbstractType (pos, i) -> singleton_dependency_analysis_data ty_prefix i pos
   | TupleType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
   | GroupType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
@@ -309,7 +309,7 @@ and mk_graph_expr ?(only_modes = false)
     if only_modes then empty_dependency_analysis_data
     else singleton_dependency_analysis_data empty_hs i pos
   | LA.Const _ -> empty_dependency_analysis_data
-  | LA.RecordExpr (pos, r, ty_ids) ->
+  | LA.RecordExpr (pos, r, _, ty_ids) ->
     union_dependency_analysis_data
       (singleton_dependency_analysis_data ty_prefix r pos)
       (List.fold_left union_dependency_analysis_data
@@ -365,7 +365,7 @@ let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_prefix  i pos 
-  | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
+  | AliasType (pos, i, _, ty) -> connect_g_pos (mk_graph_type ty) (HString.concat2 ty_prefix i) pos
 
 (***********************************************************
  * Type 2: Dependency Analysis Between nodes and contracts *
@@ -392,7 +392,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   (* Structured expressions *)
-  | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
+  | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
   (* Update of structured expressions *)
   | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
@@ -565,7 +565,7 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
   | [] -> R.ok m 
 
   | (LA.TypeDecl (span, FreeType (_, i)) as tydecl) :: decls
-  | (LA.TypeDecl (span, AliasType (_, i, _)) as tydecl) :: decls ->
+  | (LA.TypeDecl (span, AliasType (_, i, _, _)) as tydecl) :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos ty_prefix i (Some tydecl) in
     mk_decl_map m' decls 
@@ -650,7 +650,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | ConvOp  (_,_,e) -> r e
   | CompOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) ->
+  | RecordExpr (_, _, _, flds) ->
     flds |> (List.map (fun (_, e) -> r e)) |> SI.flatten
   | GroupExpr (_, _, es) ->
     (match List.nth_opt es proj with
@@ -772,7 +772,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Const _ ->
      R.ok [empty_dependency_analysis_data]
 
-  | LA.RecordExpr (pos, i, ty_ids) ->
+  | LA.RecordExpr (pos, i, _, ty_ids) ->
      R.seq (List.map (fun ty_id -> mk_graph_expr2 m (snd ty_id)) ty_ids) >>= fun gs -> 
      R.ok [List.fold_left union_dependency_analysis_data
              (singleton_dependency_analysis_data empty_hs i pos)

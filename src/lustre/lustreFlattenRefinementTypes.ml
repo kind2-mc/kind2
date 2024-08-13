@@ -21,11 +21,11 @@ module AH = LustreAstHelpers
 module AN = LustreAstNormalizer
 
 let rec flatten_ref_type ctx ty = match ty with
-  | A.UserType (pos, str) -> 
-    let ty = TypeCheckerContext.lookup_ty_syn ctx str in 
+  | A.UserType (pos, ty_args, str) -> 
+    let ty = TypeCheckerContext.lookup_ty_syn ctx str ty_args in 
     (match ty with 
     | Some ty -> flatten_ref_type ctx ty
-    | None -> A.UserType (pos, str))
+    | None -> A.UserType (pos, ty_args, str))
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis)
@@ -107,7 +107,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, rec_call e)) flds))
+  | RecordExpr (p, i, ps, flds) ->
+    let ps = List.map (flatten_ref_type ctx) ps in
+    RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, rec_call e)) flds))
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
   | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
@@ -139,9 +141,15 @@ let flatten_ref_types_item ctx item =
 
 let flatten_ref_types ctx sorted_node_contract_decls = 
   List.map (fun decl -> match decl with
-    | A.TypeDecl (pos, AliasType (pos2, id, ty)) -> 
-      A.TypeDecl (pos, AliasType (pos2, id, flatten_ref_type ctx ty))
-    | NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) -> 
+    | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
+      A.TypeDecl (pos, AliasType (pos2, id, ps, flatten_ref_type ctx ty))
+    | NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) ->
+      let ctx =
+        List.fold_left (fun acc p ->
+          TypeCheckerContext.add_ty_syn acc p (A.AbstractType (Lib.dummy_pos, p))
+        )
+        ctx params
+      in
       let ips = List.map (fun (pos, id, ty, cl, b) -> 
         (pos, id, flatten_ref_type ctx ty, cl, b)
       ) ips in
@@ -151,7 +159,13 @@ let flatten_ref_types ctx sorted_node_contract_decls =
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
       NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
-    | FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) -> 
+    | FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) ->
+      let ctx =
+        List.fold_left (fun acc p ->
+          TypeCheckerContext.add_ty_syn acc p (A.AbstractType (Lib.dummy_pos, p))
+        )
+        ctx params
+      in
       let ips = List.map (fun (pos, id, ty, cl, b) -> 
         (pos, id, flatten_ref_type ctx ty, cl, b)
       ) ips in

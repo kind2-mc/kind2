@@ -190,7 +190,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
     (* Step 13. Desugar frame blocks by adding node equations and guarding oracles. *)
-    let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in 
+    let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in
 
     (* Step 14. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
