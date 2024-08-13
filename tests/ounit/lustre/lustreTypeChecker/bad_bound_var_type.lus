@@ -1,0 +1,5 @@
+
+node N() returns (ok: bool);
+let
+  check forall (x: subrange [0.0,5.0] of int) x>=0;
+tel

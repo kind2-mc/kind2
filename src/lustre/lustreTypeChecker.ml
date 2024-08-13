@@ -839,9 +839,14 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
 
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
+    let* warnings1 =
+      R.seq (List.map (fun (_, _, ty) ->
+        check_type_well_formed ctx Local nname true ty) qs)
+    in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
-    infer_type_expr extn_ctx nname e 
+    let* ty, warnings2 = infer_type_expr extn_ctx nname e in
+    R.ok (ty, List.flatten warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
   (* Already desugared in lustreDesugarAnyOps *)
@@ -1087,7 +1092,11 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
 
   (* Quantified expressions *)
-  | Quantifier (_, _, qs, e) ->
+  | Quantifier (_, _, qs, e) -> (
+    let* warnings1 =
+      R.seq (List.map (fun (_, _, ty) ->
+        check_type_well_formed ctx Local nname true ty) qs)
+    in
     (* Disallow quantification over abstract types *)
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
       if type_contains_abstract ctx ty 
@@ -1098,8 +1107,9 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     ) qs) in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
-    check_type_expr extn_ctx nname e exp_ty
-
+    let* warnings2 = check_type_expr extn_ctx nname e exp_ty in
+    R.ok (List.flatten warnings1 @ warnings2)
+  )
   | AnyOp _ -> assert false 
     (* Already desugared in lustreDesugarAnyOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
