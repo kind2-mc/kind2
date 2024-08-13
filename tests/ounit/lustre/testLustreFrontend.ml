@@ -571,6 +571,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/type-grammer.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
     | _ -> false);
+  mk_test "test invalid type for bound variable" (fun () ->
+    match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
+    | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
