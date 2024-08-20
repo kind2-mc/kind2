@@ -910,7 +910,8 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
       let* node_ty = instantiate_type_variables ctx pos i node_ty ty_args in
       let exp_arg_tys, exp_ret_tys = match node_ty with 
-        | LA.TArr (_, exp_arg_tys, exp_ret_tys) -> exp_arg_tys, exp_ret_tys 
+        | LA.TArr (_, exp_arg_tys, exp_ret_tys) ->
+          expand_type_syn ctx exp_arg_tys, expand_type_syn ctx exp_ret_tys
         | _ -> assert false 
       in
       let* given_arg_tys, warnings2 = infer_type_node_args ctx arg_exprs in
