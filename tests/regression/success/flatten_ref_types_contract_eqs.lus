@@ -1,0 +1,19 @@
+
+type Nat = subrange [0,*] of int;
+
+const N: Nat;
+
+type Index = subtype { i: Nat | i < N };
+
+function Incr(idx: Index) returns (next: Nat);
+let
+  next = idx + 1;
+tel
+
+node Reproducer(src: Index) returns (p: Nat);
+(*@contract
+  guarantee "P1" forall (i: Index) p+i>0;
+*)
+let
+  p = Incr(src);
+tel
