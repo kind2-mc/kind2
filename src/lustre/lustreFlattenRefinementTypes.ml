@@ -139,6 +139,58 @@ let flatten_ref_types_item ctx item =
   | A.AnnotProperty (p, id, expr, k) -> A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
   | Body _ | FrameBlock _ | IfBlock _ | AnnotMain _ -> item
 
+let flatten_ref_types_const_decl ctx decl =
+  match decl with
+  | (A.FreeConst (pos, id, ty)) ->
+    (A.FreeConst (pos, id, flatten_ref_type ctx ty))
+  | (TypedConst (pos, id, expr, ty)) ->
+    (TypedConst (pos, id, expr, flatten_ref_type ctx ty))
+  | (UntypedConst _)  -> decl
+
+let flatten_ref_types_contract_eq ctx eq =
+  match eq with
+  | A.GhostConst cd ->
+    A.GhostConst (flatten_ref_types_const_decl ctx cd)
+  | A.GhostVars (p1, GhostVarDec (p2, tids), expr) ->
+    let tids =
+      List.map (fun (p, id, ty) -> (p, id, flatten_ref_type ctx ty)) tids
+    in
+    A.GhostVars (p1, GhostVarDec (p2, tids), expr)
+  | A.Assume (p, id, s, expr) ->
+    A.Assume (p, id, s, flatten_ref_types_expr ctx expr)
+  | A.Guarantee (p, id, s, expr) ->
+    A.Guarantee (p, id, s, flatten_ref_types_expr ctx expr)
+  | A.Mode (p, id, requires, ensures) -> (
+    let requires =
+      List.map (fun (p, id, expr) ->
+        (p, id, flatten_ref_types_expr ctx expr)
+      ) requires
+    in
+    let ensures =
+      List.map (fun (p, id, expr) ->
+        (p, id, flatten_ref_types_expr ctx expr)
+      ) ensures
+    in
+    A.Mode (p, id, requires, ensures)
+  )
+  | A.ContractCall (pos, id, ps, args, outputs) -> (
+    let args =
+      List.map (flatten_ref_types_expr ctx) args
+    in
+    let ps =
+      List.map (flatten_ref_type ctx) ps
+    in
+    A.ContractCall (pos, id, ps, args, outputs)
+  )
+  | AssumptionVars _ -> eq
+
+let flatten_ref_types_contract ctx (p, contract_eqs) =
+  (p, List.map (flatten_ref_types_contract_eq ctx) contract_eqs)
+
+let flatten_ref_types_contract_opt ctx = function
+| Some c -> Some (flatten_ref_types_contract ctx c)
+| None -> None
+
 let flatten_ref_types ctx sorted_node_contract_decls = 
   List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
@@ -158,6 +210,7 @@ let flatten_ref_types ctx sorted_node_contract_decls =
       ) ops in
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
+      let contract = flatten_ref_types_contract_opt ctx contract in
       NodeDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
     | FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract)) ->
       let ctx =
@@ -174,6 +227,7 @@ let flatten_ref_types ctx sorted_node_contract_decls =
       ) ops in
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
+      let contract = flatten_ref_types_contract_opt ctx contract in
       FuncDecl (pos, (id, imported, params, ips, ops, locals, items, contract))
     | NodeParamInst (pos, (id1, id2, tys)) -> 
       let tys = List.map (flatten_ref_type ctx) tys in 
@@ -185,14 +239,9 @@ let flatten_ref_types ctx sorted_node_contract_decls =
       let ops = List.map (fun (pos, id, ty, cl) -> 
         (pos, id, flatten_ref_type ctx ty, cl)
       ) ops in
+      let contract = flatten_ref_types_contract ctx contract in
       ContractNodeDecl (pos, (id, params, ips, ops, contract))
-    | ConstDecl (pos, (FreeConst (pos2, id, ty))) -> 
-      let ty = flatten_ref_type ctx ty in 
-      ConstDecl (pos, (FreeConst (pos2, id, ty)))
-    | ConstDecl (pos, (TypedConst (pos2, id, expr, ty))) -> 
-      let ty = flatten_ref_type ctx ty in 
-      ConstDecl (pos, (TypedConst (pos2, id, expr, ty))) 
-    | A.TypeDecl (_, FreeType _) 
-    | ConstDecl (_, (UntypedConst _))  -> decl
+    | ConstDecl (pos, cd) -> ConstDecl (pos, flatten_ref_types_const_decl ctx cd)
+    | A.TypeDecl (_, FreeType _) -> decl
     
   ) sorted_node_contract_decls
