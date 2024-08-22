@@ -2373,6 +2373,8 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
     let vt, global_constraints =
       X.fold over_index cty (X.empty, cstate.global_constraints)
     in
+    let var_bounds = SVT.fold (fun k v a -> (k, v) :: a) !map.bounds [] in
+    List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
     if ghost then cstate
     else (
       { cstate with
