@@ -1809,6 +1809,13 @@ let mk_trans_sys
              (* Logic of transition relation *)
                TermLib.logic_of_term fun_symbols trans ::
              
+             (* Logic of global constraints *)
+             List.map
+               (fun t -> TermLib.logic_of_term fun_symbols t)
+               global_constraints
+
+             @
+
              (* Logics of subsystems *)
              List.map
                (fun (t, _) -> match t.logic with
@@ -1831,6 +1838,13 @@ let mk_trans_sys
                 StateVar.type_of_state_var sv
                 |> TermLib.logic_of_sort
               ) state_vars)
+
+         (* Add logics from types of global constants *)
+         |> List.rev_append
+           (List.rev_map (fun v ->
+                Var.type_of_var v
+                |> TermLib.logic_of_sort
+              ) global_consts)
            
          (* Join logics to the logic required for this system *)
          |> TermLib.sup_logics)
