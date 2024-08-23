@@ -1101,7 +1101,7 @@ let define_and_declare_of_bounds
        
 
 let assert_global_constraints { global_constraints } assert_term =
-  List.iter (fun c -> assert_term c) global_constraints
+  List.iter (fun c -> assert_term (Term.convert_select c)) global_constraints
 
 let init_uf_def { init_uf_symbol; init_formals; init } = 
   (init_uf_symbol, (init_formals, init))

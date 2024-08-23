@@ -1,0 +1,14 @@
+
+type Nat = subrange [0,*] of int;
+
+type T = [Nat,bool];
+type Rec = struct { f:T };
+
+const R: Rec;
+const C: Nat^2;
+
+node N() returns (ok: bool)
+let
+  check "P1" C[0] >= 0;
+  check "P2" R.f.%0 >= 0;
+tel
