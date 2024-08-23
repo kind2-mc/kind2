@@ -416,7 +416,7 @@ let mk_range_expr ctx node_id expr_type expr =
         [disj, true]
     )
     | A.IntRange (_, l, u) ->
-      let original_ty, _ = Chk.infer_type_expr ctx (Some node_id) expr |> unwrap in
+      let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
       let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
         | A.IntRange (_, l', u') ->
@@ -632,7 +632,7 @@ let add_subrange_constraints info node_id kind vars =
   |> List.fold_left (fun acc (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
-    union acc (mk_fresh_subrange_constraint kind info p node_id id ty))
+    union acc (mk_fresh_subrange_constraint kind info p (Some node_id) id ty))
     (empty ())
 
 let add_ref_type_constraints info kind vars =
@@ -1128,7 +1128,7 @@ and normalize_node info map
       | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        let gids = union acc (mk_fresh_subrange_constraint Local info p node_id id ty)
+        let gids = union acc (mk_fresh_subrange_constraint Local info p (Some node_id) id ty)
         in union gids (mk_fresh_refinement_type_constraint Local info p (A.Ident (p, id)) ty)
       | A.NodeConstDecl (_, UntypedConst _)-> assert false)
       (empty ())
@@ -1469,7 +1469,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   (pos, i, ty),
                   union gids (
-                  union (mk_fresh_subrange_constraint Ghost info pos node_id new_id ty)
+                  union (mk_fresh_subrange_constraint Ghost info pos (Some node_id) new_id ty)
                         (mk_fresh_refinement_type_constraint Ghost info pos (A.Ident (pos, new_id)) ty)), 
                   warnings
                 else (pos, i, ty), gids, []
@@ -1679,8 +1679,10 @@ and normalize_expr ?guard info node_id map =
       List.fold_left
         (fun acc (_, id, ty) ->
           let expr = A.Ident(dpos, id) in
-          let range_exprs =  List.map fst (mk_range_expr info.context node_id ty expr) @ 
-                             List.map snd (mk_ref_type_expr info.context expr Local ty) in
+          let range_exprs =
+            List.map fst (mk_range_expr info.context (Some node_id) ty expr) @
+            List.map snd (mk_ref_type_expr info.context expr Local ty)
+          in
           range_exprs :: acc
         )
         []

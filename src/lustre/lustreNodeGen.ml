@@ -25,6 +25,7 @@ open LustreReporting
 
 module A = LustreAst
 module AH = LustreAstHelpers
+module AN = LustreAstNormalizer
 module GI = GeneratedIdentifiers
 module G = LustreGlobals
 module N = LustreNode
@@ -2335,24 +2336,12 @@ and compile_node_decl gids_map is_function cstate ctx i ext params inputs output
     nodes = node :: cstate.nodes;
   }
 
-and add_type_constraints global_constraints v ty =
-  match Type.node_of_type ty with
-  | Type.IntRange (Some n1, Some n2) ->
-    E.mk_and
-      (E.mk_lte (E.mk_int n1) (E.mk_var v))
-      (E.mk_lte (E.mk_var v) (E.mk_int n2))
-    :: global_constraints
-  | IntRange (Some n1, None) ->
-    (E.mk_lte (E.mk_int n1) (E.mk_var v)) :: global_constraints
-  | IntRange (None, Some n2) ->
-    (E.mk_lte (E.mk_var v) (E.mk_int n2)) :: global_constraints
-  | _ -> global_constraints
 
 and compile_const_decl ?(ghost = false) cstate ctx map scope = function
-  | A.FreeConst (_, i, ty) ->
+  | A.FreeConst (p, i, ty) ->
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
-    let over_index = fun i ty (vt, global_constraints) ->
+    let over_index = fun i ty vt ->
       let possible_state_var = mk_state_var
         ?is_input:(Some false)
         ?is_const:(Some true)
@@ -2366,17 +2355,27 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
       in
       match possible_state_var with
       | Some state_var ->
-        let v = Var.mk_const_state_var state_var in
-        X.add i v vt, add_type_constraints global_constraints state_var ty
-      | None -> vt, global_constraints
+        X.add i (Var.mk_const_state_var state_var) vt
+      | None -> vt
     in
-    let vt, global_constraints =
-      X.fold over_index cty (X.empty, cstate.global_constraints)
-    in
+    let vt = X.fold over_index cty X.empty in
     let var_bounds = SVT.fold (fun k v a -> (k, v) :: a) !map.bounds [] in
     List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
     if ghost then cstate
     else (
+      let global_constraints =
+        let ty = Ctx.expand_type_syn ctx ty in
+        if Ctx.type_contains_subrange ctx ty then (
+          let range_exprs =
+            AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
+          in
+          List.map (fun expr ->
+            let c_expr = compile_ast_expr cstate ctx [] map expr in
+            X.max_binding c_expr |> snd
+          ) range_exprs @ cstate.global_constraints
+        )
+        else cstate.global_constraints
+      in
       { cstate with
         free_constants = (!map.node_name, i, vt) :: cstate.free_constants;
         global_constraints

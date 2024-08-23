@@ -676,6 +676,11 @@ let rec type_contains_subrange ctx = function
     (match lookup_ty ctx id with 
     | Some ty -> type_contains_subrange ctx ty
     | _ -> assert false)
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> type_contains_subrange ctx ty
+    | None -> assert false
+  )
   | _ -> false
 
   let rec type_contains_ref ctx = function

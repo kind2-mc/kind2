@@ -82,6 +82,12 @@ val warning_message : warning_kind -> string
 
 val mk_fresh_dummy_index : 'a -> HString.t
 
+val mk_range_expr : TypeCheckerContext.tc_context ->
+  HString.t option ->
+  LustreAst.lustre_type ->
+  LustreAst.expr ->
+  (LustreAst.expr * bool) list
+
 val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
   LustreAst.t ->
