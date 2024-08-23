@@ -1,0 +1,13 @@
+type T = enum { A };
+
+const config_const_array: T ^ 1;
+
+node rising_edge(
+  i: bool;
+) returns (
+  b: bool;
+)
+let
+  b = i and (false -> pre (not i));
+  --%PROPERTY not b -> true;
+tel
