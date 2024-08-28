@@ -1,0 +1,18 @@
+type R0<<T>> = struct {
+  v: T;
+};
+
+type E = enum {A, B};
+
+type R1 = struct {
+  f: E;
+};
+
+type R2 = struct {
+  opt: R0<<R1>>;
+};
+
+node N(x: R2) returns (y: R2);
+let
+  y = x;
+tel
