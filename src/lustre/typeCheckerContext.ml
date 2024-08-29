@@ -167,10 +167,24 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType (_, ty_args, i) as ty -> 
-    (match lookup_ty_syn ctx i ty_args with
+  | UserType (_, ty_args, i) as ty -> (
+    match IMap.find_opt i (ctx.ty_syns) with
     | None -> ty
-    | Some ty' -> ty')
+    | Some ty -> (
+      match ty with
+      | UserType (_, _, uid) when uid = i -> ty
+      | _ -> (
+        let ty_vars =
+          match IMap.find_opt i (ctx.ty_ty_vars) with
+          | Some ps -> ps
+          | None -> []
+        in
+        let sigma = List.combine ty_vars ty_args in
+        let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
+        expand_type_syn ctx ty
+      )
+    )
+  )
   | TupleType (p, tys) ->
     let tys = List.map (expand_type_syn ctx) tys in
     TupleType (p, tys)
