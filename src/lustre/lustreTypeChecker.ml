@@ -915,6 +915,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
         | _ -> assert false 
       in
       let* given_arg_tys, warnings2 = infer_type_node_args ctx arg_exprs in
+      let given_arg_tys = expand_type_syn ctx given_arg_tys in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
       if are_equal then
         (check_constant_args ctx i arg_exprs >> (R.ok (exp_ret_tys, List.flatten warnings1 @ warnings2)))

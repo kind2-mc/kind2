@@ -1,0 +1,26 @@
+type Nat = subrange [0,*] of int;
+
+type D = subtype { i: Nat | i < 10 };
+
+type R1 = struct {
+  f1: D;
+};
+
+type R2 = struct {
+  r1: R1;
+};
+
+type R3 = struct {
+  r2: R2;
+};
+
+function F2(r2: R2) returns (ok: bool);
+let
+  ok = r2.r1.f1 < 10;
+tel
+
+function F1(r3: R3) returns (ok: bool);
+let
+  ok = F2(r3.r2);
+  check ok;
+tel
