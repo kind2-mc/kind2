@@ -1,0 +1,10 @@
+type Pos = subrange [1,*] of int;
+
+const N: Pos;
+
+type I = subtype { i:int  | i < N };
+
+node M() returns (y: I);
+let
+  y = N-1;
+tel
