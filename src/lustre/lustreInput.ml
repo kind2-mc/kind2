@@ -180,33 +180,33 @@ let type_check declarations =
       else sorted_node_contract_decls
     in
 
-    (* Step 10. Flatten refinement types *)
-    let sorted_node_contract_decls = LFR.flatten_ref_types global_ctx sorted_node_contract_decls in
-
-    (* Step 11. Remove multiple assignment from if blocks and frame blocks *)
+    (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
 
-    (* Step 12. Desugar imperative if block to ITEs *)
+    (* Step 11. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
-    (* Step 13. Desugar frame blocks by adding node equations and guarding oracles. *)
+    (* Step 12. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in
 
-    (* Step 14. Inline constants in node equations *)
+    (* Step 13. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 15. Check that inductive array equations are well-founded *)
+    (* Step 14. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-    (* Step 16. Infer tighter subrange constraints with abstract interpretation *)
+    (* Step 15. Infer tighter subrange constraints with abstract interpretation *)
     let* _ = LIA.interpret_global_consts inlined_global_ctx const_inlined_type_and_consts in
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 17. Instantiate polymorphic nodes with concrete types *)
+    (* Step 16. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx const_inlined_nodes_and_contracts in
-    
+
+    (* Step 17. Flatten refinement types *)
+    let const_inlined_nodes_and_contracts = LFR.flatten_ref_types inlined_global_ctx const_inlined_nodes_and_contracts in
+
     (* Step 18. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings5) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids

@@ -1,0 +1,12 @@
+
+type Nat = subtype { n: int | 0 <= n };
+
+node N2<<T>>() returns (r: T);
+let
+  r = any T;
+tel
+
+node N1() returns (z: Nat);
+let
+   z = N2<<Nat>>();
+tel
