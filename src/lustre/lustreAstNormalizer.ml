@@ -622,7 +622,10 @@ let get_type_of_id info node_id id =
   Ctx.expand_type_syn info.context ty
 
 (* If [expr] is already an id then we don't create a fresh local *)
-let should_not_abstract force expr = not force && AH.expr_is_id expr
+let should_not_abstract info force = function
+  | A.Ident (_, id) ->
+    not (Ctx.is_enum_variant info.context id) && not force
+  | _ -> false
 
 let add_subrange_constraints info node_id kind vars =
   vars
@@ -1587,7 +1590,7 @@ and rename_id info = function
 
 and abstract_expr ?guard force info node_id map expr = 
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
-  if should_not_abstract force nexpr then
+  if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
@@ -1657,7 +1660,7 @@ and normalize_expr ?guard info node_id map =
   in
   let abstract_node_arg ?guard force is_const info map expr =
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
-    if should_not_abstract force nexpr then
+    if should_not_abstract info force nexpr then
       nexpr, gids1, warnings
     else
       let ivars = info.inductive_variables in
