@@ -306,6 +306,12 @@ let add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
   = fun ctx i vs -> {ctx with enum_vars = IMap.add i vs (ctx.enum_vars) }
 (** Add an enumeration type and associated variants to the typing context *)
 
+let is_enum_variant ctx id =
+  match lookup_const ctx id with
+  | Some (_, Some (UserType (_, _, uid)), _) ->
+    lookup_variants ctx uid != None
+  | _ -> false
+
 let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)

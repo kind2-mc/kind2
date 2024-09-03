@@ -163,6 +163,8 @@ val add_ty_decl: tc_context -> LA.ident -> tc_context
 val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
 (** Add an enumeration type and associated variants to the typing context *)
 
+val is_enum_variant: tc_context -> LA.ident -> bool
+
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
 

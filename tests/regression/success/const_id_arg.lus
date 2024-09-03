@@ -1,0 +1,26 @@
+
+type E = enum {A, B};
+
+const C1: int;
+const C2: int = 0;
+
+node N2(x: int) returns (y: int);
+let
+  y = x; 
+tel
+
+node N3(x: E) returns (y: E);
+let
+  y = x; 
+tel
+
+node N1(const x: int) returns (y1,y2,y3: int; z: E);
+let
+  y1 = N2(C1);
+  y2 = N2(x);
+  y3 = N2(C2);
+  z = N3(A);
+  check y1 = y2 => x = C1;
+  check y3 >= 0;
+  check z = A;
+tel
