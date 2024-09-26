@@ -131,7 +131,6 @@ let rec logic_of_sort ty =
               
   | Array (ta, tr) ->
     union (logic_of_sort ta) (logic_of_sort tr)
-    |> add UF
     |> add A
 
 
@@ -242,7 +241,10 @@ let pp_print_features ?(enforce_logic=false) fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_"
   else if L.cardinal l = 1 then fprintf fmt "UF";
   if L.is_empty l then fprintf fmt "UF";
-  if L.mem A l && (enforce_logic || Flags.Arrays.smt ()) then fprintf fmt "A";
+  if L.mem A l then (
+    if (enforce_logic || Flags.Arrays.smt ()) then fprintf fmt "A"
+    else fprintf fmt "UF"
+  );
   if L.mem UF l then fprintf fmt "UF";
   if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
