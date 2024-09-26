@@ -11,14 +11,15 @@ let
   --%PROPERTY n > 0 => (C >= 0 and C <= n) ;
 tel
 
+const N: int = 4;
+--const N: subrange [3,*] of int;
 
-node atmone( const n: int; ) returns ( ok : bool ) ;
-  var B : bool^n ;
+node atmone( ) returns ( ok : bool ) ;
+  var B : bool^N ;
 let
-  assert (n > 2);
   B[i] = if i = 2 then true else true;
   -- B = [false, true, true, false];
-  ok = count(4, B) <= 1;
+  ok = count(N, B) <= 1;
 
   --%PROPERTY ok;
 tel
