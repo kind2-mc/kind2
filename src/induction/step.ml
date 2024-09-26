@@ -652,11 +652,22 @@ let launch input_sys aparam trans =
   (* compression uses bitvectors/integers and uf *)
   let logic =
     match TransSys.get_logic trans with
-    | `Inferred fs when Flags.BmcKind.compress () ->
+    | (`Inferred fs) as l when Flags.BmcKind.compress () ->
       let open TermLib.FeatureSet in
-      if Compress.only_bv trans
-      then `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
-      else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
+      if Flags.Smt.solver () = `Z3_SMTLIB &&
+         mem Q fs && mem A fs && not (mem UF fs) then (
+        (* Disable compression so that adding UF is not required.
+           Z3 most often returns unknown when the logic includes:
+           quantifiers, arrays, and uninterpreted functions.
+           TODO: Implement compression with arrays for this case.
+        *)
+        Flags.BmcKind.set_compress false; l
+      )
+      else (
+        if Compress.only_bv trans
+        then `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
+        else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
+      )
     | l -> l
   in
 
