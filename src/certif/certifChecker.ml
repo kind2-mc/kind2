@@ -723,7 +723,12 @@ let rec cherry_pick solver trans
        (* Not enough invariants *)
        
        (* Get the full model *)
-       let model = SMTSolver.get_model solver in
+       let model =
+         SMTSolver.get_var_values
+          solver
+          (TransSys.get_state_var_bounds trans)
+          (TransSys.vars_of_bounds trans Numeral.zero Numeral.one)
+       in
 
        (* Evaluation function. *)
        let eval term =
