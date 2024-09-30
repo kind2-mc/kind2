@@ -241,11 +241,11 @@ let pp_print_features ?(enforce_logic=false) fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_"
   else if L.cardinal l = 1 then fprintf fmt "UF";
   if L.is_empty l then fprintf fmt "UF";
-  if L.mem A l then (
-    if (enforce_logic || Flags.Arrays.smt ()) then fprintf fmt "A"
-    else fprintf fmt "UF"
-  );
-  if L.mem UF l then fprintf fmt "UF";
+  let smt_arrays =
+    L.mem A l && (enforce_logic || Flags.Arrays.smt ())
+  in
+  if smt_arrays then fprintf fmt "A";
+  if L.mem UF l || (L.mem A l && not smt_arrays) then fprintf fmt "UF";
   if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
