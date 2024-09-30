@@ -460,6 +460,13 @@ let add_constraints_of_type init terms state_var =
       List.fold_left
         (fun acc (ty, iv) ->
            match Type.node_of_type ty with
+           | Type.IntRange (Some i, Some j) when Flags.Arrays.inline () -> (
+              let cj = ref [] in
+              for x = (Numeral.to_int j) downto (Numeral.to_int i) do
+                cj := Term.mk_let [iv, Term.mk_num_of_int x] acc :: !cj
+              done;
+              Term.mk_and !cj
+           )
            | Type.IntRange (Some i, Some j) -> (
              let bounds =
                Term.mk_leq
