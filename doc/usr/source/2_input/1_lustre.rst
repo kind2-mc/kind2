@@ -67,7 +67,7 @@ You can also specify the main node in the command line arguments, with
 
 .. code-block:: none
 
-   kind2 --lustre_main <node_name> ...
+   kind2 --lus_main <node_name> ...
 
 Main nodes specified by the command line option override main nodes annotated in the source code. If any main nodes exist then only main nodes are analyzed (top nodes are not).
 

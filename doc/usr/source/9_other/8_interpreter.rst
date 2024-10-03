@@ -6,7 +6,7 @@ Interpreter
 The interpreter is a special mode where Kind 2 reads input values from
 a file and prints the computed values for the output and local variables
 of a node at each step. If the Lustre file contains two or more top nodes,
-a single node must be selected with either the command-line option :code:`--lustre_main <node_name>` or
+a single node must be selected with either the command-line option :code:`--lus_main <node_name>` or
 a single :code:`--%MAIN` annotation in the Lustre file.
 
 To use the interpreter, run:
