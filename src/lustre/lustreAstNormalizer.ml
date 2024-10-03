@@ -1155,25 +1155,25 @@ and normalize_node info map
   in
   (* Normalize equations and the contract *)
   let nitems, gids8, warnings5 = normalize_list (normalize_item info node_id map) items in
-  let gids7' = union gids7 gids8 in
-  let gids8' =
+  let gids6_8 = union gids6 gids8 in
+  let gids9 =
     if exists_reachability_prop_with_bounds ||
-       not (StringMap.is_empty gids7'.history_vars) then (
+       not (StringMap.is_empty gids6_8.history_vars) then (
       add_step_counter info
     )
     else
       empty ()
   in
-  let gids9 =
+  let gids10 =
     StringMap.fold
       (fun id h_id acc ->
         union acc (add_history_var_and_equation info id h_id)
       )
-      gids7'.history_vars
+      gids6_8.history_vars
       (empty ())
   in
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                             gids4; gids5; gids6; gids7'; gids8'; gids9] in
+                             gids4; gids5; gids7; gids6_8; gids9; gids10] in
   let old_gids, warnings6 = normalize_gid_equations info map node_id in
   let map = StringMap.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
