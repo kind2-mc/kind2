@@ -41,13 +41,13 @@
 
     The main node is chosen to be, in order of precedence:
 
-    - the node with the name given by the [--lustre_main] command-line
+    - the node with the name given by the [--lus_main] command-line
       option,
     - the node with the annotation [--%MAIN], or
     - the last node in the input.
 
     An exception [Invalid_argument] is raised if the node given by
-    [--lustre_main] is not found, there are two nodes with a [--%MAIN]
+    [--lus_main] is not found, there are two nodes with a [--%MAIN]
     annotation, or the input contains no nodes.
 
     In particular, the output of the entry point {!LustreParser.main}
