@@ -599,6 +599,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/undeclared_type_05.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test undeclared 6" (fun () ->
+    match load_file "./lustreTypeChecker/undeclared_type_06.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
   mk_test "test arity incorrect node call" (fun () ->
     match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true

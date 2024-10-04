@@ -807,7 +807,7 @@ and ty_vars_of_type ctx node_name ty =
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
     | Some ty -> ty_vars_of_type ctx node_name ty
-    | None -> assert false
+    | None -> SI.empty
   )
   | RefinementType (_, (_, _, ty), e) 
   | ArrayType (_, (ty, e)) -> 
