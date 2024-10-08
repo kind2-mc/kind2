@@ -277,6 +277,9 @@ val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lust
 val type_contains_subrange : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
+val type_contains_enum_or_subrange : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+
 val type_contains_ref : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
 
