@@ -398,7 +398,81 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
   NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
 
-let mk_range_expr ctx node_id expr_type expr = 
+let mk_range_expr ctx node_id expr_type expr =
+  let rec mk ctx n expr_type expr =
+    let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
+    match expr_type with
+    | A.IntRange (_, l, u) ->
+      let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
+      let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
+      let user_prop, is_original = match original_ty with
+        | A.IntRange (_, l', u') ->
+          let eval_int_expr_opt expr = match expr with
+            | Some expr -> Some (AIC.eval_int_expr ctx expr)
+            | None -> None
+          in
+          let is_original =
+            let (l, u) = eval_int_expr_opt l, eval_int_expr_opt u in
+            let (l', u') = eval_int_expr_opt l', eval_int_expr_opt u' in
+            (match (l, u, l', u') with
+            | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
+            | Some (Ok l), None, Some (Ok l'), None -> l = l'
+            | None, Some (Ok u), None, Some (Ok u') -> u = u'
+            | None, None, None, None -> true
+            | _ -> false)
+          in
+          let user_prop = if is_original then []
+            else
+              match l', u' with
+                | Some l', Some u' ->
+                  let l' = A.CompOp (dpos, A.Lte, l', expr) in
+                  let u' = A.CompOp (dpos, A.Lte, expr, u') in
+                  [A.BinaryOp (dpos, A.And, l', u'), true]
+                | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
+                | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
+                | None, None -> [(A.Const (dpos, A.True)), true]
+          in
+          user_prop, is_original
+        | A.Int _ -> [], false
+        | _ -> assert false
+      in (match l, u with
+        | Some l, Some u ->
+          let l = A.CompOp (dpos, A.Lte, l, expr) in
+          let u = A.CompOp (dpos, A.Lte, expr, u) in
+          [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
+        | Some l, None ->
+          [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
+        | None, Some u ->
+          [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
+        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
+      )
+    | A.ArrayType (_, (ty, upper_bound)) ->
+      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
+      let id = A.Ident (dpos, id_str) in
+      let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
+      let expr = A.ArrayIndex (dpos, expr, id) in
+      let rexpr = mk ctx (succ n) ty expr in
+      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
+      let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
+      let assumption = A.BinaryOp (dpos, A.And, l, u) in
+      let var = dpos, id_str, (A.Int dpos) in
+      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
+      List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
+    | TupleType (_, tys) ->
+      let mk_proj i = A.TupleProject (dpos, expr, i) in
+      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
+      let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
+      List.fold_left (@) [] tys
+    | RecordType (_, _, tys) ->
+      let mk_proj i = A.RecordProject (dpos, expr, i) in
+      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
+      let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
+      List.fold_left (@) [] tys
+    | _ -> []
+  in
+  mk ctx 0 expr_type expr
+
+let mk_enum_range_expr ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
@@ -473,12 +547,12 @@ let mk_range_expr ctx node_id expr_type expr =
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
+      let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
+      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | _ -> []
@@ -1683,7 +1757,7 @@ and normalize_expr ?guard info node_id map =
         (fun acc (_, id, ty) ->
           let expr = A.Ident(dpos, id) in
           let range_exprs =
-            List.map fst (mk_range_expr info.context (Some node_id) ty expr) @
+            List.map fst (mk_enum_range_expr info.context (Some node_id) ty expr) @
             List.map snd (mk_ref_type_expr info.context expr Local ty)
           in
           range_exprs :: acc

@@ -701,7 +701,35 @@ let rec type_contains_subrange ctx = function
     | Some ty -> type_contains_subrange ctx ty
     | None -> assert false
   )
-  | _ -> false
+  | Bool _ | Int _ | Real _ | EnumType _
+  | UInt8 _| UInt16 _| UInt32 _| UInt64 _
+  | Int8 _ |Int16 _ |Int32 _ | Int64 _
+  | AbstractType _ -> false
+
+let rec type_contains_enum_or_subrange ctx = function
+  | LA.IntRange _
+  | EnumType _ -> true
+  | RefinementType (_, (_, _, ty), _) -> type_contains_enum_or_subrange ctx ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ctx ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ctx ty
+  | TArr (_, ty1, ty2) -> type_contains_enum_or_subrange ctx ty1 || type_contains_enum_or_subrange ctx ty2
+  | History (_, id) ->
+    (match lookup_ty ctx id with
+    | Some ty -> type_contains_enum_or_subrange ctx ty
+    | _ -> assert false)
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> type_contains_enum_or_subrange ctx ty
+    | None -> assert false
+  )
+  | Bool _ | Int _ | Real _
+  | UInt8 _| UInt16 _| UInt32 _| UInt64 _
+  | Int8 _ |Int16 _ |Int32 _ | Int64 _
+  | AbstractType _ -> false
 
   let rec type_contains_ref ctx = function
   | LA.RefinementType _ -> true
@@ -716,7 +744,15 @@ let rec type_contains_subrange ctx = function
     (match lookup_ty ctx id with 
       | Some ty -> type_contains_ref ctx ty
       | _ -> assert false)
-  | _ -> false
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> type_contains_ref ctx ty
+    | None -> false
+  )
+  | Bool _ | Int _ | Real _  | EnumType _ | IntRange _
+  | UInt8 _| UInt16 _| UInt32 _| UInt64 _
+  | Int8 _ |Int16 _ |Int32 _ | Int64 _
+  | AbstractType _ -> false
 
 let rec type_contains_enum_subrange_reftype ctx = function
   | LA.IntRange _
@@ -733,7 +769,15 @@ let rec type_contains_enum_subrange_reftype ctx = function
     (match lookup_ty ctx id with 
       | Some ty -> type_contains_enum_subrange_reftype ctx ty
       | _ -> assert false)
-  | _ -> false
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> type_contains_enum_subrange_reftype ctx ty
+    | None -> assert false
+  )
+  | Bool _ | Int _ | Real _
+  | UInt8 _| UInt16 _| UInt32 _| UInt64 _
+  | Int8 _ |Int16 _ |Int32 _ | Int64 _
+  | AbstractType _ -> false
 
 let rec type_contains_abstract ctx = function
   | LA.UserType (_, ty_args, id) -> 
@@ -753,7 +797,10 @@ let rec type_contains_abstract ctx = function
     (match lookup_ty ctx id with 
     | Some ty -> type_contains_abstract ctx ty
     | _ -> assert false)
-  | _ -> false
+  | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
+  | UInt8 _| UInt16 _| UInt32 _| UInt64 _
+  | Int8 _ |Int16 _ |Int32 _ | Int64 _
+  | AbstractType _ -> false
 
 let rec ty_vars_of_expr ctx node_name expr = 
   let call = ty_vars_of_expr ctx node_name in match expr with 

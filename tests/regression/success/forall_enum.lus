@@ -1,0 +1,10 @@
+type E = enum { E1, E2 };
+
+type R = struct {
+  f: E;
+};
+
+node N() returns (y:int);
+let
+  check forall (x: R) (x.f=E1 or x.f=E2);
+tel
