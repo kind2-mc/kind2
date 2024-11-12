@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 html_path=../../_doc/_html
 # get name of internal library
 lib_name=$(ls $html_path | grep kind2dev)
