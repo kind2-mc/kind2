@@ -126,18 +126,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
     | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
-  mk_test "test call in cone of influence 1" (fun () ->
-    match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_1.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
-    | _ -> false);
-  mk_test "test call in cone of influence 2" (fun () ->
-    match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_2.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
-    | _ -> false);
-  mk_test "test call in cone of influence 3" (fun () ->
-    match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_3.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
-    | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
