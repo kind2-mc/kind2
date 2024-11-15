@@ -51,7 +51,6 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | AnyOpInFunction
   | NodeCallInFunction of HString.t
-  | NodeCallInRefinableContract of string * HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
@@ -102,9 +101,6 @@ let error_message kind = match kind with
   | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
-  | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
-    ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
-    ^ HString.string_of_hstring node ^ " has a refinable contract"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
@@ -141,15 +137,10 @@ let mk_warning pos kind = `LustreSyntaxChecksWarning (pos, kind)
 let (let*) = Result.bind
 let (>>) = fun a b -> let* _ = a in b
 
-type node_data = {
-  has_contract: bool;
-  imported: bool;
-  contract_only_assumptive: bool;
-  contract_imports: StringSet.t }
+type node_data = unit (* We used to need data, but not anymore *)
 
 type contract_data = {
   stateful: bool;
-  only_assumptive: bool;
   imports: StringSet.t }
 
 type context = {
@@ -284,20 +275,6 @@ function
 
 
 let build_global_ctx (decls:LustreAst.t) =
-  let get_imports = function
-    | Some (_, eqns) -> List.fold_left (fun a e -> match e with
-      | LA.ContractCall (_, i, _, _, _) -> StringSet.add i a
-      | _ -> a)
-      StringSet.empty eqns
-    | None -> StringSet.empty
-  in
-  let is_only_assumptive = function
-    | Some (_, eqns) -> List.fold_left (fun a e -> match e with
-      | LA.Guarantee _ | Mode _ -> false
-      | _ -> a)
-      true eqns
-    | None -> false
-  in
   let contract_decls, others =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
@@ -309,39 +286,23 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (i, imported, _, _, _, _, _, c)) ->
-      let has_contract = match c with | Some _ -> true | None -> false in
-      let contract_only_assumptive = is_only_assumptive c in
-      let contract_imports = get_imports c in
-      let data = { has_contract; 
-        imported; 
-        contract_only_assumptive;
-        contract_imports }
-      in
-      ctx_add_node acc i data
-    | FuncDecl (_, (i, imported, _, _, _, _, _, c)) -> 
-      let has_contract = match c with | Some _ -> true | None -> false in
-      let contract_only_assumptive = is_only_assumptive c in
-      let contract_imports = get_imports c in
-      let data = { has_contract;
-        imported;
-        contract_only_assumptive;
-        contract_imports }
-      in
-      ctx_add_func acc i data
+    | NodeDecl (_, (i, _, _, _, _, _, _, _)) ->
+      ctx_add_node acc i ()
+    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> 
+      ctx_add_func acc i ()
     | _ -> acc
   in
   let ctx = List.fold_left over_decls (empty_ctx ()) others in
-  let over_contract_eq (stateful, imports, only_assumptive) = function
+  let over_contract_eq (stateful, imports) = function
     | LA.GhostConst (FreeConst _) ->
-      (stateful, imports, only_assumptive)
+      (stateful, imports)
     | GhostConst (UntypedConst (_, _, e))
     | GhostConst (TypedConst (_, _, e, _))
     | GhostVars (_, _, e)
     | Assume (_, _, _, e) ->
-      (stateful || has_stateful_op ctx e, imports, only_assumptive)
+      (stateful || has_stateful_op ctx e, imports)
     | Guarantee (_, _, _, e) ->
-      (stateful || has_stateful_op ctx e, imports, false)
+      (stateful || has_stateful_op ctx e, imports)
     | Mode (_, _, reqs, enss) ->
       let req_or_ens_has_stateful_op req_ens_lst =
         List.fold_left
@@ -351,7 +312,7 @@ let build_global_ctx (decls:LustreAst.t) =
       let stateful' = stateful ||
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
-      (stateful', imports, false)
+      (stateful', imports)
     | ContractCall (_, i, _, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
@@ -359,21 +320,20 @@ let build_global_ctx (decls:LustreAst.t) =
           false ins
       in
       (stateful || arg_has_stateful_op ins,
-       StringSet.add i imports,
-       only_assumptive
+       StringSet.add i imports
       )
     | AssumptionVars _ ->
-      (stateful, imports, only_assumptive)
+      (stateful, imports)
   in
   let over_contract_decls acc = function
     | LA.ContractNodeDecl (_, (i, _, _, _, (_, eqns))) ->
-      let stateful, imports, only_assumptive =
+      let stateful, imports =
         List.fold_left
           over_contract_eq
-          (false, StringSet.empty, true)
+          (false, StringSet.empty)
           eqns
       in
-      ctx_add_contract acc i {stateful; imports; only_assumptive }
+      ctx_add_contract acc i {stateful; imports }
     | _ -> acc
   in
   List.fold_left over_contract_decls ctx contract_decls
@@ -587,49 +547,6 @@ let no_calls_to_node ctx = function
   | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
 
-(* Note: this check is simpler if done after the contract imports have all been
-  resolved and combined (e.g. after a LustreNode has been constructed).
-  Therefore, it may make sense to move this check to that point instead of 
-  tracing through the imports early on in the LustreAST here *)
-let no_calls_to_nodes_subject_to_refinement ctx expr =
-  try
-    let rec check_only_assumptive visited imports =
-      let over_imports i a = match StringMap.find_opt i ctx.contracts with
-        | Some { only_assumptive; imports } ->
-          if StringSet.mem i visited then raise Cycle ;
-          a && only_assumptive && (
-            let visited = StringSet.add i visited in
-            check_only_assumptive visited imports
-          )
-        | None -> a (* Situation is bogus regardless *)
-      in
-      StringSet.fold over_imports imports true
-    in
-    let check_node_data pos kind i = function
-      | Some { has_contract = true; 
-          imported = false;
-          contract_only_assumptive;
-          contract_imports } -> (
-        let only_assumptive = contract_only_assumptive
-            && check_only_assumptive StringSet.empty contract_imports
-        in
-        if not only_assumptive then
-          syntax_error pos (NodeCallInRefinableContract (kind, i))
-        else Ok ()
-      )
-      | _ -> Ok ()
-    in
-    match expr with
-    | LA.Condact (pos, _, _, i, _, _)
-    | Activate (pos, i, _, _, _)
-    | RestartEvery (pos, i, _, _)
-    | Call (pos, _, i, _) ->
-      check_node_data pos "node" i (StringMap.find_opt i ctx.nodes)
-      >> check_node_data pos "function" i (StringMap.find_opt i ctx.functions)
-    | _ -> Ok ()
-  with Cycle ->
-    Ok () (* Cycle will be rediscovered by lustreAstDependencies *)
-
 let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
@@ -762,7 +679,6 @@ and common_contract_checks ctx e =
     (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-    >> (no_calls_to_nodes_subject_to_refinement ctx e)
     >> Ok []
 
 (* Can't have from/within/at keywords in reachability queries in functions *)
