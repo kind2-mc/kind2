@@ -92,6 +92,10 @@ jobs:
         path: /home/opam/kind2-build/bin/kind2
         destination: ./bin/
 
+    - name: Update package information (macOS)
+      if: runner.os == 'macOS'
+      run: brew update
+
     - name: Build Kind 2 macOS binary
       if: runner.os == 'macOS'
       uses: ./.github/actions/build-kind2
