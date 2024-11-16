@@ -2367,6 +2367,7 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
         let ty = Ctx.expand_type_syn ctx ty in
         if Ctx.type_contains_subrange ctx ty then (
           let range_exprs =
+            let ctx = Ctx.add_ty ctx i ty in
             AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
           in
           List.map (fun expr ->
