@@ -1,0 +1,7 @@
+type Nat = subrange [0,*] of int;
+
+node M() returns ();
+const C: Nat;
+let
+  check "P1" 0 <= C;
+tel
