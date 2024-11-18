@@ -2365,15 +2365,24 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
     else (
       let global_constraints =
         let ty = Ctx.expand_type_syn ctx ty in
-        if Ctx.type_contains_subrange ctx ty then (
+        let has_subrange = Ctx.type_contains_subrange ctx ty in
+        let has_ref_type = Ctx.type_contains_ref ctx ty in
+        if has_subrange || has_ref_type then (
+          let ctx = Ctx.add_ty ctx i ty in
           let range_exprs =
-            let ctx = Ctx.add_ty ctx i ty in
-            AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
+            if has_subrange then
+              AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
+            else []
+          in
+          let ref_type_exprs =
+            if has_ref_type then
+              AN.mk_ref_type_expr ctx (A.Ident(p, i)) ty
+            else []
           in
           List.map (fun expr ->
             let c_expr = compile_ast_expr cstate ctx [] map expr in
             X.max_binding c_expr |> snd
-          ) range_exprs @ cstate.global_constraints
+          ) (range_exprs @ ref_type_exprs) @ cstate.global_constraints
         )
         else cstate.global_constraints
       in

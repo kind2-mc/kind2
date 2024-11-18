@@ -88,6 +88,11 @@ val mk_range_expr : TypeCheckerContext.tc_context ->
   LustreAst.expr ->
   (LustreAst.expr * bool) list
 
+val mk_ref_type_expr : TypeCheckerContext.tc_context ->
+  LustreAst.expr ->
+  LustreAst.lustre_type ->
+  LustreAst.expr list
+
 val mk_enum_range_expr : TypeCheckerContext.tc_context ->
   HString.t option ->
   LustreAst.lustre_type ->

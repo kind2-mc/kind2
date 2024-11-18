@@ -584,42 +584,42 @@ let mk_fresh_subrange_constraint source info pos node_id constrained_name expr_t
   in
   List.fold_left union (empty ()) gids
 
-let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> source -> A.lustre_type -> (source * A.expr) list
- = fun ctx id source ty -> 
+let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> A.lustre_type -> A.expr list
+ = fun ctx id ty ->
   let ty = Ctx.expand_type_syn ctx ty in
   match ty with 
   | A.RefinementType (_, (_, id2, _), expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
     let expr = AH.substitute_naive id2 id expr in
-    [(source, expr)]
+    [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
-      mk_ref_type_expr ctx (A.TupleProject(pos, id, i)) source ty
+      mk_ref_type_expr ctx (A.TupleProject(pos, id, i)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
       let expr = A.RecordProject(p, id, id2) in
-      mk_ref_type_expr ctx expr source ty
+      mk_ref_type_expr ctx expr ty
     ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
     let pos = AH.pos_of_expr id in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs_sources = mk_ref_type_expr ctx (A.ArrayIndex(pos, id, Ident(pos, dummy_index))) source ty in 
-    List.map (fun (source, expr) -> 
+    let exprs = mk_ref_type_expr ctx (A.ArrayIndex(pos, id, Ident(pos, dummy_index))) ty in
+    List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
       in 
       let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
-      source, A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
-    ) exprs_sources
+      A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
+    ) exprs
   | _ -> []
 
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
-  let ref_type_exprs = mk_ref_type_expr info.context id source expr_type in
-  let gids = List.map (fun (source, ref_type_expr) ->
+  let ref_type_exprs = mk_ref_type_expr info.context id expr_type in
+  let gids = List.map (fun ref_type_expr ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars ref_type_expr in
     let prefix = HString.mk_hstring (string_of_int !i) in
@@ -1758,7 +1758,7 @@ and normalize_expr ?guard info node_id map =
           let expr = A.Ident(dpos, id) in
           let range_exprs =
             List.map fst (mk_enum_range_expr info.context (Some node_id) ty expr) @
-            List.map snd (mk_ref_type_expr info.context expr Local ty)
+            (mk_ref_type_expr info.context expr ty)
           in
           range_exprs :: acc
         )
