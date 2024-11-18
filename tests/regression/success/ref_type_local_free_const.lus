@@ -7,9 +7,8 @@ type R1 = subtype { r: R0 | r.x < 10 };
 
 type R2 = subtype { r: R1 | r.y < 20};
 
-const C: R2;
-
 node N() returns ()
+const C: R2;
 let
   check "P1" C.x < 10 and C.y < 20;
 tel
