@@ -17,6 +17,19 @@ structured as follows. Directory
 EOF
 }
 
+# Prints an error taking the lines as argument.
+# Exit with exit code 2.
+function print_error {
+  print_usage
+  echo
+  echo -e "\033[31mError\033[0m:"
+  for line in "$@"; do
+    echo "  $line"
+  done
+  echo
+  exit 2
+}
+
 # Print usage if asked.
 for arg in "$@"; do
   if [[ "$arg" = "-h" || "$arg" = "--help" ]]; then
@@ -50,19 +63,6 @@ falsifiable_dir="falsifiable"
 error_dir="error"
 
 tests_ok="true"
-
-# Prints an error taking the lines as argument.
-# Exit with exit code 2.
-function print_error {
-  print_usage
-  echo
-  echo -e "\033[31mError\033[0m:"
-  for line in "$@"; do
-    echo "  $line"
-  done
-  echo
-  exit 2
-}
 
 # Returns the log file corresponding to a file.
 # Simply appends ".log" at the end of the path.
