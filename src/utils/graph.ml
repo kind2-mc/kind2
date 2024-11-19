@@ -112,9 +112,13 @@ module type S = sig
   (** Gets the immediate children of a vertex, those reachable by one edge *)
 
   val map: (vertex -> vertex) -> t -> t
-  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
-     Caution: The callee function (or the programmer) is supposed to make sure 
-     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+  (** Maps the [vertices] using the argument mapping, the structure should
+      remain intact.
+
+     Caution: The callee function (or the programmer) is supposed to make sure
+     this is an injective mapping to make sure that the graph structure is
+     preserved.
+     *)
 
   val non_target_vertices: t -> vertices
   (** Returns a list of all vertices that have no incoming edge  *)
@@ -337,9 +341,12 @@ module Make (Ord: OrderedType) = struct
     let vs' = VSet.map f vs in
     let es' = ESet.map (map_edge f) es in
     (vs', es')
-  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
-     Caution: The callee function (or the programmer) is supposed to make sure 
-     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+  (** Maps the [vertices] using the argument mapping, the structure should
+      remain intact.
+
+     Caution: The callee function (or the programmer) is supposed to make sure
+     this is an injective mapping to make sure that the graph structure is
+     preserved. *)
 
   exception CyclicGraphException of vertex list
 
