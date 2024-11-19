@@ -47,7 +47,7 @@ fi
 
 
 shift
-k2_args="$@"
+k2_args="$*"
 
 basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
 
@@ -93,7 +93,7 @@ function run_one {
   shift
   expected_code="$1"
   shift
-  full_kind2_cmd="$@ $file_path"
+  full_kind2_cmd="$* $file_path"
   expected_code_str=$(str_of_code "$expected_code")
 
   printf "|   %-40s ... " "$(name_of_path "$file_path")"
@@ -123,7 +123,7 @@ function find_tests {
 function run_in {
   work_dir="$1"
   shift
-  kind2_cmd="$@"
+  kind2_cmd="$*"
   # Falsifiable
   find_cmd=$(find_tests "$work_dir" $falsifiable_dir)
   file_count=$(eval "$find_cmd" | wc -l | tr -d ' ')
