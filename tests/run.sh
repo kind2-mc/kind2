@@ -45,13 +45,11 @@ if [ ! -d "$test_dir" ]; then
   print_error "directory \"$test_dir\" does not exist"
 fi
 
-contract_dir="${test_dir}/contracts"
 
 shift
 k2_args="$@"
 
 basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
-contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
 success_code="0"
 falsifiable_code="40"
@@ -161,13 +159,6 @@ function run_all {
   run_in "$test_dir" "$basic_k2_cmd"
   echo "|===| Done."
   echo
-
-  # echo "|===| Running contract tests."
-  # echo -e "| > \033[1m$contract_k2_cmd\033[0m"
-  # echo "|"
-  # run_in "$contract_dir" "$contract_k2_cmd"
-  # echo "|===| Done."
-  # echo
 }
 
 # Running tests.
