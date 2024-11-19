@@ -15,8 +15,8 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directed graph and some graph traversal implementations
-   
+(** A poor person's directed graph and some graph traversal implementations
+
    @author Apoorv Ingle *)
 
 exception IllegalGraphOperation
