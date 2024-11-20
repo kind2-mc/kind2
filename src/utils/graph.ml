@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directed graph and some graph traversal implementations
+(** A poor person's directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
@@ -265,7 +265,7 @@ module Make (Ord: OrderedType) = struct
 
   let add_vertex: t -> vertex -> t
     = fun (vs, es) v -> (VSet.add v vs,  es) 
-  (** add avertex to a graph  *)
+  (** add a vertex to a graph  *)
 
   let mem_vertex: t -> vertex -> bool
     = fun (vs, _) v -> VSet.mem v vs
@@ -382,7 +382,7 @@ module Make (Ord: OrderedType) = struct
     in topological_sort_helper g []
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is based on Kahn's algorithm 
+   *  Implementation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
   let memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices =
