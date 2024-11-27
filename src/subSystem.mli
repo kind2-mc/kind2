@@ -36,11 +36,13 @@ type 'a t = {
 
   source : 'a ;            (** Original input *)
   
-  has_contract : bool ;    (** System can be abstracted to its contract *)
+  opacity : Opacity.t ;    (** Whether the system should be always abstracted by its contract, never, or sometimes *)
+
+  has_contract : bool ;    (** System has a contract *)
 
   has_modes : bool ;       (** System has modes. *)
 
-  has_impl : bool ;        (** System can be refined to its implementation *)
+  has_impl : bool ;        (** System has an implementation *)
 
   subsystems : 'a t list ; (** Sub-systems *)
 }

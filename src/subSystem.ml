@@ -23,13 +23,16 @@ type 'a t = {
   (* Original input. *)
   source : 'a ;
 
-  (* System can be abstracted to its contract. *)
+  (* Whether the system should be always abstracted by its contract, never, or sometimes. *)
+  opacity : Opacity.t ;
+
+  (* System has a contract. *)
   has_contract : bool ;
 
   (* System has modes. *)
   has_modes : bool ;
 
-  (* System can be refined to its implementation. *)
+  (* System has an implementation. *)
   has_impl : bool ;
 
   (* Direct sub-systems. *)
@@ -38,11 +41,13 @@ type 'a t = {
 
 (* Strategy info of a subsystem. *)
 let strategy_info_of {
-  has_contract ; has_modes ; has_impl
+  opacity; has_contract ; has_modes ; has_impl
 } = {
-  Strategy.can_refine = has_impl ;
+  Strategy.opacity ;
   Strategy.has_contract ;
   Strategy.has_modes ;
+  Strategy.has_impl;
+
 }
 
 

@@ -89,6 +89,8 @@ let mk_span start_pos end_pos =
 %token PARAM
     
 (* Tokens for node declarations *)
+%token OPAQUE
+%token TRANSPARENT
 %token IMPORTED
 %token NODE
 %token LPARAMBRACKET
@@ -237,6 +239,10 @@ one_expr: e = expr EOF { e }
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
+opacity_modifier:
+  | OPAQUE { A.Opaque }
+  | TRANSPARENT { A.Transparent }
+  | { A.Default }
 
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl: 
@@ -249,23 +255,23 @@ decl:
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_span $startpos $endpos, e)) 
                       d }
-  | NODE ; decl = node_decl ; def = node_def {
+  | opac = opacity_modifier ; NODE ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.NodeDecl ( mk_span $startpos $endpos, (n, false, p, i, o, l, e, r) )]
+    [A.NodeDecl ( mk_span $startpos $endpos, (n, false, opac, p, i, o, l, e, r) )]
   }
-  | FUNCTION ; decl = node_decl ; def = node_def {
+  | opac = opacity_modifier ; FUNCTION ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos $endpos, (n, false, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_span $startpos $endpos, (n, false, opac, p, i, o, l, e, r))]
   }
-  | NODE ; IMPORTED ; decl = node_decl {
+  | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.NodeDecl ( mk_span $startpos $endpos, (n, true, p, i, o, [], [], r) )]
+    [A.NodeDecl ( mk_span $startpos $endpos, (n, true, opac, p, i, o, [], [], r) )]
   }
-  | FUNCTION ; IMPORTED ; decl = node_decl {
+  | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos $endpos, (n, true, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_span $startpos $endpos, (n, true, opac, p, i, o, [], [], r))]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
@@ -579,7 +585,7 @@ contract_spec:
 
 (* A node declaration as an instance of a parameterized node *)
 node_param_inst: 
-  | NODE; 
+  | opacity_modifier ; NODE;
     n = ident; 
     EQUALS;
     s = ident; 

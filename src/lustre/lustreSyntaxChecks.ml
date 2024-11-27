@@ -67,6 +67,8 @@ type error_kind = Unknown of string
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
   | IllegalClockExprInActivate of LustreAst.expr
+  | OpaqueWithoutContract of LustreAst.ident
+  | TransparentWithoutBody of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -119,6 +121,8 @@ let error_message kind = match kind with
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
+  | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
+  | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -286,9 +290,9 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (i, _, _, _, _, _, _, _)) ->
+    | NodeDecl (_, (i, _, _, _, _, _, _, _, _)) ->
       ctx_add_node acc i ()
-    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> 
+    | FuncDecl (_, (i, _, _, _, _, _, _, _, _)) ->
       ctx_add_func acc i ()
     | _ -> acc
   in
@@ -619,6 +623,11 @@ let rec expr_only_supported_in_merge observer expr =
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
 
+let check_opacity pos node_id contract is_ext = function
+  | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
+  | Transparent when is_ext -> syntax_error pos (TransparentWithoutBody node_id)
+  | _ -> Ok ()
+
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
   let* warnings_decls = Res.seq (List.map (check_declaration ctx) ast) in 
@@ -701,11 +710,12 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
-and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
+and check_node_decl ctx span (id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let decl = LA.NodeDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contract))
+    (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
-  (locals_exactly_one_definition locals items)
+  check_opacity span.start_pos id contract ext opac
+  >> (locals_exactly_one_definition locals items)
   >> (outputs_at_most_one_definition outputs items)
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
@@ -725,13 +735,13 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   items) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
-and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
+and check_func_decl ctx span (id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
   in
   let decl = LA.FuncDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contract))
+    (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_calls_to_node ctx e)
@@ -744,7 +754,8 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     let* warnings2 = (no_temporal_operator "function contract" e) in 
     Ok (warnings1 @ warnings2)
   in
-  (Res.seq_ (List.map no_reachability_modifiers items))
+  check_opacity span.start_pos id contract ext opac
+  >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in

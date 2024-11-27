@@ -296,10 +296,10 @@ let pp_print_generated_identifiers ppf gids =
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
-  | A.NodeDecl (_, (id, _, _, inputs, _, _, _, _)) ->
+  | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     StringMap.add id is_consts map
-  | FuncDecl (_, (id, _, _, inputs, _, _, _, _)) ->
+  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     StringMap.add id is_consts map
   | _ -> map
@@ -1134,7 +1134,7 @@ and normalize_ghost_declaration info node_id map = function
     FreeConst (pos, id, ty), map, warnings
 
 and normalize_node info map
-    (node_id, is_extern, params, inputs, outputs, locals, items, contract) =
+    (node_id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
@@ -1250,7 +1250,7 @@ and normalize_node info map
                              gids4; gids5; gids7; gids6_8; gids9; gids10] in
   let old_gids, warnings6 = normalize_gid_equations info map node_id in
   let map = StringMap.add node_id (union old_gids new_gids) map in
-  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
+  (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
   map, 
   List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 @ warnings6
 

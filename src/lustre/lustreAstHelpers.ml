@@ -1226,7 +1226,7 @@ let get_last_node_name: declaration list -> ident option
   let rec get_first_node_name: declaration list -> ident option =
     function
     | [] -> None
-    | NodeDecl (_, (n, _, _, _, _, _, _, _)) :: _ -> Some n
+    | NodeDecl (_, (n, _, _, _, _, _, _, _, _)) :: _ -> Some n
     | _ :: rest -> get_first_node_name rest
   in get_first_node_name (List.rev ds)   
 
@@ -1238,7 +1238,7 @@ let rec remove_node_in_declarations:
   fun n pres ->
   function
   | [] -> None
-  | (NodeDecl (_, (n', _, _, _, _, _, _, _)) as mn) :: rest ->
+  | (NodeDecl (_, (n', _, _, _, _, _, _, _, _)) as mn) :: rest ->
      if HString.compare n' n = 0
      then Some (mn, pres @ rest)
      else remove_node_in_declarations n (pres @ [mn]) rest 

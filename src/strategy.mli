@@ -27,8 +27,9 @@ module A = Analysis
 
 (** Information used by the strategy module. *)
 type info = {
-  can_refine: bool ;   (** Is the system refineable? ([extern] for lustre nodes.) *)
+  opacity: Opacity.t ; (** Whether the node should be always abstracted by its contract, never, or sometimes *)
   has_contract: bool ; (** Does the system have a contract? *)
+  has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
 }
 

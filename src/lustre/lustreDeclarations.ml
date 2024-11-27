@@ -2105,7 +2105,7 @@ and declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  {A.start_pos = pos}, (i, ext, [], inputs, outputs, locals, items, contracts)
+  {A.start_pos = pos}, (i, ext, _, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2185,7 +2185,7 @@ and declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  {A.start_pos = pos}, (i, ext, [], inputs, outputs, locals, items, contracts)
+  {A.start_pos = pos}, (i, ext, _, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)

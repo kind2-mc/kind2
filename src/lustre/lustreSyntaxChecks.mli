@@ -50,6 +50,8 @@ type error_kind = Unknown of string
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
   | IllegalClockExprInActivate of LustreAst.expr
+  | OpaqueWithoutContract of LustreAst.ident
+  | TransparentWithoutBody of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

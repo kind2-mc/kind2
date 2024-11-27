@@ -137,6 +137,7 @@ type equation = equation_lhs * E.t
 (* A contract. *)
 type contract = C.t
 
+
 (* A Lustre node *)
 type t = { 
 
@@ -145,6 +146,9 @@ type t = {
 
   (* Is the node extern? *)
   is_extern: bool;
+
+  (* Whether the node should be always abstracted by its contract, never, or sometimes *)
+  opacity: Opacity.t;
 
   (* Node type arguments *)
   ty_args: LustreAst.lustre_type list;
@@ -211,6 +215,7 @@ type t = {
 let empty_node name is_extern = {
   name ;
   is_extern ;
+  opacity = Translucent;
   ty_args = [];
   instance = 
     StateVar.mk_state_var
@@ -1139,6 +1144,8 @@ let rec subsystem_of_nodes' nodes accum = function
         (* Scope of the system from node name *)
         let scope = [I.string_of_ident false top] in
 
+        let opacity = node.opacity in
+
         (* Does node have contracts? *)
         let has_contract = has_effective_contract node in
 
@@ -1153,6 +1160,7 @@ let rec subsystem_of_nodes' nodes accum = function
 
           { SubSystem.scope;
             SubSystem.source = node;
+            SubSystem.opacity;
             SubSystem.has_contract;
             SubSystem.has_modes;
             SubSystem.has_impl;

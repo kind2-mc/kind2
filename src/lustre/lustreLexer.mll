@@ -247,6 +247,8 @@ let keyword_table = mk_hashtbl [
   "param", PARAM ;
   
   (* Node / function declaration *)
+  "transparent", TRANSPARENT ;
+  "opaque", OPAQUE ;
   "imported", IMPORTED ;
   "node", NODE ;
   "function", FUNCTION ;

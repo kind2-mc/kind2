@@ -117,14 +117,14 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
     ctx, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
-    let span, is_function, is_contract, ext, ips, ops, locs, nis, c = 
+    let span, is_function, is_contract, ext, opac, ips, ops, locs, nis, c =
       match GI.StringMap.find nname node_decls_map with
-      | (A.FuncDecl (span, (_, ext, _, ips, ops, locs, nis, c)), _) -> 
-        span, true, false, ext, ips, ops, locs, nis, c 
-      | (A.NodeDecl (span, (_, ext, __FUNCTION__, ips, ops, locs, nis, c)), _) -> 
-        span, false, false, ext, ips, ops, locs, nis, c
-      | (A.ContractNodeDecl (span, (_, _, ips, ops, c)), _) -> 
-        span, false, true, false, ips, ops, [], [], Some c
+      | (A.FuncDecl (span, (_, ext, opac, _, ips, ops, locs, nis, c)), _) ->
+        span, true, false, ext, opac, ips, ops, locs, nis, c
+      | (A.NodeDecl (span, (_, ext, opac, __FUNCTION__, ips, ops, locs, nis, c)), _) ->
+        span, false, false, ext, opac, ips, ops, locs, nis, c
+      | (A.ContractNodeDecl (span, (_, _, ips, ops, c)), _) ->
+        span, false, true, false, A.Default, ips, ops, [], [], Some c
       | _ -> assert false
     in
     let nis = List.filter (fun ni -> match ni with 
@@ -171,7 +171,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
         let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
-        A.FuncDecl (span, (pnname, ext, ps, ips, ops, locs, nis, c))
+        A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
       else if is_contract then 
         let c = Option.get c in
         let ctx = Ctx.add_ty_vars_contract ctx pnname ps in
@@ -187,7 +187,7 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
         let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
-        NodeDecl (span, (pnname, ext, ps, ips, ops, locs, nis, c))
+        NodeDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
     in
 
     (* Recursively create new instantiations (this node could use the given polymorphic 
@@ -473,7 +473,7 @@ and gen_poly_decls_ci
 and gen_poly_decls_decls
 = fun ctx node_decls_map decls -> 
   let ctx, decls, node_decls_map = List.fold_left (fun (ctx, acc_decls, acc_node_decls_map) decl -> match decl with
-  | A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+  | A.FuncDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
@@ -493,17 +493,17 @@ and gen_poly_decls_decls
     ) (ctx, [], decls, node_decls_map) nis in (
     match c with 
     | None -> 
-      let decl =  A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) in
+      let decl =  A.FuncDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, c)) in
       ctx, decl :: decls, node_decls_map
     | Some (p3, c) ->
       let ctx, c, decls, node_decls_map = List.fold_left (fun (ctx, acc_cis, acc_decls, acc_node_decls_map) ip -> 
         let ctx, ci, decls, node_decls_map = gen_poly_decls_ci ctx (Some nname) acc_node_decls_map ip in 
         ctx, acc_cis @ [ci], decls @ acc_decls, node_decls_map
       ) (ctx, [], decls, node_decls_map) c in 
-      let decl = A.FuncDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
+      let decl = A.FuncDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, Some (p3, c))) in
       ctx, decl :: decls, node_decls_map
     )
-  | NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) ->
+  | NodeDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx nname ps in
     let ctx, ips, decls, node_decls_map = List.fold_left (fun (ctx, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, ip, decls, node_decls_map = gen_poly_decls_ip ctx (Some nname) acc_node_decls_map ip in 
@@ -523,14 +523,14 @@ and gen_poly_decls_decls
     ) (ctx, [], decls, node_decls_map) nis in (
     match c with 
       | None -> 
-        let decl =  A.NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, c)) in
+        let decl =  A.NodeDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, c)) in
         ctx, decl :: decls, node_decls_map
       | Some (p3, c) ->
         let ctx, c, decls, node_decls_map = List.fold_left (fun (ctx, acc_cis, acc_decls, acc_node_decls_map) ip -> 
           let ctx, ci, decls, node_decls_map = gen_poly_decls_ci ctx (Some nname) acc_node_decls_map ip in 
           ctx, acc_cis @ [ci], decls @ acc_decls, node_decls_map
         ) (ctx, [], decls, node_decls_map) c in 
-        let decl = A.NodeDecl (p, (nname, ext, ps, ips, ops, locs, nis, Some (p3, c))) in
+        let decl = A.NodeDecl (p, (nname, ext, opac, ps, ips, ops, locs, nis, Some (p3, c))) in
         ctx, decl :: decls, node_decls_map
     )
   | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
@@ -560,8 +560,8 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> A.declaration list -> Ctx.t
   (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations 
      created so far) *)
   let node_decls_map = List.fold_left (fun acc decl -> match decl with 
-  | (A.NodeDecl (_, (id, _, _, _, _, _, _, _)) as decl)
-  | (FuncDecl (_, (id, _, _, _, _, _, _, _)) as decl)  
+  | (A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
+  | (FuncDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (ContractNodeDecl (_, (id, _, _, _, _)) as decl) -> GI.StringMap.add id (decl, []) acc
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> acc
   ) GI.StringMap.empty decls 
