@@ -234,7 +234,7 @@ and interpret_contract_node ty_ctx (id, ps, ins, outs, contract) =
   let ty_ctx = TC.add_io_node_ctx ty_ctx id ps ins outs in
   interpret_contract id empty_context ty_ctx contract
 
-and interpret_node ty_ctx gids (id, _, ps, ins, outs, locals, items, contract) =
+and interpret_node ty_ctx gids (id, _, _, ps, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
   let ty_ctx = TC.add_io_node_ctx ty_ctx id ps ins outs in
   let ctx = IMap.empty in

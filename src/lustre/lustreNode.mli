@@ -156,6 +156,8 @@ type t = {
   is_extern : bool;
   (** Is the node extern? *)
 
+  opacity: Opacity.t;
+  (** Whether the node should be always abstracted by its contract, never, or sometimes *)
   
   ty_args: LustreAst.lustre_type list;
   (** Node type arguments (if the node was created during monomorphization) *)

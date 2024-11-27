@@ -1426,11 +1426,17 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids_map is_function cstate ctx i ext params inputs outputs locals items contract =
+and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs outputs locals items contract =
   let gids = StringMap.find i gids_map in
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
   let is_extern = ext in
+  let opacity =
+    match opac with
+    | A.Opaque -> Opacity.Opaque
+    | A.Transparent -> Opacity.Transparent
+    | A.Default -> Opacity.Translucent
+  in
   let instance =
     StateVar.mk_state_var
       ~is_const:true
@@ -2313,6 +2319,7 @@ and compile_node_decl gids_map is_function cstate ctx i ext params inputs output
 
   let (node:N.t) = { name;
     is_extern;
+    opacity;
     ty_args;
     instance;
     init_flag;
@@ -2429,10 +2436,10 @@ and compile_declaration: compiler_state -> GI.t StringMap.t -> Ctx.tc_context ->
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
-  | A.FuncDecl (_, (i, ext, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids true cstate ctx i ext params inputs outputs locals items contract
-  | A.NodeDecl (_, (i, ext, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids false cstate ctx i ext params inputs outputs locals items contract
+  | A.FuncDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    compile_node_decl gids true opac cstate ctx i ext params inputs outputs locals items contract
+  | A.NodeDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    compile_node_decl gids false opac cstate ctx i ext params inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)

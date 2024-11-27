@@ -188,7 +188,7 @@ let rec fmt_declarations fmt = function
       " pp_print_position spos
       |> failwith
 
-    | Ast.NodeDecl (_, (wan, _, two,tri,far,fiv,six,contract)) -> (
+    | Ast.NodeDecl (_, (wan, _, _, two,tri,far,fiv,six,contract)) -> (
       let contract_info = match contract with
         | None -> ([],[],[],[])
         | Some (_, c) -> collect_contracts ([],[],[],[]) c

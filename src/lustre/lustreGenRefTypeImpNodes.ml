@@ -29,7 +29,7 @@ let unwrap = function
   | Error _ -> assert false
 
 let node_decl_to_contracts 
-= fun pos ctx (id, extern, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract' = List.filter_map (fun ci -> 
     match ci with 
@@ -62,11 +62,11 @@ let node_decl_to_contracts
   (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
-    let environment = gen_node_id, extern, params, inputs2, outputs2, [], node_items, contract' in
+    let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then [environment] else []
   else
-    let environment = gen_node_id, extern', params, inputs2, outputs2, [], node_items, contract' in 
-    let contract = (gen_node_id2, extern', params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
+    let environment = gen_node_id, extern', A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
+    let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then [environment; contract] else [contract]
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
@@ -80,7 +80,7 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t li
   let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
-  Some (NodeDecl (span, (gen_node_id, true, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
+  Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
 let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list 
 = fun ctx decls -> 
@@ -94,19 +94,19 @@ let gen_imp_nodes:  Ctx.tc_context -> A.declaration list -> A.declaration list
       | None -> acc)
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> acc
-    | A.NodeDecl (span, ((p, e, ps, ips, ops, locs, _, c) as node_decl)) -> 
+    | A.NodeDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
       (* Add main annotations to imported nodes *)
       let node_decl = 
-        if e then p, e, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c 
+        if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else node_decl 
       in
       let decls = node_decl_to_contracts span.start_pos ctx node_decl in
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
       A.NodeDecl(span, node_decl) :: decls @ acc
-    | A.FuncDecl (span, ((p, e, ps, ips, ops, locs, _, c) as func_decl)) -> 
+    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
       (* Add main annotations to imported functions *)
       let func_decl = 
-        if e then p, e, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c 
+        if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
       let decls = node_decl_to_contracts span.start_pos ctx func_decl in

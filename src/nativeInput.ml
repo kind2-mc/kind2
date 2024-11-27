@@ -430,6 +430,7 @@ let node_def_of_sexpr = function
 let rec mk_subsys_structure sys =
   { SubSystem.scope = TransSys.scope_of_trans_sys sys;
     source = sys;
+    opacity = Opacity.Transparent;
     has_contract = false;
     has_impl = true;
     has_modes = false;

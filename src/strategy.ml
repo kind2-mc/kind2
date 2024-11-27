@@ -17,11 +17,13 @@
 *)
 
 module A = Analysis
+module O = Opacity
 
 (** Information used by the strategy module. *)
 type info = {
-  can_refine: bool ;   (** Is the system refineable? ([extern] for lustre nodes.) *)
+  opacity: Opacity.t ; (** Whether the node should be always abstracted by its contract, never, or sometimes *)
   has_contract: bool ; (** Does the system have a contract? *)
+  has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
 }
 
@@ -48,30 +50,35 @@ let get_reachability_abstraction results subs_of_scope result =
      not abstracted systems to the input. The function looks at
      the subsystems previously appended to the input recursively. *)
   let rec loop refined abstraction = function
-  | ( (system, _) :: tail ) :: lower -> (
+  | ( (system, { opacity } ) :: tail ) :: lower -> (
     (* Is system currently abstracted? *)
     if Scope.Map.find system abstraction then
       (* Is system refineable? *)
-      try match A.results_find system results with
-      | ({ A.param } as result) :: _ ->
-        (* It is if everything was proved in the last analysis. *)
-        if A.result_is_all_inv_proved result then (
-          let info = A.info_of_param param in
-          let sub = info.A.top in
-          (* System is now concrete. *)
-          let abstraction = Scope.Map.add sub false abstraction in
-          (* Updating with the abstraction used to prove [sub]. *)
-          let abstraction =
-            merge_abstractions abstraction info.A.abstraction_map
-          in
-          (tail :: lower) @ [ subs_of_scope system ]
-          |> loop true abstraction
-        )
-        (* Otherwise keep going. *)
-        else tail :: lower |> loop refined abstraction
-      | [] -> failwith "unreachable"
-      with Not_found -> (* Case of imported nodes (they have no result) *)
+      if (opacity <> Opaque) then (
+        try match A.results_find system results with
+        | ({ A.param } as result) :: _ ->
+          (* It is if everything was proved in the last analysis. *)
+          if A.result_is_all_inv_proved result then (
+            let info = A.info_of_param param in
+            let sub = info.A.top in
+            (* System is now concrete. *)
+            let abstraction = Scope.Map.add sub false abstraction in
+            (* Updating with the abstraction used to prove [sub]. *)
+            let abstraction =
+              merge_abstractions abstraction info.A.abstraction_map
+            in
+            (tail :: lower) @ [ subs_of_scope system ]
+            |> loop true abstraction
+          )
+          (* Otherwise keep going. *)
+          else tail :: lower |> loop refined abstraction
+        | [] -> failwith "unreachable"
+        with Not_found -> (* Case of imported nodes (they have no result) *)
+          tail :: lower |> loop refined abstraction
+      )
+      else (
         tail :: lower |> loop refined abstraction
+      )
     else (* System is not abstracted, remembering its subsystems and
             looping. *)
       (tail :: lower) @ [ subs_of_scope system ]
@@ -119,19 +126,24 @@ let get_refinement_abstraction results subs_of_scope result =
        looks at the subsystems previously appended to the input
        recursively. *)
     let rec loop = function
-      | ( (candidate, _) :: tail ) :: lower -> (
+      | ( (candidate, { opacity }) :: tail ) :: lower -> (
         (* Is candidate currently abstracted? *)
         if Scope.Map.find candidate abstraction then
           (* Is candidate refineable? *)
-          try match A.results_find candidate results with
-          | result :: _ ->
-            (* It is if everything was proved in the last analysis. *)
-            if A.result_is_all_inv_proved result then Some result
-            (* Otherwise keep going. *)
-            else tail :: lower |> loop
-          | [] -> failwith "unreachable"
-          with Not_found -> (* Case of imported nodes (they have no result) *)
+          if (opacity <> O.Opaque) then (
+            try match A.results_find candidate results with
+            | result :: _ ->
+              (* It is if everything was proved in the last analysis. *)
+              if A.result_is_all_inv_proved result then Some result
+              (* Otherwise keep going. *)
+              else tail :: lower |> loop
+            | [] -> failwith "unreachable"
+            with Not_found -> (* Case of imported nodes (they have no result) *)
+              tail :: lower |> loop
+          )
+          else (
             tail :: lower |> loop
+          )
         else (* Candidate is not abstracted, remembering its subsystems and
                 looping. *)
           (tail :: lower) @ [ subs_of_scope candidate ] |> loop
@@ -157,21 +169,23 @@ let get_refinement_abstraction results subs_of_scope result =
       Some (sub, abstraction)
   )
 
-let is_candidate_for_analysis { can_refine ; has_modes } =
-  (has_modes && Flags.Contracts.check_modes ()) || can_refine
+let is_candidate_for_analysis { has_impl ; has_modes } =
+  (has_modes && Flags.Contracts.check_modes ()) || has_impl
 
 (* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of ass _results all_nodes scope =
 
   let rec loop abstraction = function
-    | (sys, { can_refine ; has_contract ; has_modes }) :: tail -> (
+    | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
       (* Can/should we abstract this system? *)
       let is_abstract =
         if sys = scope then 
           has_modes && (Flags.Contracts.check_modes ())
         else
-          (not can_refine) || (
-            has_contract && (Flags.Contracts.compositional ())
+          (not has_impl) || (has_contract &&
+            (opacity=O.Opaque ||
+             (Flags.Contracts.compositional() && opacity<>O.Transparent)
+            )
           )
       in
       (* Format.printf "%a is abstract: %b@.@." Scope.pp_print_scope sys is_abstract ; *)
@@ -263,7 +277,7 @@ let next_monolithic_analysis results main_syss = function
     "
   | all_syss -> (
     
-    let check_sys ( top, { can_refine } ) =
+    let check_sys ( top, { has_impl } ) =
       try (
         match A.results_find top results with
         | [] -> failwith "unreachable"
@@ -271,7 +285,7 @@ let next_monolithic_analysis results main_syss = function
           A.param = A.ContractCheck info ;
           A.contract_valid ;
         } ] when Flags.Contracts.check_implem () ->
-          if can_refine then
+          if has_impl then
             (* Invariants generated during ContractCheck analysis are discarded.
               They were generated assuming the contract! *)
             let ass = A.assumptions_empty in
@@ -329,13 +343,13 @@ let next_modular_analysis results subs_of_scope = function
        Returns the params of the next analysis for that system if any, calls
        [go_up] on the systems before that system otherwise. *)
     let rec go_down prefix = function
-      | (sys, { can_refine }) :: tail -> (
+      | (sys, { has_impl }) :: tail -> (
         try (
           (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
           | _ when Flags.Contracts.check_implem () |> not ||
-              not can_refine -> go_up prefix
+              not has_impl -> go_up prefix
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;

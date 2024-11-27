@@ -162,6 +162,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/pre_of_quantified_var.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
     | _ -> false);
+  mk_test "test opaque node without a contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/opaque_no_contract.lus" with
+    | Error (`LustreSyntaxChecksError (_, OpaqueWithoutContract _)) -> true
+    | _ -> false);
+  mk_test "test transparent node without a body" (fun () ->
+    match load_file "./lustreSyntaxChecks/transparent_no_body.lus" with
+    | Error (`LustreSyntaxChecksError (_, TransparentWithoutBody _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

@@ -285,10 +285,16 @@ type contract = position * (contract_node_equation list)
   (*   contract_mode list * contract_call list *)
   (* ) list *)
 
+type opacity =
+  | Default
+  | Opaque
+  | Transparent
+
 (** Declaration of a node or function as a tuple of
 
     - its identifier,
     - a flag, true if the node / function is extern
+    - its opacity
     - its type parameters,
     - the list of its inputs,
     - the list of its outputs,
@@ -298,6 +304,7 @@ type contract = position * (contract_node_equation list)
 type node_decl =
   ident
   * bool
+  * opacity
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list

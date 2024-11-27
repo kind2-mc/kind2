@@ -274,6 +274,10 @@ type contract_node_equation =
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
 
+type opacity =
+  | Default
+  | Opaque
+  | Transparent
 
 (* A node or function declaration
 
@@ -281,6 +285,7 @@ Boolean flag indicates whether node / function is extern. *)
 type node_decl =
   ident
   * bool
+  * opacity
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -1146,17 +1151,22 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
 
 
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, (n, ext, p, i, o, l, e, r)
+  _, (n, ext, opac, p, i, o, l, e, r)
 ) =
     if e = [] then
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s %a%t@ \
+        "@[<hv>@[<hv 2>%s%s%s %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
         %a@?@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
+        (match opac with
+         | Default -> ""
+         | Opaque -> "opaque "
+         | Transparent -> "transparent "
+        )
         pp_print_ident n 
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
