@@ -258,20 +258,20 @@ decl:
   | opac = opacity_modifier ; NODE ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.NodeDecl ( mk_span $startpos $endpos, (n, false, opac, p, i, o, l, e, r) )]
+    [A.NodeDecl ( mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r) )]
   }
   | opac = opacity_modifier ; FUNCTION ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos $endpos, (n, false, opac, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r))]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.NodeDecl ( mk_span $startpos $endpos, (n, true, opac, p, i, o, [], [], r) )]
+    [A.NodeDecl ( mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r) )]
   }
   | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos $endpos, (n, true, opac, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r))]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
