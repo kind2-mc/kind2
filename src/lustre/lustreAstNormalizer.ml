@@ -788,11 +788,12 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
             in
             match kind with
             | Exists -> (
-              let c = mk_range pos bv in
+              let rng = mk_range pos bv in
+              let bound_ty = A.RefinementType (pos, (pos, bv, A.Int pos), rng) in
               StringSet.add i vars,
               StringMap.add bv hist_varid map,
-              (pos, bv, A.Int pos) :: idents,
-              c :: constrs
+              (pos, bv, bound_ty) :: idents,
+              constrs
             )
             | Forall -> (
               let idx_varid =
@@ -800,18 +801,19 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
                   (Format.asprintf "_idx_%a" HString.pp_print_hstring bv)
               in
               let c =
-                let e' =
-                  let eq =
-                    let lhs = A.Ident(pos, bv) in
-                    let rhs =
-                      A.ArrayIndex(pos,
-                        Ident(pos, hist_varid), Ident(pos, idx_varid))
-                    in
-                    A.CompOp(pos, A.Eq, lhs, rhs)
-                  in
-                  A.BinaryOp (pos, A.And, mk_range pos idx_varid, eq)
+                let rng = mk_range pos idx_varid in
+                let bound_ty =
+                  A.RefinementType (pos, (pos, idx_varid, A.Int pos), rng)
                 in
-                A.Quantifier (pos, A.Exists, [(pos, idx_varid, A.Int pos)], e')
+                let eq =
+                  let lhs = A.Ident(pos, bv) in
+                  let rhs =
+                    A.ArrayIndex(pos,
+                      Ident(pos, hist_varid), Ident(pos, idx_varid))
+                  in
+                  A.CompOp(pos, A.Eq, lhs, rhs)
+                in
+                A.Quantifier (pos, A.Exists, [(pos, idx_varid, bound_ty)], eq)
               in
               let base_ty = Ctx.lookup_ty ctx i |> get in
               StringSet.add i vars, map,

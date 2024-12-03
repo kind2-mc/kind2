@@ -841,7 +841,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   | LA.Quantifier (_, _, qs, e) ->
     let* warnings1 =
       R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname true ty) qs)
+        check_type_well_formed ctx Local nname false ty) qs)
     in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
