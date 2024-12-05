@@ -314,6 +314,15 @@ let rec infer_const_attr ctx exp =
   | LA.Ident (_, i) ->
     let res =
       if member_val ctx i then R.ok ()
+      (* An expression that includes an internal step-counter variable is
+         also considered a constant expression. Currently, the only case where
+         such a variable may be included is when the expression defines
+         the range of an existentially quantified index for a history variable
+         within a refinement type. This workaround will no longer be necessary if
+         we decide to allow quantified bounds with non-constant refinement
+         type expressions.
+      *)
+      else if HString.equal i GeneratedIdentifiers.ctr_id then R.ok ()
       else error exp ("variable '" ^ HString.string_of_hstring i ^ "'") 
     in
     [res]
@@ -841,7 +850,7 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   | LA.Quantifier (_, _, qs, e) ->
     let* warnings1 =
       R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname false ty) qs)
+        check_type_well_formed ctx Local nname true ty) qs)
     in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
