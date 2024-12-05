@@ -39,6 +39,7 @@ type t = {
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
+  asserts : (Lib.position * LustreAst.expr) list;
   contract_calls :
     (Lib.position
     * (Lib.position * HString.t) list (* contract scope *)
@@ -52,7 +53,8 @@ type t = {
     * LustreAst.expr (* restart expression *)
     * HString.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
+    * (LustreAst.expr list option) (* node argument defaults *)
+    * bool) (* Was call inlined? *)
     list;
   subrange_constraints : (source
     * (Lib.position * HString.t) list (* contract scope  *)

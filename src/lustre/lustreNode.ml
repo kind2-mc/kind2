@@ -124,6 +124,8 @@ type node_call = {
       [merge] operator.*)
   call_defaults : E.t D.t option;
 
+  (* Whether this call was inlined or not *)
+  call_inlined : bool;
 }
 
 

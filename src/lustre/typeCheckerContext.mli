@@ -289,6 +289,9 @@ val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
 val type_contains_abstract : tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an abstract type (including polymorphic type variable) or if it is an abstract type *)
 
+val type_contains_array: tc_context -> tc_type -> bool
+(** Returns true if the lustre type expression contains an array *)
+
 val ty_vars_of_expr: tc_context -> LA.index -> LA.expr -> SI.t
 (** [ty_vars_of_type ctx node_name e] returns all type variable identifiers that appear in the expression [e] *)
 

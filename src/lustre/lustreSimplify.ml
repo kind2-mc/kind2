@@ -1911,7 +1911,8 @@ and eval_node_call
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
           N.call_outputs = output_state_vars;
-          N.call_defaults = defaults } 
+          N.call_defaults = defaults;
+          N.call_inlined = false }
       in
       (* Add node call to context *)
       let ctx = C.add_node_call ctx pos node_call in

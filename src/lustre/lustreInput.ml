@@ -48,6 +48,7 @@ module LDN = LustreDesugarAnyOps
 module LFR = LustreFlattenRefinementTypes
 module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
+module LUF = LustreUserFunctions
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -208,16 +209,24 @@ let type_check declarations =
     let const_inlined_type_and_consts = LFR.flatten_ref_types inlined_global_ctx const_inlined_type_and_consts in
     let const_inlined_nodes_and_contracts = LFR.flatten_ref_types inlined_global_ctx const_inlined_nodes_and_contracts in
 
-    (* Step 18. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings5) = 
-      LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
+    (* Step 18. Check no quantified variable in argument of non-inlinable function *)
+    let inlinable_funcs =
+      LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts
+    in
+    let* warnings5 =
+      LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlinable_funcs declarations
+    in
+
+    (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)
+    let* (normalized_nodes_and_contracts, gids, warnings6) =
+      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_nodes_and_contracts gids
     in
     
     Res.ok (inlined_global_ctx,
       gids,
       const_inlined_type_and_consts @ normalized_nodes_and_contracts,
       toplevel_nodes,
-      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
+      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6)
     )
   in
   match tc_res with

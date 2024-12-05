@@ -1176,7 +1176,7 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
 
-and compile_node node_scope pos ctx cstate map outputs cond restart ident args defaults =
+and compile_node node_scope pos ctx cstate map outputs cond restart ident args defaults inlined =
   let called_node = N.node_of_name ident cstate.nodes in
   let po_ct = !map.poracle_count in
   map := {!map with poracle_count = po_ct + (List.length called_node.oracles) };
@@ -1260,7 +1260,8 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
     N.call_outputs = outputs;
-    N.call_defaults = defaults
+    N.call_defaults = defaults;
+    N.call_inlined = inlined;
   }
   in node_call
 
@@ -1716,7 +1717,7 @@ and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs o
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, ident, _, _)) ->
+    let over_calls = fun () ((_, var, _, _, ident, _, _, _)) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
@@ -1815,7 +1816,9 @@ and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs o
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
-    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults) ->
+    let over_calls =
+      fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults, inlined)
+    ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
@@ -1856,7 +1859,7 @@ and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs o
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        node_scope pos ctx cstate map outputs cond restart node_id args defaults
+        node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
@@ -1928,6 +1931,17 @@ and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs o
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
+
+  (* ****************************************************************** *)
+  (* Generated assertions                                               *)
+  (* ****************************************************************** *)
+  in let asserts =
+    let op (pos, expr) =
+      let id = extract_normalized expr in
+      let sv = H.find !map.state_var id in
+      (* N.add_state_var_def sv (N.Assertion pos); *)
+      (pos, sv)
+    in asserts @ List.map op gids.GI.asserts
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)

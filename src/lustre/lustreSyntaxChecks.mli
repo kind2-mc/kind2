@@ -76,3 +76,6 @@ val no_mismatched_clock : bool -> LA.expr -> ([> warning ] list, [> error]) resu
 
   Note: type information is needed for this check, causing this check to
   be called in the lustreTypeChecker *)
+
+val no_quant_vars_in_calls_to_non_inlinable_funcs :
+  LA.SI.t -> LA.t -> ([> warning ] list, [> error]) result

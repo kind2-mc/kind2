@@ -102,6 +102,8 @@ type node_call = {
       If the option value is not [None], the keys of the index match
       those in the {!t.outputs} field of the called node. *)
 
+  call_inlined : bool;
+  (** Whether this call was inlined or not *)
 }
 
 
