@@ -39,6 +39,7 @@ type t = {
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
+  asserts : (Lib.position * LustreAst.expr) list;
   contract_calls :
     (Lib.position
     * (Lib.position * HString.t) list (* contract scope *)
@@ -52,7 +53,8 @@ type t = {
     * LustreAst.expr (* restart expression *)
     * HString.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
+    * (LustreAst.expr list option) (* node argument defaults *)
+    * bool) (* Was call inlined? *)
     list;
   subrange_constraints : (source
     * (Lib.position * HString.t) list (* contract scope  *)
@@ -104,6 +106,7 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
+    asserts = ids1.asserts @ ids2.asserts;
     array_constructors = StringMap.merge union_keys
       ids1.array_constructors ids2.array_constructors;
     node_args = ids1.node_args @ ids2.node_args;
@@ -130,6 +133,7 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
   
 let empty () = {
   locals = StringMap.empty;
+  asserts = [];
   array_constructors = StringMap.empty;
   node_args = [];
   oracles = [];

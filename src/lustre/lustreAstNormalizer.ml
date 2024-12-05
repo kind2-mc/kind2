@@ -203,7 +203,8 @@ type info = {
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
-  local_group_projection : int
+  local_group_projection : int;
+  inlinable_funcs : LustreAst.node_decl StringMap.t;
 }
 
 let split3 triples =
@@ -241,16 +242,17 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults, inlined) ->
     Format.fprintf ppf 
-      "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
+      "%a: %a = call(%a,(restart %a every %a)(%a),%a)%s"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
       HString.pp_print_hstring ident
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
-      (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
+      (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
+      (if inlined then " %inlined" else ""))
   in
   let pp_print_source ppf source = Format.fprintf ppf (match source with
     | Local -> "local"
@@ -354,21 +356,39 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in
   eq_lhs, nexpr
 
-let mk_fresh_local force info pos ind_vars expr_type expr =
-  match (LocalCache.find_opt local_cache expr, force) with
-  | Some nexpr, false -> nexpr, empty ()
-  | _ ->
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
-  let nexpr = A.Ident (pos, name) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let gids = { (empty ()) with
-    locals = StringMap.singleton name expr_type;
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+let get_inline_func_expr inlinable_funcs name args =
+  let (_, _, _, _, inputs, _, _, items, _) : A.node_decl =
+    match StringMap.find_opt name inlinable_funcs with
+    | Some nd -> nd
+    | None -> assert false
   in
-  LocalCache.add local_cache expr nexpr;
-  nexpr, gids
+  let var_map =
+    items |> List.fold_left (fun acc item ->
+      match item with
+      | A.Body (Equation (_, StructDef (_, [lhs]), rhs)) -> (
+        match lhs with
+        | A.SingleIdent (_, v) ->
+          (v, AH.apply_subst_in_expr acc rhs) :: acc
+        | ArrayDef _ ->
+          assert false (* rejected earlier in pipeline *)
+        | TupleStructItem _ | TupleSelection _ | FieldSelection _
+        | ArraySliceStructItem _ -> assert false (* unreachable *)
+      )
+      | IfBlock _ | FrameBlock _ ->
+        assert false (* desugared earlier in pipeline *)
+      | Body (Assert _) | AnnotMain _ | AnnotProperty _ ->
+        assert false (* rejected earlier in pipeline *)
+      | A.Body (Equation (_, StructDef (_, _), _)) ->
+        assert false (* rejected earlier in pipeline, should we support it? *)
+    )
+    []
+  in
+  let input_map =
+    List.map2 (fun (_, id, _, _, _) e -> (id, e)) inputs args
+  in
+  match var_map with
+  | (_, e) :: _ -> AH.apply_subst_in_expr input_map e
+  | _ -> assert false
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   i := !i + 1;
@@ -616,6 +636,94 @@ let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> A.lustre_type -> A.expr li
     ) exprs
   | _ -> []
 
+let mk_enum_subrange_reftype_constraints node_id info vars =
+  let enum_subrange_reftype_vars =
+    vars |> List.filter (fun (_, _, ty) ->
+      let ty' = Ctx.expand_type_syn info.context ty in
+      Ctx.type_contains_enum_subrange_reftype info.context ty'
+    )
+  in
+  let constraints =
+    List.fold_left
+      (fun acc (_, id, ty) ->
+        let expr = A.Ident(dpos, id) in
+        let range_exprs =
+          List.map fst (mk_enum_range_expr info.context node_id ty expr) @
+          (mk_ref_type_expr info.context expr ty)
+        in
+        range_exprs :: acc
+      )
+      []
+      enum_subrange_reftype_vars
+    |> List.flatten
+  in
+  match constraints with
+  | [] -> None
+  | c :: cs ->
+    let conj =
+      List.fold_left
+        (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+    in
+    Some conj
+
+let mk_fresh_oracle expr_type expr =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_oracle") in
+  let nexpr = A.Ident (Lib.dummy_pos, name) in
+  let gids = { (empty ()) with
+    oracles = [name, expr_type, expr]; }
+  in nexpr, name, gids
+
+let mk_fresh_local force info pos ind_vars expr_type expr =
+  match (LocalCache.find_opt local_cache expr, force) with
+  | Some nexpr, false -> nexpr, empty ()
+  | _ ->
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
+  let nexpr = A.Ident (pos, name) in
+  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
+  let gids = { (empty ()) with
+    locals = StringMap.singleton name expr_type;
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+  in
+  LocalCache.add local_cache expr nexpr;
+  nexpr, gids
+
+let mk_fresh_frozen_local node_id info pos ind_vars expr_type =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_flocal") in
+  let nexpr = A.Ident (pos, name) in
+  let init, oracle_id, gids1 = mk_fresh_oracle expr_type nexpr in
+  let expr = A.Arrow (pos, init, Pre (pos, nexpr)) in
+  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
+  let constraints =
+    let typed_var = (pos, oracle_id, expr_type) in
+    let info = { info with
+      context = Ctx.add_ty info.context oracle_id expr_type
+    } in
+    (* Assume constraints are constant expressions, and thus, 
+       no normalization is required *)
+    mk_enum_subrange_reftype_constraints (Some node_id) info [typed_var]
+  in
+  let asserts, gids3 =
+    match constraints with
+    | Some c -> (
+      let c_expr, gids3 =
+        mk_fresh_local false info pos ind_vars (A.Bool (dummy_pos)) c
+      in
+      [(pos, c_expr)], gids3
+    )
+    | None -> [], empty ()
+  in
+  let gids2 = { (empty ()) with
+    locals = StringMap.singleton name expr_type;
+    asserts;
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+  in
+  nexpr, name, union (union gids1 gids2) gids3
 
 let mk_fresh_refinement_type_constraint source info pos id expr_type =
   let ref_type_exprs = mk_ref_type_expr info.context id expr_type in
@@ -635,16 +743,7 @@ let mk_fresh_refinement_type_constraint source info pos id expr_type =
   in
   List.fold_left union (empty ()) gids
 
-let mk_fresh_oracle expr_type expr =
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_oracle") in
-  let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let gids = { (empty ()) with
-    oracles = [name, expr_type, expr]; }
-  in nexpr, gids
-
-let mk_fresh_call info id map pos cond restart ty_args args defaults =
+let mk_fresh_call ?(inlined=false) info id map pos cond restart ty_args args defaults =
   let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let has_ty_args = List.length ty_args > 0 in
@@ -664,7 +763,7 @@ let mk_fresh_call info id map pos cond restart ty_args args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, args, defaults) in
+  let call = (pos, name, cond, restart, id, args, defaults, inlined) in
   let gids = { (empty ()) with calls = [call] } in
   if not has_ty_args then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
@@ -970,7 +1069,22 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   r StringMap.empty expr
 
 
-let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
+let get_inlinable_func_decls inlinable_funcs decls =
+  List.fold_left
+    (fun acc decl ->
+     match decl with
+     | A.FuncDecl (_, nd) ->
+       let (id, _, _, _, _, _, _, _, _) = nd in
+       if A.SI.mem id inlinable_funcs then
+         StringMap.add id nd acc
+       else
+         acc
+     | _ -> acc
+    )
+    StringMap.empty
+    decls
+
+let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
@@ -980,7 +1094,8 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
-    local_group_projection = -1 }
+    local_group_projection = -1;
+    inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1747,50 +1862,70 @@ and normalize_expr ?guard info node_id map =
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
-  in let mk_enum_subrange_reftype_constraints info vars =
-    let enum_subrange_reftype_vars =
-      vars |> List.filter (fun (_, _, ty) ->
-        let ty' = Ctx.expand_type_syn info.context ty in
-        Ctx.type_contains_enum_subrange_reftype info.context ty'
-      )
-    in
-    let constraints =
-      List.fold_left
-        (fun acc (_, id, ty) ->
-          let expr = A.Ident(dpos, id) in
-          let range_exprs =
-            List.map fst (mk_enum_range_expr info.context (Some node_id) ty expr) @
-            (mk_ref_type_expr info.context expr ty)
-          in
-          range_exprs :: acc
-        )
-        []
-        enum_subrange_reftype_vars
-      |> List.flatten 
-    in
-    match constraints with
-    | [] -> None
-    | c :: cs ->
-      let conj =
-        List.fold_left
-          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
-      in
-      Some conj
   in
   function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
   | Call (pos, ty_args, id, args) ->
-    let flags = StringMap.find id info.node_is_input_const in
-    let cond = A.Const (Lib.dummy_pos, A.True) in
-    let restart =  A.Const (Lib.dummy_pos, A.False) in
-    let nargs, gids1, warnings = normalize_list
-      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-      (combine_args_with_const info args flags)
+    let is_inlinable = StringMap.mem id info.inlinable_funcs in
+    let info, vmap, gids0 =
+      if is_inlinable then (* Only generate variables if inlinable *)
+        let args_vars =
+          List.fold_left
+            (fun acc e -> A.SI.union acc (AH.vars_without_node_call_ids e))
+            A.SI.empty
+            args
+        in
+        let ivars = info.inductive_variables in
+        List.fold_left
+          (fun (info, vmap, gids) (pos_v, v, ty) ->
+            if A.SI.mem v args_vars then
+              let nexpr, id, gids' =
+                mk_fresh_frozen_local node_id info pos_v ivars ty
+              in
+              let info =
+                let ctx = Ctx.add_ty info.context id ty in
+                { info with context = ctx }
+              in
+              (info, (v, nexpr) :: vmap, union gids gids')
+            else
+              (info, vmap, gids)
+          )
+          (info, [], (empty ()))
+          info.quantified_variables
+      else
+        (info, [], empty())
     in
-    let nexpr, gids2 = mk_fresh_call info id map pos cond restart ty_args nargs None in
-    nexpr, union gids1 gids2, warnings
+    let handle_call inlined args =
+      let flags = StringMap.find id info.node_is_input_const in
+      let cond = A.Const (Lib.dummy_pos, A.True) in
+      let restart =  A.Const (Lib.dummy_pos, A.False) in
+      let nargs, gids1, warnings = normalize_list
+        (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
+        (combine_args_with_const info args flags)
+      in
+      let nexpr, gids2 =
+        mk_fresh_call ~inlined info id map pos cond restart ty_args nargs None
+      in
+      nexpr, union gids1 gids2, warnings
+    in
+    if (is_inlinable && vmap <> [])
+    then (
+      let nargs, gids1, warnings1 = normalize_list
+        (fun arg -> normalize_expr ?guard info node_id map arg)
+        args
+      in
+      let nexpr = get_inline_func_expr info.inlinable_funcs id nargs in
+      let args =
+        List.map (fun a -> AH.apply_subst_in_expr vmap a) args
+      in
+      let _, gids2, warnings2 = handle_call true args in
+      nexpr, union_list [gids0; gids1; gids2], warnings1 @ warnings2
+    )
+    else (
+      handle_call false args
+    )
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = StringMap.find id info.node_is_input_const in
     let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
@@ -1877,7 +2012,7 @@ and normalize_expr ?guard info node_id map =
     let guard, gids2, warnings2, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
       | None ->
-        let guard, gids = mk_fresh_oracle ty nexpr in
+        let guard, _, gids = mk_fresh_oracle ty nexpr in
         let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
         guard, gids, warnings, false
     in
@@ -1989,7 +2124,9 @@ and normalize_expr ?guard info node_id map =
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     let nexpr =
       let constraints =
-        mk_enum_subrange_reftype_constraints info vars
+        (* Assume constraints are constant expressions, and thus,
+           no normalization is required *)
+        mk_enum_subrange_reftype_constraints (Some node_id) info vars
       in
       match constraints, kind with
       | None, _ -> nexpr

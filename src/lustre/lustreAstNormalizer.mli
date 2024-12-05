@@ -101,6 +101,7 @@ val mk_enum_range_expr : TypeCheckerContext.tc_context ->
 
 val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
+  LustreAst.SI.t ->
   LustreAst.t ->
     GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *

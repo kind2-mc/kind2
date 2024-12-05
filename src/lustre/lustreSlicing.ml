@@ -774,6 +774,17 @@ let roots_of_contract_ass = function
   let with_sofar_var = assumes <> [] in
   Contract.svars_of ~with_sofar_var contract
 
+let roots_of_inlined_calls calls =
+  List.fold_left
+    (fun acc c ->
+      if c.N.call_inlined then
+        SVS.union acc (D.values c.call_outputs |> SVS.of_list)
+      else
+        acc
+    )
+    SVS.empty
+    calls
+
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
   List.fold_left 
@@ -1096,6 +1107,7 @@ let root_and_leaves_of_impl
     ({ N.outputs; 
        N.contract;
        N.props;
+       N.calls;
        N.asserts } as node) =
 
   (* Slice everything from node *)
@@ -1133,6 +1145,8 @@ let root_and_leaves_of_impl
     |> SVS.union (
       if is_top then SVS.empty else D.values outputs |> SVS.of_list
     )
+    |> SVS.union (roots_of_inlined_calls calls)
+
     |> SVS.elements
   in
 
@@ -1147,7 +1161,8 @@ let root_and_leaves_of_impl
 let root_and_leaves_of_contracts
     is_top
     roots
-    ({ N.outputs; 
+    ({ N.outputs;
+       N.calls;
        N.contract } as node) =
 
   (* Slice everything from node *)
@@ -1164,6 +1179,7 @@ let root_and_leaves_of_contracts
     match roots node false with
     | None ->
       roots_of_contract ~with_sofar_var:(not is_top) contract
+      |> SVS.union (roots_of_inlined_calls calls)
       |> SVS.elements
     | Some r ->
       SVS.elements r
