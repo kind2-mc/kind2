@@ -326,7 +326,7 @@ val mk_divisible : Numeral.t -> t -> t
 (** Create select from an array at a particular index *)
 val mk_select : t -> t -> t
 
-(** Functionnaly update an array at a given index *)
+(** Functionally update an array at a given index *)
 val mk_store : t -> t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
