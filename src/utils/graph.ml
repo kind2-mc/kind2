@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directed graph and some graph traversal implementations
+(** A poor person's directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
@@ -112,9 +112,13 @@ module type S = sig
   (** Gets the immediate children of a vertex, those reachable by one edge *)
 
   val map: (vertex -> vertex) -> t -> t
-  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
-     Caution: The callee function (or the programmer) is supposed to make sure 
-     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+  (** Maps the [vertices] using the argument mapping, the structure should
+      remain intact.
+
+     Caution: The callee function (or the programmer) is supposed to make sure
+     this is an injective mapping to make sure that the graph structure is
+     preserved.
+     *)
 
   val non_target_vertices: t -> vertices
   (** Returns a list of all vertices that have no incoming edge  *)
@@ -261,7 +265,7 @@ module Make (Ord: OrderedType) = struct
 
   let add_vertex: t -> vertex -> t
     = fun (vs, es) v -> (VSet.add v vs,  es) 
-  (** add avertex to a graph  *)
+  (** add a vertex to a graph  *)
 
   let mem_vertex: t -> vertex -> bool
     = fun (vs, _) v -> VSet.mem v vs
@@ -337,9 +341,12 @@ module Make (Ord: OrderedType) = struct
     let vs' = VSet.map f vs in
     let es' = ESet.map (map_edge f) es in
     (vs', es')
-  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
-     Caution: The callee function (or the programmer) is supposed to make sure 
-     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+  (** Maps the [vertices] using the argument mapping, the structure should
+      remain intact.
+
+     Caution: The callee function (or the programmer) is supposed to make sure
+     this is an injective mapping to make sure that the graph structure is
+     preserved. *)
 
   exception CyclicGraphException of vertex list
 
@@ -375,7 +382,7 @@ module Make (Ord: OrderedType) = struct
     in topological_sort_helper g []
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is based on Kahn's algorithm 
+   *  Implementation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
   let memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices =

@@ -15,8 +15,8 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directed graph and some graph traversal implementations
-   
+(** A poor person's directed graph and some graph traversal implementations
+
    @author Apoorv Ingle *)
 
 exception IllegalGraphOperation
@@ -28,12 +28,12 @@ module type OrderedType = sig
   val pp_print_t: Format.formatter -> t -> unit
 end
 (** The vertices should be have some ordering *)
-                        
+
 module type S = sig
-  
+
   type vertex
   (** The vertex type *)
-     
+
   type edge
   (** The edge type to represent line between two vertices *)
 
@@ -72,7 +72,7 @@ module type S = sig
 
   val is_singleton: t -> bool
   (** returns true if the graph has only one vertex *)
-    
+
   val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
@@ -95,27 +95,31 @@ module type S = sig
   (** Remove the [vertex list] and its associated [edges] from the graph *)
 
   val remove_edge: t ->  edge ->  t
-  (** Remove an [edge] from a graph *)                             
+  (** Remove an [edge] from a graph *)
 
   val connect: t -> vertex -> t
   (** Connect [vertex] to all the other vertices in the given graph *)
 
   val is_point_graph: t -> bool
   (** Returns true if the graph has no edges *)
-    
+
   val union: t -> t -> t
   (** Unions two graphs *)
 
-  val sub_graph: t -> vertices -> t    
+  val sub_graph: t -> vertices -> t
   (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
   val children: t -> vertex -> vertex list
   (** Gets the immediate children of a vertex, those reachable by one edge *)
 
   val map: (vertex -> vertex) -> t -> t
-  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
-     Caution: The callee function (or the programmer) is supposed to make sure 
-     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+  (** Maps the [vertices] using the argument mapping, the structure should
+      remain intact.
+
+     Caution: The callee function (or the programmer) is supposed to make sure
+     this is an injective mapping to make sure that the graph structure is
+     preserved.
+     *)
 
   val non_target_vertices: t -> vertices
   (** Returns a list of all vertices that have no incoming edge  *)
@@ -139,7 +143,7 @@ module type S = sig
 
 
   (** {1 Pretty Printers}  *)
-    
+
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
@@ -148,15 +152,15 @@ module type S = sig
 
   val pp_print_edge: Format.formatter -> edge -> unit
   (** Pretty print one [edge]  *)
-    
+
   val pp_print_edges: Format.formatter -> edges -> unit
   (** Pretty print all the [edges]  *)
-    
+
   val pp_print_graph: Format.formatter -> t -> unit
   (** Pretty print the graph i.e. its [vertices] and its [edges]. *)
 
 end
 (** The Graph methods that this module supports. *)
-              
+
 module Make (Ord: OrderedType): S with type vertex = Ord.t
 (**  Makes a graph module given an ordred type. *)
