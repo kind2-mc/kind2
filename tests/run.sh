@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Prints usage.
 function print_usage {
   cat <<EOF
-Usage: `basename $0` <DIR> <CMD>
+Usage: $(basename "$0") <DIR> <CMD>
 with
   * <DIR> the test directory
   * <CMD> the Kind 2 command to test
@@ -16,40 +16,6 @@ structured as follows. Directory
   * "error"       contains the files on which Kind 2 fails with error code 3.
 EOF
 }
-
-# Print usage if asked.
-for arg in "$@"; do
-  if [[ "$arg" = "-h" || "$arg" = "--help" ]]; then
-    print_usage
-    exit 0
-  fi
-done
-
-test_dir=`echo "$1" | sed 's:/$::'`
-
-# Make sure folder exists.
-if [ ! -d "$test_dir" ]; then
-  print_error "directory \"$test_dir\" does not exist"
-fi
-
-contract_dir="${test_dir}/contracts"
-
-shift
-k2_args="$@"
-
-basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
-contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
-
-success_code="0"
-falsifiable_code="40"
-timeout_code="30"
-error_code="3"
-
-success_dir="success"
-falsifiable_dir="falsifiable"
-error_dir="error"
-
-tests_ok="true"
 
 # Prints an error taking the lines as argument.
 # Exit with exit code 2.
@@ -64,6 +30,37 @@ function print_error {
   exit 2
 }
 
+# Print usage if asked.
+for arg in "$@"; do
+  if [[ "$arg" = "-h" || "$arg" = "--help" ]]; then
+    print_usage
+    exit 0
+  fi
+done
+
+test_dir=$(echo "$1" | sed 's:/$::')
+
+# Make sure folder exists.
+if [ ! -d "$test_dir" ]; then
+  print_error "directory \"$test_dir\" does not exist"
+fi
+
+
+shift
+k2_args="$*"
+
+basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
+
+success_code="0"
+falsifiable_code="40"
+timeout_code="30"
+error_code="3"
+
+success_dir="success"
+falsifiable_dir="falsifiable"
+error_dir="error"
+
+tests_ok="true"
 
 # Returns the log file corresponding to a file.
 # Simply appends ".log" at the end of the path.
@@ -74,7 +71,7 @@ function log_file_of {
 
 # Returns a string version of an exit code.
 function str_of_code {
-  if [ "$1" -eq "$success_code" ] ; then
+  if [ "$1" -eq "$success_code" ]; then
     echo "success ($success_code)"
   elif [ "$1" -eq "$falsifiable_code" ]; then
     echo "falsifiable ($falsifiable_code)"
@@ -86,7 +83,7 @@ function str_of_code {
 }
 
 function name_of_path {
-  echo $1 | sed -e 's:.*/::g'
+  echo "$1" | sed -e 's:.*/::g'
 }
 
 # Runs a test on a file, takes the file path, the expected exit code and the
@@ -96,23 +93,23 @@ function run_one {
   shift
   expected_code="$1"
   shift
-  full_kind2_cmd="$@ $file_path"
-  expected_code_str=`str_of_code "$expected_code"`
+  full_kind2_cmd="$* $file_path"
+  expected_code_str=$(str_of_code "$expected_code")
 
-  printf "|   %-40s ... " "`name_of_path $file_path`"
-  log_file_path=`log_file_of "$file_path"`
-  $full_kind2_cmd &> $log_file_path
+  printf "|   %-40s ... " "$(name_of_path "$file_path")"
+  log_file_path=$(log_file_of "$file_path")
+  $full_kind2_cmd &>"$log_file_path"
   exit_code="$?"
   if [ "$exit_code" -ne "$expected_code" ]; then
     tests_ok="false"
-    exit_code_str=`str_of_code "$exit_code"`
+    exit_code_str=$(str_of_code "$exit_code")
     echo -e "\033[31merror\033[0m"
     echo -e "\033[31m!\033[0m      expected $expected_code_str"
     echo -e "\033[31m!\033[0m      but got  $exit_code_str"
     echo -e "\033[31m!\033[0m      See log in \"$log_file_path\"."
   else
     echo -e "\033[32mok\033[0m"
-    rm $log_file_path
+    rm "$log_file_path"
   fi
 }
 
@@ -126,28 +123,28 @@ function find_tests {
 function run_in {
   work_dir="$1"
   shift
-  kind2_cmd="$@"
+  kind2_cmd="$*"
   # Falsifiable
-  find_cmd=`find_tests $work_dir $falsifiable_dir`
-  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  find_cmd=$(find_tests "$work_dir" $falsifiable_dir)
+  file_count=$(eval "$find_cmd" | wc -l | tr -d ' ')
   echo "| Running \"falsifiable\" ($file_count files)"
-  for file in `eval $find_cmd`; do
+  for file in $(eval "$find_cmd"); do
     run_one "$file" "$falsifiable_code" "$kind2_cmd"
   done
 
   # Success
-  find_cmd=`find_tests "$work_dir" "$success_dir"`
-  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  find_cmd=$(find_tests "$work_dir" "$success_dir")
+  file_count=$(eval "$find_cmd" | wc -l | tr -d ' ')
   echo "| Running \"success\" ($file_count files)"
-  for file in `eval $find_cmd`; do
+  for file in $(eval "$find_cmd"); do
     run_one "$file" "$success_code" "$kind2_cmd"
   done
 
   # Error
-  find_cmd=`find_tests $work_dir $error_dir`
-  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  find_cmd=$(find_tests "$work_dir" $error_dir)
+  file_count=$(eval "$find_cmd" | wc -l | tr -d ' ')
   echo "| Running \"error\" ($file_count files)"
-  for file in `eval $find_cmd`; do
+  for file in $(eval "$find_cmd"); do
     run_one "$file" "$error_code" "$kind2_cmd --lus_strict true"
   done
 }
@@ -162,17 +159,7 @@ function run_all {
   run_in "$test_dir" "$basic_k2_cmd"
   echo "|===| Done."
   echo
-
-  # echo "|===| Running contract tests."
-  # echo -e "| > \033[1m$contract_k2_cmd\033[0m"
-  # echo "|"
-  # run_in "$contract_dir" "$contract_k2_cmd"
-  # echo "|===| Done."
-  # echo
 }
-
-
-
 
 # Running tests.
 run_all
