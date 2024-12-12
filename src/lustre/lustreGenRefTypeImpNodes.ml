@@ -32,7 +32,8 @@ let node_decl_to_contracts
 = fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract' = List.filter_map (fun ci -> 
-    match ci with 
+    match ci with
+    | A.GhostConst _ | GhostVars _ -> Some ci
     | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr))
     | _ -> None
   ) base_contract in
