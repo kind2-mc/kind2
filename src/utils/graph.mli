@@ -85,6 +85,12 @@ module type S = sig
   val to_vertex_list: vertices -> vertex list
   (** Returns a list of vertex  *)
 
+  val get_edges: t -> edges
+  (** get all edges in the graph *)
+
+  val to_edge_list: edges -> (vertex * vertex) list
+  (** Returns a list of edges  in the form (source, target) *)
+
   val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 

@@ -84,6 +84,12 @@ module type S = sig
   val to_vertex_list: vertices -> vertex list
   (** Returns a list of vertex  *)
 
+  val get_edges: t -> edges
+  (** get all edges in the graph *)
+
+  val to_edge_list: edges -> (vertex * vertex) list
+  (** Returns a list of edge *)
+
   val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
@@ -429,4 +435,8 @@ module Make (Ord: OrderedType) = struct
 
   let to_vertex_list: vertices -> vertex list = VSet.elements
   (** returns a list of vertex *)
+
+  let to_edge_list = fun edge -> List.map (fun element -> (fst element, snd element))  (ESet.elements edge)
+  (** returns a list of vertex *)
+
 end
