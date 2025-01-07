@@ -754,6 +754,9 @@ let rec type_contains_enum_or_subrange ctx = function
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
   | AbstractType _ -> false
 
+let type_contains_ref_or_subrange ctx ty =
+  type_contains_ref ctx ty || type_contains_subrange ctx ty
+
 let rec type_contains_enum_subrange_reftype ctx = function
   | LA.IntRange _
   | EnumType _ 

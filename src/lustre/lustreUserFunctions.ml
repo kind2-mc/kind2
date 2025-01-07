@@ -21,6 +21,7 @@ module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 
 module IdSet = A.SI
+module StringMap = HString.HStringMap
 
 let valid_outputs ctx = function
   | [(_, _, ty, _)] -> ( (* single output variable *)
@@ -61,24 +62,54 @@ let is_output_defined outputs items =
     | _ -> false
   )
 
-let is_inlinable set ctx opac contract outputs locals items =
-  (opac = A.Transparent || contract = None) &&
+let have_ref_type_or_subrange ctx outputs =
+  outputs |> List.exists (fun (_, _, ty, _) ->
+    Ctx.type_contains_ref_or_subrange ctx ty
+  )
+
+let rec can_be_abstracted' ctx contracts (_, items) =
+  items |> List.exists (function
+    | A.Guarantee _ | Mode _ -> true
+    | ContractCall (_, id, _, _, _) -> (
+        match StringMap.find_opt id contracts with
+        | None -> assert false
+        | Some (_, _, _, outputs, contract) ->
+          have_ref_type_or_subrange ctx outputs
+          || can_be_abstracted' ctx contracts contract
+    )
+    | _ -> false
+  )
+
+let can_be_abstracted ctx contracts outputs contract =
+  have_ref_type_or_subrange ctx outputs
+  ||
+  match contract with
+  | None -> false
+  | Some contract -> can_be_abstracted' ctx contracts contract
+
+let is_inlinable set contracts ctx opac contract outputs locals items =
+  (opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)) &&
   valid_outputs ctx outputs &&
   valid_locals ctx locals &&
   valid_items set items &&
   is_output_defined outputs items
 
 let inlinable_functions ctx decls =
-  List.fold_left (fun set dcl ->
+  List.fold_left (fun (set, contracts) dcl ->
     match dcl with
+    | A.ContractNodeDecl (_, contract_node_decl) -> (
+      let (id, _, _, _, _) = contract_node_decl in
+      set, StringMap.add id contract_node_decl contracts
+    )
     (* A non-imported function *)
     | A.FuncDecl (_, (id, false, opac, [], _, outputs, locals, items, contract)) -> (
-      if is_inlinable set ctx opac contract outputs locals items then
-        IdSet.add id set
+      if is_inlinable set contracts ctx opac contract outputs locals items then
+        IdSet.add id set, contracts
       else
-        set
+        set, contracts
     )
-    | _ -> set
+    | _ -> set, contracts
   )
-  IdSet.empty
+  (IdSet.empty, StringMap.empty)
   decls
+  |> fst
