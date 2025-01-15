@@ -1,11 +1,7 @@
 
 name: Kind2 CI
 
-on:
-  pull_request:
-    branches: [ develop ]
-  push:
-    branches: [ develop ]
+on: [push, pull_request]
 
 jobs:
   kind2-build:
