@@ -6,6 +6,10 @@ inputs:
   flambda:
     default: false
     type: boolean
+  build-target:
+    description: The build target for the make command
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -35,4 +39,4 @@ runs:
   
   - name: Build Kind2
     shell: bash
-    run: opam exec make
+    run: opam exec make ${{ inputs.build-target }}

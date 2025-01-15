@@ -102,6 +102,7 @@ jobs:
       with:
         ocaml-version: ${{ matrix.ocaml-version }}
         flambda: true
+        build-target: static
     
     - name: Strip Kind 2 macOS binary
       if: runner.os == 'macOS'
