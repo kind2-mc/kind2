@@ -65,12 +65,16 @@ jobs:
     needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
-        name: [ linux-x86_64, macos-x86_64, macos-arm64 ]
+        name: [ linux-x86_64, linux-arm64, macos-x86_64, macos-arm64 ]
         ocaml-version: [ 5.3.0 ]
         macos-target: [ 12 ]
         include:
           - name: linux-x86_64
             os: ubuntu-latest
+            platform: linux/amd64
+          - name: linux-arm64
+            os: ubuntu-latest
+            platform: linux/arm64
           - name: macos-x86_64
             os: macos-13
             bottle-suffix: monterey
@@ -93,11 +97,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set up QEMU
+      if: matrix.platform == 'linux/arm64'
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: "linux/arm64"
+
     - name: Build Kind 2 linux binary
       if: runner.os == 'Linux'
       uses: docker/build-push-action@v5
       with:
         file: docker/Dockerfile
+        platforms: ${{ matrix.platform }}
         context: ./
         target: builder
         load: true
@@ -141,7 +152,7 @@ jobs:
         flambda: true
         build-target: static
     
-    - name: Test Kind 2 macOS binary
+    - name: Test Kind 2 binary
       run: ./bin/kind2 --version
 
     - name: Create asset
@@ -157,7 +168,7 @@ jobs:
           echo "release=nightly" >> $GITHUB_OUTPUT
         fi
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          ptag="linux-x86_64"
+          ptag="${{ matrix.name }}"
         else
           ptag="macos-${{ matrix.macos-target }}-$(uname -m)"
         fi
