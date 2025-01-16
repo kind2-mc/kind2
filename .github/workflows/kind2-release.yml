@@ -65,24 +65,30 @@ jobs:
     needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13, macos-14 ]
+        name: [ linux-x86_64, macos-x86_64, macos-arm64 ]
         ocaml-version: [ 5.3.0 ]
         macos-target: [ 12 ]
         include:
-          - os: macos-13
+          - name: linux-x86_64
+            os: ubuntu-latest
+          - name: macos-x86_64
+            os: macos-13
             bottle-suffix: monterey
             libsodium-version: 1.0.20
             libsodium-sha256: 0556f27feb8d4b5f31edf42e392eb4901daa5b9dbb8510499aa196c9e77134c6
             zeromq-version: 4.3.5
             zeromq-sha256: c8c1cafdffdc020cf504bc59888d61a016df6cdfc12650d89a43a846edb77ef2
-          - os: macos-14
+          - name: macos-arm64
+            os: macos-14
             bottle-suffix: arm64_monterey
             libsodium-version: 1.0.20
             libsodium-sha256: 25377f9e16747b9af732be608a966b580287d0854c2d530f23eea1235bca1ff7
             zeromq-version: 4.3.5
             zeromq-sha256: 3a8bc264cb466f765f65f73b0db3c202899656efa11b2df37bd961a224589e20
 
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -135,9 +141,8 @@ jobs:
         flambda: true
         build-target: static
     
-    - name: Strip Kind 2 macOS binary
-      if: runner.os == 'macOS'
-      run: strip ./bin/kind2
+    - name: Test Kind 2 macOS binary
+      run: ./bin/kind2 --version
 
     - name: Create asset
       id: create_asset
@@ -154,7 +159,7 @@ jobs:
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           ptag="linux-x86_64"
         else
-          ptag="${{ matrix.os }}-$(uname -m)"
+          ptag="macos-${{ matrix.macos-target }}-$(uname -m)"
         fi
         tarball=kind2-$vtag-$ptag.tar.gz
         tar -czf $tarball kind2
