@@ -3,6 +3,11 @@ description: Build Kind 2 on current runner
 inputs:
   ocaml-version:
     description: The OCaml compiler version
+    required: true
+  cache-prefix:
+    description: The prefix of the cache keys.
+    required: false
+    default: develop
   flambda:
     default: false
     type: boolean
@@ -32,6 +37,7 @@ runs:
     uses: ocaml/setup-ocaml@v3
     with:
       ocaml-compiler: ${{ steps.ocaml-variant.outputs.compiler }}
+      cache-prefix: ${{ inputs.cache-prefix }}
 
   - name: Install OCaml dependencies
     shell: bash
