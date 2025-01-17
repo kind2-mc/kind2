@@ -1689,7 +1689,7 @@ let log_analysis_start sys param =
   if Flags.log_level () <> L_off then begin
     let param = Analysis.shrink_param_to_sys param sys in
     let info = Analysis.info_of_param param in
-    let sc_str = Analysis.clean_polymorphic_info sys info.Analysis.top in
+    let sc_str = Analysis.clean_polymorphic_info info.Analysis.top in
     match get_log_format () with
     | F_pt ->
       Format.fprintf !log_ppf "\
@@ -1697,13 +1697,13 @@ let log_analysis_start sys param =
       @.@."
       Pretty.print_double_line ()
       sc_str
-      (Analysis.pp_print_param false sys) param
+      (Analysis.pp_print_param false) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (Analysis.clean_polymorphic_info sys) concrete in
-      let abstract = List.map (Analysis.clean_polymorphic_info sys) abstract in
+      let concrete = List.map Analysis.clean_polymorphic_info concrete in
+      let abstract = List.map Analysis.clean_polymorphic_info abstract in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1719,7 +1719,7 @@ let log_analysis_start sys param =
         (pp_print_list Format.pp_print_string ",") concrete
         (pp_print_list Format.pp_print_string ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
-            let sc_str = Analysis.clean_polymorphic_info sys scope in
+            let sc_str = Analysis.clean_polymorphic_info scope in
             Format.fprintf fmt "(%s,%d)" sc_str cpt
           )
           ","
@@ -1729,8 +1729,8 @@ let log_analysis_start sys param =
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (Analysis.clean_polymorphic_info sys) concrete in
-      let abstract = List.map (Analysis.clean_polymorphic_info sys) abstract in
+      let concrete = List.map Analysis.clean_polymorphic_info concrete in
+      let abstract = List.map Analysis.clean_polymorphic_info abstract in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1747,7 +1747,7 @@ let log_analysis_start sys param =
         (pp_print_list_attrib Format.pp_print_string) concrete
         (pp_print_list_attrib Format.pp_print_string) abstract
         (pp_print_list_attrib (fun fmt (scope, cpt) ->
-            let sc_str = Analysis.clean_polymorphic_info sys scope in
+            let sc_str = Analysis.clean_polymorphic_info scope in
             Format.fprintf fmt "[\"%s\",%d]" sc_str cpt
           )
         ) assumption_count;
