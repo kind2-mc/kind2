@@ -71,10 +71,8 @@ jobs:
         include:
           - name: linux-x86_64
             os: ubuntu-latest
-            platform: linux/amd64
           - name: linux-arm64
-            os: ubuntu-latest
-            platform: linux/arm64
+            os: ubuntu-24.04-arm
           - name: macos-x86_64
             os: macos-13
             bottle-suffix: monterey
@@ -97,18 +95,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up QEMU
-      if: matrix.platform == 'linux/arm64'
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: "linux/arm64"
-
     - name: Build Kind 2 linux binary
       if: runner.os == 'Linux'
       uses: docker/build-push-action@v5
       with:
         file: docker/Dockerfile
-        platforms: ${{ matrix.platform }}
         context: ./
         target: builder
         load: true
