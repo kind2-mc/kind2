@@ -57,13 +57,15 @@ given enough time and resources).
 
 ``--timeout <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
-``--smt_solver {Bitwuzla|cvc5|MathSAT|SMTInterpol|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
+``--smt_solver {Bitwuzla|cvc5|MathSAT|OpenSMT|SMTInterpol|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
 
 ``--bitwuzla_bin <file>`` -- Executable for Bitwuzla
 
 ``--cvc5_bin <file>`` -- Executable for cvc5
 
 ``--mathsat_bin <file>`` -- Executable for MathSAT 5
+
+``--opensmt_bin <file>`` -- Executable for OpenSMT
 
 ``--smtinterpol_jar <file>`` -- JAR of SMTInterpol
 
@@ -103,6 +105,7 @@ To run Kind 2 the following software must be installed on your computer:
   * `Bitwuzla <https://bitwuzla.github.io/>`_ (for inputs with only machine integers),
   * `cvc5 <https://cvc5.github.io/>`_\ ,
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
+  * `OpenSMT <https://verify.inf.usi.ch/opensmt>`_ (v2.8.0),
   * `SMTInterpol <https://ultimate.informatik.uni-freiburg.de/smtinterpol/>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <https://yices.csl.sri.com/old/download-yices1.html>`_\ , or

@@ -135,7 +135,7 @@ module Smt = struct
     | "bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "mathsat" ->  `MathSAT_SMTLIB
-    (* | "opensmt" -> `OpenSMT_SMTLIB *)
+    | "opensmt" -> `OpenSMT_SMTLIB
     | "smtinterpol" -> `SMTInterpol_SMTLIB
     | "yices2" -> `Yices2_SMTLIB
     | "yices" -> `Yices_native
@@ -153,7 +153,7 @@ module Smt = struct
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, OpenSMT, Bitwuzla, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -536,6 +536,11 @@ module Smt = struct
         set_smtinterpol_jar exec;
       with Not_found ->
       try
+        let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
+        set_solver `OpenSMT_SMTLIB;
+        set_opensmt_bin exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
         set_solver `Bitwuzla_SMTLIB;
         set_bitwuzla_bin exec;
@@ -612,32 +617,43 @@ module Smt = struct
       | `Z3_SMTLIB -> ()
       | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
     )
-    | `detect ->
-      try
-        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-        set_itp_solver `MathSAT_SMTLIB;
-        set_mathsat_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-        set_itp_solver `SMTInterpol_SMTLIB;
-        set_smtinterpol_jar exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-        set_itp_solver `Z3_QE;
-        set_z3_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-        set_itp_solver `cvc5_QE;
-        set_cvc5_bin exec;
-      with Not_found -> 
-      try
-        let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
+    | `detect -> (
+      match solver () with
+      | `OpenSMT_SMTLIB ->
+        (* MathSAT interpolation requires a combination of LIA/LRA,
+           which is not currently supported by OpenSMT.
+           If the user selects OpenSMT as the main solver, we give
+           preference to OpenSMT as the interpolating solver over MathSAT.
+        *)
         set_itp_solver `OpenSMT_SMTLIB;
-        set_opensmt_bin exec;
-      with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
+      | _ -> (
+        try
+          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+          set_itp_solver `MathSAT_SMTLIB;
+          set_mathsat_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
+          set_itp_solver `SMTInterpol_SMTLIB;
+          set_smtinterpol_jar exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+          set_itp_solver `Z3_QE;
+          set_z3_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+          set_itp_solver `cvc5_QE;
+          set_cvc5_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
+          set_itp_solver `OpenSMT_SMTLIB;
+          set_opensmt_bin exec;
+        with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
+      )
+    )
 end
 
 
