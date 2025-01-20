@@ -173,12 +173,13 @@ let type_check declarations =
       LspInfo.print_ast_info global_ctx declarations;
 
     (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
-    let sorted_node_contract_decls = 
+    let sorted_node_contract_decls, global_ctx = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
       then 
-        LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts @
-        LGI.gen_imp_nodes global_ctx sorted_node_contract_decls 
-      else sorted_node_contract_decls
+        let decls1, ctx1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in 
+        let decls2, ctx2 = LGI.gen_imp_nodes global_ctx sorted_node_contract_decls in
+        decls1 @ decls2, TypeCheckerContext.union ctx1 ctx2
+      else sorted_node_contract_decls, global_ctx
     in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
