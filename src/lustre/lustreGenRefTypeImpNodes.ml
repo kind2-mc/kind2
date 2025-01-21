@@ -50,11 +50,11 @@ let contract_node_decl_to_contracts
     let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
     (p, id, ty, cl, b)
   ) inputs2 in
-  (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
-     for the input node's inputs/environment *)
+  (* We generate a contract representing this contract's inputs/environment *)
   let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
   if Flags.Contracts.check_environment () 
   then 
+    (* Update ctx with info about the generated contract *)
     let ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
     [environment], ctx 
   else [], ctx
@@ -94,11 +94,12 @@ let node_decl_to_contracts
     let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
     (p, id, ty, cl, b)
   ) inputs2 in
-  (* We generate two imported nodes: One for the input node's contract (w/ type info), and another 
+  (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
     let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then 
+      (* Update ctx with info about the generated node *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
       [environment], ctx
     else [], ctx
@@ -106,10 +107,12 @@ let node_decl_to_contracts
     let environment = gen_node_id, extern', A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then 
+      (* Update ctx with info about the generated nodes *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
       [environment; contract], ctx 
     else 
+      (* Update ctx with info about the generated node *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
       [contract], ctx
 
@@ -126,7 +129,7 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t li
   let node_items = [A.AnnotMain(pos, true)] in 
   Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
-let gen_imp_nodes  : Ctx.tc_context -> A.declaration list -> A.declaration list * Ctx.tc_context 
+let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list * Ctx.tc_context 
 = fun ctx decls -> 
   let decls, ctx = List.fold_left (fun (acc_decls, acc_ctx) decl -> 
     match decl with 
