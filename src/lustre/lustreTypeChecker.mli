@@ -85,6 +85,7 @@ type error_kind = Unknown of string
   | GlobalConstRefType of HString.t
   | QuantifiedAbstractType of HString.t
   | InvalidPolymorphicCall of HString.t
+  | InvalidNumberOfIndices of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
