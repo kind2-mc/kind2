@@ -1226,7 +1226,7 @@ Polymorphic contracts
 ---------------------
 In addition to polymorphic nodes, Kind 2 supports polymorphic contracts. 
 The first way of defining a polymorphic contract is by adding a type parameter to a contract definition.
-For example, the ``Stutter``contract states that the output ``y`` must either be equal to the input
+For example, the ``Stutter`` contract states that the output ``y`` must either be equal to the input
 ``x`` or the previous value of ``x``.
 
 .. code-block:: none
