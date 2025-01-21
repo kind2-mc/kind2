@@ -1206,7 +1206,7 @@ For a polymorphic node to be well-typed, it must be meaningful for *any* type in
 This type of polymorphism is called *parametric polymorphism*, and is also sometimes referred to as 
 *generics* in general-purpose programming languages.
 
-To illustrate these semantics, even though the ``+`` operator is overloaded between 
+To illustrate these semantics, even though the ``+`` operator is overloaded between types
 ``int -> int -> int`` and ``real -> real -> real``, 
 the following polymorphic node will give a type error, as it cannot be instantiated with any type.
 
@@ -1221,3 +1221,68 @@ the following polymorphic node will give a type error, as it cannot be instantia
 Note that polymorphic nodes can have ``check(.)`` statements just as non-polymorphic nodes.
 When checking properties of polymorphic nodes at the top level, the type parameters are interpreted 
 as abstract types.
+
+Polymorphic contracts
+---------------------
+In addition to polymorphic nodes, Kind 2 also supports polymorphic contracts. 
+The first way of accomplishing this is by using a polymorphic contract definition,
+such as ``Stutter``, which states that the output ``y`` must either be equal to the input
+``x`` or the previous value of ``x``.
+
+.. code-block:: none
+
+   contract Stutter<<T>> (x: T) returns (y: T) ;
+   let
+      guarantee 
+        (y = x) or
+        (true -> (y = pre x));
+   tel
+
+Then, the polymorphic contract can be included in a node using an import statement, where
+the type arguments are provided (analogously to a polymorphic node declaration and 
+node call).
+
+.. code-block:: none
+
+   contract Stutter<<T>> (x: T) returns (y: T) ;
+   let
+      guarantee 
+        (y = x) or
+        (true -> (y = pre x));
+   tel
+
+   node N (x: int) returns (y: int);
+   (*@contract 
+      import Stutter<<int>>(x) returns (y);
+   *)
+   let
+      y = pre x;
+   tel
+
+
+   node P<<T>>(x: T) returns (y: T);
+   (*@contract 
+      import Stutter<<T>>(x) returns (y);
+   *)
+   let
+      y = pre x;
+   tel
+
+Above, node ``N`` instantiates the contract ``Stutter`` with type ``int``. 
+Node ``P`` demonstrates using a polymorphic contract declaration with a polymorphic 
+node. 
+
+Another way of specifying a polymorphic contract is by including it in the 
+node declaration with the ``(*@contract ... *)`` syntax.
+
+.. code-block:: none
+
+   node M<<T>>(x: int) returns (y: int);
+   (*@contract
+      guarantee 
+         (y = x) or
+         (true -> (y = pre x));
+   *)
+   let
+      y = pre x;
+   tel
