@@ -197,7 +197,7 @@ let error_message kind = match kind with
   | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
-  | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use an index for every array dimension"
+  | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
