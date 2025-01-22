@@ -679,6 +679,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test illegal array definition without enough indices" (fun () ->
+    match load_file "./lustreTypeChecker/array_frame.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidNumberOfIndices _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
