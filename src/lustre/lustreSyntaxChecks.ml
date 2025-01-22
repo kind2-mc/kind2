@@ -69,6 +69,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
+  | IllegalHistoryVar of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -123,6 +124,7 @@ let error_message kind = match kind with
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
   | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
+  | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -587,6 +589,20 @@ let no_clock_inputs_or_outputs pos = function
   | LA.ClockTrue -> Ok ()
   | _ -> syntax_error pos UnsupportedClockedInputOrOutput
 
+(* Make sure the History type constructor doesn't take a quantified variable as input *)
+let check_quantified_vars ctx vars = 
+  Res.seq (List.map (fun (_, _, ty) -> 
+    match ty with
+    | LA.History (pos, id) -> (
+      match StringMap.find_opt id ctx.quant_vars with 
+      | Some (Some _) -> syntax_error pos (IllegalHistoryVar id)
+      | _ -> Res.ok ()
+    )
+    (* We don't currently need to recurse on other cases because a History type 
+       cannot be nested within another type (see lustreParser.mly) *)
+    | _ -> Ok ()
+  ) vars)
+
 let rec expr_only_supported_in_merge observer expr =
   let r = expr_only_supported_in_merge in
   let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
@@ -904,6 +920,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
         let ctx = List.fold_left over_vars ctx vars in
+        check_quantified_vars ctx vars >>
         check_expr ctx f e
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
