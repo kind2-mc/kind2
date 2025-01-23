@@ -1,0 +1,5 @@
+node N() returns (out: int^4^4);
+let
+  out[i][j] = 0 -> pre (out[i][j] + 1);
+  check out[0][0] = 0 -> true;
+tel

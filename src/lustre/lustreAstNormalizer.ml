@@ -352,7 +352,9 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
     | ind_vars ->
       A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
-      A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
+      List.fold_left (fun acc ind_var -> 
+        A.ArrayIndex (dpos, acc, A.Ident (dpos, ind_var))  
+      ) nexpr ind_vars 
   in
   eq_lhs, nexpr
 
@@ -2019,20 +2021,21 @@ and normalize_expr ?guard info node_id map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     if previously_guarded then
-      let nexpr' = match nexpr with
-        | A.ArrayIndex (pos2, expr1, expr2) ->
-          A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
-        | e -> Pre (pos, e)
-      in
-      nexpr', gids, warnings
-    else
-      let nexpr' =
+      let rec process_expr nexpr = 
         match nexpr with
         | A.ArrayIndex (pos2, expr1, expr2) ->
-          A.ArrayIndex (pos2, A.Arrow (pos, guard, Pre (pos, expr1)), expr2)
-        | e -> Arrow (pos, guard, Pre (pos, e))
-      in
-      nexpr', gids, warnings
+          A.ArrayIndex (pos2, process_expr expr1, expr2)
+        | e -> Pre (pos, e)
+      in 
+      process_expr nexpr, gids, warnings
+    else
+      let rec process_expr nexpr = 
+        match nexpr with
+        | A.ArrayIndex (pos2, expr1, expr2) ->
+          A.ArrayIndex (pos2, process_expr expr1, expr2)
+        | e -> A.Arrow (pos, guard, Pre (pos, e))
+      in 
+      process_expr nexpr, gids, warnings
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
