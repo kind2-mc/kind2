@@ -47,7 +47,7 @@ type t = {
     StringMap.t;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
   ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  gen_ghost_vars : HString.t list; 
+  gen_ghost_vars : (HString.t * LustreAst.lustre_type * LustreAst.expr) list; 
   calls : (Lib.position (* node call position *)
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)

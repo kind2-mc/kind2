@@ -32,12 +32,12 @@ let unwrap = function
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
-let mk_fresh_ghost_var () =
+let mk_fresh_ghost_var ty rhs =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_ghost") in
   let gids = { (GI.empty ()) with
-    gen_ghost_vars = [name]; 
+    gen_ghost_vars = [name, ty, rhs]; 
   } in 
   name, gids
   
@@ -64,7 +64,7 @@ let contract_node_decl_to_contracts
         | TArr(_, _, ty) when i = 1 -> ty
         | _ -> assert false
         in 
-        let gen_ghost_var, gids = mk_fresh_ghost_var () in
+        let gen_ghost_var, gids = mk_fresh_ghost_var ghost_var_ty expr in
         gen_ghost_var,
         [A.GhostVars (pos, (GhostVarDec (pos, [(pos, gen_ghost_var, ghost_var_ty)])), expr)],
         gids
@@ -121,9 +121,10 @@ let node_decl_to_contracts
         | TArr(_, _, ty) when i = 1 -> ty
         | _ -> assert false
         in 
-        let gen_ghost_var, gids = mk_fresh_ghost_var () in
+        let gen_ghost_var, gids = mk_fresh_ghost_var ghost_var_ty expr in
         gen_ghost_var,
-        [A.GhostVars (pos, (GhostVarDec (pos, [(pos, gen_ghost_var, ghost_var_ty)])), expr)],
+        (* [A.GhostVars (pos, (GhostVarDec (pos, [(pos, gen_ghost_var, ghost_var_ty)])), expr)], *)
+        [],
         gids
       ) ips |> Lib.split3 in
       Some (

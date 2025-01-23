@@ -285,7 +285,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_local "\n") gids.ib_oracles
-    (pp_print_list HString.pp_print_hstring "\n") gids.gen_ghost_vars
+    (pp_print_list pp_print_oracle "\n") gids.gen_ghost_vars
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
@@ -1123,6 +1123,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
 
   Res.ok (ast, map, warnings)
 
+(*!! TODO: Extend this for gen_ghost_vars(?) *)
 and normalize_gid_equations info gids_map node_id =
   match StringMap.find_opt node_id gids_map with
   | None -> empty(), []
