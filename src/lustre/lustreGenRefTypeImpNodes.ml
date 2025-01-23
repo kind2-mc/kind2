@@ -70,11 +70,12 @@ let node_decl_to_contracts
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then [environment; contract] else [contract]
 
-(* NOTE: Currently, we do not allow global constants to have refinement types. 
-   If we decide to support this in the future, then we need to add necessary refinement type information 
-   to the generated imported node. For example, if "ty" is a refinement type 
-   T = { x: int | x > C }, and C has a refinement type, then C's refinement type needs to be 
-   captured as an assumption in the output imported node. *)
+(* NOTE: If "ty" is a refinement type that includes a constant with
+   its own refinement type, e.g., T = { x: int | x > C }, where
+   C has a refinement type, there is no need to capture C's refinement type as
+   an assumption. This is because C's constraints are handled separately
+   (see commit 6ac7eee).
+*)
 let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t list -> A.declaration option
 = fun pos id ty ps -> 
   let span = { A.start_pos = pos; end_pos = pos } in
