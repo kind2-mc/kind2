@@ -170,6 +170,18 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/transparent_no_body.lus" with
     | Error (`LustreSyntaxChecksError (_, TransparentWithoutBody _)) -> true
     | _ -> false);
+  mk_test "test history type constructor with quantified variable 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/history_quantified_var_1.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalHistoryVar _)) -> true
+    | _ -> false);
+  mk_test "test history type constructor with quantified variable 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/history_quantified_var_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalHistoryVar _)) -> true
+    | _ -> false);
+  mk_test "test history type constructor with quantified variable 3" (fun () ->
+    match load_file "./lustreSyntaxChecks/history_quantified_var_3.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalHistoryVar _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
