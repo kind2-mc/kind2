@@ -173,7 +173,7 @@ let desugar_node_decl ctx decl = match decl with
   
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
-let remove_mult_assign ctx sorted_node_contract_decls = 
-  let decls, gids = List.map (desugar_node_decl ctx) sorted_node_contract_decls |> List.split in
-  let gids = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids in
+let remove_mult_assign ctx gids sorted_node_contract_decls = 
+  let decls, gids2 = List.map (desugar_node_decl ctx) sorted_node_contract_decls |> List.split in
+  let gids = List.fold_left (GI.StringMap.merge GI.union_keys2) gids gids2 in
   decls, gids

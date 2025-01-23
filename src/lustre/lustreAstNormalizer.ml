@@ -207,12 +207,6 @@ type info = {
   inlinable_funcs : LustreAst.node_decl StringMap.t;
 }
 
-let split3 triples =
-  let xs = List.map (fun (x, _, _) -> x) triples in
-  let ys = List.map (fun (_, y, _) -> y) triples in
-  let zs = List.map (fun (_, _, z) -> z) triples in
-  xs, ys, zs
-
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals in
   let array_ctor_list = StringMap.bindings gids.array_constructors
@@ -285,11 +279,13 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
+    (pp_print_list pp_print_local "\n") gids.ib_oracles
+    (pp_print_list HString.pp_print_hstring "\n") gids.gen_ghost_vars
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
@@ -1136,7 +1132,7 @@ and normalize_gid_equations info gids_map node_id =
       let nexpr, gids, warnings = normalize_expr info node_id gids_map expr in
       gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
     ) gids.equations in
-    let gids_list, warnings, eqs = split3 res in
+    let gids_list, warnings, eqs = Lib.split3 res in
     (* Take out old equations that were not normalized *)
     let gids = { gids with equations = [] } in
     let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
@@ -1166,11 +1162,11 @@ and normalize_node_contract info node_id map cref inputs outputs (id, _, ivars, 
   let ivars, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
     let ty, gids, warnings = normalize_ty info node_id map id ty in 
     (p, id, ty, cl, c), gids, warnings
-  ) ivars |> split3 in
+  ) ivars |> Lib.split3 in
   let ovars, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
     let ty, gids, warnings = normalize_ty info node_id map id ty in 
     (p, id, ty, cl), gids, warnings
-  ) ovars |> split3 in
+  ) ovars |> Lib.split3 in
   let contract_ref = cref in
   let ivars_names = List.map (fun (_, id, _, _, _) -> id) ivars in
   let ovars_names = List.map (fun (_, id, _, _) -> id) ovars in
@@ -1260,11 +1256,11 @@ and normalize_node info map
   let inputs, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
     let ty, gids, warnings = normalize_ty info node_id map id ty in 
     (p, id, ty, cl, c), gids, warnings
-  ) inputs |> split3 in
+  ) inputs |> Lib.split3 in
   let outputs, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
     let ty, gids, warnings = normalize_ty info node_id map id ty in 
     (p, id, ty, cl), gids, warnings
-  ) outputs |> split3 in
+  ) outputs |> Lib.split3 in
   let locals, gids3, warnings3 = List.map (fun decl -> 
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
@@ -1278,7 +1274,7 @@ and normalize_node info map
     | A.NodeVarDecl (p1, (p2, id, ty, cl)) -> 
       let ty, gids, warnings = normalize_ty info node_id map id ty in 
       A.NodeVarDecl (p1, (p2, id, ty, cl)), gids, warnings
-  ) locals |> split3 in
+  ) locals |> Lib.split3 in
   (* Record subrange and refinement type constraints on inputs, outputs *)
   let gids4 =
     let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) inputs in
@@ -1619,7 +1615,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             | Some (ivar, ty) ->
               let size = extract_array_size ty in
               let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
-              let exprs, gids, warnings = split3 (List.init lhs_arity
+              let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
                 (
                   fun i -> 
                   let info = { info with local_group_projection = i } in
@@ -1668,7 +1664,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
                   warnings
                 else (pos, i, ty), gids, []
             )
-            tis |> split3
+            tis |> Lib.split3
           ) in
           tis, List.fold_left union (empty ()) gids_list, List.flatten warnings
         ) in
@@ -1740,7 +1736,7 @@ and normalize_equation info node_id map = function
         | Some (ivar, ty) ->
           let size = extract_array_size ty in
           let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
-          let exprs, gids, warnings = split3 (List.init lhs_arity
+          let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
             (fun i -> 
               let info = { info with local_group_projection = i } in
               normalize_expr info node_id map expanded_expr))

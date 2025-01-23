@@ -72,12 +72,6 @@ let warn_unguarded_pres nis pos =
     | _ -> []
   ) nis
 
-let split3 triples =
-  let xs = List.map (fun (x, _, _) -> x) triples in
-  let ys = List.map (fun (_, y, _) -> y) triples in
-  let zs = List.map (fun (_, _, z) -> z) triples in
-  xs, ys, zs
-
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
 *)
@@ -341,7 +335,7 @@ let desugar_frame_blocks sorted_node_contract_decls =
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, o, nps, cctds, ctds, nlds, nis2, co))) ->
       let* res = R.seq (List.map (desugar_node_item node_id) nis2) in
-      let decls, nis, warnings = split3 res in
+      let decls, nis, warnings = Lib.split3 res in
       let warnings = List.flatten warnings in 
       R.ok (A.NodeDecl (s, (node_id, b, o, nps, cctds, ctds,
                        (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
