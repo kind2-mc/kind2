@@ -155,6 +155,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
     (* Find the corresponding node item in frame block body. *)
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id = i -> true
+      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id = i -> true
       | _ -> false
     ) nis in 
     let pos2 = AH.pos_of_expr init in (
@@ -178,6 +179,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
     (* Find the corresponding node item in frame block body. *)
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id1 = i -> true
+      | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id1 = i -> true
       | _ -> false
     ) nis in 
     let pos2 = AH.pos_of_expr init in 
@@ -251,37 +253,55 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
     initialization values (if present). *)
 let fill_ite_oracles f_pos node_id nes ni = 
 match ni with
-  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), e)) -> 
+  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), rhs_expr)) -> 
     (* Find initialization value *)
-    let init = Lib.find_map (fun ne -> match ne with 
-      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i  -> Some expr
+    let lhs_init_e = Lib.find_map (fun ne -> match ne with 
+      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> Some (lhs, init_expr, rhs_expr)
+      (* In this case, the initialization is a recursive array definition, but 
+         the body equation is not. So, we have to make the whole desugared equation recursive. *)
+      | A.Equation (_, (StructDef(_, [ArrayDef(_, id, inds1)]) as lhs), init_expr) when id = i  -> 
+        let pos = AH.pos_of_expr init_expr in
+        let rhs_expr = List.fold_left (fun acc ind -> 
+          A.ArrayIndex (pos, acc, Ident (pos, ind))  
+        ) rhs_expr inds1 in
+        Some (lhs, init_expr, rhs_expr)
       | _ -> None
     ) nes in
-    let pos2 = AH.pos_of_expr e in 
-    (match init with
-      | Some init ->     
+    (match lhs_init_e with
+      | Some (lhs, init, rhs_expr) ->     
+        let pos2 = AH.pos_of_expr rhs_expr in 
         R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i (A.Pre (pos2, Ident(pos2, i))) e)))))
+                                                    fill_ite_helper f_pos node_id lhs i (A.Pre (pos2, Ident(pos2, i))) rhs_expr)))))
       | None -> 
+        let pos2 = AH.pos_of_expr rhs_expr in 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i
                                 (A.Pre (pos2, Ident(pos2, i)))
-                                e))))
-  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(_, i1, inds1)]) as lhs), e)) ->
-    let pos2 = AH.pos_of_expr e in 
+                                rhs_expr))))
+  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(_, i1, inds1)]) as lhs), rhs_expr)) ->
+    let pos2 = AH.pos_of_expr rhs_expr in 
     (* Find initialization value *)
     let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos2, expr, A.Ident(pos2, j))) (A.Ident(pos2, i1)) inds1 in
     let init = Lib.find_map (fun ne -> match ne with 
-      | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> Some (AH.replace_idents inds2 inds1 expr)
+      | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> 
+        Some (AH.replace_idents inds2 inds1 expr)
+      (* In this case, the body equation is a recursive array definition, but 
+         the initialization is not. So, we have to make the whole desugared equation recursive. *)
+      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i1  -> 
+        let pos = AH.pos_of_expr expr in
+        let expr = List.fold_left (fun acc ind -> 
+          A.ArrayIndex (pos, acc, Ident (pos, ind))  
+        ) expr inds1 in
+        Some (expr)
       | _ -> None
     ) nes in 
     (match init with
       | Some init -> 
         R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i1 (A.Pre (pos2, array_index)) e)))))
+                                                    fill_ite_helper f_pos node_id lhs i1 (A.Pre (pos2, array_index)) rhs_expr)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i1
                           (A.Pre (pos2, array_index))
-                          e))))
+                          rhs_expr))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
@@ -290,7 +310,6 @@ match ni with
   | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
-  
 
 
 
@@ -313,8 +332,6 @@ let desugar_node_item node_id ni = match ni with
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init node_id pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
-
-    
     (* Frame block header info *)
     let frame_info = (List.map (fun ne -> match ne with
         | A.Equation (_, lhs, expr) -> (AH.pos_of_expr expr, Eq lhs)
@@ -326,8 +343,6 @@ let desugar_node_item node_id ni = match ni with
     in
     (* Record node equation LHSs so we can add state var defs later *)
     HString.HStringHashtbl.add pos_list_map node_id frame_info;
-
-
 
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
