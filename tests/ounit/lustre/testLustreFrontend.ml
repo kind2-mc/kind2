@@ -695,6 +695,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/array_frame.lus" with
     | Error (`LustreTypeCheckerError (_, InvalidNumberOfIndices _)) -> true
     | _ -> false);
+  mk_test "test unsupported quantified array variable" (fun () ->
+    match load_file "./lustreSyntaxChecks/array_quantified_var.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedArray _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
