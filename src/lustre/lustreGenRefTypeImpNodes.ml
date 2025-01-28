@@ -45,15 +45,15 @@ let contract_node_decl_to_contracts
 = fun ctx (id, params, inputs, outputs, (pos, base_contract)) -> 
   let contract', gids = List.filter_map (fun ci -> 
     match ci with
-    | A.GhostConst _ | GhostVars _ -> Some ([ci], GI.empty ())
-    | A.Assume (pos, name, b, expr) -> Some ([A.Guarantee (pos, name, b, expr)], GI.empty ())
+    | A.GhostConst _ | GhostVars _ -> Some (ci, GI.empty ())
+    | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr), GI.empty ())
     | A.ContractCall (pos, name, ty_args, ips, ops) -> 
       let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
       (* Since we are flipping the inputs and outputs of the generated contract, 
          we also need to flip inputs and outputs of the call *)
       let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
-      let ops', gen_ghost_variables, gids = List.mapi (fun i expr -> match expr with 
-      | A.Ident (_, id) -> id, [], GI.empty ()
+      let ops', gids = List.mapi (fun i expr -> match expr with 
+      | A.Ident (_, id) -> id, GI.empty ()
       (* Input is not a simple identifier, so we have to generate a ghost variable 
          to store the output *)
       | expr -> 
@@ -61,16 +61,15 @@ let contract_node_decl_to_contracts
         let ghost_var_ty = match Option.get called_contract_ty with 
         | TArr (_, _, GroupType (_, tys)) -> 
           List.nth tys i  
-        | TArr(_, _, ty) when i = 1 -> ty
+        | TArr(_, _, ty) when i = 0 -> ty
         | _ -> assert false
         in 
         let gen_ghost_var, gids = mk_fresh_ghost_var ghost_var_ty expr in
         gen_ghost_var,
-        [A.GhostVars (pos, (GhostVarDec (pos, [(pos, gen_ghost_var, ghost_var_ty)])), expr)],
         gids
-      ) ips |> Lib.split3 in
+      ) ips |> List.split in
       Some (
-        List.flatten gen_ghost_variables @ [A.ContractCall (pos, name, ty_args, ips', ops')], 
+        A.ContractCall (pos, name, ty_args, ips', ops'), 
         List.fold_left GI.union ( GI.empty ()) gids
       )
     | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> None
@@ -86,7 +85,6 @@ let contract_node_decl_to_contracts
     let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
     (p, id, ty, cl, b)
   ) inputs2 in
-  let contract' = List.flatten contract' in
   (* We generate a contract representing this contract's inputs/environment *)
   let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
   let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
