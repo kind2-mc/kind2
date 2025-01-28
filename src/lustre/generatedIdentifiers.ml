@@ -113,7 +113,11 @@ let union ids1 ids2 = {
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
-    gen_ghost_vars = ids1.gen_ghost_vars @ ids2.gen_ghost_vars;
+    (* Prevent duplicates *)
+    gen_ghost_vars = List.fold_left (fun acc element -> 
+      if (List.mem element acc) then acc
+      else element :: acc
+    ) ids1.gen_ghost_vars ids2.gen_ghost_vars;
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;

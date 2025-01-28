@@ -1123,17 +1123,15 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
 
   Res.ok (ast, map, warnings)
 
-(*!! TODO: Extend this for gen_ghost_vars(?) *)
 and normalize_gid_equations info gids_map node_id =
   match StringMap.find_opt node_id gids_map with
   | None -> empty(), []
   | Some gids -> (
     (* Normalize all equations in gids *)
-    let res = List.map (fun (_, _, lhs, expr) ->
+    let gids_list, warnings, eqs = List.map (fun (_, _, lhs, expr) ->
       let nexpr, gids, warnings = normalize_expr info node_id gids_map expr in
       gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
-    ) gids.equations in
-    let gids_list, warnings, eqs = Lib.split3 res in
+    ) gids.equations |> Lib.split3 in
     (* Take out old equations that were not normalized *)
     let gids = { gids with equations = [] } in
     let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
@@ -1229,7 +1227,19 @@ and normalize_node_contract info node_id map cref inputs outputs (id, _, ivars, 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     add_ref_type_constraints info Output vars
   in
-  let nbody, gids7, warnings3 = normalize_contract info node_id map ivars ovars body in
+  let gen_gvars = match (StringMap.find_opt node_id map) with
+  | Some gids -> gids.gen_ghost_vars 
+  (* FIXME: This should not happen; every node should have gids. 
+     But, this is not currently the case, as monomorphization currently 
+     (incorrectly) does not generate gids. This will be fixed in a future PR. *)
+  | None -> [] 
+  in
+  let gen_gvars = List.map (fun (id, ty, expr) ->
+    let pos = AH.pos_of_expr expr in
+    let c_lhs = A.GhostVarDec (pos, [pos, id, ty]) in
+    A.GhostVars (pos, c_lhs, expr)
+  ) gen_gvars in
+  let nbody, gids7, warnings3 = normalize_contract info node_id map ivars ovars gen_gvars body in
   let gids = List.fold_left union (empty ()) [union_list gids1; union_list gids2; gids3; gids4; gids5; gids6; gids7] in
   nbody, gids, List.flatten (warnings1 @ warnings2) @ warnings3, StringMap.empty
 
@@ -1297,8 +1307,20 @@ and normalize_node info map
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
+      let gen_gvars = match (StringMap.find_opt node_id map) with 
+      | Some gids -> gids.gen_ghost_vars 
+        (* FIXME: This should not happen; every node should have gids. 
+        But, this is not currently the case, as monomorphization currently 
+        (incorrectly) does not generate gids. This will be fixed in a future PR. *)
+      | None -> [] 
+      in
+      let gen_gvars = List.map (fun (id, ty, expr) ->
+        let pos = AH.pos_of_expr expr in
+        let c_lhs = A.GhostVarDec (pos, [pos, id, ty]) in
+        A.GhostVars (pos, c_lhs, expr)
+      ) gen_gvars in
       let ncontracts, gids, warnings =
-        normalize_contract info node_id map inputs outputs contract in
+        normalize_contract info node_id map inputs outputs gen_gvars contract in
       (Some ncontracts), gids, warnings
     | None -> None, empty (), []
   in
@@ -1497,8 +1519,7 @@ and rename_ghost_variables info contract =
     let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
-  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
-    let ty = Ctx.lookup_ty info.context id |> get in
+  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, ty)::tis), e) :: t -> 
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
@@ -1506,10 +1527,11 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info node_id map ivars ovars (p, items) =
+and normalize_contract info node_id map ivars ovars gen_ghost_vars (p, items) =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
+  let items = items @ gen_ghost_vars in
   let ghost_interp, info = rename_ghost_variables info items in
   let ghost_interp = List.fold_left (StringMap.merge union_keys)
     StringMap.empty ghost_interp
@@ -1577,7 +1599,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
         in
         let called_node = StringMap.find name info.contract_calls_info in
         let (_, normalized_call), gids2, warnings2, interp = 
-          normalize_node_contract info node_id map cref ninputs noutputs called_node
+          normalize_node_contract info name map cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
         let warnings = warnings1 @ warnings2 in
@@ -1671,13 +1693,30 @@ and normalize_contract info node_id map ivars ovars (p, items) =
         ) in
 
         (* Get new identifiers for LHS *)
-        let tis = List.map (fun (p, id, ty) -> 
+        let tis' = List.map (fun (p, id, ty) -> 
           (p, StringMap.find id info.interpretation, ty)
         ) tis
         in
 
-        GhostVars (pos, GhostVarDec(pos2, tis), nexpr), 
-        union (union gids1 gids2) gids3, 
+        (* Update generated ghost var names in gids *)
+        let gids = union (union gids1 gids2) gids3 in
+        let curr_node_gids = match StringMap.find_opt node_id map with 
+        | Some gids -> gids 
+          (* FIXME: This should not happen; every node should have gids. 
+             But, this is not currently the case, as monomorphization currently 
+             (incorrectly) does not generate gids. This will be fixed in a future PR. *)
+        | None -> empty ()
+        in
+        let updated_gen_ghost_vars = 
+          List.map (fun (id, ty, expr) ->
+          StringMap.find id info.interpretation, ty, expr
+        ) curr_node_gids.gen_ghost_vars in
+        let gids = { gids with 
+          gen_ghost_vars = updated_gen_ghost_vars
+        } in
+
+        GhostVars (pos, GhostVarDec(pos2, tis'), nexpr), 
+        gids, 
         warnings @ warnings2, 
         StringMap.empty
       

@@ -48,7 +48,7 @@ let contract_node_decl_to_contracts
     | A.GhostConst _ | GhostVars _ -> Some ([ci], GI.empty ())
     | A.Assume (pos, name, b, expr) -> Some ([A.Guarantee (pos, name, b, expr)], GI.empty ())
     | A.ContractCall (pos, name, ty_args, ips, ops) -> 
-      let name = HString.concat2 (HString.mk_hstring ".inputs_") name in
+      let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
       (* Since we are flipping the inputs and outputs of the generated contract, 
          we also need to flip inputs and outputs of the call *)
       let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
@@ -102,35 +102,36 @@ let node_decl_to_contracts
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract', gids = List.filter_map (fun ci -> 
     match ci with
-    | A.GhostConst _ | GhostVars _ -> Some ([ci], GI.empty ())
-    | A.Assume (pos, name, b, expr) -> Some ([A.Guarantee (pos, name, b, expr)], GI.empty ())
+    | A.GhostConst _ | GhostVars _ -> Some (ci, GI.empty ())
+    | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr), GI.empty ())
     | A.ContractCall (pos, name, ty_args, ips, ops) -> 
-      let name = HString.concat2 (HString.mk_hstring ".inputs_") name in
-      (* Since we are flipping the inputs and outputs of the generated contract, 
-         we also need to flip inputs and outputs of the call *)
-      let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
-      let ops', gen_ghost_variables, gids = List.mapi (fun i expr -> match expr with 
-      | A.Ident (_, id) -> id, [], GI.empty ()
-      (* Input is not a simple identifier, so we have to generate a ghost variable 
-         to store the output *)
-      | expr -> 
-        let called_contract_ty = Ctx.lookup_contract_ty ctx name in 
-        let ghost_var_ty = match Option.get called_contract_ty with 
-        | TArr (_, _, GroupType (_, tys)) -> 
-          List.nth tys i  
-        | TArr(_, _, ty) when i = 1 -> ty
-        | _ -> assert false
-        in 
-        let gen_ghost_var, gids = mk_fresh_ghost_var ghost_var_ty expr in
-        gen_ghost_var,
-        (* [A.GhostVars (pos, (GhostVarDec (pos, [(pos, gen_ghost_var, ghost_var_ty)])), expr)], *)
-        [],
-        gids
-      ) ips |> Lib.split3 in
-      Some (
-        List.flatten gen_ghost_variables @ [A.ContractCall (pos, name, ty_args, ips', ops')], 
-        List.fold_left GI.union ( GI.empty ()) gids
-      )
+      if Flags.Contracts.check_environment () then (
+        let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
+        (* Since we are flipping the inputs and outputs of the generated contract, 
+          we also need to flip inputs and outputs of the call *)
+        let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
+        let ops', gids = List.mapi (fun i expr -> match expr with 
+        | A.Ident (_, id) -> id, GI.empty ()
+        (* Input is not a simple identifier, so we have to generate a ghost variable 
+          to store the output *)
+        | expr -> 
+          let called_contract_ty = Ctx.lookup_contract_ty ctx name in 
+          (* Option.get should not fail because we know the check_environment flag is enabled *)
+          let ghost_var_ty = match Option.get called_contract_ty with 
+          | TArr (_, _, GroupType (_, tys)) -> 
+            List.nth tys i  
+          | TArr(_, _, ty) when i = 1 -> ty
+          | _ -> assert false
+          in 
+          let gen_ghost_var, gids = mk_fresh_ghost_var ghost_var_ty expr in
+          gen_ghost_var,
+          gids
+        ) ips |> List.split in
+        Some (
+          A.ContractCall (pos, name, ty_args, ips', ops'), 
+          List.fold_left GI.union ( GI.empty ()) gids
+        )) 
+      else None
     | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> None
   ) base_contract |> List.split in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -140,7 +141,6 @@ let node_decl_to_contracts
       Some (pos, id, ty, cl)
     | _ -> None
   ) locals |> List.filter_map Fun.id in 
-  let contract' = List.flatten contract' in 
   let contract' = if contract' = [] then None else Some (pos, contract') in
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)

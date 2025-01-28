@@ -1297,30 +1297,13 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
       | _ -> assert false
     in
-    let extract_orig_name name = 
-      let name = HString.string_of_hstring name in
-      let parts = String.split_on_char '_' name in
-      match parts with
-      | _ :: _ :: tail ->
-        let id = String.concat "_" tail in
-        id |> HString.mk_hstring
-      | _ -> assert false
-    in
-    let gen_gvars = gids.GI.gen_ghost_vars in 
-    let gen_gvars = List.map (fun (id, ty, expr) -> 
-      let pos = AH.pos_of_expr expr in
-      pos, A.GhostVarDec (pos, [(pos, id, ty)]), expr
-    ) gen_gvars in
     let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
         let extract_local ((_, id, ty)) = (
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
           let index_types = compile_ast_type cstate ctx map ty in
           let gen_ghost_vars = List.map (fun (a, _, _) -> a) gids.GI.gen_ghost_vars in
-          HString.pp_print_hstring Format.std_formatter id;
-          print_endline "got here";
           let source = 
-            (* if List.mem (extract_orig_name id) gen_ghost_vars *)
             if List.mem id gen_ghost_vars
             then N.Generated 
             else N.Ghost 
@@ -1350,7 +1333,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         let eq_lhs = A.StructDef (pos, struct_items) in
         let eq_rhs = expr in
         (List.map extract_local tis) @ gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
-    in List.fold_left over_vars ([], []) (gvars @ gen_gvars)
+    in List.fold_left over_vars ([], []) gvars
   (* ****************************************************************** *)
   (* Contract Modes                                                     *)
   (* ****************************************************************** *)
