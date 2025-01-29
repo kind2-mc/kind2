@@ -1,6 +1,6 @@
 .. DO NOT EDIT, see doc/usr/README.rst for details
 
-.. |develop| image:: https://github.com/kind2-mc/kind2/workflows/Kind2%20CI/badge.svg?branch=develop
+.. |develop| image:: https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=develop
    :target: https://github.com/kind2-mc/kind2/actions?query=workflow%3A%22Kind2+CI%22
    :align: middle
 
