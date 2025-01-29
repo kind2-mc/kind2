@@ -11,6 +11,7 @@ syntax (analogous to polymorphic nodes and node calls)
 as in the following examples.
 
 .. code-block:: none
+
     type Pair<<T; U>> = [T, U];
 
     node SwapIntBool(x: Pair<<int; bool>>) returns (y: Pair <<bool; int>>)
