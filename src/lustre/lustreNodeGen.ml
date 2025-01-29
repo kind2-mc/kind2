@@ -1302,12 +1302,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
           let index_types = compile_ast_type cstate ctx map ty in
-          let gen_ghost_vars = List.map (fun (a, _, _) -> a) gids.GI.gen_ghost_vars in
-          let source = 
-            if List.mem id gen_ghost_vars
-            then N.Generated 
-            else N.Ghost 
-          in
           let over_indices = fun index index_type accum -> (
             let possible_state_var = (
               mk_state_var
@@ -1318,7 +1312,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
                 ident
                 index
                 index_type
-                (Some source)
+                (Some N.Ghost)
               )
             in
             match possible_state_var with

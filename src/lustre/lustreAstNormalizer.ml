@@ -279,13 +279,12 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_local "\n") gids.ib_oracles
-    (pp_print_list pp_print_oracle "\n") gids.gen_ghost_vars
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
@@ -1227,19 +1226,7 @@ and normalize_node_contract info node_id map cref inputs outputs (id, _, ivars, 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     add_ref_type_constraints info Output vars
   in
-  let gen_gvars = match (StringMap.find_opt node_id map) with
-  | Some gids -> gids.gen_ghost_vars 
-  (* FIXME: This should not happen; every node should have gids. 
-     But, this is not currently the case, as monomorphization currently 
-     (incorrectly) does not generate gids. This will be fixed in a future PR. *)
-  | None -> [] 
-  in
-  let gen_gvars = List.map (fun (id, ty, expr) ->
-    let pos = AH.pos_of_expr expr in
-    let c_lhs = A.GhostVarDec (pos, [pos, id, ty]) in
-    A.GhostVars (pos, c_lhs, expr)
-  ) gen_gvars in
-  let nbody, gids7, warnings3 = normalize_contract info node_id map ivars ovars gen_gvars body in
+  let nbody, gids7, _, warnings3 = normalize_contract info node_id map ivars ovars body in
   let gids = List.fold_left union (empty ()) [union_list gids1; union_list gids2; gids3; gids4; gids5; gids6; gids7] in
   nbody, gids, List.flatten (warnings1 @ warnings2) @ warnings3, StringMap.empty
 
@@ -1301,28 +1288,16 @@ and normalize_node info map
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids6, warnings4 = match contract with
+  let ncontracts, gids6, interpretation, warnings4 = match contract with
     | Some contract ->
       let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fst
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let gen_gvars = match (StringMap.find_opt node_id map) with 
-      | Some gids -> gids.gen_ghost_vars 
-        (* FIXME: This should not happen; every node should have gids. 
-        But, this is not currently the case, as monomorphization currently 
-        (incorrectly) does not generate gids. This will be fixed in a future PR. *)
-      | None -> [] 
-      in
-      let gen_gvars = List.map (fun (id, ty, expr) ->
-        let pos = AH.pos_of_expr expr in
-        let c_lhs = A.GhostVarDec (pos, [pos, id, ty]) in
-        A.GhostVars (pos, c_lhs, expr)
-      ) gen_gvars in
-      let ncontracts, gids, warnings =
-        normalize_contract info node_id map inputs outputs gen_gvars contract in
-      (Some ncontracts), gids, warnings
-    | None -> None, empty (), []
+      let ncontracts, gids, interpretation, warnings =
+        normalize_contract info node_id map inputs outputs contract in
+      (Some ncontracts), gids, interpretation, warnings
+    | None -> None, empty (), StringMap.empty, []
   in
   let ctx = Chk.add_local_node_ctx ctx locals in
   let info = { info with context = ctx } in
@@ -1384,7 +1359,7 @@ and normalize_node info map
   in
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
                              gids4; gids5; gids7; gids6_8; gids9; gids10] in
-  let old_gids, warnings6 = normalize_gid_equations info map node_id in
+  let old_gids, warnings6 = normalize_gid_equations { info with interpretation = interpretation; } map node_id in
   let map = StringMap.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
   map, 
@@ -1527,11 +1502,10 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info node_id map ivars ovars gen_ghost_vars (p, items) =
+and normalize_contract info node_id map ivars ovars (p, items) =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
-  let items = items @ gen_ghost_vars in
   let ghost_interp, info = rename_ghost_variables info items in
   let ghost_interp = List.fold_left (StringMap.merge union_keys)
     StringMap.empty ghost_interp
@@ -1698,25 +1672,8 @@ and normalize_contract info node_id map ivars ovars gen_ghost_vars (p, items) =
         ) tis
         in
 
-        (* Update generated ghost var names in gids *)
-        let gids = union (union gids1 gids2) gids3 in
-        let curr_node_gids = match StringMap.find_opt node_id map with 
-        | Some gids -> gids 
-          (* FIXME: This should not happen; every node should have gids. 
-             But, this is not currently the case, as monomorphization currently 
-             (incorrectly) does not generate gids. This will be fixed in a future PR. *)
-        | None -> empty ()
-        in
-        let updated_gen_ghost_vars = 
-          List.map (fun (id, ty, expr) ->
-          StringMap.find id info.interpretation, ty, expr
-        ) curr_node_gids.gen_ghost_vars in
-        let gids = { gids with 
-          gen_ghost_vars = updated_gen_ghost_vars
-        } in
-
         GhostVars (pos, GhostVarDec(pos2, tis'), nexpr), 
-        gids, 
+        union (union gids1 gids2) gids3, 
         warnings @ warnings2, 
         StringMap.empty
       
@@ -1728,7 +1685,7 @@ and normalize_contract info node_id map ivars ovars gen_ghost_vars (p, items) =
     gids := union !gids gids';
     warnings := !warnings @ warnings';
   done;
-  (p, !result), !gids, !warnings
+  (p, !result), !gids, !interpretation, !warnings
 
 
 and normalize_equation info node_id map = function
