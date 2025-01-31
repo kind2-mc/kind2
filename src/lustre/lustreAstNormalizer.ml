@@ -275,7 +275,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
-  let pp_print_equation ppf (_, _, lhs, expr) = Format.fprintf ppf "%a = %a"
+  let pp_print_equation ppf (_, _, lhs, expr, _) = Format.fprintf ppf "%a = %a"
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
@@ -393,7 +393,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
     array_constructors = StringMap.singleton name (expr_type, expr, size_expr);
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const expr_type expr =
@@ -408,7 +408,7 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
     node_args = [(name, is_const, expr_type, expr)];
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
   NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
@@ -592,7 +592,7 @@ let mk_fresh_subrange_constraint source info pos node_id constrained_name expr_t
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
       subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
-      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
+      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr, None)]; }
     in
     gids)
     range_exprs
@@ -681,7 +681,7 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
     locals = StringMap.singleton name expr_type;
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
   LocalCache.add local_cache expr nexpr;
   nexpr, gids
@@ -716,7 +716,7 @@ let mk_fresh_frozen_local node_id info pos ind_vars expr_type =
   let gids2 = { (empty ()) with
     locals = StringMap.singleton name expr_type;
     asserts;
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
   nexpr, name, union (union gids1 gids2) gids3
 
@@ -731,7 +731,7 @@ let mk_fresh_refinement_type_constraint source info pos id expr_type =
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
     let gids = { (empty ()) with
       refinement_type_constraints = [(source, pos, name, output_expr)];
-      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_expr)]; }
+      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_expr, None)]; }
     in
     gids)
     ref_type_exprs
@@ -777,7 +777,7 @@ let add_step_counter info =
   in
   { (empty ()) with
     locals = StringMap.singleton ctr_id (A.Int dpos);
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info node_id id =
@@ -841,7 +841,7 @@ let add_history_var_and_equation info id h_id =
       in
       A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
     in
-    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs)]
+    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)]
   in
   { (empty ()) with locals; equations }
 
@@ -1122,18 +1122,39 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
 
   Res.ok (ast, map, warnings)
 
-and normalize_gid_equations info gids_map node_id =
+(* In this function, we normalize generated identifiers that were created earlier in the pipeline. 
+   It is a bit hacky with respect to how scoping is handled. More concretely, 
+   because these equations were not generated within the normalizer,
+   and because our identifiers are not inherently scoped, 
+   we need to recover some scoping information (namely, whether or not the generated equations 
+   are contract or node body equations).
+   Future changes should be done carefully.
+*)
+  and normalize_gid_equations info gids_map node_id =
   match StringMap.find_opt node_id gids_map with
   | None -> empty(), []
   | Some gids -> (
     (* Normalize all equations in gids *)
-    let gids_list, warnings, eqs = List.map (fun (_, _, lhs, expr) ->
-      let nexpr, gids, warnings = normalize_expr info node_id gids_map expr in
-      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
+    let gids_list, warnings, eqs = List.map (fun (tis, sc, lhs, expr, source) ->
+      match source with 
+      (* Generated equations created during the normalization step don't need to be normalized *)
+      | None ->  
+         empty (), [], (tis, sc, lhs, expr, source)
+      (* Generated equations created before the normalization step; we need to use the right 
+         info.interpretation and info.contract_scope *)
+      | Some Ghost -> 
+        let nexpr, gids, warnings = normalize_expr info node_id gids_map expr in
+        gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
+      | Some _ -> 
+        let info = { info with interpretation = StringMap.empty; contract_scope = [] } in 
+        let nexpr, gids, warnings = normalize_expr info node_id gids_map expr in
+        gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
     ) gids.equations |> Lib.split3 in
+
     (* Take out old equations that were not normalized *)
     let gids = { gids with equations = [] } in
     let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
+
     (* Keep equations generated during normalization *)
     let eqs2 = gids.equations in
     let gids = { gids with equations = eqs @ eqs2; } in

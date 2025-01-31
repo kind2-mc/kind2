@@ -38,7 +38,7 @@ let mk_fresh_ghost_var pos cname ty rhs =
   let name = HString.concat2 prefix (HString.mk_hstring "_ghost") in
   let gids = { (GI.empty ()) with
     locals = GI.StringMap.singleton name ty; 
-    equations = [([], [pos, cname], A.StructDef(pos, [SingleIdent (pos, name)]), rhs)];
+    equations = [([], [pos, cname], A.StructDef(pos, [SingleIdent (pos, name)]), rhs, Some GI.Ghost)];
   } in 
   name, gids
   

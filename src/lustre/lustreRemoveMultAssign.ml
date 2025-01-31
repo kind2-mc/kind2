@@ -100,7 +100,7 @@ let create_new_eqs ctx lhs expr =
       let arrayids_new = get_array_ids sis in
       let expr = LAH.replace_idents arrayids_original arrayids_new expr in
       let gids2 = { (GI.empty ()) with 
-        equations = [([], [], A.StructDef(pos, sis), expr)];
+        equations = [([], [], A.StructDef(pos, sis), expr, Some GI.Output)];
       } in
       let eqs = List.map (fun x -> A.Body x) eqs in
         (
