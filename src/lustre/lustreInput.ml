@@ -62,6 +62,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
 
@@ -174,15 +175,17 @@ let type_check declarations =
       LspInfo.print_ast_info global_ctx declarations;
 
     (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
-    let sorted_node_contract_decls, global_ctx, gids = 
+    let* sorted_node_contract_decls, global_ctx, gids = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
       then 
-        let decls1, ctx1, gids1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in 
-        let decls2, ctx2, gids2 = LGI.gen_imp_nodes global_ctx sorted_node_contract_decls in
-        decls1 @ decls2, 
-        TypeCheckerContext.union ctx1 ctx2, 
-        GI.StringMap.merge GI.union_keys2 gids1 gids2
-      else sorted_node_contract_decls, global_ctx, GI.StringMap.empty
+        let* decls1, ctx1, gids1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in 
+        let* decls2, ctx2, gids2 = LGI.gen_imp_nodes global_ctx sorted_node_contract_decls in
+        Res.ok (
+          decls1 @ decls2, 
+          TypeCheckerContext.union ctx1 ctx2, 
+          GI.StringMap.merge GI.union_keys2 gids1 gids2
+        )
+      else Res.ok (sorted_node_contract_decls, global_ctx, GI.StringMap.empty)
     in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)

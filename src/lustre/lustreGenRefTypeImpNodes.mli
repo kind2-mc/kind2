@@ -27,4 +27,13 @@ val contract_tag : string
 val type_tag : string
 val poly_gen_node_tag : string
 
-val gen_imp_nodes : Ctx.tc_context ->  A.declaration list -> A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t
+type error_kind = 
+  | EnvRealizabilityCheckModeRefAssumption
+
+val error_message : error_kind -> string
+
+type error = [
+  | `LustreGenRefTypeImpNodesError of Lib.position * error_kind
+]
+
+val gen_imp_nodes : Ctx.tc_context ->  A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t, [> error]) result

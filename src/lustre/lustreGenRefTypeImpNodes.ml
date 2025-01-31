@@ -19,6 +19,21 @@ module A = LustreAst
 module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
 module GI = GeneratedIdentifiers
+module R = Res
+
+let (let*) = R.(>>=)
+
+type error_kind = 
+  | EnvRealizabilityCheckModeRefAssumption
+
+let error_message error = match error with
+  | EnvRealizabilityCheckModeRefAssumption -> "Environment realizability checks do not currently support assumptions containing mode references. To disable environment realizability checking, pass --check_realizability false"
+
+type error = [
+  | `LustreGenRefTypeImpNodesError of Lib.position * error_kind
+]
+
+let mk_error pos kind = Error (`LustreGenRefTypeImpNodesError (pos, kind))
 
 let inputs_tag = ".inputs_"
 let contract_tag = ".contract_"
@@ -41,13 +56,41 @@ let mk_fresh_ghost_var pos cname ty rhs =
     equations = [([], [pos, cname], A.StructDef(pos, [SingleIdent (pos, name)]), rhs, Some GI.Ghost)];
   } in 
   name, gids
+
+let rec expr_contains_mode_ref expr = 
+  let r = expr_contains_mode_ref in 
+  match expr with 
+  | A.ModeRef (_, _) -> true
+  | Ident (_, _) 
+  | Const (_, _) -> false
+  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | Pre (_, e) 
+    -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2)
+  | Arrow (_, e1, e2)
+    -> r e1 || r e2
+  | TernaryOp (_, _, e1, e2, e3)
+    -> r e1 || r e2 || r e3
+  | GroupExpr (_, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || r x) false expr_list
+  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    r e1 || r e2
+    || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+    -> false
   
 let contract_node_decl_to_contracts
 = fun ctx (id, params, inputs, outputs, (pos, base_contract)) -> 
-  let contract', gids = List.filter_map (fun ci -> 
+  let* res = R.seq (List.map (fun ci -> 
     match ci with
-    | A.GhostConst _ | GhostVars _ -> Some (ci, GI.empty ())
-    | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr), GI.empty ())
+    | A.GhostConst _ | GhostVars _ -> R.ok (Some (ci, GI.empty ()))
+    | A.Assume (pos, name, b, expr) ->
+      if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
+      R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
     | A.ContractCall (pos, name, ty_args, ips, ops) -> 
       let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
       (* Since we are flipping the inputs and outputs of the generated contract, 
@@ -69,12 +112,13 @@ let contract_node_decl_to_contracts
         gen_ghost_var,
         gids
       ) ips |> List.split in
-      Some (
+      R.ok (Some (
         A.ContractCall (pos, name, ty_args, ips', ops'), 
         List.fold_left GI.union ( GI.empty ()) gids
-      )
-    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> None
-  ) base_contract |> List.split in
+      ))
+    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> R.ok None
+  ) base_contract) in
+  let contract', gids = List.filter_map (fun x -> x) res |> List.split in
   let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
   let inputs2, outputs2 = 
     List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
@@ -93,16 +137,18 @@ let contract_node_decl_to_contracts
   then 
     (* Update ctx with info about the generated contract *)
     let ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
-    [environment], ctx, gids 
-  else [], ctx, gids
+    R.ok ([environment], ctx, gids)
+  else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
 = fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
-  let contract', gids = List.filter_map (fun ci -> 
+  let* res = R.seq (List.map (fun ci -> 
     match ci with
-    | A.GhostConst _ | GhostVars _ -> Some (ci, GI.empty ())
-    | A.Assume (pos, name, b, expr) -> Some (A.Guarantee (pos, name, b, expr), GI.empty ())
+    | A.GhostConst _ | GhostVars _ -> R.ok (Some (ci, GI.empty ()))
+    | A.Assume (pos, name, b, expr) -> 
+      if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
+      R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
     | A.ContractCall (pos, name, ty_args, ips, ops) -> 
       if Flags.Contracts.check_environment () then (
         let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
@@ -126,13 +172,14 @@ let node_decl_to_contracts
           gen_ghost_var,
           gids
         ) ips |> List.split in
-        Some (
+        R.ok (Some (
           A.ContractCall (pos, name, ty_args, ips', ops'), 
           List.fold_left GI.union ( GI.empty ()) gids
-        )) 
-      else None
-    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> None
-  ) base_contract |> List.split in
+        )))
+      else R.ok None
+    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> R.ok None
+  ) base_contract) in
+  let contract', gids = List.filter_map (fun x -> x) res |> List.split in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
@@ -164,8 +211,8 @@ let node_decl_to_contracts
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated node *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
-      [environment], ctx, gids
-    else [], ctx, gids
+      R.ok ([environment], ctx, gids)
+    else R.ok([], ctx, gids)
   else
     let environment = gen_node_id, extern', A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
@@ -173,11 +220,11 @@ let node_decl_to_contracts
       (* Update ctx with info about the generated nodes *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
-      [environment; contract], ctx, gids 
+      R.ok ([environment; contract], ctx, gids)
     else 
       (* Update ctx with info about the generated node *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
-      [contract], ctx, gids
+      R.ok ([contract], ctx, gids)
 
 (* NOTE: Currently, we do not allow global constants to have refinement types. 
    If we decide to support this in the future, then we need to add necessary refinement type information 
@@ -192,44 +239,50 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t li
   let node_items = [A.AnnotMain(pos, true)] in 
   Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
-let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t
+let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t, [> error]) result
 = fun ctx decls -> 
-  let decls, ctx, gids = List.fold_left (fun (acc_decls, acc_ctx, acc_gids) decl -> 
+  let* decls, ctx, gids = R.seq_chain (fun (acc_decls, acc_ctx, acc_gids) decl -> 
     match decl with 
     | A.ConstDecl (_, FreeConst _)
-    | A.ConstDecl (_, TypedConst _) -> acc_decls, acc_ctx, acc_gids
+    | A.ConstDecl (_, TypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
     | A.TypeDecl (_, AliasType (p, id, ps, ty)) -> 
       (match type_to_contract p id ty ps with 
-      | Some decl1 -> decl1 :: acc_decls, acc_ctx, acc_gids
-      | None -> acc_decls, acc_ctx, acc_gids)
+      | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
+      | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.TypeDecl (_, FreeType _)
-    | A.ConstDecl (_, UntypedConst _) -> acc_decls, acc_ctx, acc_gids
+    | A.ConstDecl (_, UntypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
     | A.NodeDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
       (* Add main annotations to imported nodes *)
       let node_decl = 
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else node_decl 
       in
-      let decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl in
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
-      A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
-      GI.StringMap.merge GI.union_keys2 gids acc_gids
+      R.ok (
+        A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
+        GI.StringMap.merge GI.union_keys2 gids acc_gids
+      )
     | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
       (* Add main annotations to imported functions *)
       let func_decl = 
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
-      let decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl in
       let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
-      A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
-      GI.StringMap.merge GI.union_keys2 gids acc_gids
+      R.ok (
+        A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
+        GI.StringMap.merge GI.union_keys2 gids acc_gids
+      )
     | A.ContractNodeDecl (span, contract_node_decl) -> 
-      let decls, acc_ctx, gids = contract_node_decl_to_contracts acc_ctx contract_node_decl in 
+      let* decls, acc_ctx, gids = contract_node_decl_to_contracts acc_ctx contract_node_decl in 
       let decls = List.map (fun decl -> A.ContractNodeDecl (span, decl)) decls in
-      A.ContractNodeDecl (span, contract_node_decl) :: decls @ acc_decls, acc_ctx, 
-      GI.StringMap.merge GI.union_keys2 gids acc_gids
-    | A.NodeParamInst _ -> decl :: acc_decls, acc_ctx, acc_gids
+      R.ok (
+        A.ContractNodeDecl (span, contract_node_decl) :: decls @ acc_decls, acc_ctx, 
+        GI.StringMap.merge GI.union_keys2 gids acc_gids
+      )
+    | A.NodeParamInst _ -> R.ok (decl :: acc_decls, acc_ctx, acc_gids)
   ) ([], ctx, GI.StringMap.empty) decls 
   in 
-  List.rev decls, ctx, gids
+  R.ok (List.rev decls, ctx, gids)
