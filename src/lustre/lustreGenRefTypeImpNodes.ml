@@ -84,75 +84,16 @@ let rec expr_contains_mode_ref expr =
     || List.fold_left (fun acc x -> acc || r x) false expr_list
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> false
-  
-let contract_node_decl_to_contracts
-= fun ctx (id, params, inputs, outputs, (pos, base_contract)) -> 
+
+let mk_generated_env_contract_eqs ctx base_contract = 
   let* res = R.seq (List.map (fun ci -> 
     match ci with
     | A.GhostConst _ | GhostVars _ -> R.ok (Some (ci, GI.empty ()))
     | A.Assume (pos, name, b, expr) ->
       if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
       R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
-    | A.ContractCall (pos, name, ty_args, ips, ops) -> 
-      let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
-      (* Since we are flipping the inputs and outputs of the generated contract, 
-         we also need to flip inputs and outputs of the call *)
-      let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
-      let ops', gids = List.mapi (fun i expr -> match expr with 
-      | A.Ident (_, id) -> id, GI.empty ()
-      (* Input is not a simple identifier, so we have to generate a ghost variable 
-         to store the output *)
-      | expr -> 
-        let called_contract_ty = Ctx.lookup_contract_ty ctx name in 
-        let ghost_var_ty = match Option.get called_contract_ty with 
-        | TArr (_, _, GroupType (_, tys)) -> 
-          List.nth tys i  
-        | TArr(_, _, ty) when i = 0 -> ty
-        | _ -> assert false
-        in 
-        let gen_ghost_var, gids = mk_fresh_ghost_var pos ghost_var_ty expr in
-        gen_ghost_var,
-        gids
-      ) ips |> List.split in
-      R.ok (Some (
-        A.ContractCall (pos, name, ty_args, ips', ops'), 
-        List.fold_left GI.union ( GI.empty ()) gids
-      ))
-    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> R.ok None
-  ) base_contract) in
-  let contract', gids = List.filter_map (fun x -> x) res |> List.split in
-  let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
-  let inputs2, outputs2 = 
-    List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
-    List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
-  in
-  (* Since we are omitting assumptions from environment realizability checks,
-     we need to chase base types for environment inputs *)
-  let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
-    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
-    (p, id, ty, cl, b)
-  ) inputs2 in
-  (* We generate a contract representing this contract's inputs/environment *)
-  let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
-  let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
-  if Flags.Contracts.check_environment () 
-  then 
-    (* Update ctx with info about the generated contract *)
-    let ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
-    R.ok ([environment], ctx, gids)
-  else R.ok ([], ctx, gids)
-
-let node_decl_to_contracts 
-= fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
-  let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
-  let* res = R.seq (List.map (fun ci -> 
-    match ci with
-    | A.GhostConst _ | GhostVars _ -> R.ok (Some (ci, GI.empty ()))
-    | A.Assume (pos, name, b, expr) -> 
-      if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
-      R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
-    | A.ContractCall (pos, name, ty_args, ips, ops) -> 
-      if Flags.Contracts.check_environment () then (
+    | A.ContractCall (pos, name, ty_args, ips, ops) ->
+      if Flags.Contracts.check_environment () then ( 
         let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
         (* Since we are flipping the inputs and outputs of the generated contract, 
           we also need to flip inputs and outputs of the call *)
@@ -167,7 +108,7 @@ let node_decl_to_contracts
           let ghost_var_ty = match Option.get called_contract_ty with 
           | TArr (_, _, GroupType (_, tys)) -> 
             List.nth tys i  
-          | TArr(_, _, ty) when i = 1 -> ty
+          | TArr(_, _, ty) when i = 0 -> ty
           | _ -> assert false
           in 
           let gen_ghost_var, gids = mk_fresh_ghost_var pos ghost_var_ty expr in
@@ -182,6 +123,40 @@ let node_decl_to_contracts
     | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> R.ok None
   ) base_contract) in
   let contract', gids = List.filter_map (fun x -> x) res |> List.split in
+  R.ok (contract', gids)
+
+let mk_swapped_inputs_and_outputs ctx inputs outputs = 
+  let inputs2, outputs2 = 
+    List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
+    List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
+  in
+  (* Since we are omitting assumptions from environment realizability checks,
+     we need to chase base types for environment inputs *)
+  let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
+    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+    (p, id, ty, cl, b)
+  ) inputs2 in
+  inputs2, outputs2
+
+let contract_node_decl_to_contracts
+= fun ctx (id, params, inputs, outputs, (pos, base_contract)) -> 
+  let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
+  let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
+  let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
+  (* We generate a contract representing this contract's inputs/environment *)
+  let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
+  let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
+  if Flags.Contracts.check_environment () 
+  then 
+    (* Update ctx with info about the generated contract *)
+    let ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
+    R.ok ([environment], ctx, gids)
+  else R.ok ([], ctx, gids)
+
+let node_decl_to_contracts 
+= fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
+  let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
+  let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
@@ -195,16 +170,7 @@ let node_decl_to_contracts
   let node_items = [A.AnnotMain(pos, true)] in 
   let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
   let gen_node_id2 = HString.concat2 (HString.mk_hstring contract_tag) id in
-  let inputs2, outputs2 = 
-    List.map (fun (p, id, ty, cl) -> (p, id, ty, cl, false)) outputs, 
-    List.map (fun (p, id, ty, cl, _) -> (p, id, ty, cl)) inputs 
-  in
-  (* Since we are omitting assumptions from environment realizability checks,
-     we need to chase base types for environment inputs *)
-  let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
-    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
-    (p, id, ty, cl, b)
-  ) inputs2 in
+  let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
   (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
