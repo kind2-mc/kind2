@@ -47,13 +47,15 @@ let unwrap = function
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
-let mk_fresh_ghost_var pos cname ty rhs =
+let mk_fresh_ghost_var pos ty rhs =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_ghost") in
   let gids = { (GI.empty ()) with
     locals = GI.StringMap.singleton name ty; 
-    equations = [([], [pos, cname], A.StructDef(pos, [SingleIdent (pos, name)]), rhs, Some GI.Ghost)];
+    (* No contract scope is given because we are currently disallowing mode references in contract 
+       assumptions during environment realizability checks. *)
+    equations = [([], [], A.StructDef(pos, [SingleIdent (pos, name)]), rhs, Some GI.Ghost)];
   } in 
   name, gids
 
@@ -108,7 +110,7 @@ let contract_node_decl_to_contracts
         | TArr(_, _, ty) when i = 0 -> ty
         | _ -> assert false
         in 
-        let gen_ghost_var, gids = mk_fresh_ghost_var pos id ghost_var_ty expr in
+        let gen_ghost_var, gids = mk_fresh_ghost_var pos ghost_var_ty expr in
         gen_ghost_var,
         gids
       ) ips |> List.split in
@@ -168,7 +170,7 @@ let node_decl_to_contracts
           | TArr(_, _, ty) when i = 1 -> ty
           | _ -> assert false
           in 
-          let gen_ghost_var, gids = mk_fresh_ghost_var pos id ghost_var_ty expr in
+          let gen_ghost_var, gids = mk_fresh_ghost_var pos ghost_var_ty expr in
           gen_ghost_var,
           gids
         ) ips |> List.split in
