@@ -119,6 +119,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
 
