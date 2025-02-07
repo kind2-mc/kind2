@@ -52,6 +52,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
+  | IllegalHistoryVar of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

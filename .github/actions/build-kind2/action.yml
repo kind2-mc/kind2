@@ -3,9 +3,18 @@ description: Build Kind 2 on current runner
 inputs:
   ocaml-version:
     description: The OCaml compiler version
+    required: true
+  cache-prefix:
+    description: The prefix of the cache keys.
+    required: false
+    default: develop
   flambda:
     default: false
     type: boolean
+  build-target:
+    description: The build target for the make command
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -28,6 +37,7 @@ runs:
     uses: ocaml/setup-ocaml@v3
     with:
       ocaml-compiler: ${{ steps.ocaml-variant.outputs.compiler }}
+      cache-prefix: ${{ inputs.cache-prefix }}
 
   - name: Install OCaml dependencies
     shell: bash
@@ -35,4 +45,4 @@ runs:
   
   - name: Build Kind2
     shell: bash
-    run: opam exec make
+    run: opam exec make ${{ inputs.build-target }}

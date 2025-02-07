@@ -99,7 +99,9 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
   | QuantifiedAbstractType of HString.t
+  | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
+  | InvalidNumberOfIndices of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -195,7 +197,9 @@ let error_message kind = match kind with
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
+  | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
+  | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -936,6 +940,20 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
+and check_array_dimensions pos ctx base_e idxs =
+  let ty = lookup_ty ctx base_e |> Option.get in
+  let* ty = expand_type_syn_reftype_history_subrange ctx ty in
+  let rec calc_number_of_array_dimensions ty = 
+    match ty with 
+    | LustreAst.ArrayType (_, (ty, _)) -> 
+      1 + calc_number_of_array_dimensions ty
+    | _ -> 0
+  in 
+  let num_dimensions = calc_number_of_array_dimensions ty in 
+  if List.length idxs != num_dimensions then 
+    (type_error pos (InvalidNumberOfIndices base_e))
+  else R.ok ()
+
 and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
   match expr with
@@ -1110,10 +1128,11 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     in
     (* Disallow quantification over abstract types *)
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
-      if type_contains_abstract ctx ty 
-      then 
+      if type_contains_abstract ctx ty then 
         type_error pos (QuantifiedAbstractType id) 
-      else 
+      else if type_contains_array ctx ty then
+        type_error pos (UnsupportedQuantifiedArray id)
+      else
         R.ok ()
     ) qs) in
     let extn_ctx = List.fold_left union ctx
@@ -1591,6 +1610,7 @@ and check_type_struct_item: tc_context -> HString.t -> LA.struct_item -> tc_type
       else R.ok ())
       (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
   | ArrayDef (pos, base_e, idxs) ->
+    check_array_dimensions pos ctx base_e idxs >>
     let array_idx_expr =
       List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
         (LA.Ident (pos, base_e))

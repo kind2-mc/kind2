@@ -1,0 +1,4 @@
+node N() returns (o: bool);
+let
+  check exists (A: int^3) A[0]=0;
+tel

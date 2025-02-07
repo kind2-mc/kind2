@@ -43,4 +43,4 @@
 
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
-val remove_mult_assign : TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t
+val remove_mult_assign : TypeCheckerContext.tc_context -> GeneratedIdentifiers.t HString.HStringMap.t -> LustreAst.declaration list -> LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t

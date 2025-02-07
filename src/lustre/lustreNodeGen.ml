@@ -1999,7 +1999,7 @@ and compile_node_decl gids_map is_function opac cstate ctx i ext params inputs o
   (* Generated Equations                                                *)
   (* ****************************************************************** *)
   in let gequations =
-    let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr) ->
+    let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr, _) ->
       map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
         | A.StructDef (_, []) -> X.empty, 0

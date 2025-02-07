@@ -73,7 +73,8 @@ type t = {
     (LustreAst.typed_ident list (* quantified variables *)
     * (Lib.position * HString.t) list (* contract scope  *)
     * LustreAst.eq_lhs
-    * LustreAst.expr)
+    * LustreAst.expr
+    * source option) (* Record the source of the equation if generated before normalization step *)
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
