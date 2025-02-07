@@ -203,7 +203,7 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 16. Instantiate polymorphic nodes with concrete types *)
-    let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx const_inlined_nodes_and_contracts in
+    let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 17. Flatten refinement types *)
     let const_inlined_type_and_consts = LFR.flatten_ref_types inlined_global_ctx const_inlined_type_and_consts in
