@@ -41,9 +41,14 @@ let pos_of_svar { pos } = pos
 let prop_name_of_svar { pos ; name = s; scope } kind name =
   match s with
   | Some n ->
+    (* Clean .poly tags from property names *)
+    let poss, scope = List.split scope in 
+    let scope = Analysis.clean_polymorphic_info scope |> List.combine poss in
     Format.asprintf "%a%s" (
       pp_print_list (
         fun fmt (pos, call) ->
+          (* Clean .inputs and .contract tags from property names *)
+          let _, call = LustreGenRefTypeImpNodes.get_node_type_and_name call in
           Format.fprintf fmt "%s%a."
             call Lib.pp_print_line_and_column pos
       ) ""
@@ -53,6 +58,8 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
     Format.asprintf "%a%s%s%a" (
       pp_print_list (
         fun fmt (pos, call) ->
+          (* Clean .inputs and .contract tags from property names *)
+          let _, call = LustreGenRefTypeImpNodes.get_node_type_and_name call in
           Format.fprintf fmt "%s%a."
             call Lib.pp_print_line_and_column pos
       ) ""

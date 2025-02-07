@@ -185,9 +185,12 @@ let lift_prop_name node_name pos prop_name =
 
   in
 
-  (* Remove .poly_N tag from property name *)
+  (* Remove .poly, .contract, and .inputs tags from property name *)
   let node_name = string_of_t (LustreIdent.pp_print_ident true) node_name in
-  let _, node_name = LustrePath.get_node_type_and_name node_name in
+  (* Hacky and ugly: since node_name may have two tags, we need to apply this function twice. 
+     will be cleaned up when structured node names are introduced. *)
+  let _, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name node_name in
+  let _, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name node_name in
 
   string_of_t
     (fun ppf prop_name ->
@@ -344,14 +347,14 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
       let prop_name =
         match name with
         | None -> (
-          Format.asprintf "%s%a.assume%a"
-            (Analysis.clean_polymorphic_info scope)
+          Format.asprintf "%a%a.assume%a"
+            Scope.pp_print_scope (Analysis.clean_polymorphic_info scope)
             pp_print_line_and_column call_pos
             pp_print_line_and_column pos
         )
         | Some n -> (
-          Format.asprintf "%s%a.%s"
-            (Analysis.clean_polymorphic_info scope)
+          Format.asprintf "%a%a.%s"
+            Scope.pp_print_scope (Analysis.clean_polymorphic_info scope)
             pp_print_line_and_column call_pos n
         )
       in
