@@ -699,6 +699,16 @@ val enforce_constantness_via_equations : t -> (t * StateVar.t list)
 (** Return the global constant state variables of the transition system *)
 val global_const_state_vars : t -> StateVar.t list
 
+(** [slice_system sys vars] returns a new system obtained by restricting
+    [sys] to only the state variables in [vars].
+
+    @param sys The original system.
+    @param vars The set of state variables to retain in the sliced system.
+    @return A new system containing only the specified state variables.
+*)
+val slice_system : t -> StateVar.StateVarSet.t -> t
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -20,7 +20,7 @@ open Lib
 
 module P = Property
 module SVM = StateVar.StateVarMap
-(* module SVS = StateVar.StateVarSet *)
+module SVS = StateVar.StateVarSet
 
 exception PropertyNotFound of string
 
@@ -2112,6 +2112,47 @@ let enforce_constantness_via_equations sys =
 
 let global_const_state_vars { global_consts } = 
   List.map Var.state_var_of_state_var_instance global_consts
+
+let slice_term (cone_of_influence : SVS.t) (term : Term.t) =
+  let state_var_of_state_var_instance_opt var =
+    try Some (Var.state_var_of_state_var_instance var) with _ -> None
+  in
+
+  let keep_term t =
+    Term.vars_of_term t |> Var.VarSet.to_seq
+    |> Seq.filter_map state_var_of_state_var_instance_opt
+    |> Seq.find (fun x -> StateVar.StateVarSet.mem x cone_of_influence)
+    |> is_some
+  in
+  try Term.node_args_of_term term |> List.filter keep_term |> Term.mk_and
+  with _ -> Term.mk_true ()
+
+let rec slice_system sys cone_of_influence =
+
+  let initial_term = init_of_bound None sys init_base |> slice_term cone_of_influence in
+  let transition_term = trans_of_bound None sys trans_base |> slice_term cone_of_influence in
+
+  let sys =
+    set_subsystem_equations sys (scope_of_trans_sys sys) initial_term
+      transition_term
+  in
+  {
+    sys with
+    subsystems =
+      List.map
+        (fun (system, instances) ->
+          (slice_system system cone_of_influence, instances))
+        sys.subsystems;
+    properties =
+      List.filter
+        (fun property ->
+          property.Property.prop_term |> Term.vars_of_term |> Var.VarSet.to_seq
+          |> Seq.filter_map (fun var ->
+                 try Some (Var.state_var_of_state_var_instance var)
+                 with _ -> None)
+          |> Seq.exists (fun sv -> SVS.mem sv cone_of_influence))
+        sys.properties;
+  }
 
 (* 
    Local Variables:

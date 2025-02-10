@@ -2898,13 +2898,11 @@ let trans_sys_of_nodes
     subsystem'
   in
 
-  let top_name = subsystem'.source.N.node_id in
-
   let nodes = N.nodes_of_subsystem subsystem' in
 
   let { trans_sys; definition_set} =
 
-    try 
+    try
 
       (* Create a transition system for each node *)
       trans_sys_of_node'
@@ -2958,6 +2956,29 @@ let trans_sys_of_nodes
 
   (* Reset garbage collector to its initial settings *)
   Lib.reset_gc_params ();
+
+  let trans_sys =
+    if options.slice_nodes == `Experimental then (
+      let graph =
+        DependencyGraph.dependency_graph_of_system definition_set trans_sys
+      in
+
+      let roots = TransSys.get_properties trans_sys
+        |> List.to_seq
+        |> Seq.map Property.get_prop_term
+        |> Seq.map Term.state_vars_of_term
+        |> Seq.fold_left SVS.union SVS.empty
+      in
+
+      let coi =
+        DependencyGraph.cone_of_influence
+          graph
+          roots
+      in
+
+      TransSys.slice_system trans_sys coi)
+    else trans_sys
+  in
 
   trans_sys, subsystem'
 
