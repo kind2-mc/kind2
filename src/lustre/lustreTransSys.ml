@@ -1734,8 +1734,12 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   | [] -> terms, lets, eq_bounds
 
   (* Stateful variable must have an equational constraint *)
+  (* If we are doing experimental slicing the let binding optimization is
+     skipped and this is not relevant *)
   | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
-    when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
+    when
+      (Flags.slice_nodes () != `Experimental) &&
+      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -1756,9 +1760,12 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) tl
 
-
   (* Can define state variable with a let binding *)
-  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
+  (* Let binding optimization is not performed when experimental slicing is
+     performed *)
+  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl
+    when ( Flags.slice_nodes () != `Experimental )
+    ->
 
     if transfer_defs then (
     (* TODO: Factor out and optimize this code *)
@@ -1805,33 +1812,32 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Let binding for stateless variable, in closure form *)
     let let_closure =
-      Term.mk_let 
-        (if init then 
+      Term.mk_let
+        (if init then
             (* Binding for the variable at the base instant only *)
-            [(E.base_var_of_state_var TransSys.init_base state_var, 
-              E.base_term_of_expr TransSys.init_base expr_init)] 
+            [(E.base_var_of_state_var TransSys.init_base state_var,
+              E.base_term_of_expr TransSys.init_base expr_init)]
           else
             (* Binding for the variable at the current instant *)
-            (E.cur_var_of_state_var TransSys.trans_base state_var, 
-            E.cur_term_of_expr TransSys.trans_base expr_step) :: 
-            (if 
+            (E.cur_var_of_state_var TransSys.trans_base state_var,
+            E.cur_term_of_expr TransSys.trans_base expr_step) ::
+            (if
               (* Does the state variable occur at the previous
                 instant? *)
               try
-              Term.state_vars_at_offset_of_term 
-                Numeral.(TransSys.trans_base |> pred) 
+              Term.state_vars_at_offset_of_term
+                Numeral.(TransSys.trans_base |> pred)
                 (Term.mk_and terms)
-              |> SVS.mem state_var  
+              |> SVS.mem state_var
               with Invalid_argument _ -> true
 
-              
             then
               ((* Definition must not contain a [pre] operator, otherwise we'd
                   have a double [pre]. The state variable is not stateless in
                   this case, and we should not be here. *)
                 assert (not (E.has_pre_var E.base_offset expr));
                 (* Binding for the variable at the previous instant *)
-                [(E.pre_var_of_state_var TransSys.trans_base state_var, 
+                [(E.pre_var_of_state_var TransSys.trans_base state_var,
                   E.pre_term_of_expr TransSys.trans_base expr_step)])
             else (* No binding for the variable at the previous instant
                     necessary *)

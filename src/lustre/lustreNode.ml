@@ -1365,7 +1365,7 @@ let stateful_vars_of_node
       oracles; 
       outputs; 
       locals;
-      equations; 
+      equations;
       calls; 
       asserts; 
       props; 
@@ -1383,103 +1383,113 @@ let stateful_vars_of_node
        @ oracles)
   in
 
-  (* Add stateful variables from properties *)
-  let stateful_vars = 
-    add_to_svs
+  (*
+    We disable the let binding optimization when using the experimental
+    slicing algorithm. In this case we have to manually add these back in
+  *)
+  let stateful_vars =
+    if Flags.slice_nodes () == `Experimental
+    then
+      List.map D.values locals |>
+        List.flatten |>
+        add_to_svs stateful_vars
+    else
+
+      (* Add stateful variables from properties *)
+      let stateful_vars = 
+        add_to_svs
+          stateful_vars
+          (List.map (fun (sv, _, _, _) -> sv) props) 
+      in
+
+      (* Add stateful variables from contracts *)
+      let stateful_vars = match contract with
+        | None -> stateful_vars
+        | Some contract ->
+          (* Sofar variable should only be added if the corresponding equation is present,
+             which is detected below since its definition refers to itself:
+             sofar = [...] and pre sofar
+          *)
+          C.svars_of ~with_sofar_var:false contract |> SVS.union stateful_vars
+      in
+
+      (* Add stateful variables from equations *)
+      let stateful_vars =
+        List.fold_left
+          (fun  accum (_, expr) ->
+             SVS.union accum (stateful_vars_of_expr expr))
+          stateful_vars
+          equations
+      in
+
+      (* TODO: this can be removed if we forbid undefined local variables.
+         Unconstrained local state variables must be stateful *)
+      let stateful_vars =
+        List.fold_left
+          (fun a l ->
+             D.fold
+               (fun _ sv a ->
+                  if
+                    (* Arrays are global TODO maybe this is not necessary *)
+                    not (Type.is_array (StateVar.type_of_state_var sv)) &&
+                    (* Local state variable is defined by an equation? *)
+                    List.exists
+                      (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
+                      equations 
+                  then a
+                  else
+                    (* State variable without equation must be stateful *)
+                    SVS.add sv a)
+               l
+               a)
+          stateful_vars
+          locals
+      in
+
+      (* Add stateful variables from assertions *)
+      let stateful_vars = 
+        add_to_svs
+          stateful_vars
+          (List.map (fun (_, sv) -> sv) asserts) 
+      in
+
+      (* Add variables from node calls *)
+      let stateful_vars =
+        List.fold_left
+          (fun
+            accum
+            { call_cond;
+              call_inputs;
+              call_oracles;
+              call_outputs;
+              call_defaults } ->
+
+            (* Input and output variables are always stateful *)
+            ((D.values call_inputs) @
+             call_oracles @
+             (D.values call_outputs))
+            |> SVS.of_list
+            (* Add stateful variables from initial defaults *)
+            |> SVS.union
+               (match call_defaults with
+                 | None -> accum
+                 | Some d ->
+                   List.fold_left
+                     (fun accum expr ->
+                        SVS.union accum (stateful_vars_of_expr expr))
+                     accum
+                     (D.values d))
+
+            (* Variables in activation and restart conditions are always
+               stateful *)
+            |> SVS.union
+              (List.map (function | CActivate v | CRestart v -> v) call_cond
+               |> SVS.of_list)
+
+          ) stateful_vars calls
+      in
       stateful_vars
-      (List.map (fun (sv, _, _, _) -> sv) props) 
   in
-
-  (* Add stateful variables from contracts *)
-  let stateful_vars = match contract with
-    | None -> stateful_vars
-    | Some contract ->
-      (* Sofar variable should only be added if the corresponding equation is present,
-         which is detected below since its definition refers to itself:
-         sofar = [...] and pre sofar
-      *)
-      C.svars_of ~with_sofar_var:false contract |> SVS.union stateful_vars
-  in
-
-  (* Add stateful variables from equations *)
-  let stateful_vars = 
-    List.fold_left
-      (fun  accum (_, expr) -> 
-         SVS.union accum (stateful_vars_of_expr expr))
-      stateful_vars
-      equations
-  in
-
-  (* TODO: this can be removed if we forbid undefined local variables.
-     Unconstrained local state variables must be stateful *)
-  let stateful_vars = 
-    List.fold_left
-      (fun a l -> 
-         D.fold
-           (fun _ sv a ->
-              if 
-                (* Arrays are global TODO maybe this is not necessary *)
-                not (Type.is_array (StateVar.type_of_state_var sv)) &&
-                (* Local state variable is defined by an equation? *)
-                List.exists
-                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
-                  equations 
-              then a
-              else 
-
-                (* State variable without equation must be stateful *)
-                SVS.add sv a)
-           l
-           a)
-      stateful_vars
-      locals
-  in
-
-  (* Add stateful variables from assertions *)
-  let stateful_vars = 
-    add_to_svs
-      stateful_vars
-      (List.map (fun (_, sv) -> sv) asserts) 
-  in
-
-  (* Add variables from node calls *)
-  let stateful_vars = 
-    List.fold_left
-      (fun
-        accum
-        { call_cond;
-          call_inputs; 
-          call_oracles;
-          call_outputs; 
-          call_defaults } -> 
-
-        (* Input and output variables are always stateful *)
-        ((D.values call_inputs) @ 
-         call_oracles @
-         (D.values call_outputs))
-        
-        |> SVS.of_list
-        
-        (* Add stateful variables from initial defaults *)
-        |> SVS.union 
-           (match call_defaults with 
-             | None -> accum
-             | Some d ->
-               List.fold_left 
-                 (fun accum expr -> 
-                    SVS.union accum (stateful_vars_of_expr expr))
-                 accum
-                 (D.values d))
-
-        (* Variables in activation and restart conditions are always
-           stateful *)
-        |> SVS.union
-          (List.map (function | CActivate v | CRestart v -> v) call_cond
-           |> SVS.of_list)
-       
-      ) stateful_vars calls
-  in
-
   stateful_vars
 
 (* ********************************************************************** *)
