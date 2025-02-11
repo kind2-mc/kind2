@@ -202,13 +202,13 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option
         let ty = Chk.instantiate_type_variables ctx Lib.dummy_pos nname ty ty_args |> unwrap in 
         (id, ty)
       ) polymorphic_gids.ib_oracles in
-      let geqs = List.map (fun (q_vars, sc, lhs, expr) -> 
+      let geqs = List.map (fun (q_vars, sc, lhs, expr, source) -> 
         let q_vars = List.map (fun (pos, id, ty) -> 
           let ty = Chk.instantiate_type_variables ctx pos nname ty ty_args |> unwrap in 
           pos, id, ty
         ) q_vars in 
         let expr = Chk.instantiate_type_variables_expr ctx nname ty_args expr |> unwrap in
-        (q_vars, sc, lhs, expr)
+        (q_vars, sc, lhs, expr, source)
       ) polymorphic_gids.equations in
 
       (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<<int>> *)
@@ -220,9 +220,9 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option
         let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some nname) acc_node_decls_map ty in 
         ctx, gids, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
       ) (ctx, gids, decls, [], node_decls_map) ib_oracles in 
-      let ctx, gids, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr) -> 
+      let ctx, gids, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
         let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids (Some nname) acc_node_decls_map expr in 
-        ctx, gids, decls @ acc_decls, (q_vars, sc, lhs, expr) :: acc_geqs, node_decls_map
+        ctx, gids, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
       ) (ctx, gids, decls, [], node_decls_map) geqs in 
 
       let monomorphized_gids = { polymorphic_gids with locals = glocals; equations = geqs; ib_oracles = ib_oracles; } in
