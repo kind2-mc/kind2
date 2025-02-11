@@ -1349,6 +1349,12 @@ let split_dot s =
   let n = (index s '.') in
   sub s 0 n, sub s (n+1) (length s - n - 1)
 
+let split3 triples =
+  let xs = List.map (fun (x, _, _) -> x) triples in
+  let ys = List.map (fun (_, y, _) -> y) triples in
+  let zs = List.map (fun (_, _, z) -> z) triples in
+  xs, ys, zs
+
 
 (* Extract scope from a concatenated name *)
 let extract_scope_name name =

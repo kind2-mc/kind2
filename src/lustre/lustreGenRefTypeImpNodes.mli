@@ -19,10 +19,26 @@
 
 
 module A = LustreAst
+module Ctx = TypeCheckerContext
+module GI = GeneratedIdentifiers
 
 val inputs_tag : string 
 val contract_tag : string
 val type_tag : string
 val poly_gen_node_tag : string
 
-val gen_imp_nodes : TypeCheckerContext.tc_context ->  A.declaration list -> A.declaration list
+type error_kind = 
+  | EnvRealizabilityCheckModeRefAssumption
+
+val error_message : error_kind -> string
+
+type error = [
+  | `LustreGenRefTypeImpNodesError of Lib.position * error_kind
+]
+
+type node_type = Environment | Contract | Type | User
+
+(** Retrieve information about Kind 2-generated nodes *)
+val get_node_type_and_name: string -> node_type * string
+
+val gen_imp_nodes : Ctx.tc_context ->  A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t, [> error]) result

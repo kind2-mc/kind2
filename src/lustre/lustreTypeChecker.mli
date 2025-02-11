@@ -84,7 +84,9 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
   | QuantifiedAbstractType of HString.t
+  | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
+  | InvalidNumberOfIndices of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -189,6 +191,12 @@ val infer_type_expr: tc_context ->  HString.t option -> LA.expr -> (tc_type * [>
 
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
 (** Check if two lustre types are equal *)
+
+val tc_ctx_of_contract_node_decl: Lib.position -> tc_context
+  -> LA.contract_node_decl
+  -> (tc_context * [> warning] list, [> error]) result
+
+val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
 
 (* 
    Local Variables:

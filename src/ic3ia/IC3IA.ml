@@ -939,7 +939,7 @@ let main fwd slice_to_prop prop in_sys param sys =
   let param = Analysis.param_clone param in
 
   let sys =
-    if slice_to_prop then (
+    if Flags.slice_nodes () && slice_to_prop then (
       (* Only slice if the property was already present in the original input system.
          The current slicing procedure works on the input system, not the transition system *)
       match prop.Property.prop_source with

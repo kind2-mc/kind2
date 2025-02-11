@@ -237,7 +237,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
+    let node_type, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) in
     Format.fprintf fmt "@{<b>%s@} @{<blue>%s@}@ " 
     (match node_type with 
       | Environment -> "Environment of"
@@ -306,7 +306,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
       `Assoc [
-        ("name", `String (LustrePath.get_node_type_and_name (Scope.to_string scope) |> snd)) ;
+        ("name", `String (LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) |> snd)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -342,7 +342,7 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    let _, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
+    let _, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" node_name ;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"

@@ -27,7 +27,7 @@ type ``T`` to have a finite domain.
     type T;
     function id_T (x: T) returns (y: T);
     (*@contract
-    assume forall (x:T) (forall (y: T) x = y);
+    assume forall (x: T) (forall (y: T) x = y);
     *)
     let
         y = x;
