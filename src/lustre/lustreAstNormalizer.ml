@@ -281,10 +281,10 @@ let pp_print_generated_identifiers ppf gids =
   in
   Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
+    (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
-    (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
