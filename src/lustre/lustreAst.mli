@@ -97,6 +97,11 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+type realizability_tag = 
+  | Contract 
+  | Environment
+  | Type
+
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
@@ -160,7 +165,10 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * ident * expr list
+  | Call of position * lustre_type list * node_name * expr list
+
+(* node name * realizability tag * monomorphization info *)
+and node_name = ident * realizability_tag option * (lustre_type list * int) option
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -262,7 +270,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * lustre_type list * expr list * ident list
+type contract_call = position * node_name * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -290,6 +298,15 @@ type opacity =
   | Opaque
   | Transparent
 
+module NodeNameMap : Map.S with type key = node_name
+
+module NodeNameSet: sig
+  include (Set.S with type elt = node_name)
+  val flatten: t list -> t
+end
+
+module NodeNameHashtbl : Hashtbl.S with type key = node_name
+
 (** Declaration of a node or function as a tuple of
 
     - its identifier,
@@ -302,7 +319,7 @@ type opacity =
     - its equations, assertions and annotiations, and
     - its optional contract specification *)
 type node_decl =
-  ident
+  node_name
   * bool
   * opacity
   * ident list
@@ -320,7 +337,7 @@ type node_decl =
   - its outputs,
   - its body as a [contract]. *)
 type contract_node_decl =
-  ident
+  node_name
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -350,6 +367,7 @@ type declaration =
 type t = declaration list
 
 (** {1 Pretty-printers} *)
+val pp_print_node_name : Format.formatter -> index * 'a * 'b -> unit
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
@@ -384,6 +402,7 @@ val pp_print_program : Format.formatter -> t -> unit
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
 val string_of_expr: expr -> string
+val internal_string_of_node_name: node_name -> string
 (* 
    Local Variables:
    compile-command: "make -k -C .."

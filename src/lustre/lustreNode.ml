@@ -103,6 +103,9 @@ type node_call = {
 
   (* Name of called node *)
   call_node_name : I.t;
+
+  (* Node type of the called node *)
+  call_node_type : LustreAst.realizability_tag option;
     
   (* Boolean activation and/or restart conditions if any *)
   call_cond : call_cond list;
@@ -146,6 +149,9 @@ type t = {
   (* Name of node *)
   name : I.t;
 
+  (* Type of node: user node, environment (realizability) check, contract check, or type check *)
+  node_type : LustreAst.realizability_tag option;
+
   (* Is the node extern? *)
   is_extern: bool;
 
@@ -153,7 +159,7 @@ type t = {
   opacity: Opacity.t;
 
   (* Node type arguments *)
-  ty_args: LustreAst.lustre_type list;
+  ty_args: (LustreAst.lustre_type list * int) option;
 
   (* Constant state variable uniquely identifying the node instance *)
   instance : StateVar.t;
@@ -216,9 +222,10 @@ type t = {
 (* An empty node *)
 let empty_node name is_extern = {
   name ;
+  node_type = None ;
   is_extern ;
   opacity = Translucent;
-  ty_args = [];
+  ty_args = None;
   instance = 
     StateVar.mk_state_var
       ~is_const:true
@@ -997,7 +1004,7 @@ let scope_of_node { name } = name |> I.to_scope
 (* Return all nodes with --%MAIN annotations *)
 let get_main_annotated_nodes nodes = nodes
     |> List.filter (fun { is_main } -> is_main )
-    |> List.map (fun { name } -> name)
+    |> List.map (fun { name; node_type } -> name, node_type )
 
 (* Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
@@ -1012,7 +1019,7 @@ let find_main nodes =
       (* Return name of last node, fail if list of nodes empty *)
       (match nodes with
         | [] -> raise Not_found
-        | { name } :: _ -> [name])
+        | { name; node_type } :: _ -> [name, node_type])
     | ids -> ids
 
 (* Return identifier of last node in list *)
@@ -1044,13 +1051,13 @@ let rec subsystem_of_nodes' nodes accum = function
   | [] -> accum
 
   (* Create subsystem for node *)
-  | top :: tl -> 
+  | (top, tag) :: tl -> 
 
     if
 
       (* Subsystem for node already created? *)
       List.exists
-        (fun (n, _) -> I.equal n top)
+        (fun (n, t, _) -> I.equal n top && t = tag)
         accum
 
     then
@@ -1085,18 +1092,16 @@ let rec subsystem_of_nodes' nodes accum = function
       let subsystems, tl' = 
 
         List.fold_left 
-          (fun (a, tl) { call_node_name } -> 
+          (fun (a, tl) { call_node_name; call_node_type } -> 
 
              try 
 
                (* Find subsystem for callee *)
-               let callee_subsystem = 
+               let _, _, callee_subsystem = 
 
                  List.find
-                   (fun (n, _) -> I.equal n call_node_name)
+                   (fun (n, t, _) -> I.equal n call_node_name && t = call_node_type)
                    accum
-
-                 |> snd 
 
                in
 
@@ -1127,7 +1132,7 @@ let rec subsystem_of_nodes' nodes accum = function
              with Not_found -> 
 
                (* Must visit callee first *)
-               (a, call_node_name :: tl))
+               (a, (call_node_name, call_node_type) :: tl))
 
 
           ([], [])
@@ -1139,7 +1144,7 @@ let rec subsystem_of_nodes' nodes accum = function
       if tl' <> [] then 
         
         (* Recurse to create subsystem of callees first *)
-        subsystem_of_nodes' nodes accum (tl' @ top :: tl)
+        subsystem_of_nodes' nodes accum (tl' @ ((top, tag) :: tl))
           
       else
 
@@ -1173,7 +1178,7 @@ let rec subsystem_of_nodes' nodes accum = function
         (* Add subsystem of node to accumulator and continue *)
         subsystem_of_nodes' 
           nodes
-          ((top, subsystem) :: accum)
+          ((top, tag, subsystem) :: accum)
           tl
 
 
@@ -1183,18 +1188,18 @@ let subsystems_of_nodes tops nodes =
 
   (* Find subsystems of top nodes *)
   List.filter
-    (fun (n, _) -> List.exists (fun t -> I.equal n t) tops)
+    (fun (n, tag1, _) -> List.exists (fun (t, tag2) -> I.equal n t && tag1 = tag2) tops)
     all_subsystems
-  |> List.map snd
+  |> List.map (fun (_, _, c) -> c)
 
 
-let subsystem_of_nodes top nodes =
+let subsystem_of_nodes (top, tag) nodes =
   (* Create subsystems for all nodes.
      Raise Invalid_argument if top is not found *)
-  let all_subsystems = subsystem_of_nodes' nodes [] [top] in
+  let all_subsystems = subsystem_of_nodes' nodes [] [top, tag] in
 
-  match List.find_opt (fun (n, _) -> I.equal n top) all_subsystems with
-  | Some (_, sub) -> sub
+  match List.find_opt (fun (n, tag2, _) -> I.equal n top && tag = tag2) all_subsystems with
+  | Some (_, _, sub) -> sub
   | None -> assert false
 
 

@@ -1296,7 +1296,7 @@ let rec check_no_contract_in_node_calls ctx = function
 (* Evaluates contract calls. *)
 and eval_node_contract_call 
   known ctx scope inputs outputs locals is_candidate (
-    call_pos, id, tys, in_params, out_params
+    call_pos, ((id, _, _) as nname), tys, in_params, out_params
   ) = 
   if tys <> [] then fail_at_position call_pos "Contract calls with type parameters not supported in old frontend" else
     
@@ -1326,8 +1326,8 @@ and eval_node_contract_call
   (* Push scope for contract call. *)
   let ctx = C.push_contract_scope ctx id' in
   (* Retrieve contract node from context. *)
-  let pos, (id, params, in_formals, out_formals, contract) =
-    try C.contract_node_decl_of_ident ctx id
+  let pos, ((id, _, _), params, in_formals, out_formals, contract) =
+    try C.contract_node_decl_of_ident ctx nname
     with Not_found ->
       (* Contract might be forward referenced. *)
       Deps.Unknown_decl (Deps.Contract, ident, call_pos) |> raise
@@ -2105,7 +2105,7 @@ and declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  {A.start_pos = pos}, (i, ext, _, [], inputs, outputs, locals, items, contracts)
+  {A.start_pos = pos}, ((i, _, _), ext, _, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2185,7 +2185,7 @@ and declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  {A.start_pos = pos}, (i, ext, _, [], inputs, outputs, locals, items, contracts)
+  {A.start_pos = pos}, ((i, _, _), ext, _, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2365,10 +2365,10 @@ and declaration_to_context ctx = function
 (* Parametric node declaration *)
 | A.NodeParamInst ({A.start_pos = pos}, _)
 | A.NodeDecl ({A.start_pos = pos}, _) ->
-  fail_at_position pos "Parametric nodes are not supported"
+  fail_at_position pos "Parametric nodes are not supported in old frontend"
 (* Parametric function declaration *)
 | A.FuncDecl ({A.start_pos = pos}, _) ->
-  fail_at_position pos "Parametric functions are not supported"
+  fail_at_position pos "Parametric functions are not supported in old frontend"
 
 (* Add declarations of program to context *)
 let rec declarations_to_context ctx = function

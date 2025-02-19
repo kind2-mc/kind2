@@ -100,7 +100,7 @@ val log_analysis_start : TransSys.t -> Analysis.param -> unit
 (** Logs the start of an analysis.
     Simplified version of [log_analysis_start]
     that is used for contract checking *)
-val log_contractck_analysis_start : Scope.t -> unit
+val log_contractck_analysis_start : 'a InputSystem.t ->  Scope.t -> unit
 
 (** Logs the end of an analysis.
     [log_analysis_end] logs the end of an analysis. *)

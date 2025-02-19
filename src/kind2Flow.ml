@@ -795,7 +795,7 @@ let run in_sys =
               ~add_functional_constraints:false in_sys param
           in
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
-          KEvent.log_contractck_analysis_start scope ;
+          KEvent.log_contractck_analysis_start in_sys scope ;
           Stat.start_timer Stat.analysis_time ;
           let result =
             if not has_contract then
@@ -832,7 +832,7 @@ let run in_sys =
                 ContractChecker.check_contract_satisfiability sys
               in
               Log.log_result
-                (ContractChecker.pp_print_satisfiability_result_pt param)
+                (ContractChecker.pp_print_satisfiability_result_pt in_sys param)
                 ContractChecker.pp_print_satisfiability_result_xml
                 ContractChecker.pp_print_satisfiability_result_json
                 result ;

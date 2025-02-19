@@ -2761,6 +2761,11 @@ let rec trans_sys_of_node'
 
           (* UFs of the system. *)
           let ufs = function_ufs in
+
+          let ty_args = match ty_args with 
+          | None -> [] 
+          | Some (ty_args, _) -> ty_args 
+          in
           
           
           (* ****************************************************** *)

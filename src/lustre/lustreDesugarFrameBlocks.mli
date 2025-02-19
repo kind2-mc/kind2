@@ -52,7 +52,7 @@ type eq_or_framecond =
   | FCond of A.eq_lhs
 
 (* First position is frame block header, second position is of the specific equation *)
-val pos_list_map : (Lib.position * eq_or_framecond) list HString.HStringHashtbl.t
+val pos_list_map : (Lib.position * eq_or_framecond) list A.NodeNameHashtbl.t
 
 val desugar_frame_blocks :
   A.declaration list ->

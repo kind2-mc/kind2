@@ -125,12 +125,12 @@ let info_of_decl = function
 | A.ConstDecl ({A.start_pos=pos}, A.TypedConst(_, ident, _, _)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Const
 
-| A.NodeDecl ({A.start_pos=pos}, (ident, _, _, _, _, _, _, _, _)) ->
+| A.NodeDecl ({A.start_pos=pos}, ((ident, _, _), _, _, _, _, _, _, _, _)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, NodeOrFun
-| A.FuncDecl ({A.start_pos=pos}, (ident, _,  _, _, _, _, _, _, _)) ->
+| A.FuncDecl ({A.start_pos=pos}, ((ident, _, _), _,  _, _, _, _, _, _, _)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, NodeOrFun
 
-| A.ContractNodeDecl ({A.start_pos=pos}, (ident, _, _, _, _)) ->
+| A.ContractNodeDecl ({A.start_pos=pos}, ((ident, _, _), _, _, _, _)) ->
   pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Contract
 
 | decl ->
@@ -146,8 +146,8 @@ let insert_decl decl (f_type, f_ident) decls =
   let has_ident = match f_type with
     | NodeOrFun -> (
       function
-      | A.NodeDecl (_, (i, _, _, _, _, _, _, _, _)) -> i = ident
-      | A.FuncDecl (_, (i, _, _, _, _, _, _, _, _)) -> i = ident
+      | A.NodeDecl (_, ((i, _, _), _, _, _, _, _, _, _, _)) -> i = ident
+      | A.FuncDecl (_, ((i, _, _), _, _, _, _, _, _, _, _)) -> i = ident
       | _ -> false
     )
     | Type -> (
@@ -158,7 +158,7 @@ let insert_decl decl (f_type, f_ident) decls =
     )
     | Contract -> (
       function
-      | A.ContractNodeDecl (_, (i, _, _, _, _)) -> i = ident
+      | A.ContractNodeDecl (_, ((i, _, _), _, _, _, _)) -> i = ident
       | _ -> false
     )
     | Const -> (

@@ -69,6 +69,9 @@ type node_call = {
 
   call_node_name : LustreIdent.t;
   (** Identifier of the called node *)
+
+  call_node_type : LustreAst.realizability_tag option;
+  (** Node type of the called node *)
   
   call_cond : call_cond list;
   (** Boolean activation and/or restart conditions if any *)
@@ -155,13 +158,16 @@ type t = {
   name : LustreIdent.t;
   (** Name of the node *)
 
+  node_type : LustreAst.realizability_tag option;
+  (** Type of the node (user node vs generated for various realizability checks)*)
+
   is_extern : bool;
   (** Is the node extern? *)
 
   opacity: Opacity.t;
   (** Whether the node should be always abstracted by its contract, never, or sometimes *)
   
-  ty_args: LustreAst.lustre_type list;
+  ty_args: (LustreAst.lustre_type list * int) option;
   (** Node type arguments (if the node was created during monomorphization) *)
 
   instance : StateVar.t;
@@ -297,7 +303,7 @@ val node_of_name : LustreIdent.t -> t list -> t
 val exists_node_of_name : LustreIdent.t -> t list -> bool 
 
 (** Return all nodes with --%MAIN annotations *)
-val get_main_annotated_nodes : t list -> LustreIdent.t list
+val get_main_annotated_nodes : t list -> (LustreIdent.t * LustreAst.realizability_tag option) list
 
 (** Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
@@ -305,7 +311,7 @@ val get_main_annotated_nodes : t list -> LustreIdent.t list
     then it is the caller's responsibility to ensure there is
     only a single main node.
 *)
-val find_main : t list -> LustreIdent.t list
+val find_main : t list -> (LustreIdent.t * LustreAst.realizability_tag option) list
 
 (** Return the identifier of the top node
 
@@ -318,11 +324,11 @@ val has_effective_contract : t -> bool
 
 (** Return a list of tree-like subsystem hierarchies from a flat list of nodes,
     where the names of the top nodes are given as first argument. *)
-val subsystems_of_nodes : LustreIdent.t list -> t list -> t SubSystem.t list
+val subsystems_of_nodes : (LustreIdent.t * LustreAst.realizability_tag option) list -> t list -> t SubSystem.t list
 
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the name of the top node is given as first argument. *)
-val subsystem_of_nodes : LustreIdent.t -> t list -> t SubSystem.t
+val subsystem_of_nodes : LustreIdent.t * LustreAst.realizability_tag option -> t list -> t SubSystem.t
 
 (** Return list of topologically ordered list of nodes from subsystem.
     The top node is the head of the list. *)

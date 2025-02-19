@@ -662,6 +662,7 @@ let slice_all_of_node
     ?(keep_contracts = true)
     ?(keep_asserts = true)
     { N.name;
+      N.node_type;
       N.is_extern;
       N.opacity;
       N.ty_args;
@@ -686,6 +687,7 @@ let slice_all_of_node
      variables, equations, assertions and node calls. Keep signature,
      properties, assertions, contracts and main annotation *)
   { N.name;
+    N.node_type;
     N.is_extern;
     N.opacity;
     N.ty_args;
@@ -1240,8 +1242,8 @@ let slice_to_abstraction'
   in
   
   (* Create subsystem from list of nodes *)
-  let { N.name = top } = List.hd nodes in
-  N.subsystem_of_nodes top nodes'
+  let { N.name = top; N.node_type = node_type } = List.hd nodes in
+  N.subsystem_of_nodes (top, node_type) nodes'
 
 
 let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =

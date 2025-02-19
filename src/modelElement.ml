@@ -237,14 +237,14 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
-    Format.fprintf fmt "@{<b>%s@} @{<blue>%s@}@ " 
-    (match node_type with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | User -> "Node") 
-    node_name ;
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
+    (match node.node_type with 
+      | Some Environment -> "Environment of"
+      | Some Contract -> "Contract of"
+      | Some Type -> "Type"
+      | None -> "Node") 
+    Scope.pp_print_scope scope ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -306,7 +306,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
       `Assoc [
-        ("name", `String (LustrePath.get_node_type_and_name (Scope.to_string scope) |> snd)) ;
+        ("name", `String (Scope.to_string scope)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -342,8 +342,7 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    let _, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in
-    Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" node_name ;
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" Scope.pp_print_scope scope ;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

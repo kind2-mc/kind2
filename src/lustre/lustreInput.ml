@@ -183,9 +183,9 @@ let type_check declarations =
         Res.ok (
           decls1 @ decls2, 
           TypeCheckerContext.union ctx1 ctx2, 
-          GI.StringMap.merge GI.union_keys2 gids1 gids2
+          LA.NodeNameMap.merge GI.union_keys2 gids1 gids2
         )
-      else Res.ok (sorted_node_contract_decls, global_ctx, GI.StringMap.empty)
+      else Res.ok (sorted_node_contract_decls, global_ctx, LA.NodeNameMap.empty)
     in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
@@ -211,6 +211,8 @@ let type_check declarations =
 
     (* Step 16. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx const_inlined_nodes_and_contracts in
+
+    List.iter (LA.pp_print_declaration Format.std_formatter) const_inlined_nodes_and_contracts;
 
     (* Step 17. Flatten refinement types *)
     let const_inlined_type_and_consts = LFR.flatten_ref_types inlined_global_ctx const_inlined_type_and_consts in
@@ -318,7 +320,7 @@ let of_channel old_frontend only_parse in_ch =
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
               let _ = LN.node_of_name s_ident nodes in 
-              [s_ident]
+              [s_ident, None]
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
               let msg =
@@ -357,12 +359,12 @@ let of_channel old_frontend only_parse in_ch =
                     (2) the main node's enviornment, if environment checking is enabled *)
               let main_nodes = 
                 if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                  [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);]
-                else [s_ident] 
+                  [LustreIdent.mk_string_ident s, Some LA.Contract;]
+                else [s_ident, None] 
               in
               let main_nodes = 
                 if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
-                  LustreIdent.mk_string_ident (LGI.inputs_tag ^ s) :: main_nodes 
+                  (LustreIdent.mk_string_ident s, Some LA.Environment) :: main_nodes 
                 else 
                   main_nodes 
                 in 
@@ -382,7 +384,9 @@ let of_channel old_frontend only_parse in_ch =
               match toplevel_nodes with
               | [] -> raise (NoMainNode "No node defined in input model")
               | _ -> toplevel_nodes |> List.map (fun s ->
-                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident)
+                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident, 
+                None
+              )
           )
         in
         let main_nodes = match Flags.lus_main_type () with
@@ -395,11 +399,11 @@ let of_channel old_frontend only_parse in_ch =
               raise (MainTypeWithoutRealizability msg)
             else (
               try 
-                let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
+                (* let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in *)
                 let _ = LN.node_of_name s_ident nodes in  
                 match Flags.lus_main () with 
-                | Some _ -> s_ident :: main_nodes
-                | None -> [s_ident]
+                | Some _ -> (s_ident, Some LA.Type) :: main_nodes
+                | None -> [s_ident, None]
               (* User-specified type alias in command-line input might not exist *)
               with Not_found -> 
                 let msg =
@@ -414,14 +418,16 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      let nodes = List.map (fun ({ LustreNode.name } as n) ->
-          if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
+      let nodes = List.map (fun ({ LustreNode.name; LustreNode.node_type } as n) ->
+          if List.exists (fun (id, tag) -> LustreIdent.equal id name && tag = node_type) main_nodes then
             { n with is_main = true }
           else n)
         nodes
       in
       print_nodes_and_globals nodes globals;
 
+      List.iter (fun (name, _) -> LustreIdent.pp_print_ident false Format.std_formatter name) main_nodes;
+      List.iter (fun { LN.name } -> LustreIdent.pp_print_ident false Format.std_formatter name) nodes;
       (* Return a subsystem tree from the list of nodes *)
       Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
     | Error e -> Error e)

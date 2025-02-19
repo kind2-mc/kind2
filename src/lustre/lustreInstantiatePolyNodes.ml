@@ -1,7 +1,6 @@
 module A = LustreAst
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
-module GI = GeneratedIdentifiers
 module LH = LustreAstHelpers
 
 let unwrap res = match res with 
@@ -92,11 +91,11 @@ let build_node_fun_ty
    and type arguments, return the associated generated polymorphic node name, a new declaration for the 
    polymorphic node instantiation (if it hasn't already been created), and the updated map of 
    node names to polymorphic instantiations *)
-let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.lustre_type list list) HString.HStringMap.t ->
-                   HString.t -> A.lustre_type list -> Ctx.tc_context * HString.t *  A.declaration list * (A.declaration * A.lustre_type list list) HString.HStringMap.t 
-= fun ctx caller_nname node_decls_map nname ty_args ->
+let rec gen_poly_decl: Ctx.tc_context -> A.node_name option -> (A.declaration * A.lustre_type list list) A.NodeNameMap.t ->
+                   A.node_name -> A.lustre_type list -> Ctx.tc_context * A.node_name *  A.declaration list * (A.declaration * A.lustre_type list list) A.NodeNameMap.t 
+= fun ctx caller_nname node_decls_map ((node_id, tag, _) as nname) ty_args ->
   (* Check for pre-existing instantiation of the node before compiling a new one *)
-  let decl, tyss = GI.StringMap.find nname node_decls_map in 
+  let decl, tyss = A.NodeNameMap.find nname node_decls_map in 
   let find_decl tys = 
     (List.length tys = List.length ty_args) &&
     (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic 
@@ -111,14 +110,13 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
   in
   match Lib.find_opt_index find_decl tyss with 
   (* This polymorphic instantiation already exists *)
-  | Some i -> 
-    let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (string_of_int i) ^ "_" in
-    let pnname = HString.concat2 (HString.mk_hstring prefix) nname in
+  | Some j -> 
+    let pnname = node_id, tag, Some (ty_args, j) in
     ctx, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
     let span, is_function, is_contract, ext, opac, ips, ops, locs, nis, c =
-      match GI.StringMap.find nname node_decls_map with
+      match A.NodeNameMap.find nname node_decls_map with
       | (A.FuncDecl (span, (_, ext, opac, _, ips, ops, locs, nis, c)), _) ->
         span, true, false, ext, opac, ips, ops, locs, nis, c
       | (A.NodeDecl (span, (_, ext, opac, __FUNCTION__, ips, ops, locs, nis, c)), _) ->
@@ -160,15 +158,13 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
         List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements
     in
     (* Create fresh identifier for instantiated polymorphic node *)
-    let prefix =  LustreGenRefTypeImpNodes.poly_gen_node_tag ^ (List.length tyss |> string_of_int) ^ "_" in
-    let pnname = HString.concat2 (HString.mk_hstring prefix) nname in
+    let pnname = node_id, tag, Some (ty_args, List.length tyss) in
     (* Remember new instantiation *)
-    let node_decls_map = GI.StringMap.add nname (decl, tyss @ [ty_args]) node_decls_map in
+    let node_decls_map = A.NodeNameMap.add nname (decl, tyss @ [ty_args]) node_decls_map in
     let ctx, called_decl = 
       if is_function then 
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
-        let ctx = Ctx.add_node_param_attr ctx pnname ips in
-        let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
+        let ctx = Ctx.add_node_param_attr ctx pnname ips in 
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
         A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
@@ -184,7 +180,6 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
       else     
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in
-        let ctx = Ctx.add_ty_args_node ctx pnname ty_args in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_node ctx pnname node_ty, 
         NodeDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
@@ -196,8 +191,8 @@ let rec gen_poly_decl: Ctx.tc_context -> HString.t option -> (A.declaration * A.
 
     ctx, pnname, decls, node_decls_map                     
 
-and gen_poly_decls_ty: Ctx.tc_context -> HString.t option -> (A.declaration * A.lustre_type list list) HString.HStringMap.t ->
-                           A.lustre_type -> Ctx.tc_context * A.lustre_type * A.declaration list * (A.declaration * A.lustre_type list list) HString.HStringMap.t
+and gen_poly_decls_ty: Ctx.tc_context -> A.node_name option -> (A.declaration * A.lustre_type list list) A.NodeNameMap.t ->
+                           A.lustre_type -> Ctx.tc_context * A.lustre_type * A.declaration list * (A.declaration * A.lustre_type list list) A.NodeNameMap.t
 = fun ctx nname node_decls_map ty -> match ty with
   | A.TupleType (p, tys) -> 
     let ctx, tys, decls, node_decls_map = List.fold_left (fun (ctx, acc_tys, acc_decls, acc_node_decls_map) ty -> 
@@ -233,8 +228,8 @@ and gen_poly_decls_ty: Ctx.tc_context -> HString.t option -> (A.declaration * A.
   | Int32 _ | Int64 _ | IntRange _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ -> ctx, ty, [], node_decls_map
 
-and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * A.lustre_type list list) HString.HStringMap.t ->
-                             A.expr -> Ctx.tc_context * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) HString.HStringMap.t
+and gen_poly_decls_expr: Ctx.tc_context -> A.node_name option -> (A.declaration * A.lustre_type list list) A.NodeNameMap.t ->
+                             A.expr -> Ctx.tc_context * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) A.NodeNameMap.t
 = fun ctx caller_nname node_decls_map expr -> 
   let rec_call = gen_poly_decls_expr ctx caller_nname node_decls_map in
   match expr with 
@@ -243,7 +238,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> HString.t option -> (A.declaration * 
       let ctx, expr, decls, node_decls_map = gen_poly_decls_expr ctx caller_nname acc_node_decls_map expr in 
       ctx, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, [], [], node_decls_map) exprs in 
-    let ctx, pnname, decls2, node_decls_map  = gen_poly_decl ctx caller_nname node_decls_map  nname (ty :: tys) in
+    let ctx, pnname, decls2, node_decls_map  = gen_poly_decl ctx caller_nname node_decls_map nname (ty :: tys) in
 
     let ty_args =
       match caller_nname with
@@ -562,9 +557,9 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> A.declaration list -> Ctx.t
   let node_decls_map = List.fold_left (fun acc decl -> match decl with 
   | (A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (FuncDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
-  | (ContractNodeDecl (_, (id, _, _, _, _)) as decl) -> GI.StringMap.add id (decl, []) acc
+  | (ContractNodeDecl (_, (id, _, _, _, _)) as decl) -> A.NodeNameMap.add id (decl, []) acc
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> acc
-  ) GI.StringMap.empty decls 
+  ) A.NodeNameMap.empty decls 
   in
 
   let ctx, decls, _ = gen_poly_decls_decls ctx node_decls_map decls in 

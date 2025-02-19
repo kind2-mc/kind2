@@ -660,34 +660,6 @@ let node_path_of_subsystems
       backtrace ;*)
     raise e
 
-let get_node_type_and_name name =
-  let open LustreGenRefTypeImpNodes in
-  let inputs_tag_len = String.length inputs_tag in
-  let contract_tag_len = String.length contract_tag in
-  let type_tag_len = String.length type_tag in
-  let poly_gen_node_tag_len = String.length poly_gen_node_tag in
-  if String.length name > inputs_tag_len && 
-      String.sub name 0 inputs_tag_len = inputs_tag then
-    Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
-  else if String.length name > contract_tag_len && 
-          String.sub name 0 contract_tag_len = contract_tag then 
-    Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
-  else if String.length name > type_tag_len && 
-          String.sub name 0 type_tag_len = type_tag then 
-    Type, (String.sub name type_tag_len (String.length name - type_tag_len))
-  else if String.length name > poly_gen_node_tag_len && 
-          String.sub name 0 poly_gen_node_tag_len = poly_gen_node_tag then 
-    let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
-    let re = Str.regexp "^[0-9]+" in
-    let len_prefix = 
-      if Str.string_match re s 0 then
-        String.length (Str.matched_string s) + 1
-      else 1
-    in
-    User, (String.sub s len_prefix (String.length s - len_prefix))
-  else
-    User, name
-
 (* *************************************************************** *)
 (* Plain-text output                                               *)
 (* *************************************************************** *)
@@ -806,7 +778,7 @@ let pp_print_stream_ident_pt ppf (index, state_var) =
 (* Output the calling node and the position of the call *)
 let pp_print_call_pt ppf (name, pos) = 
   let name = string_of_t (I.pp_print_ident true) name in
-  let _, name = get_node_type_and_name name in
+  (* let _, name = get_node_type_and_name name in *)
   Format.fprintf ppf "%s%a"
     name
     pp_print_pos_pt pos
@@ -1018,18 +990,18 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 | (
   trace, Node (
     { N.name; N.inputs; N.outputs; N.locals;
-      N.is_function; } as node,
+      N.is_function; N.node_type; } as node,
     model, active_modes, call_conds, subnodes
   )
 ) :: tl when N.node_is_visible node ->
 
   let is_visible = N.state_var_is_visible node in
 
-  let node_type, node_name = get_node_type_and_name (I.string_of_ident true name) in
+  (* let node_type, node_name = get_node_type_and_name (I.string_of_ident true name) in *)
 
   let is_state, node_name =
     match N.node_is_state_handler node with
-    | None -> false, node_name
+    | None -> false, I.string_of_ident true name
     | Some state -> true, state
   in
   
@@ -1037,10 +1009,10 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     if is_function then "Function"
     else if is_state then "State"
     else (match node_type with 
-    | Environment -> "Environment of"
-    | Contract -> "Contract of"
-    | Type -> "Type"
-    | User -> "Node")
+    | Some Environment -> "Environment of"
+    | Some Contract -> "Contract of"
+    | Some Type -> "Type"
+    | None -> "Node")
   in
   
   (* Remove first dimension from index *)
@@ -1415,11 +1387,11 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
 
     let is_visible = N.state_var_is_visible node in
 
-    let _, node_name = get_node_type_and_name (I.string_of_ident true name) in
+    (* let _, node_name = get_node_type_and_name (I.string_of_ident true name) in *)
   
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, node_name
+      | None -> false, I.string_of_ident true name
       | Some state -> true, state
     in
 
@@ -1831,11 +1803,11 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
-    let _, node_name = get_node_type_and_name (I.string_of_ident true name) in
+    (* let _, node_name = get_node_type_and_name (I.string_of_ident true name) in  *)
 
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, node_name
+      | None -> false, I.string_of_ident true name
       | Some state -> true, state
     in
 
@@ -2049,7 +2021,7 @@ let pos_to_numbers abstr_map nodes =
       ) node.LustreNode.calls
   in
 
-  List.iter (fun main_node_id -> 
+  List.iter (fun (main_node_id, _) -> 
       let main_node = node_by_lid main_node_id in
       fold [] main_node)
     main_nodes;

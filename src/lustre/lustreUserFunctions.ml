@@ -20,9 +20,6 @@ module A = LustreAst
 module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 
-module IdSet = A.SI
-module StringMap = HString.HStringMap
-
 let valid_outputs ctx = function
   | [(_, _, ty, _)] -> ( (* single output variable *)
     not (Ctx.type_contains_array ctx ty)
@@ -41,7 +38,7 @@ let valid_locals ctx locals =
 let valid_items set items =
   items |> List.for_all (function
     | A.Body (Equation (_, StructDef (_, [A.SingleIdent _]), rhs)) ->
-      IdSet.subset (AH.calls_of_expr rhs) set
+      A.NodeNameSet.subset (AH.calls_of_expr rhs) set
     | AnnotProperty _ -> true
     | A.Body (Equation (_, _, _))
     | Body (Assert _)
@@ -71,7 +68,7 @@ let rec can_be_abstracted' ctx contracts (_, items) =
   items |> List.exists (function
     | A.Guarantee _ | Mode _ -> true
     | ContractCall (_, id, _, _, _) -> (
-        match StringMap.find_opt id contracts with
+        match A.NodeNameMap.find_opt id contracts with
         | None -> assert false
         | Some (_, _, _, outputs, contract) ->
           have_ref_type_or_subrange ctx outputs
@@ -87,29 +84,30 @@ let can_be_abstracted ctx contracts outputs contract =
   | None -> false
   | Some contract -> can_be_abstracted' ctx contracts contract
 
-let is_inlinable set contracts ctx opac contract outputs locals items =
+let is_inlinable (set: A.NodeNameSet.t) contracts ctx opac contract outputs locals items =
   (opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)) &&
   valid_outputs ctx outputs &&
   valid_locals ctx locals &&
   valid_items set items &&
   is_output_defined outputs items
 
-let inlinable_functions ctx decls =
+let inlinable_functions: Ctx.tc_context -> A.declaration list -> A.NodeNameSet.t 
+= fun ctx decls ->
   List.fold_left (fun (set, contracts) dcl ->
     match dcl with
     | A.ContractNodeDecl (_, contract_node_decl) -> (
       let (id, _, _, _, _) = contract_node_decl in
-      set, StringMap.add id contract_node_decl contracts
+      set, A.NodeNameMap.add id contract_node_decl contracts
     )
     (* A non-imported function *)
     | A.FuncDecl (_, (id, false, opac, [], _, outputs, locals, items, contract)) -> (
       if is_inlinable set contracts ctx opac contract outputs locals items then
-        IdSet.add id set, contracts
+        A.NodeNameSet.add id set, contracts
       else
         set, contracts
     )
     | _ -> set, contracts
   )
-  (IdSet.empty, StringMap.empty)
+  (A.NodeNameSet.empty, A.NodeNameMap.empty)
   decls
   |> fst

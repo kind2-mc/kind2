@@ -79,4 +79,4 @@ val no_mismatched_clock : bool -> LA.expr -> ([> warning ] list, [> error]) resu
   be called in the lustreTypeChecker *)
 
 val no_quant_vars_in_calls_to_non_inlinable_funcs :
-  LA.SI.t -> LA.t -> ([> warning ] list, [> error]) result
+  LA.NodeNameSet.t -> LA.t -> ([> warning ] list, [> error]) result

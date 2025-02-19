@@ -646,7 +646,7 @@ val add_invariant : t -> Term.t -> Certificate.t -> bool -> Term.t
 Returns the normalized terms and a boolean indicating whether it is one
 state. *)
 val add_scoped_invariant :
-  t -> string list -> Term.t -> Certificate.t -> bool -> Term.t
+  t -> Scope.t -> Term.t -> Certificate.t -> bool -> Term.t
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list

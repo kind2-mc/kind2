@@ -62,7 +62,7 @@ type error = [
 val error_message: error_kind -> string
 (** Returns an message describing the error kind *)
 
-type node_summary = ((int list) IntMap.t) IMap.t
+type node_summary = ((int list) IntMap.t) LA.NodeNameMap.t
 
 val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 

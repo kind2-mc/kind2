@@ -48,6 +48,26 @@ val mk_scope : Ident.t list -> t
 val pp_print_scope : Format.formatter -> t -> unit
 
 val to_string : t -> string
+(*!! 
+
+* Scope type does not change (stays as string list)
+* We store ugly/generated names in the scope
+* Should remove all places where we print stuff from the scope (see where we're doing this); 
+  only use the scope to get information from the corresponding LustreNode
+* We map back to structured info and create nice string; don't clean it up retroactively
+   * Avoid using regex to parse stuff
+   * Put the map in the LustreNode
+   * Not fully a map, just store the structured info in the LustreNode
+   * Could break the structured information to separate fields
+
+
+
+
+Don't do the following
+<something>.poly3_M.<something> ... 
+<something>.poly3.M.<something> ...  
+
+*)
 
 (* 
    Local Variables:

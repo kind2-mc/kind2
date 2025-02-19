@@ -92,7 +92,7 @@ end
 type id_pos_map = (Lib.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
-type node_summary = ((int list) IntMap.t) IMap.t
+type node_summary = ((int list) IntMap.t) LA.NodeNameMap.t
 (** The node summary contains the positions of the input streams 
     of a node that are used in their current value for each output stream. 
 
@@ -117,7 +117,7 @@ type node_summary = ((int list) IntMap.t) IMap.t
  
 *)
 
-type contract_summary = (LA.ident list) IMap.t
+type contract_summary = (LA.ident list) LA.NodeNameMap.t
 (** The contract summary contains the symbols that are exported  
     from a contract i.e. mode names and ghost constants and variables.
     which can be referenced after the contract is imported  *)
@@ -143,17 +143,17 @@ let pp_print_node_summary ppf m =
       ppf (IntMap.bindings m) in
   Lib.pp_print_list (fun ppf (i, b) ->
       Format.fprintf ppf "(%a->%a)"
-        LA.pp_print_ident i
+        LA.pp_print_node_name i
         pp_print_val b
-    ) ", " ppf (IMap.bindings m)  
+    ) ", " ppf (LA.NodeNameMap.bindings m)  
 (** Pretty print the node summary  *)
 
 let pp_print_contract_summary ppf m  =
   Lib.pp_print_list (fun ppf (i, b) ->
       Format.fprintf ppf "(%a :-> %a)"
-        LA.pp_print_ident i
+        LA.pp_print_node_name i
         (Lib.pp_print_list LA.pp_print_ident ", ") b)  ", "
-    ppf (IMap.bindings m)
+    ppf (LA.NodeNameMap.bindings m)
 
 let pp_print_analysis_data ppf ad =
   Format.fprintf ppf ("Node Summary: %a\n"
@@ -172,9 +172,9 @@ let pp_print_id_pos ppf m =
 
 (** {1 Helper functions } *)
   
-let empty_node_summary: node_summary = IMap.empty
+let empty_node_summary: node_summary = LA.NodeNameMap.empty
 
-let empty_contract_summary: contract_summary = IMap.empty
+let empty_contract_summary: contract_summary = LA.NodeNameMap.empty
 
 let empty_dependency_analysis_data =
   { graph_data = G.empty
@@ -219,9 +219,9 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
   -> { graph_data = G.union g1 g2
     ; graph_data2 = G.union gg1 gg2
     ; id_pos_data = union_pos pos_m1 pos_m2
-    ; csummary = IMap.union (fun _ _ v2 -> Some v2) cs1 cs2
-    ; nsummary = IMap.union (fun _ _ v2 -> Some v2) ns1 ns2
-    ; nsummary2 = IMap.union (fun _ _ v2 -> Some v2) n1 n2 }
+    ; csummary = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) cs1 cs2
+    ; nsummary = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ns1 ns2
+    ; nsummary2 = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) n1 n2 }
 
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p ->
@@ -421,7 +421,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
-  | LA.Call (pos, _, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Call (pos, _, (i, _, _), es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
 
 let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -439,7 +439,7 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
 = fun node_name -> function
   | LA.AssumptionVars _ -> empty_dependency_analysis_data
-  | LA.ContractCall (pos, i, _, es, _) ->
+  | LA.ContractCall (pos, (i, _, _), _, es, _) ->
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix i pos)
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
@@ -487,7 +487,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
 
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
-  = fun pos (i, _, ips, ops, (_, c)) ->
+  = fun pos ((i, _, _), _, ips, ops, (_, c)) ->
   let i = (HString.concat2 contract_prefix i) in
   let node_refs = List.map (fun (_, _, ty, _, _) -> extract_node_calls_type ty) ips in
   let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops |> List.flatten in
@@ -521,7 +521,7 @@ and extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
 = fun l -> List.fold_left (fun acc i -> extract_node_calls_item i @ acc) [] l
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
-  = fun pos (i, _, _, _, ips, ops, locals, nitems, contract_opt) ->
+  = fun pos ((i, _, _), _, _, _, ips, ops, locals, nitems, contract_opt) ->
   let cg = connect_g_pos
              (match contract_opt with
               | None -> empty_dependency_analysis_data
@@ -580,13 +580,13 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
     let* m' = check_and_add m pos const_prefix i (Some cnstd)  in
     mk_decl_map m' decls 
 
-  | (LA.NodeDecl (span, (i, _, _, _, _, _, _, _, _)) as ndecl) :: decls
-  | (LA.FuncDecl (span, (i, _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
+  | (LA.NodeDecl (span, ((i, _, _), _, _, _, _, _, _, _, _)) as ndecl) :: decls
+  | (LA.FuncDecl (span, ((i, _, _), _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos node_prefix i (Some ndecl) in
     mk_decl_map m' decls
 
-  | LA.ContractNodeDecl (span, (i, _, _, _, _)) as cndecl :: decls ->
+  | LA.ContractNodeDecl (span, ((i, _, _), _, _, _, _)) as cndecl :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos contract_prefix i (Some cndecl) in
     mk_decl_map m' decls
@@ -676,7 +676,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
-    let call_vars = r (Call (pos, [], node_id, es)) in
+    let call_vars = r (Call (pos, [], (node_id, None, None), es)) in
     let default_vars =
       match List.nth_opt ds proj with
       | None -> SI.empty (* Ignore if arity is not correct *)
@@ -684,13 +684,13 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     in
     SI.union default_vars (SI.union (SI.union (r clk_exp) (r r_exp)) call_vars)
   | Activate (pos, node_id, clk_exp, r_exp, es) ->
-    let call_vars = r (Call (pos, [], node_id, es)) in
+    let call_vars = r (Call (pos, [], (node_id, None, None), es)) in
     SI.union (SI.union (r clk_exp) (r r_exp)) call_vars
   | Merge (_, i, es) ->
     let result = es |> (List.map (fun (_, e) -> r e)) |> SI.flatten in
     SI.add i result
   | RestartEvery (pos, node_id, es, clk_exp) ->
-    let call_vars = r (Call (pos, [], node_id, es)) in
+    let call_vars = r (Call (pos, [], (node_id, None, None), es)) in
     SI.union (r clk_exp) call_vars
 
   (* Temporal operators *)
@@ -703,7 +703,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     Format.eprintf "call: %a @." HString.pp_print_hstring i;  *)
     let arg_vars = List.map r es in
     (* guaranteed not to throw an exception by lustreSyntaxChecks *)
-    let node_map = IMap.find i m in
+    let node_map = LA.NodeNameMap.find i m in
     (match IntMap.find_opt proj node_map with
       | Some dep_args ->
       (*  Format.eprintf "dependent_args: %a @." 
@@ -757,7 +757,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contr
       mk_contract_eqn_map m'' eqns
   | (LA.GhostVars (_, (GhostVarDec(_, [])), _)) :: eqns -> 
     mk_contract_eqn_map m eqns
-  | (LA.ContractCall (pos, i, _, _, _) as cc ) :: eqns -> 
+  | (LA.ContractCall (pos, (i, _, _), _, _, _) as cc ) :: eqns -> 
     let* m' = check_and_add m pos contract_prefix i (Some cc) in
     mk_contract_eqn_map m' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
@@ -835,7 +835,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
-     let node_call = LA.Call(pos, [], n, e1s) in
+     let node_call = LA.Call(pos, [], (n, None, None), e1s) in
      mk_graph_expr2 m node_call >>= fun gs ->
      R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
      let default_gs = List.concat d_gs in
@@ -843,7 +843,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
      else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
-     let node_call = LA.Call(pos, [], n, es) in
+     let node_call = LA.Call(pos, [], (n, None, None), es) in
      mk_graph_expr2 m node_call
   | LA.Merge (pos, clk_id, cs) -> (
      R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
@@ -868,7 +868,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
       )
   )
   | LA.RestartEvery (p, n, es, clk_exp) ->
-     let node_call = LA.Call(p, [], n, es) in
+     let node_call = LA.Call(p, [], (n, None, None), es) in
      let* call_g = mk_graph_expr2 m node_call in
      let* clk_g = mk_graph_expr2 m clk_exp in
      let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
@@ -895,7 +895,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
   | LA.Call (_, _, i, es) ->
-     (match IMap.find_opt i m with
+     (match LA.NodeNameMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
@@ -982,7 +982,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
   = fun ad ->
   function
   | LA.AssumptionVars _ -> R.ok ad
-  | LA.ContractCall (pos, i, _, es, _) ->
+  | LA.ContractCall (pos, (i, _, _), _, es, _) ->
     R.ok (connect_g_pos 
       (List.fold_left union_dependency_analysis_data ad
         (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
@@ -1081,7 +1081,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> (LA.contract_node_decl, [> error]) result
   = fun ad ((i, params , ips, ops, (p, contract)) as decl) ->
   let* _ = check_no_input_output_duplicate ips ops in
-  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i;
+  Debug.parse "Sorting contract equations for %a" LA.pp_print_node_name i;
   let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
   let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
   let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
@@ -1097,7 +1097,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
   let* contract' = extract_decls eqn_map equational_vars in
   Debug.parse "sorted contract equations for contract %a %a"
-    LA.pp_print_ident i
+    LA.pp_print_node_name i
     (Lib.pp_print_list LA.pp_print_contract_item "\n") contract';
   R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
     >> R.ok(i, params , ips, ops, (p, contract' @ rest))
@@ -1173,7 +1173,7 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
     in
 
     Debug.parse "Node equation dependency map for node %a {\n %a \n}"
-      LA.pp_print_ident i
+      LA.pp_print_node_name i
       (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
       (IMap.bindings node_equation_dependency_map);
     let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
@@ -1191,14 +1191,14 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
         (0, IntMap.empty) critical_ips
       |> snd)
     in
-    IMap.add i ns s
+    LA.NodeNameMap.add i ns s
   else
     let cricital_ips = if connect_imported then
         (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips)
         |> fst
       else []
     in
-    IMap.add i
+    LA.NodeNameMap.add i
       ((List.fold_left
         (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m))
         (0, IntMap.empty)
@@ -1221,17 +1221,17 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
   | LA.Mode (_, i, _, _) -> [i]
   | LA.GhostVars (_, (GhostVarDec (_, tis)), _) -> 
     List.map (fun (_, i, _) -> i) tis
-  | LA.ContractCall (_, cc, _, _, _) ->
-     (match (IMap.find_opt cc m) with
-     | Some ids -> List.map (fun i -> HString.concat (HString.mk_hstring "::") [cc;i]) ids
-     | None -> failwith ("Undeclared contract " ^ (HString.string_of_hstring cc) ^ ". Should not happen!"))  
+  | LA.ContractCall (_, ((id, _, _) as cc), _, _, _) ->
+     (match (LA.NodeNameMap.find_opt cc m) with
+     | Some ids -> List.map (fun i -> HString.concat (HString.mk_hstring "::") [id;i]) ids
+     | None -> failwith ("Undeclared contract " ^ (HString.string_of_hstring id) ^ ". Should not happen!"))  
  | _ -> []
 (** Traverses all the contract equations to make a contract export list. *)
 
 let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_summary
   = fun m (i, _, _, _, (_, eqns)) ->
   let export_ids = List.concat (List.map (get_contract_exports m) eqns) in
-  IMap.add i export_ids m 
+  LA.NodeNameMap.add i export_ids m 
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             
 let mk_graph_eqn: node_summary
@@ -1345,7 +1345,7 @@ let check_no_input_output_local_duplicate ips ops locals =
 let check_node_equations: dependency_analysis_data
                           -> LA.node_decl
                           -> (LA.node_decl, [> error]) result
-  = fun ad ((i, imported, opac, params, ips, ops, locals, items, contract_opt) as ndecl)->
+  = fun ad (((i, tag, ty_args), imported, opac, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
     let* _ = check_no_input_output_local_duplicate ips ops locals in
     analyze_circ_node_equations ad.nsummary2 items >> 
@@ -1355,9 +1355,9 @@ let check_node_equations: dependency_analysis_data
      | None -> R.ok ndecl
      | Some c ->
       let* (_, _, _, _, c') = sort_and_check_contract_eqns ad
-        (HString.concat (HString.mk_hstring "inline$") [contract_prefix;i], params, ips, ops, c)
+        ((HString.concat (HString.mk_hstring "inline$") [contract_prefix;i], None, None), params, ips, ops, c)
       in
-      R.ok (i, imported, opac, params, ips, ops, locals, items, Some c')
+      R.ok ((i, tag, ty_args), imported, opac, params, ips, ops, locals, items, Some c')
 (** Check if node equations do not have circularity and also, if the node has a contract
     sort the contract equations. *)
     
@@ -1369,19 +1369,19 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
     let ns = mk_node_summary false ad.nsummary ndecl in
     let ns_conn = mk_node_summary true ad.nsummary2 ndecl in
     generate_summaries {ad with 
-      nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
-      nsummary2 = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
+      nsummary = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
+      nsummary2 = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
     } decls
   | LA.NodeDecl (_, ndecl) :: decls ->
     let ns = mk_node_summary false ad.nsummary ndecl in
     let ns_conn = mk_node_summary true ad.nsummary2 ndecl in
     generate_summaries {ad with 
-      nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
-      nsummary2 = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
+      nsummary = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
+      nsummary2 = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
     } decls
   | LA.ContractNodeDecl (_, cdecl) :: decls ->
      let cs = mk_contract_summary ad.csummary cdecl in
-     generate_summaries {ad with csummary = IMap.union (fun _ _ v2 -> Some v2) ad.csummary cs } decls
+     generate_summaries {ad with csummary = LA.NodeNameMap.union (fun _ _ v2 -> Some v2) ad.csummary cs } decls
   | _ :: decls -> generate_summaries ad decls
 (** This function generates the node summary and contract summary data
     This function requires that the program does not have any forward references. *)
