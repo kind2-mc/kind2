@@ -330,7 +330,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   guarantees |> List.map guarantee_of_svar |> implications_of_modes modes
 
 (* The assumptions of a contract as properties. *)
-let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
+let subrequirements_of_contract call_pos in_sys scope svar_map { C.assumes } =
   assumes |> List.map (
     fun { C.pos ; C.name ; C.svar } ->
       let prop_term =
@@ -338,17 +338,18 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         |> Term.mk_var
         |> lift_term svar_map
       in
+      let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
       let prop_name =
         match name with
         | None -> (
           Format.asprintf "%a%a.assume%a"
-            Scope.pp_print_scope scope
+            (LustreIdent.pp_print_ident true) node.name
             pp_print_line_and_column call_pos
             pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a.%s"
-            Scope.pp_print_scope scope
+            (LustreIdent.pp_print_ident true) node.name
             pp_print_line_and_column call_pos n
         )
       in
@@ -636,7 +637,7 @@ let register_call_bound globals map_up sv =
 
    This factors out node calls with or without an activation
    condition *)
-let call_terms_of_node_call mk_fresh_state_var globals
+let call_terms_of_node_call mk_fresh_state_var globals in_sys
     { N.call_node_name ;
       N.call_id        ;
       N.call_pos       ;
@@ -821,7 +822,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     | None -> []
     | Some contract -> (
       subrequirements_of_contract
-        call_pos (I.to_scope call_node_name) state_var_map_up contract
+        call_pos in_sys (I.to_scope call_node_name) state_var_map_up contract
     )
   in
 
@@ -936,6 +937,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
 (* Add constraints from node calls to initial state constraint and
    transition relation *)
 let rec constraints_of_node_calls 
+  in_sys
   mk_fresh_state_var
     globals
   trans_sys_defs
@@ -989,6 +991,7 @@ let rec constraints_of_node_calls
       call_terms_of_node_call
         mk_fresh_state_var
         globals
+        in_sys
         node_call
         node_locals
         node_props
@@ -1015,6 +1018,7 @@ let rec constraints_of_node_calls
 
     (* Continue with next node calls *)
     constraints_of_node_calls 
+      in_sys
       mk_fresh_state_var
       globals
       trans_sys_defs
@@ -1043,7 +1047,7 @@ let rec constraints_of_node_calls
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
-        mk_fresh_state_var globals node_call node_locals node_props node_hist_svars node_crt_svars node_def
+        mk_fresh_state_var globals in_sys node_call node_locals node_props node_hist_svars node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1088,6 +1092,7 @@ let rec constraints_of_node_calls
     
     (* Continue with next node calls *)
     constraints_of_node_calls 
+      in_sys
       mk_fresh_state_var
       globals
       trans_sys_defs
@@ -1227,6 +1232,7 @@ let rec constraints_of_node_calls
       call_terms_of_node_call
         mk_fresh_state_var
         globals
+        in_sys
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
@@ -1489,6 +1495,7 @@ let rec constraints_of_node_calls
     in
 
     constraints_of_node_calls
+      in_sys
       mk_fresh_state_var
       globals
       trans_sys_defs
@@ -1977,6 +1984,7 @@ let constraints_of_equations node init stateful_vars terms equations =
 
 
 let rec trans_sys_of_node'
+  in_sys
   options
   globals
   top_name
@@ -1998,6 +2006,7 @@ let rec trans_sys_of_node'
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
+        in_sys
         options
         globals
         top_name
@@ -2129,6 +2138,7 @@ let rec trans_sys_of_node'
           (* Recurse to create transition system for called nodes,
              then return to this node *)
           trans_sys_of_node'
+            in_sys
             options
             globals
             top_name
@@ -2182,7 +2192,7 @@ let rec trans_sys_of_node'
                 fun (ufs, eqs) output ->
                   let uf_name =
                     Format.asprintf "%a.%s.%s"
-                      Scope.pp_print_scope scope
+                      (LustreIdent.pp_print_ident true) node.name
                       (StateVar.name_of_state_var output)
                       Lib.ReservedIds.function_of_inputs
                   in
@@ -2383,6 +2393,7 @@ let rec trans_sys_of_node'
             trans_terms
           =
             constraints_of_node_calls
+              in_sys
               mk_fresh_state_var
               globals
               trans_sys_defs
@@ -2798,6 +2809,7 @@ let rec trans_sys_of_node'
               node_assumptions
           in
           trans_sys_of_node'
+            in_sys
             options
             globals
             top_name
@@ -2823,6 +2835,7 @@ let rec trans_sys_of_node'
 
 let trans_sys_of_nodes
     ?(options=default_settings)
+    in_sys
     globals
     subsystems analysis_param
   =
@@ -2872,6 +2885,7 @@ let trans_sys_of_nodes
 
       (* Create a transition system for each node *)
       trans_sys_of_node'
+        in_sys
         options
         globals
         top_name

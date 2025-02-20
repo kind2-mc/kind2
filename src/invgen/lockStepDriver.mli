@@ -44,7 +44,7 @@ type base
 val kill_base : base -> unit
 
 (** Creates a base checker for some system at some depth. *)
-val mk_base_checker : TransSys.t -> Numeral.t -> base
+val mk_base_checker : 'a InputSystem.t -> TransSys.t -> Numeral.t -> base
 
 (** Adds some invariants to a base checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
@@ -54,7 +54,7 @@ val base_add_invariants : base -> bool -> Term.t list -> unit
 state, where [k] is the internal depth of the base checker.
 
 Returns an option of a model falsifying some of the terms. *)
-val query_base : base -> Term.t list -> Model.t option
+val query_base : 'a InputSystem.t -> base -> Term.t list -> Model.t option
 
 
 
@@ -92,10 +92,10 @@ invariant, we can drop the class member from the equivalence class.
 
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
-val query_step : bool -> step -> (Term.t * 'a) list -> (Term.t * 'a) list
+val query_step : bool -> 'a InputSystem.t -> step -> (Term.t * 'b) list -> (Term.t * 'b) list
 
 (** Queries step, returns an option of the model. *)
-val nu_query_step : bool -> step -> Term.t list -> Model.t option
+val nu_query_step : bool -> 'a InputSystem.t -> step -> Term.t list -> Model.t option
 
 
 
@@ -111,7 +111,7 @@ val pruning_sys : pruning -> TransSys.t
 val kill_pruning : pruning -> unit
 
 (** Creates a pruning checker for a system. *)
-val mk_pruning_checker : TransSys.t -> bool -> pruning
+val mk_pruning_checker : 'a InputSystem.t -> TransSys.t -> bool -> pruning
 
 (** Adds invariants to a pruning checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
@@ -120,7 +120,7 @@ val pruning_add_invariants : pruning -> bool -> Term.t list -> unit
 (** Checks if some terms are trivially implied by the transition relation.
 
 Returns a pair of the trivial and the non-trivial invariants. *)
-val query_pruning : pruning -> bool -> Term.t list -> ( Term.t list * Term.t list )
+val query_pruning : 'a InputSystem.t -> pruning -> bool -> Term.t list -> ( Term.t list * Term.t list )
 
 (* 
    Local Variables:

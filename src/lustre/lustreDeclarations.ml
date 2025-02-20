@@ -1641,7 +1641,7 @@ and eval_node_contract_spec
             Format.asprintf
               "unknown %a '%a' referenced in contract '%a'"
               pp_print_type s_type (I.pp_print_ident false) s_ident
-              Scope.pp_print_scope sc
+              Scope.pp_print_scope_internal sc 
           in
           fail_at_position s_pos msg
       )

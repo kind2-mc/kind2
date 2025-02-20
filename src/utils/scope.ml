@@ -31,8 +31,8 @@ open Lib
 *)
 
 
-(* Pretty-print a scope *)
-let pp_print_scope ppf s =
+(* Pretty-print a scope. Only for internal (non-user-facing) use *)
+let pp_print_scope_internal ppf s =
   Format.fprintf 
     ppf
     "@{<blue>%a@}"
@@ -63,8 +63,6 @@ include Scope
 module Set = Set.Make (Scope)
 
 module Map = Map.Make (Scope)
-
-let to_string s = string_of_t pp_print_scope s
 
 (* Construct a scope from a list of identifiers 
 

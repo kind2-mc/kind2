@@ -172,14 +172,14 @@ module type Graph = sig
 
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
-  val stabilize : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+  val stabilize : graph -> 'a InputSystem.t -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
 
   (** Clones the graph, and splits it in step.
 
   Stabilizes eq classes one by one, communicates invariants at each step.
   Then stabilizes relations, communicating by packs. *)
   val step_stabilize :
-    bool -> graph -> TransSys.t -> (term -> bool) -> Lsd.step -> (
+    bool -> graph -> 'a InputSystem.t -> TransSys.t -> (term -> bool) -> Lsd.step -> (
       (Term.t * Certificate.t) list -> unit
     ) -> Term.t list
 end
@@ -1157,19 +1157,19 @@ digraph mode_graph {
 
   (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
-  let stabilize graph sys known lsd =
+  let stabilize graph in_sys sys known lsd =
     (* update_loop sys known lsd graph *)
-    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base lsd) graph ;
+    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base in_sys lsd) graph ;
     (* Format.printf "done stabilizing classes@.@." ; *)
-    stabilize_rels sys known (Lsd.query_base lsd) 0 graph
+    stabilize_rels sys known (Lsd.query_base in_sys lsd) 0 graph
 
   (** Clones the graph, and splits it in step.
 
   Stabilizes eq classes one by one, communicates invariants at each step.
   Then stabilizes relations, communicating by packs. *)
-  let step_stabilize two_state graph sys known lsd comm =
+  let step_stabilize two_state graph in_sys sys known lsd comm =
     let graph = clone graph in
-    let query_fun = Lsd.nu_query_step two_state lsd in
+    let query_fun = Lsd.nu_query_step two_state in_sys lsd in
     let k = Lsd.step_cert lsd in
 
     stabilize_classes sys known (
@@ -1372,8 +1372,8 @@ digraph mode_graph {
 
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
-  let stabilize graph sys known base =
-    let has_cex = Lsd.query_base base in
+  let stabilize graph in_sys sys known base =
+    let has_cex = Lsd.query_base in_sys base in
 
     (* Splits a class and inserts it in the graph. Replaces the binding of
     [rep] in the graph if any. *)
@@ -1441,7 +1441,7 @@ digraph mode_graph {
 
   Stabilizes eq classes one by one, communicates invariants at each step.
   Then stabilizes relations, communicating by packs. *)
-  let step_stabilize _ _ _ _ _ _ =
+  let step_stabilize _ _ _ _ _ _ _ =
     failwith "Step stabilization for equality-graph is unimplemented"
 
 

@@ -78,7 +78,7 @@ let active_modes_of_map map =
 
 type result = Ok | Deadlock
 
-let rec enumerate target io solver tree modes contract_term =
+let rec enumerate input_sys target io solver tree modes contract_term =
   (* Format.printf "@.enumerate@." ; *)
   Stat.start_timer Stat.testgen_enumerate_time ;
   Solver.comment solver "enumerate" ;
@@ -137,11 +137,11 @@ let rec enumerate target io solver tree modes contract_term =
           IO.log_deadlock io modes_str model k ) ) ;
   Stat.record_time Stat.testgen_enumerate_time ;
   (* Let's go backward now. *)
-  backward target io solver tree modes contract_term
+  backward input_sys target io solver tree modes contract_term
 
 
 
-and forward target io solver tree modes contract_term =
+and forward input_sys target io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_forward_time ;
   (* Resetting if too many fresh actlits have been created. *)
   let solver = if Actlit.fresh_actlit_count () >= 10 then (
@@ -183,7 +183,7 @@ and forward target io solver tree modes contract_term =
       | None ->
         (* Deadlock. *)
         KEvent.log
-          L_warn "%sDeadlock found (%a)" log_prefix Tree.pp_print_tree tree ;
+          L_warn "%sDeadlock found (%a)" log_prefix (Tree.pp_print_tree input_sys) tree ;
         let k = Num.pred k in
         ( match Solver.checksat solver k mode_path [] [] get_model with
           | None -> assert false
@@ -199,12 +199,12 @@ and forward target io solver tree modes contract_term =
   match result with
   | Ok ->
     (* Max depth reached, enumerate reachable modes. *)
-    enumerate target io solver tree modes contract_term
+    enumerate input_sys target io solver tree modes contract_term
   | Deadlock ->
     (* Deadlock found, going backward. *)
-    backward target io solver tree modes contract_term
+    backward input_sys target io solver tree modes contract_term
 
-and backward target io solver tree modes contract_term =
+and backward input_sys target io solver tree modes contract_term =
   Stat.update_time Stat.testgen_total_time ;
   Stat.start_timer Stat.testgen_backward_time ;
   (* Format.printf "@.backward@." ; *)
@@ -242,18 +242,29 @@ and backward target io solver tree modes contract_term =
   loop () ;
   Stat.record_time Stat.testgen_backward_time ;
   (* Found a different path, going forward now. *)
-  forward target io solver tree modes contract_term
+  forward input_sys target io solver tree modes contract_term
 
 
 (* Entry point. *)
 let main (type s) :
 Analysis.param -> s Sys.t -> TSys.t -> string -> string list
 = fun param input_sys sys target ->
+  let node = InputSystem.get_lustre_node input_sys (TransSys.scope_of_trans_sys sys) |> Option.get in
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
     Scope.Map.fold (fun key value (a,c) ->
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
+  in
+  let concrete = 
+    List.map (InputSystem.get_lustre_node input_sys) concrete |> 
+    List.map Option.get |> 
+    List.map (fun { LustreNode.name } -> name) 
+  in
+  let abstract = 
+    List.map (InputSystem.get_lustre_node input_sys) abstract |> 
+    List.map Option.get |> 
+    List.map (fun { LustreNode.name } -> name) 
   in
   KEvent.log_uncond "%s@[<v>\
       Launching on %a.@ \
@@ -261,9 +272,9 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       abstract subsystems: [ @[<hov>%a@] ]\
     @]"
     log_prefix
-    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-    (pp_print_list Scope.pp_print_scope ",@ ") concrete
-    (pp_print_list Scope.pp_print_scope ",@ ") abstract ;
+    (LustreIdent.pp_print_ident true) node.name
+    (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") concrete
+    (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") abstract ;
 
   (* Creating solver. *)
   let solver = Solver.mk sys in
@@ -307,7 +318,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
   (* Starting the timer. *)
   Stat.start_timer Stat.testgen_total_time ;
 
-  ( try forward target io solver tree modes mode_term with
+  ( try forward input_sys target io solver tree modes mode_term with
     | TestgenTree.TopReached ->
       Stat.get Stat.testgen_testcases
       |> KEvent.log_uncond "%sDone, %d testcases generated." log_prefix ;

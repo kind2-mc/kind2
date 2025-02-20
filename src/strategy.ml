@@ -110,9 +110,6 @@ let get_refinement_abstraction results subs_of_scope result =
 
   match result.A.requirements_valid with
   | Some false -> (* Requirements could not be proved, aborting. *)
-    (* KEvent.log L_info
-      "Cannot refine %a, some requirements could not be proved."
-      Scope.pp_print_scope sys ; *)
     None
   | _ -> (
     let abstraction = info.A.abstraction_map in
@@ -173,7 +170,7 @@ let is_candidate_for_analysis { has_impl ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || has_impl
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let first_param_of ass _results all_nodes scope =
+let first_param_of in_sys ass _results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
@@ -188,7 +185,6 @@ let first_param_of ass _results all_nodes scope =
             )
           )
       in
-      (* Format.printf "%a is abstract: %b@.@." Scope.pp_print_scope sys is_abstract ; *)
       let abstraction = Scope.Map.add sys is_abstract abstraction in
       loop abstraction tail
       (*if is_abstract then
@@ -217,8 +213,9 @@ let first_param_of ass _results all_nodes scope =
     try (
       is_candidate_for_analysis (List.assoc scope all_nodes)
     ) with Not_found ->
+      let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
       Format.asprintf "Unreachable: could not find info of system %a"
-        Scope.pp_print_scope scope
+        (LustreIdent.pp_print_ident true) node.name
       |> failwith
   in
 
@@ -271,7 +268,7 @@ let first_analysis_of_contract_check ass top (
 *)
 
 
-let next_monolithic_analysis results main_syss = function
+let next_monolithic_analysis in_sys results main_syss = function
   | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
@@ -294,7 +291,7 @@ let next_monolithic_analysis results main_syss = function
         (* Not the first analysis, done. *)
         | _ -> None
       ) with Not_found ->
-        first_param_of A.assumptions_empty results all_syss top
+        first_param_of in_sys A.assumptions_empty results all_syss top
     in
 
     Lib.find_map check_sys main_syss
@@ -311,7 +308,7 @@ let last_assumptions () =
   | None -> A.assumptions_empty
   | Some sys -> A.assumptions_of_sys sys
 
-let next_modular_analysis results subs_of_scope = function
+let next_modular_analysis in_sys results subs_of_scope = function
   | [] -> failwith "[strategy] \
     no system to analyze (empty list of scopes)\
   "
@@ -325,12 +322,11 @@ let next_modular_analysis results subs_of_scope = function
     let rec go_up = function
       | [] -> None
       | sys :: tail -> (
-        (* Format.printf "|up %a@." Scope.pp_print_scope sys ; *)
         try (
           match A.results_find sys results with
           | _ -> None
         ) with Not_found -> (
-          match first_param_of (last_assumptions ()) results all_syss sys with
+          match first_param_of in_sys (last_assumptions ()) results all_syss sys with
           | None ->
             (* Format.printf "|> no first param@." ; *)
             go_up tail
@@ -345,7 +341,6 @@ let next_modular_analysis results subs_of_scope = function
     let rec go_down prefix = function
       | (sys, { has_impl }) :: tail -> (
         try (
-          (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
           | _ when Flags.Contracts.check_implem () |> not ||
@@ -383,13 +378,8 @@ let next_modular_analysis results subs_of_scope = function
             ) else if Flags.Contracts.refinement () then (
               match get_refinement_abstraction results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
-                (* Format.printf "Cannot refine for %a@."
-                  Scope.pp_print_scope sys ; *)
                 go_up prefix
               | Some (_, abs) -> (* Refinement found. *)
-                (* Format.printf "Refined %a for %a@."
-                  Scope.pp_print_scope sub
-                  Scope.pp_print_scope sys ; *)
                 Some (
                   A.Refinement (
                     { A.top = sys ;

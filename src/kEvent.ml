@@ -1635,7 +1635,6 @@ let number_of_subsystem_assumptions info =
   |> Scope.Map.bindings
 
 let log_contractck_analysis_start in_sys scope =
-  (* let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in *)
   let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
   if Flags.log_level () <> L_off then (
     match get_log_format () with
@@ -1648,17 +1647,16 @@ let log_contractck_analysis_start in_sys scope =
         | Some Contract -> "contract of"
         | Some Type -> "type"
         | None -> "contract of imported node")
-        Scope.pp_print_scope scope
+        (LustreIdent.pp_print_ident true) node.name
     )
     | F_xml -> (
-      (* let node_type, node_name = LustrePath.get_node_type_and_name (Scope.to_string scope) in *)
       Format.fprintf !log_ppf "@.@.\
           <AnalysisStart \
             top=\"%a\" \
             context=\"%s\" \
           />@.@.\
         "
-        Scope.pp_print_scope scope 
+        (LustreIdent.pp_print_ident true) node.name
         (match node.node_type with 
         | Some Environment -> "environment"
         | Some Type -> "type"
@@ -1673,7 +1671,7 @@ let log_contractck_analysis_start in_sys scope =
           \"context\" : \"%s\"\
           @]@.}@.\
         "
-        Scope.pp_print_scope scope 
+        (LustreIdent.pp_print_ident true) node.name 
         (match node.node_type with 
         | Some Environment -> "environment"
         | Some Type -> "type"
@@ -1685,22 +1683,33 @@ let log_contractck_analysis_start in_sys scope =
   )
 
 (* Logs the start of an analysis. *)
-let log_analysis_start sys param =
+let log_analysis_start in_sys sys param =
   if Flags.log_level () <> L_off then begin
     let param = Analysis.shrink_param_to_sys param sys in
     let info = Analysis.info_of_param param in
+    let node = InputSystem.get_lustre_node in_sys info.Analysis.top |> Option.get in
     match get_log_format () with
     | F_pt ->
       Format.fprintf !log_ppf "\
         @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
       Pretty.print_double_line ()
-      Scope.pp_print_scope info.Analysis.top
+      (LustreIdent.pp_print_ident true) node.name
       (Analysis.pp_print_param false) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
+      let concrete = 
+        List.map (InputSystem.get_lustre_node in_sys) concrete |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
+      let abstract = 
+        List.map (InputSystem.get_lustre_node in_sys) abstract |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1712,11 +1721,12 @@ let log_analysis_start sys param =
             assumptions=\"%a\"\
           />@.@.\
         "
-        Scope.pp_print_scope info.Analysis.top
-        (pp_print_list Scope.pp_print_scope ",") concrete
-        (pp_print_list Scope.pp_print_scope ",") abstract
+        (LustreIdent.pp_print_ident true) node.name
+        (pp_print_list (LustreIdent.pp_print_ident true) ",") concrete
+        (pp_print_list (LustreIdent.pp_print_ident true) ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
-            Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+            let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+            Format.fprintf fmt "(%a,%d)" (LustreIdent.pp_print_ident true) node.name cpt
           )
           ","
         ) assumption_count ;
@@ -1725,8 +1735,23 @@ let log_analysis_start sys param =
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
+      let concrete = 
+        List.map (InputSystem.get_lustre_node in_sys) concrete |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
+      let abstract = 
+        List.map (InputSystem.get_lustre_node in_sys) abstract |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
       (* Counting the number of assumption for each subsystem. *)
-      let assumption_count = number_of_subsystem_assumptions info in
+      let scopes, assumptions = number_of_subsystem_assumptions info |> List.split in
+      let names = 
+        List.map (InputSystem.get_lustre_node in_sys) scopes |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
@@ -1737,13 +1762,13 @@ let log_analysis_start sys param =
           \"assumptions\" :%a\
           @]@.}@.\
         "
-        Scope.pp_print_scope info.Analysis.top
-        (pp_print_list_attrib Scope.pp_print_scope) concrete
-        (pp_print_list_attrib Scope.pp_print_scope) abstract
-        (pp_print_list_attrib (fun fmt (scope, cpt) ->
-            Format.fprintf fmt "[\"%a\",%d]" Scope.pp_print_scope scope cpt
+        (LustreIdent.pp_print_ident true) node.name
+        (pp_print_list_attrib (LustreIdent.pp_print_ident true)) concrete
+        (pp_print_list_attrib (LustreIdent.pp_print_ident true)) abstract
+        (pp_print_list_attrib (fun fmt (name, cpt) ->
+            Format.fprintf fmt "[\"%a\",%d]" (LustreIdent.pp_print_ident true) name cpt
           )
-        ) assumption_count;
+        ) (List.combine names assumptions);
       analysis_start_not_closed := true
 
     | F_relay -> failwith "can only be called by supervisor"

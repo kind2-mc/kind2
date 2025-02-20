@@ -240,6 +240,7 @@ val default_settings: settings
 
 val trans_sys_of_nodes:
   ?options:settings ->
+  'a InputSystem.t -> 
   LustreGlobals.t ->
   LustreNode.t SubSystem.t list ->
   Analysis.param ->

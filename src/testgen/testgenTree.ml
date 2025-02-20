@@ -196,15 +196,25 @@ let update t mode_conj = let { tree } = t in
 
 
 (* |===| Pretty printers. *)
-let pp_print_tree fmt { tree } =
+let pp_print_tree in_sys fmt { tree } =
   Format.fprintf fmt "@[<v>at %a (%a)@]"
     Num.pp_print_numeral (match tree with
       | Top -> Num.(~- one) | Node (k,_,_,_) -> k
     )
     (fun fmt (act, deact) ->
+      let act = 
+        List.map (InputSystem.get_lustre_node in_sys) act |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
+      let deact = 
+        List.map (InputSystem.get_lustre_node in_sys) deact |> 
+        List.map Option.get |> 
+        List.map (fun { LustreNode.name } -> name) 
+      in
       Format.fprintf fmt "@[<v>%a@ %a@]"
-        (pp_print_list Scope.pp_print_scope ", ") act
-        (pp_print_list Scope.pp_print_scope ", ") deact)
+        (pp_print_list (LustreIdent.pp_print_ident true) ", ") act
+        (pp_print_list (LustreIdent.pp_print_ident true) ", ") deact)
     (match tree with
       | Top -> [ ["top"] ], [] | Node(_,_,c,_) -> c)
 

@@ -103,7 +103,7 @@ val update: t -> mode_conj -> unit
 (**
   Quiet tree pretty printer.
 *)
-val pp_print_tree: Format.formatter -> t -> unit
+val pp_print_tree: 'a InputSystem.t -> Format.formatter -> t -> unit
 
 
 (* 

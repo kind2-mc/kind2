@@ -137,14 +137,14 @@ module type Graph = sig
 
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
-  val stabilize : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+  val stabilize : graph -> 'a InputSystem.t -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
 
   (** Clones the graph, and splits it in step.
 
   Stabilizes eq classes one by one, communicates invariants at each step.
   Then stabilizes relations, communicating by packs. *)
   val step_stabilize :
-    bool -> graph -> TransSys.t -> (term -> bool) -> Lsd.step -> (
+    bool -> graph -> 'a InputSystem.t -> TransSys.t -> (term -> bool) -> Lsd.step -> (
       (Term.t * Certificate.t) list -> unit
     ) -> Term.t list
 end

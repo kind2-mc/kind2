@@ -244,7 +244,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
       | Some Contract -> "Contract of"
       | Some Type -> "Type"
       | None -> "Node") 
-    Scope.pp_print_scope scope ;
+    (LustreIdent.pp_print_ident true) node.name ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -305,8 +305,9 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   in
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
+      let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
       `Assoc [
-        ("name", `String (Scope.to_string scope)) ;
+        ("name", `String (node.name |> LustreIdent.string_of_ident true)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -342,7 +343,8 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" Scope.pp_print_scope scope ;
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" (LustreIdent.pp_print_ident true) node.name;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

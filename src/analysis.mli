@@ -208,7 +208,7 @@ contract. *)
 val results_clean : results -> results
 
 (** Pretty printer for [param]. *)
-val pp_print_param: bool -> Format.formatter -> param -> unit
+val pp_print_param: bool -> (* 'a InputSystem.t -> *)Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
 val pp_print_result_quiet: Format.formatter -> result -> unit

@@ -128,7 +128,7 @@ let pp_print_prop_status_pt ppf = function
 
 let pp_print_prop_status = pp_print_prop_status_pt
 
-let pp_print_prop_source ppf = function
+let pp_print_prop_source in_sys ppf = function
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
@@ -147,19 +147,23 @@ let pp_print_prop_source ppf = function
   | Assumption (_, (scope, _)) ->
     Format.fprintf ppf "assumption of %s" (String.concat "." scope)
   | Guarantee (_, scope) ->
-    Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf ppf "guarantee (%a)" (LustreIdent.pp_print_ident true) node.name
   | GuaranteeOneModeActive (_, scope) ->
-    Format.fprintf ppf "one mode active (%a)" Scope.pp_print_scope scope
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf ppf "one mode active (%a)" (LustreIdent.pp_print_ident true) node.name
   | GuaranteeModeImplication (_, scope) ->
-    Format.fprintf ppf "mode implication %a" Scope.pp_print_scope scope
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf ppf "mode implication %a" (LustreIdent.pp_print_ident true) node.name
   | NonVacuityCheck (_, scope) ->
-    Format.fprintf ppf "non-vacuity check (%a)" Scope.pp_print_scope scope
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    Format.fprintf ppf "non-vacuity check (%a)" (LustreIdent.pp_print_ident true) node.name
 
-let pp_print_prop_quiet ppf { prop_name ; prop_source } =
+let pp_print_prop_quiet in_sys ppf { prop_name ; prop_source } =
   Format.fprintf ppf
     "'%s': %a"
     prop_name
-    pp_print_prop_source prop_source
+    (pp_print_prop_source in_sys) prop_source
 
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"

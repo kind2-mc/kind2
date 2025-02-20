@@ -94,12 +94,21 @@ let get_testgen_uid () =
   testgen_uid_ref := uid + 1 ;
   uid
 
+let get_lustre_node (type s) (input_system : s t) scope =
+  match input_system with
+  | Lustre (main_subs, _, _) -> (
+    try Some (S.find_subsystem_of_list main_subs scope).S.source
+    with Not_found -> None
+  )
+  | Native _ -> None
+  | Horn _ -> None
+
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
 
-  | Lustre (main_subs, _, _) -> (fun top assumptions ->
+  | Lustre (main_subs, _, _) as in_sys -> (fun top assumptions ->
 
     (* Collects all subsystems, abstracting them if possible. *)
     let rec collect map = function
@@ -123,9 +132,10 @@ let maximal_abstraction_for_testgen (type s)
           (* Sub is not the system we're looking for, skipping. *)
           get_abstraction_for_top tail
       | [] ->
+        let node = get_lustre_node in_sys top |> Option.get in
         Format.asprintf
           "system %a does not exist, cannot generate param for testgen"
-          Scope.pp_print_scope top
+          (LustreIdent.pp_print_ident true) node.name
         |> failwith
     in
 
@@ -354,15 +364,6 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
-let get_lustre_node (type s) (input_system : s t) scope =
-  match input_system with
-  | Lustre (main_subs, _, _) -> (
-    try Some (S.find_subsystem_of_list main_subs scope).S.source
-    with Not_found -> None
-  )
-  | Native _ -> None
-  | Horn _ -> None
-
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in
@@ -406,7 +407,7 @@ let trans_sys_of_analysis (type s)
 ?slice_to_prop
 : s t -> Analysis.param -> TransSys.t * s t = function
 
-  | Lustre (main_subs, globals, ast) -> (
+  | Lustre (main_subs, globals, ast) as in_sys -> (
     function analysis ->
       let t, s =
         LustreTransSys.(
@@ -419,7 +420,7 @@ let trans_sys_of_analysis (type s)
             }
           in
           trans_sys_of_nodes
-            ~options globals main_subs analysis)
+            ~options in_sys globals main_subs analysis)
       in
       t, Lustre ([s], globals, ast)
     )
