@@ -1,0 +1,8 @@
+type Nat = subrange [0,*] of int;
+
+node N(A: Nat^3) returns (r: Nat);
+var l: uint16;
+let
+  l = (uint16 2);
+  r = A[int l] + A[int (uint8 l)] + A[int (uint16 0)];
+tel

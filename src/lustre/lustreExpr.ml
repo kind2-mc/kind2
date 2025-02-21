@@ -324,6 +324,14 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
+  | `UINT8_TO_INT -> "uint8_to_int"
+  | `UINT16_TO_INT -> "uint16_to_int"
+  | `UINT32_TO_INT -> "uint32_to_int"
+  | `UINT64_TO_INT -> "uint64_to_int"
+  | `INT8_TO_INT -> "int8_to_int"
+  | `INT16_TO_INT -> "int16_to_int"
+  | `INT32_TO_INT -> "int32_to_int"
+  | `INT64_TO_INT -> "int64_to_int"
   | `TO_UINT8 -> "uint8"
   | `TO_UINT16 -> "uint16"
   | `TO_UINT32 -> "uint32"
@@ -1926,23 +1934,23 @@ let eval_to_int expr =
     | Term.T.Const s when Symbol.is_bv16 s ->
       Term.mk_num
         (Bitvector.bv16_to_num
-          (Symbol.ubitvector_of_symbol s))
+          (Symbol.bitvector_of_symbol s))
     | Term.T.Const s when Symbol.is_bv32 s ->
       Term.mk_num
         (Bitvector.bv32_to_num
-          (Symbol.ubitvector_of_symbol s))
+          (Symbol.bitvector_of_symbol s))
     | Term.T.Const s when Symbol.is_bv64 s ->
       Term.mk_num
         (Bitvector.bv64_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | x when Type.is_uint8 (Term.type_of_term (Term.construct x)) -> Term.mk_uint8_to_int expr
-    | x when Type.is_uint16 (Term.type_of_term (Term.construct x)) -> Term.mk_uint16_to_int expr
-    | x when Type.is_uint32 (Term.type_of_term (Term.construct x)) ->  Term.mk_uint32_to_int expr
-    | x when Type.is_uint64 (Term.type_of_term (Term.construct x)) ->  Term.mk_uint64_to_int expr
-    | x when Type.is_int8 (Term.type_of_term (Term.construct x)) ->  Term.mk_int8_to_int expr
-    | x when Type.is_int16 (Term.type_of_term (Term.construct x)) ->  Term.mk_int16_to_int expr
-    | x when Type.is_int32 (Term.type_of_term (Term.construct x)) ->  Term.mk_int32_to_int expr
-    | x when Type.is_int64 (Term.type_of_term (Term.construct x)) ->  Term.mk_int64_to_int expr
+          (Symbol.bitvector_of_symbol s))
+    | _ when Type.is_uint8 tt -> Term.mk_uint8_to_int expr
+    | _ when Type.is_uint16 tt -> Term.mk_uint16_to_int expr
+    | _ when Type.is_uint32 tt -> Term.mk_uint32_to_int expr
+    | _ when Type.is_uint64 tt -> Term.mk_uint64_to_int expr
+    | _ when Type.is_int8 tt -> Term.mk_int8_to_int expr
+    | _ when Type.is_int16 tt -> Term.mk_int16_to_int expr
+    | _ when Type.is_int32 tt -> Term.mk_int32_to_int expr
+    | _ when Type.is_int64 tt -> Term.mk_int64_to_int expr
     | _ -> Term.mk_to_int expr
     | exception Invalid_argument _ -> 
       if Type.is_uint8 (Term.type_of_term expr) then
