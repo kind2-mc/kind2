@@ -1915,11 +1915,6 @@ and normalize_expr ?guard info node_id map =
         (info, [], empty())
     in
     let handle_call inlined args =
-      (* A.pp_print_node_name Format.std_formatter id; *)
-      print_endline "current node name:";
-      print_endline (A.internal_string_of_node_name id);
-      print_endline "node name map:";
-      A.NodeNameMap.iter (fun node_name _ -> print_endline (A.internal_string_of_node_name node_name)) info.node_is_input_const;
       let flags = A.NodeNameMap.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in

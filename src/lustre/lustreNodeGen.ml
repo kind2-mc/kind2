@@ -780,6 +780,7 @@ and compile_ast_expr
 
   and compile_binary bounds mk expr1 expr2 =
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    A.pp_print_expr Format.std_formatter expr2;
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     (* TODO: Old code does three error checks here doublecheck *)
     X.map2 (fun _ -> mk) expr1 expr2

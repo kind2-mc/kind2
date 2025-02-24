@@ -212,8 +212,6 @@ let type_check declarations =
     (* Step 16. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx const_inlined_nodes_and_contracts in
 
-    List.iter (LA.pp_print_declaration Format.std_formatter) const_inlined_nodes_and_contracts;
-
     (* Step 17. Flatten refinement types *)
     let const_inlined_type_and_consts = LFR.flatten_ref_types inlined_global_ctx const_inlined_type_and_consts in
     let const_inlined_nodes_and_contracts = LFR.flatten_ref_types inlined_global_ctx const_inlined_nodes_and_contracts in
