@@ -430,13 +430,6 @@ let pp_print_ty_var_binding_ty: Format.formatter -> (LA.ident * HString.t list) 
     (Lib.pp_print_list HString.pp_print_hstring ",") (ty_vars)
 (** Pretty print type bindings*)  
 
-let pp_print_ty_arg_binding: Format.formatter -> (LA.ident * LA.lustre_type list) -> unit
-  = fun ppf (i, ty_vars) ->
-    Format.fprintf ppf "(%a:{%a})" 
-    LA.pp_print_ident i 
-    (Lib.pp_print_list LA.pp_print_lustre_type ",") (ty_vars)
-(** Pretty print type bindings*)  
-
 let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option * source)) -> unit
   = fun ppf (i, (v, ty, sc)) ->
   Format.fprintf ppf "(%a:%a :-> %a (%s))"

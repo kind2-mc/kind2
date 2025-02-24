@@ -1190,11 +1190,11 @@ let pp_print_contract_node_decl ppf ((n,_,_),p,i,o,(_,e))
        pp_print_contract e
     
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, ((n,_,_) as node_name, ext, opac, p, i, o, l, e, r)
+  _, ((n,_,_), ext, opac, p, i, o, l, e, r)
 ) =
     if e = [] then
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s%s %s%t@ \
+        "@[<hv>@[<hv 2>%s%s%s %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
@@ -1206,7 +1206,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
          | Opaque -> "opaque "
          | Transparent -> "transparent "
         )
-       (internal_string_of_node_name node_name) (*!! TODO: Change back to just printing n*) 
+        HString.pp_print_hstring n
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o
@@ -1214,7 +1214,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         pp_print_node_local_decl l
     else
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s %s%t@ \
+        "@[<hv>@[<hv 2>%s%s %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
@@ -1224,7 +1224,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         tel;@]@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
-        (internal_string_of_node_name node_name) (*!! TODO: Change back to just printing n*) 
+        HString.pp_print_hstring n
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o

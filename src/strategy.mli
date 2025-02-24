@@ -41,7 +41,6 @@ The information it takes is
 - a list of all the scopes of all the systems and their strategy info.
 *)
 val next_monolithic_analysis:
-  (* 'a InputSystem.t -> *)
   A.results ->
   (Scope.t * info) list ->
   (Scope.t * info) list ->

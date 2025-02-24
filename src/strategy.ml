@@ -170,7 +170,7 @@ let is_candidate_for_analysis { has_impl ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || has_impl
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let first_param_of in_sys ass _results all_nodes scope =
+let first_param_of ass _results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
@@ -213,9 +213,8 @@ let first_param_of in_sys ass _results all_nodes scope =
     try (
       is_candidate_for_analysis (List.assoc scope all_nodes)
     ) with Not_found ->
-      let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
       Format.asprintf "Unreachable: could not find info of system %a"
-        (LustreIdent.pp_print_ident true) node.name
+        (Scope.pp_print_scope_internal) scope
       |> failwith
   in
 
@@ -268,7 +267,7 @@ let first_analysis_of_contract_check ass top (
 *)
 
 
-let next_monolithic_analysis in_sys results main_syss = function
+let next_monolithic_analysis results main_syss = function
   | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
@@ -291,7 +290,7 @@ let next_monolithic_analysis in_sys results main_syss = function
         (* Not the first analysis, done. *)
         | _ -> None
       ) with Not_found ->
-        first_param_of in_sys A.assumptions_empty results all_syss top
+        first_param_of A.assumptions_empty results all_syss top
     in
 
     Lib.find_map check_sys main_syss
@@ -308,7 +307,7 @@ let last_assumptions () =
   | None -> A.assumptions_empty
   | Some sys -> A.assumptions_of_sys sys
 
-let next_modular_analysis in_sys results subs_of_scope = function
+let next_modular_analysis results subs_of_scope = function
   | [] -> failwith "[strategy] \
     no system to analyze (empty list of scopes)\
   "
@@ -326,7 +325,7 @@ let next_modular_analysis in_sys results subs_of_scope = function
           match A.results_find sys results with
           | _ -> None
         ) with Not_found -> (
-          match first_param_of in_sys (last_assumptions ()) results all_syss sys with
+          match first_param_of (last_assumptions ()) results all_syss sys with
           | None ->
             (* Format.printf "|> no first param@." ; *)
             go_up tail

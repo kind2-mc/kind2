@@ -110,7 +110,7 @@ val is_candidate : prop_source -> bool
 val pp_print_prop_status : Format.formatter -> prop_status -> unit
 
 (** Pretty-prints a property (name and source only). *)
-val pp_print_prop_quiet : (* 'a InputSystem.t -> *) Format.formatter -> t -> unit
+val pp_print_prop_quiet : Format.formatter -> t -> unit
 
 (** Pretty-prints a property. *)
 val pp_print_property : Format.formatter -> t -> unit

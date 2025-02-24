@@ -336,21 +336,20 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-let pp_print_param verbose in_sys fmt param =
+let pp_print_param verbose fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  let node = InputSystem.get_lustre_node in_sys top |> Option.get in 
   Format.fprintf fmt "%s @[<v>top: '@{<blue>%a@}'%a%a@]"
     ( match param with
       | Interpreter _ -> "Interpreter"
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
       | Refinement _ -> "Refinement")
-    (LustreIdent.pp_print_ident true) node.name
+    Scope.pp_print_scope_internal top
 
     (fun fmt -> function
       | [], [] ->
@@ -360,24 +359,14 @@ let pp_print_param verbose in_sys fmt param =
         ( match concrete with
           | [] -> ()
           | concrete ->
-            let concrete = 
-              List.map (InputSystem.get_lustre_node in_sys) concrete |> 
-              List.map Option.get |> 
-              List.map (fun { LustreNode.name } -> name) 
-            in
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") concrete;
+              (pp_print_list Scope.pp_print_scope_internal ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
           | abstract ->
-            let abstract = 
-              List.map (InputSystem.get_lustre_node in_sys) abstract |> 
-              List.map Option.get |> 
-              List.map (fun { LustreNode.name } -> name) 
-            in
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
-          (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") abstract) ;
+          (pp_print_list Scope.pp_print_scope_internal ",@ ") abstract) ;
         Format.fprintf fmt "@]")
     (concrete, abstract)
 
@@ -390,11 +379,10 @@ let pp_print_param verbose in_sys fmt param =
         |> Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
           (pp_print_list
             (fun fmt (s, invs) ->
-              let node = InputSystem.get_lustre_node in_sys s |> Option.get in
               let os, ts = Invs.len invs in
               if os + ts > 0 then (
                 Format.fprintf fmt "@{<blue>%a@}: "
-                  (LustreIdent.pp_print_ident true) node.name ;
+                  Scope.pp_print_scope_internal s ;
                 if verbose then
                   Format.fprintf fmt "%a" Invs.fmt invs
                 else (
@@ -418,7 +406,7 @@ let split_properties_nocands sys =
     |> List.rev in
   remove_cands valid, remove_cands invalid, remove_cands unknown
 
-let pp_print_param_of_result in_sys fmt { param ; sys } =
+let pp_print_param_of_result fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
@@ -445,22 +433,16 @@ let pp_print_param_of_result in_sys fmt { param ; sys } =
     let refined =
       Scope.Map.fold (
         fun scope is_abs acc ->
-          let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
           if not is_abs then try (
             if Scope.Map.find scope pre_abs_map then scope :: acc else acc
           ) with Not_found -> (
             Format.asprintf
               "could not find system %a \
               in abstraction map of previous result"
-              (LustreIdent.pp_print_ident true) node.name
+              Scope.pp_print_scope_internal scope
             |> failwith
           ) else acc
       ) abstraction_map []
-    in
-    let refined = 
-      List.map (InputSystem.get_lustre_node in_sys) refined |> 
-      List.map Option.get |> 
-      List.map (fun { LustreNode.name } -> name) 
     in
     Format.fprintf
       fmt
@@ -472,12 +454,11 @@ let pp_print_param_of_result in_sys fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        (LustreIdent.pp_print_ident true)
+        Scope.pp_print_scope_internal
         ",@ "
       ) refined
 
-let pp_print_result_quiet in_sys fmt ({ time ; sys } as res) =
-  let node = InputSystem.get_lustre_node in_sys (TransSys.scope_of_trans_sys sys) |> Option.get in
+let pp_print_result_quiet fmt ({ time ; sys } as res) =
   let valid, invalid, unknown = split_properties_nocands sys in
   let invariant, unreachable =
     valid |> List.partition (function
@@ -514,9 +495,9 @@ let pp_print_result_quiet in_sys fmt ({ time ; sys } as res) =
         %a@ \
         %d invariant %s%t\
       @]"
-      (LustreIdent.pp_print_ident true) node.name
+      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
       time
-      (pp_print_param_of_result in_sys) res
+      (pp_print_param_of_result) res
       (List.length valid)
       (property_keyword valid)
       (fun fmt -> match unreachable, reachable with
@@ -534,8 +515,8 @@ let pp_print_result_quiet in_sys fmt ({ time ; sys } as res) =
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
-      (LustreIdent.pp_print_ident true) node.name
-      (pp_print_param_of_result in_sys) res
+      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
+      pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
   | valid, invalid, unknown ->
@@ -546,15 +527,15 @@ let pp_print_result_quiet in_sys fmt ({ time ; sys } as res) =
         @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
-      (LustreIdent.pp_print_ident true) node.name
+      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
       time
-      (pp_print_param_of_result in_sys) res
+      pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
       reachability_properties
 
-let pp_print_result fmt in_sys {
+let pp_print_result fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
   let pp_print_prop_list pref = fun fmt props ->
@@ -570,7 +551,7 @@ let pp_print_result fmt in_sys {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true in_sys) param
+    (pp_print_param true) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"

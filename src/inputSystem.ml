@@ -22,6 +22,7 @@ module S = SubSystem
 module N = LustreNode
 module R = LustreReporting
 module E = LustreErrors
+module A = Analysis
 
 module SVar = StateVar
 
@@ -29,7 +30,7 @@ module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
+| Lustre : (N.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> N.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
@@ -57,7 +58,7 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
 
   | Horn _ -> assert false
 
-let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
+let analyzable_subsystems (type s) : s t -> s S.t list = function
   | Lustre (main_subs, _, _) ->
     let subsystems' =
       if Flags.modular () then S.all_subsystems_of_list main_subs
@@ -94,21 +95,12 @@ let get_testgen_uid () =
   testgen_uid_ref := uid + 1 ;
   uid
 
-let get_lustre_node (type s) (input_system : s t) scope =
-  match input_system with
-  | Lustre (main_subs, _, _) -> (
-    try Some (S.find_subsystem_of_list main_subs scope).S.source
-    with Not_found -> None
-  )
-  | Native _ -> None
-  | Horn _ -> None
-
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 let maximal_abstraction_for_testgen (type s)
-: s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
+: s t -> Scope.t -> A.assumptions -> A.param option = function
 
-  | Lustre (main_subs, _, _) as in_sys -> (fun top assumptions ->
+  | Lustre (main_subs, _, _) -> (fun top assumptions ->
 
     (* Collects all subsystems, abstracting them if possible. *)
     let rec collect map = function
@@ -132,10 +124,9 @@ let maximal_abstraction_for_testgen (type s)
           (* Sub is not the system we're looking for, skipping. *)
           get_abstraction_for_top tail
       | [] ->
-        let node = get_lustre_node in_sys top |> Option.get in
         Format.asprintf
           "system %a does not exist, cannot generate param for testgen"
-          (LustreIdent.pp_print_ident true) node.name
+          Scope.pp_print_scope_internal top
         |> failwith
     in
 
@@ -148,11 +139,11 @@ let maximal_abstraction_for_testgen (type s)
 
     (* All good. *)
     | Some map -> Some (
-      Analysis.First {
-        Analysis.top = top ;
-        Analysis.uid = get_testgen_uid () ;
-        Analysis.abstraction_map = map ;
-        Analysis.assumptions = assumptions ;
+      A.First {
+        A.top = top ;
+        A.uid = get_testgen_uid () ;
+        A.abstraction_map = map ;
+        A.assumptions = assumptions ;
       }
     )
 
@@ -162,7 +153,7 @@ let maximal_abstraction_for_testgen (type s)
   | Horn _ -> assert false
 
 let next_analysis_of_strategy (type s)
-: s t -> 'a -> Analysis.param option = function
+: s t -> 'a -> A.param option = function
 
   | Lustre (main_subs, _, _) -> (
     fun results ->
@@ -235,11 +226,11 @@ let mcs_params (type s) (input_system : s t) =
         )
         Scope.Map.empty (S.all_subsystems sub)
     in
-    Analysis.First {
-      Analysis.top = scope ;
-      Analysis.uid = Analysis.get_uid () ;
-      Analysis.abstraction_map = abstraction_map ;
-      Analysis.assumptions = Scope.Map.empty ;
+    A.First {
+      A.top = scope ;
+      A.uid = A.get_uid () ;
+      A.abstraction_map = abstraction_map ;
+      A.assumptions = Scope.Map.empty ;
     }
   in
   match input_system with
@@ -275,17 +266,17 @@ let contract_check_params (type s) (input_system : s t) =
   let param_for_subsystem sub =
     let scope = sub.S.scope in
     let subsystems = sub.S.subsystems in
-    (Analysis.ContractCheck {
-      Analysis.top = scope ;
-      Analysis.uid = Analysis.get_uid () ;
-      Analysis.abstraction_map =
+    (A.ContractCheck {
+      A.top = scope ;
+      A.uid = A.get_uid () ;
+      A.abstraction_map =
         List.fold_left
           (fun acc { S.scope; S.has_impl } ->
             Scope.Map.add scope (not has_impl) acc
           )
           (Scope.Map.singleton scope true)
           subsystems;
-      Analysis.assumptions = Scope.Map.empty ;
+      A.assumptions = Scope.Map.empty ;
     }, sub.S.has_contract)
   in
 
@@ -330,14 +321,14 @@ let interpreter_param (type s) (input_system : s t) =
     | Horn _ -> raise (UnsupportedFileFormat "Horn")
   in
 
-  Analysis.Interpreter {
-    Analysis.top = scope ;
-    Analysis.uid = Analysis.get_uid () ;
-    Analysis.abstraction_map = abstraction_map ;
-    Analysis.assumptions = Scope.Map.empty ;
+  A.Interpreter {
+    A.top = scope ;
+    A.uid = A.get_uid () ;
+    A.abstraction_map = abstraction_map ;
+    A.assumptions = Scope.Map.empty ;
   }
 
-let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
+let retrieve_lustre_nodes (type s) : s t -> N.t list =
   (function
   | Lustre (main_subs, _, _) -> 
     let subsystems = S.all_subsystems_of_list main_subs in
@@ -346,7 +337,7 @@ let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
-let retrieve_lustre_nodes_of_scope (type s) : s t -> Scope.t -> LustreNode.t list =
+let retrieve_lustre_nodes_of_scope (type s) : s t -> Scope.t -> N.t list =
   (function
   | Lustre (main_subs, _, _) -> (fun scope ->
     S.find_subsystem_of_list main_subs scope |> N.nodes_of_subsystem
@@ -364,17 +355,26 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
+let get_lustre_node (type s) (input_system : s t) scope =
+  match input_system with
+  | Lustre (main_subs, _, _) -> (
+    try Some (S.find_subsystem_of_list main_subs scope).S.source
+    with Not_found -> None
+  )
+  | Native _ -> None
+  | Horn _ -> None
+
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in
-    List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes
+    List.iter (Format.fprintf fmt "%a@." N.pp_print_node_debug) lustre_nodes
   )
 
 let pp_print_state_var_instances_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in
     List.iter (
-      Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_instances_debug
+      Format.fprintf fmt "%a@." N.pp_print_state_var_instances_debug
     ) lustre_nodes
   )
 
@@ -382,13 +382,13 @@ let pp_print_state_var_defs_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in
     List.iter (
-      Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_defs_debug
+      Format.fprintf fmt "%a@." N.pp_print_state_var_defs_debug
     ) lustre_nodes
   )
 
 let lustre_definitions_of_state_var (type s) (input_system : s t) state_var =
   match input_system with
-  | Lustre _ -> LustreNode.get_state_var_defs state_var
+  | Lustre _ -> N.get_state_var_defs state_var
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
@@ -405,27 +405,26 @@ let trans_sys_of_analysis (type s)
 ?(slice_nodes = Flags.slice_nodes ())
 ?(add_functional_constraints = Flags.Contracts.enforce_func_congruence ())
 ?slice_to_prop
-: s t -> Analysis.param -> TransSys.t * s t = function
+: s t -> A.param -> TransSys.t * s t = function
 
-  | Lustre (main_subs, globals, ast) as in_sys -> (
+  | Lustre (main_subs, globals, ast) -> (
     function analysis ->
       let t, s =
-        LustreTransSys.(
           let options =
             {
-              preserve_sig;
+              LustreTransSys.preserve_sig;
               slice_nodes;
               add_functional_constraints;
               slice_to_prop
             }
           in
-          trans_sys_of_nodes
-            ~options in_sys globals main_subs analysis)
+          LustreTransSys.trans_sys_of_nodes
+            ~options globals main_subs analysis
       in
       t, Lustre ([s], globals, ast)
     )
 
-  | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
+  | Native sub -> (fun _ -> sub.S.source, Native sub)
     
   | Horn _ -> assert false
 
@@ -711,9 +710,9 @@ let slice_to_abstraction_and_property
 
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
-    Analysis.First {
-      (Analysis.info_of_param analysis)
-      with Analysis.top = scope
+    A.First {
+      (A.info_of_param analysis)
+      with A.top = scope
     }
   in
 
@@ -787,7 +786,7 @@ fun sys top_scope target ->
   | Horn _ ->
     failwith "can't compile from horn clause input: unsupported"
 
-let contract_gen_param (type s): s t -> Scope.t -> (Analysis.param * (Scope.t -> N.t)) =
+let contract_gen_param (type s): s t -> Scope.t -> (A.param * (Scope.t -> N.t)) =
 fun sys -> fun top ->
   match sys with
   | Lustre (main_subs, _, _) -> (
@@ -797,7 +796,7 @@ fun sys -> fun top ->
     in
     match
       Strategy.next_monolithic_analysis
-        (Analysis.mk_results ())
+        (A.mk_results ())
         [top, S.strategy_info_of (S.find_subsystem_of_list main_subs top)]
         (scope_and_strategy (S.all_subsystems_of_list main_subs))
     with
@@ -851,7 +850,7 @@ function
           )
         in
 
-        let node_name = source.LustreNode.name in
+        let node_name = source.N.name in
 
         Scope.Map.add scope sv_map map,
         (node_name, (init_call_deps, trans_call_deps)) :: deps
