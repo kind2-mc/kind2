@@ -1,0 +1,12 @@
+function identity (x: int) returns (y: int);
+ let
+   y = x;
+ tel
+
+const n: subrange [1, *] of int;
+
+node N(B: int^n) returns (A: int^n)
+let
+   A[i] = identity(B[i]);
+   check A[0]=B[0];
+tel
