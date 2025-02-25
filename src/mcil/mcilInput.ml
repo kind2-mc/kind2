@@ -550,6 +550,11 @@ let mk_query aprop_svars (rprop_svars : (id * StateVar.t) list) query =
 
   (query_id, prop_term)
 
+let check_id = ref 0
+let next_check_id () =
+  check_id := !check_id + 1 ;
+  !check_id
+
 let check_trans_system enums base_system (system_check: Statement.sys_check) = 
   (* Map renamed check sys state vars (primed and unprimed) to actual system vars *)
   let check_map = rename_check_vars enums base_system system_check in
@@ -593,9 +598,12 @@ let check_trans_system enums base_system (system_check: Statement.sys_check) =
 
   let sid = DU.dolmen_symbol_term_to_id system_check.sid in
 
+  let cid = next_check_id () in
+
   let init_uf_symbol =
     UfSymbol.mk_uf_symbol
-      (Format.asprintf "%s_%a_checked" Ids.init_uf_string Id.print sid)  (*TODO need to change name to support multiple checks*)
+      (Format.asprintf "%s_%a_checked_%d"
+          Ids.init_uf_string Id.print sid cid)
       (List.map Var.type_of_var init_formals)
       Type.t_bool
   in
@@ -619,7 +627,8 @@ let check_trans_system enums base_system (system_check: Statement.sys_check) =
        We may need to postpone the initial declararion when checks are present if 
         we want to stop this *)
     UfSymbol.mk_uf_symbol
-      (Format.asprintf "%s_%a_checked" Ids.trans_uf_string Id.print sid)  (*TODO need to change name to support multiple checks*)
+      (Format.asprintf "%s_%a_checked_%d"
+          Ids.trans_uf_string Id.print sid cid)
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
