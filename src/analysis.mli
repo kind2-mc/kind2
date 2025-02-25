@@ -145,10 +145,6 @@ val no_system_is_abstract : ?include_top:bool -> param -> bool
 (** Retrieve the assumptions of a [scope] from a [param]. *)
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
-
-
-
-
 (** Returns a result from an analysis. *)
 val mk_result : param -> TransSys.t -> float -> result
 

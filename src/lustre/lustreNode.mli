@@ -291,9 +291,6 @@ val pp_print_node_debug : Format.formatter -> t -> unit
 (** Return the node of the given name from a list of nodes *)
 val node_of_user_name : LustreIdent.t -> t list -> t 
 
-(*!! Could combine the first three arguments to a unique scope argument,
-     Should also combine these fields at the LustreNode level
-*)
 val node_of_name : node_name -> t list -> t
 
 val node_of_scope : LustreIdent.t -> t list -> t

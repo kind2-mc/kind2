@@ -330,7 +330,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   guarantees |> List.map guarantee_of_svar |> implications_of_modes modes
 
 (* The assumptions of a contract as properties. *)
-let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
+let subrequirements_of_contract call_pos scope nname svar_map { C.assumes } =
   assumes |> List.map (
     fun { C.pos ; C.name ; C.svar } ->
       let prop_term =
@@ -342,13 +342,13 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         match name with
         | None -> (
           Format.asprintf "%a%a.assume%a"
-            Scope.pp_print_scope_internal scope
+            (I.pp_print_ident true) (N.user_name_of_node_name nname)
             pp_print_line_and_column call_pos
             pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a.%s"
-            Scope.pp_print_scope_internal scope
+            (I.pp_print_ident true) (N.user_name_of_node_name nname)
             pp_print_line_and_column call_pos n
         )
       in
@@ -821,7 +821,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     | None -> []
     | Some contract -> (
       subrequirements_of_contract
-        call_pos (I.to_scope (N.internal_string_of_node_name call_node_name)) state_var_map_up contract
+        call_pos (I.to_scope (N.internal_string_of_node_name call_node_name)) call_node_name state_var_map_up contract
     )
   in
 

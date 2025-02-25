@@ -1832,7 +1832,6 @@ and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag
       let internal_node_name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in
       let internal_node_name = mk_ident internal_node_name_hstring in
       let ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
-      (*!! Need to decide whether node_of_name uses internal or user name. Think it has to uniquely identify a node *)
       let called_node = N.node_of_name (ident, tag, ty_args) cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
         | Some (A.TArr (_, _, output_types)) ->
