@@ -96,10 +96,7 @@ let opt_list_to_list l =
 
 (* Returns a string representation of a Dolmen id *)
 let dolmen_id_to_string id =
-  let name = Std.Id.name id in
-  match name with
-  | Std.Name.Simple n -> n
-  | _ -> "<TODO ADD SUPPORT FOR NON_SIMPLE DOLMEN NAMES>"
+  Format.asprintf "%a" Std.Id.print id
 
 let dolmen_id_to_hstring id = 
   (HString.mk_hstring (dolmen_id_to_string id))
@@ -125,20 +122,25 @@ let type_of_dolmen_builtin = function
             Term.print_builtin other))
 
 (* This only returns types of 'id's that are actually types *)
-let type_of_dolmen_id enums id = match dolmen_id_to_string id with
-  | "Int" -> Type.t_int
-  | "Real" -> Type.t_real
-  | "Bool" -> Type.t_bool 
+let type_of_dolmen_id enums id =
+  match Std.Id.name id with
+  | Std.Name.Simple "Int" -> Type.t_int
+  | Std.Name.Simple "Real" -> Type.t_real
+  | Std.Name.Simple "Bool" -> Type.t_bool
+  | Std.Name.Indexed { basename; indexes } when basename="BitVec" -> (
+    Type.t_ubv (List.hd indexes |> int_of_string)
+  )
   (* TODO Add support for arrays*)
-  | other -> 
+  | _ ->
     if is_enum_type_str enums id then
       enum_name_to_type enums id 
-    else 
+    else
       raise
         (Invalid_argument 
             (Format.asprintf 
               "Sort %s not supported" 
-              other))
+              (dolmen_id_to_string id)))
+
 
 let type_of_dolmen_term enums = function
   | Term.{ term = Builtin b ; _ } -> 
@@ -557,22 +559,31 @@ let opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   let process file =
     (* *** Parsing ********************************************************** *)
     (* note the "file" here, which refers to the file location metadata *)
-    let format, loc_file, lazy_l = Logic.parse_file_lazy file in
+
+    let format, loc_file, lazy_l =
+      Logic.parse_file_lazy ~language:(Logic.Smtlib2 `MCIL) file
+    in
 
     let parsed_statements =
       try Lazy.force lazy_l with 
         Dolmen.Std.Loc.Syntax_error(loc, msg) ->
           let loc : Dolmen.Std.Loc.loc = Dolmen.Std.Loc.loc loc_file loc in
-          (* we can now print the loc if we want, or do whatever we want *)
-          Format.eprintf "error at %a\n" Dolmen.Std.Loc.fmt loc ;
+          Format.set_margin 80;
+          Format.printf "@[<v>%a:@ @]" Dolmen.Std.Loc.fmt loc;
           match msg with
-            | `Regular msg ->
-              failwith (Format.asprintf "%t" msg)
-            | `Advanced (error_ref, prod, lexed, expected) -> 
-              let p_ref fmt = Format.fprintf fmt "(%s)@ " error_ref in
-              failwith (Format.asprintf
-                "@[<v>@[<hv>%twhile parsing %t,@ read %t,@]@ @[<hov>but expected %t.@]@]"
-                p_ref prod lexed expected)
+          | `Regular msg_fmt -> (
+            Format.printf "@[<v>Error @[%t@]@ @]" msg_fmt ;
+            exit 1
+          )
+          | `Advanced (_error_ref, prod, lexed, expected) -> (
+            Format.printf "@[<v>Error @[while parsing %t,@ read %t,@ but expected %t.@]@ @]"
+              prod lexed expected;
+            exit 1
+          )
+          (*let p_ref fmt = Format.fprintf fmt "(%s)@ " error_ref in
+            failwith (Format.asprintf
+            "@[<v>@[<hv>%twhile parsing %t,@ read %t,@]@ @[<hov>but expected %t.@]@]"
+            p_ref prod lexed expected)*)
     in
     
     (* You can match on the detected format of the input *)

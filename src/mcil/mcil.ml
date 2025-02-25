@@ -114,7 +114,7 @@ let setup : unit -> (TransSys.t SubSystem.t * McilInput.metadata) = fun () ->
     KEvent.terminate_log () ; exit ExitCodes.error
   (* Could not create input system. *)
   | Sys_error msg ->
-     KEvent.log L_fatal "Error opening input file '%s': %s" in_file msg ;
+     KEvent.log L_fatal "Error opening input file '%s':@ %s" in_file msg ;
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
      let backtrace = Printexc.get_raw_backtrace () in
