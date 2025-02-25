@@ -205,12 +205,12 @@ let pp_print_tree in_sys fmt { tree } =
       let act = 
         List.map (InputSystem.get_lustre_node in_sys) act |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       let deact = 
         List.map (InputSystem.get_lustre_node in_sys) deact |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       Format.fprintf fmt "@[<v>%a@ %a@]"
         (pp_print_list (LustreIdent.pp_print_ident true) ", ") act

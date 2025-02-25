@@ -645,7 +645,7 @@ let node_path_of_subsystems
       N.fold_node_calls_with_trans_sys
         nodes
         (node_path_of_instance const_map first_is_init model)
-        (N.node_of_name (I.of_scope scope) nodes)
+        (N.node_of_scope (I.of_scope scope) nodes)
         trans_sys'
     in
     (r, const_map)
@@ -990,7 +990,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 | (
   trace, Node (
     { N.name; N.inputs; N.outputs; N.locals;
-      N.is_function; N.node_type; } as node,
+      N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
 ) :: tl when N.node_is_visible node ->
@@ -1001,18 +1001,18 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_state, node_name =
     match N.node_is_state_handler node with
-    | None -> false, I.string_of_ident true name
+    | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
     | Some state -> true, state
   in
   
   let title =
     if is_function then "Function"
     else if is_state then "State"
-    else (match node_type with 
-    | Some Environment -> "Environment of"
-    | Some Contract -> "Contract of"
-    | Some Type -> "Type"
-    | None -> "Node")
+    else (match node.name with 
+    | (_, Some Environment, _) -> "Environment of"
+    | (_, Some Contract, _) -> "Contract of"
+    | (_, Some Type, _) -> "Type"
+    | (_, None, _) -> "Node")
   in
   
   (* Remove first dimension from index *)
@@ -1391,7 +1391,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, I.string_of_ident true name
+      | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
       | Some state -> true, state
     in
 
@@ -1807,7 +1807,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
 
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, I.string_of_ident true name
+      | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
       | Some state -> true, state
     in
 
@@ -1992,21 +1992,17 @@ let register_callpos_for_nb abstr_map hc lid parents pos cond args =
 let pos_to_numbers abstr_map nodes =
   let hc = Hashtbl.create 43 in
 
-  let node_by_lid lid =
-    List.find (fun n -> I.equal n.N.name lid) nodes in
-
-  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
   let main_nodes = LustreNode.get_main_annotated_nodes nodes in
 
   let rec fold parents node =
 
     List.iter
-      (fun ({ N.call_node_name = lid;
+      (fun ({ N.call_node_name = name;
              call_pos = pos; call_cond = cond;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
         (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
-        (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+        (*   (LustreIdent.pp_print_ident false) name Lib.pp_print_position pos *)
         (*   (match clock with *)
         (*    | None -> "" *)
         (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)) *)
@@ -2014,15 +2010,15 @@ let pos_to_numbers abstr_map nodes =
         (* ; *)
         
         register_callpos_for_nb
-          abstr_map hc lid parents pos cond (inputs, defs);
+          abstr_map hc name parents pos cond (inputs, defs);
 
-        fold (call :: parents) (node_by_lid lid)
+        fold (call :: parents) (LustreNode.node_of_name name nodes)
 
       ) node.LustreNode.calls
   in
 
-  List.iter (fun (main_node_id, _) -> 
-      let main_node = node_by_lid main_node_id in
+  List.iter (fun main_node_id -> 
+      let main_node = LustreNode.node_of_name main_node_id nodes in
       fold [] main_node)
     main_nodes;
 
@@ -2120,7 +2116,13 @@ let reconstruct_lustre_streams subsystems state_vars =
       let l = orig_of_oracle oracle_map sv in
 
       (* get streams *)
-      let streams = List.flatten (List.map (get_lustre_streams hc) l) in
+      let hc' = Hashtbl.create 64 in
+      let () = 
+        Hashtbl.fold (fun key value acc -> (key, value) :: acc) hc [] |>
+        List.map (fun ((name, b), c) -> (LustreNode.internal_string_of_node_name name, b), c) |> 
+        List.iter (fun (k, v) -> Hashtbl.add hc' k v) 
+      in
+      let streams = List.flatten (List.map (get_lustre_streams hc') l) in
 
       (* get original variables of oracles in node call parameters *)
       let streams =

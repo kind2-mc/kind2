@@ -315,12 +315,12 @@ let pp_print_realizability_result_pt
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node.node_type with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
-      (LustreIdent.pp_print_ident true) node.name
+      (match node.name with 
+      | (_, Some Environment, _) -> "Environment of"
+      | (_, Some Contract, _) -> "Contract of"
+      | (_, Some Type, _) -> "Type"
+      | (_, None, _) -> "Contract of imported node")
+      (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
   in
@@ -332,7 +332,7 @@ let pp_print_realizability_result_pt
       "@[<hov>%t Could not determine whether the contract of \
         %a is realizable or not after %.3fs.@]@.@."
       Pretty.warning_tag
-      (LustreIdent.pp_print_ident true) node.name
+      (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
       (Stat.get_float Stat.analysis_time)
   )
   | Realizable fp ->
@@ -553,12 +553,12 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       "@[<hov>%t Could not determine whether the %s \
         %a is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (match node.node_type with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
-      (LustreIdent.pp_print_ident true) node.name
+      (match node.name with 
+      | (_, Some Environment, _) -> "Environment of"
+      | (_, Some Contract, _) -> "Contract of"
+      | (_, Some Type, _) -> "Type"
+      | (_, None, _) -> "Contract of imported node")
+      (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
       (Stat.get_float Stat.analysis_time)
   )
   | _ -> (
@@ -572,12 +572,12 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node.node_type with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
-      (LustreIdent.pp_print_ident true) node.name
+      (match node.name with 
+      | (_, Some Environment, _) -> "Environment of"
+      | (_, Some Contract, _) -> "Contract of"
+      | (_, Some Type, _) -> "Type"
+      | (_, None, _) -> "Contract of imported node")
+      (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)
   )

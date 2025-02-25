@@ -301,7 +301,7 @@ let create_node = function
         expr_abs_map = ET.copy expr_abs_map;
         fresh_local_index = ref !(ctx.fresh_local_index);
         fresh_oracle_index = ref !(ctx.fresh_oracle_index);
-        node = Some (N.empty_node ident is_extern) } )
+        node = Some (N.empty_node (ident, None, None) is_extern) } )
 
 (** Maps something to the current node. *)
 let current_node_map = function
@@ -322,7 +322,7 @@ let current_node_modes = function
 
 (* Returns the name of the current node, if any. *)
 let current_node_name = function
-| { node = Some { N.name } } -> Some name
+| { node = Some { N.name = (name, _, _) } } -> Some name
 | { node = None } -> None
 
 (** Returns the calls made by the current node, if any. *)
@@ -783,7 +783,7 @@ let type_in_context { ident_type_map } ident =
 let node_in_context ctx ident = 
   
   (* Return if identifier is in context or previous contexts *)
-  N.exists_node_of_name ident (get_nodes ctx)
+  N.exists_node_of_name (ident, None, None) (get_nodes ctx)
     
 
 (* Return true if property name has been declared in the context *)
@@ -1312,7 +1312,7 @@ let mk_fresh_local
 
 (* Return the node of the given name from the context*)
 let rec node_of_name ({ prev; nodes } as ctx) ident =
-  try N.node_of_name ident nodes
+  try N.node_of_name (ident, None, None) nodes
   with Not_found ->
     if ctx == prev then raise Not_found
     else node_of_name prev ident
@@ -1345,7 +1345,7 @@ let call_outputs_of_node_call
           List.find
             (fun { N.call_cond = call_cond;
                    N.call_defaults = call_defaults;
-                   N.call_node_name = call_ident;
+                   N.call_node_name = (call_ident, _, _);
                    N.call_inputs = call_inputs } -> 
 
               (* Call must be to the same node, and ... *)

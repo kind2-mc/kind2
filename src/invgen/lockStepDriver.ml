@@ -46,7 +46,7 @@ type num = Num.t
 
 let sys_name in_sys sys =
   let node = InputSystem.get_lustre_node in_sys (Sys.scope_of_trans_sys sys) |> Option.get in
-  node.name |> LustreIdent.string_of_ident true
+  (LustreNode.internal_string_of_node_name node.name) |> LustreIdent.string_of_ident true
 
 (** Counter for actlit's uids. *)
 let actlit_uid = ref 0

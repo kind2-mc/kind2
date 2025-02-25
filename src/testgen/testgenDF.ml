@@ -259,12 +259,12 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
   let concrete = 
     List.map (InputSystem.get_lustre_node input_sys) concrete |> 
     List.map Option.get |> 
-    List.map (fun { LustreNode.name } -> name) 
+    List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
   in
   let abstract = 
     List.map (InputSystem.get_lustre_node input_sys) abstract |> 
     List.map Option.get |> 
-    List.map (fun { LustreNode.name } -> name) 
+    List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
   in
   KEvent.log_uncond "%s@[<v>\
       Launching on %a.@ \
@@ -272,7 +272,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       abstract subsystems: [ @[<hov>%a@] ]\
     @]"
     log_prefix
-    (LustreIdent.pp_print_ident true) node.name
+    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name)
     (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") concrete
     (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") abstract ;
 

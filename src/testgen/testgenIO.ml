@@ -80,7 +80,7 @@ let mk input_sys sys root name title =
       Format.fprintf class_fmt
         "<?xml version=\"1.0\"?>@.\
          <data system=\"%a\" name=\"%s\">@.@.@?"
-         (LustreIdent.pp_print_ident true) node.name
+         (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name)
         title ;
       class_file
     ) else Unix.stderr
@@ -120,7 +120,7 @@ let init_error (type s)
   Format.fprintf error_fmt
     "<?xml version=\"1.0\"?>@.\
      <data system=\"%a\">@.@.@?"
-    (LustreIdent.pp_print_ident true) node.name ;
+    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name) ;
 
   t.error_file <- Some error_file
 
@@ -182,7 +182,7 @@ let pp_print_tc in_sys fmt path name modes =
       let modes = 
         List.map (InputSystem.get_lustre_node in_sys) modes |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
@@ -203,7 +203,7 @@ let pp_print_deadlock in_sys fmt path name modes =
       let modes = 
         List.map (InputSystem.get_lustre_node in_sys) modes |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
@@ -224,12 +224,12 @@ let pp_print_model_path in_sys fmt path =
       let modes = 
         List.map (InputSystem.get_lustre_node in_sys) modes |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       let modes'' = 
         List.map (InputSystem.get_lustre_node in_sys) modes' |> 
         List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> name) 
+        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
       in
       Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
         (pp_print_list (LustreIdent.pp_print_ident true) "\\n") modes cpt

@@ -995,7 +995,7 @@ let run in_sys =
           | [] ->
             let node = InputSystem.get_lustre_node in_sys sys |> Option.get in 
             Format.asprintf "Unreachable: no results at all for system @{<blue>%a@}."
-              (LustreIdent.pp_print_ident true) node.name
+              (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
             |> failwith
         ) with
         | Not_found -> l

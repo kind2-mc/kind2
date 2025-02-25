@@ -22,6 +22,7 @@ module TestGen = TestgenDF
 module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
+module LN = LustreNode
 
 open Res
 
@@ -38,7 +39,7 @@ let last_result in_sys results scope =
     fun fmt ->
       let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
       Format.fprintf fmt "No result available for component %a."
-        (LustreIdent.pp_print_ident true) node.name
+        (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name)
   )
 
 (** Signature of modules for post-analysis treatment. *)
@@ -168,7 +169,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir tests_target ;
           KEvent.log_uncond
             "%sGenerating tests for node '%a' to '%s'."
-            TestGen.log_prefix (LustreIdent.pp_print_ident true) node.name tests_target ;
+            TestGen.log_prefix (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name) tests_target ;
           let testgen_xmls =
             TestGen.main param input_sys_sliced sys tests_target
           in
@@ -179,7 +180,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir oracle_target ;
           KEvent.log_uncond
             "%sCompiling oracle to Rust for node '%a' to '%s'."
-            TestGen.log_prefix (LustreIdent.pp_print_ident true) node.name oracle_target ;
+            TestGen.log_prefix (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name) oracle_target ;
           let name, guarantees, modes =
             InputSystem.compile_oracle_to_rust in_sys top oracle_target
           in
@@ -561,7 +562,7 @@ module RunRustGen: PostAnalysis = struct
     let node = InputSystem.get_lustre_node in_sys top |> Option.get in
     KEvent.log_uncond
       "  Compiling node '%a' to Rust in '%s'."
-      (LustreIdent.pp_print_ident true) node.name target ;
+      (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name) target ;
     InputSystem.compile_to_rust in_sys top target ;
     KEvent.log_uncond "  Done compiling." ;
     Ok ()

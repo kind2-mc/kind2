@@ -780,7 +780,6 @@ and compile_ast_expr
 
   and compile_binary bounds mk expr1 expr2 =
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
-    A.pp_print_expr Format.std_formatter expr2;
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     (* TODO: Old code does three error checks here doublecheck *)
     X.map2 (fun _ -> mk) expr1 expr2
@@ -1177,8 +1176,9 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
 
-and compile_node node_scope pos ctx cstate map outputs cond restart ident args defaults inlined =
-  let called_node = N.node_of_name ident cstate.nodes in
+and compile_node node_scope pos ctx cstate map outputs cond restart nname args defaults inlined =
+  let called_node = N.node_of_name nname cstate.nodes in
+  let ident = N.internal_string_of_node_name nname in
   let po_ct = !map.poracle_count in
   map := {!map with poracle_count = po_ct + (List.length called_node.oracles) };
   let oracles =
@@ -1256,8 +1256,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
   let node_call = {
     N.call_id = call_id;
     N.call_pos = pos;
-    N.call_node_name = ident;
-    N.call_node_type = called_node.node_type;
+    N.call_node_name = called_node.name;
     N.call_cond = cond_state_var;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
@@ -1436,11 +1435,12 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as nname) ext params inputs outputs locals items contract =
+and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag, ty_args) as nname) ext params inputs outputs locals items contract =
+  let user_ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
   let gids = A.NodeNameMap.find nname gids_map in
-  let name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in
-  let name = mk_ident name_hstring in
-  let node_scope = name |> I.to_scope in
+  let internal_node_name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in 
+  let internal_node_name = mk_ident internal_node_name_hstring in
+  let node_scope = internal_node_name |> I.to_scope in
   let is_extern = ext in
   let opacity =
     match opac with
@@ -1452,16 +1452,16 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
     StateVar.mk_state_var
       ~is_const:true
       (I.instance_ident |> I.string_of_ident false)
-      (I.to_scope name @ I.reserved_scope)
+      (I.to_scope internal_node_name @ I.reserved_scope)
       Type.t_int
   in
   let init_flag = 
     StateVar.mk_state_var
       (I.init_flag_ident |> I.string_of_ident false)
-      (I.to_scope name @ I.reserved_scope)
+      (I.to_scope internal_node_name @ I.reserved_scope)
       Type.t_bool
   in
-  let map = ref (empty_identifier_maps (Some name_hstring)) in
+  let map = ref (empty_identifier_maps (Some internal_node_name_hstring)) in
   let state_var_expr_map = SVT.create 7 in
   (* Update cstate with uninstantiated params *)
   let cstate = List.fold_left (fun acc param -> 
@@ -1727,10 +1727,9 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, nname, _, _, _)) ->
-      let ident = A.internal_string_of_node_name nname |> HString.mk_hstring in
-      let node_id = mk_ident ident in
-      let called_node = N.node_of_name node_id cstate.nodes in
+    let over_calls = fun () ((_, var, _, _, (user_node_name, tag, ty_args), _, _, _)) ->
+      let ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
+      let called_node = N.node_of_name (ident, tag, ty_args) cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
@@ -1828,11 +1827,13 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
-      fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults, inlined)
+      fun (calls, glocals) (pos, var, cond, restart, ((user_node_name, tag, ty_args) as nname), args, defaults, inlined)
     ->
-      let ident = A.internal_string_of_node_name ident |> HString.mk_hstring in
-      let node_id = mk_ident ident in
-      let called_node = N.node_of_name node_id cstate.nodes in
+      let internal_node_name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in
+      let internal_node_name = mk_ident internal_node_name_hstring in
+      let ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
+      (*!! Need to decide whether node_of_name uses internal or user name. Think it has to uniquely identify a node *)
+      let called_node = N.node_of_name (ident, tag, ty_args) cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
         | Some (A.TArr (_, _, output_types)) ->
             (match output_types with
@@ -1861,7 +1862,7 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
             else (
               H.add local_map var_id state_var;
               N.add_state_var_def state_var (N.CallOutput (pos, index));
-              N.set_state_var_instance state_var pos node_id sv;
+              N.set_state_var_instance state_var pos internal_node_name sv;
               X.add index state_var compiled_vars)
             in
             seen_calls := SVS.add state_var !seen_calls;
@@ -1871,7 +1872,7 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined
+        node_scope pos ctx cstate map outputs cond restart (ident, tag, ty_args) args defaults inlined
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
@@ -2344,13 +2345,10 @@ and compile_node_decl gids_map is_function opac cstate ctx ((_, node_type, _) as
       TM.empty
       (StringMap.bindings gids.GI.history_vars)
   in
-  let (_, _, ty_args) = nname in
 
-  let (node:N.t) = { name;
-    node_type;
+  let (node:N.t) = { name = (user_ident, tag, ty_args);
     is_extern;
     opacity;
-    ty_args;
     instance;
     init_flag;
     inputs;

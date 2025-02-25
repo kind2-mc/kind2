@@ -1906,8 +1906,7 @@ and eval_node_call
       let node_call = 
         { N.call_id = -1; (* Call_id is not implemented in old frontend *)
           N.call_pos = pos;
-          N.call_node_name = ident;
-          N.call_node_type = None;
+          N.call_node_name = (ident, None, None);
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;

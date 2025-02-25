@@ -1684,18 +1684,18 @@ and eval_node_contract_spec
       in
       let rec loop known = function
         | [] -> ()
-        | ({ N.name ; N.calls ; N.is_extern } as node) :: tail when
+        | ({ N.name = (name, _, _) ; N.calls ; N.is_extern } as node) :: tail when
             is_extern || not (N.has_effective_contract node) ->
           (* Imported node or node without an effective contract is ok.
              Preparing recursive call. *)
           let known = I.Set.add name known in
           calls |> List.fold_left (
-            fun acc { N.call_node_name = sub_name } -> 
+            fun acc { N.call_node_name = (sub_name, _, _) } -> 
               if I.Set.mem sub_name known then acc
               else (node_of_name ctx sub_name) :: acc
           ) tail
           |> loop known
-        | { N.name } :: _ -> (* PEBCAK. *)
+        | { N.name = (name, _, _)} :: _ -> (* PEBCAK. *)
           Format.asprintf "\
             Illegal call to node '%a' in the cone of influence of this \
             contract: node %a has a contract.\
@@ -1704,7 +1704,7 @@ and eval_node_contract_spec
       in
       let subs, known =
         calls |> List.fold_left (
-          fun (subs, known) { N.call_node_name = sub_name } ->
+          fun (subs, known) { N.call_node_name = (sub_name, _, _) } ->
             if I.Set.mem sub_name known then subs, known
             else (node_of_name ctx sub_name) :: subs, I.Set.add sub_name known
         ) ([], I.Set.empty)
@@ -2166,7 +2166,7 @@ and declaration_to_context ctx = function
   (* Check that all there's no (non-function) node call. *)
   ( C.current_node_calls fun_ctx
     |> List.iter (
-      fun { N.call_pos ; N.call_node_name } ->
+      fun { N.call_pos ; N.call_node_name = (call_node_name, _, _) } ->
         let node = C.node_of_name fun_ctx call_node_name in
         if not node.N.is_function then fail_at_position call_pos (
           Format.asprintf
