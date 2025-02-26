@@ -1,3 +1,24 @@
+# Unreleased
+
+New features:
+- Support for [polymorphic](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#polymorphic-nodes) user types, nodes, functions, and contracts
+- New `transparent` and `opaque` modifiers to control the abstraction and refinement of nodes and functions
+- Support for function calls with arguments that contain quantified variables and symbolic indices, if they can be inlined
+- Support for OpenSMT as a backend solver
+
+Improvements:
+- Support for system parameters with refinement types
+- Option (`--lus_main_type`) to specify a refinement type for realizability analysis
+- Ensure results are printed in JSON/XML output, even if computation of deadlocking trace fails
+- Fixed bugs when checking the realizability of a node's environment
+- Fixed bug when the `history` type constructor was used in a contract
+- Fixed and improved the handling of array definitions and quantified expressions
+- Fixed several bugs related to casting machine integers to integers
+- Other fixes and improvements in the Lustre front end
+
+Changes:
+- Allow calls to nodes and functions with both a body and a contract
+
 # Kind 2 v2.2.0
 
 New features:
@@ -95,8 +116,8 @@ Improvements:
 - Fix underreporting issue in the computation of conflicting constraints (bug introduced in v1.6.0).
 - Fix reporting of contract mode elements in IVCs and conflicting constraints (bug introduced in v1.8.0).
 - Fix setting of SMT-LIB logic for the non-linear combination of integers and reals.
-- Fix computation of dependencies for clock operators in new the Lustre front-end.
-- Other fixes and improvements in the new front-end.
+- Fix computation of dependencies for clock operators in new the Lustre front end.
+- Other fixes and improvements in the new front end.
 
 Changes:
 
@@ -121,7 +142,7 @@ Improvements:
 - Fixes and improvements solving machine integer problems:
   - Support for non-standard bit-vector constants and symbols returned by MathSAT and Z3
   - Fix path compression bit-vector encoding in minimization of set of invariants.
-- Fixes and improvements in the new Lustre front-end.
+- Fixes and improvements in the new Lustre front end.
 
 
 # Kind 2 v1.7.0
@@ -142,22 +163,22 @@ Improvements:
 - Fix problem with reported locations in IVC output.
 - Fix selection of logic in computation of MCS.
 - Fix version detection of SMT solvers.
-- Multiple fixes and improvements in the new Lustre front-end.
+- Multiple fixes and improvements in the new Lustre front end.
 
 
 # Kind 2 v1.6.0
 
 New features:
 
-- A new implementation of Kind 2's language front-end with:
+- A new implementation of Kind 2's language front end with:
   - Support for forward references to nodes and modes in contracts.
   - Individual namespaces for imported contracts.
   - Enhanced type checking of composite data types.
 
   Internally, the new implementation follows a multi-pass approach more strictly.
-  This should facilitate the extensibility and maintenance of the new front-end.
-  Although we strongly encourage users to use the new front-end,
-  the old front-end can still be enabled for now by passing
+  This should facilitate the extensibility and maintenance of the new front end.
+  Although we strongly encourage users to use the new front end,
+  the old front end can still be enabled for now by passing
   `--old_frontend true` to Kind 2.
 
 Improvements:
