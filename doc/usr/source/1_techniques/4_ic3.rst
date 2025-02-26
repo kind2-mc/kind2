@@ -19,7 +19,7 @@ to handle spurious abstract counterexamples for the property to be proven, that 
 falsify the property in the abstracted system but are not actual executions of the original system.
 The method addresses this problem by using an abstraction refinement technique based on logical
 interpolants. 
-Kind 2 currently supports two proof-based interpolating SMT solvers for the generation of interpolants:
+Kind 2 currently supports three proof-based interpolating SMT solvers for the generation of interpolants:
 MathSAT, SMTInterpol, and OpenSMT. In addition, Kind 2 also implements a built-in method for producing
 interpolants based on quantifier elimination that can be used with Z3 and cvc5.
 When the IC3IA engine is enabled, each property is handled separately by a

@@ -161,24 +161,28 @@ One way to make the above interface realizable is to add a refinement type for `
    node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 
 To check the realizability refinement types, one can call ``kind2 <filename> --enable CONTRACTCK``.
-Kind 2 performs four types of realizability checks:
+Kind 2 performs three types of realizability checks:
 
-1. Imported node contracts, including type information
-2. Implemented (normal) node contracts, including type information
-3. Implemented (normal) node environments, i.e., checking that the set of assumptions on a node's input is realizable
-4. Individual refinement types, i.e., that a global refinement type declaration is realizable
+1. Node and imported node contracts, including type information
+2. Node environments, i.e., checking that the set of assumptions on a node's input is realizable
+3. Individual refinement types, i.e., that a global refinement type declaration is realizable
+
+You can specify a particular node or function to analyze using 
+``--lus_main <node_name>``, and a specific refinement type using 
+``--lus_main_type <type_name>``.
 
 Restrictions
 ------------
 
-Currently, global constants with refinement types (like the following example) are not supported.
+Definitions of global constants with refinement types (as shown in the following example)
+are **not** supported:
 
 .. code-block::
 
-   const n: int | n >= 0;
+   const n: subtype { x : int | x >= 0 } = 3;
 
+However, declarations of free global constants (a.k.a system parameters) are supported:
 
+.. code-block::
 
-
-
-
+   const n: subtype { x : int | x >= 0 };

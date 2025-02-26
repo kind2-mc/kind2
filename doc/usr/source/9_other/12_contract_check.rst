@@ -3,18 +3,24 @@
 Contract Check
 ==============
 
-When an input model includes :ref:`imported nodes <2_input/1_lustre#imported>`,
-it is important to check that
-the contracts associated with them can be realized, i.e.,
-it is possible to construct a component such that for any input allowed 
-by the contract assumptions, there is some output value that the component
-can produce that satisfies the contract guarantees.
+Kind 2 provides an option to check the realizability of contracts and refinement types.
+When an input model includes :ref:`imported nodes <2_input/1_lustre#imported>` or
+:ref:`refinement types <2_input/4_refinement_types>`,
+it is particularly important to verify that
+their associated contracts are realizable, i.e.,
+a component can be constructed such that, for any input satisfying
+the contract assumptions, there exists some output value that
+the component can produce to meet the contract guarantees.
 
-To check the contracts of imported nodes, run
+To check the contracts of nodes and functions, run:
 
 .. code-block:: none
 
   kind2 --enable CONTRACTCK <lustre_file>
+
+You can specify a particular node or function to analyze using 
+``--lus_main <node_name>``, and a specific refinement type using 
+``--lus_main_type <type_name>``.
 
 If Kind 2 is able to prove some contract *unrealizable*
 and the ``--print_deadlock`` flag is true,
@@ -36,3 +42,10 @@ it is possible to construct a component such that for
 *at least* one input sequence allowed by the contract assumptions,
 there is some output value that the component can produce that satisfies
 the contract guarantees.
+
+In addition, Kind 2 will check the realizability of
+the component's environment. This check is also important 
+for the top-level contract, as an unrealizable environment
+specification can lead to the same flawed compositional proof arguments as 
+an unrealizable leaf-level component contract.
+You can disable this check by passing ``--check_environment false``.

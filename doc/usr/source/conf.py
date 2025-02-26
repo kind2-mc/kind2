@@ -19,7 +19,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Kind 2'
-copyright = '2015-2023, Board of Trustees of the University of Iowa'
+copyright = '2015-2025, Board of Trustees of the University of Iowa'
 author = 'Kind 2 Team'
 
 # The short X.Y version
