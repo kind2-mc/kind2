@@ -249,30 +249,22 @@ and backward input_sys target io solver tree modes contract_term =
 let main (type s) :
 Analysis.param -> s Sys.t -> TSys.t -> string -> string list
 = fun param input_sys sys target ->
-  let node = InputSystem.get_lustre_node input_sys (TransSys.scope_of_trans_sys sys) |> Option.get in
+  let node_name = InputSystem.get_node_user_name input_sys (TransSys.scope_of_trans_sys sys) in
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
     Scope.Map.fold (fun key value (a,c) ->
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
-  let concrete = 
-    List.map (InputSystem.get_lustre_node input_sys) concrete |> 
-    List.map Option.get |> 
-    List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-  in
-  let abstract = 
-    List.map (InputSystem.get_lustre_node input_sys) abstract |> 
-    List.map Option.get |> 
-    List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-  in
+  let concrete = List.map (InputSystem.get_node_user_name input_sys) concrete in
+  let abstract = List.map (InputSystem.get_node_user_name input_sys) abstract in
   KEvent.log_uncond "%s@[<v>\
       Launching on %a.@ \
       concrete subsystems: [ @[<hov>%a@] ]@ \
       abstract subsystems: [ @[<hov>%a@] ]\
     @]"
     log_prefix
-    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name)
+    (LustreIdent.pp_print_ident true) node_name
     (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") concrete
     (pp_print_list (LustreIdent.pp_print_ident true) ",@ ") abstract ;
 

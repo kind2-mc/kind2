@@ -316,13 +316,13 @@ let scope_of = Sys.scope_of_trans_sys
 
 (** Trans sys name formatter. *)
 let fmt_sys_name in_sys fmt sys =
-  let node = InputSystem.get_lustre_node in_sys (scope_of sys) |> Option.get in
-  LustreIdent.pp_print_ident true fmt (LustreNode.internal_string_of_node_name node.name)
+  let node_name = InputSystem.get_node_internal_name in_sys (scope_of sys) in
+  LustreIdent.pp_print_ident true fmt node_name
 
 (** Name of a trans sys as a string. *)
 let sys_name in_sys sys =
-  let node = InputSystem.get_lustre_node in_sys (Sys.scope_of_trans_sys sys) |> Option.get in
-  (LustreNode.internal_string_of_node_name node.name) |> LustreIdent.string_of_ident true
+  let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
+  node_name |> LustreIdent.string_of_ident true
 
 let get_node_of_sys in_sys sys =
   let scope = scope_of sys in

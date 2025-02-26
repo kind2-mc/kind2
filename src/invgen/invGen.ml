@@ -32,8 +32,6 @@ module Lsd = LockStepDriver
 (* Term set. *)
 module Set = Term.TermSet
 
-module LN = LustreNode
-
 
 (*
 
@@ -104,8 +102,8 @@ let fmt_term = Term.pp_print_term
 
 (** Name of a transition system. *)
 let sys_name in_sys sys =
-  let node = InputSystem.get_lustre_node in_sys (Sys.scope_of_trans_sys sys) |> Option.get in
-  (LN.internal_string_of_node_name node.name) |> LustreIdent.string_of_ident true
+  let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
+  node_name |> LustreIdent.string_of_ident true
 
 
 
@@ -257,7 +255,7 @@ module Make (Graph : GraphSig) : Out = struct
       (pp_print_list fmt_term "@ ") trivial ;
     Format.printf "non trivial: @[<v>%a@]@.@."
       (pp_print_list fmt_term "@ ") non_trivial ; *)
-    let node = InputSystem.get_lustre_node in_sys (Sys.scope_of_trans_sys sys) |> Option.get in
+    let node_name = InputSystem.get_node_user_name in_sys (Sys.scope_of_trans_sys sys) in
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
@@ -267,7 +265,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name)
+          (LustreIdent.pp_print_ident true) node_name
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -279,7 +277,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name)
+          (LustreIdent.pp_print_ident true) node_name
           Num.pp_print_numeral k
           blah
           (List.length trivial)
@@ -291,7 +289,7 @@ module Make (Graph : GraphSig) : Out = struct
             @   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name)
+          (LustreIdent.pp_print_ident true) node_name
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -430,11 +428,11 @@ module Make (Graph : GraphSig) : Out = struct
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
-    let node = InputSystem.get_lustre_node input_sys (Sys.scope_of_trans_sys sys) |> Option.get in
+    let node_name = InputSystem.get_node_user_name input_sys (Sys.scope_of_trans_sys sys) in
     let blah = if sys == top_sys then " (top)" else "" in
     KEvent.log L_info
       "%s Running on %a%s at %a (%d candidate terms, %d classes)"
-      (pref_s two_state) (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name) blah
+      (pref_s two_state) (LustreIdent.pp_print_ident true) node_name blah
       Num.pp_print_numeral k (Graph.term_count graph)
       (Graph.class_count graph) ;
 

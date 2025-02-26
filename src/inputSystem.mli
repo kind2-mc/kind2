@@ -150,6 +150,12 @@ val state_var_dependencies :
   _ t ->
   (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
 
+val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
+
+val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
+
+val get_node_user_name_tag : _ t -> Scope.t -> LustreIdent.t * LustreAst.realizability_tag option
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

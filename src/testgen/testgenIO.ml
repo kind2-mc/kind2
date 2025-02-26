@@ -76,11 +76,11 @@ let mk input_sys sys root name title =
         Format.sprintf "%s.xml" dir |> openfile
       in
       let class_fmt = fmt_of_file class_file in
-      let node = InputSystem.get_lustre_node input_sys (TransSys.scope_of_trans_sys sys) |> Option.get in
+      let node_name = InputSystem.get_node_user_name input_sys (TransSys.scope_of_trans_sys sys) in
       Format.fprintf class_fmt
         "<?xml version=\"1.0\"?>@.\
          <data system=\"%a\" name=\"%s\">@.@.@?"
-         (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name)
+         (LustreIdent.pp_print_ident true) node_name
         title ;
       class_file
     ) else Unix.stderr
@@ -116,11 +116,11 @@ let init_error (type s)
   mk_dir edir ;
   let error_file = Format.sprintf "%s-errors.xml" dir |> openfile in
   let error_fmt = fmt_of_file error_file in
-  let node = InputSystem.get_lustre_node t.input_sys (TransSys.scope_of_trans_sys sys) |> Option.get in
+  let node_name = InputSystem.get_node_user_name t.input_sys (TransSys.scope_of_trans_sys sys) in
   Format.fprintf error_fmt
     "<?xml version=\"1.0\"?>@.\
      <data system=\"%a\">@.@.@?"
-    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name) ;
+    (LustreIdent.pp_print_ident true) node_name ;
 
   t.error_file <- Some error_file
 
@@ -179,11 +179,7 @@ let cex_to_inputs_csv fmt in_sys sys cex k =
 let pp_print_tc in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
-      let modes = 
-        List.map (InputSystem.get_lustre_node in_sys) modes |> 
-        List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-      in
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
         (pp_print_list (LustreIdent.pp_print_ident true) " and ")
@@ -200,11 +196,7 @@ let pp_print_tc in_sys fmt path name modes =
 let pp_print_deadlock in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
-      let modes = 
-        List.map (InputSystem.get_lustre_node in_sys) modes |> 
-        List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-      in
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
         (pp_print_list (LustreIdent.pp_print_ident true) " and ")
@@ -221,16 +213,8 @@ let pp_print_deadlock in_sys fmt path name modes =
 let pp_print_model_path in_sys fmt path =
   let rec loop cpt = function
     | modes :: modes' :: tail ->
-      let modes = 
-        List.map (InputSystem.get_lustre_node in_sys) modes |> 
-        List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-      in
-      let modes'' = 
-        List.map (InputSystem.get_lustre_node in_sys) modes' |> 
-        List.map Option.get |> 
-        List.map (fun { LustreNode.name } -> LustreNode.internal_string_of_node_name name) 
-      in
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
+      let modes'' = List.map (InputSystem.get_node_user_name in_sys) modes' in
       Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
         (pp_print_list (LustreIdent.pp_print_ident true) "\\n") modes cpt
         (pp_print_list (LustreIdent.pp_print_ident true) "\\n") modes'' (cpt + 1) ;

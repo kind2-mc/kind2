@@ -237,14 +237,14 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    let node_name, node_tag = InputSystem.get_node_user_name_tag in_sys scope in
     Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
-    (match node.name with 
-      | (_, Some Environment, _) -> "Environment of"
-      | (_, Some Contract, _) -> "Contract of"
-      | (_, Some Type, _) -> "Type"
-      | (_, None, _) -> "Node") 
-    (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name) ;
+    (match node_tag with 
+      | Some Environment -> "Environment of"
+      | Some Contract -> "Contract of"
+      | Some Type -> "Type"
+      | None -> "Node") 
+    (LustreIdent.pp_print_ident true) node_name ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -305,9 +305,9 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   in
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
-      let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+      let node_name = InputSystem.get_node_user_name in_sys scope in
       `Assoc [
-        ("name", `String ((LustreNode.user_name_of_node_name node.name) |> LustreIdent.string_of_ident true)) ;
+        ("name", `String (node_name |> LustreIdent.string_of_ident true)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -343,8 +343,8 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
-    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name);
+    let node_name = InputSystem.get_node_user_name in_sys scope in
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" (LustreIdent.pp_print_ident true) node_name;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

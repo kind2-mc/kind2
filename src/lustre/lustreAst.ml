@@ -315,7 +315,7 @@ end
 module NodeNameHashtbl = Hashtbl.Make(struct
   type t = node_name
   let equal = (=)
-  let hash = Hashtbl.hash (*!! TODO: Check if this is good enough *)
+  let hash = Hashtbl.hash (*!! Check if this is good enough *)
 end)
 
 (* A node or function declaration

@@ -364,6 +364,23 @@ let get_lustre_node (type s) (input_system : s t) scope =
   | Native _ -> None
   | Horn _ -> None
 
+let get_node_user_name in_sys scope = 
+  match get_lustre_node in_sys scope with 
+  | Some node -> (LustreNode.user_name_of_node_name node.name)
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
+
+let get_node_internal_name in_sys scope = 
+  match get_lustre_node in_sys scope with 
+  | Some node -> (LustreNode.internal_string_of_node_name node.name)
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
+
+let get_node_user_name_tag in_sys scope =
+  match get_lustre_node in_sys scope with 
+  | Some node ->  
+    let (_, node_ty, _) = node.name in
+    (LustreNode.user_name_of_node_name node.name), node_ty
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, None
+
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in

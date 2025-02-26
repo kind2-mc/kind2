@@ -36,9 +36,9 @@ type t = modes * (sys_modes list)
 
 (* Pretty printer for [mode]. *)
 let pp_print_mode in_sys fmt (scope, term) =
-  let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+  let node_name = InputSystem.get_node_user_name in_sys scope in
   Format.fprintf fmt "%a (%a)"
-    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name) Term.pp_print_term term
+    (LustreIdent.pp_print_ident true) node_name Term.pp_print_term term
 
 (* Pretty printer for [modes]. *)
 let pp_print_modes in_sys fmt (g_opt, m_list) =
@@ -53,9 +53,9 @@ let pp_print_modes in_sys fmt (g_opt, m_list) =
 
 (* Pretty printer for [sys_modes]. *)
 let pp_print_sys_modes in_sys fmt (sys, modes) =
-  let node = InputSystem.get_lustre_node in_sys (Sys.scope_of_trans_sys sys) |> Option.get in
+  let node_name = InputSystem.get_node_user_name in_sys (Sys.scope_of_trans_sys sys) in
   Format.fprintf fmt "%a: @[<v>* %a@]"
-    (LustreIdent.pp_print_ident true) (LustreNode.internal_string_of_node_name node.name)
+    (LustreIdent.pp_print_ident true) node_name
     (pp_print_list (pp_print_modes in_sys) "@ * ") modes
 
 (* Pretty printer for [t]. *)

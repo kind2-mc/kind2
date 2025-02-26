@@ -102,17 +102,17 @@ let rec collect_contracts (equations, locals, asserts, props) = function
 
 
 let fmt_node_decl fmt (
-  ident, params, ins, outs, locals, items
+  node_name, params, ins, outs, locals, items
 ) (c_equations, c_locals, c_asserts, c_properties) =
 
   (* Header. *)
   Format.fprintf fmt "\
-    node %a%a (@.  \
+    node %s%a (@.  \
       @[<hov>%a@]@.\
     ) returns (@.  \
       @[<hov>%a@]@.\
     ) ;@.@?\
-  " Ast.pp_print_ident ident
+  " (Ast.internal_string_of_node_name node_name) (*!! Check *)
     Ast.pp_print_node_param_list params
     (pp_print_list Ast.pp_print_const_clocked_typed_ident " ;@ ") ins
     (pp_print_list Ast.pp_print_clocked_typed_ident " ;@ ") outs ;
@@ -188,8 +188,7 @@ let rec fmt_declarations fmt = function
       " pp_print_position spos
       |> failwith
 
-    (*!! check *)
-    | Ast.NodeDecl (_, ((wan, _, _), _, _, two,tri,far,fiv,six,contract)) -> (
+    | Ast.NodeDecl (_, (wan, _, _, two,tri,far,fiv,six,contract)) -> (
       let contract_info = match contract with
         | None -> ([],[],[],[])
         | Some (_, c) -> collect_contracts ([],[],[],[]) c

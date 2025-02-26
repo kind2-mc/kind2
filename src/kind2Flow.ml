@@ -676,9 +676,11 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
   KEvent.log_analysis_end () ;
   (* Issue analysis outcome. *)
   let pp_print_user_node_name ppf scope = 
-    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
-    let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
-    Format.pp_print_string ppf name_string
+    match InputSystem.get_lustre_node in_sys scope with
+    | Some node -> 
+      let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
+      Format.pp_print_string ppf name_string
+    | None -> Scope.pp_print_scope_internal ppf scope
   in
   KEvent.log L_info "Result: %a" (Analysis.pp_print_result pp_print_user_node_name) result
 
@@ -998,9 +1000,12 @@ let run in_sys =
           match Analysis.results_find sys results with
           | last :: _ -> last :: l
           | [] ->
-            let node = InputSystem.get_lustre_node in_sys sys |> Option.get in 
+            let node_name = match InputSystem.get_lustre_node in_sys sys with 
+            | Some node ->  (LustreNode.user_name_of_node_name node.name) 
+            | None -> string_of_t Scope.pp_print_scope_internal sys |> LustreIdent.mk_string_ident
+            in
             Format.asprintf "Unreachable: no results at all for system @{<blue>%a@}."
-              (LustreIdent.pp_print_ident true) (LustreNode.user_name_of_node_name node.name)
+              (LustreIdent.pp_print_ident true) node_name
             |> failwith
         ) with
         | Not_found -> l
