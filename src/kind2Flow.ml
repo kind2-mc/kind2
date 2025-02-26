@@ -675,7 +675,12 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
   (* Issue analysis end notification. *)
   KEvent.log_analysis_end () ;
   (* Issue analysis outcome. *)
-  KEvent.log L_info "Result: %a" Analysis.pp_print_result result
+  let pp_print_user_node_name ppf scope = 
+    let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+    let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
+    Format.pp_print_string ppf name_string
+  in
+  KEvent.log L_info "Result: %a" (Analysis.pp_print_result pp_print_user_node_name) result
 
 
 let handle_exception process e =
@@ -1007,7 +1012,7 @@ let run in_sys =
           l
       ) []
       (* Logging the end of the run. *)
-      |> KEvent.log_run_end ;
+      |> KEvent.log_run_end in_sys ;
 
       post_clean_exit_safety_results in_sys `Supervisor Exit
 

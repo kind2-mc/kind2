@@ -1594,8 +1594,13 @@ let log_progress mdl level k =
     | F_relay -> ()
   
 
+let pp_print_user_node_name in_sys ppf scope = 
+  let node = InputSystem.get_lustre_node in_sys scope |> Option.get in
+  let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
+  Format.pp_print_string ppf name_string
+
 (* Logs the end of a run. *)
-let log_run_end results =
+let log_run_end in_sys results =
   match get_log_format () with
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
@@ -1606,7 +1611,7 @@ let log_run_end results =
         "
         Pretty.print_line ()
         (Stat.get_float Stat.total_time)
-        (pp_print_list Analysis.pp_print_result_quiet "@ ") (
+        (pp_print_list (Analysis.pp_print_result_quiet (pp_print_user_node_name in_sys)) "@ ") (
           results
           |> if Flags.modular () then List.filter (
             fun { Analysis.sys } ->
@@ -1619,7 +1624,6 @@ let log_run_end results =
   | F_json -> ()
 
   | F_relay -> failwith "can only be called by supervisor"
-
 
 let split_abstract_and_concrete_systems info =
   Scope.Map.fold (fun sys is_abstract (a,c) ->
@@ -1696,7 +1700,7 @@ let log_analysis_start in_sys sys param =
       @.@."
       Pretty.print_double_line ()
       (LustreIdent.pp_print_ident true) (LN.user_name_of_node_name node.name)
-      (Analysis.pp_print_param false) param
+      (Analysis.pp_print_param false (pp_print_user_node_name in_sys)) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)

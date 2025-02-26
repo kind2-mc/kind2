@@ -203,14 +203,16 @@ val results_is_empty : results -> bool
 contract. *)
 val results_clean : results -> results
 
+type pp_print_system_user_name = Format.formatter -> Scope.t -> unit
+
 (** Pretty printer for [param]. *)
-val pp_print_param: bool -> Format.formatter -> param -> unit
+val pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
-val pp_print_result_quiet: Format.formatter -> result -> unit
+val pp_print_result_quiet: pp_print_system_user_name -> Format.formatter -> result -> unit
 
 (** Pretty printer for [result]. *)
-val pp_print_result: Format.formatter -> result -> unit
+val pp_print_result: pp_print_system_user_name -> Format.formatter -> result -> unit
 
 
 (* 

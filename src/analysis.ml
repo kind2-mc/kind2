@@ -27,6 +27,8 @@ let get_uid () =
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t
 
+type pp_print_system_user_name = Format.formatter -> Scope.t -> unit
+
 (** Empty assumptions. *)
 let assumptions_empty = Scope.Map.empty
 
@@ -336,7 +338,8 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-let pp_print_param verbose fmt param =
+let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
+= fun verbose pp_print_user_node_name fmt param ->
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
@@ -349,7 +352,7 @@ let pp_print_param verbose fmt param =
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
       | Refinement _ -> "Refinement")
-    Scope.pp_print_scope_internal top
+    pp_print_user_node_name top
 
     (fun fmt -> function
       | [], [] ->
@@ -360,13 +363,13 @@ let pp_print_param verbose fmt param =
           | [] -> ()
           | concrete ->
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list Scope.pp_print_scope_internal ",@ ") concrete;
+              (pp_print_list pp_print_user_node_name ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
           | abstract ->
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
-          (pp_print_list Scope.pp_print_scope_internal ",@ ") abstract) ;
+          (pp_print_list pp_print_user_node_name ",@ ") abstract) ;
         Format.fprintf fmt "@]")
     (concrete, abstract)
 
@@ -382,7 +385,7 @@ let pp_print_param verbose fmt param =
               let os, ts = Invs.len invs in
               if os + ts > 0 then (
                 Format.fprintf fmt "@{<blue>%a@}: "
-                  Scope.pp_print_scope_internal s ;
+                  pp_print_user_node_name s ;
                 if verbose then
                   Format.fprintf fmt "%a" Invs.fmt invs
                 else (
@@ -458,7 +461,7 @@ let pp_print_param_of_result fmt { param ; sys } =
         ",@ "
       ) refined
 
-let pp_print_result_quiet fmt ({ time ; sys } as res) =
+let pp_print_result_quiet pp_print_user_node_name fmt ({ time ; sys } as res) =
   let valid, invalid, unknown = split_properties_nocands sys in
   let invariant, unreachable =
     valid |> List.partition (function
@@ -495,7 +498,7 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
         %a@ \
         %d invariant %s%t\
       @]"
-      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
+      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
       time
       (pp_print_param_of_result) res
       (List.length valid)
@@ -515,7 +518,7 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
-      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
+      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
@@ -527,7 +530,7 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
         @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
-      Scope.pp_print_scope_internal (TransSys.scope_of_trans_sys sys)
+      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
       time
       pp_print_param_of_result res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
@@ -535,7 +538,7 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
       reachability_properties
 
-let pp_print_result fmt {
+let pp_print_result pp_print_user_node_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
   let pp_print_prop_list pref = fun fmt props ->
@@ -551,7 +554,7 @@ let pp_print_result fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true) param
+    (pp_print_param true pp_print_user_node_name) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"
