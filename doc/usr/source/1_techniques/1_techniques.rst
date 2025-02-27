@@ -71,3 +71,22 @@ Note that since ``sub`` is known to be correct, it is stronger than its contract
 More precisely, it accepts fewer execution traces than its contract does. Hence
 anything proved with the abstraction of ``sub`` is still valid after refinement,
 and Kind 2 will use these results right away.
+
+Modifiers to control node/function abstraction
+----------------------------------------------
+
+To prevent Kind 2 from *abstracting* a specific node or function that has both a body
+and a contract during compositional analysis,
+use the ``transparent`` modifier before the ``node`` or ``function`` keywords:
+
+.. code-block::
+
+   transparent function F(...) returns (...)
+
+To prevent Kind 2 from *refining* a specific node or function that has both a body
+and a contract during compositional and modular analyses,
+use the ``opaque`` modifier before the ``node`` or ``function`` keywords:
+
+.. code-block::
+
+   opaque node N(...) returns (...)

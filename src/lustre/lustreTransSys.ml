@@ -185,13 +185,15 @@ let lift_prop_name node_name pos prop_name =
 
   in
 
+  (* Remove .poly, .contract, and .inputs tags from property name *)
+  let node_name = string_of_t (LustreIdent.pp_print_ident true) node_name in
 
   string_of_t
     (fun ppf prop_name ->
        Format.fprintf
          ppf
-         "%a%a.%s"
-         (LustreIdent.pp_print_ident true) node_name
+         "%s%a.%s"
+         node_name
          pp_print_pos pos
          prop_name)
     prop_name

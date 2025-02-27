@@ -700,10 +700,10 @@ let rec type_of_term' t = match T.destruct t with
 
             | Type.BV _ -> 
               (* Compute width of resulting bitvector *)
-              Type.mk_bv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+              Type.mk_bv ((Numeral.to_int i) - (Numeral.to_int j) + 1)
             | Type.UBV _ -> 
               (* Compute width of resulting bitvector *)
-              Type.mk_ubv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+              Type.mk_ubv ((Numeral.to_int i) - (Numeral.to_int j) + 1)
             | _ -> assert false)
 
           | _ -> assert false)

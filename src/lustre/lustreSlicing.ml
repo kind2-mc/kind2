@@ -60,7 +60,9 @@ let offset_of_index expr =
       Var.mk_fresh_var Type.t_int |> Term.mk_var
   in
   let offset = Term.mk_minus [t; tv] in
-  Simplify.simplify_term [] offset
+  (* The simplification is disabled until it supports bitvector variables *)
+  (* Simplify.simplify_term [] offset *)
+  offset
 
 (*
 (* Take array indexes on an apparent cycle and checks if the sum of their
@@ -70,8 +72,9 @@ let sum_indexes_negative indexes =
   let offsets = List.map offset_of_index indexes in
   let neg_offset_test =
     Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
-  let neg_offset_val = Simplify.simplify_term [] neg_offset_test in
-  Term.equal neg_offset_val Term.t_true
+  (* The simplification is disabled until it supports bitvector variables *)
+  (* let neg_offset_test = Simplify.simplify_term [] neg_offset_test in *)
+  Term.equal neg_offset_test Term.t_true
 *)
 
 (* Just sum the offsets (terms) and checks with a cheap operation if they can
@@ -79,8 +82,9 @@ let sum_indexes_negative indexes =
 let sum_offsets_negative offsets =
   let neg_offset_test =
     Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
-  let neg_offset_val = Simplify.simplify_term [] neg_offset_test in
-  Term.equal neg_offset_val Term.t_true
+  (* The simplification is disabled until it supports bitvector variables *)
+  (*let neg_offset_test = Simplify.simplify_term [] neg_offset_test in*)
+  Term.equal neg_offset_test Term.t_true
 
 
 (* For variable v and parents [a,b,c,v,d,v,v,e,f], returns
@@ -189,7 +193,9 @@ let add_dep_to_parents sv indgrps parents =
   else
     let offsets_inds = List.map (fun inds ->
         List.map offset_of_index inds
-        |> Term.mk_plus |> Simplify.simplify_term []
+        |> Term.mk_plus
+        (* The simplification is disabled until it supports bitvector variables *)
+        (* |> Simplify.simplify_term [] *)
       ) indgrps in
     List.fold_left (fun acc i ->
         let np =

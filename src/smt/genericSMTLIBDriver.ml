@@ -639,7 +639,9 @@ let smtlib_string_symbol_list =
    ("*", Symbol.mk_symbol `TIMES);
    ("/", Symbol.mk_symbol `DIV);
    ("div", Symbol.mk_symbol `INTDIV);
+   ("div_total", Symbol.mk_symbol `INTDIV);
    ("mod", Symbol.mk_symbol `MOD);
+   ("mod_total", Symbol.mk_symbol `MOD);
    ("abs", Symbol.mk_symbol `ABS);
    ("<=", Symbol.mk_symbol `LEQ);
    ("<", Symbol.mk_symbol `LT);

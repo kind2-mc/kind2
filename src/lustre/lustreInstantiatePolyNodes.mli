@@ -19,6 +19,7 @@
 
 module A = LustreAst
 module Ctx = TypeCheckerContext
+module GI = GeneratedIdentifiers
 
 val instantiate_polymorphic_nodes :
-  Ctx.tc_context -> A.declaration list -> Ctx.tc_context * A.declaration list
+  Ctx.tc_context -> GI.t A.NodeNameMap.t  -> A.declaration list -> Ctx.tc_context * GI.t A.NodeNameMap.t * A.declaration list 

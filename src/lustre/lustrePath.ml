@@ -40,8 +40,6 @@ type t =
     N.call_cond list *
     ((I.t * position) list * t) list
 
-type node_type = Environment | Contract | Type | User
-
 
 (* ********************************************************************** *)
 (* Reconstruct a model for a node hierarchy                               *)
@@ -778,7 +776,6 @@ let pp_print_stream_ident_pt ppf (index, state_var) =
 (* Output the calling node and the position of the call *)
 let pp_print_call_pt ppf (name, pos) = 
   let name = string_of_t (I.pp_print_ident true) name in
-  (* let _, name = get_node_type_and_name name in *)
   Format.fprintf ppf "%s%a"
     name
     pp_print_pos_pt pos
@@ -996,8 +993,6 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 ) :: tl when N.node_is_visible node ->
 
   let is_visible = N.state_var_is_visible node in
-
-  (* let node_type, node_name = get_node_type_and_name (I.string_of_ident true name) in *)
 
   let is_state, node_name =
     match N.node_is_state_handler node with
@@ -1386,8 +1381,6 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   ) :: tl when N.node_is_visible node ->
 
     let is_visible = N.state_var_is_visible node in
-
-    (* let _, node_name = get_node_type_and_name (I.string_of_ident true name) in *)
   
     let is_state, name =
       match N.node_is_state_handler node with
@@ -1803,7 +1796,6 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
-    (* let _, node_name = get_node_type_and_name (I.string_of_ident true name) in  *)
 
     let is_state, name =
       match N.node_is_state_handler node with

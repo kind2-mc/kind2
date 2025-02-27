@@ -457,7 +457,13 @@ and ``some_node`` takes values as inputs.
 
 Another limitation is that quantified variables cannot appear in the parameters
 of a node call.
-These limitation exists only for technical implementation reasons.
+These limitations do not apply if the call is to an *inlinable* function, which
+is currently defined as a function that meets all the following criteria:
+
+- It has a single output, and the output is defined by an equation.
+- Either there is no proof obligation on its output (via a contract or a refinement type),
+  or the function is annotated as transparent.
+- It does not include ``assert`` statements or array definitions.
 
 
 Command line options

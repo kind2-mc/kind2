@@ -281,10 +281,10 @@ let pp_print_generated_identifiers ppf gids =
   in
   Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
+    (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
-    (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
@@ -334,11 +334,16 @@ let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   HString.mk_hstring (string_of_int !contract_ref)
 
-let extract_array_size = function
+let extract_array_size_opt = function
   | A.ArrayType (_, (_, size)) -> (match size with
-    | A.Const (_, Num x) -> x |> HString.string_of_hstring |> int_of_string
-    | _ -> assert false)
-  | _ -> assert false
+    | A.Const (_, Num x) -> Some (x |> HString.string_of_hstring |> int_of_string)
+    | _ -> None)
+  | _ -> None
+
+let extract_array_size t =
+  match extract_array_size_opt t with
+  | Some s -> s
+  | None -> assert false
 
 let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
@@ -1624,14 +1629,26 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           arrays (only simple typed identifiers). But, the following code with
           "has_inductive" is included because we plan on offering this functionality
           in the future.*)
-        let has_inductive = vars_of_calls
-          |> A.SI.to_seq
-          |> Seq.fold_left
-            (fun acc v -> acc || StringMap.mem v info.inductive_variables)
-            false
-        in
+          let array_sizes =
+            StringMap.fold
+              (fun v ty acc ->
+                if A.SI.mem v vars_of_calls then
+                  (v, extract_array_size_opt ty) :: acc
+                else acc
+              )
+              info.inductive_variables
+              []
+          in
+          let expand =
+            array_sizes <> [] &&
+            array_sizes |> List.for_all (fun (_, sz) ->
+              match sz with
+              | Some _ -> true
+              | None -> false
+            )
+          in
         let (nexpr, gids1, warnings), expanded = (
-          if has_inductive && lhs_arity <> rhs_arity then
+          if expand && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with
             | Some (ivar, ty) ->
               let size = extract_array_size ty in
@@ -1649,7 +1666,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
             | None -> normalize_expr ?guard:None info node_id map expr, false)
             
-          else if has_inductive && lhs_arity = rhs_arity then
+          else if expand && lhs_arity = rhs_arity then
             let expanded_expr = List.fold_left
               (fun acc (v, ty) -> 
                 let size = extract_array_size ty in
@@ -1745,14 +1762,26 @@ and normalize_equation info node_id map = function
       | _ -> 1
     in
     let vars_of_calls = AH.vars_of_node_calls expr in
-    let has_inductive = vars_of_calls
-      |> A.SI.to_seq
-      |> Seq.fold_left
-        (fun acc v -> acc || StringMap.mem v info.inductive_variables)
-        false
+    let array_sizes =
+      StringMap.fold
+        (fun v ty acc ->
+          if A.SI.mem v vars_of_calls then
+            (v, extract_array_size_opt ty) :: acc
+          else acc
+        )
+        info.inductive_variables
+        []
+    in
+    let expand =
+      array_sizes <> [] &&
+      array_sizes |> List.for_all (fun (_, sz) ->
+        match sz with
+        | Some _ -> true
+        | None -> false
+      )
     in
     let (nexpr, gids1, warnings), expanded = (
-      if has_inductive && lhs_arity <> rhs_arity then
+      if expand && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
         | Some (ivar, ty) ->
           let size = extract_array_size ty in
@@ -1766,7 +1795,7 @@ and normalize_equation info node_id map = function
           let warnings = List.flatten warnings in
         (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
         | None -> normalize_expr info node_id map expr, false)
-      else if has_inductive && lhs_arity = rhs_arity then
+      else if expand && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
           (fun acc (v, ty) -> 
             let size = extract_array_size ty in
@@ -1895,6 +1924,10 @@ and normalize_expr ?guard info node_id map =
             args
         in
         let ivars = info.inductive_variables in
+        let ind_vars = List.map 
+          (fun (v, _) -> (Lib.dummy_pos, v, A.Int Lib.dummy_pos))
+          (StringMap.bindings info.inductive_variables)
+        in
         List.fold_left
           (fun (info, vmap, gids) (pos_v, v, ty) ->
             if A.SI.mem v args_vars then
@@ -1910,7 +1943,7 @@ and normalize_expr ?guard info node_id map =
               (info, vmap, gids)
           )
           (info, [], (empty ()))
-          info.quantified_variables
+          (info.quantified_variables @ ind_vars)
       else
         (info, [], empty())
     in
