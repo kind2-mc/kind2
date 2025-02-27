@@ -1,4 +1,4 @@
-# Unreleased
+# Kind 2 v2.3.0
 
 New features:
 - Support for [polymorphic](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#polymorphic-nodes) user types, nodes, functions, and contracts

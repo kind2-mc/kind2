@@ -201,6 +201,8 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t li
   let gen_node_id = (id, Some A.Type, None) in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
+  (* Avoid name clashes (e.g., with enum constants) *)
+  let id = mk_fresh_id id in
   Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t A.NodeNameMap.t, [> error]) result
