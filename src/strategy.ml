@@ -110,9 +110,6 @@ let get_refinement_abstraction results subs_of_scope result =
 
   match result.A.requirements_valid with
   | Some false -> (* Requirements could not be proved, aborting. *)
-    (* KEvent.log L_info
-      "Cannot refine %a, some requirements could not be proved."
-      Scope.pp_print_scope sys ; *)
     None
   | _ -> (
     let abstraction = info.A.abstraction_map in
@@ -188,7 +185,6 @@ let first_param_of ass _results all_nodes scope =
             )
           )
       in
-      (* Format.printf "%a is abstract: %b@.@." Scope.pp_print_scope sys is_abstract ; *)
       let abstraction = Scope.Map.add sys is_abstract abstraction in
       loop abstraction tail
       (*if is_abstract then
@@ -218,7 +214,7 @@ let first_param_of ass _results all_nodes scope =
       is_candidate_for_analysis (List.assoc scope all_nodes)
     ) with Not_found ->
       Format.asprintf "Unreachable: could not find info of system %a"
-        Scope.pp_print_scope scope
+        (Scope.pp_print_scope_internal) scope
       |> failwith
   in
 
@@ -325,7 +321,6 @@ let next_modular_analysis results subs_of_scope = function
     let rec go_up = function
       | [] -> None
       | sys :: tail -> (
-        (* Format.printf "|up %a@." Scope.pp_print_scope sys ; *)
         try (
           match A.results_find sys results with
           | _ -> None
@@ -345,7 +340,6 @@ let next_modular_analysis results subs_of_scope = function
     let rec go_down prefix = function
       | (sys, { has_impl }) :: tail -> (
         try (
-          (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
           | _ when Flags.Contracts.check_implem () |> not ||
@@ -383,13 +377,8 @@ let next_modular_analysis results subs_of_scope = function
             ) else if Flags.Contracts.refinement () then (
               match get_refinement_abstraction results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
-                (* Format.printf "Cannot refine for %a@."
-                  Scope.pp_print_scope sys ; *)
                 go_up prefix
               | Some (_, abs) -> (* Refinement found. *)
-                (* Format.printf "Refined %a for %a@."
-                  Scope.pp_print_scope sub
-                  Scope.pp_print_scope sys ; *)
                 Some (
                   A.Refinement (
                     { A.top = sys ;

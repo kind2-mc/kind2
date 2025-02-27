@@ -30,14 +30,15 @@ open Res
 let fmt_sys = TSys.pp_print_trans_sys_name
 
 (** Last analysis result corresponding to a scope. *)
-let last_result results scope =
+let last_result in_sys results scope =
   try
     Ok (Analysis.results_last scope results)
   with
   | Not_found -> Res.error (
     fun fmt ->
+      let node_name = InputSystem.get_node_user_name in_sys scope in
       Format.fprintf fmt "No result available for component %a."
-        Scope.pp_print_scope scope
+        (LustreIdent.pp_print_ident true) node_name
   )
 
 (** Signature of modules for post-analysis treatment. *)
@@ -125,7 +126,7 @@ module RunTestGen: PostAnalysis = struct
   let run in_sys param _ results =
     (* Retrieve system from scope. *)
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top
+    last_result in_sys results top
     |> Res.chain (fun { Analysis.sys } ->
       (* Make sure there's at least one mode. *)
       match TSys.get_mode_requires sys |> snd with
@@ -162,11 +163,12 @@ module RunTestGen: PostAnalysis = struct
 
         (* Let's do this. *)
         try (
+          let node_name = InputSystem.get_node_user_name in_sys top in
           let tests_target = Format.sprintf "%s/%s" target Paths.testgen in
           mk_dir tests_target ;
           KEvent.log_uncond
             "%sGenerating tests for node '%a' to '%s'."
-            TestGen.log_prefix Scope.pp_print_scope top tests_target ;
+            TestGen.log_prefix (LustreIdent.pp_print_ident true) node_name tests_target ;
           let testgen_xmls =
             TestGen.main param input_sys_sliced sys tests_target
           in
@@ -177,7 +179,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir oracle_target ;
           KEvent.log_uncond
             "%sCompiling oracle to Rust for node '%a' to '%s'."
-            TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
+            TestGen.log_prefix (LustreIdent.pp_print_ident true) node_name oracle_target ;
           let name, guarantees, modes =
             InputSystem.compile_oracle_to_rust in_sys top oracle_target
           in
@@ -209,7 +211,7 @@ module RunAssumptionGen: PostAnalysis = struct
   let is_active () = Flags.Contracts.assumption_gen ()
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top
+    last_result in_sys results top
     |> Res.chain (fun { Analysis.sys } ->
       (* Check all properties are valid. *)
       let valid, invalid, unknown = TSys.get_split_properties sys in
@@ -473,9 +475,6 @@ module RunContractGen: PostAnalysis = struct
     let target =
       Format.asprintf "%s/%s" target Names.contract_gen_file
     in
-    (* Format.printf "system: %a@.  %a@.@."
-      Scope.pp_print_scope (TSys.scope_of_trans_sys top)
-      Invs.fmt (TSys.get_invariants top) ; *)
     (* Analysis with all invariant generation techniques. *)
     (* Remember previous max depth for invgen. *)
     let old_max_depth = Flags.Invgen.max_depth () in
@@ -530,9 +529,6 @@ module RunContractGen: PostAnalysis = struct
     )
     |> Res.chain (
       fun () ->
-      (* Format.printf "system: %a@.  %a@.@."
-        Scope.pp_print_scope (TSys.scope_of_trans_sys top)
-        Invs.fmt (TSys.get_invariants top) ; *)
       try (
         LustreContractGen.generate_contracts
           in_sys_sliced param sys target (Names.contract_name top) ;
@@ -562,9 +558,10 @@ module RunRustGen: PostAnalysis = struct
     mk_dir target ;
     (* Implementation directory. *)
     let target = Format.sprintf "%s/%s" target Paths.implem in
+    let node_name = InputSystem.get_node_user_name in_sys top in
     KEvent.log_uncond
       "  Compiling node '%a' to Rust in '%s'."
-      Scope.pp_print_scope top target ;
+      (LustreIdent.pp_print_ident true) node_name target ;
     InputSystem.compile_to_rust in_sys top target ;
     KEvent.log_uncond "  Done compiling." ;
     Ok ()
@@ -581,7 +578,7 @@ module RunInvPrint: PostAnalysis = struct
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
 
-    last_result results top
+    last_result in_sys results top
     |> Res.chain (fun { Analysis.sys } ->
       let var_map =
         let aux_vars =
@@ -644,7 +641,7 @@ module RunCertif: PostAnalysis = struct
   let is_active () = Flags.Certif.certif () || Flags.Certif.proof ()
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top |> chain (
+    last_result in_sys results top |> chain (
       fun result ->
         let sys = result.Analysis.sys in
         let uid = (Analysis.info_of_param param).Analysis.uid in
@@ -672,19 +669,9 @@ module RunIVC: PostAnalysis = struct
 
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top
+    last_result in_sys results top
     |> Res.chain (fun { Analysis.sys } ->
       try (
-        (*Format.printf "%a\n" ISys.pp_print_subsystems_debug in_sys;*)
-        (*Format.printf "%a\n" ISys.pp_print_state_var_instances_debug in_sys;*)
-        (*Format.printf "%a\n" ISys.pp_print_state_var_defs_debug in_sys;*)
-        (*TSys.iter_subsystems (fun sys ->
-          let (_,_,trans) = TSys.init_trans_open sys in
-          Format.printf "---------- %a ----------\n" Scope.pp_print_scope (TSys.scope_of_trans_sys sys) ;
-          Term.print_term trans ; Format.printf "\n"
-        ) sys ;*)
-        (*(TSys.get_real_properties sys) |> List.iter (Format.printf "%a@." Property.pp_print_property) ;*)
-        (*Format.print_flush ();*)
 
         let nb = ref 0 in
         let time = ref (Unix.gettimeofday ()) in
@@ -935,7 +922,7 @@ module RunMCS: PostAnalysis = struct
 
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top
+    last_result in_sys results top
     |> Res.chain (fun { Analysis.sys } ->
       run_mcs_post_analysis in_sys param analyze sys
     )

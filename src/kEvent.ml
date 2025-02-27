@@ -21,7 +21,6 @@ open Lib
 
 module TSet = Term.TermSet
 module SMap = Scope.Map
-module LGR = LustreGenRefTypeImpNodes
 
 include Log
 
@@ -331,7 +330,7 @@ let proved_pt mdl level trans_sys k prop =
         "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
         success_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
@@ -341,7 +340,7 @@ let proved_pt mdl level trans_sys k prop =
         ("@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or more %tby %a after %.3fs.@.@.")
         failure_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         ts
         k_val
         pp_print_kind_module_pt mdl
@@ -352,7 +351,7 @@ let proved_pt mdl level trans_sys k prop =
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable in %d steps or less %tby %a after %.3fs.@.@."
         failure_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         ts
         k_val
         pp_print_kind_module_pt mdl
@@ -363,7 +362,7 @@ let proved_pt mdl level trans_sys k prop =
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable at step %d %tby %a after %.3fs.@.@."
         failure_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         ts
         k_val
         pp_print_kind_module_pt mdl
@@ -374,7 +373,7 @@ let proved_pt mdl level trans_sys k prop =
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable between steps %d and %d %tby %a after %.3fs.@.@."
         failure_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         ts1
         ts2
         k_val
@@ -386,7 +385,7 @@ let proved_pt mdl level trans_sys k prop =
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable %tby %a after %.3fs.@.@."
         failure_tag
         prop_type
-        (LGR.get_node_type_and_name prop |> snd)
+        prop
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
@@ -404,7 +403,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      (LGR.get_node_type_and_name prop |> snd)
+      prop
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -686,7 +685,7 @@ let prop_status_pt level prop_status_kind =
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
-            (LGR.get_node_type_and_name p |> snd)
+            p
             (function ppf -> (function
                   | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"
@@ -856,7 +855,7 @@ let proved_xml mdl level trans_sys k prop_name =
         %t\
         <Answer source=\"%a\"%t>%s</Answer>@;<0 -2>\
         </Property>@]@.")
-      (Lib.escape_xml_string (LGR.get_node_type_and_name prop_name |> snd)) 
+      (Lib.escape_xml_string prop_name) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
@@ -886,7 +885,7 @@ let unknown_xml mdl level trans_sys prop_name =
         <Runtime unit=\"sec\" timeout=\"true\">%.3f</Runtime>@,\
         <Answer source=\"%a\">unknown</Answer>@;<0 -2>\
         </Property>@]@.")
-      (Lib.escape_xml_string (LGR.get_node_type_and_name prop_name |> snd)) 
+      (Lib.escape_xml_string prop_name) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       pp_print_kind_module_xml_src mdl
@@ -999,7 +998,7 @@ let cex_xml
         %t\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (Lib.escape_xml_string (LGR.get_node_type_and_name prop_name |> snd)) 
+      (Lib.escape_xml_string prop_name) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
@@ -1079,7 +1078,7 @@ let prop_status_xml level trans_sys prop_status_kind =
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              (Lib.escape_xml_string (LGR.get_node_type_and_name p |> snd)) 
+              (Lib.escape_xml_string p) 
               (prop_attributes_xml trans_sys p)
               (function ppf -> function 
                  | Property.PropUnknown
@@ -1204,7 +1203,7 @@ let proved_json mdl level trans_sys k prop =
         }\
         @]@.}@.\
       "
-      (Lib.escape_json_string (LGR.get_node_type_and_name prop |> snd))
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with
@@ -1240,7 +1239,7 @@ let unknown_json mdl level trans_sys prop =
         }\
         @]@.}@.\
       "
-      (Lib.escape_json_string (LGR.get_node_type_and_name prop |> snd))
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (short_name_of_kind_module mdl)
@@ -1329,7 +1328,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         %a\
         @]@.}@.\
       "
-      (Lib.escape_json_string (LGR.get_node_type_and_name prop |> snd))
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with
@@ -1355,7 +1354,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
          )
       )
       (pp_print_trace_json
-        ~object_name input_sys analysis trans_sys (Some (LGR.get_node_type_and_name prop |> snd)) disproved)
+        ~object_name input_sys analysis trans_sys (Some prop) disproved)
       cex
       ;
 
@@ -1410,7 +1409,7 @@ let prop_status_json level trans_sys prop_status_kind =
                }\
                @]@.}\
              "
-             (Lib.escape_json_string (LGR.get_node_type_and_name p |> snd))
+             (Lib.escape_json_string p)
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
                 | Property.PropKTrue n when k = Property.Invariant ->
@@ -1594,8 +1593,14 @@ let log_progress mdl level k =
     | F_relay -> ()
   
 
+let pp_print_user_node_name in_sys ppf scope = 
+  match InputSystem.get_lustre_node in_sys scope with
+  | Some node -> let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
+    Format.pp_print_string ppf name_string
+  | None -> Scope.pp_print_scope_internal ppf scope
+
 (* Logs the end of a run. *)
-let log_run_end results =
+let log_run_end in_sys results =
   match get_log_format () with
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
@@ -1606,7 +1611,7 @@ let log_run_end results =
         "
         Pretty.print_line ()
         (Stat.get_float Stat.total_time)
-        (pp_print_list Analysis.pp_print_result_quiet "@ ") (
+        (pp_print_list (Analysis.pp_print_result_quiet (pp_print_user_node_name in_sys)) "@ ") (
           results
           |> if Flags.modular () then List.filter (
             fun { Analysis.sys } ->
@@ -1619,7 +1624,6 @@ let log_run_end results =
   | F_json -> ()
 
   | F_relay -> failwith "can only be called by supervisor"
-
 
 let split_abstract_and_concrete_systems info =
   Scope.Map.fold (fun sys is_abstract (a,c) ->
@@ -1635,50 +1639,48 @@ let number_of_subsystem_assumptions info =
   ) Scope.Map.empty
   |> Scope.Map.bindings
 
-let log_contractck_analysis_start scope =
-  let node_type, node_name = LGR.get_node_type_and_name (Scope.to_string scope) in
+let log_contractck_analysis_start in_sys scope =
+  let node_name, node_ty = InputSystem.get_node_user_name_tag in_sys scope in
   if Flags.log_level () <> L_off then (
     match get_log_format () with
     | F_pt -> (
       Format.fprintf !log_ppf "\
-        @.%a@{<b>Checking@} %s @{<blue>%s@}@.@."
+        @.%a@{<b>Checking@} %s @{<blue>%a@}@.@."
         Pretty.print_double_line ()
-        (match node_type with 
-        | Environment -> "environment of"
-        | Contract -> "contract of"
-        | Type -> "type"
-        | User -> "contract of imported node")
-        node_name
+        (match node_ty with 
+        | Some Environment -> "environment of"
+        | Some Contract -> "contract of"
+        | Some Type -> "type"
+        | None -> "contract of imported node")
+        (LustreIdent.pp_print_ident true) node_name
     )
     | F_xml -> (
-      let node_type, node_name = LGR.get_node_type_and_name (Scope.to_string scope) in
       Format.fprintf !log_ppf "@.@.\
           <AnalysisStart \
-            top=\"%s\" \
+            top=\"%a\" \
             context=\"%s\" \
           />@.@.\
         "
-        node_name 
-        (match node_type with 
-        | Environment -> "environment"
-        | Type -> "type"
-        | User | Contract -> "contract");
+        (LustreIdent.pp_print_ident true) node_name
+        (match node_ty with 
+        | Some Environment -> "environment"
+        | Some Type -> "type"
+        | Some Contract | None -> "contract");
       analysis_start_not_closed := true
     )
     | F_json -> (
-      let node_type, node_name = LGR.get_node_type_and_name (Scope.to_string scope) in
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
-          \"top\" : \"%s\",@,\
+          \"top\" : \"%a\",@,\
           \"context\" : \"%s\"\
           @]@.}@.\
         "
-        node_name 
-        (match node_type with 
-        | Environment -> "environment"
-        | Type -> "type"
-        | User | Contract -> "contract");
+        (LustreIdent.pp_print_ident true) node_name
+        (match node_ty with 
+        | Some Environment -> "environment"
+        | Some Type -> "type"
+        | Some Contract | None -> "contract");
       analysis_start_not_closed := true
 
     )
@@ -1686,25 +1688,25 @@ let log_contractck_analysis_start scope =
   )
 
 (* Logs the start of an analysis. *)
-let log_analysis_start sys param =
+let log_analysis_start in_sys sys param =
   if Flags.log_level () <> L_off then begin
     let param = Analysis.shrink_param_to_sys param sys in
     let info = Analysis.info_of_param param in
-    let sc = Analysis.clean_polymorphic_info info.Analysis.top in
+    let node_name = InputSystem.get_node_user_name in_sys info.Analysis.top in
     match get_log_format () with
     | F_pt ->
       Format.fprintf !log_ppf "\
         @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
       Pretty.print_double_line ()
-      Scope.pp_print_scope sc
-      (Analysis.pp_print_param false) param
+      (LustreIdent.pp_print_ident true) node_name
+      (Analysis.pp_print_param false (pp_print_user_node_name in_sys)) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map Analysis.clean_polymorphic_info concrete in
-      let abstract = List.map Analysis.clean_polymorphic_info abstract in
+      let concrete = List.map (InputSystem.get_node_user_name in_sys) concrete in
+      let abstract = List.map (InputSystem.get_node_user_name in_sys) abstract in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1716,12 +1718,12 @@ let log_analysis_start sys param =
             assumptions=\"%a\"\
           />@.@.\
         "
-        Scope.pp_print_scope sc
-        (pp_print_list Scope.pp_print_scope ",") concrete
-        (pp_print_list Scope.pp_print_scope ",") abstract
+        (LustreIdent.pp_print_ident true) node_name
+        (pp_print_list (LustreIdent.pp_print_ident true) ",") concrete
+        (pp_print_list (LustreIdent.pp_print_ident true) ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
-            let sc = Analysis.clean_polymorphic_info scope in
-            Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope sc cpt
+            let node_name = InputSystem.get_node_user_name in_sys scope in
+            Format.fprintf fmt "(%a,%d)" (LustreIdent.pp_print_ident true) node_name cpt
           )
           ","
         ) assumption_count ;
@@ -1730,10 +1732,11 @@ let log_analysis_start sys param =
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map Analysis.clean_polymorphic_info concrete in
-      let abstract = List.map Analysis.clean_polymorphic_info abstract in
+      let concrete = List.map (InputSystem.get_node_user_name in_sys) concrete in
+      let abstract = List.map (InputSystem.get_node_user_name in_sys) abstract in
       (* Counting the number of assumption for each subsystem. *)
-      let assumption_count = number_of_subsystem_assumptions info in
+      let scopes, assumptions = number_of_subsystem_assumptions info |> List.split in
+      let names = List.map (InputSystem.get_node_user_name in_sys) scopes in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
@@ -1744,14 +1747,13 @@ let log_analysis_start sys param =
           \"assumptions\" :%a\
           @]@.}@.\
         "
-        Scope.pp_print_scope sc
-        (pp_print_list_attrib Scope.pp_print_scope) concrete
-        (pp_print_list_attrib Scope.pp_print_scope) abstract
-        (pp_print_list_attrib (fun fmt (scope, cpt) ->
-            let sc = Analysis.clean_polymorphic_info scope in
-            Format.fprintf fmt "[\"%a\",%d]" Scope.pp_print_scope sc cpt
+        (LustreIdent.pp_print_ident true) node_name
+        (pp_print_list_attrib (LustreIdent.pp_print_ident true)) concrete
+        (pp_print_list_attrib (LustreIdent.pp_print_ident true)) abstract
+        (pp_print_list_attrib (fun fmt (name, cpt) ->
+            Format.fprintf fmt "[\"%a\",%d]" (LustreIdent.pp_print_ident true) name cpt
           )
-        ) assumption_count;
+        ) (List.combine names assumptions);
       analysis_start_not_closed := true
 
     | F_relay -> failwith "can only be called by supervisor"

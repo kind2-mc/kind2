@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               (I.pp_print_ident false) call_node_name)
+               (I.pp_print_ident false) (N.internal_string_of_node_name call_node_name))
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            (I.pp_print_ident false) node.N.name
+            (I.pp_print_ident false) (N.internal_string_of_node_name node.N.name)
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -670,7 +670,6 @@ let slice_all_of_node
     { N.name;
       N.is_extern;
       N.opacity;
-      N.ty_args;
       N.instance;
       N.init_flag;
       N.inputs; 
@@ -694,7 +693,6 @@ let slice_all_of_node
   { N.name;
     N.is_extern;
     N.opacity;
-    N.ty_args;
     N.instance;
     N.init_flag;
     N.inputs;
@@ -1202,7 +1200,7 @@ let root_and_leaves_of_contracts
    map. *)
 let node_is_abstract analysis { N.name } = 
 
-  [I.string_of_ident false name]
+  [I.string_of_ident false (N.internal_string_of_node_name name)]
   |> Analysis.param_scope_is_abstract analysis
 
 
@@ -1246,7 +1244,7 @@ let slice_to_abstraction'
   in
   
   (* Create subsystem from list of nodes *)
-  let { N.name = top } = List.hd nodes in
+  let { N.name = top; } = List.hd nodes in
   N.subsystem_of_nodes top nodes'
 
 

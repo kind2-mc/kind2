@@ -44,8 +44,9 @@ type num = Num.t
 
 (* |===| Helper functions. *)
 
-let sys_name sys =
-  Sys.scope_of_trans_sys sys |> Scope.to_string
+let sys_name in_sys sys =
+  let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
+  node_name |> LustreIdent.string_of_ident true
 
 (** Counter for actlit's uids. *)
 let actlit_uid = ref 0
@@ -96,7 +97,7 @@ type base = {
 let kill_base { solver } = Smt.delete_instance solver
 
 (** Creates a solver for the base case. *)
-let mk_base_checker_solver sys k =
+let mk_base_checker_solver in_sys sys k =
   let solver = (* Creating solver. *)
     Smt.create_instance ~produce_models: true
       (Sys.get_logic sys) (Flags.Smt.solver ())
@@ -105,7 +106,7 @@ let mk_base_checker_solver sys k =
 
   Format.asprintf (* Logging stuff in smt trace. *)
     "[Base/Step] Setting up system [%s], k = %a."
-    (sys_name sys) Num.pp_print_numeral k
+    (sys_name in_sys sys) Num.pp_print_numeral k
   |> Smt.trace_comment solver ;
 
 
@@ -186,18 +187,18 @@ let mk_base_checker_solver sys k =
   solver, init_actlit
 
 (** Creates a checker for the base case of invariant generation. *)
-let mk_base_checker sys k =
-  let solver, init_actlit = mk_base_checker_solver sys k in
+let mk_base_checker in_sys sys k =
+  let solver, init_actlit = mk_base_checker_solver in_sys sys k in
   { solver ; sys ; init_actlit ; k }
 
 (** Resets the solver in a base checker if needed. *)
-let conditional_base_solver_reset (
+let conditional_base_solver_reset in_sys (
   { solver ; sys ; k } as base_checker
 ) = if shall_reset () then (
   (* KEvent.log_uncond "[LSD] RESTARTING BASE" ; *)
   Smt.delete_instance solver ;
   reset_actlit_uids () ;
-  let solver, init_actlit = mk_base_checker_solver sys k in
+  let solver, init_actlit = mk_base_checker_solver in_sys sys k in
   base_checker.solver <- solver ;
   base_checker.init_actlit <- init_actlit
 )
@@ -213,9 +214,9 @@ let base_add_invariants t ts invs =
 
 
 (** Queries base, returns an option of the model. *)
-let query_base base_checker candidates =
+let query_base in_sys base_checker candidates =
   (* Restarting solver if necessary. *)
-  conditional_base_solver_reset base_checker ;
+  conditional_base_solver_reset in_sys base_checker ;
 
   let { sys ; solver ; k ; init_actlit } = base_checker in
   let actlit = fresh_actlit () in
@@ -319,13 +320,13 @@ let to_step ( { sys } as base_checker : base ) =
 let step_cert { k } = 1 + Num.to_int k
 
 (** Resets the solver in a step checker if needed. *)
-let conditional_step_solver_reset (
+let conditional_step_solver_reset in_sys (
   { solver ; sys ; k } as step_checker
 ) = if shall_reset () then (
   (* KEvent.log_uncond "[LSD] RESTARTING STEP" ; *)
   Smt.delete_instance solver ;
   reset_actlit_uids () ;
-  let solver, _ = mk_base_checker sys Num.(pred k) |> to_step_solver in
+  let solver, _ = mk_base_checker in_sys sys Num.(pred k) |> to_step_solver in
   step_checker.solver <- solver
 )
 
@@ -352,12 +353,12 @@ invariant, we can drop the class member from the equivalence class.
 
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
-let query_step two_state step_checker candidates =
+let query_step two_state in_sys step_checker candidates =
   (* Format.printf "query_step (%d)@.@." (List.length candidates) ; *)
 
   let rec loop candidates =
     (* Restarting solver if necessary. *)
-    conditional_step_solver_reset step_checker ;
+    conditional_step_solver_reset in_sys step_checker ;
 
     let { solver ; k } = step_checker in
     let actlit = fresh_actlit () in
@@ -427,9 +428,9 @@ let query_step two_state step_checker candidates =
   loop candidates
 
 (** Queries step, returns an option of the model. *)
-let nu_query_step two_state step_checker candidates =
+let nu_query_step two_state in_sys step_checker candidates =
   (* Restarting solver if necessary. *)
-  conditional_step_solver_reset step_checker ;
+  conditional_step_solver_reset in_sys step_checker ;
 
   let { sys ; solver ; k } = step_checker in
   let actlit = fresh_actlit () in
@@ -521,14 +522,14 @@ let pruning_fresh_actlit pruning_checker =
 let kill_pruning { solver } = Smt.delete_instance solver
 
 (** Creates a new pruning solver. *)
-let mk_pruning_checker_solver sys two_state =
+let mk_pruning_checker_solver in_sys sys two_state =
   let solver = (* Creating solver. *)
     Smt.create_instance ~produce_models:true
       (Sys.get_logic sys) (Flags.Smt.solver ())
   in
 
 
-  sys_name sys
+  sys_name in_sys sys
   |> Format.asprintf (* Logging stuff in smt trace. *)
     "[Pruning] Setting up system [%s]."
   |> Smt.trace_comment solver ;
@@ -567,17 +568,17 @@ let mk_pruning_checker_solver sys two_state =
   solver
 
 (** Creates a new pruning checker. *)
-let mk_pruning_checker sys two_state =
-  { solver = mk_pruning_checker_solver sys two_state; sys ; actlit_uid = 0 }
+let mk_pruning_checker in_sys sys two_state =
+  { solver = mk_pruning_checker_solver in_sys sys two_state; sys ; actlit_uid = 0 }
 
 
 (** Resets the solver in a pruning checker if needed. *)
-let conditional_pruning_solver_reset two_state (
+let conditional_pruning_solver_reset two_state in_sys (
   { solver ; sys ; actlit_uid } as pruning_checker
 ) = if actlit_uid >= max_actlit_count_before_reset then (
   (* KEvent.log_uncond "[LSD] RESTARTING PRUNING" ; *)
   Smt.delete_instance solver ;
-  let solver = mk_pruning_checker_solver sys two_state in
+  let solver = mk_pruning_checker_solver in_sys sys two_state in
   pruning_checker.solver <- solver ;
   pruning_checker.actlit_uid <- 0
 )
@@ -594,14 +595,14 @@ let pruning_add_invariants t ts invs =
 
 
 (** Separates the trivial invariants from a list of candidates. *)
-let query_pruning pruning_checker two_state =
+let query_pruning in_sys pruning_checker two_state =
 
   let { solver } = pruning_checker in
   
   let rec loop non_trivial candidates =
 
     (* Restarting solver if necessary. *)
-    conditional_pruning_solver_reset two_state pruning_checker ;
+    conditional_pruning_solver_reset two_state in_sys pruning_checker ;
     let actlit = Actlit.fresh_actlit () in
 
     Format.asprintf

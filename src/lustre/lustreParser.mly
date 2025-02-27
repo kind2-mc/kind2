@@ -466,7 +466,7 @@ node_decl:
   option(SEMICOLON);
   r = option(contract_spec)
   {
-    (n, p, List.flatten i, List.flatten o, r)
+    ((n, None, None), p, List.flatten i, List.flatten o, r)
   }
 
 (* A node definition (locals + body). *)
@@ -522,7 +522,7 @@ contract_import:
     ty_args = call_static_params;
     LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
     LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
-    { A.ContractCall (mk_pos $startpos, n, ty_args, in_params, out_params) }
+    { A.ContractCall (mk_pos $startpos, (n, None, None), ty_args, in_params, out_params) }
 
 call_static_params: 
   | { [] }
@@ -563,7 +563,7 @@ contract_decl:
     TEL
     option(node_sep) 
 
-    { (n,
+    { ((n, None, None),
        p,
        List.flatten i,
        List.flatten o,
@@ -1171,7 +1171,7 @@ node_call:
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      A.Call (mk_pos $startpos, ty_args, s, a) 
+      A.Call (mk_pos $startpos, ty_args, (s, None, None), a) 
     }
 
 

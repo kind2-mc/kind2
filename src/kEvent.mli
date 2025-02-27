@@ -90,17 +90,17 @@ val terminate_log : unit -> unit
 
 (** Logs the end of a run.
     [log_run_start results] logs the end of a run. *)
-val log_run_end : Analysis.result list -> unit
+val log_run_end : _ InputSystem.t -> Analysis.result list -> unit
 
 (** Logs the start of an analysis.
     [log_analysis_start top abs] logs the start of an analysis for top
     system [top] with abstraction [abs]. *)
-val log_analysis_start : TransSys.t -> Analysis.param -> unit
+val log_analysis_start : 'a InputSystem.t -> TransSys.t -> Analysis.param -> unit
 
 (** Logs the start of an analysis.
     Simplified version of [log_analysis_start]
     that is used for contract checking *)
-val log_contractck_analysis_start : Scope.t -> unit
+val log_contractck_analysis_start : 'a InputSystem.t ->  Scope.t -> unit
 
 (** Logs the end of an analysis.
     [log_analysis_end] logs the end of an analysis. *)

@@ -162,18 +162,18 @@ let desugar_node_decl ctx decl = match decl with
     let res = List.map (desugar_node_item ctx) nis in
     let nis, gids = List.split res in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
-    A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)), GI.StringMap.singleton node_id gids
+    A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)), A.NodeNameMap.singleton node_id gids
   | A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)) ->
     let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
     let res = List.map (desugar_node_item ctx) nis in
     let nis, gids = List.split res in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
-    A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)), GI.StringMap.singleton node_id gids
-  | _ -> decl, GI.StringMap.empty
+    A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)), A.NodeNameMap.singleton node_id gids
+  | _ -> decl, A.NodeNameMap.empty
   
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
 let remove_mult_assign ctx gids sorted_node_contract_decls = 
   let decls, gids2 = List.map (desugar_node_decl ctx) sorted_node_contract_decls |> List.split in
-  let gids = List.fold_left (GI.StringMap.merge GI.union_keys2) gids gids2 in
+  let gids = List.fold_left (A.NodeNameMap.merge GI.union_keys2) gids gids2 in
   decls, gids

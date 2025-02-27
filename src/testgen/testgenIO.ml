@@ -76,10 +76,11 @@ let mk input_sys sys root name title =
         Format.sprintf "%s.xml" dir |> openfile
       in
       let class_fmt = fmt_of_file class_file in
+      let node_name = InputSystem.get_node_user_name input_sys (TransSys.scope_of_trans_sys sys) in
       Format.fprintf class_fmt
         "<?xml version=\"1.0\"?>@.\
          <data system=\"%a\" name=\"%s\">@.@.@?"
-        Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+         (LustreIdent.pp_print_ident true) node_name
         title ;
       class_file
     ) else Unix.stderr
@@ -115,10 +116,11 @@ let init_error (type s)
   mk_dir edir ;
   let error_file = Format.sprintf "%s-errors.xml" dir |> openfile in
   let error_fmt = fmt_of_file error_file in
+  let node_name = InputSystem.get_node_user_name t.input_sys (TransSys.scope_of_trans_sys sys) in
   Format.fprintf error_fmt
     "<?xml version=\"1.0\"?>@.\
      <data system=\"%a\">@.@.@?"
-    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys) ;
+    (LustreIdent.pp_print_ident true) node_name ;
 
   t.error_file <- Some error_file
 
@@ -174,12 +176,13 @@ let cex_to_inputs_csv fmt in_sys sys cex k =
     (Model.path_from_model (TransSys.state_vars sys) cex k)
 
 (* Pretty printer for a testcase in xml. *)
-let pp_print_tc fmt path name modes =
+let pp_print_tc in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
-        (pp_print_list Scope.pp_print_scope " and ")
+        (pp_print_list (LustreIdent.pp_print_ident true) " and ")
         modes ;
       loop (cpt + 1) tail
     | [] -> ()
@@ -190,12 +193,13 @@ let pp_print_tc fmt path name modes =
   Format.fprintf fmt "  </testcase>@.@.@?"
 
 (* Pretty printer for a deadlock in xml. *)
-let pp_print_deadlock fmt path name modes =
+let pp_print_deadlock in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
-        (pp_print_list Scope.pp_print_scope " and ")
+        (pp_print_list (LustreIdent.pp_print_ident true) " and ")
         modes ;
       loop (cpt + 1) tail
     | [] -> Format.fprintf fmt "    deadlock reached@."
@@ -206,12 +210,14 @@ let pp_print_deadlock fmt path name modes =
   Format.fprintf fmt "  </deadlock>@.@.@?"
 
 (* Pretty printer for a model path in dot. *)
-let pp_print_model_path fmt path =
+let pp_print_model_path in_sys fmt path =
   let rec loop cpt = function
     | modes :: modes' :: tail ->
+      let modes = List.map (InputSystem.get_node_user_name in_sys) modes in
+      let modes'' = List.map (InputSystem.get_node_user_name in_sys) modes' in
       Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
-        (pp_print_list Scope.pp_print_scope "\\n") modes cpt
-        (pp_print_list Scope.pp_print_scope "\\n") modes' (cpt + 1) ;
+        (pp_print_list (LustreIdent.pp_print_ident true) "\\n") modes cpt
+        (pp_print_list (LustreIdent.pp_print_ident true) "\\n") modes'' (cpt + 1) ;
       loop (cpt + 1) (modes' :: tail)
     | _ -> Format.fprintf fmt "@.@?"
   in
@@ -221,6 +227,7 @@ let pp_print_model_path fmt path =
 let log_testcase (type s)
 : s t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 = fun t modes model k ->
+  
   Stat.incr Stat.testgen_testcases ;
   (* Format.printf "  log_testcase@." ; *)
   t.uid <- t.uid + 1 ;
@@ -240,13 +247,13 @@ let log_testcase (type s)
     (* |===| Updating class file. *)
     (* Format.printf "    updating class file@." ; *)
     let class_fmt = fmt_of_file t.class_file in
-    pp_print_tc class_fmt (Format.sprintf "%s/%s.csv" t.name name) name modes ;
+    pp_print_tc t.input_sys class_fmt (Format.sprintf "%s/%s.csv" t.name name) name modes ;
   ) ;
 
   (* |===| Updating graph. *)
   (* Format.printf "    updating graph@." ; *)
   let graph_fmt = fmt_of_file t.graph_file in
-  pp_print_model_path graph_fmt modes ;
+  pp_print_model_path t.input_sys graph_fmt modes ;
 
   ()
 
@@ -276,7 +283,7 @@ let log_deadlock (type s)
   (* |===| Updating class file. *)
   (* Format.printf "    updating error file@." ; *)
   let error_fmt = fmt_of_file error_file in
-  pp_print_deadlock error_fmt path name modes ;
+  pp_print_deadlock t.input_sys error_fmt path name modes ;
 
   ()
 

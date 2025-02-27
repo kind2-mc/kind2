@@ -27,7 +27,6 @@
 
     @author Christoph Sticksel *)
 
-
 (** An identifier is a string with integer indexes *)
 type t = private Ident.t * int list 
 

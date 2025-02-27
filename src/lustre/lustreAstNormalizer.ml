@@ -107,7 +107,7 @@ let unwrap result = match result with
 
 
 module AstCallHash = struct
-  type t = A.ident (* node name *)
+  type t = A.node_name (* node name *)
     * A.expr (* cond *)
     * A.expr (* restart *)
     * A.expr list (* arguments (which are already abstracted) *)
@@ -122,7 +122,7 @@ module AstCallHash = struct
       (Ok (true))
       l
     in
-    let i = HString.equal xi yi in
+    let i = xi = yi in
     let c = AH.syn_expr_equal None xc yc in
     let r = AH.syn_expr_equal None xr yr in
     let a = compare_list xa ya |> join in
@@ -143,7 +143,7 @@ module AstCallHash = struct
       | Some l -> List.map (AH.hash (Some 6)) l
       | None -> [0]
     in
-    Hashtbl.hash (HString.hash i, c_hash, r_hash, a_hash, d_hash)
+    Hashtbl.hash (Hashtbl.hash i, c_hash, r_hash, a_hash, d_hash)
 end
 
 module CallCache = Hashtbl.Make(AstCallHash)
@@ -198,13 +198,13 @@ type info = {
   abstract_interp_context : LustreAbstractInterpretation.context;
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
-  node_is_input_const : (bool list) StringMap.t;
-  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
-  contract_scope : (Lib.position * HString.t) list;
+  node_is_input_const : (bool list) A.NodeNameMap.t;
+  contract_calls_info : LustreAst.contract_node_decl A.NodeNameMap.t;
+  contract_scope : (Lib.position * A.node_name) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
-  inlinable_funcs : LustreAst.node_decl StringMap.t;
+  inlinable_funcs : LustreAst.node_decl A.NodeNameMap.t;
 }
 
 let pp_print_generated_identifiers ppf gids =
@@ -236,13 +236,13 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults, inlined) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, node_name, args, defaults, inlined) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a),%a)%s"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
-      HString.pp_print_hstring ident
+      A.pp_print_node_name node_name
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
@@ -272,7 +272,7 @@ let pp_print_generated_identifiers ppf gids =
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
-    (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
+    (pp_print_list (pp_print_pair Lib.pp_print_position A.pp_print_node_name ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   let pp_print_equation ppf (_, _, lhs, expr, _) = Format.fprintf ppf "%a = %a"
@@ -295,19 +295,19 @@ let compute_node_input_constant_mask decls =
   let over_decl map = function
   | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
-    StringMap.add id is_consts map
+    A.NodeNameMap.add id is_consts map
   | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
-    StringMap.add id is_consts map
+    A.NodeNameMap.add id is_consts map
   | _ -> map
-  in List.fold_left over_decl StringMap.empty decls
+  in List.fold_left over_decl A.NodeNameMap.empty decls
 
 let collect_contract_node_decls decls =
   let over_decl map = function
   | A.ContractNodeDecl (_, (id, params, inputs, outputs, equations)) ->
-    StringMap.add id (id, params, inputs, outputs, equations) map
+    A.NodeNameMap.add id (id, params, inputs, outputs, equations) map
   | _ -> map
-  in List.fold_left over_decl StringMap.empty decls
+  in List.fold_left over_decl A.NodeNameMap.empty decls
 
 
 (* [i] is module state used to guarantee newly created identifiers are unique *)
@@ -360,7 +360,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
 
 let get_inline_func_expr inlinable_funcs name args =
   let (_, _, _, _, inputs, _, _, items, _) : A.node_decl =
-    match StringMap.find_opt name inlinable_funcs with
+    match A.NodeNameMap.find_opt name inlinable_funcs with
     | Some nd -> nd
     | None -> assert false
   in
@@ -746,7 +746,7 @@ let mk_fresh_refinement_type_constraint source info pos id expr_type =
   List.fold_left union (empty ()) gids
 
 let mk_fresh_call ?(inlined=false) info id map pos cond restart ty_args args defaults =
-  let called_node = StringMap.find id map in 
+  let called_node = A.NodeNameMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let has_ty_args = List.length ty_args > 0 in
   let check_cache = CallCache.find_opt
@@ -1077,13 +1077,13 @@ let get_inlinable_func_decls inlinable_funcs decls =
      match decl with
      | A.FuncDecl (_, nd) ->
        let (id, _, _, _, _, _, _, _, _) = nd in
-       if A.SI.mem id inlinable_funcs then
-         StringMap.add id nd acc
+       if A.NodeNameSet.mem id inlinable_funcs then
+         A.NodeNameMap.add id nd acc
        else
          acc
      | _ -> acc
     )
-    StringMap.empty
+    A.NodeNameMap.empty
     decls
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
@@ -1120,11 +1120,11 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     ^^ "===============================================\n")
     (pp_print_list
       (pp_print_pair
-        HString.pp_print_hstring
+        A.pp_print_node_name
         pp_print_generated_identifiers
         ":")
       "\n")
-      (StringMap.bindings map)
+      (A.NodeNameMap.bindings map)
     A.pp_print_program ast;
 
   Res.ok (ast, map, warnings)
@@ -1138,7 +1138,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
    Future changes should be done carefully.
 *)
   and normalize_gid_equations info gids_map node_id =
-  match StringMap.find_opt node_id gids_map with
+  match A.NodeNameMap.find_opt node_id gids_map with
   | None -> empty(), []
   | Some gids -> (
     (* Normalize all equations in gids *)
@@ -1179,7 +1179,7 @@ and normalize_declaration info map = function
     let ctx = Chk.add_io_node_ctx info.context id ps ips ops in
     let info = { info with context = ctx } in
     let ngids, warnings = normalize_gid_equations info map id in
-    let map = StringMap.add id ngids map in
+    let map = A.NodeNameMap.add id ngids map in
     None, map, warnings
   | decl -> Some decl, map, []
 
@@ -1388,7 +1388,7 @@ and normalize_node info map
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
                              gids4; gids5; gids7; gids6_8; gids9; gids10] in
   let old_gids, warnings6 = normalize_gid_equations { info with interpretation = interpretation; } map node_id in
-  let map = StringMap.add node_id (union old_gids new_gids) map in
+  let map = A.NodeNameMap.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
   map, 
   List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 @ warnings6
@@ -1599,7 +1599,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             contract_ref = cref;
           }
         in
-        let called_node = StringMap.find name info.contract_calls_info in
+        let called_node = A.NodeNameMap.find name info.contract_calls_info in
         let (_, normalized_call), gids2, warnings2, interp = 
           normalize_node_contract info name map cref ninputs noutputs called_node
         in
@@ -1611,7 +1611,8 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             gids.contract_calls
           }
         in
-        ContractCall (pos, cref, ty_args, inputs, outputs), gids, warnings, interp
+        (*!! TODO: Check if we need to pass the node_name info, or not *)
+        ContractCall (pos, (cref, None, None), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
@@ -1913,7 +1914,7 @@ and normalize_expr ?guard info node_id map =
   (* Node calls                                                               *)
   (* ************************************************************************ *)
   | Call (pos, ty_args, id, args) ->
-    let is_inlinable = StringMap.mem id info.inlinable_funcs in
+    let is_inlinable = A.NodeNameMap.mem id info.inlinable_funcs in
     let info, vmap, gids0 =
       if is_inlinable then (* Only generate variables if inlinable *)
         let args_vars =
@@ -1947,7 +1948,7 @@ and normalize_expr ?guard info node_id map =
         (info, [], empty())
     in
     let handle_call inlined args =
-      let flags = StringMap.find id info.node_is_input_const in
+      let flags = A.NodeNameMap.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
       let nargs, gids1, warnings = normalize_list
@@ -1976,7 +1977,7 @@ and normalize_expr ?guard info node_id map =
       handle_call false args
     )
   | Condact (pos, cond, restart, id, args, defaults) ->
-    let flags = StringMap.find id info.node_is_input_const in
+    let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
     let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
       else abstract_expr ?guard true info node_id map cond in
     let nrestart, gids2, warnings2 = if AH.expr_is_const restart then restart, empty (), []
@@ -1986,12 +1987,12 @@ and normalize_expr ?guard info node_id map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart [] nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call info (id, None, None) map pos ncond nrestart [] nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
   | RestartEvery (pos, id, args, restart) ->
-    let flags = StringMap.find id info.node_is_input_const in
+    let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
     let cond = A.Const (dummy_pos, A.True) in
     let nrestart, gids1, warnings1 = if AH.expr_is_const restart then restart, empty (), []
       else abstract_expr ?guard true info node_id map restart
@@ -1999,13 +2000,13 @@ and normalize_expr ?guard info node_id map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart [] nargs None in
+    let nexpr, gids3 = mk_fresh_call info (id, None, None) map pos cond nrestart [] nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
-        let flags = StringMap.find id info.node_is_input_const in
+        let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
         let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
           else abstract_expr ?guard false info node_id map cond in
         let nrestart, gids2 , warnings2 = if AH.expr_is_const restart then restart, empty (), []
@@ -2014,12 +2015,12 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart [] nargs None in
+        let nexpr, gids4 = mk_fresh_call info (id, None, None) map pos ncond nrestart [] nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
       | clock_value, A.Call (pos, _, id, args) ->
-        let flags = StringMap.find id info.node_is_input_const in
+        let flags = A.NodeNameMap.find id info.node_is_input_const in
         let cond_expr = match HString.string_of_hstring clock_value with
           | "true" -> A.Ident (pos, clock_id)
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))

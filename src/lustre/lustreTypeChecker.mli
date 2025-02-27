@@ -116,22 +116,22 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> HString.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
+val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> LA.node_name -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
 
-val extract_exports: HString.t ->
+val extract_exports: LA.node_name ->
   tc_context ->
   LA.contract ->
   (tc_context * [> warning] list, [> error ]) result
 
 val add_ty_params_node_ctx :
   tc_context ->
-  HString.t ->
+  LA.node_name ->
   HString.t list ->
   tc_context
 
 val add_io_node_ctx :
   tc_context ->
-  HString.t ->
+  LA.node_name ->
   HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
@@ -144,7 +144,7 @@ val add_local_node_ctx :
 
 val add_full_node_ctx :
   tc_context ->
-  HString.t ->
+  LA.node_name ->
   HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list ->
@@ -154,21 +154,21 @@ val add_full_node_ctx :
 val instantiate_type_variables : 
   tc_context -> 
   Lib.position -> 
-  HString.t -> 
+  LA.node_name -> 
   tc_type -> 
   tc_type list -> 
   (tc_type, [> error ]) result
 
 val instantiate_type_variables_expr: 
   tc_context -> 
-  HString.t -> 
+  LA.node_name -> 
   tc_type list -> 
   LA.expr -> 
   (LA.expr, [> error ]) result
   
 val build_node_fun_ty : Lib.position ->
   tc_context ->
-  HString.t ->
+  LA.node_name ->
   HString.t list ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
@@ -186,7 +186,7 @@ val expand_type_syn_reftype_history_subrange : tc_context ->
     [> error] )
   result
   
-val infer_type_expr: tc_context ->  HString.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
+val infer_type_expr: tc_context -> LA.node_name option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result

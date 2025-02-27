@@ -35,31 +35,33 @@ type sys_modes = sys * (modes list)
 type t = modes * (sys_modes list)
 
 (* Pretty printer for [mode]. *)
-let pp_print_mode fmt (scope, term) =
+let pp_print_mode in_sys fmt (scope, term) =
+  let node_name = InputSystem.get_node_user_name in_sys scope in
   Format.fprintf fmt "%a (%a)"
-    Scope.pp_print_scope scope Term.pp_print_term term
+    (LustreIdent.pp_print_ident true) node_name Term.pp_print_term term
 
 (* Pretty printer for [modes]. *)
-let pp_print_modes fmt (g_opt, m_list) =
+let pp_print_modes in_sys fmt (g_opt, m_list) =
   Format.fprintf fmt
     "@[<v>- %a@ - [ @[<v>%a@] ]@]"
     ( fun fmt -> function
       | None -> Format.fprintf fmt "none"
-      | Some mode -> pp_print_mode fmt mode )
+      | Some mode -> pp_print_mode in_sys fmt mode )
     g_opt
-    (pp_print_list pp_print_mode "@ ")
+    (pp_print_list (pp_print_mode in_sys) "@ ")
     m_list
 
 (* Pretty printer for [sys_modes]. *)
-let pp_print_sys_modes fmt (sys, modes) =
+let pp_print_sys_modes in_sys fmt (sys, modes) =
+  let node_name = InputSystem.get_node_user_name in_sys (Sys.scope_of_trans_sys sys) in
   Format.fprintf fmt "%a: @[<v>* %a@]"
-    Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
-    (pp_print_list pp_print_modes "@ * ") modes
+    (LustreIdent.pp_print_ident true) node_name
+    (pp_print_list (pp_print_modes in_sys) "@ * ") modes
 
 (* Pretty printer for [t]. *)
-let pp_print_modes fmt (top, subs) =
+let pp_print_modes in_sys fmt (top, subs) =
   Format.fprintf fmt "@[<v>top level:@   %a@ subsystems:@   @[<v>%a@]@]"
-    pp_print_modes top (pp_print_list pp_print_sys_modes "@ ") subs
+    (pp_print_modes in_sys) top (pp_print_list (pp_print_sys_modes in_sys) "@ ") subs
 
 (* Returns the term corresponding to a state variable at 0. *)
 let sv_at_0 sv = Var.mk_state_var_instance sv Numeral.zero |> Term.mk_var

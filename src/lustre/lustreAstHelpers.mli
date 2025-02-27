@@ -113,7 +113,7 @@ val defined_vars_with_pos: node_item -> (Lib.position * index) list
 val vars_of_ty_ids: typed_ident -> SI.t
 (** returns a singleton set with the only identifier in a typed identifier declaration *)
 
-val calls_of_expr: expr -> SI.t 
+val calls_of_expr: expr -> NodeNameSet.t 
 (** [calls_of_expr e] returns all node/function names for those nodes/functions called in [e] *)
 
 val vars_of_type: lustre_type -> SI.t
@@ -158,10 +158,10 @@ val replace_idents: index list -> index list -> expr -> expr
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)
 
-val get_last_node_name: declaration list -> ident option
+val get_last_node_name: declaration list -> node_name option
 (** Gets the name of the last node declared in the file. *)
 
-val move_node_to_last: ident -> declaration list -> declaration list
+val move_node_to_last: node_name -> declaration list -> declaration list
 (** Moves the node with given name to the end of the list *)
 
 val sort_typed_ident: typed_ident list -> typed_ident list

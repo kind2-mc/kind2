@@ -36,11 +36,11 @@ val error_message: error_kind -> string
 
 val empty_context: context
 
-val get_type: context -> LustreAst.ident -> LustreAst.ident -> LustreAst.lustre_type option
+val get_type: context -> LustreAst.node_name -> LustreAst.ident -> LustreAst.lustre_type option
 
 val union: context -> context -> context
 
-val interpret_program: TypeCheckerContext.tc_context -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> LustreAst.t -> context
+val interpret_program: TypeCheckerContext.tc_context -> GeneratedIdentifiers.t LustreAst.NodeNameMap.t -> LustreAst.t -> context
 
 val interpret_global_consts: TypeCheckerContext.tc_context -> LustreAst.declaration list ->
   ( unit,

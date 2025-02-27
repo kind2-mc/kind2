@@ -315,12 +315,14 @@ end
 let scope_of = Sys.scope_of_trans_sys
 
 (** Trans sys name formatter. *)
-let fmt_sys_name fmt sys =
-  scope_of sys |> Scope.pp_print_scope fmt
+let fmt_sys_name in_sys fmt sys =
+  let node_name = InputSystem.get_node_internal_name in_sys (scope_of sys) in
+  LustreIdent.pp_print_ident true fmt node_name
 
 (** Name of a trans sys as a string. *)
-let sys_name sys =
-  scope_of sys |> Scope.to_string
+let sys_name in_sys sys =
+  let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
+  node_name |> LustreIdent.string_of_ident true
 
 let get_node_of_sys in_sys sys =
   let scope = scope_of sys in
@@ -329,7 +331,7 @@ let get_node_of_sys in_sys sys =
   in
   try scope |> node_of_scope with
   | Not_found ->
-    Format.asprintf "unknown system %a" fmt_sys_name sys
+    Format.asprintf "unknown system %a" (fmt_sys_name in_sys) sys
     |> failwith
 
 (** Ghost instance carries the info to identify and generate a ghost variable
@@ -572,7 +574,7 @@ let generate_contract_for in_sys sys path invs name =
 
   Format.fprintf fmt
     "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
-    (sys_name sys) name fmt_sig node ;
+    (sys_name in_sys sys) name fmt_sig node ;
 
   let ghost_definitions, local_ghost_instances =
     let cxt = {GhostInstance.call_inst = None; tsys = sys} in
@@ -716,7 +718,7 @@ let generate_contracts in_sys _param sys path contract_name =
     
     Format.fprintf fmt
       "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
-      (sys_name sys) contract_name fmt_sig node ;
+      (sys_name in_sys sys) contract_name fmt_sig node ;
     
     (* Declare necessary locals. *)
     ghost_definitions |> List.iter (

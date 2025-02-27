@@ -147,13 +147,13 @@ let pp_print_prop_source ppf = function
   | Assumption (_, (scope, _)) ->
     Format.fprintf ppf "assumption of %s" (String.concat "." scope)
   | Guarantee (_, scope) ->
-    Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope
+    Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope_internal scope
   | GuaranteeOneModeActive (_, scope) ->
-    Format.fprintf ppf "one mode active (%a)" Scope.pp_print_scope scope
+    Format.fprintf ppf "one mode active (%a)" Scope.pp_print_scope_internal scope
   | GuaranteeModeImplication (_, scope) ->
-    Format.fprintf ppf "mode implication %a" Scope.pp_print_scope scope
+    Format.fprintf ppf "mode implication %a" Scope.pp_print_scope_internal scope
   | NonVacuityCheck (_, scope) ->
-    Format.fprintf ppf "non-vacuity check (%a)" Scope.pp_print_scope scope
+    Format.fprintf ppf "non-vacuity check (%a)" Scope.pp_print_scope_internal scope
 
 let pp_print_prop_quiet ppf { prop_name ; prop_source } =
   Format.fprintf ppf

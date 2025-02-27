@@ -227,7 +227,7 @@ let pp_print_subsystem ppf ({ scope }, instances) =
   Format.fprintf
     ppf
     "@[<hv 1>(%a@ @[<hv 1>(%a)@])@]"
-    Scope.pp_print_scope scope
+    Scope.pp_print_scope_internal scope
     (pp_print_list pp_print_instance "@ ") instances
 
 
@@ -241,7 +241,7 @@ let pp_print_uf ppf uf =
 
 
 let pp_print_trans_sys_name fmt { scope } =
-  Format.fprintf fmt "%a" Scope.pp_print_scope scope
+  Format.fprintf fmt "%a" Scope.pp_print_scope_internal scope
     
 let pp_print_trans_sys 
     ppf
@@ -265,7 +265,7 @@ let pp_print_trans_sys
      @[<hv 2>(prop@ (@[<v>%a@]))@]@,\
      @[<hv 2>(sub@ @[<hv 1>(%a)@])@])"
 
-    Scope.pp_print_scope scope
+    Scope.pp_print_scope_internal scope
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf "@ ") ufs
     (pp_print_list Var.pp_print_var "@ ") init_formals
