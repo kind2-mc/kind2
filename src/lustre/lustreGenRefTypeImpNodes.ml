@@ -42,6 +42,11 @@ let unwrap = function
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
+let mk_fresh_id id = 
+  i := !i + 1;
+  let prefix = HString.concat2 (HString.mk_hstring (string_of_int !i)) (HString.mk_hstring "_") in
+  HString.concat2 prefix id
+
 let mk_fresh_ghost_var pos ty rhs =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
