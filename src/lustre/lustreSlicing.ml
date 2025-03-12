@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               (I.pp_print_ident false) (N.internal_string_of_node_name call_node_name))
+               (I.pp_print_ident true) (N.internal_string_of_node_name call_node_name))
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            (I.pp_print_ident false) (N.internal_string_of_node_name node.N.name)
+            (I.pp_print_ident true) (N.internal_string_of_node_name node.N.name)
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -1200,7 +1200,7 @@ let root_and_leaves_of_contracts
    map. *)
 let node_is_abstract analysis { N.name } = 
 
-  [I.string_of_ident false (N.internal_string_of_node_name name)]
+  [I.string_of_ident true (N.internal_string_of_node_name name)]
   |> Analysis.param_scope_is_abstract analysis
 
 

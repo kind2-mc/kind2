@@ -2038,12 +2038,12 @@ let rec trans_sys_of_node'
             (Invalid_argument
                (Format.asprintf 
                   "trans_sys_of_node: node %a not found"
-                  (I.pp_print_ident false) (N.user_name_of_node_name node_name)))
+                  (I.pp_print_ident true) (N.user_name_of_node_name node_name)))
 
       in
         
       (* Scope of node name *)
-      let scope = [I.string_of_ident false (N.internal_string_of_node_name node_name)] in
+      let scope = [I.string_of_ident true (N.internal_string_of_node_name node_name)] in
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
@@ -2722,7 +2722,7 @@ let rec trans_sys_of_node'
               (Format.asprintf
                  "%s_%a_%d"
                  Ids.init_uf_string
-                 (LustreIdent.pp_print_ident false) (N.internal_string_of_node_name node_name)
+                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_name node_name)
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var init_formals)
               Type.t_bool
@@ -2754,7 +2754,7 @@ let rec trans_sys_of_node'
               (Format.asprintf
                  "%s_%a_%d"
                  Ids.trans_uf_string
-                 (LustreIdent.pp_print_ident false) (N.internal_string_of_node_name node_name)
+                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_name node_name)
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var trans_formals)
               Type.t_bool

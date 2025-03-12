@@ -1056,7 +1056,7 @@ let node_to_rust oracle_info is_top fmt (
     | Call (cnt, ({ N.call_pos ; N.call_node_name } as call)) ->
       Format.fprintf
         fmt "@.  /// Call to `%a` (%a).@.  pub %s: %s,"
-        (Id.pp_print_ident false) (N.internal_string_of_node_name call_node_name)
+        (Id.pp_print_ident true) (N.internal_string_of_node_name call_node_name)
         fmt_pos_as_link call_pos
         (id_of_call cnt call)
         (mk_id_type (N.internal_string_of_node_name call_node_name))
@@ -2047,10 +2047,10 @@ let oracle_to_rust target find_sub top =
   match oracle_info with
   | None ->
     Format.asprintf
-      "no contract for node %a" (Id.pp_print_ident false) (N.internal_string_of_node_name top.N.name)
+      "no contract for node %a" (Id.pp_print_ident true) (N.internal_string_of_node_name top.N.name)
     |> failwith
   | Some (_, guarantees, modes) -> (
-    Format.asprintf "%a" (Id.pp_print_ident false) (N.internal_string_of_node_name top.N.name),
+    Format.asprintf "%a" (Id.pp_print_ident true) (N.internal_string_of_node_name top.N.name),
     guarantees |> List.map (
       fun ({ C.pos ; C.num }, _) -> pos, num
     ),
