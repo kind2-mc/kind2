@@ -2764,7 +2764,7 @@ let rec trans_sys_of_node'
           let ufs = function_ufs in
           
           let ty_args_opt = match node_name with 
-          | (_, tags) -> List.find_map (fun tag -> match tag with 
+          | (_, tags) -> Lib.find_map (fun tag -> match tag with 
             | LustreAst.Monomorphization (ty_args, _) -> Some ty_args
             | _ -> None
           ) tags in 
