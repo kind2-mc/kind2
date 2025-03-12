@@ -1612,7 +1612,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           }
         in
         (*!! TODO: Check if we need to pass the node_name info, or not *)
-        ContractCall (pos, (cref, None, None), ty_args, inputs, outputs), gids, warnings, interp
+        ContractCall (pos, (cref, []), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
@@ -1977,7 +1977,7 @@ and normalize_expr ?guard info node_id map =
       handle_call false args
     )
   | Condact (pos, cond, restart, id, args, defaults) ->
-    let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
+    let flags = A.NodeNameMap.find (id, []) info.node_is_input_const in
     let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
       else abstract_expr ?guard true info node_id map cond in
     let nrestart, gids2, warnings2 = if AH.expr_is_const restart then restart, empty (), []
@@ -1987,12 +1987,12 @@ and normalize_expr ?guard info node_id map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, gids5 = mk_fresh_call info (id, None, None) map pos ncond nrestart [] nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call info (id, []) map pos ncond nrestart [] nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
   | RestartEvery (pos, id, args, restart) ->
-    let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
+    let flags = A.NodeNameMap.find (id, []) info.node_is_input_const in
     let cond = A.Const (dummy_pos, A.True) in
     let nrestart, gids1, warnings1 = if AH.expr_is_const restart then restart, empty (), []
       else abstract_expr ?guard true info node_id map restart
@@ -2000,13 +2000,13 @@ and normalize_expr ?guard info node_id map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info (id, None, None) map pos cond nrestart [] nargs None in
+    let nexpr, gids3 = mk_fresh_call info (id, []) map pos cond nrestart [] nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
-        let flags = A.NodeNameMap.find (id, None, None) info.node_is_input_const in
+        let flags = A.NodeNameMap.find (id, []) info.node_is_input_const in
         let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
           else abstract_expr ?guard false info node_id map cond in
         let nrestart, gids2 , warnings2 = if AH.expr_is_const restart then restart, empty (), []
@@ -2015,7 +2015,7 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info (id, None, None) map pos ncond nrestart [] nargs None in
+        let nexpr, gids4 = mk_fresh_call info (id, []) map pos ncond nrestart [] nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings

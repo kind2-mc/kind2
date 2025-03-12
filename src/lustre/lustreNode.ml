@@ -92,7 +92,7 @@ type call_cond =
   | CActivate of StateVar.t
   | CRestart of StateVar.t
 
-type node_name = I.t * LustreAst.realizability_tag option * (LustreAst.lustre_type list * int) option
+type node_name = I.t * LustreAst.node_tag list
 
 (* A call of a node *)
 type node_call = {
@@ -210,20 +210,11 @@ type t = {
   history_svars: (StateVar.t * StateVar.t) list TM.t;
 }
 
-let user_name_of_node_name (user_name, _, _) = user_name
+let user_name_of_node_name (user_name, _) = user_name
 
-let internal_string_of_node_name (id, tag, poly_info) = 
-  let s = Format.asprintf "%s%s%a"
-    (match tag with 
-      | None -> ""
-      | Some LustreAst.Environment -> ".env_"
-      | Some Contract -> ".contract_"
-      | Some Type -> ".type_")
-    (match poly_info with 
-      | None -> ""
-      | Some (_, i) -> ".poly_" ^ (string_of_int i))
-    (I.pp_print_ident true) id 
-  in I.mk_string_ident s
+let internal_string_of_node_name (id, tags) = 
+  let id = id |> LustreIdent.string_of_ident true |> HString.mk_hstring in 
+  LustreAst.internal_string_of_node_name (id, tags) |> LustreIdent.mk_string_ident
 
 let eq_node_names n1 n2 = 
   let i1 = internal_string_of_node_name n1 in
@@ -345,7 +336,7 @@ let pp_print_node_equation safe ppf ((var, bounds), expr) =
 let pp_print_call safe ppf = function 
 
   (* Node call on the base clock *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond = [];
       call_inputs; 
       call_oracles; 
@@ -363,7 +354,7 @@ let pp_print_call safe ppf = function
        call_oracles)
 
   (* Node call on the base clock with restart *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond = [CRestart restart_var];
       call_inputs; 
       call_oracles; 
@@ -382,7 +373,7 @@ let pp_print_call safe ppf = function
       (E.pp_print_lustre_var safe) restart_var
 
   (* Node call not on the base clock is a condact *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
@@ -415,7 +406,7 @@ let pp_print_call safe ppf = function
                l)
           
   (* Node call not on the base clock without defaults *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
@@ -437,7 +428,7 @@ let pp_print_call safe ppf = function
        call_oracles)
 
   (* Node call not on the base clock is a condact with restart *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond =
         ([CActivate call_clock_var; CRestart restart_var] |
          [CRestart restart_var; CActivate call_clock_var]) ;
@@ -473,7 +464,7 @@ let pp_print_call safe ppf = function
                l)
       
   (* Node call not on the base clock without defaults with restart  *)
-  | { call_node_name = (user_name, _, _); 
+  | { call_node_name = (user_name, _); 
       call_cond =
         ([CActivate call_clock_var; CRestart restart_var] |
          [CRestart restart_var; CActivate call_clock_var]) ;
@@ -616,7 +607,7 @@ let pp_print_node_signature fmt { inputs ; outputs } =
 
 (* Pretty-print a node *)
 let pp_print_node safe ppf {
-  name = (user_name, _, _);
+  name = (user_name, _);
   inputs; 
   oracles; 
   outputs; 
@@ -733,7 +724,7 @@ let pp_print_node_call_debug
     ppf
     { 
       call_pos;
-      call_node_name = (user_name, _, _); 
+      call_node_name = (user_name, _); 
       call_cond; 
       call_inputs; 
       call_oracles; 
@@ -755,7 +746,7 @@ let pp_print_node_call_debug
 
 
 let pp_print_node_debug ppf 
-    { name = (user_name, _, _);
+    { name = (user_name, _);
       (* is_extern; *)
       instance;
       init_flag;
@@ -924,7 +915,7 @@ let exists_node_of_name name nodes =
 let node_of_user_name name nodes =
 
   List.find
-    (function { name = (user_name, _, _) } -> I.equal name user_name)
+    (function { name = (user_name, _) } -> I.equal name user_name)
     nodes
 
 let node_of_name name nodes = 
@@ -1073,7 +1064,7 @@ let rec subsystem_of_nodes' nodes accum = function
   | [] -> accum
 
   (* Create subsystem for node *)
-  | ((user_name, _, _) as top) :: tl -> 
+  | ((user_name, _) as top) :: tl -> 
 
     if
 

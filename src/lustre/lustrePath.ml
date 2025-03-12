@@ -999,15 +999,20 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
     | Some state -> true, state
   in
-  
+  let (_, tags) = node.name in
   let title =
     if is_function then "Function"
     else if is_state then "State"
-    else (match node.name with 
-    | (_, Some Environment, _) -> "Environment of"
-    | (_, Some Contract, _) -> "Contract of"
-    | (_, Some Type, _) -> "Type"
-    | (_, None, _) -> "Node")
+    else if 
+      List.exists (fun tag -> match tag with | LustreAst.Environment -> true | _ -> false) tags 
+    then "Environment of"
+    else if 
+      List.exists (fun tag -> match tag with | LustreAst.Contract -> true | _ -> false) tags 
+    then "Contract of"
+    else if 
+      List.exists (fun tag -> match tag with | LustreAst.Type -> true | _ -> false) tags 
+    then "Type"
+    else "Node"
   in
   
   (* Remove first dimension from index *)

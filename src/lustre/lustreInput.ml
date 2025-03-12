@@ -318,7 +318,7 @@ let of_channel old_frontend only_parse in_ch =
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
               let _ = LN.node_of_user_name s_ident nodes in 
-              [s_ident, None]
+              [s_ident, []]
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
               let msg =
@@ -331,7 +331,7 @@ let of_channel old_frontend only_parse in_ch =
           | None -> (
             try
               (* Find main node by annotation, or take last node as main *)
-              List.map (fun (name, tag, _) -> name, tag) (LustreNode.find_main nodes)
+              LustreNode.find_main nodes
             with Not_found ->
               (* No main node found
                 This only happens when there are no nodes in the input. *)
@@ -357,12 +357,12 @@ let of_channel old_frontend only_parse in_ch =
                     (2) the main node's enviornment, if environment checking is enabled *)
               let main_nodes = 
                 if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                  [LustreIdent.mk_string_ident s, Some LA.Contract;]
-                else [s_ident, None] 
+                  [LustreIdent.mk_string_ident s, [LA.Contract];]
+                else [s_ident, []] 
               in
               let main_nodes = 
                 if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
-                  (LustreIdent.mk_string_ident s, Some LA.Environment) :: main_nodes 
+                  (LustreIdent.mk_string_ident s, [LA.Environment]) :: main_nodes 
                 else 
                   main_nodes 
                 in 
@@ -377,14 +377,12 @@ let of_channel old_frontend only_parse in_ch =
           )
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
-            | (h_name, h_tag, _) :: t -> 
-              (h_name, h_tag) :: List.map (fun (t_name, t_tag, _) -> t_name, t_tag) t
+            | (_ :: _ as node_names) -> node_names
             | [] ->
               match toplevel_nodes with
               | [] -> raise (NoMainNode "No node defined in input model")
               | _ -> toplevel_nodes |> List.map (fun s ->
-                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident, 
-                None
+                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident, []
               )
           )
         in
@@ -401,8 +399,8 @@ let of_channel old_frontend only_parse in_ch =
                 (* let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in *)
                 let _ = LN.node_of_user_name s_ident nodes in  
                 match Flags.lus_main () with 
-                | Some _ -> (s_ident, Some LA.Type) :: main_nodes
-                | None -> [s_ident, None]
+                | Some _ -> (s_ident, [LA.Type]) :: main_nodes
+                | None -> [s_ident, []]
               (* User-specified type alias in command-line input might not exist *)
               with Not_found -> 
                 let msg =
@@ -417,8 +415,8 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      let nodes = List.map (fun ({ LustreNode.name = (user_name, tag, _); } as n) ->
-          if List.exists (fun (id, tag2) -> LustreIdent.equal id user_name && tag = tag2) main_nodes then
+      let nodes = List.map (fun ({ LustreNode.name = (user_name, tags); } as n) ->
+          if List.exists (fun (id, tags2) -> LustreIdent.equal id user_name && (List.for_all2 (=) tags tags2)) main_nodes then
             { n with is_main = true }
           else n)
         nodes

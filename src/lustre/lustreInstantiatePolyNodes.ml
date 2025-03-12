@@ -94,7 +94,7 @@ let build_node_fun_ty
    node names to polymorphic instantiations *)
 let rec gen_poly_decl: Ctx.tc_context -> GI.t A.NodeNameMap.t -> A.node_name option -> (A.declaration * A.lustre_type list list) A.NodeNameMap.t ->
                    A.node_name -> A.lustre_type list -> Ctx.tc_context * GI.t A.NodeNameMap.t * A.node_name *  A.declaration list * (A.declaration * A.lustre_type list list) A.NodeNameMap.t 
-= fun ctx gids caller_nname node_decls_map ((node_id, tag, _) as nname) ty_args ->
+= fun ctx gids caller_nname node_decls_map ((node_id, tags) as nname) ty_args ->
   (* Check for pre-existing instantiation of the node before compiling a new one *)
   let decl, tyss = A.NodeNameMap.find nname node_decls_map in 
   let find_decl tys = 
@@ -112,7 +112,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t A.NodeNameMap.t -> A.node_name opt
   match Lib.find_opt_index find_decl tyss with 
   (* This polymorphic instantiation already exists *)
   | Some j -> 
-    let pnname = node_id, tag, Some (ty_args, j) in
+    let pnname = node_id, A.Monomorphization (ty_args, j) :: tags in
     ctx, gids, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
@@ -159,7 +159,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t A.NodeNameMap.t -> A.node_name opt
         List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements
     in
     (* Create fresh identifier for instantiated polymorphic node *)
-    let pnname = node_id, tag, Some (ty_args, List.length tyss) in
+    let pnname = node_id, A.Monomorphization (ty_args, List.length tyss) :: tags in
     (* Remember new instantiation *)
     let node_decls_map = A.NodeNameMap.add nname (decl, tyss @ [ty_args]) node_decls_map in
     let ctx, called_decl = 

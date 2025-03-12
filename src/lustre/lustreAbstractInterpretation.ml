@@ -52,7 +52,7 @@ type context = LA.lustre_type IMap.t LA.NodeNameMap.t
 
 let dpos = Lib.dummy_pos
 
-let dnode_id: LA.node_name = HString.mk_hstring "dummy_node_id", None, None
+let dnode_id: LA.node_name = HString.mk_hstring "dummy_node_id", []
 
 let empty_context = LA.NodeNameMap.empty
 
@@ -526,7 +526,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) -> 
-    let ty = Ctx.lookup_node_ty ty_ctx (id, None, None) |> get in
+    let ty = Ctx.lookup_node_ty ty_ctx (id, []) |> get in
     let output_ty = match ty with
       | TArr (_, _, GroupType (_, tys)) -> List.nth tys proj
       | TArr (_, _, ty) -> ty

@@ -2762,12 +2762,16 @@ let rec trans_sys_of_node'
 
           (* UFs of the system. *)
           let ufs = function_ufs in
-
-          let ty_args = match node_name with 
-          | (_, _, None) -> [] 
-          | (_, _, Some (ty_args, _)) -> ty_args 
-          in
           
+          let ty_args_opt = match node_name with 
+          | (_, tags) -> List.find_map (fun tag -> match tag with 
+            | LustreAst.Monomorphization (ty_args, _) -> Some ty_args
+            | _ -> None
+          ) tags in 
+          let ty_args = match ty_args_opt with 
+          | Some ty_args -> ty_args 
+          | None -> []
+          in
           
           (* ****************************************************** *)
           (* Create transition system                               *)

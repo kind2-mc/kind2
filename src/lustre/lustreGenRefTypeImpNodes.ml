@@ -92,9 +92,9 @@ let mk_generated_env_contract_eqs ctx base_contract =
     | A.Assume (pos, name, b, expr) ->
       if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
       R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
-    | A.ContractCall (pos, (name, _, _), ty_args, ips, ops) ->
+    | A.ContractCall (pos, (name, _), ty_args, ips, ops) ->
       if Flags.Contracts.check_environment () then ( 
-        let name = name, Some A.Environment, None in
+        let name = name, [A.Environment] in
         (* Since we are flipping the inputs and outputs of the generated contract, 
           we also need to flip inputs and outputs of the call *)
         let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
@@ -139,9 +139,9 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
   inputs2, outputs2
 
 let contract_node_decl_to_contracts
-= fun ctx ((id, _, _), params, inputs, outputs, (pos, base_contract)) -> 
+= fun ctx ((id, _), params, inputs, outputs, (pos, base_contract)) -> 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
-  let gen_node_id = id, Some A.Environment, None in
+  let gen_node_id = id, [A.Environment] in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   (* We generate a contract representing this contract's inputs/environment *)
   let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
@@ -154,7 +154,7 @@ let contract_node_decl_to_contracts
   else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
-= fun pos ctx ((id, _, _), extern, _, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx ((id, _), extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -168,8 +168,8 @@ let node_decl_to_contracts
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
-  let gen_node_id = id, Some A.Environment, None in
-  let gen_node_id2 = id, Some A.Contract, None in
+  let gen_node_id = id, [A.Environment] in
+  let gen_node_id2 = id, [A.Contract] in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   let gids = List.fold_left GI.union (GI.empty ()) gids |> A.NodeNameMap.singleton gen_node_id in
   (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
@@ -203,7 +203,7 @@ let node_decl_to_contracts
 let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t list -> A.declaration option
 = fun pos id ty ps -> 
   let span = { A.start_pos = pos; end_pos = pos } in
-  let gen_node_id = (id, Some A.Type, None) in
+  let gen_node_id = id, [A.Type] in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
   (* Avoid name clashes (e.g., with enum constants) *)

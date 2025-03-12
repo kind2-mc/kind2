@@ -237,13 +237,17 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node_name, node_tag = InputSystem.get_node_user_name_tag in_sys scope in
+    let node_name, node_tags = InputSystem.get_node_user_name_tags in_sys scope in
+    (* Monomorphization info not relevant to this logging *)
+    let node_tags = 
+      List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+    in
     Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
-    (match node_tag with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Node") 
+    (match node_tags with 
+      | LustreAst.Environment :: _ -> "Environment of"
+      | LustreAst.Contract :: _ -> "Contract of"
+      | LustreAst.Type :: _ -> "Type"
+      | _ -> "Node") 
     (LustreIdent.pp_print_ident true) node_name ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;

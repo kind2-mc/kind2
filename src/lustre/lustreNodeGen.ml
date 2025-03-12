@@ -1355,7 +1355,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (cstate, ghost_locals2, ghost_equations2, modes2) =
-    let over_calls (cstate, gls, ges, ms) (_, (cref, _, _), _, _, _) =
+    let over_calls (cstate, gls, ges, ms) (_, (cref, _), _, _, _) =
       let (_, sc, _) = StringMap.find cref gids.GI.contract_calls in
       let cname = sc |> List.rev |> List.hd |> snd in
       (* Update cstate with uninstantiated params *)
@@ -1435,7 +1435,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag, ty_args) as nname) ext params inputs outputs locals items contract =
+and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tags) as nname) ext params inputs outputs locals items contract =
   let user_ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
   let gids = A.NodeNameMap.find nname gids_map in
   let internal_node_name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in 
@@ -1727,9 +1727,9 @@ and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, (user_node_name, tag, ty_args), _, _, _)) ->
+    let over_calls = fun () ((_, var, _, _, (user_node_name, tags), _, _, _)) ->
       let ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
-      let called_node = N.node_of_name (ident, tag, ty_args) cstate.nodes in
+      let called_node = N.node_of_name (ident, tags) cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
@@ -1827,12 +1827,12 @@ and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
-      fun (calls, glocals) (pos, var, cond, restart, ((user_node_name, tag, ty_args) as nname), args, defaults, inlined)
+      fun (calls, glocals) (pos, var, cond, restart, ((user_node_name, tags) as nname), args, defaults, inlined)
     ->
       let internal_node_name_hstring = A.internal_string_of_node_name nname |> HString.mk_hstring in
       let internal_node_name = mk_ident internal_node_name_hstring in
       let ident = user_node_name |> HString.string_of_hstring |> I.mk_string_ident in
-      let called_node = N.node_of_name (ident, tag, ty_args) cstate.nodes in
+      let called_node = N.node_of_name (ident, tags) cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
         | Some (A.TArr (_, _, output_types)) ->
             (match output_types with
@@ -1871,7 +1871,7 @@ and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        node_scope pos ctx cstate map outputs cond restart (ident, tag, ty_args) args defaults inlined
+        node_scope pos ctx cstate map outputs cond restart (ident, tags) args defaults inlined
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
@@ -2345,7 +2345,7 @@ and compile_node_decl gids_map is_function opac cstate ctx ((user_node_name, tag
       (StringMap.bindings gids.GI.history_vars)
   in
 
-  let (node:N.t) = { name = (user_ident, tag, ty_args);
+  let (node:N.t) = { name = (user_ident, tags);
     is_extern;
     opacity;
     instance;

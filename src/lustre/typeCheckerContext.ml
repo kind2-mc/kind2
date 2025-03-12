@@ -523,7 +523,7 @@ let rec arity_of_expr ty_ctx = function
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) -> 
-    let node_ty = lookup_node_ty ty_ctx (id, None, None) |> Lib.get in
+    let node_ty = lookup_node_ty ty_ctx (id, []) |> Lib.get in
     let (_, o) = LH.type_arity node_ty in
     o
   | Call (_, _, id, _) ->

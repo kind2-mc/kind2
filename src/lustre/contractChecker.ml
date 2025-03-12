@@ -309,17 +309,21 @@ let pp_print_realizability_result_pt
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-  let node_name, node_tag = ISys.get_node_user_name_tag in_sys scope in
+  let node_name, node_tags = ISys.get_node_user_name_tags in_sys scope in
+  (* Monomorphization info not relevant to this logging *)
+  let node_tags = 
+    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+  in
   let print_not_unknown_result tag =
     Format.fprintf
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node_tag with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
+      (match node_tags with 
+      | LustreAst.Environment :: _ -> "Environment of"
+      | LustreAst.Contract :: _ -> "Contract of"
+      | LustreAst.Type :: _ -> "Type"
+      | _ -> "Contract of imported node")
       (LustreIdent.pp_print_ident true) node_name
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
@@ -545,7 +549,11 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-  let node_name, node_tag = ISys.get_node_user_name_tag in_sys scope in
+  let node_name, node_tags = ISys.get_node_user_name_tags in_sys scope in
+  (* Monomorphization info not relevant to this logging *)
+  let node_tags = 
+    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+  in
   match result with
   | Unknown -> (
     Format.fprintf 
@@ -553,11 +561,11 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       "@[<hov>%t Could not determine whether the %s \
         %a is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (match node_tag with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
+      (match node_tags with 
+      | LustreAst.Environment :: _ -> "Environment of"
+      | LustreAst.Contract :: _ -> "Contract of"
+      | LustreAst.Type :: _ -> "Type"
+      | _ -> "Contract of imported node")
       (LustreIdent.pp_print_ident true) node_name
       (Stat.get_float Stat.analysis_time)
   )
@@ -572,11 +580,11 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node_tag with 
-      | Some Environment -> "Environment of"
-      | Some Contract -> "Contract of"
-      | Some Type -> "Type"
-      | None -> "Contract of imported node")
+      (match node_tags with 
+      | LustreAst.Environment :: _ -> "Environment of"
+      | LustreAst.Contract :: _ -> "Contract of"
+      | LustreAst.Type :: _ -> "Type"
+      | _ -> "Contract of imported node")
       (LustreIdent.pp_print_ident true) node_name
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)

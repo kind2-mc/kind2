@@ -97,11 +97,6 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
-type realizability_tag = 
-  | Contract 
-  | Environment
-  | Type
-
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
@@ -167,8 +162,13 @@ and expr =
   (* Node calls *)
   | Call of position * lustre_type list * node_name * expr list
 
-(* node name * realizability tag * monomorphization info *)
-and node_name = ident * realizability_tag option * (lustre_type list * int) option
+and node_tag = 
+  | Contract 
+  | Environment
+  | Type
+  | Monomorphization of (lustre_type list * int)
+
+and node_name = ident * node_tag list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -367,7 +367,7 @@ type declaration =
 type t = declaration list
 
 (** {1 Pretty-printers} *)
-val pp_print_node_name : Format.formatter -> index * 'a * 'b -> unit
+val pp_print_node_name : Format.formatter -> index * _ -> unit
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit

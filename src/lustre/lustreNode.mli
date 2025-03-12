@@ -54,7 +54,7 @@ type call_cond =
   | CActivate of StateVar.t
   | CRestart of StateVar.t
 
-type node_name = LustreIdent.t * LustreAst.realizability_tag option * (LustreAst.lustre_type list * int) option
+type node_name = LustreIdent.t * LustreAst.node_tag list
 
 (** A call to a node 
 

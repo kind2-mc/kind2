@@ -24,14 +24,14 @@ module AH = LustreAstHelpers
 let i = ref 0
 
 let mk_fresh_fn_name: Lib.position -> A.node_name -> A.node_name = 
-fun pos (node_name, tag, ty_args) -> 
+fun pos (node_name, tags) -> 
   i := !i + 1;
   let node_name = HString.concat2 node_name (HString.mk_hstring ".") in
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let name = (HString.mk_hstring "any_") in
   let name = HString.concat2 name pos in
-  HString.concat2 node_name name, tag, ty_args
+  HString.concat2 node_name name, tags
 
 let rec desugar_expr: Ctx.tc_context -> A.node_name -> A.node_name list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 

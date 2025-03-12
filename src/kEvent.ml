@@ -1640,18 +1640,22 @@ let number_of_subsystem_assumptions info =
   |> Scope.Map.bindings
 
 let log_contractck_analysis_start in_sys scope =
-  let node_name, node_ty = InputSystem.get_node_user_name_tag in_sys scope in
+  let node_name, node_tags = InputSystem.get_node_user_name_tags in_sys scope in
+  (* Monomorphization info not relevant to this logging *)
+  let node_tags = 
+    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+  in
   if Flags.log_level () <> L_off then (
     match get_log_format () with
     | F_pt -> (
       Format.fprintf !log_ppf "\
         @.%a@{<b>Checking@} %s @{<blue>%a@}@.@."
         Pretty.print_double_line ()
-        (match node_ty with 
-        | Some Environment -> "environment of"
-        | Some Contract -> "contract of"
-        | Some Type -> "type"
-        | None -> "contract of imported node")
+        (match node_tags with 
+        | Environment :: _ -> "environment of"
+        | Contract :: _ -> "contract of"
+        | Type :: _ -> "type"
+        | _ -> "contract of imported node")
         (LustreIdent.pp_print_ident true) node_name
     )
     | F_xml -> (
@@ -1662,10 +1666,10 @@ let log_contractck_analysis_start in_sys scope =
           />@.@.\
         "
         (LustreIdent.pp_print_ident true) node_name
-        (match node_ty with 
-        | Some Environment -> "environment"
-        | Some Type -> "type"
-        | Some Contract | None -> "contract");
+        (match node_tags with 
+        | LustreAst.Environment ::_ -> "environment"
+        | LustreAst.Type ::_ -> "type"
+        | _ -> "contract");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1677,10 +1681,10 @@ let log_contractck_analysis_start in_sys scope =
           @]@.}@.\
         "
         (LustreIdent.pp_print_ident true) node_name
-        (match node_ty with 
-        | Some Environment -> "environment"
-        | Some Type -> "type"
-        | Some Contract | None -> "contract");
+        (match node_tags with 
+        | Environment :: _ -> "environment"
+        | Type :: _ -> "type"
+        | _ -> "contract");
       analysis_start_not_closed := true
 
     )

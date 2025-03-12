@@ -86,11 +86,6 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
-type realizability_tag = 
-  | Contract 
-  | Environment
-  | Type
-
 (** A Lustre expression *)
 type expr =
   (* Identifiers *)
@@ -153,8 +148,13 @@ and lustre_type =
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
 
-(* node name * realizability tag * monomorphization info *)
-and node_name = ident * realizability_tag option * (lustre_type list * int) option
+and node_tag = 
+  | Contract (* Generated imported node for contract realizability checking *)
+  | Environment (* Generated imported node for environment realizability checking *)
+  | Type (* Generated imported node for refinement type realizability checking *)
+  | Monomorphization of (lustre_type list * int) (* Instantiation of a polymorphic node *)
+
+and node_name = ident * node_tag list
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -285,17 +285,18 @@ type opacity =
   | Opaque
   | Transparent
 
-let internal_string_of_node_name (id, tag, poly_info) = 
-  Format.asprintf "%s%s%a"
+let pp_print_node_tag ppf tag = 
+  Format.fprintf ppf "%s"
     (match tag with 
-      | None -> ""
-      | Some Environment -> ".env_"
-      | Some Contract -> ".contract_"
-      | Some Type -> ".type_")
-    (match poly_info with 
-      | None -> ""
-      | Some (_, i) -> ".poly_" ^ (string_of_int i))
-    HString.pp_print_hstring id 
+      | Environment -> ".env_"
+      | Contract -> ".contract_"
+      | Type -> ".type_"
+      | Monomorphization (_, i) -> ".poly_" ^ (string_of_int i))
+
+let internal_string_of_node_name (id, tags) = 
+  Format.asprintf "%a%a"
+    HString.pp_print_hstring id
+    (Lib.pp_print_list pp_print_node_tag "") tags
 
 let compare_node_names n1 n2 = String.compare (internal_string_of_node_name n1) (internal_string_of_node_name n2)
 
@@ -594,7 +595,7 @@ let rec pp_print_expr ppf =
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 
-    | Call (p, [], (id, _, _), l) ->
+    | Call (p, [], (id, _), l) ->
 
       Format.fprintf ppf
         "%a%a(%a)"
@@ -602,7 +603,7 @@ let rec pp_print_expr ppf =
         pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l
 
-    | Call (p, ty_args, (id, _, _), l) ->
+    | Call (p, ty_args, (id, _), l) ->
 
       Format.fprintf ppf
         "%a%a<<%a>>(%a)"
@@ -804,7 +805,7 @@ let pp_print_const_decl ppf = function
       pp_print_lustre_type t
       pp_print_expr e
 
-let pp_print_node_name ppf (id, _, _) = 
+let pp_print_node_name ppf (id, _) = 
   Format.fprintf ppf "%a" pp_print_ident id
 
 (* Pretty-print a single static node parameter *)
@@ -1127,7 +1128,7 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
     (pp_print_list pp_print_contract_ensure "@ ") enss
     (cond_new_line ((reqs,enss) <> ([],[]))) ()
 
-let pp_print_contract_call fmt (_, (id, _, _), tys, in_params, out_params) =
+let pp_print_contract_call fmt (_, (id, _), tys, in_params, out_params) =
   match tys with 
   | [] ->
     Format.fprintf
@@ -1173,7 +1174,7 @@ let pp_print_contract_spec ppf = function
     pp_print_contract contract
 
 (* Pretty-prints a contract node. *)
-let pp_print_contract_node_decl ppf ((n,_,_),p,i,o,(_,e))
+let pp_print_contract_node_decl ppf ((n,_),p,i,o,(_,e))
  =
      Format.fprintf
        ppf
@@ -1190,7 +1191,7 @@ let pp_print_contract_node_decl ppf ((n,_,_),p,i,o,(_,e))
        pp_print_contract e
     
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, ((n,_,_), ext, opac, p, i, o, l, e, r)
+  _, ((n,_), ext, opac, p, i, o, l, e, r)
 ) =
     if e = [] then
       Format.fprintf ppf

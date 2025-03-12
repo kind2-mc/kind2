@@ -374,12 +374,12 @@ let get_node_internal_name in_sys scope =
   | Some node -> (LustreNode.internal_string_of_node_name node.name)
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
-let get_node_user_name_tag in_sys scope =
+let get_node_user_name_tags in_sys scope =
   match get_lustre_node in_sys scope with 
   | Some node ->  
-    let (_, node_ty, _) = node.name in
-    (LustreNode.user_name_of_node_name node.name), node_ty
-  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, None
+    let (_, tags) = node.name in
+    (LustreNode.user_name_of_node_name node.name), tags
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, []
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
