@@ -598,6 +598,7 @@ and compile_ast_type
   | A.Int16 _ -> X.singleton X.empty_index (Type.t_bv 16)
   | A.Int32 _ -> X.singleton X.empty_index (Type.t_bv 32)
   | A.Int64 _ -> X.singleton X.empty_index (Type.t_bv 64)
+  | A.BitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
   | A.Real _ -> X.singleton X.empty_index Type.t_real
   | A.IntRange (_, lbound, ubound) -> 
     (* TODO: Old code does subtyping here, currently missing *)
@@ -646,7 +647,7 @@ and compile_ast_type
       let over_indices j t a = X.add (X.ListIndex i :: j) t a in
       let compiled_type = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_type a
-    in
+    in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
@@ -784,6 +785,10 @@ and compile_ast_expr
     (* TODO: Old code does three error checks here doublecheck *)
     X.map2 (fun _ -> mk) expr1 expr2
 
+  and compile_bvextract bounds mk expr ub lb =
+    (* TODO: Old code does a type check here *)
+    X.map (mk ub lb) (compile_ast_expr cstate ctx bounds map expr)
+
   and compile_quantifier bounds mk avars expr =
     let vars, quant_var_map = vars_of_quant cstate ctx map avars in
     let bounds = bounds @
@@ -803,7 +808,7 @@ and compile_ast_expr
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
   and compile_ite bounds expr1 expr2 expr3 =
-    (* TODO: Old code checks that expr1 is a non-indexed boolean *)
+    (*!! TODO: Old code checks that expr1 is a non-indexed boolean *)
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr1 = match X.bindings expr1 with
       | [_, expr] -> expr
@@ -1099,6 +1104,8 @@ and compile_ast_expr
     compile_binary bounds E.mk_bvshl expr1 expr2
   | A.BinaryOp (_, A.BVShiftR, expr1, expr2) ->
     compile_binary bounds E.mk_bvshr expr1 expr2
+  | A.BinaryOp (_, A.BVConcat, expr1, expr2) -> 
+    compile_binary bounds E.mk_bvconcat expr1 expr2
   | A.CompOp (_, A.Lte, expr1, expr2) ->
     compile_binary bounds E.mk_lte expr1 expr2 
   | A.CompOp (_, A.Lt, expr1, expr2) ->
@@ -1129,6 +1136,8 @@ and compile_ast_expr
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases
+  | A.Extract (_, expr, ub, lb) -> 
+    compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)

@@ -54,8 +54,8 @@ let pos_of_expr = function
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _ , _) | Call (pos, _ , _ , _ )
-  | AnyOp (pos, _, _, _)
+  | Arrow (pos , _, _) | Call (pos, _, _, _)
+  | AnyOp (pos, _, _, _) | Extract (pos, _, _, _)
   -> pos
 
 let type_arity ty =
@@ -755,6 +755,7 @@ let rec vars_of_node_calls_h obs =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> vars obs e
   | BinaryOp (_,_,e1, e2) -> vars obs e1 |> SI.union (vars obs e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
@@ -1102,6 +1103,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      CompOp (p, op, e1', e2')
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | Extract (p, e, ub, lb) -> Extract (p, abstract_pre_subexpressions e, ub, lb)
 
   (* Structured expressions *)
   | RecordExpr (p, i, ps, flds) -> RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))

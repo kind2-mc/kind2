@@ -968,6 +968,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
     vars, UnaryOp (pos, op, e')
+  | Extract (pos, e, ub, lb) -> 
+    let vars, e' = r map e in 
+    vars, Extract (pos, e', ub, lb)
   | BinaryOp (pos, op, e1, e2) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
@@ -2122,6 +2125,9 @@ and normalize_expr ?guard info node_id map =
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     UnaryOp (pos, op, nexpr), gids, warnings
+  | Extract (pos, expr, ub, lb) ->
+    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
+    Extract (pos, nexpr, ub, lb), gids, warnings
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
@@ -2255,4 +2261,4 @@ and normalize_ty info node_id map id ty =
   | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
   | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ -> ty, empty (), []
+  | ArrayType _ | EnumType _ | TArr _ | BitVector _ -> ty, empty (), []

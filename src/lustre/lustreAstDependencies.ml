@@ -277,7 +277,8 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
     | Int16 _
     | Int32 _
     | Int64 _
-    | Real _ -> empty_dependency_analysis_data
+    | Real _ 
+    | BitVector _ -> empty_dependency_analysis_data
   | EnumType (pos, _, evals) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (Lib.flip (singleton_dependency_analysis_data const_prefix) pos) evals)   
@@ -385,6 +386,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Values *)
   | LA.Const _ -> []
   (* Operators *)
+  | LA.Extract (_, e, _, _)
   | LA.UnaryOp (_, _, e) -> get_node_call_from_expr e
   | LA.BinaryOp (_, _, e1, e2) -> (get_node_call_from_expr e1)
                                   @ (get_node_call_from_expr e2)
@@ -432,7 +434,7 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
+  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | BitVector _
   | Bool _ | Real _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ -> []
 (** Extracts all the node calls from a type *)
 
@@ -647,6 +649,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Const _ -> SI.empty
 
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> r e
   | BinaryOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   | TernaryOp (_,_, e1, e2, e3) -> SI.union (SI.union (r e1) (r e2)) (r e3)
@@ -786,6 +789,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok [List.fold_left union_dependency_analysis_data
              empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)
+    | LA.Extract (_, e, _, _)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
   | LA.BinaryOp (_, _, e1, e2)
     | LA.CompOp (_, _, e1, e2) ->

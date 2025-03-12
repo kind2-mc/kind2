@@ -546,6 +546,7 @@ let ensure_symbol_qf_lira s =
   | `TO_INT32
   | `TO_INT64
   | `BV2NAT
+  | `BV_TO_INT
   | `SELECT _
   | `STORE ->
     

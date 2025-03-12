@@ -228,7 +228,7 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
   )
 end
 
-module Int8Miner: MachineIntegerMiner = struct
+(* module Int8Miner: MachineIntegerMiner = struct
   let name = "Int8"
   let mine = InvGenMiner.Int8.mine
 end
@@ -246,14 +246,14 @@ end
 module Int64Miner: MachineIntegerMiner = struct
   let name = "Int64"
   let mine = InvGenMiner.Int64.mine
-end
-
+end *)
+(* 
 module Int8: Domain = MakeMachineInteger(MakeSigned(Int8Miner))
 module Int16: Domain = MakeMachineInteger(MakeSigned(Int16Miner))
 module Int32: Domain = MakeMachineInteger(MakeSigned(Int32Miner))
-module Int64: Domain = MakeMachineInteger(MakeSigned(Int64Miner))
+module Int64: Domain = MakeMachineInteger(MakeSigned(Int64Miner)) *)
 
-module UInt8Miner: MachineIntegerMiner = struct
+(* module UInt8Miner: MachineIntegerMiner = struct
   let name = "UInt8"
   let mine = InvGenMiner.UInt8.mine
 end
@@ -271,12 +271,12 @@ end
 module UInt64Miner: MachineIntegerMiner = struct
   let name = "UInt64"
   let mine = InvGenMiner.UInt64.mine
-end
+end *)
 
-module UInt8: Domain = MakeMachineInteger(MakeUnsigned(UInt8Miner))
+(* module UInt8: Domain = MakeMachineInteger(MakeUnsigned(UInt8Miner))
 module UInt16: Domain = MakeMachineInteger(MakeUnsigned(UInt16Miner))
 module UInt32: Domain = MakeMachineInteger(MakeUnsigned(UInt32Miner))
-module UInt64: Domain = MakeMachineInteger(MakeUnsigned(UInt64Miner))
+module UInt64: Domain = MakeMachineInteger(MakeUnsigned(UInt64Miner)) *)
 
 (** Real domain with less than or equal to. *)
 module Real: Domain = struct

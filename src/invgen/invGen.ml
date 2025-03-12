@@ -760,7 +760,11 @@ module BoolInvGen = Make(InvGenGraph.Bool)
 module IntInvGen = Make(InvGenGraph.Int)
 
 (** Int8 invariant generation. *)
-module Int8InvGen = Make(InvGenGraph.Int8)
+(*!! Generalize this stuff. 
+     Look at types of variables in transition system, and instantiate invariant generation 
+     for all the present types.
+*)
+(* module Int8InvGen = Make(InvGenGraph.Int8)
 
 (** Int16 invariant generation. *)
 module Int16InvGen = Make(InvGenGraph.Int16)
@@ -781,7 +785,7 @@ module UInt16InvGen = Make(InvGenGraph.UInt16)
 module UInt32InvGen = Make(InvGenGraph.UInt32)
 
 (** UInt64 invariant generation. *)
-module UInt64InvGen = Make(InvGenGraph.UInt64)
+module UInt64InvGen = Make(InvGenGraph.UInt64) *)
 
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
@@ -796,7 +800,7 @@ module EqOnly = struct
   module IntInvGen = Make( InvGenGraph.EqOnly.Int )
 
   (** Graph of int8s. *)
-  module Int8InvGen = Make( InvGenGraph.EqOnly.Int8 )
+  (* module Int8InvGen = Make( InvGenGraph.EqOnly.Int8 )
 
   (** Graph of int16s. *)
   module Int16InvGen = Make( InvGenGraph.EqOnly.Int16 )
@@ -817,7 +821,7 @@ module EqOnly = struct
   module UInt32InvGen = Make( InvGenGraph.EqOnly.UInt32 )
 
   (** Graph of uint64s. *)
-  module UInt64InvGen = Make( InvGenGraph.EqOnly.UInt64 )
+  module UInt64InvGen = Make( InvGenGraph.EqOnly.UInt64 ) *)
 
   (** Graph of reals. *)
   module RealInvGen = Make( InvGenGraph.EqOnly.Real )
@@ -852,7 +856,7 @@ let main_int two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
            two_state in_sys param sys
 
-let main_int8 two_state in_sys param sys =
+(* let main_int8 two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.Int8InvGen.main Int8InvGen.main
            two_state in_sys param sys
 
@@ -882,7 +886,7 @@ let main_uint32 two_state in_sys param sys =
 
 let main_uint64 two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.UInt64InvGen.main UInt64InvGen.main
-           two_state in_sys param sys
+           two_state in_sys param sys *)
 
 let main_real two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.RealInvGen.main RealInvGen.main

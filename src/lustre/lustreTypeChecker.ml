@@ -702,6 +702,9 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   | LA.BinaryOp (pos, bop, e1, e2) ->
     let* ty, warnings = infer_type_binary_op ctx nname pos bop e1 e2 in 
     R.ok (ty, warnings)
+  | LA.Extract (pos, _, ub, lb) -> 
+    (*!! TODO: check *)
+    R.ok (LA.BitVector (pos, (ub - lb) + 1), [])
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
     | Ite -> 
@@ -1225,6 +1228,9 @@ and infer_type_unary_op: tc_context -> HString.t option -> Lib.position -> LA.ex
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
   = fun ctx pos ty1 ty2 ->
+  match ty1, ty2 with 
+  | LA.BitVector (_, s1), BitVector (_, s2) -> R.ok (s1 = s2)
+  | _ ->
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
       LA.Int pos
@@ -1287,6 +1293,11 @@ and infer_type_binary_op: tc_context -> HString.t option -> Lib.position
         | Error id, _ -> (type_error pos (UnboundIdentifier id))
         | _, Error id -> (type_error pos (UnboundIdentifier id)))
       (type_error pos (UnificationFailed (ty1, ty2))))
+  | LA.BVConcat -> 
+      (*!! Chase identifiers for ty1 and ty2 (e.g., type aliases) *)
+      (match ty1, ty2 with
+        | BitVector (p, s1), BitVector (_, s2) -> R.ok (LA.BitVector (p, s1 + s2), warnings1 @ warnings2)
+        | _, _ -> (type_error pos (ExpectedMachineIntegerTypes (ty1, ty2))))
   | LA.BVShiftL | LA.BVShiftR ->
     (match is_type_signed_machine_int ctx ty1, is_type_unsigned_machine_int ctx ty1 with
       | Ok(b1), Ok(b2) when b1 || b2 -> 
@@ -2097,7 +2108,7 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
     )
   | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
   | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
-  | AbstractType _ | EnumType _ | History _ -> R.ok ([])
+  | AbstractType _ | EnumType _ | History _ | BitVector _ -> R.ok ([])
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
@@ -2138,6 +2149,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | Int32 _, Int32 _ -> R.ok true
   | Int64 _, Int64 _ -> R.ok true
   | Real _, Real _ -> R.ok true
+  | BitVector (_, s1), BitVector (_, s2) -> R.ok (s1 = s2)
 
   (* Integer Range *)
   | IntRange _, IntRange _ -> R.ok true

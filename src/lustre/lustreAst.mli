@@ -76,7 +76,7 @@ type unary_operator =
 type binary_operator =
   | And | Or | Xor | Impl
   | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
   | Ite
@@ -109,6 +109,7 @@ type lustre_type =
   | Int16 of position
   | Int32 of position
   | Int64 of position
+  | BitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
@@ -141,6 +142,7 @@ and expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
+  | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list

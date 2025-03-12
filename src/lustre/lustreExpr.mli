@@ -455,6 +455,12 @@ val mk_intdiv : t -> t -> t
 (** Return the bitvector conjunction of the two expressions. *)
 val mk_bvand : t -> t -> t
 
+(** Return the bitvector concatenation of the two expressions. *)
+val mk_bvconcat : t -> t -> t 
+
+(** Return the bitvector extraction of the first expression and the indices of the second and third expressions *)
+val mk_bvextract : int -> int -> t -> t 
+
 (** Return the bitvector disjunction of the two expressions. *)
 val mk_bvor : t -> t -> t
 

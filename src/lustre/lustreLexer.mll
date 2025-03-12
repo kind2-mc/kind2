@@ -319,6 +319,8 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
+
+  "concat", CONCAT;
       
   ]
 

@@ -260,6 +260,12 @@ val mk_to_int : t -> t
 (** Create a conversion from uint8 to an integer numeral *)
 val mk_uint8_to_int : t -> t
 
+(** Create a conversion from unsigned bitvector to an integer numeral *)
+val mk_ubv_to_int : t -> t
+
+(** Create a conversion from signed bitvector to an integer numeral *)
+val mk_bv_to_int : t -> t
+
 (** Create a conversion from uint16 to an integer numeral *)
 val mk_uint16_to_int : t -> t
 
@@ -312,7 +318,7 @@ val mk_bv2nat : t -> t
 val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
 
 (** Create a BV concatenation *)
-val mk_bvconcat : t -> t -> t
+val mk_bvconcat : t list -> t
 
 (** Create a BV sign extension *)
 val mk_bvsignext : Numeral.t -> t -> t

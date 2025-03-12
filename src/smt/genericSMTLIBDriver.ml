@@ -599,8 +599,9 @@ let rec interpr_type t = match Type.node_of_type t with
   | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
   | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 -> t
-  | Type.UBV _ | Type.BV _ -> raise 
-      (Invalid_argument "rec_interpr_type: BV size not allowed")
+  | Type.UBV _ | Type.BV _ -> t 
+  (*!! Here, need to support arbitrary widths *)
+      (* raise (Invalid_argument "rec_interpr_type: BV size not allowed") *)
   | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
@@ -755,6 +756,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
   | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
   | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
+  | `BV_TO_INT -> assert false (*!! TODO: fix *)
   | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"

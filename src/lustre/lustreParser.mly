@@ -161,6 +161,7 @@ let mk_span start_pos end_pos =
 %token FORALL
 %token EXISTS
 %token ANY
+%token CONCAT
     
 (* Tokens for relations *)
 %token LTE
@@ -215,6 +216,7 @@ let mk_span start_pos end_pos =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
+%left CONCAT (*!! TODO: Update to real syntax *)
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
@@ -387,6 +389,7 @@ lustre_type:
   | INT16 { A.Int16 (mk_pos $startpos) }
   | INT32 { A.Int32 (mk_pos $startpos) }
   | INT64 { A.Int64 (mk_pos $startpos) }
+  | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.BitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 
@@ -822,6 +825,7 @@ struct_item_list:
 index_var:
   | LSQBRACKET; s = ident; RSQBRACKET { s }
 
+
 (* Two colons (for mode reference). *)
 two_colons:
   | COLON ; COLON {}
@@ -930,6 +934,7 @@ pexpr(Q):
   | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
   | MINUS; e = expr { A.UnaryOp (mk_pos $startpos, A.Uminus, e) } 
   | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Plus, e1, e2) }
+  | e1 = pexpr(Q); CONCAT; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVConcat, e1, e2) }
   | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Times, e1, e2) }
   | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Div, e1, e2) }
   | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.IntDiv, e1, e2) }
@@ -1150,7 +1155,10 @@ pexpr(Q):
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
   (* A node or function call *)
-  | e = node_call { e } 
+  | e = node_call { e }
+
+  | e = pexpr(Q); LSQBRACKET; n1 = NUMERAL; COLON; n2 = NUMERAL; RSQBRACKET 
+    { A.Extract (mk_pos $startpos, e, int_of_string (HString.string_of_hstring n1), int_of_string (HString.string_of_hstring n2)) }
 
 
 %inline qexpr:

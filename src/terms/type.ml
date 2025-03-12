@@ -430,45 +430,22 @@ let is_int_range { Hashcons.node = t } = match t with
   | Array (_, _) -> false (* is_int_range t *)
   |  _ -> false
 
-let is_ubitvector { Hashcons.node = t } = match t with
-  | UBV _ -> true
-  | _ -> false
-
-let is_bitvector { Hashcons.node = t } = match t with
-  | BV _ -> true
-  | _ -> false
-
 let bitvectorsize { Hashcons.node = t } = match t with
   | UBV n -> n
   | BV n -> n
   | _ -> 0
-  
-let is_uint8 { Hashcons.node = t } = match t with
-  | UBV 8 -> true 
+
+let get_bv_size { Hashcons.node = t } = match t with
+  | BV i -> Some i 
+  | UBV i -> Some i
+  | _-> None
+
+let is_bitvector { Hashcons.node = t } = match t with
+  | BV _ -> true 
   | _-> false
 
-let is_uint16 { Hashcons.node = t } = match t with
-  | UBV 16 -> true 
-  | _-> false
-
-let is_uint32 { Hashcons.node = t } = match t with
-  | UBV 32 -> true 
-  | _-> false
-
-let is_uint64 { Hashcons.node = t } = match t with
-  | UBV 64 -> true 
-  | _-> false
-
-let is_int8 { Hashcons.node = t } = match t with
-  | BV 8 -> true 
-  | _-> false
-
-let is_int16 { Hashcons.node = t } = match t with
-  | BV 16 -> true 
-  | _-> false
-
-let is_int32 { Hashcons.node = t } = match t with
-  | BV 32 -> true 
+let is_ubitvector { Hashcons.node = t } = match t with
+  | UBV _ -> true 
   | _-> false
 
 let is_int64 { Hashcons.node = t } = match t with

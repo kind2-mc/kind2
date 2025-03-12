@@ -150,8 +150,9 @@ let rec interpr_type t = match Type.node_of_type t with
   | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
   | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 | Type.Real | Type.Abstr _  -> t
-  | Type.UBV _ | Type.BV _ -> raise 
-      (Invalid_argument "rec_interpr_type: BV size not allowed")
+  | Type.UBV _ | Type.BV _ -> t 
+  (*!! Here, support arb widths *)
+      (* raise (Invalid_argument "rec_interpr_type: BV size not allowed") *)
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -319,6 +320,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
+  | `BV_TO_INT -> assert false (*!! TODO: fix *)
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE _ ->

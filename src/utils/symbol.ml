@@ -83,7 +83,8 @@ type interpreted_symbol =
   | `TO_INT16             (* Conversion to an integer16 numeral (unary) *)  
   | `TO_INT32             (* Conversion to an integer32 numeral (unary) *)  
   | `TO_INT64             (* Conversion to an integer64 numeral (unary) *)  
-  | `BV2NAT               (* Conversion from bitvector to natural number *)
+  | `BV2NAT               (* Conversion from unsigned bitvector to natural number *)
+  | `BV_TO_INT            (* Conversion from signed bitvector to natural number *)
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -228,6 +229,7 @@ module Symbol_node = struct
     | `TO_INT32, `TO_INT32
     | `TO_INT64, `TO_INT64
     | `BV2NAT, `BV2NAT
+    | `BV_TO_INT, `BV_TO_INT
     | `IS_INT, `IS_INT -> true
 
   
@@ -304,6 +306,7 @@ module Symbol_node = struct
     | `TO_INT32, _ 
     | `TO_INT64, _ 
     | `BV2NAT, _
+    | `BV_TO_INT, _ 
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ 
@@ -474,6 +477,7 @@ let rec pp_print_symbol_node ppf = function
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
+  | `BV_TO_INT -> assert false (*!! TODO: fix *)
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 

@@ -42,6 +42,8 @@ and t
 (** Return the value {!kindtype} in a hashconsed type *)
 val node_of_type : t -> kindtype
 
+val get_bv_size : t -> int option
+
 (** {1 Hashtables, maps and sets} *)
 
 (** Comparison function on types *)
@@ -127,7 +129,6 @@ val is_bool : t -> bool
 (** Return [true] if the type is the integer type *)
 val is_int : t -> bool
 
-
 (* @author Arjun Viswanathan*)
 (** Return [true] if the type is an unsigned bitvector (integern) type *)
 val is_ubitvector : t -> bool
@@ -137,31 +138,6 @@ val is_bitvector : t -> bool
 
 (** Return [true] if the type is a bitvector (integern) type *)
 val bitvectorsize : t -> int
-
-(** Return [true] if the type is the unsigned integer8 type *)
-val is_uint8 : t -> bool
-
-(** Return [true] if the type is the unsigned integer16 type *)
-val is_uint16 : t -> bool
-
-(** Return [true] if the type is the unsigned integer32 type *)
-val is_uint32 : t -> bool
-
-(** Return [true] if the type is the unsigned integer64 type *)
-val is_uint64 : t -> bool
-
-(** Return [true] if the type is the integer8 type *)
-val is_int8 : t -> bool
-
-(** Return [true] if the type is the integer16 type *)
-val is_int16 : t -> bool
-
-(** Return [true] if the type is the integer32 type *)
-val is_int32 : t -> bool
-
-(** Return [true] if the type is the integer64 type *)
-val is_int64 : t -> bool
-
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool

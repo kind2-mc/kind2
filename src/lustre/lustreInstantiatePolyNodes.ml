@@ -271,7 +271,7 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
   | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64  _ | Int8 _ | Int16 _
   | Int32 _ | Int64 _ | IntRange _ | Real _ | UserType _
-  | AbstractType _ | EnumType _ | History _ -> ctx, gids, ty, [], node_decls_map
+  | AbstractType _ | EnumType _ | History _ | BitVector _ -> ctx, gids, ty, [], node_decls_map
 
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option -> (A.declaration * A.lustre_type list list) HString.HStringMap.t ->
                              A.expr -> Ctx.tc_context * GI.t GI.StringMap.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) HString.HStringMap.t
@@ -317,6 +317,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t opti
   | UnaryOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, UnaryOp (p, op, expr), decls, node_decls_map
+  | Extract (p, expr, ub, lb) -> 
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
+    ctx, gids, Extract (p, expr, ub, lb), decls, node_decls_map
   | BinaryOp (p, op, expr1, expr2) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 

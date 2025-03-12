@@ -85,7 +85,7 @@ let main_of_process = function
     | `INVGENOS -> renice () ; InvGen.main_bool false
     | `INVGENINT -> renice () ; InvGen.main_int true
     | `INVGENINTOS -> renice () ; InvGen.main_int false
-    | `INVGENINT8 -> renice () ; InvGen.main_int8 true
+    (* | `INVGENINT8 -> renice () ; InvGen.main_int8 true
     | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
     | `INVGENINT16 -> renice () ; InvGen.main_int16 true
     | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
@@ -100,7 +100,7 @@ let main_of_process = function
     | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
     | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
     | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
-    | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
+    | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false *)
     | `INVGENREAL -> renice () ; InvGen.main_real true
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
@@ -127,22 +127,6 @@ let on_exit_of_process mdl =
     | `INVGENOS -> InvGen.exit None
     | `INVGENINT -> InvGen.exit None
     | `INVGENINTOS -> InvGen.exit None
-    | `INVGENINT8 -> InvGen.exit None
-    | `INVGENINT8OS -> InvGen.exit None
-    | `INVGENINT16 -> InvGen.exit None
-    | `INVGENINT16OS -> InvGen.exit None
-    | `INVGENINT32 -> InvGen.exit None
-    | `INVGENINT32OS -> InvGen.exit None
-    | `INVGENINT64 -> InvGen.exit None
-    | `INVGENINT64OS -> InvGen.exit None
-    | `INVGENUINT8 -> InvGen.exit None
-    | `INVGENUINT8OS -> InvGen.exit None
-    | `INVGENUINT16 -> InvGen.exit None
-    | `INVGENUINT16OS -> InvGen.exit None
-    | `INVGENUINT32 -> InvGen.exit None
-    | `INVGENUINT32OS -> InvGen.exit None
-    | `INVGENUINT64 -> InvGen.exit None
-    | `INVGENUINT64OS -> InvGen.exit None
     | `INVGENREAL -> InvGen.exit None
     | `INVGENREALOS -> InvGen.exit None
     | `C2I -> C2I.on_exit None
@@ -575,17 +559,19 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | `Inferred fs when mem BV fs -> (
       let other_modules =
         if (List.mem `INVGENMACHOS invgenmach_modules) then
-          `INVGENINT8OS :: `INVGENINT16OS :: `INVGENINT32OS :: `INVGENINT64OS ::
+          (* `INVGENINT8OS :: `INVGENINT16OS :: `INVGENINT32OS :: `INVGENINT64OS ::
           `INVGENUINT8OS :: `INVGENUINT16OS :: `INVGENUINT32OS :: `INVGENUINT64OS
-          :: other_modules
+          ::  *)
+          other_modules
         else
           other_modules
        in
        let other_modules =
         if (List.mem `INVGENMACH invgenmach_modules) then
-          `INVGENINT8 :: `INVGENINT16 :: `INVGENINT32 :: `INVGENINT64 ::
+          (* `INVGENINT8 :: `INVGENINT16 :: `INVGENINT32 :: `INVGENINT64 ::
           `INVGENUINT8 :: `INVGENUINT16 :: `INVGENUINT32 :: `INVGENUINT64
-          :: other_modules
+          ::  *)
+          other_modules
         else
           other_modules
        in

@@ -619,7 +619,8 @@ let rec is_type_unsigned_machine_int: tc_context -> tc_type -> (bool, HString.t)
   | UInt8 _       
     | UInt16 _   
     | UInt32 _   
-    | UInt64 _ -> Ok true    
+    | UInt64 _ 
+    | BitVector _ -> Ok true    
   | RefinementType (_, (_, _, ty), _) -> is_type_unsigned_machine_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
@@ -634,6 +635,7 @@ let rec is_type_signed_machine_int: tc_context -> tc_type -> (bool, HString.t) r
     | Int16 _   
     | Int32 _   
     | Int64 _ -> Ok true 
+    (*!! BitVector? *)
   | RefinementType (_, (_, _, ty), _) -> is_type_signed_machine_int ctx ty 
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
@@ -704,7 +706,7 @@ let rec type_contains_subrange ctx = function
   | Bool _ | Int _ | Real _ | EnumType _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | BitVector _ -> false
 
 let rec type_contains_enum_or_subrange ctx = function
   | LA.IntRange _
@@ -752,7 +754,7 @@ let rec type_contains_enum_or_subrange ctx = function
   | Bool _ | Int _ | Real _  | EnumType _ | IntRange _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | BitVector _ -> false
 
 let type_contains_ref_or_subrange ctx ty =
   type_contains_ref ctx ty || type_contains_subrange ctx ty
