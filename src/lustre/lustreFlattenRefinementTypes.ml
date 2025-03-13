@@ -79,7 +79,7 @@ let rec flatten_ref_type ctx ty = match ty with
       | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
   | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
-  | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ | BitVector _ -> ty
+  | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->

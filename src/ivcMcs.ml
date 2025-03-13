@@ -144,7 +144,8 @@ let rec unannot_pos = function
   | A.Int16 _ -> A.Int16 dpos
   | A.Int32 _ -> A.Int32 dpos
   | A.Int64 _ -> A.Int64 dpos
-  | A.BitVector (_, s) -> A.BitVector (dpos, s)
+  | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
+  | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
   | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
   | A.Real _ -> A.Real dpos
   | A.UserType (_,ps,id) -> A.UserType (dpos,ps,id)

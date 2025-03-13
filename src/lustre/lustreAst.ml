@@ -137,7 +137,8 @@ and lustre_type =
   | Int16 of position
   | Int32 of position
   | Int64 of position
-  | BitVector of position * int
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
@@ -501,6 +502,7 @@ let rec pp_print_expr ppf =
     | UnaryOp (p, BVNot, e) -> p1 p "!" e
     | BinaryOp (p, BVShiftL, e1, e2) -> p2 p "shl" e1 e2
     | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
+    | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
@@ -616,7 +618,8 @@ and pp_print_lustre_type ppf = function
   | Int16 _ -> Format.fprintf ppf "int16"
   | Int32 _ -> Format.fprintf ppf "int32"
   | Int64 _ -> Format.fprintf ppf "int64"
-  | BitVector (_, i) -> Format.fprintf ppf "bv[%d]" i
+  | SBitVector (_, i) -> Format.fprintf ppf "int[%d]" i
+  | UBitVector (_, i) -> Format.fprintf ppf "uint[%d]" i
   | IntRange (_, l, u) -> 
     let pp_print_opt ppf expr_opt = (match expr_opt with
       | Some expr -> pp_print_expr ppf expr

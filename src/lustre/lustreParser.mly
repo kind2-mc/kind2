@@ -63,6 +63,7 @@ let mk_span start_pos end_pos =
 (* Tokens for types *)
 %token TYPE
 %token INT
+%token UINT
 %token UINT8;
 %token UINT16;
 %token UINT32;
@@ -390,7 +391,8 @@ lustre_type:
   | INT16 { A.Int16 (mk_pos $startpos) }
   | INT32 { A.Int32 (mk_pos $startpos) }
   | INT64 { A.Int64 (mk_pos $startpos) }
-  | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.BitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | UINT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 

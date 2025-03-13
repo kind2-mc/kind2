@@ -598,7 +598,8 @@ and compile_ast_type
   | A.Int16 _ -> X.singleton X.empty_index (Type.t_bv 16)
   | A.Int32 _ -> X.singleton X.empty_index (Type.t_bv 32)
   | A.Int64 _ -> X.singleton X.empty_index (Type.t_bv 64)
-  | A.BitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
+  | A.SBitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
+  | A.UBitVector (_, s) -> X.singleton X.empty_index (Type.t_ubv s)
   | A.Real _ -> X.singleton X.empty_index Type.t_real
   | A.IntRange (_, lbound, ubound) -> 
     (* TODO: Old code does subtyping here, currently missing *)
@@ -811,6 +812,7 @@ and compile_ast_expr
     let (mk_binary, mk_seq, const_expr) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true)
       | false -> (E.mk_neq, E.mk_or, E.t_false) in
+    Format.pp_print_flush Format.std_formatter ();
     let expr = compile_binary bounds mk_binary expr1 expr2 in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 

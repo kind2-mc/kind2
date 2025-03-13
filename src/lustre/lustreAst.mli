@@ -109,7 +109,8 @@ type lustre_type =
   | Int16 of position
   | Int32 of position
   | Int64 of position
-  | BitVector of position * int
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident

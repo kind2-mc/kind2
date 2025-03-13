@@ -275,7 +275,7 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
   | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64  _ | Int8 _ | Int16 _
   | Int32 _ | Int64 _ | IntRange _ | Real _ | UserType _
-  | AbstractType _ | EnumType _ | History _ | BitVector _ -> ctx, gids, ty, [], node_decls_map
+  | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
 
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t GI.StringMap.t -> HString.t option -> (A.declaration * A.lustre_type list list) HString.HStringMap.t ->
                              A.expr -> Ctx.tc_context * GI.t GI.StringMap.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) HString.HStringMap.t

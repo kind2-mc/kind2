@@ -224,6 +224,7 @@ let keyword_table = mk_hashtbl [
   (* Types *)
   "type", TYPE ;
   "int", INT ;
+  "uint", UINT ; 
   "uint8", UINT8 ;
   "uint16", UINT16 ;
   "uint32", UINT32 ;
