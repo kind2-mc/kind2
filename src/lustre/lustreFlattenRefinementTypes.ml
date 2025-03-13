@@ -28,7 +28,11 @@ let rec flatten_ref_type ctx ty = match ty with
     | None -> A.UserType (pos, ty_args, str))
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
-    RecordType (pos, id, tis)
+    RecordType (pos, id, tis) 
+  | Map (pos, ty1, ty2) -> 
+    let ty1 = flatten_ref_type ctx ty1 in 
+    let ty2 = flatten_ref_type ctx ty2 in 
+    Map (pos, ty1, ty2)
   | TupleType (pos, tys) | GroupType (pos, tys) -> 
     let tys = List.map (flatten_ref_type ctx) tys in 
     TupleType (pos, tys)

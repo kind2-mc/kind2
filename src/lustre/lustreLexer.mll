@@ -241,6 +241,7 @@ let keyword_table = mk_hashtbl [
   "struct", STRUCT ;
   "enum", ENUM ;
   "history", HISTORY ;
+  "map", MAP ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;
@@ -319,8 +320,6 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
-
-  "concat", CONCAT;
       
   ]
 
@@ -484,6 +483,7 @@ rule token = parse
   | "!" { BVNOT }
   | "lsh" { LSH } 
   | "rsh" { RSH }
+  | "++" { CONCAT }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }

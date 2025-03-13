@@ -844,14 +844,20 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   | LA.ArrayIndex (pos, e, i) ->
     let* index_type, warnings1 = infer_type_expr ctx nname i in
     let* index_type = expand_type_syn_reftype_history ctx index_type in
+    let* ty, warnings2 = infer_type_expr ctx nname e in 
+    let* ty = expand_type_syn_reftype_history ctx ty in 
     if is_expr_int_type ctx nname i
     then 
-      let* ty, warnings2 = infer_type_expr ctx nname e in 
-      let* ty = expand_type_syn_reftype_history ctx ty in 
-      match ty with 
+      match ty with
+      | LA.Map (_, _, b_ty) 
       | LA.ArrayType (_, (b_ty, _)) -> R.ok (b_ty, warnings1 @ warnings2)
       | ty -> type_error pos (IlltypedArrayIndex ty)
-    else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+    else (
+      (*!! TODO: Check the given index matches the expected index type *)
+      match ty with 
+      | LA.Map (_, _, element_type) -> R.ok (element_type, warnings1)
+      | _ -> type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+    )
 
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
@@ -2042,9 +2048,10 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
-  | LA.TArr (_, arg_ty, res_ty) ->
-    let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
-    let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
+  | LA.Map (_, ty1, ty2)
+  | LA.TArr (_, ty1, ty2) ->
+    let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
+    let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     R.ok (warnings1 @ warnings2)
   | LA.RecordType (_, _, idTys) ->
       let* warnings = (R.seq (List.map (fun (_, _, ty)

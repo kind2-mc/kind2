@@ -150,6 +150,7 @@ and lustre_type =
   | History of position * ident
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
+  | Map of position * lustre_type * lustre_type
 
 
 (* A declaration of an unclocked type *)

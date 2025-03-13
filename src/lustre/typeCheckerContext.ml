@@ -693,6 +693,7 @@ let rec type_contains_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -718,6 +719,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_or_subrange ctx ty1 || type_contains_enum_or_subrange ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -741,6 +743,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
+  | Map (_, ty1, ty2)
   | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
   | History (_, id) -> 
     (match lookup_ty ctx id with 

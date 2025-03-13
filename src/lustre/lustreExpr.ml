@@ -3540,18 +3540,9 @@ let type_of_select = function
 
   (* First argument must be an array type *)
   | s when Type.is_array s -> 
-
-    (function t -> 
-
-      if (Type.is_int t || Type.is_int_range t) then
-
+    (function _ -> 
         (* Return type of array elements *)
-        Type.elem_type_of_array s
-
-      else
-
-        (* Type of indexes do not match*)
-        raise Type_mismatch)
+        Type.elem_type_of_array s)
 
   (* Not an array type *)
   | _ -> raise Type_mismatch
