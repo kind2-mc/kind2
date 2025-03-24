@@ -1291,6 +1291,17 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
     let* g = mk_graph_eqn m eqn in
     let* gs = mk_graph_node_items m items in
     R.ok (union_dependency_analysis_data g gs)
+  | IfBlock (_, _, nis1, nis2) :: items -> 
+    let* gs1 = mk_graph_node_items m nis1 in
+    let* gs2 = mk_graph_node_items m nis2 in
+    let* gs3 = mk_graph_node_items m items in
+    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+  | FrameBlock (_, _, nes, nis) :: items -> 
+    let nes = List.map (fun ne -> LA.Body ne) nes in
+    let* gs1 = mk_graph_node_items m nes in
+    let* gs2 = mk_graph_node_items m nis in
+    let* gs3 = mk_graph_node_items m items in
+    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
   | _ :: items -> mk_graph_node_items m items
 (** Traverse all the node items to make a dependency graph  *)
 

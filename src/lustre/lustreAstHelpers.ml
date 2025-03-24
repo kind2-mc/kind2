@@ -1216,9 +1216,14 @@ let rec replace_idents locals1 locals2 expr =
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
-let extract_node_equation: node_item -> (eq_lhs * expr) list =
+let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]
+  | IfBlock (_, _, nis1, nis2) -> 
+    List.flatten (List.map extract_node_equation nis1) @ List.flatten (List.map extract_node_equation nis2)
+  | FrameBlock (_, _, nes, nis) -> 
+    let nes = List.map (fun ne -> Body ne) nes in
+    List.flatten (List.map extract_node_equation nes) @ List.flatten (List.map extract_node_equation nis)
   | _ -> []
 
 let get_last_node_name: declaration list -> ident option
