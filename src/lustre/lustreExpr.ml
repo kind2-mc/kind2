@@ -2034,10 +2034,12 @@ let eval_to_uint16 expr =
 (* Type of conversion to unsigned integer16  
 
    int: real -> uint16 
+
+   (*!! Why real goes to int? Why did this test fail after my changes, when it succeeded before? *)
 *)
 let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_ubitvector t -> Type.t_ubv 16
+  | t when Type.is_ubitvector t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 16
   | _ -> raise Type_mismatch
 
 
