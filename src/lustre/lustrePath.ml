@@ -996,7 +996,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_state, node_name =
     match N.node_is_state_handler node with
-    | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
+    | None -> false, N.user_name_of_node_id name |> I.string_of_ident true
     | Some state -> true, state
   in
   let (_, tags) = node.name in
@@ -1004,13 +1004,13 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     if is_function then "Function"
     else if is_state then "State"
     else if 
-      List.exists (fun tag -> match tag with | LustreAst.Environment -> true | _ -> false) tags 
+      LustreAst.NodeTagSet.exists (fun tag -> match tag with | LustreAst.Environment -> true | _ -> false) tags 
     then "Environment of"
     else if 
-      List.exists (fun tag -> match tag with | LustreAst.Contract -> true | _ -> false) tags 
+      LustreAst.NodeTagSet.exists (fun tag -> match tag with | LustreAst.Contract -> true | _ -> false) tags 
     then "Contract of"
     else if 
-      List.exists (fun tag -> match tag with | LustreAst.Type -> true | _ -> false) tags 
+      LustreAst.NodeTagSet.exists (fun tag -> match tag with | LustreAst.Type -> true | _ -> false) tags 
     then "Type"
     else "Node"
   in
@@ -1389,7 +1389,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
+      | None -> false, N.user_name_of_node_id name |> I.string_of_ident true
       | Some state -> true, state
     in
 
@@ -1804,7 +1804,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
 
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, N.user_name_of_node_name name |> I.string_of_ident true
+      | None -> false, N.user_name_of_node_id name |> I.string_of_ident true
       | Some state -> true, state
     in
 
@@ -1994,7 +1994,7 @@ let pos_to_numbers abstr_map nodes =
   let rec fold parents node =
 
     List.iter
-      (fun ({ N.call_node_name = name;
+      (fun ({ N.call_node_id = name;
              call_pos = pos; call_cond = cond;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
@@ -2116,7 +2116,7 @@ let reconstruct_lustre_streams subsystems state_vars =
       let hc' = Hashtbl.create 64 in
       let () = 
         Hashtbl.fold (fun key value acc -> (key, value) :: acc) hc [] |>
-        List.map (fun ((name, b), c) -> (LustreNode.internal_string_of_node_name name, b), c) |> 
+        List.map (fun ((name, b), c) -> (LustreNode.internal_string_of_node_id name, b), c) |> 
         List.iter (fun (k, v) -> Hashtbl.add hc' k v) 
       in
       let streams = List.flatten (List.map (get_lustre_streams hc') l) in

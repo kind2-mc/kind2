@@ -312,7 +312,9 @@ let pp_print_realizability_result_pt
   let node_name, node_tags = ISys.get_node_user_name_tags in_sys scope in
   (* Monomorphization info not relevant to this logging *)
   let node_tags = 
-    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+    List.filter 
+      (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) 
+      (LustreAst.NodeTagSet.elements node_tags)
   in
   let print_not_unknown_result tag =
     Format.fprintf
@@ -552,7 +554,9 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
   let node_name, node_tags = ISys.get_node_user_name_tags in_sys scope in
   (* Monomorphization info not relevant to this logging *)
   let node_tags = 
-    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+    List.filter 
+      (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) 
+      (LustreAst.NodeTagSet.elements node_tags)
   in
   match result with
   | Unknown -> (

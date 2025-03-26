@@ -344,13 +344,13 @@ let subrequirements_of_contract call_pos scope nname svar_map { C.assumes } =
         match name with
         | None -> (
           Format.asprintf "%a%a.assume%a"
-            (I.pp_print_ident true) (N.user_name_of_node_name nname)
+            (I.pp_print_ident true) (N.user_name_of_node_id nname)
             pp_print_line_and_column call_pos
             pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a.%s"
-            (I.pp_print_ident true) (N.user_name_of_node_name nname)
+            (I.pp_print_ident true) (N.user_name_of_node_id nname)
             pp_print_line_and_column call_pos n
         )
       in
@@ -639,7 +639,7 @@ let register_call_bound globals map_up sv =
    This factors out node calls with or without an activation
    condition *)
 let call_terms_of_node_call mk_fresh_state_var globals
-    { N.call_node_name ;
+    { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
       N.call_inputs    ;
@@ -711,7 +711,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
            let name =
              let row, col = row_col_of_pos call_pos in
              Format.asprintf "inst_%a_l%dc%d_%a_%d"
-               (I.pp_print_ident true) (N.internal_string_of_node_name call_node_name)
+               (I.pp_print_ident true) (N.internal_string_of_node_id call_node_id)
                row col
                StateVar.pp_print_state_var state_var
                call_id
@@ -725,7 +725,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
          in
 
          N.set_state_var_instance
-           inst_state_var call_pos (N.internal_string_of_node_name call_node_name) state_var;
+           inst_state_var call_pos (N.internal_string_of_node_id call_node_id) state_var;
           (* No need to call N.add_state_var_def for local instances
              because they have no definition in this node *)
          
@@ -789,7 +789,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name (N.user_name_of_node_name call_node_name) call_pos n
+          lift_prop_name (N.user_name_of_node_id call_node_id) call_pos n
         in
 
         (* Lift state variable of property
@@ -802,7 +802,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
         let prop_source =
           match p.P.prop_source with
           | P.Candidate src -> P.Candidate src
-          | _ -> P.Instantiated (I.to_scope (N.internal_string_of_node_name call_node_name), p)
+          | _ -> P.Instantiated (I.to_scope (N.internal_string_of_node_id call_node_id), p)
         in
 
         (* Property status is unknown *)
@@ -823,7 +823,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     | None -> []
     | Some contract -> (
       subrequirements_of_contract
-        call_pos (I.to_scope (N.internal_string_of_node_name call_node_name)) call_node_name state_var_map_up contract
+        call_pos (I.to_scope (N.internal_string_of_node_id call_node_id)) call_node_id state_var_map_up contract
     )
   in
 
@@ -964,12 +964,12 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [] }
+  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
-      try I.Map.find (N.internal_string_of_node_name call_node_name) trans_sys_defs 
+      try I.Map.find (N.internal_string_of_node_id call_node_id) trans_sys_defs 
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
     in
@@ -1031,12 +1031,12 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_id; N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
+  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [N.CRestart restart] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
-      try I.Map.find (N.internal_string_of_node_name call_node_name) trans_sys_defs 
+      try I.Map.find (N.internal_string_of_node_id call_node_id) trans_sys_defs 
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
     in
@@ -1107,7 +1107,7 @@ let rec constraints_of_node_calls
   (* Node call with activation condition *)
   | { N.call_id;
       N.call_pos;
-      N.call_node_name; 
+      N.call_node_id; 
       N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
       N.call_outputs; 
@@ -1118,7 +1118,7 @@ let rec constraints_of_node_calls
 
       try 
 
-        I.Map.find (N.internal_string_of_node_name call_node_name) trans_sys_defs 
+        I.Map.find (N.internal_string_of_node_id call_node_id) trans_sys_defs 
 
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
@@ -1165,7 +1165,7 @@ let rec constraints_of_node_calls
               let name =
                 let row, col = row_col_of_pos call_pos in
                 Format.asprintf "shw_%a_l%dc%d_%a"
-                  (I.pp_print_ident true) (N.internal_string_of_node_name call_node_name)
+                  (I.pp_print_ident true) (N.internal_string_of_node_id call_node_id)
                   row col
                   StateVar.pp_print_state_var formal_sv
               in
@@ -1259,7 +1259,7 @@ let rec constraints_of_node_calls
       let name =
         let row, col = row_col_of_pos call_pos in
         Format.asprintf "tck_%a_l%dc%d_%a"
-          (I.pp_print_ident true) (N.internal_string_of_node_name call_node_name)
+          (I.pp_print_ident true) (N.internal_string_of_node_id call_node_id)
           row col 
           StateVar.pp_print_state_var clock
       in
@@ -1996,7 +1996,7 @@ let rec trans_sys_of_node'
 
     (* Transition system for node has been created and added to
        accumulator meanwhile? *)
-    if I.Map.mem (N.internal_string_of_node_name node_name) trans_sys_defs then
+    if I.Map.mem (N.internal_string_of_node_id node_name) trans_sys_defs then
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
@@ -2038,12 +2038,12 @@ let rec trans_sys_of_node'
             (Invalid_argument
                (Format.asprintf 
                   "trans_sys_of_node: node %a not found"
-                  (I.pp_print_ident true) (N.user_name_of_node_name node_name)))
+                  (I.pp_print_ident true) (N.user_name_of_node_id node_name)))
 
       in
         
       (* Scope of node name *)
-      let scope = [I.string_of_ident true (N.internal_string_of_node_name node_name)] in
+      let scope = [I.string_of_ident true (N.internal_string_of_node_id node_name)] in
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
@@ -2091,14 +2091,14 @@ let rec trans_sys_of_node'
       let tl' = 
 
         List.fold_left 
-          (fun accum { N.call_node_name } -> 
+          (fun accum { N.call_node_id } -> 
              if 
 
                (* Transition system for node created? *)
-               I.Map.mem (N.internal_string_of_node_name call_node_name) trans_sys_defs || 
+               I.Map.mem (N.internal_string_of_node_id call_node_id) trans_sys_defs || 
 
                (* Node already pushed to stack before this node? *)
-               List.exists (N.eq_node_names call_node_name) accum
+               List.exists (N.eq_node_ids call_node_id) accum
 
              then 
 
@@ -2108,7 +2108,7 @@ let rec trans_sys_of_node'
              else
 
                (* Push node to top of stack *)
-               call_node_name :: accum)
+               call_node_id :: accum)
 
           []
           calls
@@ -2183,7 +2183,7 @@ let rec trans_sys_of_node'
                 fun (ufs, eqs) output ->
                   let uf_name =
                     Format.asprintf "%a.%s.%s"
-                      (LustreIdent.pp_print_ident true) (N.internal_string_of_node_name node.name)
+                      (LustreIdent.pp_print_ident true) (N.internal_string_of_node_id node.name)
                       (StateVar.name_of_state_var output)
                       Lib.ReservedIds.function_of_inputs
                   in
@@ -2226,7 +2226,7 @@ let rec trans_sys_of_node'
               in
 
               let include_assumption =
-                N.eq_node_names node_name top_name && not interpreter_mode
+                N.eq_node_ids node_name top_name && not interpreter_mode
               in
 
               (* Add requirements to invariants if node is the top node *)
@@ -2426,7 +2426,7 @@ let rec trans_sys_of_node'
             init_terms,
             trans_terms
           =
-            if N.eq_node_names node_name top_name then
+            if N.eq_node_ids node_name top_name then
               constraints_of_history_congruence
                 mk_fresh_state_var
                 history_svars
@@ -2477,7 +2477,7 @@ let rec trans_sys_of_node'
           in
 
           let trans_terms =
-            if N.eq_node_names node_name top_name then
+            if N.eq_node_ids node_name top_name then
               constraints_of_ctr ctr_svars trans_terms
             else
               trans_terms
@@ -2628,7 +2628,7 @@ let rec trans_sys_of_node'
 
           let assumption =
             if
-              not (N.eq_node_names node_name top_name) &&
+              not (N.eq_node_ids node_name top_name) &&
               not (A.param_scope_is_abstract analysis_param scope) &&
               valid_prop_terms <> []
             then
@@ -2722,7 +2722,7 @@ let rec trans_sys_of_node'
               (Format.asprintf
                  "%s_%a_%d"
                  Ids.init_uf_string
-                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_name node_name)
+                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_id node_name)
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var init_formals)
               Type.t_bool
@@ -2754,7 +2754,7 @@ let rec trans_sys_of_node'
               (Format.asprintf
                  "%s_%a_%d"
                  Ids.trans_uf_string
-                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_name node_name)
+                 (LustreIdent.pp_print_ident true) (N.internal_string_of_node_id node_name)
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var trans_formals)
               Type.t_bool
@@ -2763,7 +2763,7 @@ let rec trans_sys_of_node'
           (* UFs of the system. *)
           let ufs = function_ufs in
           
-          let ty_args_opt = match node_name with 
+          (* let ty_args_opt = match node_name with 
           | (_, tags) -> Lib.find_map (fun tag -> match tag with 
             | LustreAst.Monomorphization (ty_args, _) -> Some ty_args
             | _ -> None
@@ -2771,7 +2771,7 @@ let rec trans_sys_of_node'
           let ty_args = match ty_args_opt with 
           | Some ty_args -> ty_args 
           | None -> []
-          in
+          in *)
           
           (* ****************************************************** *)
           (* Create transition system                               *)
@@ -2780,8 +2780,7 @@ let rec trans_sys_of_node'
           (* Create transition system *)
           let trans_sys, _ = 
             TransSys.mk_trans_sys 
-              [N.internal_string_of_node_name node_name |> I.string_of_ident true]
-              ty_args
+              [N.internal_string_of_node_id node_name |> I.string_of_ident true]
               None (* instance_state_var *)
               init_flag
               (* [] *) (* global_state_vars *)
@@ -2808,7 +2807,7 @@ let rec trans_sys_of_node'
             top_name
             analysis_param
             (I.Map.add 
-              (N.internal_string_of_node_name node_name)
+              (N.internal_string_of_node_id node_name)
                { node;
                  trans_sys;
                  init_uf_symbol;
@@ -2887,7 +2886,7 @@ let trans_sys_of_nodes
         [top_name]
 
       (* Return the transition system of the top node *)
-      |> I.Map.find (N.internal_string_of_node_name top_name)
+      |> I.Map.find (N.internal_string_of_node_id top_name)
 
     (* Transition system must have been created *)
     with Not_found -> assert false

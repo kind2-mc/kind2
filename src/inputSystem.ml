@@ -366,20 +366,20 @@ let get_lustre_node (type s) (input_system : s t) scope =
 
 let get_node_user_name in_sys scope = 
   match get_lustre_node in_sys scope with 
-  | Some node -> (LustreNode.user_name_of_node_name node.name)
+  | Some node -> (LustreNode.user_name_of_node_id node.name)
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
 let get_node_internal_name in_sys scope = 
   match get_lustre_node in_sys scope with 
-  | Some node -> (LustreNode.internal_string_of_node_name node.name)
+  | Some node -> (LustreNode.internal_string_of_node_id node.name)
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
 let get_node_user_name_tags in_sys scope =
   match get_lustre_node in_sys scope with 
   | Some node ->  
     let (_, tags) = node.name in
-    (LustreNode.user_name_of_node_name node.name), tags
-  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, []
+    (LustreNode.user_name_of_node_id node.name), tags
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, LustreAst.NodeTagSet.empty
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
@@ -660,7 +660,7 @@ let slice_to_abstraction_and_property
       (* Get clock of node call identified by its position. *)
       let { N.call_cond } = 
         List.find (fun {
-            N.call_node_name; N.call_pos
+            N.call_node_id; N.call_pos
           } -> call_pos = pos
         ) calls
       in

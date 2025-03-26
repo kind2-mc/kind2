@@ -183,7 +183,7 @@ let undef_expr pos_sv_map const_expr typ expr =
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
           (*!! Check *)
-          (pos, [], (HString.mk_hstring (rand_function_name_for n typ), []),
+          (pos, [], (HString.mk_hstring (rand_function_name_for n typ), A.NodeTagSet.empty),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
@@ -193,7 +193,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
             (*!! Check *)
-            (pos, [], (HString.mk_hstring (rand_function_name_for n typ), []),
+            (pos, [], (HString.mk_hstring (rand_function_name_for n typ), A.NodeTagSet.empty),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
@@ -515,7 +515,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
   in
   aux minimized (!max_nb_args)*)
   Hashtbl.fold (fun ts n acc ->
-    (rand_node (HString.mk_hstring n, []) ts)::acc
+    (rand_node (HString.mk_hstring n, A.NodeTagSet.empty) ts)::acc
   )
   rand_functions
   minimized

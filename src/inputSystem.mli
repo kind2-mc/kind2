@@ -154,7 +154,7 @@ val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
 
-val get_node_user_name_tags : _ t -> Scope.t -> LustreIdent.t * LustreAst.node_tag list
+val get_node_user_name_tags : _ t -> Scope.t -> LustreIdent.t * LustreAst.NodeTagSet.t
 
 (* 
    Local Variables:

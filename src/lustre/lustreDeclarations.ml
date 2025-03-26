@@ -1280,12 +1280,12 @@ let rec check_no_contract_in_node_calls ctx = function
 (* No call left, done. *)
 | [] -> ()
 (* Let's do this. *)
-| { N.call_node_name ; N.call_pos } :: calls -> (
+| { N.call_node_id ; N.call_pos } :: calls -> (
   match
-    try C.node_of_name ctx call_node_name
+    try C.node_of_name ctx call_node_id
     with Not_found -> fail_at_position call_pos (
       Format.asprintf "call to unknown node '%a'"
-        (LustreIdent.pp_print_ident false) call_node_name
+        (LustreIdent.pp_print_ident false) call_node_id
     )
   with
   | Some contract ->
@@ -1690,7 +1690,7 @@ and eval_node_contract_spec
              Preparing recursive call. *)
           let known = I.Set.add name known in
           calls |> List.fold_left (
-            fun acc { N.call_node_name = (sub_name, _) } -> 
+            fun acc { N.call_node_id = (sub_name, _) } -> 
               if I.Set.mem sub_name known then acc
               else (node_of_name ctx sub_name) :: acc
           ) tail
@@ -1704,7 +1704,7 @@ and eval_node_contract_spec
       in
       let subs, known =
         calls |> List.fold_left (
-          fun (subs, known) { N.call_node_name = (sub_name, _) } ->
+          fun (subs, known) { N.call_node_id = (sub_name, _) } ->
             if I.Set.mem sub_name known then subs, known
             else (node_of_name ctx sub_name) :: subs, I.Set.add sub_name known
         ) ([], I.Set.empty)
@@ -2166,15 +2166,15 @@ and declaration_to_context ctx = function
   (* Check that all there's no (non-function) node call. *)
   ( C.current_node_calls fun_ctx
     |> List.iter (
-      fun { N.call_pos ; N.call_node_name = (call_node_name, _) } ->
-        let node = C.node_of_name fun_ctx call_node_name in
+      fun { N.call_pos ; N.call_node_id = (call_node_id, _) } ->
+        let node = C.node_of_name fun_ctx call_node_id in
         if not node.N.is_function then fail_at_position call_pos (
           Format.asprintf
             "@[<v>in function %a@ \
             illegal call to node %a@ \
             functions can only call other functions, not nodes@]"
             (I.pp_print_ident false) ident
-            (I.pp_print_ident false) call_node_name
+            (I.pp_print_ident false) call_node_id
         )
     )
   ) ;

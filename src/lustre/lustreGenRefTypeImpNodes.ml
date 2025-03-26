@@ -94,7 +94,7 @@ let mk_generated_env_contract_eqs ctx base_contract =
       R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
     | A.ContractCall (pos, (name, _), ty_args, ips, ops) ->
       if Flags.Contracts.check_environment () then ( 
-        let name = name, [A.Environment] in
+        let name = name, A.NodeTagSet.singleton A.Environment in
         (* Since we are flipping the inputs and outputs of the generated contract, 
           we also need to flip inputs and outputs of the call *)
         let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
@@ -141,11 +141,11 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
 let contract_node_decl_to_contracts
 = fun ctx ((id, _), params, inputs, outputs, (pos, base_contract)) -> 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
-  let gen_node_id = id, [A.Environment] in
+  let gen_node_id = id, A.NodeTagSet.singleton A.Environment in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   (* We generate a contract representing this contract's inputs/environment *)
   let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
-  let gids = List.fold_left GI.union (GI.empty ()) gids |> A.NodeNameMap.singleton gen_node_id in
+  let gids = List.fold_left GI.union (GI.empty ()) gids |> A.NodeIdMap.singleton gen_node_id in
   if Flags.Contracts.check_environment () 
   then 
     (* Update ctx with info about the generated contract *)
@@ -168,10 +168,10 @@ let node_decl_to_contracts
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
-  let gen_node_id = id, [A.Environment] in
-  let gen_node_id2 = id, [A.Contract] in
+  let gen_node_id = id, A.NodeTagSet.singleton A.Environment in
+  let gen_node_id2 = id, A.NodeTagSet.singleton A.Contract in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
-  let gids = List.fold_left GI.union (GI.empty ()) gids |> A.NodeNameMap.singleton gen_node_id in
+  let gids = List.fold_left GI.union (GI.empty ()) gids |> A.NodeIdMap.singleton gen_node_id in
   (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
@@ -203,14 +203,14 @@ let node_decl_to_contracts
 let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t list -> A.declaration option
 = fun pos id ty ps -> 
   let span = { A.start_pos = pos; end_pos = pos } in
-  let gen_node_id = id, [A.Type] in
+  let gen_node_id = id, A.NodeTagSet.singleton A.Type in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
   (* Avoid name clashes (e.g., with enum constants) *)
   let id = mk_fresh_id id in
   Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
-let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t A.NodeNameMap.t, [> error]) result
+let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t A.NodeIdMap.t, [> error]) result
 = fun ctx decls -> 
   let* decls, ctx, gids = R.seq_chain (fun (acc_decls, acc_ctx, acc_gids) decl -> 
     match decl with 
@@ -232,7 +232,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
       R.ok (
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
-        A.NodeNameMap.merge GI.union_keys2 gids acc_gids
+        A.NodeIdMap.merge GI.union_keys2 gids acc_gids
       )
     | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
       (* Add main annotations to imported functions *)
@@ -244,16 +244,16 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
       R.ok (
         A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
-        A.NodeNameMap.merge GI.union_keys2 gids acc_gids
+        A.NodeIdMap.merge GI.union_keys2 gids acc_gids
       )
     | A.ContractNodeDecl (span, contract_node_decl) -> 
       let* decls, acc_ctx, gids = contract_node_decl_to_contracts acc_ctx contract_node_decl in 
       let decls = List.map (fun decl -> A.ContractNodeDecl (span, decl)) decls in
       R.ok (
         A.ContractNodeDecl (span, contract_node_decl) :: decls @ acc_decls, acc_ctx, 
-        A.NodeNameMap.merge GI.union_keys2 gids acc_gids
+        A.NodeIdMap.merge GI.union_keys2 gids acc_gids
       )
     | A.NodeParamInst _ -> R.ok (decl :: acc_decls, acc_ctx, acc_gids)
-  ) ([], ctx, A.NodeNameMap.empty) decls 
+  ) ([], ctx, A.NodeIdMap.empty) decls 
   in 
   R.ok (List.rev decls, ctx, gids)

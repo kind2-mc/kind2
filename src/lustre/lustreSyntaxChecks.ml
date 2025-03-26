@@ -1053,7 +1053,7 @@ let no_mismatched_clock is_bool e =
 let ovq_check_expr inlinable_funcs ctx = function
 | LA.Call (pos, _, (i, _), args) ->
   let inlinable_funcs = 
-    List.map (fun (id, _) -> id) (LA.NodeNameSet.elements inlinable_funcs) 
+    List.map (fun (id, _) -> id) (LA.NodeIdSet.elements inlinable_funcs) 
     |> LA.SI.of_list 
   in
   let vars =
@@ -1106,7 +1106,7 @@ let oqv_check_contract_node_decl inlinable_funcs ctx (_, _, inputs, outputs, con
   in
   Ok warnings
 
-let oqv_check_decl: LA.NodeNameSet.t -> context -> LA.declaration -> ([> warning] list, [> error]) result
+let oqv_check_decl: LA.NodeIdSet.t -> context -> LA.declaration -> ([> warning] list, [> error]) result
 = fun inlinable_funcs ctx -> function
   | NodeDecl (_, decl) ->
     oqv_check_node_decl inlinable_funcs ctx decl

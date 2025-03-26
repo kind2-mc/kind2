@@ -1595,7 +1595,7 @@ let log_progress mdl level k =
 
 let pp_print_user_node_name in_sys ppf scope = 
   match InputSystem.get_lustre_node in_sys scope with
-  | Some node -> let name_string = LustreNode.user_name_of_node_name node.name |> LustreIdent.string_of_ident true in
+  | Some node -> let name_string = LustreNode.user_name_of_node_id node.name |> LustreIdent.string_of_ident true in
     Format.pp_print_string ppf name_string
   | None -> Scope.pp_print_scope_internal ppf scope
 
@@ -1643,7 +1643,9 @@ let log_contractck_analysis_start in_sys scope =
   let node_name, node_tags = InputSystem.get_node_user_name_tags in_sys scope in
   (* Monomorphization info not relevant to this logging *)
   let node_tags = 
-    List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
+    List.filter 
+      (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) 
+      (LustreAst.NodeTagSet.elements node_tags)
   in
   if Flags.log_level () <> L_off then (
     match get_log_format () with

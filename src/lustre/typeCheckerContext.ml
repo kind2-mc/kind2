@@ -47,7 +47,7 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type node_ty_store = tc_type LA.NodeNameMap.t
+type node_ty_store = tc_type LA.NodeIdMap.t
 (** A store of identifier and their types*)
 
 (** A store of monomorphized node names and their type arguments *)
@@ -67,16 +67,16 @@ type const_store = (LA.expr * tc_type option * source) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
-type ty_var_store = (HString.t list) LA.NodeNameMap.t
+type ty_var_store = (HString.t list) LA.NodeIdMap.t
 (** A store of type variable IDs for each node ID *)
 
 type ty_ty_var_store = (HString.t list) IMap.t
 (** A store of type variable IDs for each user type *)
 
-type contract_exports = (ty_store) LA.NodeNameMap.t
+type contract_exports = (ty_store) LA.NodeIdMap.t
 (** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
 
-type param_store = (HString.t * bool) list LA.NodeNameMap.t
+type param_store = (HString.t * bool) list LA.NodeIdMap.t
 (** A store of parameter names and flags indicating if the argument is constant *)
 
 type tc_context = { ty_syns: ty_alias_store       (* store of the type alias mappings *)
@@ -103,15 +103,15 @@ let (let*) = Res.(>>=)
 let empty_tc_context: tc_context =
   { ty_syns = IMap.empty
   ; ty_ctx = IMap.empty
-  ; contract_ctx = LA.NodeNameMap.empty
-  ; node_ctx = LA.NodeNameMap.empty
-  ; node_param_attr = LA.NodeNameMap.empty
+  ; contract_ctx = LA.NodeIdMap.empty
+  ; node_ctx = LA.NodeIdMap.empty
+  ; node_param_attr = LA.NodeIdMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
-  ; contract_export_ctx = LA.NodeNameMap.empty
+  ; contract_export_ctx = LA.NodeIdMap.empty
   ; enum_vars = IMap.empty
-  ; ty_vars = LA.NodeNameMap.empty
-  ; contract_ty_vars = LA.NodeNameMap.empty
+  ; ty_vars = LA.NodeIdMap.empty
+  ; contract_ty_vars = LA.NodeIdMap.empty
   ; ty_ty_vars = IMap.empty
   (* ; ty_args = IMap.empty *)
   }
@@ -129,12 +129,12 @@ let member_ty: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_ctx)
 (** Checks if the identifier is a typed identifier *)
                
-let member_contract: tc_context -> LA.node_name -> bool
-  = fun ctx i -> LA.NodeNameMap.mem i (ctx.contract_ctx)
+let member_contract: tc_context -> LA.node_id -> bool
+  = fun ctx i -> LA.NodeIdMap.mem i (ctx.contract_ctx)
 (** Checks if the contract name is in the context *)
 
-let member_node: tc_context -> LA.node_name -> bool
-  = fun ctx i -> LA.NodeNameMap.mem i (ctx.node_ctx)
+let member_node: tc_context -> LA.node_id -> bool
+  = fun ctx i -> LA.NodeIdMap.mem i (ctx.node_ctx)
 (** Checks if the node name is in the context *)
 
 let member_u_types : tc_context -> LA.ident -> bool
@@ -217,32 +217,32 @@ let lookup_ty: tc_context -> LA.ident -> tc_type option
   | None -> None
 (** Picks out the type of the identifier to type context map *)
 
-let lookup_contract_ty: tc_context -> LA.node_name -> tc_type option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.contract_ctx)
+let lookup_contract_ty: tc_context -> LA.node_id -> tc_type option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.contract_ctx)
 (** Lookup a contract type  *)
                
-let lookup_node_ty: tc_context -> LA.node_name -> tc_type option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.node_ctx)
+let lookup_node_ty: tc_context -> LA.node_id -> tc_type option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.node_ctx)
 (** Lookup a node type  *)
 
-let lookup_node_ty_vars: tc_context -> LA.node_name -> HString.t list option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.ty_vars)
+let lookup_node_ty_vars: tc_context -> LA.node_id -> HString.t list option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.ty_vars)
 (** Lookup a node's type variables *)
 
-let lookup_contract_ty_vars: tc_context -> LA.node_name -> HString.t list option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.contract_ty_vars)
+let lookup_contract_ty_vars: tc_context -> LA.node_id -> HString.t list option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.contract_ty_vars)
 (** Lookup a contract's type variables *)
 
 let lookup_ty_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.ty_ty_vars)
 (** Lookup a node's type variables *)
 
-let lookup_node_param_attr: tc_context -> LA.node_name -> (HString.t * bool) list option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.node_param_attr)
+let lookup_node_param_attr: tc_context -> LA.node_id -> (HString.t * bool) list option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.node_param_attr)
 
-let lookup_node_param_ids: tc_context -> LA.node_name -> HString.t list option
+let lookup_node_param_ids: tc_context -> LA.node_id -> HString.t list option
   = fun ctx i ->
-  match LA.NodeNameMap.find_opt i (ctx.node_param_attr) with
+  match LA.NodeIdMap.find_opt i (ctx.node_param_attr) with
   | Some l -> Some (List.map fst l)
   | None -> None
 
@@ -262,17 +262,17 @@ let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
 (** Add type binding into the typing context *)
                   
-let add_ty_contract: tc_context -> LA.node_name -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with contract_ctx = LA.NodeNameMap.add i ty (ctx.contract_ctx)}
+let add_ty_contract: tc_context -> LA.node_id -> tc_type -> tc_context
+  = fun ctx i ty -> {ctx with contract_ctx = LA.NodeIdMap.add i ty (ctx.contract_ctx)}
 (**  Add the type of the contract *)
 
-let add_ty_node: tc_context -> LA.node_name -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with node_ctx = LA.NodeNameMap.add i ty (ctx.node_ctx)}
+let add_ty_node: tc_context -> LA.node_id -> tc_type -> tc_context
+  = fun ctx i ty -> {ctx with node_ctx = LA.NodeIdMap.add i ty (ctx.node_ctx)}
 (**  Add the type of the node *)
 
-let add_ty_vars_node: tc_context -> LA.node_name -> LA.ident list -> tc_context
+let add_ty_vars_node: tc_context -> LA.node_id -> LA.ident list -> tc_context
   = fun ctx i ty_vars -> 
-    {ctx with ty_vars = LA.NodeNameMap.add i ty_vars (ctx.ty_vars)}
+    {ctx with ty_vars = LA.NodeIdMap.add i ty_vars (ctx.ty_vars)}
 (**  Add the type variables of the node *)
 
 let add_ty_vars_ty: tc_context -> LA.ident -> LA.ident list -> tc_context
@@ -280,17 +280,17 @@ let add_ty_vars_ty: tc_context -> LA.ident -> LA.ident list -> tc_context
     {ctx with ty_ty_vars = IMap.add i ty_ty_vars (ctx.ty_ty_vars)}
 (**  Add the type variables of the node *)
 
-let add_ty_vars_contract: tc_context -> LA.node_name -> LA.ident list -> tc_context
+let add_ty_vars_contract: tc_context -> LA.node_id -> LA.ident list -> tc_context
   = fun ctx i contract_ty_vars -> 
-    {ctx with contract_ty_vars = LA.NodeNameMap.add i contract_ty_vars (ctx.contract_ty_vars)}
+    {ctx with contract_ty_vars = LA.NodeIdMap.add i contract_ty_vars (ctx.contract_ty_vars)}
 (**  Add the type variables of the contract *)
 
-let add_node_param_attr : tc_context -> LA.node_name -> LA.const_clocked_typed_decl list -> tc_context
+let add_node_param_attr : tc_context -> LA.node_id -> LA.const_clocked_typed_decl list -> tc_context
   = fun ctx i args ->
   let v =
     List.map (function (_, id, _, _, is_const) -> (id, is_const)) args
   in
-  {ctx with node_param_attr = LA.NodeNameMap.add i v (ctx.node_param_attr)}
+  {ctx with node_param_attr = LA.NodeIdMap.add i v (ctx.node_param_attr)}
 
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
@@ -327,28 +327,28 @@ let union: tc_context -> tc_context -> tc_context
                     ; ty_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                   (ctx1.ty_ctx)
                                   (ctx2.ty_ctx))
-                    ; contract_ctx = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; contract_ctx = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                         (ctx1.contract_ctx)
                                         (ctx2.contract_ctx))
-                    ; node_ctx = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; node_ctx = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                         (ctx1.node_ctx)
                                         (ctx2.node_ctx))
-                    ; node_param_attr = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; node_param_attr = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                           (ctx1.node_param_attr)
                                           (ctx2.node_param_attr))
                     ; vl_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                   (ctx1.vl_ctx)
                                   (ctx2.vl_ctx))
                     ; u_types = SI.union ctx1.u_types ctx2.u_types
-                    ; contract_export_ctx = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; contract_export_ctx = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                               (ctx1.contract_export_ctx)
                                               (ctx2.contract_export_ctx))
                     ; enum_vars = (IMap.union (fun _ _ v2 -> Some v2)
                       (ctx1.enum_vars) (ctx2.enum_vars))
-                    ; ty_vars = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; ty_vars = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_vars)
                                    (ctx2.ty_vars))
-                    ; contract_ty_vars = (LA.NodeNameMap.union (fun _ _ v2 -> Some v2)
+                    ; contract_ty_vars = (LA.NodeIdMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.contract_ty_vars)
                                    (ctx2.contract_ty_vars))
                     ; ty_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
@@ -394,12 +394,12 @@ let get_constant_ids: tc_context -> LA.ident list
   = fun ctx -> IMap.keys ctx.vl_ctx
 (** Returns the constants declared in the typing context  *)
 
-let lookup_contract_exports: tc_context -> LA.node_name -> ty_store option
-  = fun ctx i -> LA.NodeNameMap.find_opt i (ctx.contract_export_ctx)
+let lookup_contract_exports: tc_context -> LA.node_id -> ty_store option
+  = fun ctx i -> LA.NodeIdMap.find_opt i (ctx.contract_export_ctx)
 (** Lookup a contract exports  *)
 
-let add_contract_exports: tc_context -> LA.node_name -> ty_store -> tc_context
-  = fun ctx i exps -> {ctx with contract_export_ctx = LA.NodeNameMap.add i exps  ctx.contract_export_ctx }
+let add_contract_exports: tc_context -> LA.node_id -> ty_store -> tc_context
+  = fun ctx i exps -> {ctx with contract_export_ctx = LA.NodeIdMap.add i exps  ctx.contract_export_ctx }
 (** Add the symbols that the contracts *)
                
 (** {1 Pretty Printers}  *)
@@ -412,14 +412,14 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_type_binding_node: Format.formatter -> (LA.node_name * tc_type) -> unit
-  = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_node_name i LA.pp_print_lustre_type ty
+let pp_print_type_binding_node: Format.formatter -> (LA.node_id * tc_type) -> unit
+  = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_node_id i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_ty_var_binding: Format.formatter -> (LA.node_name * HString.t list) -> unit
+let pp_print_ty_var_binding: Format.formatter -> (LA.node_id * HString.t list) -> unit
   = fun ppf (i, ty_vars) ->
     Format.fprintf ppf "(%a:{%a})" 
-    LA.pp_print_node_name i 
+    LA.pp_print_node_id i 
     (Lib.pp_print_list HString.pp_print_hstring ",") (ty_vars)
 (** Pretty print type bindings*)  
 
@@ -448,7 +448,7 @@ let pp_print_tymap: Format.formatter -> ty_store -> unit
 (** Pretty print type binding context *)
 
 let pp_print_tymap_node: Format.formatter -> node_ty_store -> unit
-  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding_node) ", " ppf (LA.NodeNameMap.bindings m)
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding_node) ", " ppf (LA.NodeIdMap.bindings m)
 (** Pretty print type binding context *)
                
 let pp_print_vstore: Format.formatter -> const_store -> unit
@@ -461,7 +461,7 @@ let pp_print_u_types: Format.formatter -> SI.t -> unit
 (** Pretty print declared user types *)
 
 let pp_print_type_variables: Format.formatter -> ty_var_store -> unit
-  = fun ppf m -> Lib.pp_print_list pp_print_ty_var_binding ", " ppf (LA.NodeNameMap.bindings m)
+  = fun ppf m -> Lib.pp_print_list pp_print_ty_var_binding ", " ppf (LA.NodeIdMap.bindings m)
 (** Pretty print declared user types *)
 
 let pp_print_type_variables_ty: Format.formatter -> ty_ty_var_store -> unit
@@ -473,8 +473,8 @@ let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
   Lib.pp_print_list
     (fun ppf (i, exm) ->
       Format.fprintf ppf "(contract %a -> [%a])"
-        LA.pp_print_node_name i
-        pp_print_tymap exm) ", " ppf (LA.NodeNameMap.bindings m)
+        LA.pp_print_node_id i
+        pp_print_tymap exm) ", " ppf (LA.NodeIdMap.bindings m)
 (** Pretty print contract exports  *)
 
 let pp_print_enum_variants: Format.formatter -> enum_variants -> unit
@@ -523,7 +523,7 @@ let rec arity_of_expr ty_ctx = function
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) -> 
-    let node_ty = lookup_node_ty ty_ctx (id, []) |> Lib.get in
+    let node_ty = lookup_node_ty ty_ctx (id, LustreAst.NodeTagSet.empty) |> Lib.get in
     let (_, o) = LH.type_arity node_ty in
     o
   | Call (_, _, id, _) ->

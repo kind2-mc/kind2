@@ -238,6 +238,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
   in 
   let print_node scope lst =
     let node_name, node_tags = InputSystem.get_node_user_name_tags in_sys scope in
+    let node_tags = LustreAst.NodeTagSet.elements node_tags in
     (* Monomorphization info not relevant to this logging *)
     let node_tags = 
       List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags

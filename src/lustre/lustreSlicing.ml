@@ -150,7 +150,7 @@ let rec describe_cycle node accum = function
 
        try 
          (* Find node call with state variable as output *)
-         let { N.call_node_name } =
+         let { N.call_node_id } =
            List.find
              (fun { N.call_outputs } -> 
                 D.exists (fun _ sv -> StateVar.equal_state_vars state_var sv)
@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               (I.pp_print_ident true) (N.internal_string_of_node_name call_node_name))
+               (I.pp_print_ident true) (N.internal_string_of_node_id call_node_id))
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            (I.pp_print_ident true) (N.internal_string_of_node_name node.N.name)
+            (I.pp_print_ident true) (N.internal_string_of_node_id node.N.name)
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -337,7 +337,7 @@ let rec node_state_var_dependencies' init output_input_deps
           
           (fun
             accum
-            { N.call_node_name; 
+            { N.call_node_id; 
               N.call_inputs;
               N.call_outputs; 
               N.call_defaults;
@@ -357,7 +357,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (* Get computed dependencies of outputs on inputs for called
               node *)
           let output_input_dep =
-            try List.assoc call_node_name output_input_deps
+            try List.assoc call_node_id output_input_deps
                 |> if init then fst else snd
             with Not_found -> D.empty
           in
@@ -919,12 +919,12 @@ let rec slice_nodes
 
         (* State variable is an output of a called node that is not
            already sliced? *)
-        let { N.call_node_name } =
+        let { N.call_node_id } =
           List.find
-            (function { N.call_node_name; N.call_outputs } ->
+            (function { N.call_node_id; N.call_outputs } ->
 
               (* Called node is not already sliced? *)
-              (not (N.exists_node_of_name call_node_name accum)
+              (not (N.exists_node_of_name call_node_id accum)
 
                &&
 
@@ -936,7 +936,7 @@ let rec slice_nodes
         in
 
         (* Get called node by name *)
-        let node = N.node_of_name call_node_name nodes in
+        let node = N.node_of_name call_node_id nodes in
 
         (* Slice called node first, then return to this node
 
@@ -1200,7 +1200,7 @@ let root_and_leaves_of_contracts
    map. *)
 let node_is_abstract analysis { N.name } = 
 
-  [I.string_of_ident true (N.internal_string_of_node_name name)]
+  [I.string_of_ident true (N.internal_string_of_node_id name)]
   |> Analysis.param_scope_is_abstract analysis
 
 

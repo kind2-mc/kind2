@@ -24,8 +24,6 @@ exception Parser_error
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
 (* ********************************************************************** *)
-
-
 (* An identifier *)
 type ident = HString.t
 
@@ -43,7 +41,6 @@ type index = HString.t
 let pp_print_ident = HString.pp_print_hstring
 
 let pp_print_index = HString.pp_print_hstring
-
 
 (* A clock expression *)
 type clock_expr =
@@ -86,6 +83,35 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+type node_tag = 
+  | Contract (* Generated imported node for contract realizability checking *)
+  | Environment (* Generated imported node for environment realizability checking *)
+  | Type (* Generated imported node for refinement type realizability checking *)
+  | Monomorphization of int (* Instantiation of a polymorphic node. The int is a unique ID. *) 
+
+let compare_node_tags nt1 nt2 =
+  match nt1, nt2 with
+  | Contract, Contract -> 0
+  | Contract, _ -> -1
+  | _, Contract -> 1
+
+  | Environment, Environment -> 0
+  | Environment, _ -> -1
+  | _, Environment -> 1
+
+  | Type, Type -> 0
+  | Type, _ -> -1
+  | _, Type -> 1
+
+  | Monomorphization i1, Monomorphization i2 ->
+    Int.compare i1 i2
+
+module NodeTagSet = Set.Make (
+  struct
+    type t = node_tag
+    let compare = compare_node_tags
+  end)
+
 (** A Lustre expression *)
 type expr =
   (* Identifiers *)
@@ -121,7 +147,7 @@ type expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * node_name * expr list
+  | Call of position * lustre_type list * node_id * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -148,14 +174,6 @@ and lustre_type =
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
 
-and node_tag = 
-  | Contract (* Generated imported node for contract realizability checking *)
-  | Environment (* Generated imported node for environment realizability checking *)
-  | Type (* Generated imported node for refinement type realizability checking *)
-  | Monomorphization of (lustre_type list * int) (* Instantiation of a polymorphic node *)
-
-and node_name = ident * node_tag list
-
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
 
@@ -163,6 +181,8 @@ and typed_ident = position * ident * lustre_type
 and label_or_index = 
   | Label of position * index
   | Index of position * expr
+
+and node_id = ident * NodeTagSet.t
 
 (* A declaration of a type *)
 type type_decl = 
@@ -262,7 +282,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * node_name * lustre_type list * expr list * ident list
+type contract_call = position * node_id * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -291,39 +311,55 @@ let pp_print_node_tag ppf tag =
       | Environment -> ".env_"
       | Contract -> ".contract_"
       | Type -> ".type_"
-      | Monomorphization (_, i) -> ".poly_" ^ (string_of_int i))
+      | Monomorphization i -> ".poly_" ^ (string_of_int i))
 
-let internal_string_of_node_name (id, tags) = 
+let internal_string_of_node_id (id, tags) = 
   Format.asprintf "%a%a"
     HString.pp_print_hstring id
-    (Lib.pp_print_list pp_print_node_tag "") tags
+    (Lib.pp_print_list pp_print_node_tag "") (NodeTagSet.elements tags)
 
-let compare_node_names n1 n2 = String.compare (internal_string_of_node_name n1) (internal_string_of_node_name n2)
+let compare_node_ids: node_id -> node_id -> int 
+= fun (name1, tags1) (name2, tags2) ->
+  let c1 = HString.compare name1 name2 in 
+  if c1 <> 0 then c1 else 
+  NodeTagSet.compare tags1 tags2
 
-module NodeNameMap = Map.Make(
+module NodeIdMap = Map.Make(
   struct
-    type t = node_name
-    let compare = compare_node_names
+    type t = node_id
+    let compare = compare_node_ids
   end)
-module NodeNameSet = struct
+
+module NodeIdSet = struct
   include (Set.Make (struct
-                type t = node_name
-                let compare = compare_node_names
+                type t = node_id
+                let compare = compare_node_ids
               end))
   let flatten: t list -> t = fun sets ->
     List.fold_left union empty sets
 end
-module NodeNameHashtbl = Hashtbl.Make(struct
-  type t = node_name
+
+let node_tag_hash = function
+  | Contract -> Hashtbl.hash 0
+  | Environment -> Hashtbl.hash 1
+  | Type -> Hashtbl.hash 2
+  | Monomorphization i -> Hashtbl.hash (3,i)
+
+let node_name_hash: node_id -> int 
+= fun (name, tags) ->
+  Hashtbl.hash (HString.hash name, List.map node_tag_hash (NodeTagSet.elements tags))
+
+module NodeIdHashtbl = Hashtbl.Make(struct
+  type t = node_id
   let equal = (=)
-  let hash = Hashtbl.hash (*!! Check if this is good enough *)
+  let hash = node_name_hash
 end)
 
 (* A node or function declaration
 
 Boolean flag indicates whether node / function is extern. *)
 type node_decl =
-  node_name
+  node_id
   * bool
   * opacity
   * ident list
@@ -337,7 +373,7 @@ type node_decl =
    with a different type for equations, and no contract
    specification. *)
 type contract_node_decl =
-  node_name
+  node_id
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -805,7 +841,7 @@ let pp_print_const_decl ppf = function
       pp_print_lustre_type t
       pp_print_expr e
 
-let pp_print_node_name ppf (id, _) = 
+let pp_print_node_id ppf (id, _) = 
   Format.fprintf ppf "%a" pp_print_ident id
 
 (* Pretty-print a single static node parameter *)
