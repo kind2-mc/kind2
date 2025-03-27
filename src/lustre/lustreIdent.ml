@@ -152,6 +152,10 @@ let reserved_scope = Scope.mk_scope [ Ident.of_string "res" ]
 (* Scope for identifiers in user input *)
 let user_scope = Scope.mk_scope [ Ident.of_string "usr" ]
 
+let of_hstring: HString.t -> t 
+= fun hstring -> 
+  hstring |> HString.string_of_hstring |> mk_string_ident
+
 
 (* 
    Local Variables:

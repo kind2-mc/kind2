@@ -32,6 +32,8 @@ module Lsd = LockStepDriver
 (* Term set. *)
 module Set = Term.TermSet
 
+module NI = NodeId
+
 
 (*
 
@@ -255,7 +257,7 @@ module Make (Graph : GraphSig) : Out = struct
       (pp_print_list fmt_term "@ ") trivial ;
     Format.printf "non trivial: @[<v>%a@]@.@."
       (pp_print_list fmt_term "@ ") non_trivial ; *)
-    let node_name = InputSystem.get_node_user_name in_sys (Sys.scope_of_trans_sys sys) in
+    let { NI.name = node_name; } = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
@@ -265,7 +267,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) node_name
+          HString.pp_print_hstring node_name
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -277,7 +279,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) node_name
+          HString.pp_print_hstring node_name
           Num.pp_print_numeral k
           blah
           (List.length trivial)
@@ -289,7 +291,7 @@ module Make (Graph : GraphSig) : Out = struct
             @   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (LustreIdent.pp_print_ident true) node_name
+          HString.pp_print_hstring node_name
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -428,11 +430,11 @@ module Make (Graph : GraphSig) : Out = struct
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
-    let node_name = InputSystem.get_node_user_name input_sys (Sys.scope_of_trans_sys sys) in
+    let { NI.name = node_name; } = InputSystem.get_node_id input_sys (Sys.scope_of_trans_sys sys) in
     let blah = if sys == top_sys then " (top)" else "" in
     KEvent.log L_info
       "%s Running on %a%s at %a (%d candidate terms, %d classes)"
-      (pref_s two_state) (LustreIdent.pp_print_ident true) node_name blah
+      (pref_s two_state) HString.pp_print_hstring node_name blah
       Num.pp_print_numeral k (Graph.term_count graph)
       (Graph.class_count graph) ;
 

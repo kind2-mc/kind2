@@ -237,19 +237,14 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node_name, node_tags = InputSystem.get_node_user_name_tags in_sys scope in
-    let node_tags = LustreAst.NodeTagSet.elements node_tags in
-    (* Monomorphization info not relevant to this logging *)
-    let node_tags = 
-      List.filter (fun tag -> match tag with | LustreAst.Monomorphization _ -> false | _ -> true) node_tags
-    in
+    let { NodeId.name; node_type; } = InputSystem.get_node_id in_sys scope in
     Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
-    (match node_tags with 
-      | LustreAst.Environment :: _ -> "Environment of"
-      | LustreAst.Contract :: _ -> "Contract of"
-      | LustreAst.Type :: _ -> "Type"
-      | _ -> "Node") 
-    (LustreIdent.pp_print_ident true) node_name ;
+    (match node_type with 
+      | Environment -> "Environment of"
+      | Contract -> "Contract of"
+      | Type -> "Type"
+      | Component -> "Node") 
+    HString.pp_print_hstring name ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -310,9 +305,9 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   in
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
-      let node_name = InputSystem.get_node_user_name in_sys scope in
+      let node_id = InputSystem.get_node_id in_sys scope in
       `Assoc [
-        ("name", `String (node_name |> LustreIdent.string_of_ident true)) ;
+        ("name", `String (node_id.name |> HString.string_of_hstring)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -348,8 +343,8 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    let node_name = InputSystem.get_node_user_name in_sys scope in
-    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" (LustreIdent.pp_print_ident true) node_name;
+    let node_id = InputSystem.get_node_id in_sys scope in
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" HString.pp_print_hstring node_id.name;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

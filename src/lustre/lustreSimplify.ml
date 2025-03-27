@@ -548,14 +548,14 @@ let rec eval_ast_expr bounds ctx =
           None
 
       (* A node call, we implicitly clock it *)
-      | clock_value, A.Call (pos, [], (ident, _), args) -> 
+      | clock_value, A.Call (pos, [], { NodeId.name; }, args) -> 
 
         (* Evaluate node call without defaults *)
         try_eval_node_call
           bounds
           ctx
           pos
-          (I.mk_string_ident (HString.string_of_hstring ident))
+          (I.mk_string_ident (HString.string_of_hstring name))
           (cond_of_clock_value clock_value)
           (A.Const (pos, A.False))
           args
@@ -1036,7 +1036,7 @@ let rec eval_ast_expr bounds ctx =
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, [], (ident, _), args)
+  | A.Call (pos, [], { NodeId.name = ident; }, args)
   | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
@@ -1906,7 +1906,7 @@ and eval_node_call
       let node_call = 
         { N.call_id = -1; (* Call_id is not implemented in old frontend *)
           N.call_pos = pos;
-          N.call_node_id = (ident, A.NodeTagSet.empty);
+          N.call_node_id = NodeId.mk_node_id (ident |> I.string_of_ident true |> HString.mk_hstring);
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;

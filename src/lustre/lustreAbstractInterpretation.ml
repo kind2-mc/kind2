@@ -21,6 +21,7 @@
 
 open Lib
 module LA = LustreAst
+module NI = NodeId
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
@@ -48,28 +49,28 @@ module IMap = HString.HStringMap
 
 (** Context from a node identifier to a map of its
   variable identifiers to their inferred subrange bounds *)
-type context = LA.lustre_type IMap.t LA.NodeIdMap.t
+type context = LA.lustre_type IMap.t NodeId.NodeIdMap.t
 
 let dpos = Lib.dummy_pos
 
-let dnode_id: LA.node_id = HString.mk_hstring "dummy_node_id", LA.NodeTagSet.empty
+let dnode_id: NI.node_id = NI.mk_node_id (HString.mk_hstring "dummy_node_id")
 
-let empty_context = LA.NodeIdMap.empty
+let empty_context = NodeId.NodeIdMap.empty
 
-let union a b = LA.NodeIdMap.union
+let union a b = NodeId.NodeIdMap.union
   (fun _ n1 n2 -> Some (IMap.union
     (fun _ _ i2 -> Some i2)
     n1 n2))
   a b
 
-let get_type ctx node_name id = match LA.NodeIdMap.find_opt node_name ctx with
+let get_type ctx node_name id = match NodeId.NodeIdMap.find_opt node_name ctx with
   | Some node_ctx -> (match IMap.find_opt id node_ctx with
     | Some ty -> Some ty
     | None -> None)
   | None -> None
 
 let add_type ctx node_name id ty =
-  let update = LA.NodeIdMap.singleton node_name (IMap.singleton id ty) in
+  let update = NodeId.NodeIdMap.singleton node_name (IMap.singleton id ty) in
   union ctx update
 
 let extract_bounds_from_type ty =
@@ -193,7 +194,7 @@ let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
-and interpret_contract (node_id: LA.node_id) ctx ty_ctx contract =
+and interpret_contract (node_id: NI.node_id) ctx ty_ctx contract =
   let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id contract |> unwrap |> fst
   in
   List.fold_left (fun acc eqn ->
@@ -201,7 +202,7 @@ and interpret_contract (node_id: LA.node_id) ctx ty_ctx contract =
     ctx
     (snd contract)
 
-and interpret_contract_eqn (node_id: LA.node_id) ctx ty_ctx = function
+and interpret_contract_eqn (node_id: NI.node_id) ctx ty_ctx = function
   | LA.GhostConst _ -> empty_context
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
@@ -237,13 +238,13 @@ and interpret_contract_node ty_ctx (id, ps, ins, outs, contract) =
 and interpret_node ty_ctx gids (id, _, _, ps, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
   let ty_ctx = TC.add_io_node_ctx ty_ctx id ps ins outs in
-  let ctx = LA.NodeIdMap.empty in
+  let ctx = NodeId.NodeIdMap.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
   let ty_ctx = TC.add_local_node_ctx ty_ctx locals in
-  let gids_node = LA.NodeIdMap.find id gids in
+  let gids_node = NodeId.NodeIdMap.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
     (fun id ty ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
@@ -526,7 +527,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) -> 
-    let ty = Ctx.lookup_node_ty ty_ctx (id, LA.NodeTagSet.empty) |> get in
+    let ty = Ctx.lookup_node_ty ty_ctx (NI.mk_node_id id) |> get in
     let output_ty = match ty with
       | TArr (_, _, GroupType (_, tys)) -> List.nth tys proj
       | TArr (_, _, ty) -> ty
@@ -702,7 +703,7 @@ let rec interpret_global_consts ty_ctx decls =
 
 and check_global_const_subrange ty_ctx ctx pos_map =
   let ctx =
-    match LA.NodeIdMap.find_opt dnode_id ctx with
+    match NodeId.NodeIdMap.find_opt dnode_id ctx with
     | None -> IMap.empty
     | Some ctx -> ctx
   in

@@ -31,4 +31,4 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * error_kind
 ]
 
-val gen_imp_nodes : Ctx.tc_context ->  A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t A.NodeIdMap.t, [> error]) result
+val gen_imp_nodes : Ctx.tc_context ->  A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t NodeId.NodeIdMap.t, [> error]) result

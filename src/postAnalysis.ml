@@ -36,9 +36,9 @@ let last_result in_sys results scope =
   with
   | Not_found -> Res.error (
     fun fmt ->
-      let node_name = InputSystem.get_node_user_name in_sys scope in
+      let node_id = InputSystem.get_node_id in_sys scope in
       Format.fprintf fmt "No result available for component %a."
-        (LustreIdent.pp_print_ident true) node_name
+        HString.pp_print_hstring node_id.name
   )
 
 (** Signature of modules for post-analysis treatment. *)
@@ -163,12 +163,12 @@ module RunTestGen: PostAnalysis = struct
 
         (* Let's do this. *)
         try (
-          let node_name = InputSystem.get_node_user_name in_sys top in
+          let node_id = InputSystem.get_node_id in_sys top in
           let tests_target = Format.sprintf "%s/%s" target Paths.testgen in
           mk_dir tests_target ;
           KEvent.log_uncond
             "%sGenerating tests for node '%a' to '%s'."
-            TestGen.log_prefix (LustreIdent.pp_print_ident true) node_name tests_target ;
+            TestGen.log_prefix HString.pp_print_hstring node_id.name tests_target ;
           let testgen_xmls =
             TestGen.main param input_sys_sliced sys tests_target
           in
@@ -179,7 +179,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir oracle_target ;
           KEvent.log_uncond
             "%sCompiling oracle to Rust for node '%a' to '%s'."
-            TestGen.log_prefix (LustreIdent.pp_print_ident true) node_name oracle_target ;
+            TestGen.log_prefix HString.pp_print_hstring node_id.name oracle_target ;
           let name, guarantees, modes =
             InputSystem.compile_oracle_to_rust in_sys top oracle_target
           in
@@ -558,10 +558,10 @@ module RunRustGen: PostAnalysis = struct
     mk_dir target ;
     (* Implementation directory. *)
     let target = Format.sprintf "%s/%s" target Paths.implem in
-    let node_name = InputSystem.get_node_user_name in_sys top in
+    let node_id = InputSystem.get_node_id in_sys top in
     KEvent.log_uncond
       "  Compiling node '%a' to Rust in '%s'."
-      (LustreIdent.pp_print_ident true) node_name target ;
+      HString.pp_print_hstring node_id.name target ;
     InputSystem.compile_to_rust in_sys top target ;
     KEvent.log_uncond "  Done compiling." ;
     Ok ()

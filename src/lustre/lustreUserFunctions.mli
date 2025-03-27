@@ -19,4 +19,4 @@
 val inlinable_functions :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-  LustreAst.NodeIdSet.t
+  NodeId.NodeIdSet.t

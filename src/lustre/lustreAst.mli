@@ -40,6 +40,8 @@
 
 open Lib
 
+module NI = NodeId
+
 (** Error while parsing *)
 exception Parser_error
 
@@ -98,16 +100,6 @@ type group_expr =
   | ExprList (* List of expressions *)
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
-
-type node_tag = 
-  | Contract (* Generated imported node for contract realizability checking *)
-  | Environment (* Generated imported node for environment realizability checking *)
-  | Type (* Generated imported node for refinement type realizability checking *)
-  | Monomorphization of int (* Instantiation of a polymorphic node. The int is a unique ID. *) 
-
-module NodeTagSet: Set.S with type elt = node_tag
-
-type node_id = ident * NodeTagSet.t
 
 (** A Lustre type *)
 type lustre_type =
@@ -172,7 +164,7 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * node_id * expr list
+  | Call of position * lustre_type list * NI.node_id * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -274,7 +266,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * node_id * lustre_type list * expr list * ident list
+type contract_call = position * NI.node_id * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -302,15 +294,6 @@ type opacity =
   | Opaque
   | Transparent
 
-module NodeIdMap : Map.S with type key = node_id
-
-module NodeIdSet: sig
-  include (Set.S with type elt = node_id)
-  val flatten: t list -> t
-end
-
-module NodeIdHashtbl : Hashtbl.S with type key = node_id
-
 (** Declaration of a node or function as a tuple of
 
     - its identifier,
@@ -323,7 +306,7 @@ module NodeIdHashtbl : Hashtbl.S with type key = node_id
     - its equations, assertions and annotiations, and
     - its optional contract specification *)
 type node_decl =
-  node_id
+  NI.node_id
   * bool
   * opacity
   * ident list
@@ -341,7 +324,7 @@ type node_decl =
   - its outputs,
   - its body as a [contract]. *)
 type contract_node_decl =
-  node_id
+  NI.node_id
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -371,7 +354,6 @@ type declaration =
 type t = declaration list
 
 (** {1 Pretty-printers} *)
-val pp_print_node_id : Format.formatter -> index * _ -> unit
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
@@ -406,8 +388,6 @@ val pp_print_program : Format.formatter -> t -> unit
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
 val string_of_expr: expr -> string
-val internal_string_of_node_id: node_id -> string
-val compare_node_tags: node_tag -> node_tag -> int
 (* 
    Local Variables:
    compile-command: "make -k -C .."

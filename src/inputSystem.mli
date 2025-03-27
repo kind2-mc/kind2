@@ -150,11 +150,9 @@ val state_var_dependencies :
   _ t ->
   (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
 
-val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
-
 val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
 
-val get_node_user_name_tags : _ t -> Scope.t -> LustreIdent.t * LustreAst.NodeTagSet.t
+val get_node_id : _ t -> Scope.t -> NodeId.node_id
 
 (* 
    Local Variables:

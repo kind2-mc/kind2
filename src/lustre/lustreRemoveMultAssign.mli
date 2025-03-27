@@ -43,4 +43,4 @@
 
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
-val remove_mult_assign : TypeCheckerContext.tc_context -> GeneratedIdentifiers.t LustreAst.NodeIdMap.t -> LustreAst.declaration list -> LustreAst.declaration list * GeneratedIdentifiers.t LustreAst.NodeIdMap.t
+val remove_mult_assign : TypeCheckerContext.tc_context -> GeneratedIdentifiers.t NodeId.NodeIdMap.t -> LustreAst.declaration list -> LustreAst.declaration list * GeneratedIdentifiers.t NodeId.NodeIdMap.t

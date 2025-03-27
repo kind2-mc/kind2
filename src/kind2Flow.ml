@@ -678,7 +678,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
   let pp_print_user_node_name ppf scope = 
     match InputSystem.get_lustre_node in_sys scope with
     | Some node -> 
-      let name_string = LustreNode.user_name_of_node_id node.name |> LustreIdent.string_of_ident true in
+      let name_string = node.name.NodeId.name |> HString.string_of_hstring in
       Format.pp_print_string ppf name_string
     | None -> Scope.pp_print_scope_internal ppf scope
   in
@@ -1001,7 +1001,7 @@ let run in_sys =
           | last :: _ -> last :: l
           | [] ->
             let node_name = match InputSystem.get_lustre_node in_sys sys with 
-            | Some node ->  (LustreNode.user_name_of_node_id node.name) 
+            | Some node ->  node.name.NodeId.name |> LustreIdent.of_hstring
             | None -> string_of_t Scope.pp_print_scope_internal sys |> LustreIdent.mk_string_ident
             in
             Format.asprintf "Unreachable: no results at all for system @{<blue>%a@}."

@@ -22,6 +22,7 @@ open Lib
 open LustreReporting
    
 module A = LustreAst
+module NI = NodeId
           
 let mk_pos = position_of_lexing 
 
@@ -466,7 +467,7 @@ node_decl:
   option(SEMICOLON);
   r = option(contract_spec)
   {
-    ((n, A.NodeTagSet.empty), p, List.flatten i, List.flatten o, r)
+    (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
   }
 
 (* A node definition (locals + body). *)
@@ -522,7 +523,7 @@ contract_import:
     ty_args = call_static_params;
     LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
     LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; 
-    { A.ContractCall (mk_pos $startpos, (n, A.NodeTagSet.empty), ty_args, in_params, out_params) }
+    { A.ContractCall (mk_pos $startpos, NI.mk_node_id n, ty_args, in_params, out_params) }
 
 call_static_params: 
   | { [] }
@@ -549,7 +550,7 @@ contract_in_block:
   | c = nonempty_list(contract_item) { c }
 
 
-(* A contract node declaration. *)
+(* A contract node declarationI. *)
 contract_decl:
   | CONTRACT;
     n = ident; 
@@ -563,7 +564,7 @@ contract_decl:
     TEL
     option(node_sep) 
 
-    { ((n, A.NodeTagSet.empty),
+    { (NI.mk_node_id n,
        p,
        List.flatten i,
        List.flatten o,
@@ -1171,7 +1172,7 @@ node_call:
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      A.Call (mk_pos $startpos, ty_args, (s, A.NodeTagSet.empty), a) 
+      A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
     }
 
 

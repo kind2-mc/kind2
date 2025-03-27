@@ -17,6 +17,7 @@
 *)
 
 open LustreAst
+open NodeId
 open LustreReporting
 
 type iset = LustreAst.SI.t
@@ -831,14 +832,14 @@ let rec calls_of_expr: expr -> NodeIdSet.t =
   (* Node calls *)
   | Call (_, _, i, es) -> NodeIdSet.union (NodeIdSet.singleton i) (NodeIdSet.flatten (List.map calls_of_expr es))
   | Condact (_, e1, e2, i, es1, es2) ->
-    NodeIdSet.union (NodeIdSet.singleton (i, NodeTagSet.empty))
+    NodeIdSet.union (NodeIdSet.singleton (mk_node_id i))
              (NodeIdSet.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
                           List.map calls_of_expr es1 @ List.map calls_of_expr es2))
   | Activate (_, i, e1, e2, es) -> 
-    NodeIdSet.union (NodeIdSet.singleton (i, NodeTagSet.empty))
+    NodeIdSet.union (NodeIdSet.singleton (mk_node_id i))
              (NodeIdSet.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
   | RestartEvery (_, i, es, e) -> 
-    NodeIdSet.union (NodeIdSet.singleton (i, NodeTagSet.empty))
+    NodeIdSet.union (NodeIdSet.singleton (mk_node_id i))
              (NodeIdSet.flatten (calls_of_expr e :: List.map calls_of_expr es))
   (* Everything else *)
   | Ident _ -> NodeIdSet.empty
@@ -859,8 +860,8 @@ let rec calls_of_expr: expr -> NodeIdSet.t =
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
   | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NodeIdSet.flatten
-  | AnyOp (_, (_, i, _), e, None) -> NodeIdSet.diff (calls_of_expr e) (NodeIdSet.singleton (i, NodeTagSet.empty))
-  | AnyOp (_, (_, i, _), e1, Some e2) -> NodeIdSet.diff (NodeIdSet.union (calls_of_expr e1) (calls_of_expr e2)) (NodeIdSet.singleton (i, NodeTagSet.empty))
+  | AnyOp (_, (_, i, _), e, None) -> NodeIdSet.diff (calls_of_expr e) (NodeIdSet.singleton (mk_node_id i))
+  | AnyOp (_, (_, i, _), e1, Some e2) -> NodeIdSet.diff (NodeIdSet.union (calls_of_expr e1) (calls_of_expr e2)) (NodeIdSet.singleton (mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
   | Arrow (_, e1, e2) ->  NodeIdSet.union (calls_of_expr e1) (calls_of_expr e2)
 
@@ -1246,11 +1247,11 @@ let rec remove_node_in_declarations:
   
                
 let move_node_to_last: node_id -> declaration list -> declaration list = 
-  fun ((id, _) as n) ds ->
+  fun ({ name; } as n) ds ->
   match (remove_node_in_declarations n [] ds) with
   | Some (mn, ds') -> ds' @ [mn]
   | None -> 
-    failwith ("Could not find main node " ^ HString.string_of_hstring id)
+    failwith ("Could not find main node " ^ HString.string_of_hstring name)
 
 
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
@@ -1584,9 +1585,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | Call (_, _, (i, _), l) ->
+      | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (24, HString.hash i, l_hash)
+        Hashtbl.hash (24, NI.node_id_hash id, l_hash)
       | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)

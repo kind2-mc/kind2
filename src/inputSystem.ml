@@ -23,6 +23,7 @@ module N = LustreNode
 module R = LustreReporting
 module E = LustreErrors
 module A = Analysis
+module NI = NodeId
 
 module SVar = StateVar
 
@@ -364,22 +365,16 @@ let get_lustre_node (type s) (input_system : s t) scope =
   | Native _ -> None
   | Horn _ -> None
 
-let get_node_user_name in_sys scope = 
-  match get_lustre_node in_sys scope with 
-  | Some node -> (LustreNode.user_name_of_node_id node.name)
-  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
-
 let get_node_internal_name in_sys scope = 
   match get_lustre_node in_sys scope with 
-  | Some node -> (LustreNode.internal_string_of_node_id node.name)
+  | Some node -> NodeId.internal_string_of_node_id node.name |> LustreIdent.mk_string_ident
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
-let get_node_user_name_tags in_sys scope =
+let get_node_id in_sys scope =
   match get_lustre_node in_sys scope with 
-  | Some node ->  
-    let (_, tags) = node.name in
-    (LustreNode.user_name_of_node_id node.name), tags
-  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident, LustreAst.NodeTagSet.empty
+  | Some { name; } -> name
+  | None -> 
+    NI.mk_node_id (Lib.string_of_t Scope.pp_print_scope_internal scope |> HString.mk_hstring)
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->

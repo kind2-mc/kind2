@@ -19,6 +19,7 @@ module A = LustreAst
 module R = Res
 module GI = GeneratedIdentifiers
 module AH = LustreAstHelpers
+module NI = NodeId
 
 let (let*) = R.(>>=)
 
@@ -60,8 +61,8 @@ type eq_or_framecond =
   | FCond of A.eq_lhs
 
 (* First position is frame block header, second position is of the specific equation *)
-let pos_list_map : (Lib.position * eq_or_framecond) list A.NodeIdHashtbl.t = 
-  A.NodeIdHashtbl.create 20
+let pos_list_map : (Lib.position * eq_or_framecond) list NI.NodeIdHashtbl.t = 
+  NI.NodeIdHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
@@ -84,11 +85,11 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
       (* First, record that frame var "i" was actually used for stuttering *)
       let frame_info = [(frame_pos, FCond lhs)] in
       (* If there is already a binding, we want to retain the old 'frame_info' *)
-      let frame_info = match A.NodeIdHashtbl.find_opt pos_list_map node_id with
+      let frame_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
         | Some frame_info2 -> frame_info @ frame_info2
         | None -> frame_info 
       in
-      A.NodeIdHashtbl.add pos_list_map node_id frame_info;
+      NI.NodeIdHashtbl.add pos_list_map node_id frame_info;
       
       fill
     )
@@ -161,11 +162,11 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
         (* First, record that frame var "id" was actually used for stuttering *)
         let frame_info = [(f_pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
-        let frame_info = match A.NodeIdHashtbl.find_opt pos_list_map node_id with
+        let frame_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
           | None -> frame_info 
         in
-        A.NodeIdHashtbl.add pos_list_map node_id frame_info;
+        NI.NodeIdHashtbl.add pos_list_map node_id frame_info;
 
         R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id)))))]
     )
@@ -190,11 +191,11 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
         (* First, record that frame var "id1" was actually used for stuttering *)
         let frame_info = [(f_pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
-        let frame_info = match A.NodeIdHashtbl.find_opt pos_list_map node_id with
+        let frame_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
           | None -> frame_info 
         in
-        A.NodeIdHashtbl.add pos_list_map node_id frame_info;
+        NI.NodeIdHashtbl.add pos_list_map node_id frame_info;
 
         R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, build_array_index (List.rev id2)))))]
     )
@@ -232,11 +233,11 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
         (* First, record that frame var "var" was actually used for stuttering *)
         let frame_info = [(pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
-        let frame_info = match A.NodeIdHashtbl.find_opt pos_list_map node_id with
+        let frame_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
           | None -> frame_info 
         in
-        A.NodeIdHashtbl.add pos_list_map node_id frame_info;
+        NI.NodeIdHashtbl.add pos_list_map node_id frame_info;
 
         R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
       
@@ -316,7 +317,7 @@ match ni with
   For each variable that is neither initialized nor defined:
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
-let desugar_node_item (node_id: A.node_id) ni = match ni with
+let desugar_node_item (node_id: NI.node_id) ni = match ni with
     (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let vars = List.map snd vars in
@@ -331,12 +332,12 @@ let desugar_node_item (node_id: A.node_id) ni = match ni with
         | A.Equation (_, lhs, expr) -> (AH.pos_of_expr expr, Eq lhs)
         | _ -> assert false) nes) in
     (* If there is already a binding, we want to retain the old 'frame_info' *)
-    let frame_info = match A.NodeIdHashtbl.find_opt pos_list_map node_id with
+    let frame_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
       | Some frame_info2 -> frame_info @ frame_info2
       | None -> frame_info 
     in
     (* Record node equation LHSs so we can add state var defs later *)
-    A.NodeIdHashtbl.add pos_list_map node_id frame_info;
+    NI.NodeIdHashtbl.add pos_list_map node_id frame_info;
 
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
@@ -346,7 +347,7 @@ let desugar_node_item (node_id: A.node_id) ni = match ni with
     node equation has if statements with undefined branches, it fills the branches in by setting
     the variable equal to its value in the previous timestep. *)
 let desugar_frame_blocks sorted_node_contract_decls = 
-  A.NodeIdHashtbl.clear pos_list_map ;
+  NI.NodeIdHashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, o, nps, cctds, ctds, nlds, nis2, co))) ->
       let* res = R.seq (List.map (desugar_node_item node_id) nis2) in

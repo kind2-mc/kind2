@@ -20,11 +20,11 @@ open Lib
 open LustreReporting 
 
 (* Abbreviations *)
-module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module Contract = LustreContract
 module N = LustreNode
+module NI = NodeId
 
 module A = Analysis
 module S = SubSystem
@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               (I.pp_print_ident true) (N.internal_string_of_node_id call_node_id))
+               Format.pp_print_string (NI.internal_string_of_node_id call_node_id))
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            (I.pp_print_ident true) (N.internal_string_of_node_id node.N.name)
+            Format.pp_print_string (NI.internal_string_of_node_id node.N.name)
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -1200,7 +1200,7 @@ let root_and_leaves_of_contracts
    map. *)
 let node_is_abstract analysis { N.name } = 
 
-  [I.string_of_ident true (N.internal_string_of_node_id name)]
+  [NI.internal_string_of_node_id name]
   |> Analysis.param_scope_is_abstract analysis
 
 

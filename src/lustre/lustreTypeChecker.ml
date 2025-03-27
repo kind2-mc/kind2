@@ -383,7 +383,7 @@ let rec infer_const_attr ctx exp =
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _) -> (
     let err = error exp "node call or any operator" in
-    match lookup_node_ty ctx (i, LA.NodeTagSet.empty) with
+    match lookup_node_ty ctx (NI.mk_node_id i) with
     | Some (TArr (_, _, exp_ret_tys)) -> (
       match exp_ret_tys with
       | GroupType (_, tys) -> List.map (fun _ -> err) tys
@@ -485,17 +485,17 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
-let instantiate_type_variables: tc_context -> Lib.position -> LA.node_id -> tc_type -> tc_type list -> (tc_type, [> error ]) result
-= fun ctx pos ((node_id, _) as nname) ty ty_args -> 
+let instantiate_type_variables: tc_context -> Lib.position -> NI.node_id -> tc_type -> tc_type list -> (tc_type, [> error ]) result
+= fun ctx pos ({ name; } as nname) ty ty_args -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
   match lookup_node_ty_vars ctx nname, 
         lookup_contract_ty_vars ctx nname, 
-        lookup_ty_ty_vars ctx node_id with 
+        lookup_ty_ty_vars ctx name with 
   | None, None, None ->
     let* substitution = 
       try 
         R.ok (List.combine [] ty_args) 
-      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall node_id)
+      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall name)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
   | Some ty_vars, _, _ 
@@ -504,11 +504,11 @@ let instantiate_type_variables: tc_context -> Lib.position -> LA.node_id -> tc_t
     let* substitution = 
       try 
         R.ok (List.combine ty_vars ty_args) 
-      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall node_id)
+      with Invalid_argument _ -> type_error pos (InvalidPolymorphicCall name)
     in 
     R.ok (LustreAstHelpers.apply_type_subst_in_type substitution ty)
 
-let rec instantiate_type_variables_expr: tc_context -> LA.node_id -> tc_type list -> LA.expr -> (LA.expr, [> error ]) result
+let rec instantiate_type_variables_expr: tc_context -> NI.node_id -> tc_type list -> LA.expr -> (LA.expr, [> error ]) result
 = fun ctx nname ty_args expr -> 
   let call = instantiate_type_variables_expr ctx nname ty_args in
   match expr with
@@ -657,7 +657,7 @@ let expand_type_syn_reftype_history_subrange ctx =
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
-let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
+let rec infer_type_expr: tc_context -> NI.node_id option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname -> function
   (* Identifiers *)
   | LA.Ident (pos, i) ->
@@ -878,7 +878,7 @@ let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type 
   | LA.When (_, e, _) -> infer_type_expr ctx nname e
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx nname c (Bool pos) >> 
-    let* r_ty, warnings1 = infer_type_expr ctx nname (Call (pos, [], (node, LA.NodeTagSet.empty), args)) in
+    let* r_ty, warnings1 = infer_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) in
     let* d_tys_warns = R.seq (List.map (infer_type_expr ctx nname) defaults) in
     let d_tys, warnings2 = List.split d_tys_warns in
       R.ifM (eq_lustre_type ctx r_ty (GroupType (pos, d_tys)))
@@ -886,7 +886,7 @@ let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type 
         (type_error pos IlltypedDefaults)
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx nname cond (Bool pos)
-    >> infer_type_expr ctx nname (Call (pos, [], (node, LA.NodeTagSet.empty), args))
+    >> infer_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args))
   | LA.Merge (pos, i, mcases) as e ->
     let* ty, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
     let mcases_ids, mcases_exprs = List.split mcases in
@@ -900,7 +900,7 @@ let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type 
     (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx nname cond (LA.Bool pos)
-    >> infer_type_expr ctx nname (LA.Call (pos, [], (node, LA.NodeTagSet.empty), args))
+    >> infer_type_expr ctx nname (LA.Call (pos, [], (NI.mk_node_id node), args))
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx nname e
@@ -912,8 +912,8 @@ let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type 
       (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
-  | LA.Call (pos, ty_args, ((i, _) as node_name), arg_exprs) -> (
-    Debug.parse "Inferring type for node call %a" LA.pp_print_node_id node_name ;
+  | LA.Call (pos, ty_args, ({ name; } as node_name), arg_exprs) -> (
+    Debug.parse "Inferring type for node call %a" NI.pp_print_node_id node_name ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
        guesses in the case that ty_args contains refinement types. This rules out 
        instantiated polymorphic nodes having ill-formed refinement types (with e.g., assumptions on 
@@ -945,7 +945,7 @@ let rec infer_type_expr: tc_context -> LA.node_id option -> LA.expr -> (tc_type 
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
-    | _, None -> type_error pos (UnboundNodeName i)
+    | _, None -> type_error pos (UnboundNodeName name)
   )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -963,7 +963,7 @@ and check_array_dimensions pos ctx base_e idxs =
     (type_error pos (InvalidNumberOfIndices base_e))
   else R.ok ()
 
-and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([> warning] list, [> error]) result
+and check_type_expr: tc_context -> NI.node_id option -> LA.expr -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
   match expr with
   (* Identifiers *)
@@ -1029,7 +1029,7 @@ and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([
     let* inf_tys_warns = R.seq (List.map (infer_type_expr ctx nname) es) in
     let inf_tys, warnings = List.split inf_tys_warns in
     let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
-    let* exp_ty = instantiate_type_variables ctx pos (name, LA.NodeTagSet.empty) exp_ty ty_args in
+    let* exp_ty = instantiate_type_variables ctx pos (NI.mk_node_id name) exp_ty ty_args in
     R.ifM (eq_lustre_type ctx exp_ty inf_r_ty)
       (R.ok (List.flatten warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))
@@ -1163,7 +1163,7 @@ and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([
   | When (_, e, _) -> check_type_expr ctx nname e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
     let* warnings1 = check_type_expr ctx nname c (Bool pos) in
-    let* warnings2 = check_type_expr ctx nname (Call (pos, [], (node, LA.NodeTagSet.empty), args)) exp_ty in
+    let* warnings2 = check_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) exp_ty in
     let* dy_tys_warns =  R.seq (List.map (infer_type_expr ctx nname) defaults) in
     let d_tys, warnings3 = List.split dy_tys_warns in
     R.ifM (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
@@ -1171,7 +1171,7 @@ and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([
           (type_error pos IlltypedDefaults)
   | Activate (pos, node, cond, _, args) -> 
     let* warnings1 = check_type_expr ctx nname cond (Bool pos) in
-    let* warnings2  = check_type_expr ctx nname (Call (pos, [], (node, LA.NodeTagSet.empty), args)) exp_ty in 
+    let* warnings2  = check_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) exp_ty in 
     R.ok (warnings1 @ warnings2)
   | Merge (pos, i, mcases) as e ->
     let* ty, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
@@ -1184,7 +1184,7 @@ and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([
     R.ok (warnings1 @ List.flatten warnings2)
   | RestartEvery (pos, node, args, cond) ->
     let* warnings1 = check_type_expr ctx nname cond (LA.Bool pos) in 
-    let* warnings2 = check_type_expr ctx nname (LA.Call (pos, [], (node, LA.NodeTagSet.empty), args)) exp_ty in 
+    let* warnings2 = check_type_expr ctx nname (LA.Call (pos, [], (NI.mk_node_id node), args)) exp_ty in 
     R.ok (warnings1 @ warnings2)
 
   (* Temporal operators *)
@@ -1195,26 +1195,26 @@ and check_type_expr: tc_context -> LA.node_id option -> LA.expr -> tc_type -> ([
     R.ok (warnings1 @ warnings2)
 
   (* Node calls *)
-  | Call (pos, ty_args, ((i, _) as node_name), args) ->
+  | Call (pos, ty_args, ({ name; } as node_name), args) ->
     let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx nname) args) in
     let arg_tys, warnings = List.split arg_tys_warns in
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx node_name), (lookup_node_param_ids ctx node_name) with
     | None, _ 
-    | _, None -> type_error pos (UnboundNodeName i)
+    | _, None -> type_error pos (UnboundNodeName name)
     | Some ty, Some call_params -> 
       (* Express ty in terms of the current context *)
       let ty = update_ty_with_ctx ty call_params ctx args in
       let* ty = instantiate_type_variables ctx pos node_name ty ty_args in
       let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
       if b then R.ok (List.flatten warnings)
-      else (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
+      else (type_error pos (MismatchedNodeType (name, (TArr (pos, arg_ty, exp_ty)), ty))))
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
-and infer_type_unary_op: tc_context -> LA.node_id option -> Lib.position -> LA.expr -> LA.unary_operator -> (tc_type * [> warning] list, [> error]) result
+and infer_type_unary_op: tc_context -> NI.node_id option -> Lib.position -> LA.expr -> LA.unary_operator -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname pos e op ->
   let* ty, warnings = infer_type_expr ctx nname e in
   match op with
@@ -1254,7 +1254,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
   R.seqM (||) false (List.map (are_equal_types ctx ty1 ty2) num_tys) 
 (** This is an ugly fix till we have polymorphic unification, may be qualified types? *)
   
-and infer_type_binary_op: tc_context -> LA.node_id option -> Lib.position
+and infer_type_binary_op: tc_context -> NI.node_id option -> Lib.position
                           -> LA.binary_operator -> LA.expr -> LA.expr
                           -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname pos op e1 e2 ->
@@ -1307,7 +1307,7 @@ and infer_type_binary_op: tc_context -> LA.node_id option -> Lib.position
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** infers the type of binary operators  *)
 
-and infer_type_conv_op: tc_context -> LA.node_id option -> Lib.position
+and infer_type_conv_op: tc_context -> NI.node_id option -> Lib.position
                         ->  LA.expr -> LA.conversion_operator
                         -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname pos e op ->
@@ -1363,7 +1363,7 @@ and infer_type_conv_op: tc_context -> LA.node_id option -> Lib.position
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** Converts from given type to the intended type aka casting *)
     
-and infer_type_comp_op: tc_context -> LA.node_id option -> Lib.position -> LA.expr -> LA.expr
+and infer_type_comp_op: tc_context -> NI.node_id option -> Lib.position -> LA.expr -> LA.expr
                         -> LA.comparison_operator -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname pos e1 e2 op ->
   let* ty1, warnings1 = infer_type_expr ctx nname e1 in
@@ -1385,7 +1385,7 @@ and infer_type_comp_op: tc_context -> LA.node_id option -> Lib.position -> LA.ex
     else type_error pos (ExpectedIntegerTypes (ty1, ty2))
 (** infer the type of comparison operator application *)
                   
-and check_type_record_proj: Lib.position -> tc_context -> LA.node_id option -> LA.expr -> LA.index -> tc_type -> ([> warning] list, [> error]) result =
+and check_type_record_proj: Lib.position -> tc_context -> NI.node_id option -> LA.expr -> LA.index -> tc_type -> ([> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty -> 
   infer_type_expr ctx nname expr
   >>= function
@@ -1399,7 +1399,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.node_id option -> L
       (type_error pos (UnificationFailed (exp_ty, fty)))
   | rec_ty, _ -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
 
-and check_type_tuple_proj : Lib.position -> tc_context -> LA.node_id option -> LA.expr -> int -> tc_type -> ([> warning] list, [> error]) result =
+and check_type_tuple_proj : Lib.position -> tc_context -> NI.node_id option -> LA.expr -> int -> tc_type -> ([> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty ->
   infer_type_expr ctx nname expr
   >>= function
@@ -1413,7 +1413,7 @@ and check_type_tuple_proj : Lib.position -> tc_context -> LA.node_id option -> L
       (type_error pos (UnificationFailed (exp_ty, ity)))
   | ty, _ -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
 
-and check_type_const_decl: tc_context -> LA.node_id option -> LA.const_decl -> tc_type -> ([> warning] list, [> error]) result =
+and check_type_const_decl: tc_context -> NI.node_id option -> LA.const_decl -> tc_type -> ([> warning] list, [> error]) result =
   fun ctx nname const_decl exp_ty ->
   match const_decl with
   | FreeConst (pos, i, _) ->
@@ -1437,7 +1437,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
   = fun pos ctx
         (node_name, is_extern, _, params, input_vars, output_vars, ldecls, items, contract)
         ->
-  Debug.parse "TC declaration node: %a {" LA.pp_print_node_id node_name;
+  Debug.parse "TC declaration node: %a {" NI.pp_print_node_id node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
   let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
   let loc_ids = LA.SI.of_list (List.map (fun a -> LH.extract_loc_ty a |> fun (id, _, _) -> id) ldecls) in
@@ -1493,7 +1493,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
       (* if the node is extern, we will not have any body to typecheck *)
       >> if is_extern
       then R.ok ( Debug.parse "External Node, no body to type check."
-                ; Debug.parse "TC declaration node %a done }" LA.pp_print_node_id node_name ;
+                ; Debug.parse "TC declaration node %a done }" NI.pp_print_node_id node_name ;
                 [])
       else (
         (* Add local variable bindings to the context *)
@@ -1523,10 +1523,10 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> ([> warn
           |> R.seq_
         in
         Debug.parse "TC declaration node %a done }"
-          LA.pp_print_node_id node_name;
+          NI.pp_print_node_id node_name;
         check_lhs_eqns >> R.ok (List.flatten warnings1 @ List.flatten warnings2))
 
-and do_node_eqn: tc_context -> LA.node_id -> LA.node_equation -> ([> warning] list, [> error]) result = fun ctx nname ->
+and do_node_eqn: tc_context -> NI.node_id -> LA.node_equation -> ([> warning] list, [> error]) result = fun ctx nname ->
   function
   | LA.Assert (pos, e) ->
     Debug.parse "Checking assertion: %a" LA.pp_print_expr e;
@@ -1553,7 +1553,7 @@ and do_node_eqn: tc_context -> LA.node_id -> LA.node_equation -> ([> warning] li
     let* warnings2 = check_type_struct_def new_ctx nname lhs ty in 
     R.ok (warnings1 @ warnings2)
 
-and do_item: tc_context -> LA.node_id -> LA.node_item -> ([> warning] list, [> error]) result = fun ctx nname ->
+and do_item: tc_context -> NI.node_id -> LA.node_item -> ([> warning] list, [> error]) result = fun ctx nname ->
   function
   | LA.Body eqn -> do_node_eqn ctx nname eqn >> R.ok []
   | LA.IfBlock (pos, e, l1, l2) ->
@@ -1590,7 +1590,7 @@ and do_item: tc_context -> LA.node_id -> LA.node_item -> ([> warning] list, [> e
       LA.pp_print_node_item ann LA.pp_print_expr e
     ; check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e))
   
-and check_type_struct_item: tc_context -> LA.node_id -> LA.struct_item -> tc_type -> ([> warning] list, [> error]) result
+and check_type_struct_item: tc_context -> NI.node_id -> LA.struct_item -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx nname st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
@@ -1631,7 +1631,7 @@ and check_type_struct_item: tc_context -> LA.node_id -> LA.struct_item -> tc_typ
   | FieldSelection _ -> Lib.todo __LOC__
   | ArraySliceStructItem _ -> Lib.todo __LOC__
 
-and check_type_struct_def: tc_context -> LA.node_id -> LA.eq_lhs -> tc_type -> ([> warning] list, [> error]) result
+and check_type_struct_def: tc_context -> NI.node_id -> LA.eq_lhs -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx nname (StructDef (pos, lhss)) exp_ty ->
   (* This is a structured type, and we would want the expected type exp_ty to be a tuple type *)
   (Debug.parse "Checking if structure definition: %a has type %a \nwith local context %a"
@@ -1664,7 +1664,7 @@ and check_type_struct_def: tc_context -> LA.node_id -> LA.eq_lhs -> tc_type -> (
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
-and tc_ctx_contract_eqn: tc_context -> LA.node_id -> LA.contract_node_equation -> (tc_context * [> warning] list, [> error]) result
+and tc_ctx_contract_eqn: tc_context -> NI.node_id -> LA.contract_node_equation -> (tc_context * [> warning] list, [> error]) result
   = fun ctx cname -> function
   | GhostConst c -> tc_ctx_const_decl ctx Ghost (Some cname) c
   | GhostVars vs -> 
@@ -1674,12 +1674,12 @@ and tc_ctx_contract_eqn: tc_context -> LA.node_id -> LA.contract_node_equation -
   | Guarantee _ -> R.ok (ctx, [])
   | AssumptionVars _ -> R.ok (ctx, [])
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos), []) 
-  | ContractCall (_, ((id, _) as cc), _, _, _) ->
+  | ContractCall (_, ({ name; } as cc), _, _, _) ->
     match (lookup_contract_exports ctx cc) with
     | None -> failwith ("Cannot find exports for contract "
-      ^ (HString.string_of_hstring id))
+      ^ (HString.string_of_hstring name))
     | Some m -> R.ok (List.fold_left
-      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [id;i]) ty)
+      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [name;i]) ty)
       ctx
       (IMap.bindings m), []) 
 
@@ -1687,7 +1687,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning
   = fun ctx (cname, _, args, rets, (p, contract)) ->
   let arg_ids = LA.SI.of_list (List.map (fun arg -> LH.extract_ip_ty arg |> fst) args) in
   let ret_ids = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
-  Debug.parse "TC Contract Decl: %a {" LA.pp_print_node_id cname;
+  Debug.parse "TC Contract Decl: %a {" NI.pp_print_node_id cname;
   (* build the appropriate local context *)
   let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
@@ -1699,14 +1699,14 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
   let* warnings2 = check_type_contract (arg_ids, ret_ids) local_ctx cname (p, contract) in
-  R.ok (Debug.parse "TC Contract Decl %a done }" LA.pp_print_node_id cname; List.flatten warnings1 @ warnings2)
+  R.ok (Debug.parse "TC Contract Decl %a done }" NI.pp_print_node_id cname; List.flatten warnings1 @ warnings2)
 
-and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> LA.node_id -> LA.contract -> ([> warning] list, [> error]) result
+and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> NI.node_id -> LA.contract -> ([> warning] list, [> error]) result
   = fun node_params ctx nname (_, eqns) ->
   let* warnings = R.seq (List.map (check_contract_node_eqn node_params ctx nname) eqns) in 
   R.ok (List.flatten warnings)
 
-and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.node_id -> LA.contract_node_equation -> ([> warning] list, [> error]) result
+and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.node_id -> LA.contract_node_equation -> ([> warning] list, [> error]) result
   = fun node_params ctx nname eqn ->
   Debug.parse "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
   ; match eqn with
@@ -1733,7 +1733,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.node_id -> 
                 (Bool pos)) in 
       R.ok (List.flatten warnings)
       
-    | ContractCall (pos, ((id, _) as cname), ty_args, args, rets) ->
+    | ContractCall (pos, ({ name; } as cname), ty_args, args, rets) ->
       let* ret_tys_warns = R.seq (List.map (infer_type_expr ctx (Some nname))
         (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
@@ -1754,9 +1754,9 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.node_id -> 
           let* inf_ty = instantiate_type_variables ctx pos cname inf_ty ty_args in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
             (R.ok (List.flatten warnings1 @ List.flatten warnings2))
-            (type_error pos (MismatchedNodeType (id, exp_ty, inf_ty)))
+            (type_error pos (MismatchedNodeType (name, exp_ty, inf_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
-        ^ (HString.string_of_hstring id))))
+        ^ (HString.string_of_hstring name))))
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
   = fun (pos1, GhostVarDec(pos2, tis), expr) ->
@@ -1765,7 +1765,7 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     ) in
     Equation(pos1, lhs, expr)
 
-and tc_ctx_const_decl: tc_context -> source -> LA.node_id option  -> LA.const_decl -> (tc_context * [> warning] list, [> error]) result
+and tc_ctx_const_decl: tc_context -> source -> NI.node_id option  -> LA.const_decl -> (tc_context * [> warning] list, [> error]) result
   = fun ctx src nname ->
   function
   | LA.FreeConst (pos, i, ty) ->
@@ -1791,7 +1791,7 @@ and tc_ctx_const_decl: tc_context -> source -> LA.node_id option  -> LA.const_de
       R.ok (ctx, warnings1 @ warnings2)
 (** Fail if a duplicate constant is detected  *)
   
-and tc_ctx_contract_vars: tc_context -> LA.node_id -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
+and tc_ctx_contract_vars: tc_context -> NI.node_id -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
   = fun ctx cname (_, GhostVarDec (_, tis), _) ->
     R.seq_chain
       (fun ctx (pos, i, ty) ->
@@ -1853,13 +1853,13 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
     R.ok (add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (((id, _) as nname), _, _, ps, ip, op, _, _, _)->
+  = fun pos ctx (({ name } as nname), _, _, ps, ip, op, _, _, _)->
   Debug.parse
     "Extracting type of node declaration: %a"
-    LA.pp_print_node_id nname
+    NI.pp_print_node_id nname
   ;
   if (member_node ctx nname)
-  then type_error pos (Redeclaration id)
+  then type_error pos (Redeclaration name)
   else 
     let ctx = add_node_param_attr ctx nname ip in
     let ctx = add_ty_vars_node ctx nname ps in
@@ -1880,21 +1880,21 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (ctx, warnings) =
     else if (member_ty ctx mname) then
       type_error pos (Redeclaration mname)
     else R.ok (add_ty ctx mname (Bool pos), warnings)
-  | LA.ContractCall (p, ((id, _) as cc), _, _, _) ->
+  | LA.ContractCall (p, ({ name; } as cc), _, _, _) ->
     (match (lookup_contract_exports ctx cc) with
-    | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring id)))
+    | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring name)))
     | Some m -> R.ok (List.fold_left
-      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [id;i]) ty)
+      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [name;i]) ty)
       ctx
       (IMap.bindings m), warnings)) 
   | _ -> R.ok (ctx, warnings)
                          
-and tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> LA.node_id -> LA.contract -> (tc_context * [> warning] list, [> error ]) result 
+and tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> NI.node_id -> LA.contract -> (tc_context * [> warning] list, [> error ]) result 
 = fun ?(ignore_modes = false) ctx src cname (_, con) ->
   R.seq_chain (tc_ctx_contract_node_eqn ~ignore_modes src cname) (ctx, []) con
 
-and extract_exports: LA.node_id -> tc_context -> LA.contract -> (tc_context * [> warning] list, [> error]) result
-  = let exports_from_eqn: tc_context -> LA.node_id -> LA.contract_node_equation -> ((LA.ident * tc_type) list * [> warning] list, [> error]) result
+and extract_exports: NI.node_id -> tc_context -> LA.contract -> (tc_context * [> warning] list, [> error]) result
+  = let exports_from_eqn: tc_context -> NI.node_id -> LA.contract_node_equation -> ((LA.ident * tc_type) list * [> warning] list, [> error]) result
       = fun ctx nname -> 
       function
       | LA.GhostConst (FreeConst (_, i, ty)) -> R.ok ([(i, ty)], [])
@@ -1909,11 +1909,11 @@ and extract_exports: LA.node_id -> tc_context -> LA.contract -> (tc_context * [>
         if (member_ty ctx mname)
         then type_error pos (Redeclaration mname)
         else R.ok ([(mname, (LA.Bool pos))], []) 
-      | LA.ContractCall (p, ((id, _) as cc), _, _, _) ->
+      | LA.ContractCall (p, ({ name; } as cc), _, _, _) ->
         (match (lookup_contract_exports ctx cc) with
-        | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring id)))
+        | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring name)))
         | Some m -> R.ok (List.map
-          (fun (k, v) -> (HString.concat (HString.mk_hstring "::") [id;k], v))
+          (fun (k, v) -> (HString.concat (HString.mk_hstring "::") [name;k], v))
           (IMap.bindings m), []))
       | _ -> R.ok ([], []) in
     fun cname ctx (_, contract) ->
@@ -1929,12 +1929,12 @@ and extract_exports: LA.node_id -> tc_context -> LA.contract -> (tc_context * [>
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (((id, _) as cname), params, inputs, outputs, contract) ->
+  = fun pos ctx (({ name; } as cname), params, inputs, outputs, contract) ->
   Debug.parse
     "Extracting type of contract declaration: %a"
-    LA.pp_print_ident id
+    LA.pp_print_ident name
   ; if (member_contract ctx cname)
-    then type_error pos (Redeclaration id)
+    then type_error pos (Redeclaration name)
     else  
       let ctx = add_ty_vars_contract ctx cname params in
       let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname params inputs outputs in
@@ -1984,7 +1984,7 @@ and build_type_and_const_context: tc_context -> LA.t -> (tc_context * [> warning
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
 
-and check_const_integer_expr: tc_context -> LA.node_id option -> string -> LA.expr -> ([> warning] list, [> error ]) result
+and check_const_integer_expr: tc_context -> NI.node_id option -> string -> LA.expr -> ([> warning] list, [> error ]) result
 = fun ctx nname kind e ->
   match infer_type_expr ctx nname e with
   | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
@@ -2037,7 +2037,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
-and check_type_well_formed: tc_context -> source -> LA.node_id option -> bool -> tc_type -> ([> warning] list, [> error]) result
+and check_type_well_formed: tc_context -> source -> NI.node_id option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
   | LA.TArr (_, arg_ty, res_ty) ->
@@ -2077,7 +2077,7 @@ and check_type_well_formed: tc_context -> source -> LA.node_id option -> bool ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then 
       (* Check that we are passing the correct number of type arguments *)
-      let* _ = instantiate_type_variables ctx pos (i, LA.NodeTagSet.empty) ty ty_args in
+      let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
       let ty = expand_type_syn ctx ty in
       check_type_well_formed ctx src nname is_const ty
     else (
@@ -2110,7 +2110,7 @@ and check_type_well_formed: tc_context -> source -> LA.node_id option -> bool ->
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and build_node_fun_ty: Lib.position -> tc_context -> LA.node_id -> HString.t list
+and build_node_fun_ty: Lib.position -> tc_context -> NI.node_id -> HString.t list
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type * [> warning] list, [> error]) result
   = fun pos ctx nname params args rets ->
@@ -2226,7 +2226,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | _, _ -> R.ok false
 (** Compute Equality for lustre types  *)
 
-and is_expr_int_type: tc_context -> LA.node_id option -> LA.expr -> bool  = fun ctx nname e ->
+and is_expr_int_type: tc_context -> NI.node_id option -> LA.expr -> bool  = fun ctx nname e ->
   R.safe_unwrap false
     (infer_type_expr ctx nname e
       >>= fun (ty, _) -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)))

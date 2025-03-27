@@ -20,6 +20,7 @@ open Lib
 open LustreReporting
    
 module A = LustreAst
+module NI = NodeId
 
 module I = LustreIdent
 module IT = LustreIdent.Hashtbl
@@ -279,7 +280,7 @@ let bounds_of_index index =
 
 
 (* Create an empty node in the context *)
-let create_node = function 
+let create_node: t -> I.t -> bool -> t = function 
 
   (* Already in a node or function *)
   | { node = Some _ } ->
@@ -291,7 +292,8 @@ let create_node = function
   | { ident_type_map; ident_expr_map; expr_abs_map } as ctx -> 
 
     (fun ident is_extern ->
-
+      let ident = ident |> I.string_of_ident true |> HString.mk_hstring in 
+      
       (* Add empty node to context *)
       { ctx with
         prev = ctx;
@@ -301,7 +303,7 @@ let create_node = function
         expr_abs_map = ET.copy expr_abs_map;
         fresh_local_index = ref !(ctx.fresh_local_index);
         fresh_oracle_index = ref !(ctx.fresh_oracle_index);
-        node = Some (N.empty_node (ident, A.NodeTagSet.empty) is_extern) } )
+        node = Some (N.empty_node (NI.mk_node_id ident) is_extern) } )
 
 (** Maps something to the current node. *)
 let current_node_map = function
@@ -322,7 +324,7 @@ let current_node_modes = function
 
 (* Returns the name of the current node, if any. *)
 let current_node_name = function
-| { node = Some { N.name = (name, _) } } -> Some name
+| { node = Some { N.name = { NI.name; } } } -> Some (I.of_hstring name)
 | { node = None } -> None
 
 (** Returns the calls made by the current node, if any. *)
@@ -508,7 +510,7 @@ let contract_node_decl_of_ident { contract_nodes } ident =
     
     (* Return contract node by name *)
     List.find
-      (function (_, (i, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> NI.eq_node_ids i ident)
       contract_nodes
 
   (* Raise error again for more precise backtrace *)
@@ -781,9 +783,9 @@ let type_in_context { ident_type_map } ident =
 
 (* Return true if node has been declared in the context *)
 let node_in_context ctx ident = 
-  
+  let ident = ident |> I.string_of_ident true |> HString.mk_hstring in
   (* Return if identifier is in context or previous contexts *)
-  N.exists_node_of_name (ident, A.NodeTagSet.empty) (get_nodes ctx)
+  N.exists_node_of_name (NI.mk_node_id ident) (get_nodes ctx)
     
 
 (* Return true if property name has been declared in the context *)
@@ -1312,7 +1314,8 @@ let mk_fresh_local
 
 (* Return the node of the given name from the context*)
 let rec node_of_name ({ prev; nodes } as ctx) ident =
-  try N.node_of_name (ident, A.NodeTagSet.empty) nodes
+  let ident_hstring = ident |> I.string_of_ident true |> HString.mk_hstring in
+  try N.node_of_name (NI.mk_node_id ident_hstring) nodes
   with Not_found ->
     if ctx == prev then raise Not_found
     else node_of_name prev ident
@@ -1345,11 +1348,11 @@ let call_outputs_of_node_call
           List.find
             (fun { N.call_cond = call_cond;
                    N.call_defaults = call_defaults;
-                   N.call_node_id = (call_ident, _);
+                   N.call_node_id = { name = call_ident; };
                    N.call_inputs = call_inputs } -> 
 
               (* Call must be to the same node, and ... *)
-              (I.equal ident call_ident) &&
+              (I.equal ident (I.of_hstring call_ident)) &&
 
               (* ... activation and restart conditions must be equal, and ... *)
               (try List.for_all2 (fun c c' -> match c, c' with
