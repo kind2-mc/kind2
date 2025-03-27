@@ -802,77 +802,23 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
 end
 
-(* module Int8M : MachineIntegerSig = struct
-  let length = 8
-  let is_type = Type.is_int8
+module BVM : MachineIntegerSig = struct
+  let length = 8 (*!!! TODO: Make generic *)
+  let is_type = Type.is_bitvector
   let is_symbol = Symbol.is_bv8
 end
 
-module Int16M : MachineIntegerSig = struct
-  let length = 16
-  let is_type = Type.is_int16
-  let is_symbol = Symbol.is_bv16
-end
-
-module Int32M : MachineIntegerSig = struct
-  let length = 32
-  let is_type = Type.is_int32
-  let is_symbol = Symbol.is_bv32
-end
-
-module Int64M : MachineIntegerSig = struct
-  let length = 64
-  let is_type = Type.is_int64
-  let is_symbol = Symbol.is_bv64
-end
-
-module UInt8M : MachineIntegerSig = struct
+module UBVM : MachineIntegerSig = struct
   let length = 8
-  let is_type = Type.is_uint8
+  let is_type = Type.is_ubitvector
   let is_symbol = Symbol.is_ubv8
 end
 
-module UInt16M : MachineIntegerSig = struct
-  let length = 16
-  let is_type = Type.is_uint16
-  let is_symbol = Symbol.is_ubv16
-end
+(** BV candidate term miner. *)
+module BV = MakeCandGen (MachineIntegerRules(BVM))
 
-module UInt32M : MachineIntegerSig = struct
-  let length = 32
-  let is_type = Type.is_uint32
-  let is_symbol = Symbol.is_ubv32
-end
-
-module UInt64M : MachineIntegerSig = struct
-  let length = 64
-  let is_type = Type.is_uint64
-  let is_symbol = Symbol.is_ubv64
-end *)
-
-(** Int8 candidate term miner. *)
-(* module Int8 = MakeCandGen (MachineIntegerRules(Int8M))
-
-(** Int16 candidate term miner. *)
-module Int16 = MakeCandGen (MachineIntegerRules(Int16M))
-
-(** Int32 candidate term miner. *)
-module Int32 = MakeCandGen (MachineIntegerRules(Int32M))
-
-(** Int64 candidate term miner. *)
-module Int64 = MakeCandGen (MachineIntegerRules(Int64M))
-
-(** UInt8 candidate term miner. *)
-module UInt8 = MakeCandGen (MachineIntegerRules(UInt8M))
-
-(** UInt16 candidate term miner. *)
-module UInt16 = MakeCandGen (MachineIntegerRules(UInt16M))
-
-(** UInt32 candidate term miner. *)
-module UInt32 = MakeCandGen (MachineIntegerRules(UInt32M))
-
-(** UInt64 candidate term miner. *)
-module UInt64 = MakeCandGen (MachineIntegerRules(UInt64M)) *)
+(** UBV candidate term miner. *)
+module UBV = MakeCandGen (MachineIntegerRules(UBVM))
 
 (** Real rules. *)
 module RealRules = struct

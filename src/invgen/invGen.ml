@@ -759,33 +759,11 @@ module BoolInvGen = Make(InvGenGraph.Bool)
 (** Integer invariant generation. *)
 module IntInvGen = Make(InvGenGraph.Int)
 
-(** Int8 invariant generation. *)
-(*!! Generalize this stuff. 
-     Look at types of variables in transition system, and instantiate invariant generation 
-     for all the present types.
-*)
-(* module Int8InvGen = Make(InvGenGraph.Int8)
+(** Signed bitvector invariant generation *)
+module BVInvGen = Make(InvGenGraph.BV)
 
-(** Int16 invariant generation. *)
-module Int16InvGen = Make(InvGenGraph.Int16)
-
-(** Int32 invariant generation. *)
-module Int32InvGen = Make(InvGenGraph.Int32)
-
-(** Int64 invariant generation. *)
-module Int64InvGen = Make(InvGenGraph.Int64)
-
-(** UInt8 invariant generation. *)
-module UInt8InvGen = Make(InvGenGraph.UInt8)
-
-(** UInt16 invariant generation. *)
-module UInt16InvGen = Make(InvGenGraph.UInt16)
-
-(** UInt32 invariant generation. *)
-module UInt32InvGen = Make(InvGenGraph.UInt32)
-
-(** UInt64 invariant generation. *)
-module UInt64InvGen = Make(InvGenGraph.UInt64) *)
+(** Unsigned bitvector invariant generation *)
+module UBVInvGen = Make(InvGenGraph.UBV)
 
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
@@ -799,29 +777,11 @@ module EqOnly = struct
   (** Graph of integers. *)
   module IntInvGen = Make( InvGenGraph.EqOnly.Int )
 
-  (** Graph of int8s. *)
-  (* module Int8InvGen = Make( InvGenGraph.EqOnly.Int8 )
+  (** Graph of signed bitvectors. *)
+  module BVInvGen = Make( InvGenGraph.EqOnly.BV )
 
-  (** Graph of int16s. *)
-  module Int16InvGen = Make( InvGenGraph.EqOnly.Int16 )
-
-  (** Graph of int32s. *)
-  module Int32InvGen = Make( InvGenGraph.EqOnly.Int32 )
-
-  (** Graph of int64s. *)
-  module Int64InvGen = Make( InvGenGraph.EqOnly.Int64 )
-
-  (** Graph of uint8s. *)
-  module UInt8InvGen = Make( InvGenGraph.EqOnly.UInt8 )
-
-  (** Graph of uint16s. *)
-  module UInt16InvGen = Make( InvGenGraph.EqOnly.UInt16 )
-
-  (** Graph of uint32s. *)
-  module UInt32InvGen = Make( InvGenGraph.EqOnly.UInt32 )
-
-  (** Graph of uint64s. *)
-  module UInt64InvGen = Make( InvGenGraph.EqOnly.UInt64 ) *)
+  (** Graph of unsigned bitvectors. *)
+  module UBVInvGen = Make( InvGenGraph.EqOnly.UBV )
 
   (** Graph of reals. *)
   module RealInvGen = Make( InvGenGraph.EqOnly.Real )
@@ -856,6 +816,7 @@ let main_int two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
            two_state in_sys param sys
 
+(*!!! TODO: Continue here *)
 (* let main_int8 two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.Int8InvGen.main Int8InvGen.main
            two_state in_sys param sys

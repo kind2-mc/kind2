@@ -105,29 +105,11 @@ module BoolInvGen : Out
 (** Int invariant generation module. *)
 module IntInvGen : Out
 
-(** Int8 invariant generation module. *)
-(* module Int8InvGen : Out
+(** Bitvector invariant generation module. *)
+module BVInvGen : Out
 
-(** Int16 invariant generation module. *)
-module Int16InvGen : Out
-
-(** Int32 invariant generation module. *)
-module Int32InvGen : Out
-
-(** Int64 invariant generation module. *)
-module Int64InvGen : Out
-
-(** UInt8 invariant generation module. *)
-module UInt8InvGen : Out
-
-(** UInt16 invariant generation module. *)
-module UInt16InvGen : Out
-
-(** UInt32 invariant generation module. *)
-module UInt32InvGen : Out
-
-(** UInt64 invariant generation module. *)
-module UInt64InvGen : Out *)
+(** Unsigned bitvector invariant generation module. *)
+module UBVInvGen : Out
 
 (** Real invariant generation module. *)
 module RealInvGen : Out
