@@ -1022,7 +1022,7 @@ pexpr(Q):
     d = pexpr_list(Q)
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.Const (pos, A.False), s, a, d) } 
+      A.Condact (pos, e1, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
@@ -1033,7 +1033,7 @@ pexpr(Q):
     RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), s, a, []) } 
+      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, []) } 
 
   (* condact call with defaults and restart *)
   | CONDACT LPAREN;
@@ -1045,7 +1045,7 @@ pexpr(Q):
     d = pexpr_list(Q);
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) } 
+      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) } 
 
   (* condact call with no return values and restart *)
   | CONDACT ; LPAREN;
@@ -1055,7 +1055,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, []) } 
+      A.Condact (pos, c, r, NodeId.mk_node_id s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
@@ -1064,7 +1064,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), s, a, d) }
+      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) }
     
   (* activate operator without initial defaults
 
@@ -1073,7 +1073,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, A.Const (pos, A.False), a) }
+      A.Activate (pos, NodeId.mk_node_id s, c, A.Const (pos, A.False), a) }
 
   (* activate restart *)
   | LPAREN; ACTIVATE;
@@ -1083,7 +1083,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
+      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
     
   (* alternative syntax for activate restart *)
   | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
@@ -1092,7 +1092,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
+      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
     
   (* activate operator without initial defaults and restart
 
@@ -1103,7 +1103,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
+      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
     
   (* alternative syntax of previous construct  *)
   | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
@@ -1111,7 +1111,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
+      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
 
     
   (* restart node call *)
@@ -1126,7 +1126,7 @@ pexpr(Q):
   | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+    { A.RestartEvery (mk_pos $startpos, NodeId.mk_node_id s, a, c) }
     
         
   (* Binary merge operator *)

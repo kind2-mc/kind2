@@ -218,7 +218,7 @@ function
 | AnyOp _ -> true
 
 | Condact (_, e, r, i, l1, l2) ->
-  StringMap.mem i ctx.nodes ||
+  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
   has_stateful_op ctx e ||
   has_stateful_op ctx r ||
   List.fold_left
@@ -230,7 +230,7 @@ function
     false l2
 
 | Activate (_, i, e, r, l) ->
-  StringMap.mem i ctx.nodes ||
+  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
   has_stateful_op ctx e ||
   has_stateful_op ctx r ||
   List.fold_left
@@ -479,14 +479,8 @@ let outputs_at_most_one_definition outputs items =
   Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
-  | LA.Condact (pos, _, _, i, _, _)
-  | Activate (pos, i, _, _, _) -> 
-    let check_nodes = StringMap.mem i ctx.nodes in
-    let check_funcs = StringMap.mem i ctx.functions in
-    (match check_nodes, check_funcs with
-    | true, _ -> Ok ()
-    | _, true -> Ok ()
-    | false, false -> syntax_error pos (UndefinedNode i))
+  | LA.Condact (pos, _, _, node_id, _, _)
+  | Activate (pos, node_id, _, _, _) 
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
@@ -550,12 +544,9 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | _ -> Ok ()
 
 let no_calls_to_node ctx = function
-  | LA.Condact (pos, _, _, i, _, _)
-  | Activate (pos, i, _, _, _)
-  | RestartEvery (pos, i, _, _) -> 
-    let check_nodes = StringMap.mem i ctx.nodes in
-    if check_nodes then syntax_error pos (NodeCallInFunction i)
-    else Ok ()
+  | LA.Condact (pos, _, _, node_id, _, _)
+  | Activate (pos, node_id, _, _, _)
+  | RestartEvery (pos, node_id, _, _) 
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction (NI.get_user_name node_id))

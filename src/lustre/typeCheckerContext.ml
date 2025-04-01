@@ -523,10 +523,7 @@ let rec arity_of_expr ty_ctx = function
   | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _) -> 
-    let node_ty = lookup_node_ty ty_ctx (NI.mk_node_id id) |> Lib.get in
-    let (_, o) = LH.type_arity node_ty in
-    o
+  | RestartEvery (_, id, _, _) 
   | Call (_, _, id, _) ->
     let node_ty = lookup_node_ty ty_ctx id |> Lib.get in
     let (_, o) = LH.type_arity node_ty in

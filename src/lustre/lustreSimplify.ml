@@ -541,7 +541,7 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident (HString.string_of_hstring ident))
+          (NodeId.get_internal_name ident |> I.of_hstring)
           case_clock
           restart_clock
           args
@@ -1023,13 +1023,13 @@ let rec eval_ast_expr bounds ctx =
   (* Condact, a node with an activation condition 
 
      [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
-  | A.Condact (pos, cond, restart, ident, args, defaults) ->  
+  | A.Condact (pos, cond, restart, node_id, args, defaults) ->  
 
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       cond
       restart
       args
@@ -1046,12 +1046,12 @@ let rec eval_ast_expr bounds ctx =
       (A.Const (dummy_pos, A.False))
       args
       None
-  | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
+  | A.RestartEvery (pos, node_id, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       (A.Const (dummy_pos, A.True))
       (A.Const (dummy_pos, A.False))
       args
@@ -1060,13 +1060,13 @@ let rec eval_ast_expr bounds ctx =
   | A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
 
   (* Node call with reset/restart *)
-  | A.RestartEvery (pos, ident, args, cond) ->
+  | A.RestartEvery (pos, node_id, args, cond) ->
 
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       (A.Const (dummy_pos, A.True))
       cond
       args

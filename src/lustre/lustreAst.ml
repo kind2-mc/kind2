@@ -113,10 +113,10 @@ type expr =
   (* Clock operators *)
   | When of position * expr * clock_expr
   (*!! Use NodeId.t for Condact, Activate, Merge, RestartEvery *)
-  | Condact of position * expr * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr * expr list
+  | Condact of position * expr * expr * NI.t * expr list * expr list
+  | Activate of position * NI.t * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
-  | RestartEvery of position * ident * expr list * expr
+  | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
@@ -518,7 +518,7 @@ let rec pp_print_expr ppf =
         "%acondact(%a,(restart %a every %a)(%a),%a)" 
         ppos p
         pp_print_expr e1
-        pp_print_ident n
+        NI.pp_print_node_id_user_name n
         pp_print_expr er
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
@@ -527,7 +527,7 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf
         "(activate (restart %a every %a) every %a) (%a)"
-        pp_print_ident i
+        NI.pp_print_node_id_user_name i
         pp_print_expr r
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
@@ -545,7 +545,7 @@ let rec pp_print_expr ppf =
     | RestartEvery (_, i, l, c) ->
       Format.fprintf ppf
         "(restart %a every %a)(%a)"
-        pp_print_ident i
+        NI.pp_print_node_id_user_name i
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
 

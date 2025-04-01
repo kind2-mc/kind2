@@ -156,10 +156,10 @@ and expr =
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  | Condact of position * expr * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr * expr list
+  | Condact of position * expr * expr * NI.t * expr list * expr list
+  | Activate of position * NI.t * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
-  | RestartEvery of position * ident * expr list * expr
+  | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr

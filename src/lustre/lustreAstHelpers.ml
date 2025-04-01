@@ -832,14 +832,14 @@ let rec calls_of_expr: expr -> NI.Set.t =
   (* Node calls *)
   | Call (_, _, i, es) -> NI.Set.union (NI.Set.singleton i) (NI.Set.flatten (List.map calls_of_expr es))
   | Condact (_, e1, e2, i, es1, es2) ->
-    NI.Set.union (NI.Set.singleton (NI.mk_node_id i))
+    NI.Set.union (NI.Set.singleton i)
              (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
                           List.map calls_of_expr es1 @ List.map calls_of_expr es2))
   | Activate (_, i, e1, e2, es) -> 
-    NI.Set.union (NI.Set.singleton (NI.mk_node_id i))
+    NI.Set.union (NI.Set.singleton i)
              (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
   | RestartEvery (_, i, es, e) -> 
-    NI.Set.union (NI.Set.singleton (NI.mk_node_id i))
+    NI.Set.union (NI.Set.singleton i)
              (NI.Set.flatten (calls_of_expr e :: List.map calls_of_expr es))
   (* Everything else *)
   | Ident _ -> NI.Set.empty
@@ -1367,12 +1367,12 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl1 yl1 |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 ->
-      Ok (e1 && e2 && l1 && l2 && HString.equal xi yi)
+      Ok (e1 && e2 && l1 && l2 && NI.equal xi yi)
     | Activate (_, xi, xe1, xe2, xl), Activate (_, yi, ye1, ye2, yl) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e1 && e2 && l && HString.equal xi yi)
+      Ok (e1 && e2 && l && NI.equal xi yi)
     | Merge (_, xi, xl), Merge (_, yi, yl) ->
       let (x1, x2), (y1, y2) = List.split xl, List.split yl in
       rlist x2 y2 |> join >>= fun e ->
@@ -1383,7 +1383,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e && l && HString.equal xi yi)
+      Ok (e && l && NI.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
     | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
@@ -1561,12 +1561,12 @@ let hash depth_limit expr =
         let e2_hash = r (depth + 1) e2 in
         let l1_hash = List.map (r (depth + 1)) l1 in
         let l2_hash = List.map (r (depth + 1)) l2 in
-        Hashtbl.hash (18, e1_hash, e2_hash, HString.hash i, l1_hash, l2_hash)
+        Hashtbl.hash (18, e1_hash, e2_hash, NI.hash i, l1_hash, l2_hash)
       | Activate (_, i, e1, e2, l) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (19, HString.hash i, e1_hash, e2_hash, l_hash)
+        Hashtbl.hash (19, NI.hash i, e1_hash, e2_hash, l_hash)
       | Merge (_, i, l) ->
         let l_hash = List.map
           (fun (i, e) -> let e_hash = r (depth + 1) e in
@@ -1577,7 +1577,7 @@ let hash depth_limit expr =
       | RestartEvery (_, i, l, e) ->
         let l_hash = List.map (r (depth + 1)) l in
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (21, HString.hash i, l_hash, e_hash)
+        Hashtbl.hash (21, NI.hash i, l_hash, e_hash)
       | Pre (_, e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (22, e_hash)

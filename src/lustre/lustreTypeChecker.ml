@@ -381,16 +381,7 @@ let rec infer_const_attr ctx exp =
   | AnyOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
-  | RestartEvery (_, i, _, _) -> (
-    let err = error exp "node call or any operator" in
-    match lookup_node_ty ctx (NI.mk_node_id i) with
-    | Some (TArr (_, _, exp_ret_tys)) -> (
-      match exp_ret_tys with
-      | GroupType (_, tys) -> List.map (fun _ -> err) tys
-      | _ -> [err]
-    )
-    | _ -> [err]
-  )
+  | RestartEvery (_, i, _, _) 
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -878,7 +869,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   | LA.When (_, e, _) -> infer_type_expr ctx nname e
   | LA.Condact (pos, c, _, node, args, defaults) ->
     check_type_expr ctx nname c (Bool pos) >> 
-    let* r_ty, warnings1 = infer_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) in
+    let* r_ty, warnings1 = infer_type_expr ctx nname (Call (pos, [], node, args)) in
     let* d_tys_warns = R.seq (List.map (infer_type_expr ctx nname) defaults) in
     let d_tys, warnings2 = List.split d_tys_warns in
       R.ifM (eq_lustre_type ctx r_ty (GroupType (pos, d_tys)))
@@ -886,7 +877,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         (type_error pos IlltypedDefaults)
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx nname cond (Bool pos)
-    >> infer_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args))
+    >> infer_type_expr ctx nname (Call (pos, [], node, args))
   | LA.Merge (pos, i, mcases) as e ->
     let* ty, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
     let mcases_ids, mcases_exprs = List.split mcases in
@@ -900,7 +891,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx nname cond (LA.Bool pos)
-    >> infer_type_expr ctx nname (LA.Call (pos, [], (NI.mk_node_id node), args))
+    >> infer_type_expr ctx nname (LA.Call (pos, [], node, args))
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx nname e
@@ -1163,7 +1154,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
   | When (_, e, _) -> check_type_expr ctx nname e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
     let* warnings1 = check_type_expr ctx nname c (Bool pos) in
-    let* warnings2 = check_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) exp_ty in
+    let* warnings2 = check_type_expr ctx nname (Call (pos, [], node, args)) exp_ty in
     let* dy_tys_warns =  R.seq (List.map (infer_type_expr ctx nname) defaults) in
     let d_tys, warnings3 = List.split dy_tys_warns in
     R.ifM (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
@@ -1171,7 +1162,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
           (type_error pos IlltypedDefaults)
   | Activate (pos, node, cond, _, args) -> 
     let* warnings1 = check_type_expr ctx nname cond (Bool pos) in
-    let* warnings2  = check_type_expr ctx nname (Call (pos, [], (NI.mk_node_id node), args)) exp_ty in 
+    let* warnings2  = check_type_expr ctx nname (Call (pos, [], node, args)) exp_ty in 
     R.ok (warnings1 @ warnings2)
   | Merge (pos, i, mcases) as e ->
     let* ty, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
@@ -1184,7 +1175,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ok (warnings1 @ List.flatten warnings2)
   | RestartEvery (pos, node, args, cond) ->
     let* warnings1 = check_type_expr ctx nname cond (LA.Bool pos) in 
-    let* warnings2 = check_type_expr ctx nname (LA.Call (pos, [], (NI.mk_node_id node), args)) exp_ty in 
+    let* warnings2 = check_type_expr ctx nname (LA.Call (pos, [], node, args)) exp_ty in 
     R.ok (warnings1 @ warnings2)
 
   (* Temporal operators *)

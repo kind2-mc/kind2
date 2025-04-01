@@ -526,14 +526,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | When _ -> assert false
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _) -> 
-    let ty = Ctx.lookup_node_ty ty_ctx (NI.mk_node_id id) |> get in
-    let output_ty = match ty with
-      | TArr (_, _, GroupType (_, tys)) -> List.nth tys proj
-      | TArr (_, _, ty) -> ty
-      | _ -> assert false
-    in
-    extract_bounds_from_type output_ty
+  | RestartEvery (_, id, _, _) 
   | Call (_, _, id, _) ->
     let ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let output_ty = match ty with

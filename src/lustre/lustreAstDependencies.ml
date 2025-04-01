@@ -406,17 +406,17 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
   (* Clock operators *)
   | LA.When (_, e, _) -> get_node_call_from_expr e
-  | LA.Condact (pos, e1, e2, i, e3, e4) -> (HString.concat2 node_prefix i, pos)
+  | LA.Condact (pos, e1, e2, i, e3, e4) -> (HString.concat2 node_prefix (NI.get_internal_name i), pos)
     :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
     @ (List.flatten (List.map get_node_call_from_expr e3))
     @ (List.flatten (List.map get_node_call_from_expr e4))
-  | LA.Activate (pos, i, e1, e2, e3) -> (HString.concat2 node_prefix i, pos)
+  | LA.Activate (pos, i, e1, e2, e3) -> (HString.concat2 node_prefix (NI.get_internal_name i), pos)
     :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
     @ (List.flatten (List.map get_node_call_from_expr e3))
   | LA.Merge (_, _, id_exprs) ->
      List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.RestartEvery (pos, i, es, e1) ->
-     (HString.concat2 node_prefix i, pos)
+     (HString.concat2 node_prefix (NI.get_internal_name i), pos)
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
@@ -677,7 +677,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
-    let call_vars = r (Call (pos, [], (NI.mk_node_id node_id), es)) in
+    let call_vars = r (Call (pos, [], node_id, es)) in
     let default_vars =
       match List.nth_opt ds proj with
       | None -> SI.empty (* Ignore if arity is not correct *)
@@ -685,13 +685,13 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     in
     SI.union default_vars (SI.union (SI.union (r clk_exp) (r r_exp)) call_vars)
   | Activate (pos, node_id, clk_exp, r_exp, es) ->
-    let call_vars = r (Call (pos, [], (NI.mk_node_id node_id), es)) in
+    let call_vars = r (Call (pos, [], node_id, es)) in
     SI.union (SI.union (r clk_exp) (r r_exp)) call_vars
   | Merge (_, i, es) ->
     let result = es |> (List.map (fun (_, e) -> r e)) |> SI.flatten in
     SI.add i result
   | RestartEvery (pos, node_id, es, clk_exp) ->
-    let call_vars = r (Call (pos, [], (NI.mk_node_id node_id), es)) in
+    let call_vars = r (Call (pos, [], node_id, es)) in
     SI.union (r clk_exp) call_vars
 
   (* Temporal operators *)
@@ -836,7 +836,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
-     let node_call = LA.Call(pos, [], (NI.mk_node_id n), e1s) in
+     let node_call = LA.Call(pos, [], n, e1s) in
      mk_graph_expr2 m node_call >>= fun gs ->
      R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
      let default_gs = List.concat d_gs in
@@ -844,7 +844,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
      else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
-     let node_call = LA.Call(pos, [], (NI.mk_node_id n), es) in
+     let node_call = LA.Call(pos, [], n, es) in
      mk_graph_expr2 m node_call
   | LA.Merge (pos, clk_id, cs) -> (
      R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
@@ -869,7 +869,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
       )
   )
   | LA.RestartEvery (p, n, es, clk_exp) ->
-     let node_call = LA.Call(p, [], (NI.mk_node_id n), es) in
+     let node_call = LA.Call(p, [], n, es) in
      let* call_g = mk_graph_expr2 m node_call in
      let* clk_g = mk_graph_expr2 m clk_exp in
      let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
