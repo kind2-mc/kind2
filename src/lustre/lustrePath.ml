@@ -26,6 +26,7 @@ module N = LustreNode
 module S = SubSystem
 module T = TransSys
 module C = LustreContract
+module NI = NodeId
 
 module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
@@ -986,7 +987,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 (* Take first node to print *)
 | (
   trace, Node (
-    { N.name = { NodeId.name = user_name; }; N.inputs; N.outputs; N.locals;
+    { N.node_id; N.inputs; N.outputs; N.locals;
       N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
@@ -996,14 +997,13 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_state, node_name =
     match N.node_is_state_handler node with
-    | None -> false, user_name |> HString.string_of_hstring
+    | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
     | Some state -> true, state
   in
-  let { NodeId.node_type; } = node.name in
   let title =
     if is_function then "Function"
     else if is_state then "State"
-    else match node_type with 
+    else match (NI.get_node_type node_id) with 
     | Environment -> "Environment of"
     | Contract -> "Contract of"
     | Type -> "Type"
@@ -1375,7 +1375,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
 
   | (
     trace, Node (
-      { N.name = { NodeId.name = user_name; }; N.inputs; N.outputs; N.locals; N.is_function } as node,
+      { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
@@ -1384,7 +1384,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, user_name |> HString.string_of_hstring
+      | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
       | Some state -> true, state
     in
 
@@ -1792,14 +1792,14 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
   | [] -> ()
 
   | (
-    trace, Node ({ N.name = { NodeId.name = user_name; }; N.is_function } as node,
+    trace, Node ({ N.node_id; N.is_function } as node,
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
     let is_state, name =
       match N.node_is_state_handler node with
-      | None -> false, user_name |> HString.string_of_hstring
+      | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
       | Some state -> true, state
     in
 
@@ -2004,13 +2004,13 @@ let pos_to_numbers abstr_map nodes =
         register_callpos_for_nb
           abstr_map hc name parents pos cond (inputs, defs);
 
-        fold (call :: parents) (LustreNode.node_of_name name nodes)
+        fold (call :: parents) (LustreNode.node_of_node_id name nodes)
 
       ) node.LustreNode.calls
   in
 
   List.iter (fun main_node_id -> 
-      let main_node = LustreNode.node_of_name main_node_id nodes in
+      let main_node = LustreNode.node_of_node_id main_node_id nodes in
       fold [] main_node)
     main_nodes;
 
@@ -2111,7 +2111,7 @@ let reconstruct_lustre_streams subsystems state_vars =
       let hc' = Hashtbl.create 64 in
       let () = 
         Hashtbl.fold (fun key value acc -> (key, value) :: acc) hc [] |>
-        List.map (fun ((name, b), c) -> (NodeId.internal_string_of_node_id name |> I.mk_string_ident, b), c) |> 
+        List.map (fun ((name, b), c) -> (NI.get_internal_name name |> I.of_hstring, b), c) |> 
         List.iter (fun (k, v) -> Hashtbl.add hc' k v) 
       in
       let streams = List.flatten (List.map (get_lustre_streams hc') l) in

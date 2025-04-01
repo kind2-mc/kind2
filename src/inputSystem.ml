@@ -367,12 +367,12 @@ let get_lustre_node (type s) (input_system : s t) scope =
 
 let get_node_internal_name in_sys scope = 
   match get_lustre_node in_sys scope with 
-  | Some node -> NodeId.internal_string_of_node_id node.name |> LustreIdent.mk_string_ident
+  | Some node -> NodeId.get_internal_name node.node_id |> LustreIdent.of_hstring
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
 let get_node_id in_sys scope =
   match get_lustre_node in_sys scope with 
-  | Some { name; } -> name
+  | Some { node_id; } -> node_id
   | None -> 
     NI.mk_node_id (Lib.string_of_t Scope.pp_print_scope_internal scope |> HString.mk_hstring)
 
@@ -862,7 +862,7 @@ function
           )
         in
 
-        let node_name = source.N.name in
+        let node_name = source.N.node_id in
 
         Scope.Map.add scope sv_map map,
         (node_name, (init_call_deps, trans_call_deps)) :: deps

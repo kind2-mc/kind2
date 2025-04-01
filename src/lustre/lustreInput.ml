@@ -184,9 +184,9 @@ let type_check declarations =
         Res.ok (
           decls1 @ decls2, 
           TypeCheckerContext.union ctx1 ctx2, 
-          NodeId.NodeIdMap.merge GI.union_keys2 gids1 gids2
+          NodeId.Map.merge GI.union_keys2 gids1 gids2
         )
-      else Res.ok (sorted_node_contract_decls, global_ctx, NodeId.NodeIdMap.empty)
+      else Res.ok (sorted_node_contract_decls, global_ctx, NodeId.Map.empty)
     in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
@@ -318,7 +318,7 @@ let of_channel old_frontend only_parse in_ch =
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
-              let _ = LN.node_of_user_name s_ident nodes in 
+              let _ = LN.node_of_input_name s_ident nodes in 
               [NI.mk_node_id (HString.mk_hstring s)]
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
@@ -351,7 +351,7 @@ let of_channel old_frontend only_parse in_ch =
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
-              let main_lustre_node =  LN.node_of_user_name s_ident nodes in 
+              let main_lustre_node =  LN.node_of_input_name s_ident nodes in 
               (* If checking realizability, then 
                 we are actually checking realizability of Kind 2-generated imported nodes representing 
                 the (1) the main node's contract instrumented with type info and 
@@ -396,7 +396,7 @@ let of_channel old_frontend only_parse in_ch =
             else (
               try 
                 (* let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in *)
-                let _ = LN.node_of_user_name s_ident nodes in  
+                let _ = LN.node_of_input_name s_ident nodes in  
                 match Flags.lus_main () with 
                 | Some _ -> (NI.mk_node_id ~node_type:Type (HString.mk_hstring s)) :: main_nodes
                 | None -> [NI.mk_node_id (HString.mk_hstring s)]
@@ -414,14 +414,14 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      let nodes = List.map (fun ({ LustreNode.name = id1; } as n) ->
-          if List.exists (fun id2 -> NI.eq_node_ids id1 id2) main_nodes then
+      let nodes = List.map (fun ({ LustreNode.node_id = id1; } as n) ->
+          if List.exists (fun id2 -> NI.equal id1 id2) main_nodes then
             { n with is_main = true }
           else n)
         nodes
       in
-      let main_nodes = List.filter_map (fun ({ LN.is_main; LN.name }) -> 
-        if is_main then Some name else None
+      let main_nodes = List.filter_map (fun ({ LN.is_main; LN.node_id }) -> 
+        if is_main then Some node_id else None
       ) nodes in
       print_nodes_and_globals nodes globals;
       (* Return a subsystem tree from the list of nodes *)

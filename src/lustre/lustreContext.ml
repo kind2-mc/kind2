@@ -324,7 +324,7 @@ let current_node_modes = function
 
 (* Returns the name of the current node, if any. *)
 let current_node_name = function
-| { node = Some { N.name = { NI.name; } } } -> Some (I.of_hstring name)
+| { node = Some { N.node_id; } } -> Some (I.of_hstring (NI.get_name node_id))
 | { node = None } -> None
 
 (** Returns the calls made by the current node, if any. *)
@@ -510,7 +510,7 @@ let contract_node_decl_of_ident { contract_nodes } ident =
     
     (* Return contract node by name *)
     List.find
-      (function (_, (i, _, _, _, _)) -> NI.eq_node_ids i ident)
+      (function (_, (i, _, _, _, _)) -> NI.equal i ident)
       contract_nodes
 
   (* Raise error again for more precise backtrace *)
@@ -1313,12 +1313,12 @@ let mk_fresh_local
       (state_var, ctx)
 
 (* Return the node of the given name from the context*)
-let rec node_of_name ({ prev; nodes } as ctx) ident =
+let rec node_of_node_id ({ prev; nodes } as ctx) ident =
   let ident_hstring = ident |> I.string_of_ident true |> HString.mk_hstring in
-  try N.node_of_name (NI.mk_node_id ident_hstring) nodes
+  try N.node_of_node_id (NI.mk_node_id ident_hstring) nodes
   with Not_found ->
     if ctx == prev then raise Not_found
-    else node_of_name prev ident
+    else node_of_node_id prev ident
 
 
 (* Return the output variables of a node call in the context with the
@@ -1348,11 +1348,11 @@ let call_outputs_of_node_call
           List.find
             (fun { N.call_cond = call_cond;
                    N.call_defaults = call_defaults;
-                   N.call_node_id = { name = call_ident; };
+                   N.call_node_id;
                    N.call_inputs = call_inputs } -> 
 
               (* Call must be to the same node, and ... *)
-              (I.equal ident (I.of_hstring call_ident)) &&
+              (I.equal ident (I.of_hstring (NI.get_name call_node_id))) &&
 
               (* ... activation and restart conditions must be equal, and ... *)
               (try List.for_all2 (fun c c' -> match c, c' with

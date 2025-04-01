@@ -416,9 +416,9 @@ let minimize_contract_node_eq ue lst cne =
   | A.AssumptionVars _ -> [cne]
 
 let minimize_node_decl ue loc_core
-  (({ NI.name; } as node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
+  ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
-  let id' = HString.string_of_hstring name in
+  let id' = NI.get_internal_name node_id |> HString.string_of_hstring in
   let id_typ_map = build_id_typ_map inputs outputs locals in
 
   let minimize_with_lst lst =

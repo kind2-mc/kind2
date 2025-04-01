@@ -63,8 +63,8 @@ type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
 
-let pos_list_map : (Lib.position * A.eq_lhs) list NI.NodeIdHashtbl.t = 
-  NI.NodeIdHashtbl.create 20
+let pos_list_map : (Lib.position * A.eq_lhs) list NI.Hashtbl.t = 
+  NI.Hashtbl.create 20
 
 let (let*) = R.(>>=)
 
@@ -90,11 +90,11 @@ let rec update_if_position_info node_id ni = match ni with
     List.iter (update_if_position_info node_id) nis2;
   | Body (Equation (_, lhs, expr)) ->
     (* If there is already a binding, we want to retain the old 'if_info' *)
-    let if_info = match NI.NodeIdHashtbl.find_opt pos_list_map node_id with
+    let if_info = match NI.Hashtbl.find_opt pos_list_map node_id with
       | Some if_info2 -> (AH.pos_of_expr expr, lhs) :: if_info2
       | None -> [(AH.pos_of_expr expr, lhs)] 
     in
-    NI.NodeIdHashtbl.add pos_list_map node_id if_info;
+    NI.Hashtbl.add pos_list_map node_id if_info;
   | _ -> ()
 
 (** Updates a tree (modeling an ITE structure) with a new equation. *)
@@ -347,22 +347,22 @@ let desugar_node_decl ctx decl = match decl with
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
-    R.ok (A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, new_decls @ nlds, nis, co)), NI.NodeIdMap.singleton node_id gids)
+    R.ok (A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, new_decls @ nlds, nis, co)), NI.Map.singleton node_id gids)
   | A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)) ->
     let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
-    R.ok (A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, new_decls @ nlds, nis, co)), NI.NodeIdMap.singleton node_id gids)
-  | _ -> R.ok (decl, NI.NodeIdMap.empty)
+    R.ok (A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, new_decls @ nlds, nis, co)), NI.Map.singleton node_id gids)
+  | _ -> R.ok (decl, NI.Map.empty)
 
 
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
     declarative ITEs, filling in oracles if branches are undefined. *)
 let desugar_if_blocks ctx sorted_node_contract_decls gids = 
-  NI.NodeIdHashtbl.clear pos_list_map ;
+  NI.Hashtbl.clear pos_list_map ;
   let* res = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
   let decls, gids2 = List.split res in
-  let gids2 = List.fold_left (NI.NodeIdMap.merge GI.union_keys2) NI.NodeIdMap.empty gids2 in
-  let gids = NI.NodeIdMap.merge GI.union_keys2 gids gids2 in
+  let gids2 = List.fold_left (NI.Map.merge GI.union_keys2) NI.Map.empty gids2 in
+  let gids = NI.Map.merge GI.union_keys2 gids gids2 in
   R.ok (decls, gids)

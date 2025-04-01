@@ -290,7 +290,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_property "@ ") properties
     pp_print_contracts contracts
     (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    (pp_print_list (fun ppf { LustreNode.node_id } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
     (pp_print_list pp_print_callers "@,") callers
 *)
 

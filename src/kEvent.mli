@@ -267,6 +267,7 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 (** Send all queued messages and exit the background thread *)
 val exit : mthread -> unit
 
+val pp_print_user_node_name: 'a InputSystem.t -> Format.formatter -> Scope.t -> unit 
 
 val pp_print_path_pt :
   'a InputSystem.t -> TransSys.t ->

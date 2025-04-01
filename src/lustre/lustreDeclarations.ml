@@ -1283,7 +1283,7 @@ let rec check_no_contract_in_node_calls ctx = function
 (* Let's do this. *)
 | { N.call_node_id ; N.call_pos } :: calls -> (
   match
-    try C.node_of_name ctx call_node_id
+    try C.node_of_node_id ctx call_node_id
     with Not_found -> fail_at_position call_pos (
       Format.asprintf "call to unknown node '%a'"
         (LustreIdent.pp_print_ident false) call_node_id
@@ -1296,12 +1296,12 @@ let rec check_no_contract_in_node_calls ctx = function
 
 (* Evaluates contract calls. *)
 and eval_node_contract_call 
-  known ctx scope inputs outputs locals is_candidate (
-    call_pos, ({ NI.name; } as node_id), tys, in_params, out_params
+  known ctx (scope: (position * HString.t) list) inputs outputs locals is_candidate (
+    call_pos, node_id, tys, in_params, out_params
   ) = 
   if tys <> [] then fail_at_position call_pos "Contract calls with type parameters not supported in old frontend" else
     
-  let id' = HString.string_of_hstring name in
+  let id' = HString.string_of_hstring (NI.get_internal_name node_id) in
   let ident = I.mk_string_ident id' in
 
   if I.Set.mem ident known then (
@@ -1323,11 +1323,11 @@ and eval_node_contract_call
   ) ;
 
   (* Push scope for contract svars. *)
-  let svar_scope = (call_pos, name) :: scope in
+  let svar_scope = (call_pos, (NI.get_internal_name node_id)) :: scope in
   (* Push scope for contract call. *)
   let ctx = C.push_contract_scope ctx id' in
   (* Retrieve contract node from context. *)
-  let pos, ({ NI.name; }, params, in_formals, out_formals, contract) =
+  let pos, (node_id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx node_id
     with Not_found ->
       (* Contract might be forward referenced. *)
@@ -1380,7 +1380,7 @@ and eval_node_contract_call
             | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal input %s"
-                  (HString.string_of_hstring name) in_id
+                  (HString.string_of_hstring (NI.get_user_name node_id)) in_id
               )
           ) ;
 
@@ -1435,7 +1435,7 @@ and eval_node_contract_call
         Format.asprintf
           "arity mismatch for the input parameters of import of contract %s: \
            expected %d but got %d"
-          (HString.string_of_hstring name)
+          (NI.get_user_name node_id |> HString.string_of_hstring)
           (List.length in_formals)
           (List.length in_params)
       )
@@ -1465,7 +1465,7 @@ and eval_node_contract_call
             | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal output %s"
-                  (HString.string_of_hstring name) in_id
+                  (HString.string_of_hstring (NI.get_user_name node_id)) in_id
               )
           ) ;
 
@@ -1477,7 +1477,7 @@ and eval_node_contract_call
         Format.asprintf
           "arity mismatch for the output parameters of import of contract %s: \
            expected %d but got %d"
-          (HString.string_of_hstring name)
+          (HString.string_of_hstring (NI.get_user_name node_id))
           (List.length in_formals)
           (List.length in_params)
       )
@@ -1503,7 +1503,7 @@ and eval_node_contract_call
           | Some id -> id
           | None -> assert false
         )
-        (HString.string_of_hstring name)
+        (HString.string_of_hstring (NI.get_user_name node_id))
     )
     | None -> ()
   ) ) ;
@@ -1677,38 +1677,38 @@ and eval_node_contract_spec
       (* Checking that no subsystem of the current node has contracts. If one
       of them does, it means there is a call to a node with a contract in the
       cone of influence of the contract we just parsed. *)
-      let node_of_name ctx name =
-        try C.node_of_name ctx name with Not_found -> Format.asprintf "\
+      let node_of_node_id ctx name =
+        try C.node_of_node_id ctx name with Not_found -> Format.asprintf "\
           unreachable, node %a called in contract undefined\
         " (I.pp_print_ident false) name
         |> failwith
       in
       let rec loop known = function
         | [] -> ()
-        | ({ N.name = { NI.name; } ; N.calls ; N.is_extern } as node) :: tail when
+        | ({ N.node_id ; N.calls ; N.is_extern } as node) :: tail when
             is_extern || not (N.has_effective_contract node) ->
           (* Imported node or node without an effective contract is ok.
              Preparing recursive call. *)
-          let known = I.Set.add (name |> I.of_hstring) known in
+          let known = I.Set.add ((NI.get_internal_name node_id) |> I.of_hstring) known in
           calls |> List.fold_left (
             fun acc { N.call_node_id = sub_id; } -> 
-              if I.Set.mem (sub_id.name |> I.of_hstring) known then acc
-              else (node_of_name ctx (sub_id.name |> I.of_hstring)) :: acc
+              if I.Set.mem ((NI.get_internal_name sub_id) |> I.of_hstring) known then acc
+              else (node_of_node_id ctx ((NI.get_internal_name sub_id) |> I.of_hstring)) :: acc
           ) tail
           |> loop known
-        | { N.name = { NI.name; }} :: _ -> (* PEBCAK. *)
+        | { N.node_id } :: _ -> (* PEBCAK. *)
           Format.asprintf "\
             Illegal call to node '%a' in the cone of influence of this \
             contract: node %a has a contract.\
-          " HString.pp_print_hstring name HString.pp_print_hstring name
+          " NI.pp_print_node_id_user_name node_id NI.pp_print_node_id_user_name node_id
           |> fail_at_position pos
       in
       let subs, known =
         calls |> List.fold_left (
           fun (subs, known) { N.call_node_id = sub_id; } ->
-            if I.Set.mem (sub_id.name |> I.of_hstring) known then subs, known
-            else (node_of_name ctx (sub_id.name |> I.of_hstring)) :: subs, 
-                 I.Set.add (sub_id.name |> I.of_hstring) known
+            if I.Set.mem (sub_id |> NI.get_internal_name |> I.of_hstring) known then subs, known
+            else (node_of_node_id ctx (sub_id |> NI.get_internal_name |> I.of_hstring)) :: subs, 
+                 I.Set.add (sub_id |> NI.get_internal_name |> I.of_hstring) known
         ) ([], I.Set.empty)
       in
       loop known subs
@@ -2111,7 +2111,7 @@ and declaration_to_context ctx = function
 ) -> (
 
   (* Identifier of AST identifier *)
-  let ident = I.mk_string_ident (HString.string_of_hstring node_id.name) in
+  let ident = I.of_hstring (NI.get_internal_name node_id) in
 
   (* Identifier must not be declared *)
   if C.node_in_context ctx ident then fail_at_position pos (
@@ -2169,14 +2169,14 @@ and declaration_to_context ctx = function
   ( C.current_node_calls fun_ctx
     |> List.iter (
       fun { N.call_pos ; N.call_node_id; } ->
-        let node = C.node_of_name fun_ctx (call_node_id.name |> I.of_hstring) in
+        let node = C.node_of_node_id fun_ctx ((NI.get_internal_name call_node_id) |> I.of_hstring) in
         if not node.N.is_function then fail_at_position call_pos (
           Format.asprintf
             "@[<v>in function %a@ \
             illegal call to node %a@ \
             functions can only call other functions, not nodes@]"
             (I.pp_print_ident false) ident
-            HString.pp_print_hstring call_node_id.name
+            HString.pp_print_hstring (NI.get_internal_name call_node_id)
         )
     )
   ) ;
@@ -2191,7 +2191,7 @@ and declaration_to_context ctx = function
 ) -> (
 
   (* Identifier of AST identifier *)
-  let ident = I.mk_string_ident (HString.string_of_hstring node_id.name) in
+  let ident = I.of_hstring (NI.get_internal_name node_id) in
 
   (* Identifier must not be declared *)
   if C.node_in_context ctx ident then fail_at_position pos (

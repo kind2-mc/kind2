@@ -548,14 +548,14 @@ let rec eval_ast_expr bounds ctx =
           None
 
       (* A node call, we implicitly clock it *)
-      | clock_value, A.Call (pos, [], { NodeId.name; }, args) -> 
+      | clock_value, A.Call (pos, [], node_id, args) -> 
 
         (* Evaluate node call without defaults *)
         try_eval_node_call
           bounds
           ctx
           pos
-          (I.mk_string_ident (HString.string_of_hstring name))
+          (NodeId.get_internal_name node_id |> I.of_hstring)
           (cond_of_clock_value clock_value)
           (A.Const (pos, A.False))
           args
@@ -1036,7 +1036,16 @@ let rec eval_ast_expr bounds ctx =
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, [], { NodeId.name = ident; }, args)
+  | A.Call (pos, [], node_id, args) -> 
+    try_eval_node_call
+      bounds
+      ctx
+      pos
+      (NodeId.get_internal_name node_id |> I.of_hstring)
+      (A.Const (dummy_pos, A.True))
+      (A.Const (dummy_pos, A.False))
+      args
+      None
   | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
@@ -1599,7 +1608,7 @@ and try_eval_node_call bounds ctx pos ident cond restart args defaults =
     try 
 
       (* Get called node by identifier *)
-      Some (C.node_of_name ctx ident)
+      Some (C.node_of_node_id ctx ident)
 
     (* No node of that identifier *)
     with Not_found -> None

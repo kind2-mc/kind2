@@ -36,9 +36,9 @@ type t = modes * (sys_modes list)
 
 (* Pretty printer for [mode]. *)
 let pp_print_mode in_sys fmt (scope, term) =
-  let { NodeId.name; } = InputSystem.get_node_id in_sys scope in
+  let node_id = InputSystem.get_node_id in_sys scope in
   Format.fprintf fmt "%a (%a)"
-    HString.pp_print_hstring name Term.pp_print_term term
+    NodeId.pp_print_node_id_user_name node_id Term.pp_print_term term
 
 (* Pretty printer for [modes]. *)
 let pp_print_modes in_sys fmt (g_opt, m_list) =
@@ -53,9 +53,9 @@ let pp_print_modes in_sys fmt (g_opt, m_list) =
 
 (* Pretty printer for [sys_modes]. *)
 let pp_print_sys_modes in_sys fmt (sys, modes) =
-  let { NodeId.name; } = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
+  let node_id = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
   Format.fprintf fmt "%a: @[<v>* %a@]"
-    HString.pp_print_hstring name
+    NodeId.pp_print_node_id_user_name node_id
     (pp_print_list (pp_print_modes in_sys) "@ * ") modes
 
 (* Pretty printer for [t]. *)

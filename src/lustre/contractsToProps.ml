@@ -112,7 +112,7 @@ let fmt_node_decl fmt (
     ) returns (@.  \
       @[<hov>%a@]@.\
     ) ;@.@?\
-  " (NodeId.internal_string_of_node_id node_name) (*!! Check *)
+  " (NodeId.get_internal_name node_name |> HString.string_of_hstring) (*!! Check *)
     Ast.pp_print_node_param_list params
     (pp_print_list Ast.pp_print_const_clocked_typed_ident " ;@ ") ins
     (pp_print_list Ast.pp_print_clocked_typed_ident " ;@ ") outs ;

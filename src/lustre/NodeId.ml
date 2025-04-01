@@ -22,14 +22,13 @@ type node_type =
   | Environment (* Generated imported node for environment realizability checking *)
   | Type (* Generated imported node for refinement type realizability checking *)
  
-type node_id = {
-  name : HString.t;
+type t = {
+  name : HString.t; (* Input name, probably not used *)
+  user_name : HString.t; (* For printing to the user (distinguishes monomorphizations) *)
+  internal_name : HString.t; (* For a unique ID that is an HString *)
   node_type : node_type;
-  monomorphization : int option; (* Instantiation of a polymorphic node. The int is a unique ID. *) 
+  monomorphization : int option; (* Instantiation of a polymorphic node. The int is a unique ID *)
 }
-
-let mk_node_id ?(node_type=Component) ?(monomorphization=None) name = 
-  { name; node_type; monomorphization }
 
 let pp_print_node_type ppf node_type = 
   Format.fprintf ppf "%s"
@@ -45,16 +44,33 @@ let pp_print_monomorphization ppf monomorphization =
       | Some i ->  ".poly_" ^ (string_of_int i)
       | None -> "")
 
-let internal_string_of_node_id { name; node_type; monomorphization; } = 
-  Format.asprintf "%a%a%a"
-    HString.pp_print_hstring name
-    pp_print_node_type node_type 
-    pp_print_monomorphization monomorphization
-
-let pp_print_node_id ppf { name; } = 
+let pp_print_node_id_input_name ppf { name; } = 
   Format.fprintf ppf "%a" HString.pp_print_hstring name
 
-let compare_node_ids: node_id -> node_id -> int 
+let pp_print_node_id_user_name ppf { user_name; } = 
+  Format.fprintf ppf "%a" HString.pp_print_hstring user_name
+
+let mk_node_id ?(node_type=Component) ?monomorphization ?user_name name = 
+  let user_name = Option.value user_name ~default:name in
+  let internal_name = 
+    Format.asprintf "%a%a%a"
+      HString.pp_print_hstring name
+      pp_print_node_type node_type 
+      pp_print_monomorphization monomorphization |> HString.mk_hstring
+  in
+  { name; user_name; internal_name; node_type; monomorphization; }
+
+let get_name node_id = node_id.name 
+
+let get_user_name node_id = node_id.user_name 
+
+let get_internal_name node_id = node_id.internal_name 
+
+let get_node_type node_id = node_id.node_type 
+
+let get_monomorphization node_id = node_id.monomorphization
+
+let compare: t -> t -> int 
 = fun { name = name1; node_type = type1; monomorphization = mono1 } 
       { name = name2; node_type = type2; monomorphization = mono2 }  ->
   let c1 = HString.compare name1 name2 in 
@@ -63,29 +79,32 @@ let compare_node_ids: node_id -> node_id -> int
   if c2 <> 0 then c2 else 
   Stdlib.compare mono1 mono2 
 
-let eq_node_ids: node_id -> node_id -> bool 
-= fun id1 id2 -> compare_node_ids id1 id2 = 0
+let equal: t -> t -> bool 
+= fun id1 id2 -> compare id1 id2 = 0
 
-let node_id_hash: node_id -> int 
+let hash: t -> int 
 = fun { name; node_type; monomorphization } ->
   Hashtbl.hash (HString.hash name, Hashtbl.hash node_type, Hashtbl.hash monomorphization) 
 
-module NodeIdHashtbl = Hashtbl.Make(struct
-  type t = node_id
-  let equal = (=)
-  let hash = node_id_hash
+module Hashtbl = Hashtbl.Make(struct
+  type z = t
+  type t = z
+  let equal = equal
+  let hash = hash
 end)
 
-module NodeIdMap = Map.Make(struct
-    type t = node_id
-    let compare = compare_node_ids
+module Map = Map.Make(struct
+    type z = t
+    type t = z
+    let compare = compare
 end)
   
-module NodeIdSet = struct
+module Set = struct
   include (Set.Make (struct
-                type t = node_id
-                let compare = compare_node_ids
-              end))
+    type z = t
+    type t = z
+    let compare = compare
+  end))
   let flatten: t list -> t = fun sets ->
     List.fold_left union empty sets
 end 

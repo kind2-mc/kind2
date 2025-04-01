@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               Format.pp_print_string (NI.internal_string_of_node_id call_node_id))
+               NI.pp_print_node_id_user_name call_node_id)
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            Format.pp_print_string (NI.internal_string_of_node_id node.N.name)
+            NI.pp_print_node_id_user_name node.N.node_id
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -667,7 +667,7 @@ let slice_all_of_node
     ?(keep_props = true)
     ?(keep_contracts = true)
     ?(keep_asserts = true)
-    { N.name;
+    { N.node_id;
       N.is_extern;
       N.opacity;
       N.instance;
@@ -690,7 +690,7 @@ let slice_all_of_node
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
      properties, assertions, contracts and main annotation *)
-  { N.name;
+  { N.node_id;
     N.is_extern;
     N.opacity;
     N.instance;
@@ -936,7 +936,7 @@ let rec slice_nodes
         in
 
         (* Get called node by name *)
-        let node = N.node_of_name call_node_id nodes in
+        let node = N.node_of_node_id call_node_id nodes in
 
         (* Slice called node first, then return to this node
 
@@ -1198,9 +1198,9 @@ let root_and_leaves_of_contracts
 (* Return [true] if the node is flagged as abstract in
    [abstraction_map]. Default to [false] if the node is not in the
    map. *)
-let node_is_abstract analysis { N.name } = 
+let node_is_abstract analysis { N.node_id } = 
 
-  [NI.internal_string_of_node_id name]
+  [NI.get_internal_name node_id |> HString.string_of_hstring]
   |> Analysis.param_scope_is_abstract analysis
 
 
@@ -1244,7 +1244,7 @@ let slice_to_abstraction'
   in
   
   (* Create subsystem from list of nodes *)
-  let { N.name = top; } = List.hd nodes in
+  let { N.node_id = top; } = List.hd nodes in
   N.subsystem_of_nodes top nodes'
 
 

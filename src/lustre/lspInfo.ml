@@ -92,7 +92,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"endColumn\" : %d,@,\
      \"contractStartLine\" : %d,@,\ 
      \"contractStartColumn\" : %d@]@.}@."
-    NodeId.pp_print_node_id node_id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
     celnum cecnum
@@ -108,7 +108,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    NodeId.pp_print_node_id node_id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
@@ -127,7 +127,7 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    NodeId.pp_print_node_id node_id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
@@ -145,7 +145,7 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    NodeId.pp_print_node_id node_id
+    NodeId.pp_print_node_id_user_name node_id
     pp_print_fname_json file slnum scnum elnum
     ecnum
 

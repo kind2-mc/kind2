@@ -310,18 +310,18 @@ let pp_print_realizability_result_pt
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-  let { NI.name = node_name; node_type; } = ISys.get_node_id in_sys scope in
+  let node_id = ISys.get_node_id in_sys scope in
   let print_not_unknown_result tag =
     Format.fprintf
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node_type with 
+      (match (NI.get_node_type node_id) with 
       | Environment -> "Environment of"
       | Contract -> "Contract of"
       | Type -> "Type"
       | Component -> "Contract of imported node")
-      HString.pp_print_hstring node_name
+      NI.pp_print_node_id_user_name node_id
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
   in
@@ -333,7 +333,7 @@ let pp_print_realizability_result_pt
       "@[<hov>%t Could not determine whether the contract of \
         %a is realizable or not after %.3fs.@]@.@."
       Pretty.warning_tag
-      HString.pp_print_hstring node_name
+      NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
   )
   | Realizable fp ->
@@ -546,7 +546,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
-  let { NI.name = node_name; node_type; } = ISys.get_node_id in_sys scope in
+  let node_id = ISys.get_node_id in_sys scope in
   match result with
   | Unknown -> (
     Format.fprintf 
@@ -554,12 +554,12 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       "@[<hov>%t Could not determine whether the %s \
         %a is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (match node_type with 
+      (match (NI.get_node_type node_id) with 
       | Environment -> "Environment of"
       | Contract -> "Contract of"
       | Type -> "Type"
       | Component -> "Contract of imported node")
-      HString.pp_print_hstring node_name
+      NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
   )
   | _ -> (
@@ -573,12 +573,12 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match node_type with 
+      (match (NI.get_node_type node_id) with 
       | Environment -> "Environment of"
       | Contract -> "Contract of"
       | Type -> "Type"
       | Component -> "Contract of imported node")
-      HString.pp_print_hstring node_name
+      NI.pp_print_node_id_user_name node_id
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)
   )

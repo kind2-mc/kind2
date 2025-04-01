@@ -550,7 +550,7 @@ contract_in_block:
   | c = nonempty_list(contract_item) { c }
 
 
-(* A contract node declarationI. *)
+(* A contract node declaration. *)
 contract_decl:
   | CONTRACT;
     n = ident; 

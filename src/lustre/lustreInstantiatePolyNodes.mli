@@ -23,4 +23,4 @@ module Ctx = TypeCheckerContext
 module GI = GeneratedIdentifiers
 
 val instantiate_polymorphic_nodes :
-  Ctx.tc_context -> GI.t NI.NodeIdMap.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.NodeIdMap.t * A.declaration list 
+  Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list 

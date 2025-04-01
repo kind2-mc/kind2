@@ -152,7 +152,7 @@ val state_var_dependencies :
 
 val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
 
-val get_node_id : _ t -> Scope.t -> NodeId.node_id
+val get_node_id : _ t -> Scope.t -> NodeId.t
 
 (* 
    Local Variables:

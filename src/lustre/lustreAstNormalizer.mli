@@ -83,7 +83,7 @@ val warning_message : warning_kind -> string
 val mk_fresh_dummy_index : 'a -> HString.t
 
 val mk_range_expr : TypeCheckerContext.tc_context ->
-  NodeId.node_id option ->
+  NodeId.t option ->
   LustreAst.lustre_type ->
   LustreAst.expr ->
   (LustreAst.expr * bool) list
@@ -94,17 +94,17 @@ val mk_ref_type_expr : TypeCheckerContext.tc_context ->
   LustreAst.expr list
 
 val mk_enum_range_expr : TypeCheckerContext.tc_context ->
-  NodeId.node_id option ->
+  NodeId.t option ->
   LustreAst.lustre_type ->
   LustreAst.expr ->
   (LustreAst.expr * bool) list
 
 val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
-  NodeId.NodeIdSet.t ->
+  NodeId.Set.t ->
   LustreAst.t ->
-    GeneratedIdentifiers.t NodeId.NodeIdMap.t ->
-  (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.NodeIdMap.t *
+    GeneratedIdentifiers.t NodeId.Map.t ->
+  (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.Map.t *
    [> warning] list, [> error])
   result
 

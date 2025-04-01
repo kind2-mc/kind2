@@ -112,6 +112,7 @@ type expr =
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
+  (*!! Use NodeId.t for Condact, Activate, Merge, RestartEvery *)
   | Condact of position * expr * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
@@ -120,7 +121,7 @@ type expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * NI.node_id * expr list
+  | Call of position * lustre_type list * NI.t * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -253,7 +254,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * NI.node_id * lustre_type list * expr list * ident list
+type contract_call = position * NI.t * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -280,7 +281,7 @@ type opacity =
 
 Boolean flag indicates whether node / function is extern. *)
 type node_decl =
-  NI.node_id
+  NI.t
   * bool
   * opacity
   * ident list
@@ -294,7 +295,7 @@ type node_decl =
    with a different type for equations, and no contract
    specification. *)
 type contract_node_decl =
-  NI.node_id
+  NI.t
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -557,7 +558,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf
         "%a%a(%a)"
         ppos p
-        NI.pp_print_node_id id
+        NI.pp_print_node_id_input_name id
         (pp_print_list pp_print_expr ",@ ") l
 
     | Call (p, ty_args, id, l) ->
@@ -565,7 +566,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf
         "%a%a<<%a>>(%a)"
         ppos p
-        NI.pp_print_node_id id
+        HString.pp_print_hstring (NI.get_name id)
         (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") l
     
@@ -1087,13 +1088,13 @@ let pp_print_contract_call fmt (_, id, tys, in_params, out_params) =
   | [] ->
     Format.fprintf
       fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
-      NI.pp_print_node_id id
+      NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_expr ", ") in_params
       (pp_print_list pp_print_ident ", ") out_params
   | tys ->
     Format.fprintf
       fmt "@[<hov 2>import %a<<%a>>(@,%a@,) returns (@,%a@,) ;@]"
-      NI.pp_print_node_id id
+      NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_lustre_type "; ") tys
       (pp_print_list pp_print_expr ", ") in_params
       (pp_print_list pp_print_ident ", ") out_params
@@ -1138,7 +1139,7 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
         @[<hv 2>let@ \
         %a@;<1 -2>\
         tel;@]@]@?"
-       NI.pp_print_node_id n
+       NI.pp_print_node_id_user_name n
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
@@ -1161,7 +1162,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
          | Opaque -> "opaque "
          | Transparent -> "transparent "
         )
-        NI.pp_print_node_id n
+        HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o
@@ -1179,7 +1180,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         tel;@]@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
-        NI.pp_print_node_id n
+        HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o

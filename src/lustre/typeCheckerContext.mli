@@ -57,10 +57,10 @@ type const_store = (LA.expr * tc_type option * source) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
-type contract_exports = (ty_store) NodeId.NodeIdMap.t
+type contract_exports = (ty_store) NodeId.Map.t
 (** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
 
-type param_store = (HString.t * bool) list NodeId.NodeIdMap.t
+type param_store = (HString.t * bool) list NodeId.Map.t
 (** A store of parameter names and flags indicating if the argument is constant *)
 
 type tc_context
@@ -78,10 +78,10 @@ val member_ty_syn: tc_context -> LA.ident -> bool
 val member_ty: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a typed identifier *)
 
-val member_contract: tc_context -> NI.node_id -> bool
+val member_contract: tc_context -> NI.t -> bool
 (** Checks if the contract name is in the context *)
 
-val member_node: tc_context -> NI.node_id -> bool
+val member_node: tc_context -> NI.t -> bool
 (** Checks if the node name is in the context *)
   
 val member_u_types : tc_context -> LA.ident -> bool
@@ -102,25 +102,25 @@ val expand_type_syn: tc_context -> tc_type -> tc_type
 val lookup_ty: tc_context -> LA.ident -> tc_type option
 (** Picks out the type of the identifier to type context map *)
 
-val lookup_contract_ty: tc_context -> NI.node_id -> tc_type option
+val lookup_contract_ty: tc_context -> NI.t -> tc_type option
 (** Lookup a contract type  *)
                           
-val lookup_node_ty: tc_context -> NI.node_id -> tc_type option
+val lookup_node_ty: tc_context -> NI.t -> tc_type option
 (** Lookup a node type *)
 
-val lookup_node_ty_vars: tc_context -> NI.node_id -> HString.t list option
+val lookup_node_ty_vars: tc_context -> NI.t -> HString.t list option
 (** Lookup a node's type variables *)
 
-val lookup_contract_ty_vars: tc_context -> NI.node_id -> HString.t list option
+val lookup_contract_ty_vars: tc_context -> NI.t -> HString.t list option
 (** Lookup a contract's type variables *)
 
 val lookup_ty_ty_vars: tc_context -> HString.t -> HString.t list option
 (** Lookup a user type's type variables *)
 
-val lookup_node_param_attr: tc_context -> NI.node_id -> (HString.t * bool) list option
+val lookup_node_param_attr: tc_context -> NI.t -> (HString.t * bool) list option
 (** Track whether node parameters are constant or not *)
 
-val lookup_node_param_ids: tc_context -> NI.node_id -> HString.t list option
+val lookup_node_param_ids: tc_context -> NI.t -> HString.t list option
 
 val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option * source) option
 (** Lookup a constant identifier *)
@@ -134,22 +134,22 @@ val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add type binding into the typing context *)
 
-val add_ty_node: tc_context -> NI.node_id -> tc_type -> tc_context
+val add_ty_node: tc_context -> NI.t -> tc_type -> tc_context
 (** Add node/function type binding into the typing context *)
 
-val add_ty_vars_node: tc_context -> NI.node_id -> HString.t list -> tc_context 
+val add_ty_vars_node: tc_context -> NI.t -> HString.t list -> tc_context 
 (** Add node/function type variables into the typing context *)
 
 val add_ty_vars_ty: tc_context -> HString.t -> HString.t list -> tc_context 
 (** Add type declaration type variables into the typing context *)
 
-val add_ty_vars_contract: tc_context -> NI.node_id -> HString.t list -> tc_context 
+val add_ty_vars_contract: tc_context -> NI.t -> HString.t list -> tc_context 
 (** Add contract type variables into the typing context *)
 
-val add_node_param_attr: tc_context -> NI.node_id -> LA.const_clocked_typed_decl list -> tc_context
+val add_node_param_attr: tc_context -> NI.t -> LA.const_clocked_typed_decl list -> tc_context
 (** Track whether node parameters are constant or not *)
 
-val add_ty_contract: tc_context -> NI.node_id -> tc_type -> tc_context
+val add_ty_contract: tc_context -> NI.t -> tc_type -> tc_context
 (** Add the type of the contract *)
                   
 val add_ty_decl: tc_context -> LA.ident -> tc_context
@@ -195,10 +195,10 @@ val extract_consts: LA.const_clocked_typed_decl -> tc_context
 val get_constant_ids: tc_context -> LA.ident list
 (** Returns the constants declared in the typing context  *)
 
-val lookup_contract_exports: tc_context -> NI.node_id -> ty_store option
+val lookup_contract_exports: tc_context -> NI.t -> ty_store option
 (** lookup the symbols exported by the contract *)
 
-val add_contract_exports: tc_context -> NI.node_id -> ty_store -> tc_context
+val add_contract_exports: tc_context -> NI.t -> ty_store -> tc_context
 (** Add the symbols that the contracts *)
   
 (** {1 Pretty Printers} *)
@@ -289,8 +289,8 @@ val type_contains_abstract : tc_context -> tc_type -> bool
 val type_contains_array: tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an array *)
 
-val ty_vars_of_expr: tc_context -> NI.node_id -> LA.expr -> SI.t
+val ty_vars_of_expr: tc_context -> NI.t -> LA.expr -> SI.t
 (** [ty_vars_of_type ctx node_id e] returns all type variable identifiers that appear in the expression [e] *)
 
-val ty_vars_of_type: tc_context -> NI.node_id -> LA.lustre_type -> SI.t
+val ty_vars_of_type: tc_context -> NI.t -> LA.lustre_type -> SI.t
 (** [ty_vars_of_type ctx node_id ty] returns all type variable identifiers that appear in the type [ty] *)

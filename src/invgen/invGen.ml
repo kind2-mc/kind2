@@ -257,7 +257,7 @@ module Make (Graph : GraphSig) : Out = struct
       (pp_print_list fmt_term "@ ") trivial ;
     Format.printf "non trivial: @[<v>%a@]@.@."
       (pp_print_list fmt_term "@ ") non_trivial ; *)
-    let { NI.name = node_name; } = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
+    let node_id = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
@@ -267,7 +267,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          HString.pp_print_hstring node_name
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -279,7 +279,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          HString.pp_print_hstring node_name
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length trivial)
@@ -291,7 +291,7 @@ module Make (Graph : GraphSig) : Out = struct
             @   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          HString.pp_print_hstring node_name
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -430,11 +430,11 @@ module Make (Graph : GraphSig) : Out = struct
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
-    let { NI.name = node_name; } = InputSystem.get_node_id input_sys (Sys.scope_of_trans_sys sys) in
+    let node_id = InputSystem.get_node_id input_sys (Sys.scope_of_trans_sys sys) in
     let blah = if sys == top_sys then " (top)" else "" in
     KEvent.log L_info
       "%s Running on %a%s at %a (%d candidate terms, %d classes)"
-      (pref_s two_state) HString.pp_print_hstring node_name blah
+      (pref_s two_state) NI.pp_print_node_id_user_name node_id blah
       Num.pp_print_numeral k (Graph.term_count graph)
       (Graph.class_count graph) ;
 

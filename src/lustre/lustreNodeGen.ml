@@ -1177,9 +1177,9 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
 
-and compile_node node_scope pos ctx cstate map outputs cond restart nname args defaults inlined =
-  let called_node = N.node_of_name nname cstate.nodes in
-  let ident = NI.internal_string_of_node_id nname |> I.mk_string_ident in
+and compile_node node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined =
+  let called_node = N.node_of_node_id node_id cstate.nodes in
+  let ident = NI.get_internal_name node_id |> I.of_hstring in
   let po_ct = !map.poracle_count in
   map := {!map with poracle_count = po_ct + (List.length called_node.oracles) };
   let oracles =
@@ -1257,7 +1257,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart nname args d
   let node_call = {
     N.call_id = call_id;
     N.call_pos = pos;
-    N.call_node_id = called_node.name;
+    N.call_node_id = called_node.node_id;
     N.call_cond = cond_state_var;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
@@ -1356,7 +1356,8 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (cstate, ghost_locals2, ghost_equations2, modes2) =
-    let over_calls (cstate, gls, ges, ms) (_, { NI.name=cref; }, _, _, _) =
+    let over_calls (cstate, gls, ges, ms) (_, node_id, _, _, _) =
+      let cref = NI.get_name node_id in
       let (_, sc, _) = StringMap.find cref gids.GI.contract_calls in
       let cname = sc |> List.rev |> List.hd |> snd in
       (* Update cstate with uninstantiated params *)
@@ -1374,8 +1375,8 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       let (_, contract_scope, contract_eqns) =
         (GI.StringMap.find cref gids.GI.contract_calls)
       in
-      let contract_scope = List.map (fun (pos, nname) -> 
-        pos, NI.internal_string_of_node_id nname |> HString.mk_hstring
+      let contract_scope = List.map (fun (pos, node_id) -> 
+        pos, NI.get_internal_name node_id
       ) contract_scope in
       map := { !map with contract_scope };
       let (cstate, gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
@@ -1401,13 +1402,13 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
-    let over_calls (ams, gs) (_, nname, _, _, _) =
-      let id = NI.internal_string_of_node_id nname |> HString.mk_hstring in
+    let over_calls (ams, gs) (_, node_id, _, _, _) =
+      let id = NI.get_internal_name node_id in
       let (_, scope, contract_eqns) =
         GI.StringMap.find id gids.GI.contract_calls
       in
       let scope = List.map (fun (pos, name) -> 
-        pos, NI.internal_string_of_node_id name |> HString.mk_hstring
+        pos, NI.get_internal_name name
       ) scope in
       map := { !map with contract_scope=scope };
       let (a, g) = compile_contract cstate gids ctx map scope node_scope contract_eqns
@@ -1437,8 +1438,8 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
     guarantees @ guarantees2
 
 and compile_node_decl gids_map is_function opac cstate ctx node_id ext params inputs outputs locals items contract =
-  let gids = NI.NodeIdMap.find node_id gids_map in
-  let internal_node_name_hstring = NI.internal_string_of_node_id node_id |> HString.mk_hstring in 
+  let gids = NI.Map.find node_id gids_map in
+  let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
   let is_extern = ext in
@@ -1728,7 +1729,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in
   let () =
     let over_calls = fun () ((_, var, _, _, node_id, _, _, _)) ->
-      let called_node = N.node_of_name node_id cstate.nodes in
+      let called_node = N.node_of_node_id node_id cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
@@ -1828,9 +1829,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_calls =
       fun (calls, glocals) (pos, var, cond, restart, node_id, args, defaults, inlined)
     ->
-      (* let internal_node_name_hstring = NI.internal_string_of_node_id node_id |> HString.mk_hstring in *)
-      let internal_node_name = NI.internal_string_of_node_id node_id |> I.mk_string_ident in
-      let called_node = N.node_of_name node_id cstate.nodes in
+      (* let internal_node_name_hstring = NI.get_internal_name node_id |> HString.mk_hstring in *)
+      let internal_node_name = NI.get_internal_name node_id |> I.of_hstring in
+      let called_node = N.node_of_node_id node_id cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
         | Some (A.TArr (_, _, output_types)) ->
             (match output_types with
@@ -2011,7 +2012,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in let gequations =
     let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr, _) ->
       let contract_scope = List.map (fun (pos, name) -> 
-        pos, NI.internal_string_of_node_id name |> HString.mk_hstring
+        pos, NI.get_internal_name name
       ) contract_scope in 
       map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
@@ -2068,7 +2069,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
           | A.StructDef (_, []) -> assert false (* (X.empty, 0) *)
           | A.StructDef (_, [e]) as lhs1 -> 
             (* Detect if equation is result of desugaring a frame block *)
-            let is_generated = match NI.NodeIdHashtbl.find_opt LDF.pos_list_map node_id with
+            let is_generated = match NI.Hashtbl.find_opt LDF.pos_list_map node_id with
               | None -> false
               | Some frame_infos -> (
                 match List.find_opt (fun (_, lhs) -> match lhs with | LDF.FCond lhs2 -> lhs1 = lhs2 | _ -> false) 
@@ -2155,8 +2156,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (a, ac, g, gc, p)
       (source, contract_scope, is_original, pos, id, rexpr)
     =
-      let contract_scope = List.map (fun (pos, nname) -> 
-        pos, NI.internal_string_of_node_id nname |> HString.mk_hstring
+      let contract_scope = List.map (fun (pos, node_id) -> 
+        pos, NI.get_internal_name node_id
       ) contract_scope in
       let sv = H.find !map.state_var (mk_ident id) in
       let constraint_kind = match source with
@@ -2277,7 +2278,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Add state var definitions for frame blocks *)
   (
-    match NI.NodeIdHashtbl.find_opt LDF.pos_list_map node_id with
+    match NI.Hashtbl.find_opt LDF.pos_list_map node_id with
       | Some frame_infos ->
         (* Get state variables for frame block variables *)
           List.iter (fun (pos, def) -> 
@@ -2297,7 +2298,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
 
   (* Add state var definitions for if blocks *)
   (
-    match NI.NodeIdHashtbl.find_opt LDI.pos_list_map node_id with
+    match NI.Hashtbl.find_opt LDI.pos_list_map node_id with
       | Some if_infos ->
         (* Add state var defs for if block equations *)
         List.iter (fun (pos, lhs) -> 
@@ -2343,7 +2344,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (StringMap.bindings gids.GI.history_vars)
   in
 
-  let (node:N.t) = { name = node_id;
+  let (node:N.t) = { node_id;
     is_extern;
     opacity;
     instance;
@@ -2451,7 +2452,7 @@ and compile_type_decl pos ctx cstate = function
     { cstate with
       type_alias }
 
-and compile_declaration: compiler_state -> GI.t NI.NodeIdMap.t -> Ctx.tc_context ->
+and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
                          A.declaration -> compiler_state
 = fun cstate gids ctx decl ->
 (*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)

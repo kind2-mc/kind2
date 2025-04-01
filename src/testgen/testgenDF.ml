@@ -257,10 +257,10 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
   let concrete = List.map (InputSystem.get_node_id input_sys) concrete 
-    |> List.map (fun node_id -> node_id.NodeId.name)
+    |> List.map NodeId.get_user_name
   in
   let abstract = List.map (InputSystem.get_node_id input_sys) abstract
-    |> List.map (fun node_id -> node_id.NodeId.name)
+    |> List.map NodeId.get_user_name
   in 
   KEvent.log_uncond "%s@[<v>\
       Launching on %a.@ \
@@ -268,7 +268,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       abstract subsystems: [ @[<hov>%a@] ]\
     @]"
     log_prefix
-    HString.pp_print_hstring node_id.name
+    NodeId.pp_print_node_id_user_name node_id
     (pp_print_list HString.pp_print_hstring ",@ ") concrete
     (pp_print_list HString.pp_print_hstring ",@ ") abstract ;
 

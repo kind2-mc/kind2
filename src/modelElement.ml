@@ -21,6 +21,7 @@ module SyMap = UfSymbol.UfSymbolMap
 module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
+module NI = NodeId
 
 (* Represents an equation of the transition system.
    It is not specific to the 'equation' model elements
@@ -237,14 +238,14 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let { NodeId.name; node_type; } = InputSystem.get_node_id in_sys scope in
+    let node_id = InputSystem.get_node_id in_sys scope in
     Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
-    (match node_type with 
+    (match (NI.get_node_type node_id) with 
       | Environment -> "Environment of"
       | Contract -> "Contract of"
       | Type -> "Type"
       | Component -> "Node") 
-    HString.pp_print_hstring name ;
+    NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -307,7 +308,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
     ("nodes", `List (List.map (fun (scope, elts) ->
       let node_id = InputSystem.get_node_id in_sys scope in
       `Assoc [
-        ("name", `String (node_id.name |> HString.string_of_hstring)) ;
+        ("name", `String (NI.get_user_name node_id |> HString.string_of_hstring)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -344,7 +345,7 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
     let node_id = InputSystem.get_node_id in_sys scope in
-    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" HString.pp_print_hstring node_id.name;
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" NI.pp_print_node_id_user_name node_id;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

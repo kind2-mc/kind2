@@ -205,8 +205,8 @@ let pp_print_tree in_sys fmt { tree } =
       let act = List.map (InputSystem.get_node_id in_sys) act in
       let deact = List.map (InputSystem.get_node_id in_sys) deact in
       Format.fprintf fmt "@[<v>%a@ %a@]"
-        (pp_print_list HString.pp_print_hstring ", ") (List.map (fun { NodeId.name; } -> name) act)
-        (pp_print_list HString.pp_print_hstring ", ") (List.map (fun { NodeId.name; } -> name) deact))
+        (pp_print_list HString.pp_print_hstring ", ") (List.map NodeId.get_user_name act)
+        (pp_print_list HString.pp_print_hstring ", ") (List.map NodeId.get_user_name deact))
     (match tree with
       | Top -> [ ["top"] ], [] | Node(_,_,c,_) -> c)
 

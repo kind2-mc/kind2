@@ -20,7 +20,7 @@
   @author Andrew Marmaduke *)
 
 val compile : TypeCheckerContext.tc_context
--> GeneratedIdentifiers.t NodeId.NodeIdMap.t
+-> GeneratedIdentifiers.t NodeId.Map.t
 -> LustreAst.declaration list
 -> LustreNode.t list * LustreGlobals.t
  

@@ -22,6 +22,7 @@ module TestGen = TestgenDF
 module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
+module NI = NodeId
 
 open Res
 
@@ -38,7 +39,7 @@ let last_result in_sys results scope =
     fun fmt ->
       let node_id = InputSystem.get_node_id in_sys scope in
       Format.fprintf fmt "No result available for component %a."
-        HString.pp_print_hstring node_id.name
+        HString.pp_print_hstring (NI.get_user_name node_id)
   )
 
 (** Signature of modules for post-analysis treatment. *)
@@ -168,7 +169,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir tests_target ;
           KEvent.log_uncond
             "%sGenerating tests for node '%a' to '%s'."
-            TestGen.log_prefix HString.pp_print_hstring node_id.name tests_target ;
+            TestGen.log_prefix HString.pp_print_hstring (NI.get_user_name node_id) tests_target ;
           let testgen_xmls =
             TestGen.main param input_sys_sliced sys tests_target
           in
@@ -179,7 +180,7 @@ module RunTestGen: PostAnalysis = struct
           mk_dir oracle_target ;
           KEvent.log_uncond
             "%sCompiling oracle to Rust for node '%a' to '%s'."
-            TestGen.log_prefix HString.pp_print_hstring node_id.name oracle_target ;
+            TestGen.log_prefix HString.pp_print_hstring (NI.get_user_name node_id) oracle_target ;
           let name, guarantees, modes =
             InputSystem.compile_oracle_to_rust in_sys top oracle_target
           in
@@ -561,7 +562,7 @@ module RunRustGen: PostAnalysis = struct
     let node_id = InputSystem.get_node_id in_sys top in
     KEvent.log_uncond
       "  Compiling node '%a' to Rust in '%s'."
-      HString.pp_print_hstring node_id.name target ;
+      HString.pp_print_hstring (NI.get_user_name node_id) target ;
     InputSystem.compile_to_rust in_sys top target ;
     KEvent.log_uncond "  Done compiling." ;
     Ok ()

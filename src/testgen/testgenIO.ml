@@ -17,6 +17,7 @@
 *)
 
 open Lib
+module NI = NodeId
 
 type sys = TransSys.t
 (*
@@ -76,11 +77,11 @@ let mk input_sys sys root name title =
         Format.sprintf "%s.xml" dir |> openfile
       in
       let class_fmt = fmt_of_file class_file in
-      let { NodeId.name; } = InputSystem.get_node_id input_sys (TransSys.scope_of_trans_sys sys) in
+      let node_id = InputSystem.get_node_id input_sys (TransSys.scope_of_trans_sys sys) in
       Format.fprintf class_fmt
         "<?xml version=\"1.0\"?>@.\
          <data system=\"%a\" name=\"%s\">@.@.@?"
-         HString.pp_print_hstring name
+         NI.pp_print_node_id_user_name node_id
         title ;
       class_file
     ) else Unix.stderr
@@ -116,11 +117,11 @@ let init_error (type s)
   mk_dir edir ;
   let error_file = Format.sprintf "%s-errors.xml" dir |> openfile in
   let error_fmt = fmt_of_file error_file in
-  let { NodeId.name; } = InputSystem.get_node_id t.input_sys (TransSys.scope_of_trans_sys sys) in
+  let node_id = InputSystem.get_node_id t.input_sys (TransSys.scope_of_trans_sys sys) in
   Format.fprintf error_fmt
     "<?xml version=\"1.0\"?>@.\
      <data system=\"%a\">@.@.@?"
-    HString.pp_print_hstring name ;
+    NI.pp_print_node_id_user_name node_id ;
 
   t.error_file <- Some error_file
 
@@ -180,7 +181,7 @@ let pp_print_tc in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
       let modes = List.map (InputSystem.get_node_id in_sys) modes 
-        |> List.map (fun { NodeId.name; } -> name)
+        |> List.map NI.get_user_name
       in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
@@ -199,7 +200,7 @@ let pp_print_deadlock in_sys fmt path name modes =
   let rec loop cpt = function
     | modes :: tail ->
       let modes = List.map (InputSystem.get_node_id in_sys) modes 
-        |> List.map (fun { NodeId.name; } -> name) in
+        |> List.map NI.get_user_name in
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
         (pp_print_list HString.pp_print_hstring " and ")
@@ -217,9 +218,9 @@ let pp_print_model_path in_sys fmt path =
   let rec loop cpt = function
     | modes :: modes' :: tail ->
       let modes = List.map (InputSystem.get_node_id in_sys) modes 
-        |> List.map (fun { NodeId.name; } -> name) in
+        |> List.map NI.get_user_name in
       let modes'' = List.map (InputSystem.get_node_id in_sys) modes' 
-        |> List.map (fun { NodeId.name; } -> name) in
+        |> List.map NI.get_user_name in
       Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
         (pp_print_list HString.pp_print_hstring "\\n") modes cpt
         (pp_print_list HString.pp_print_hstring "\\n") modes'' (cpt + 1) ;

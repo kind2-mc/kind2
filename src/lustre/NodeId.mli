@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2025 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -18,23 +18,27 @@
 (** @author: Rob Lorch *)
 
 type node_type = Component | Contract | Environment | Type
-type node_id = {
-  name : HString.t;
-  node_type : node_type;
-  monomorphization : int option;
-}
 
-val mk_node_id: ?node_type:node_type -> ?monomorphization:int option ->  HString.t -> node_id
-val pp_print_node_id: Format.formatter -> node_id -> unit
-val internal_string_of_node_id: node_id -> string
-val node_id_hash: node_id -> int 
-val eq_node_ids: node_id -> node_id -> bool 
+type t
 
-module NodeIdMap : Map.S with type key = node_id
+(* Required HString.t arg is the node's input name *)
+val mk_node_id: ?node_type:node_type -> ?monomorphization:int -> ?user_name:HString.t -> HString.t -> t
+val pp_print_node_id_input_name: Format.formatter -> t -> unit
+val pp_print_node_id_user_name: Format.formatter -> t -> unit
+val hash: t -> int 
+val equal: t -> t -> bool 
+val compare: t -> t -> int
+val get_name: t -> HString.t
+val get_user_name: t -> HString.t 
+val get_internal_name: t -> HString.t
+val get_node_type: t -> node_type
+val get_monomorphization: t -> int option
 
-module NodeIdSet: sig
-  include (Set.S with type elt = node_id)
+module Map : Map.S with type key = t
+
+module Set: sig
+  include (Set.S with type elt = t)
   val flatten: t list -> t
 end
 
-module NodeIdHashtbl : Hashtbl.S with type key = node_id
+module Hashtbl : Hashtbl.S with type key = t

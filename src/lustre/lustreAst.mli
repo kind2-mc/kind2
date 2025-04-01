@@ -164,7 +164,7 @@ and expr =
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * NI.node_id * expr list
+  | Call of position * lustre_type list * NI.t * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -266,7 +266,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * NI.node_id * lustre_type list * expr list * ident list
+type contract_call = position * NI.t * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -306,7 +306,7 @@ type opacity =
     - its equations, assertions and annotiations, and
     - its optional contract specification *)
 type node_decl =
-  NI.node_id
+  NI.t
   * bool
   * opacity
   * ident list
@@ -324,7 +324,7 @@ type node_decl =
   - its outputs,
   - its body as a [contract]. *)
 type contract_node_decl =
-  NI.node_id
+  NI.t
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
