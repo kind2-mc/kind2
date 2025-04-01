@@ -99,7 +99,11 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   (* Get node_id fields *)
   let node_type = NI.get_node_type node_id in 
   let name = NI.get_name node_id in
-  let user_name = NI.get_user_name node_id in
+  let user_name = Format.asprintf
+    "%a<<%a>>"
+    HString.pp_print_hstring name
+    (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
+  in
   (* Check for pre-existing instantiation of the node before compiling a new one *)
   let decl, tyss = NI.Map.find node_id node_decls_map in 
   let find_decl tys = 
@@ -117,8 +121,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   match Lib.find_opt_index find_decl tyss with 
   (* This polymorphic instantiation already exists *)
   | Some j -> 
-    (*!! How to retrieve the user_name? *)
-    let pnname = NI.mk_node_id ~node_type ~monomorphization:j name in
+    let pnname = NI.mk_node_id ~node_type ~monomorphization:j ~user_name name in
     ctx, gids, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
@@ -165,11 +168,6 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements
     in
     (* Create fresh identifier for instantiated polymorphic node *)
-    let user_name = Format.asprintf
-      "%a<<%a>>"
-      HString.pp_print_hstring name
-      (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
-    in
     let pnname = NI.mk_node_id ~node_type ~monomorphization:(List.length tyss) ~user_name name in
     (* Remember new instantiation *)
     let node_decls_map = NI.Map.add node_id (decl, tyss @ [ty_args]) node_decls_map in

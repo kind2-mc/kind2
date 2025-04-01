@@ -237,13 +237,13 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, node_name, args, defaults, inlined) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, node_id, args, defaults, inlined) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a),%a)%s"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
-      NI.pp_print_node_id_user_name node_name
+      NI.pp_print_node_id_user_name node_id
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
