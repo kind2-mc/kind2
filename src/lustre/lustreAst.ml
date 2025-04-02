@@ -112,7 +112,6 @@ type expr =
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  (*!! Use NodeId.t for Condact, Activate, Merge, RestartEvery *)
   | Condact of position * expr * expr * NI.t * expr list * expr list
   | Activate of position * NI.t * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
