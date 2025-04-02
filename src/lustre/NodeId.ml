@@ -87,22 +87,22 @@ let hash: t -> int
   Hashtbl.hash (HString.hash name, Hashtbl.hash node_type, Hashtbl.hash monomorphization) 
 
 module Hashtbl = Hashtbl.Make(struct
-  type z = t
-  type t = z
+  type z = t (* This t is NodeId.t *)
+  type t = z (* This t is Hashtbl.t *)
   let equal = equal
   let hash = hash
 end)
 
 module Map = Map.Make(struct
-    type z = t
-    type t = z
+    type z = t (* This t is NodeId.t *)
+    type t = z (* This t is Map.t *)
     let compare = compare
 end)
   
 module Set = struct
   include (Set.Make (struct
-    type z = t
-    type t = z
+    type z = t (* This t is NodeId.t *)
+    type t = z (* This t is Set.t *)
     let compare = compare
   end))
   let flatten: t list -> t = fun sets ->
