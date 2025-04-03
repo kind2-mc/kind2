@@ -749,6 +749,10 @@ module Make (Graph : GraphSig) : Out = struct
 end
 
 
+module IntSet = Stdlib.Set.Make(Int)
+module BitVectorLengths = struct
+  let lengths = IntSet.of_list [8; 16; 32; 64]
+end
 
 
 (* |===| Actual invariant generators. *)
@@ -816,38 +820,13 @@ let main_int two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
            two_state in_sys param sys
 
-(*!!! TODO: Continue here *)
-(* let main_int8 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.Int8InvGen.main Int8InvGen.main
+let main_bv two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.BVInvGen.main BVInvGen.main
            two_state in_sys param sys
 
-let main_int16 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.Int16InvGen.main Int16InvGen.main
-           two_state in_sys param sys
-
-let main_int32 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.Int32InvGen.main Int32InvGen.main
-           two_state in_sys param sys
-
-let main_int64 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.Int64InvGen.main Int64InvGen.main
-           two_state in_sys param sys
-
-let main_uint8 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.UInt8InvGen.main UInt8InvGen.main
-           two_state in_sys param sys
-
-let main_uint16 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.UInt16InvGen.main UInt16InvGen.main
-           two_state in_sys param sys
-
-let main_uint32 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.UInt32InvGen.main UInt32InvGen.main
-           two_state in_sys param sys
-
-let main_uint64 two_state in_sys param sys =
-  run_main Flags.Invgen.arith_eq_only EqOnly.UInt64InvGen.main UInt64InvGen.main
-           two_state in_sys param sys *)
+let main_ubv two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.UBVInvGen.main UBVInvGen.main
+            two_state in_sys param sys
 
 let main_real two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.RealInvGen.main RealInvGen.main

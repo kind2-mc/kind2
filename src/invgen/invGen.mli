@@ -36,37 +36,13 @@ val main_bool :
 val main_int :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-(** Temporary entry point for int8 invariant generation. *)
-(* val main_int8 :
+(** Temporary entry point for bitvector invariant generation. *)
+val main_bv :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-(** Temporary entry point for int16 invariant generation. *)
-val main_int16 :
-bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for int32 invariant generation. *)
-val main_int32 :
+(** Temporary entry point for unsigned bitvector invariant generation. *)
+val main_ubv :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for int64 invariant generation. *)
-val main_int64 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint8 invariant generation. *)
-val main_uint8 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint16 invariant generation. *)
-val main_uint16 :
-bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint32 invariant generation. *)
-val main_uint32 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint64 invariant generation. *)
-val main_uint64 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit *)
 
 (** Temporary entry point for real invariant generation. *)
 val main_real :

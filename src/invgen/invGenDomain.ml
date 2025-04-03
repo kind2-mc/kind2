@@ -229,12 +229,12 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
 end
 
 module BVMiner: MachineIntegerMiner = struct
-  let name = "Int8"
+  let name = "BV"
   let mine = InvGenMiner.BV.mine
 end
 
 module UBVMiner: MachineIntegerMiner = struct
-  let name = "Int8"
+  let name = "UBV"
   let mine = InvGenMiner.UBV.mine
 end
 

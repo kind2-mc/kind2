@@ -845,6 +845,10 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENBV
+  | `INVGENBVOS
+  | `INVGENUBV
+  | `INVGENUBVOS
   | `INVGENMACH
   | `INVGENMACHOS
   | `INVGENREAL
@@ -873,8 +877,10 @@ let pp_print_kind_module ppf = function
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENMACH -> fprintf ppf "two state invariant generator (mach int)"
   | `INVGENMACHOS -> fprintf ppf "one state invariant generator (mach int)"
-  (* | `INVGENINT8 -> fprintf ppf "two state invariant generator (int8)"
-  | `INVGENINT8OS -> fprintf ppf "one state invariant generator (int8)" *)
+  | `INVGENBV -> fprintf ppf "two state invariant generator (bv)"
+  | `INVGENBVOS -> fprintf ppf "one state invariant generator (bv)"
+  | `INVGENUBV -> fprintf ppf "two state invariant generator (ubv)"
+  | `INVGENUBVOS -> fprintf ppf "one state invariant generator (ubv)"
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
@@ -902,6 +908,10 @@ let short_name_of_kind_module = function
  | `INVGENOS -> "invgenos"
  | `INVGENINT -> "invgenintts"
  | `INVGENINTOS -> "invgenintos"
+ | `INVGENBV -> "invgenbv"
+ | `INVGENBVOS -> "invgenbvos"
+ | `INVGENUBV -> "invgenubv"
+ | `INVGENUBVOS -> "invgenubvos"
  | `INVGENMACH -> "invgenmachts"
  | `INVGENMACHOS -> "invgenmachos"
  | `INVGENREAL -> "invgenintts"
@@ -959,6 +969,10 @@ let int_of_kind_module = function
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
   | `IC3QE -> 32
+  | `INVGENBV -> 33
+  | `INVGENBVOS -> 34
+  | `INVGENUBV -> 35
+  | `INVGENUBVOS -> 36
 
 
 (* Timeouts *)

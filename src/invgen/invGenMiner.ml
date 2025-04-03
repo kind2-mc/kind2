@@ -23,6 +23,7 @@ module Dec = Decimal
 module SVar = StateVar
 module Set = Term.TermSet
 module Sys = TransSys
+module IntSet = Stdlib.Set.Make(Int)
 
 type svar = SVar.t
 (* type svs = SVS.t *)
@@ -704,7 +705,7 @@ module Int = MakeCandGen (IntRules)
 
 
 module type MachineIntegerSig = sig
-  val length: int
+  val lengths: IntSet.t
   val is_type: Type.t -> bool
   val is_symbol: Symbol.t -> bool
 end
@@ -780,14 +781,16 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
     else set, constants
 
   let post_rules _ constants set =
-    let zero = Term.mk_bv (Bitvector.zero M.length) in
-    let one = Term.mk_bv (Bitvector.one M.length) in
     let set =
-      Set.add zero set
-      |> Set.add one
-      |> octagons_bv true eval(
-        Set.add one constants |> Set.elements
-      )
+      IntSet.fold (fun length set ->
+        let zero = Term.mk_bv (Bitvector.zero length) in
+        let one = Term.mk_bv (Bitvector.one length) in
+        Set.add zero set
+        |> Set.add one
+        |> octagons_bv true eval(
+          Set.add one constants |> Set.elements
+        )
+      ) M.lengths set
     in
     let set =
       Set.fold (
@@ -802,23 +805,23 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
 end
 
-module BVM : MachineIntegerSig = struct
-  let length = 8 (*!!! TODO: Make generic *)
+module BVM (S : sig val lengths : IntSet.t end) : MachineIntegerSig = struct
+  let lengths = S.lengths 
   let is_type = Type.is_bitvector
-  let is_symbol = Symbol.is_bv8
+  let is_symbol = Symbol.is_bitvector
 end
 
-module UBVM : MachineIntegerSig = struct
-  let length = 8
-  let is_type = Type.is_ubitvector
-  let is_symbol = Symbol.is_ubv8
+module UBVM (S : sig val lengths : IntSet.t end) : MachineIntegerSig = struct
+  let lengths = S.lengths 
+  let is_type = Type.is_bitvector
+  let is_symbol = Symbol.is_bitvector
 end
 
 (** BV candidate term miner. *)
-module BV = MakeCandGen (MachineIntegerRules(BVM))
+module BV = MakeCandGen (MachineIntegerRules(BVM(struct let lengths = IntSet.of_list [8; 16; 32; 64] end)))
 
 (** UBV candidate term miner. *)
-module UBV = MakeCandGen (MachineIntegerRules(UBVM))
+module UBV = MakeCandGen (MachineIntegerRules(UBVM(struct let lengths = IntSet.of_list [8; 16; 32; 64] end)))
 
 (** Real rules. *)
 module RealRules = struct
