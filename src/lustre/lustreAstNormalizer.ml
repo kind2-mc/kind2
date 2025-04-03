@@ -1612,7 +1612,6 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             gids.contract_calls
           }
         in
-        (*!! TODO: Check if we need to pass the node_name info, or not *)
         ContractCall (pos, (NI.mk_node_id cref), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration info node_id map decl in

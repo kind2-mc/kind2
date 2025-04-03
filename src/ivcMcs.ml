@@ -183,7 +183,6 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (*!! Check *)
           (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
@@ -193,7 +192,6 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (*!! Check *)
             (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
