@@ -993,10 +993,7 @@ let run in_sys =
           match Analysis.results_find sys results with
           | last :: _ -> last :: l
           | [] ->
-            let node_name = match InputSystem.get_lustre_node in_sys sys with 
-            | Some node ->  (NodeId.get_user_name node.node_id) |> LustreIdent.of_hstring
-            | None -> string_of_t Scope.pp_print_scope_internal sys |> LustreIdent.mk_string_ident
-            in
+            let node_name = InputSystem.get_node_user_name in_sys sys in
             Format.asprintf "Unreachable: no results at all for system @{<blue>%a@}."
               (LustreIdent.pp_print_ident true) node_name
             |> failwith

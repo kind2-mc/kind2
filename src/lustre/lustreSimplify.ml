@@ -1036,16 +1036,7 @@ let rec eval_ast_expr bounds ctx =
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, [], node_id, args) -> 
-    try_eval_node_call
-      bounds
-      ctx
-      pos
-      (NodeId.get_internal_name node_id |> I.of_hstring)
-      (A.Const (dummy_pos, A.True))
-      (A.Const (dummy_pos, A.False))
-      args
-      None
+  | A.Call (pos, [], node_id, args)
   | A.RestartEvery (pos, node_id, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds

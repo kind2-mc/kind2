@@ -1989,7 +1989,7 @@ let pos_to_numbers abstr_map nodes =
   let rec fold parents node =
 
     List.iter
-      (fun ({ N.call_node_id = name;
+      (fun ({ N.call_node_id = node_id;
              call_pos = pos; call_cond = cond;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
@@ -2001,10 +2001,11 @@ let pos_to_numbers abstr_map nodes =
         (*   (pp_print_list StateVar.pp_print_state_var ", ") inputs *)
         (* ; *)
         
+        let name = NI.get_internal_name node_id |> I.of_hstring in
         register_callpos_for_nb
           abstr_map hc name parents pos cond (inputs, defs);
 
-        fold (call :: parents) (LustreNode.node_of_node_id name nodes)
+        fold (call :: parents) (LustreNode.node_of_node_id node_id nodes)
 
       ) node.LustreNode.calls
   in
@@ -2097,7 +2098,7 @@ let reconstruct_lustre_streams subsystems state_vars =
 
   (* convert position to call numbers *)
   let hc = pos_to_numbers abstr_map nodes in
-  
+
   (* mapback from oracles to state vars *)
   let oracle_map = inverse_oracle_map nodes in
 
@@ -2108,13 +2109,8 @@ let reconstruct_lustre_streams subsystems state_vars =
       let l = orig_of_oracle oracle_map sv in
 
       (* get streams *)
-      let hc' = Hashtbl.create 64 in
-      let () = 
-        Hashtbl.fold (fun key value acc -> (key, value) :: acc) hc [] |>
-        List.map (fun ((name, b), c) -> (NI.get_internal_name name |> I.of_hstring, b), c) |> 
-        List.iter (fun (k, v) -> Hashtbl.add hc' k v) 
-      in
-      let streams = List.flatten (List.map (get_lustre_streams hc') l) in
+
+      let streams = List.flatten (List.map (get_lustre_streams hc) l) in
 
       (* get original variables of oracles in node call parameters *)
       let streams =

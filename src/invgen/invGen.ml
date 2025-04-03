@@ -640,7 +640,6 @@ module Make (Graph : GraphSig) : Out = struct
     (* minisleep 2.0 ;
     exit () ; *)
 
-    (* Forget the graph if it is stale. *)
     let memory, res = (sys, graph, non_trivial, trivial) :: memory, res
     in
 

@@ -370,6 +370,11 @@ let get_node_internal_name in_sys scope =
   | Some node -> NodeId.get_internal_name node.node_id |> LustreIdent.of_hstring
   | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
 
+let get_node_user_name in_sys scope =
+  match get_lustre_node in_sys scope with
+  | Some node -> NodeId.get_user_name node.node_id |> LustreIdent.of_hstring
+  | None -> Lib.string_of_t Scope.pp_print_scope_internal scope |> LustreIdent.mk_string_ident
+
 let get_node_id in_sys scope =
   match get_lustre_node in_sys scope with 
   | Some { node_id; } -> node_id
