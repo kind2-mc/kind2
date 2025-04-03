@@ -107,12 +107,12 @@ let fmt_node_decl fmt (
 
   (* Header. *)
   Format.fprintf fmt "\
-    node %s%a (@.  \
+    node %a%a (@.  \
       @[<hov>%a@]@.\
     ) returns (@.  \
       @[<hov>%a@]@.\
     ) ;@.@?\
-  " (NodeId.get_internal_name node_name |> HString.string_of_hstring) (*!! Check *)
+  " NodeId.pp_print_node_id_user_name node_name
     Ast.pp_print_node_param_list params
     (pp_print_list Ast.pp_print_const_clocked_typed_ident " ;@ ") ins
     (pp_print_list Ast.pp_print_clocked_typed_ident " ;@ ") outs ;
