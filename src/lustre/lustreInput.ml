@@ -420,9 +420,6 @@ let of_channel old_frontend only_parse in_ch =
           else n)
         nodes
       in
-      let main_nodes = List.filter_map (fun ({ LN.is_main; LN.node_id }) -> 
-        if is_main then Some node_id else None
-      ) nodes in
       print_nodes_and_globals nodes globals;
       (* Return a subsystem tree from the list of nodes *)
       Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
