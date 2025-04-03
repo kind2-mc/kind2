@@ -818,10 +818,10 @@ module UBVM (S : sig val lengths : IntSet.t end) : MachineIntegerSig = struct
 end
 
 (** BV candidate term miner. *)
-module BV = MakeCandGen (MachineIntegerRules(BVM(struct let lengths = IntSet.of_list [8; 16; 32; 64] end)))
+module BV(IS : sig val lengths : IntSet.t end) = MakeCandGen (MachineIntegerRules(BVM(IS)))
 
 (** UBV candidate term miner. *)
-module UBV = MakeCandGen (MachineIntegerRules(UBVM(struct let lengths = IntSet.of_list [8; 16; 32; 64] end)))
+module UBV(IS : sig val lengths : IntSet.t end) = MakeCandGen (MachineIntegerRules(UBVM(IS)))
 
 (** Real rules. *)
 module RealRules = struct

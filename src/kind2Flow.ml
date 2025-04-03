@@ -85,10 +85,10 @@ let main_of_process = function
     | `INVGENOS -> renice () ; InvGen.main_bool false
     | `INVGENINT -> renice () ; InvGen.main_int true
     | `INVGENINTOS -> renice () ; InvGen.main_int false
-    | `INVGENBV -> renice () ; InvGen.main_bv true
-    | `INVGENBVOS -> renice () ; InvGen.main_bv false
-    | `INVGENUBV -> renice () ; InvGen.main_ubv true
-    | `INVGENUBVOS -> renice () ; InvGen.main_ubv false
+    | `INVGENBV -> renice () ; InvGen.main_bv true (InvGenMiner.IntSet.of_list [8; 16; 32; 64])
+    | `INVGENBVOS -> renice () ; InvGen.main_bv false (InvGenMiner.IntSet.of_list [8; 16; 32; 64])
+    | `INVGENUBV -> renice () ; InvGen.main_ubv true (InvGenMiner.IntSet.of_list [8; 16; 32; 64])
+    | `INVGENUBVOS -> renice () ; InvGen.main_ubv false (InvGenMiner.IntSet.of_list [8; 16; 32; 64])
     | `INVGENREAL -> renice () ; InvGen.main_real true
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main

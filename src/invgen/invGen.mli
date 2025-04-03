@@ -38,11 +38,11 @@ val main_int :
 
 (** Temporary entry point for bitvector invariant generation. *)
 val main_bv :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  bool -> InvGenMiner.IntSet.t -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for unsigned bitvector invariant generation. *)
 val main_ubv :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  bool -> InvGenMiner.IntSet.t ->'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for real invariant generation. *)
 val main_real :
@@ -80,12 +80,6 @@ module BoolInvGen : Out
 
 (** Int invariant generation module. *)
 module IntInvGen : Out
-
-(** Bitvector invariant generation module. *)
-module BVInvGen : Out
-
-(** Unsigned bitvector invariant generation module. *)
-module UBVInvGen : Out
 
 (** Real invariant generation module. *)
 module RealInvGen : Out

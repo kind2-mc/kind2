@@ -75,10 +75,10 @@ module Bool : Domain
 module Int : Domain
 
 (** BV domain with less than or equal to. *)
-module BV : Domain
+module BV (L : sig val lengths : InvGenMiner.IntSet.t end) : Domain
 
 (** UBV domain with less than or equal to. *)
-module UBV : Domain
+module UBV (L : sig val lengths : InvGenMiner.IntSet.t end) : Domain
 
 (** Real domain with less than or equal to. *)
 module Real : Domain

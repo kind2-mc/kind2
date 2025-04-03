@@ -158,10 +158,10 @@ module Bool : Graph
 module Int : Graph
 
 (** Graph of signed bitvectors with less than or equal. *)
-module BV : Graph
+module BV (L : sig val lengths : InvGenMiner.IntSet.t end) : Graph
 
 (** Graph of unsigned bitvectors with less than or equal. *)
-module UBV : Graph
+module UBV (L : sig val lengths : InvGenMiner.IntSet.t end) : Graph
 
 (** Graph of reals with less than or equal. *)
 module Real : Graph
@@ -176,10 +176,10 @@ module EqOnly : sig
   module Int : Graph
 
   (** Graph of bitvectors. *)
-  module BV : Graph
+  module BV (L : sig val lengths : InvGenMiner.IntSet.t end) : Graph
 
   (** Graph of unsigned bitvectors. *)
-  module UBV : Graph
+  module UBV (L : sig val lengths : InvGenMiner.IntSet.t end) : Graph
 
   (** Graph of reals. *)
   module Real : Graph

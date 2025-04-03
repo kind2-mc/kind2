@@ -749,12 +749,6 @@ module Make (Graph : GraphSig) : Out = struct
 end
 
 
-module IntSet = Stdlib.Set.Make(Int)
-module BitVectorLengths = struct
-  let lengths = IntSet.of_list [8; 16; 32; 64]
-end
-
-
 (* |===| Actual invariant generators. *)
 
 (** Boolean invariant generation. *)
@@ -762,12 +756,6 @@ module BoolInvGen = Make(InvGenGraph.Bool)
 
 (** Integer invariant generation. *)
 module IntInvGen = Make(InvGenGraph.Int)
-
-(** Signed bitvector invariant generation *)
-module BVInvGen = Make(InvGenGraph.BV)
-
-(** Unsigned bitvector invariant generation *)
-module UBVInvGen = Make(InvGenGraph.UBV)
 
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
@@ -782,10 +770,10 @@ module EqOnly = struct
   module IntInvGen = Make( InvGenGraph.EqOnly.Int )
 
   (** Graph of signed bitvectors. *)
-  module BVInvGen = Make( InvGenGraph.EqOnly.BV )
+  module BVInvGen = Make( InvGenGraph.EqOnly.BV(struct let lengths = InvGenMiner.IntSet.of_list [8; 16; 32; 64] end) )
 
   (** Graph of unsigned bitvectors. *)
-  module UBVInvGen = Make( InvGenGraph.EqOnly.UBV )
+  module UBVInvGen = Make( InvGenGraph.EqOnly.UBV(struct let lengths = InvGenMiner.IntSet.of_list [8; 16; 32; 64] end) )
 
   (** Graph of reals. *)
   module RealInvGen = Make( InvGenGraph.EqOnly.Real )
@@ -820,11 +808,13 @@ let main_int two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
            two_state in_sys param sys
 
-let main_bv two_state in_sys param sys =
+let main_bv two_state lengths in_sys param sys =
+  let module BVInvGen = Make(InvGenGraph.BV(struct let lengths = lengths end)) in
   run_main Flags.Invgen.arith_eq_only EqOnly.BVInvGen.main BVInvGen.main
            two_state in_sys param sys
 
-let main_ubv two_state in_sys param sys =
+let main_ubv two_state lengths in_sys param sys =
+  let module UBVInvGen = Make(InvGenGraph.UBV(struct let lengths = lengths end)) in
   run_main Flags.Invgen.arith_eq_only EqOnly.UBVInvGen.main UBVInvGen.main
             two_state in_sys param sys
 

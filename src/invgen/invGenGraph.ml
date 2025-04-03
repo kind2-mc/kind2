@@ -1457,10 +1457,10 @@ module Bool = Make( InvGenDomain.Bool )
 module Int = Make( InvGenDomain.Int )
 
 (** Graph of bitvectors with less than or equal. *)
-module BV = Make( InvGenDomain.BV )
+module BV(IS : sig val lengths : InvGenMiner.IntSet.t end) = Make( InvGenDomain.BV(IS) )
 
 (** Graph of unsigned bitvectors with less than or equal. *)
-module UBV = Make( InvGenDomain.UBV )
+module UBV(IS : sig val lengths : InvGenMiner.IntSet.t end) = Make( InvGenDomain.UBV(IS) )
 
 (** Graph of reals with less than or equal. *)
 module Real = Make( InvGenDomain.Real )
@@ -1475,10 +1475,10 @@ module EqOnly = struct
   module Int = MakeEq( InvGenDomain.Int )
 
   (** Graph of signed bitvectors. *)
-  module BV = MakeEq( InvGenDomain.BV )
+  module BV(IS : sig val lengths : InvGenMiner.IntSet.t end) = MakeEq( InvGenDomain.BV(IS) )
 
   (** Graph of unsigned bitvectors. *)
-  module UBV = MakeEq( InvGenDomain.BV )
+  module UBV(IS : sig val lengths : InvGenMiner.IntSet.t end) = MakeEq( InvGenDomain.UBV(IS) )
 
   (** Graph of reals. *)
   module Real = MakeEq( InvGenDomain.Real )
