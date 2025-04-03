@@ -18,6 +18,7 @@
 
 open LustreAst
 open LustreReporting
+module NI = NodeId
 
 type iset = LustreAst.SI.t
 
@@ -826,43 +827,43 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
-let rec calls_of_expr: expr -> iset =
+let rec calls_of_expr: expr -> NI.Set.t =
   function
   (* Node calls *)
-  | Call (_, _, i, es) -> SI.union (SI.singleton i) (SI.flatten (List.map calls_of_expr es))
+  | Call (_, _, i, es) -> NI.Set.union (NI.Set.singleton i) (NI.Set.flatten (List.map calls_of_expr es))
   | Condact (_, e1, e2, i, es1, es2) ->
-    SI.union (SI.singleton i)
-             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
+    NI.Set.union (NI.Set.singleton i)
+             (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
                           List.map calls_of_expr es1 @ List.map calls_of_expr es2))
   | Activate (_, i, e1, e2, es) -> 
-    SI.union (SI.singleton i)
-             (SI.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
+    NI.Set.union (NI.Set.singleton i)
+             (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
   | RestartEvery (_, i, es, e) -> 
-    SI.union (SI.singleton i)
-             (SI.flatten (calls_of_expr e :: List.map calls_of_expr es))
+    NI.Set.union (NI.Set.singleton i)
+             (NI.Set.flatten (calls_of_expr e :: List.map calls_of_expr es))
   (* Everything else *)
-  | Ident _ -> SI.empty
-  | ModeRef _ -> SI.empty
+  | Ident _ -> NI.Set.empty
+  | ModeRef _ -> NI.Set.empty
   | RecordProject (_, e, _) -> calls_of_expr e 
   | TupleProject (_, e, _) -> calls_of_expr e
-  | Const _ -> SI.empty
+  | Const _ -> NI.Set.empty
   | UnaryOp (_,_,e) -> calls_of_expr e
-  | BinaryOp (_,_,e1, e2) -> calls_of_expr e1 |> SI.union (calls_of_expr e2)
-  | TernaryOp (_,_, e1, e2, e3) -> calls_of_expr e1 |> SI.union (calls_of_expr e2) |> SI.union (calls_of_expr e3) 
+  | BinaryOp (_,_,e1, e2) -> calls_of_expr e1 |> NI.Set.union (calls_of_expr e2)
+  | TernaryOp (_,_, e1, e2, e3) -> calls_of_expr e1 |> NI.Set.union (calls_of_expr e2) |> NI.Set.union (calls_of_expr e3) 
   | ConvOp  (_,_,e) -> calls_of_expr e
-  | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> SI.union (calls_of_expr e2)
-  | RecordExpr (_, _, _, flds) -> SI.flatten (List.map calls_of_expr (snd (List.split flds)))
-  | GroupExpr (_, _, es) -> SI.flatten (List.map calls_of_expr es)
-  | StructUpdate (_, e1, _, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
-  | ArrayConstr (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> NI.Set.union (calls_of_expr e2)
+  | RecordExpr (_, _, _, flds) -> NI.Set.flatten (List.map calls_of_expr (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
+  | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayIndex (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
-  | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> SI.flatten
-  | AnyOp (_, (_, i, _), e, None) -> SI.diff (calls_of_expr e) (SI.singleton i)
-  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (calls_of_expr e1) (calls_of_expr e2)) (SI.singleton i)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NI.Set.flatten
+  | AnyOp (_, (_, i, _), e, None) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
+  | AnyOp (_, (_, i, _), e1, Some e2) -> NI.Set.diff (NI.Set.union (calls_of_expr e1) (calls_of_expr e2)) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
-  | Arrow (_, e1, e2) ->  SI.union (calls_of_expr e1) (calls_of_expr e2)
+  | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
 
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
@@ -1226,9 +1227,9 @@ let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
     List.flatten (List.map extract_node_equation nes) @ List.flatten (List.map extract_node_equation nis)
   | _ -> []
 
-let get_last_node_name: declaration list -> ident option
+let get_last_node_name: declaration list -> NI.t option
   = fun ds -> 
-  let rec get_first_node_name: declaration list -> ident option =
+  let rec get_first_node_name: declaration list -> NI.t option =
     function
     | [] -> None
     | NodeDecl (_, (n, _, _, _, _, _, _, _, _)) :: _ -> Some n
@@ -1236,7 +1237,7 @@ let get_last_node_name: declaration list -> ident option
   in get_first_node_name (List.rev ds)   
 
 let rec remove_node_in_declarations:
-          ident ->
+          NI.t ->
           declaration list ->
           declaration list ->
           (declaration * declaration list) option =
@@ -1244,17 +1245,18 @@ let rec remove_node_in_declarations:
   function
   | [] -> None
   | (NodeDecl (_, (n', _, _, _, _, _, _, _, _)) as mn) :: rest ->
-     if HString.compare n' n = 0
+     if Stdlib.compare n' n = 0
      then Some (mn, pres @ rest)
      else remove_node_in_declarations n (pres @ [mn]) rest 
   | d :: rest -> remove_node_in_declarations n (pres @ [d]) rest 
   
                
-let move_node_to_last: ident -> declaration list -> declaration list = 
+let move_node_to_last: NI.t -> declaration list -> declaration list = 
   fun n ds ->
   match (remove_node_in_declarations n [] ds) with
   | Some (mn, ds') -> ds' @ [mn]
-  | None -> failwith ("Could not find main node " ^ HString.string_of_hstring n)
+  | None -> 
+    failwith ("Could not find main node " ^ (NI.get_user_name n |> HString.string_of_hstring))
 
 
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
@@ -1370,12 +1372,12 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl1 yl1 |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 ->
-      Ok (e1 && e2 && l1 && l2 && HString.equal xi yi)
+      Ok (e1 && e2 && l1 && l2 && NI.equal xi yi)
     | Activate (_, xi, xe1, xe2, xl), Activate (_, yi, ye1, ye2, yl) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e1 && e2 && l && HString.equal xi yi)
+      Ok (e1 && e2 && l && NI.equal xi yi)
     | Merge (_, xi, xl), Merge (_, yi, yl) ->
       let (x1, x2), (y1, y2) = List.split xl, List.split yl in
       rlist x2 y2 |> join >>= fun e ->
@@ -1386,7 +1388,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e && l && HString.equal xi yi)
+      Ok (e && l && NI.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
     | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
@@ -1564,12 +1566,12 @@ let hash depth_limit expr =
         let e2_hash = r (depth + 1) e2 in
         let l1_hash = List.map (r (depth + 1)) l1 in
         let l2_hash = List.map (r (depth + 1)) l2 in
-        Hashtbl.hash (18, e1_hash, e2_hash, HString.hash i, l1_hash, l2_hash)
+        Hashtbl.hash (18, e1_hash, e2_hash, NI.hash i, l1_hash, l2_hash)
       | Activate (_, i, e1, e2, l) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (19, HString.hash i, e1_hash, e2_hash, l_hash)
+        Hashtbl.hash (19, NI.hash i, e1_hash, e2_hash, l_hash)
       | Merge (_, i, l) ->
         let l_hash = List.map
           (fun (i, e) -> let e_hash = r (depth + 1) e in
@@ -1580,7 +1582,7 @@ let hash depth_limit expr =
       | RestartEvery (_, i, l, e) ->
         let l_hash = List.map (r (depth + 1)) l in
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (21, HString.hash i, l_hash, e_hash)
+        Hashtbl.hash (21, NI.hash i, l_hash, e_hash)
       | Pre (_, e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (22, e_hash)
@@ -1588,9 +1590,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | Call (_, _, i, l) ->
+      | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (24, HString.hash i, l_hash)
+        Hashtbl.hash (24, NI.hash id, l_hash)
       | AnyOp (_, (_, i, _), e, None) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)

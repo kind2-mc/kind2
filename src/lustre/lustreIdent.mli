@@ -27,7 +27,6 @@
 
     @author Christoph Sticksel *)
 
-
 (** An identifier is a string with integer indexes *)
 type t = private Ident.t * int list 
 
@@ -107,6 +106,9 @@ val eq_vars_ident : t
 
 (** Identifier for index variables in arrays *)
 val index_ident : t
+
+(** HString to ident *)
+val of_hstring: HString.t -> t
 
 
 (* 

@@ -168,7 +168,7 @@ val add_contract_node_decl_to_context :
 
 (** Return a contract node by its identifier *)
 val contract_node_decl_of_ident :
-  t -> HString.t -> Lib.position * LustreAst.contract_node_decl
+  t -> NodeId.t -> Lib.position * LustreAst.contract_node_decl
 
 (** Return a context that raises an error when defining an
     expression.
@@ -257,7 +257,7 @@ val mk_fresh_oracle_for_state_var :
     t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
-val node_of_name : t -> LustreIdent.t -> LustreNode.t
+val node_of_node_id : t -> LustreIdent.t -> LustreNode.t
 
 (** Return variables capturing outputs of node call if a node call
     with the same input parameters and activation condition is in the

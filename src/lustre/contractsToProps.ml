@@ -102,7 +102,7 @@ let rec collect_contracts (equations, locals, asserts, props) = function
 
 
 let fmt_node_decl fmt (
-  ident, params, ins, outs, locals, items
+  node_name, params, ins, outs, locals, items
 ) (c_equations, c_locals, c_asserts, c_properties) =
 
   (* Header. *)
@@ -112,7 +112,7 @@ let fmt_node_decl fmt (
     ) returns (@.  \
       @[<hov>%a@]@.\
     ) ;@.@?\
-  " Ast.pp_print_ident ident
+  " NodeId.pp_print_node_id_user_name node_name
     Ast.pp_print_node_param_list params
     (pp_print_list Ast.pp_print_const_clocked_typed_ident " ;@ ") ins
     (pp_print_list Ast.pp_print_clocked_typed_ident " ;@ ") outs ;

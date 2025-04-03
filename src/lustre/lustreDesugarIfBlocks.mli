@@ -40,12 +40,12 @@ type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind 
 ]
 
-val pos_list_map : (Lib.position * LustreAst.eq_lhs) list HString.HStringHashtbl.t
+val pos_list_map : (Lib.position * LustreAst.eq_lhs) list NodeId.Hashtbl.t
 
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
-  (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
+    GeneratedIdentifiers.t NodeId.Map.t ->
+  (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.Map.t,
    [> error ])
   result

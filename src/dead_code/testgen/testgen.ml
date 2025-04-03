@@ -38,7 +38,7 @@ let mk_dir dir =
 
 let oracle_dir = "oracle"
 let oracle_name sys =
-  Format.asprintf "%a_oracle" (LustreIdent.pp_print_ident false) sys.N.name
+  Format.asprintf "%a_oracle" (LustreIdent.pp_print_ident false) sys.N.node_id
 let oracle_path dir sys =
   match TransSys.get_source sys with
   | TransSys.Native -> assert false
@@ -308,10 +308,10 @@ let oracle_of_nodes out_dir nodes =
   let (top, subs) = last_rev_tail [] nodes in
 
   Format.printf "@[<v>top: %a@,subs:@,  @[<v>%a@]@]@.@."
-    (LustreIdent.pp_print_ident false) top.N.name
+    (LustreIdent.pp_print_ident false) top.N.node_id
     (pp_print_list (fun ppf n ->
       Format.fprintf
-        ppf "%a" (LustreIdent.pp_print_ident false) n.N.name
+        ppf "%a" (LustreIdent.pp_print_ident false) n.N.node_id
     ) "@,") subs ;
 
   let mk_and = function
@@ -342,11 +342,11 @@ let oracle_of_nodes out_dir nodes =
       |> List.fold_left
         ( fun l (m: N.contract) -> (
             m,
-            mk_out_ident m.N.name,
+            mk_out_ident m.N.node_id,
             mk_impl (mk_and m.N.reqs) (mk_and m.N.enss)
           ) :: (
             m,
-            mk_out_ident_req m.N.name,
+            mk_out_ident_req m.N.node_id,
             mk_and m.N.reqs
           ) :: l )
         []
@@ -354,8 +354,8 @@ let oracle_of_nodes out_dir nodes =
       |> (fun l -> match globl with
         | None -> l
         | Some c ->
-          (c, mk_out_ident_req c.N.name, mk_and c.N.reqs) ::
-          (c, mk_out_ident c.N.name, mk_and c.N.enss) :: l
+          (c, mk_out_ident_req c.N.node_id, mk_and c.N.reqs) ::
+          (c, mk_out_ident c.N.node_id, mk_and c.N.enss) :: l
       )
   in
 
@@ -427,7 +427,7 @@ let oracle_of_nodes out_dir nodes =
     oracle_outputs ; *)
 
   let oracle: N.t = {
-    N.name = oracle_ident ;
+    N.node_id = oracle_ident ;
     N.inputs = oracle_inputs ;
     N.oracles = top.N.oracles ;
     N.outputs = oracle_outputs ;
@@ -460,7 +460,7 @@ let oracle_of_nodes out_dir nodes =
       subs
       |> List.iter
           (fun (n: N.t) ->
-            Format.printf "  %a" (LustreIdent.pp_print_ident false) n.N.name)
+            Format.printf "  %a" (LustreIdent.pp_print_ident false) n.N.node_id)
     | _ -> assert false ) ; *)
 
   let out_file = Format.asprintf

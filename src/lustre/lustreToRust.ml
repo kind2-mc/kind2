@@ -19,6 +19,7 @@
 open Lib
 
 module N = LustreNode
+module NI = NodeId
 module Id = LustreIdent
 module I = LustreIndex
 module E = LustreExpr
@@ -320,14 +321,14 @@ pub mod parse {
 }
 "
 (pp_print_list
-  ( fun fmt { N.name ; N.inputs ; N.outputs } ->
+  ( fun fmt { N.node_id ; N.inputs ; N.outputs } ->
       Format.fprintf fmt "\
         --%s@   @[<v>\
           inputs:  @[<v>%a@]@ \
           outputs: @[<v>%a@]\
         @]\
       "
-      (mk_id_legal name |> String.lowercase_ascii)
+      (mk_id_legal (NI.get_internal_name node_id |> Id.of_hstring) |> String.lowercase_ascii)
       ( pp_print_list
         ( fun fmt (_, svar) ->
             Format.fprintf fmt "%a (%s)"
@@ -347,17 +348,17 @@ pub mod parse {
   ) "@ "
 ) systems
 ( match List.rev systems with
-  | { N.name } :: _ -> mk_id_legal name |> String.lowercase_ascii
+  | { N.node_id } :: _ -> mk_id_legal (NI.get_internal_name node_id |> Id.of_hstring) |> String.lowercase_ascii
   | _ -> failwith "Can't generate helpers, no top system to print." )
 (pp_print_list
-  ( fun fmt { N.name } ->
+  ( fun fmt { N.node_id } ->
       Format.fprintf fmt "\"--%s\" => super::%s::run(),"
-        (mk_id_legal name |> String.lowercase_ascii)
-        (mk_id_type name)
+        (mk_id_legal (NI.get_internal_name node_id |> Id.of_hstring) |> String.lowercase_ascii)
+        (mk_id_type (NI.get_internal_name node_id |> Id.of_hstring))
   ) "@ "
 ) systems
 ( match List.rev systems with
-  | { N.name } :: _ -> mk_id_type name
+  | { N.node_id } :: _ -> mk_id_type (NI.get_internal_name node_id |> Id.of_hstring)
   | _ -> failwith "Can't generate helpers, no top system to print." )
 parse_bool_fun parse_int_fun parse_real_fun
 
@@ -560,8 +561,8 @@ type equation =
 | Call of (int * N.node_call) (* A call with a uid local to the node. *)
 
 (* Identifier refering to the current state of the system called. *)
-let id_of_call cnt { N.call_node_name } =
-  Format.sprintf "%s_%d" (mk_id_legal call_node_name) cnt
+let id_of_call cnt { N.call_node_id } =
+  Format.sprintf "%s_%d" (mk_id_legal (NI.get_internal_name call_node_id |> Id.of_hstring)) cnt
 
 (* Pretty prints an equation or a call. *)
 let pp_print_equation fmt = function
@@ -646,7 +647,7 @@ let fmt_calls_doc fmt = function
   /// %a@.\
 " ( pp_print_list
     ( fun fmt {
-        N.call_pos ; N.call_node_name ; N.call_inputs ; N.call_outputs
+        N.call_pos ; N.call_node_id ; N.call_inputs ; N.call_outputs
       } ->
         Format.fprintf fmt
           "\
@@ -656,9 +657,9 @@ let fmt_calls_doc fmt = function
             | %a @?\
             | %a |\
           "
-          (mk_id_legal call_node_name)
-          (mk_id_type call_node_name)
-          (mk_id_type call_node_name)
+          (mk_id_legal (NI.get_internal_name call_node_id |> Id.of_hstring))
+          (mk_id_type (NI.get_internal_name call_node_id |> Id.of_hstring))
+          (mk_id_type (NI.get_internal_name call_node_id |> Id.of_hstring))
           (pp_print_list (fun fmt (_, svar) ->
               SVar.name_of_state_var svar
               |> Format.fprintf fmt "`%s`"
@@ -982,8 +983,8 @@ let node_to_rust oracle_info is_top fmt (
       Eq eq :: eqs
     ) calls
   in
-  let name = mk_id_legal node.N.name in
-  let typ = mk_id_type node.N.name in
+  let name = mk_id_legal (NI.get_internal_name node.N.node_id |> Id.of_hstring) in
+  let typ = mk_id_type (NI.get_internal_name node.N.node_id |> Id.of_hstring) in
 
   let inputs, outputs, locals =
     I.bindings inputs, I.bindings outputs,
@@ -1053,13 +1054,13 @@ let node_to_rust oracle_info is_top fmt (
   Format.fprintf fmt "@." ;
 
   calls |> List.iter (function
-    | Call (cnt, ({ N.call_pos ; N.call_node_name } as call)) ->
+    | Call (cnt, ({ N.call_pos ; N.call_node_id } as call)) ->
       Format.fprintf
         fmt "@.  /// Call to `%a` (%a).@.  pub %s: %s,"
-        (Id.pp_print_ident false) call_node_name
+        (Id.pp_print_ident true) (NI.get_internal_name call_node_id |> Id.of_hstring)
         fmt_pos_as_link call_pos
         (id_of_call cnt call)
-        (mk_id_type call_node_name)
+        (mk_id_type (NI.get_internal_name call_node_id |> Id.of_hstring))
     | _ -> failwith "unreachable"
   ) ;
 
@@ -1177,7 +1178,7 @@ let node_to_rust oracle_info is_top fmt (
             (SVar.name_of_state_var svar)
             (fmt_term svar_pref)
         | Call (
-          cnt, ({ N.call_node_name ; N.call_inputs ; N.call_outputs } as call)
+          cnt, ({ N.call_node_id ; N.call_inputs ; N.call_outputs } as call)
         ) ->
           Format.fprintf fmt
             "\
@@ -1185,7 +1186,7 @@ let node_to_rust oracle_info is_top fmt (
               let (@   @[<v>%a,@]@ ) = %s.output() ;@ \
             "
             (id_of_call cnt call)
-            (mk_id_type call_node_name)
+            (mk_id_type (NI.get_internal_name call_node_id |> Id.of_hstring))
             ( pp_print_list (fun fmt (_, svar) ->
                 Format.fprintf fmt "%s%s"
                   svar_pref (SVar.name_of_state_var svar)
@@ -1447,7 +1448,7 @@ let node_to_rust oracle_info is_top fmt (
 
   calls |> List.map (
     function
-    | Call (_, { N.call_node_name } ) -> call_node_name
+    | Call (_, { N.call_node_id } ) -> call_node_id
     | _ -> failwith "unreachable"
   )
 
@@ -1804,7 +1805,10 @@ let to_rust oracle_info target find_sub top =
 
 
   (* Format.printf "node: @[<v>%a@]@.@." (N.pp_print_node false) top ; *)
-  let top_name, top_type = mk_id_legal top.N.name, mk_id_type top.N.name in
+  let top_name, top_type = 
+    mk_id_legal (NI.get_internal_name top.N.node_id |> Id.of_hstring), 
+    mk_id_type (NI.get_internal_name top.N.node_id |> Id.of_hstring) 
+  in
   (* Creating project directory if necessary. *)
   mk_dir target ;
   (* Creating source dir. *)
@@ -1831,11 +1835,11 @@ let to_rust oracle_info target find_sub top =
   let rec compile is_top systems compiled = function
     | node :: nodes ->
       let systems, compiled, nodes =
-        if Id.Set.mem node.N.name compiled |> not then (
+        if Id.Set.mem (NI.get_internal_name node.N.node_id |> Id.of_hstring) compiled |> not then (
           (* Oracle info only makes sense for the top node. *)
           let oracle_info = if not is_top then None else oracle_info in
           (* Remembering we compiled this node. *)
-          let compiled = Id.Set.add node.N.name compiled in
+          let compiled = Id.Set.add (NI.get_internal_name node.N.node_id |> Id.of_hstring) compiled in
           
           node :: systems,
           compiled,
@@ -1843,7 +1847,8 @@ let to_rust oracle_info target find_sub top =
             (* Compiling nodes, getting subnodes back. *)
             node_to_rust oracle_info is_top fmt node
             (* Discarding subnodes we already compiled. *)
-            |> List.fold_left (fun l call_id ->
+            |> List.fold_left (fun l call_name ->
+              let call_id = NI.get_internal_name call_name |> Id.of_hstring in
               if Id.Set.mem call_id compiled |> not
               then (Id.to_scope call_id |> find_sub) :: l else l
             ) []
@@ -2046,10 +2051,10 @@ let oracle_to_rust target find_sub top =
   match oracle_info with
   | None ->
     Format.asprintf
-      "no contract for node %a" (Id.pp_print_ident false) top.N.name
+      "no contract for node %a" HString.pp_print_hstring (NI.get_internal_name top.N.node_id)
     |> failwith
   | Some (_, guarantees, modes) -> (
-    Format.asprintf "%a" (Id.pp_print_ident false) top.N.name,
+    Format.asprintf "%a" HString.pp_print_hstring (NI.get_internal_name top.N.node_id),
     guarantees |> List.map (
       fun ({ C.pos ; C.num }, _) -> pos, num
     ),

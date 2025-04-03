@@ -22,6 +22,7 @@
 module LA = LustreAst
 module LAH = LustreAstHelpers
 module H = HString
+module NI = NodeId
 
 exception Cycle (* Exception raised locally when a cycle in contract imports is detected *)
 
@@ -217,7 +218,7 @@ function
 | AnyOp _ -> true
 
 | Condact (_, e, r, i, l1, l2) ->
-  StringMap.mem i ctx.nodes ||
+  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
   has_stateful_op ctx e ||
   has_stateful_op ctx r ||
   List.fold_left
@@ -229,15 +230,15 @@ function
     false l2
 
 | Activate (_, i, e, r, l) ->
-  StringMap.mem i ctx.nodes ||
+  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
   has_stateful_op ctx e ||
   has_stateful_op ctx r ||
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
-| Call (_, _, i, l) ->
-  StringMap.mem i ctx.nodes ||
+| Call (_, _, node_id, l) ->
+  StringMap.mem (NI.get_internal_name node_id) ctx.nodes ||
   List.fold_left
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
@@ -292,10 +293,10 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (i, _, _, _, _, _, _, _, _)) ->
-      ctx_add_node acc i ()
-    | FuncDecl (_, (i, _, _, _, _, _, _, _, _)) ->
-      ctx_add_func acc i ()
+    | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
+      ctx_add_node acc (NI.get_internal_name node_id) ()
+    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
+      ctx_add_func acc (NI.get_internal_name node_id) ()
     | _ -> acc
   in
   let ctx = List.fold_left over_decls (empty_ctx ()) others in
@@ -319,27 +320,27 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports)
-    | ContractCall (_, i, _, ins, _) ->
+    | ContractCall (_, node_id, _, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
           false ins
       in
       (stateful || arg_has_stateful_op ins,
-       StringSet.add i imports
+       StringSet.add (NI.get_internal_name node_id) imports
       )
     | AssumptionVars _ ->
       (stateful, imports)
   in
   let over_contract_decls acc = function
-    | LA.ContractNodeDecl (_, (i, _, _, _, (_, eqns))) ->
+    | LA.ContractNodeDecl (_, (node_id, _, _, _, (_, eqns))) ->
       let stateful, imports =
         List.fold_left
           over_contract_eq
           (false, StringSet.empty)
           eqns
       in
-      ctx_add_contract acc i {stateful; imports }
+      ctx_add_contract acc (NI.get_internal_name node_id) {stateful; imports }
     | _ -> acc
   in
   List.fold_left over_contract_decls ctx contract_decls
@@ -478,15 +479,15 @@ let outputs_at_most_one_definition outputs items =
   Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
-  | LA.Condact (pos, _, _, i, _, _)
-  | Activate (pos, i, _, _, _)
-  | Call (pos, _, i, _) ->
-    let check_nodes = StringMap.mem i ctx.nodes in
-    let check_funcs = StringMap.mem i ctx.functions in
+  | LA.Condact (pos, _, _, node_id, _, _)
+  | Activate (pos, node_id, _, _, _) 
+  | Call (pos, _, node_id, _) ->
+    let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
+    let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
     (match check_nodes, check_funcs with
     | true, _ -> Ok ()
     | _, true -> Ok ()
-    | false, false -> syntax_error pos (UndefinedNode i))
+    | false, false -> syntax_error pos (UndefinedNode (NI.get_user_name node_id)))
   | _ -> Ok ()
 
 let no_a_dangling_identifier ctx pos i =
@@ -543,12 +544,12 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | _ -> Ok ()
 
 let no_calls_to_node ctx = function
-  | LA.Condact (pos, _, _, i, _, _)
-  | Activate (pos, i, _, _, _)
-  | RestartEvery (pos, i, _, _)
-  | Call (pos, _, i, _) ->
-    let check_nodes = StringMap.mem i ctx.nodes in
-    if check_nodes then syntax_error pos (NodeCallInFunction i)
+  | LA.Condact (pos, _, _, node_id, _, _)
+  | Activate (pos, node_id, _, _, _)
+  | RestartEvery (pos, node_id, _, _) 
+  | Call (pos, _, node_id, _) ->
+    let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
+    if check_nodes then syntax_error pos (NodeCallInFunction (NI.get_user_name node_id))
     else Ok ()
   | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
@@ -577,8 +578,8 @@ let no_stateful_contract_imports ctx contract =
       | None -> Ok ()
     in
     let over_eqn acc = function
-      | LA.ContractCall (pos, i, _, _, _) ->
-        acc >> (check_import_stateful StringSet.empty pos i i)
+      | LA.ContractCall (pos, node_id, _, _, _) ->
+        acc >> (check_import_stateful StringSet.empty pos (NI.get_internal_name node_id) (NI.get_internal_name node_id))
       | _ -> acc
     in
     List.fold_left over_eqn (Ok ()) contract
@@ -726,11 +727,11 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
-and check_node_decl ctx span (id, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let decl = LA.NodeDecl
-    (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
-  check_opacity span.start_pos id contract ext opac
+  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
   >> (outputs_at_most_one_definition outputs items)
   >> (Res.seq_ (List.map check_input_items inputs))
@@ -751,13 +752,13 @@ and check_node_decl ctx span (id, ext, opac, params, inputs, outputs, locals, it
   items) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
-and check_func_decl ctx span (id, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
   in
   let decl = LA.FuncDecl
-    (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_calls_to_node ctx e)
@@ -770,7 +771,7 @@ and check_func_decl ctx span (id, ext, opac, params, inputs, outputs, locals, it
     let* warnings2 = (no_temporal_operator "function contract" e) in 
     Ok (warnings1 @ warnings2)
   in
-  check_opacity span.start_pos id contract ext opac
+  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
@@ -895,13 +896,13 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       | UntypedConst (_, i, e)
       | TypedConst (_, i, e, _) -> check_const_expr_decl i ctx e
     )
-    | ContractCall (pos, i, _, args, outputs) -> (
-      if StringMap.mem i ctx.contracts then (
+    | ContractCall (pos, node_id, _, args, outputs) -> (
+      if StringMap.mem (NI.get_internal_name node_id) ctx.contracts then (
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>
         check_expr_list ctx f args
       )
-      else syntax_error pos (UndefinedContract i)
+      else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
   in
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
@@ -969,7 +970,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
-           generates a bound variable with name "_" that is trivially unused in 'e' *)
+           generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e' *)
         if not (LAH.expr_contains_id i e) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
         else []
@@ -980,7 +981,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
-           generates a bound variable with name "_" that is trivially unused in 'e1' *)
+           generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e1' *)
         if not (LAH.expr_contains_id i e1) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
         else []
@@ -1051,7 +1052,11 @@ let no_mismatched_clock is_bool e =
 
 
 let ovq_check_expr inlinable_funcs ctx = function
-| LA.Call (pos, _, i, args) ->
+| LA.Call (pos, _, node_id, args) ->
+  let inlinable_funcs = 
+    List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
+    |> LA.SI.of_list 
+  in
   let vars =
     List.fold_left
       (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
@@ -1060,15 +1065,15 @@ let ovq_check_expr inlinable_funcs ctx = function
   in
   let over_vars j =
     let found_quant_in_non_inlinable =
-      StringMap.mem j ctx.quant_vars && not (LA.SI.mem i inlinable_funcs)
+      StringMap.mem j ctx.quant_vars && not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
     in
     let found_symbolic_index_in_non_inlinable =
       StringMap.mem j ctx.symbolic_array_indices &&
-      not (LA.SI.mem i inlinable_funcs)
+      not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
     in
     (match found_quant_in_non_inlinable, found_symbolic_index_in_non_inlinable with
-    | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, i))
-    | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, i))
+    | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, (NI.get_internal_name node_id)))
+    | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, (NI.get_internal_name node_id)))
     | false, false -> Ok [])
   in
   let check = List.map over_vars (LA.SI.elements vars) in
@@ -1102,7 +1107,7 @@ let oqv_check_contract_node_decl inlinable_funcs ctx (_, _, inputs, outputs, con
   in
   Ok warnings
 
-let oqv_check_decl: LA.SI.t -> context -> LA.declaration -> ([> warning] list, [> error]) result
+let oqv_check_decl: NI.Set.t -> context -> LA.declaration -> ([> warning] list, [> error]) result
 = fun inlinable_funcs ctx -> function
   | NodeDecl (_, decl) ->
     oqv_check_node_decl inlinable_funcs ctx decl

@@ -44,10 +44,8 @@ module Map : Map.S with type key = t
 (** Construct a scope from a list of identifiers *)
 val mk_scope : Ident.t list -> t
 
-(** Pretty-print a scope *)
-val pp_print_scope : Format.formatter -> t -> unit
-
-val to_string : t -> string
+(** Pretty-print a scope. Only for internal (non-user-facing) use *)
+val pp_print_scope_internal : Format.formatter -> t -> unit
 
 (* 
    Local Variables:

@@ -18,14 +18,14 @@
 
 open Lib
 
+module NI = NodeId
+
 exception Parser_error
 
 
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
 (* ********************************************************************** *)
-
-
 (* An identifier *)
 type ident = HString.t
 
@@ -37,14 +37,12 @@ module SI = struct
   let flatten: t list -> t = fun sets ->
     List.fold_left union empty sets
 end
-
            
 type index = HString.t
 
 let pp_print_ident = HString.pp_print_hstring
 
 let pp_print_index = HString.pp_print_hstring
-
 
 (* A clock expression *)
 type clock_expr =
@@ -114,15 +112,15 @@ type expr =
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  | Condact of position * expr * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr * expr list
+  | Condact of position * expr * expr * NI.t * expr list * expr list
+  | Activate of position * NI.t * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
-  | RestartEvery of position * ident * expr list * expr
+  | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * ident * expr list
+  | Call of position * lustre_type list * NI.t * expr list
 
 (** A Lustre type *)
 and lustre_type =
@@ -148,7 +146,6 @@ and lustre_type =
   | History of position * ident
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
-
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -256,7 +253,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * lustre_type list * expr list * ident list
+type contract_call = position * NI.t * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -283,7 +280,7 @@ type opacity =
 
 Boolean flag indicates whether node / function is extern. *)
 type node_decl =
-  ident
+  NI.t
   * bool
   * opacity
   * ident list
@@ -297,7 +294,7 @@ type node_decl =
    with a different type for equations, and no contract
    specification. *)
 type contract_node_decl =
-  ident
+  NI.t
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -520,7 +517,7 @@ let rec pp_print_expr ppf =
         "%acondact(%a,(restart %a every %a)(%a),%a)" 
         ppos p
         pp_print_expr e1
-        pp_print_ident n
+        NI.pp_print_node_id_user_name n
         pp_print_expr er
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
@@ -529,7 +526,7 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf
         "(activate (restart %a every %a) every %a) (%a)"
-        pp_print_ident i
+        NI.pp_print_node_id_user_name i
         pp_print_expr r
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
@@ -547,7 +544,7 @@ let rec pp_print_expr ppf =
     | RestartEvery (_, i, l, c) ->
       Format.fprintf ppf
         "(restart %a every %a)(%a)"
-        pp_print_ident i
+        NI.pp_print_node_id_user_name i
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
 
@@ -560,7 +557,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf
         "%a%a(%a)"
         ppos p
-        pp_print_ident id
+        NI.pp_print_node_id_input_name id
         (pp_print_list pp_print_expr ",@ ") l
 
     | Call (p, ty_args, id, l) ->
@@ -568,7 +565,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf
         "%a%a<<%a>>(%a)"
         ppos p
-        pp_print_ident id
+        HString.pp_print_hstring (NI.get_name id)
         (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") l
     
@@ -764,7 +761,6 @@ let pp_print_const_decl ppf = function
       pp_print_ident s 
       pp_print_lustre_type t
       pp_print_expr e
-
 
 (* Pretty-print a single static node parameter *)
 let pp_print_node_param ppf t = 
@@ -1091,13 +1087,13 @@ let pp_print_contract_call fmt (_, id, tys, in_params, out_params) =
   | [] ->
     Format.fprintf
       fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
-      pp_print_ident id
+      NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_expr ", ") in_params
       (pp_print_list pp_print_ident ", ") out_params
   | tys ->
     Format.fprintf
       fmt "@[<hov 2>import %a<<%a>>(@,%a@,) returns (@,%a@,) ;@]"
-      pp_print_ident id
+      NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_lustre_type "; ") tys
       (pp_print_list pp_print_expr ", ") in_params
       (pp_print_list pp_print_ident ", ") out_params
@@ -1131,7 +1127,6 @@ let pp_print_contract_spec ppf = function
     "@[<v 2>(*@contract@ %a@]@ *)@ "
     pp_print_contract contract
 
-
 (* Pretty-prints a contract node. *)
 let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
  =
@@ -1143,13 +1138,12 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
         @[<hv 2>let@ \
         %a@;<1 -2>\
         tel;@]@]@?"
-       pp_print_ident n
+       NI.pp_print_node_id_user_name n
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
        pp_print_contract e
-
-
+    
 let pp_print_node_or_fun_decl is_fun ppf (
   _, (n, ext, opac, p, i, o, l, e, r)
 ) =
@@ -1167,7 +1161,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
          | Opaque -> "opaque "
          | Transparent -> "transparent "
         )
-        pp_print_ident n 
+        HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o
@@ -1185,7 +1179,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         tel;@]@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
-        pp_print_ident n 
+        HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
         (pp_print_list pp_print_clocked_typed_ident ";@ ") o

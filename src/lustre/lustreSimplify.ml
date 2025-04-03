@@ -541,21 +541,21 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident (HString.string_of_hstring ident))
+          (NodeId.get_internal_name ident |> I.of_hstring)
           case_clock
           restart_clock
           args
           None
 
       (* A node call, we implicitly clock it *)
-      | clock_value, A.Call (pos, [], ident, args) -> 
+      | clock_value, A.Call (pos, [], node_id, args) -> 
 
         (* Evaluate node call without defaults *)
         try_eval_node_call
           bounds
           ctx
           pos
-          (I.mk_string_ident (HString.string_of_hstring ident))
+          (NodeId.get_internal_name node_id |> I.of_hstring)
           (cond_of_clock_value clock_value)
           (A.Const (pos, A.False))
           args
@@ -1023,26 +1023,26 @@ let rec eval_ast_expr bounds ctx =
   (* Condact, a node with an activation condition 
 
      [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
-  | A.Condact (pos, cond, restart, ident, args, defaults) ->  
+  | A.Condact (pos, cond, restart, node_id, args, defaults) ->  
 
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       cond
       restart
       args
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, [], ident, args)
-  | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
+  | A.Call (pos, [], node_id, args)
+  | A.RestartEvery (pos, node_id, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       (A.Const (dummy_pos, A.True))
       (A.Const (dummy_pos, A.False))
       args
@@ -1051,13 +1051,13 @@ let rec eval_ast_expr bounds ctx =
   | A.Call (p, _ :: _, _, _) -> fail_at_position p "Node calls with type arguments not supported in old front-end."
 
   (* Node call with reset/restart *)
-  | A.RestartEvery (pos, ident, args, cond) ->
+  | A.RestartEvery (pos, node_id, args, cond) ->
 
     try_eval_node_call
       bounds
       ctx
       pos
-      (I.mk_string_ident (HString.string_of_hstring ident))
+      (NodeId.get_internal_name node_id |> I.of_hstring)
       (A.Const (dummy_pos, A.True))
       cond
       args
@@ -1599,7 +1599,7 @@ and try_eval_node_call bounds ctx pos ident cond restart args defaults =
     try 
 
       (* Get called node by identifier *)
-      Some (C.node_of_name ctx ident)
+      Some (C.node_of_node_id ctx ident)
 
     (* No node of that identifier *)
     with Not_found -> None
@@ -1906,7 +1906,7 @@ and eval_node_call
       let node_call = 
         { N.call_id = -1; (* Call_id is not implemented in old frontend *)
           N.call_pos = pos;
-          N.call_node_name = ident;
+          N.call_node_id = NodeId.mk_node_id (ident |> I.string_of_ident true |> HString.mk_hstring);
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;

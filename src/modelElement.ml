@@ -21,6 +21,7 @@ module SyMap = UfSymbol.UfSymbolMap
 module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
+module NI = NodeId
 
 (* Represents an equation of the transition system.
    It is not specific to the 'equation' model elements
@@ -237,14 +238,14 @@ let pp_print_core_data in_sys param sys fmt cpd =
       Lib.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
-    let node_type, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) in
-    Format.fprintf fmt "@{<b>%s@} @{<blue>%s@}@ " 
-    (match node_type with 
+    let node_id = InputSystem.get_node_id in_sys scope in
+    Format.fprintf fmt "@{<b>%s@} @{<blue>%a@}@ " 
+    (match (NI.get_node_type node_id) with 
       | Environment -> "Environment of"
       | Contract -> "Contract of"
       | Type -> "Type"
-      | User -> "Node") 
-    node_name ;
+      | Component -> "Node") 
+    NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
@@ -305,8 +306,9 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   in
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
+      let node_id = InputSystem.get_node_id in_sys scope in
       `Assoc [
-        ("name", `String (LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) |> snd)) ;
+        ("name", `String (NI.get_user_name node_id |> HString.string_of_hstring)) ;
         ("elements", `List (List.map json_of_elt elts))
       ]
     ) (ScMap.bindings cpd.elements)))
@@ -342,8 +344,8 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
         (string_of_int col) 
         (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
-    let _, node_name = LustreGenRefTypeImpNodes.get_node_type_and_name (Scope.to_string scope) in
-    Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" node_name ;
+    let node_id = InputSystem.get_node_id in_sys scope in
+    Format.fprintf fmt "<Node name=\"%a\">@   @[<v>" NI.pp_print_node_id_user_name node_id;
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in

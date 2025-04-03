@@ -47,6 +47,8 @@
 
 open Lib
 
+module NI = NodeId
+
 (** {1 Types} *)
 
 (** Call condition: activate or restart *)
@@ -67,7 +69,7 @@ type node_call = {
   call_pos : position;
   (** Position of node call in input file *)
 
-  call_node_name : LustreIdent.t;
+  call_node_id : NI.t;
   (** Identifier of the called node *)
   
   call_cond : call_cond list;
@@ -139,7 +141,6 @@ type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
     state variable as an expression. *)
 type equation = equation_lhs * LustreExpr.t
 
-
 (** A Lustre node
 
     Every state variable occurs exactly once in {!t.inputs},
@@ -152,7 +153,7 @@ type equation = equation_lhs * LustreExpr.t
     once on the left-hand side of {!t.equations}. *)
 type t = {
 
-  name : LustreIdent.t;
+  node_id : NI.t;
   (** Name of the node *)
 
   is_extern : bool;
@@ -160,9 +161,6 @@ type t = {
 
   opacity: Opacity.t;
   (** Whether the node should be always abstracted by its contract, never, or sometimes *)
-  
-  ty_args: LustreAst.lustre_type list;
-  (** Node type arguments (if the node was created during monomorphization) *)
 
   instance : StateVar.t;
   (** Distinguished constant state variable uniquely identifying the
@@ -259,7 +257,7 @@ type state_var_def =
 (** Return a node of the given name and is extern flag without inputs, outputs,
     oracles, equations, etc. Create a state variable for the {!t.instance} and
     {!t.init_flag} fields, and set {!t.is_main} to false. *)
-val empty_node : LustreIdent.t -> bool -> t
+val empty_node : NI.t -> bool -> t
 
 (** {1 Pretty-printers} *)
 
@@ -291,13 +289,17 @@ val pp_print_node_debug : Format.formatter -> t -> unit
 (** {1 Node Lists} *)
 
 (** Return the node of the given name from a list of nodes *)
-val node_of_name : LustreIdent.t -> t list -> t 
+val node_of_input_name : LustreIdent.t -> t list -> t 
+
+val node_of_node_id : NI.t -> t list -> t
+
+val node_of_scope : LustreIdent.t -> t list -> t
 
 (** Return true if a node of the given name exists in the a list of nodes *)
-val exists_node_of_name : LustreIdent.t -> t list -> bool 
+val exists_node_of_name : NI.t -> t list -> bool 
 
 (** Return all nodes with --%MAIN annotations *)
-val get_main_annotated_nodes : t list -> LustreIdent.t list
+val get_main_annotated_nodes : t list -> NI.t list
 
 (** Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
@@ -305,12 +307,12 @@ val get_main_annotated_nodes : t list -> LustreIdent.t list
     then it is the caller's responsibility to ensure there is
     only a single main node.
 *)
-val find_main : t list -> LustreIdent.t list
+val find_main : t list -> NI.t list
 
 (** Return the identifier of the top node
 
     Fail with [Invalid_argument "ident_of_top"] if list of nodes is empty *)
-val ident_of_top : t list -> LustreIdent.t 
+val ident_of_top : t list -> NI.t
 
 (** Return true if the node has a contract with
     at least one guarantee or one mode *)
@@ -318,11 +320,11 @@ val has_effective_contract : t -> bool
 
 (** Return a list of tree-like subsystem hierarchies from a flat list of nodes,
     where the names of the top nodes are given as first argument. *)
-val subsystems_of_nodes : LustreIdent.t list -> t list -> t SubSystem.t list
+val subsystems_of_nodes : NI.t list -> t list -> t SubSystem.t list
 
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the name of the top node is given as first argument. *)
-val subsystem_of_nodes : LustreIdent.t -> t list -> t SubSystem.t
+val subsystem_of_nodes : NI.t -> t list -> t SubSystem.t
 
 (** Return list of topologically ordered list of nodes from subsystem.
     The top node is the head of the list. *)
@@ -332,7 +334,7 @@ val nodes_of_subsystem : t SubSystem.t -> t list
 val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
 (** Return the name of the node *)
-val name_of_node : t -> LustreIdent.t
+val node_id_of_node : t -> NI.t
 
 (** [ordered_equations_of_node n stateful init]
     Returns the equations of [n], topologically sorted by their base (step)
