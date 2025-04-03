@@ -339,7 +339,7 @@ let results_clean = Scope.Map.filter (
 )
 
 let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
-= fun verbose pp_print_user_node_name fmt param ->
+= fun verbose pp_print_system_user_name fmt param ->
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
@@ -352,7 +352,7 @@ let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> par
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
       | Refinement _ -> "Refinement")
-    pp_print_user_node_name top
+    pp_print_system_user_name top
 
     (fun fmt -> function
       | [], [] ->
@@ -363,13 +363,13 @@ let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> par
           | [] -> ()
           | concrete ->
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list pp_print_user_node_name ",@ ") concrete;
+              (pp_print_list pp_print_system_user_name ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
           | abstract ->
             Format.fprintf fmt "| abstract: @[<hov>%a@]"
-          (pp_print_list pp_print_user_node_name ",@ ") abstract) ;
+          (pp_print_list pp_print_system_user_name ",@ ") abstract) ;
         Format.fprintf fmt "@]")
     (concrete, abstract)
 
@@ -385,7 +385,7 @@ let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> par
               let os, ts = Invs.len invs in
               if os + ts > 0 then (
                 Format.fprintf fmt "@{<blue>%a@}: "
-                  pp_print_user_node_name s ;
+                  pp_print_system_user_name s ;
                 if verbose then
                   Format.fprintf fmt "%a" Invs.fmt invs
                 else (
@@ -409,7 +409,7 @@ let split_properties_nocands sys =
     |> List.rev in
   remove_cands valid, remove_cands invalid, remove_cands unknown
 
-let pp_print_param_of_result fmt { param ; sys } =
+let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
@@ -442,7 +442,7 @@ let pp_print_param_of_result fmt { param ; sys } =
             Format.asprintf
               "could not find system %a \
               in abstraction map of previous result"
-              Scope.pp_print_scope_internal scope
+              pp_print_system_user_name scope
             |> failwith
           ) else acc
       ) abstraction_map []
@@ -457,11 +457,11 @@ let pp_print_param_of_result fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        Scope.pp_print_scope_internal
+        pp_print_system_user_name
         ",@ "
       ) refined
 
-let pp_print_result_quiet pp_print_user_node_name fmt ({ time ; sys } as res) =
+let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) =
   let valid, invalid, unknown = split_properties_nocands sys in
   let invariant, unreachable =
     valid |> List.partition (function
@@ -498,9 +498,9 @@ let pp_print_result_quiet pp_print_user_node_name fmt ({ time ; sys } as res) =
         %a@ \
         %d invariant %s%t\
       @]"
-      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
+      pp_print_system_user_name (TransSys.scope_of_trans_sys sys)
       time
-      (pp_print_param_of_result) res
+      (pp_print_param_of_result pp_print_system_user_name) res
       (List.length valid)
       (property_keyword valid)
       (fun fmt -> match unreachable, reachable with
@@ -518,8 +518,8 @@ let pp_print_result_quiet pp_print_user_node_name fmt ({ time ; sys } as res) =
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
-      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
-      pp_print_param_of_result res
+      pp_print_system_user_name (TransSys.scope_of_trans_sys sys)
+      (pp_print_param_of_result pp_print_system_user_name) res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
   | valid, invalid, unknown ->
@@ -530,15 +530,15 @@ let pp_print_result_quiet pp_print_user_node_name fmt ({ time ; sys } as res) =
         @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
-      pp_print_user_node_name (TransSys.scope_of_trans_sys sys)
+      pp_print_system_user_name (TransSys.scope_of_trans_sys sys)
       time
-      pp_print_param_of_result res
+      (pp_print_param_of_result pp_print_system_user_name) res
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
       (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
       reachability_properties
 
-let pp_print_result pp_print_user_node_name fmt {
+let pp_print_result pp_print_system_user_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
   let pp_print_prop_list pref = fun fmt props ->
@@ -554,7 +554,7 @@ let pp_print_result pp_print_user_node_name fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true pp_print_user_node_name) param
+    (pp_print_param true pp_print_system_user_name) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"
