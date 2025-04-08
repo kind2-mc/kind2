@@ -1205,7 +1205,6 @@ let rec find_file filename = function
 (* Parser and lexer functions                                             *)
 (* ********************************************************************** *)
 
-
 (* A position in a file
 
    The column is the actual colum number, not an offset from the
@@ -1213,6 +1212,13 @@ let rec find_file filename = function
 type position =
   { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
+type location = { lnum: int; cnum: int }
+
+type span = {
+  filename: string;
+  start_loc : location;
+  end_loc : location;
+}
 
 let equal_pos
   { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }
@@ -1232,6 +1238,42 @@ let compare_pos
     (p1, (l1, c1)) 
     (p2, (l2, c2)) 
 
+
+let mk_span start_pos end_pos =
+  { filename = start_pos.pos_fname ;
+    start_loc = { 
+      lnum = start_pos.pos_lnum;
+      cnum = start_pos.pos_cnum
+    };
+    end_loc = { 
+      lnum = end_pos.pos_lnum;
+      cnum = end_pos.pos_cnum
+    };
+  }
+
+let start_pos { filename; start_loc } =
+  { pos_fname = filename;
+    pos_lnum = start_loc.lnum;
+    pos_cnum = start_loc.cnum
+  }
+
+let end_pos { filename; end_loc } =
+  { pos_fname = filename;
+    pos_lnum = end_loc.lnum;
+    pos_cnum = end_loc.cnum
+  }
+
+let dummy_span =
+  { filename = "" ;
+    start_loc = { 
+      lnum = 0;
+      cnum = -1
+    };
+    end_loc = { 
+      lnum = 0;
+      cnum = -1
+    };
+  }
 
 (* A dummy position, different from any valid position *)
 let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }

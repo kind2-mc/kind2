@@ -1,7 +1,17 @@
 (executable
+ (package kind2)
  (public_name kind2)
  (libraries kind2dev)
  (modules kind2)
+ (flags (:standard (:include linking-flags.sexp)))
+)
+
+(executable
+ (package kmoxi)
+ (public_name kmoxi)
+ (name moxi)
+ (libraries kind2dev)
+ (modules moxi)
  (flags (:standard (:include linking-flags.sexp)))
 )
 
@@ -13,7 +23,7 @@
  (name kind2dev)
  (libraries dune-build-info num str threads yojson zmq menhirLib)
  (modules
-  (:standard \ C2Icnf horn kind2 lustreChecker nusmv oldParser testgen testgenLib
+  (:standard \ C2Icnf horn kind2 moxi lustreChecker nusmv oldParser testgen testgenLib
     testgenStrategies threadtest polltest))
  (modules_without_implementation solverSig)
  (wrapped false))

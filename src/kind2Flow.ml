@@ -897,6 +897,46 @@ let run in_sys =
     )
   ) 
 
+  | modules when InputSystem.is_moxi_input in_sys -> (
+    
+    try (
+      let msg_setup = KEvent.setup () in
+      KEvent.set_module `Supervisor ;
+      KEvent.run_im msg_setup [] (on_exit_success `Supervisor);
+
+      let params = ISys.moxi_params in_sys in
+      let run_check param =
+        let sys, _ =
+          ISys.trans_sys_of_analysis in_sys param
+        in
+        KEvent.log_analysis_start in_sys sys param ;
+        Stat.start_timer Stat.analysis_time ;
+        
+        (* Analyze... *)
+        analyze msg_setup false false false true modules in_sys param sys ;
+        let valid_props, invalid_props, unknown_props = TSys.get_split_properties sys in
+        Format.printf "Valid:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) valid_props ;
+        Format.printf "Invalid:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) invalid_props ;
+        Format.printf "Unknown:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) unknown_props ;
+
+        KEvent.log_analysis_end ()
+      in
+      (match params with
+       | [] -> (KEvent.log L_note "No system checks found.")
+       | _ -> List.iter run_check params
+      ) ;
+      
+      post_clean_exit_success `Supervisor Exit
+    ) with
+    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
+    | e -> (
+      handle_exception `Supervisor e ;
+      on_exit_success `Supervisor e
+    ) 
+  )
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->

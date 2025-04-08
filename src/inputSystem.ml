@@ -32,6 +32,7 @@ module SVM = SVar.StateVarMap
 
 type _ t =
 | Lustre : (N.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> N.t t
+| Moxi: (TransSys.t S.t) list -> TransSys.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
@@ -46,10 +47,25 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
+let read_input_moxi input_file =
+  match MoxiInput.of_file input_file with
+  | Ok system_checks -> Some (Moxi system_checks)
+  | Error (MoxiInput.UnexpectedChar (pos, c)) ->
+    Format.eprintf "%a: error: unexpected character ‘%c’@."
+      Lib.pp_print_position pos c;
+    None
+  | Error (MoxiInput.SyntaxError pos) ->
+    Format.eprintf "%a: syntax error@." Lib.pp_print_position pos;
+    None
+
 (*let read_input_horn input_file = assert false*)
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (main_subs, _, _) ->
+    S.all_subsystems_of_list main_subs
+    |> List.map (fun { S.scope } -> scope)
+
+  | Moxi main_subs ->
     S.all_subsystems_of_list main_subs
     |> List.map (fun { S.scope } -> scope)
 
@@ -68,6 +84,8 @@ let analyzable_subsystems (type s) : s t -> s S.t list = function
     subsystems'
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
+
+  | Moxi main_subs -> main_subs
 
   | Native subsystem ->
     let subsystems' =
@@ -150,6 +168,7 @@ let maximal_abstraction_for_testgen (type s)
 
   )
 
+  | Moxi _ -> assert false
   | Native _ -> assert false
   | Horn _ -> assert false
 
@@ -207,9 +226,47 @@ let next_analysis_of_strategy (type s)
         Strategy.next_monolithic_analysis results main_syss all_syss
       )
   )
-         
+  
+  | Moxi main_subs -> 
+    fun results ->
+      let scope_and_strategy =
+        List.map (fun ({ S.scope } as sub) ->
+          scope, S.strategy_info_of sub)
+      in
+      let all_syss =
+        scope_and_strategy (S.all_subsystems_of_list main_subs)
+      in
+      if Flags.modular () then (
+        let subs_of_scope scope =
+          let { S.subsystems } = S.find_subsystem_of_list main_subs scope in
+          subsystems
+          |> List.map (
+            fun ({ S.scope } as sub) ->
+              scope, S.strategy_info_of sub
+          )
+        in
+        Strategy.next_modular_analysis results subs_of_scope all_syss
+      )
+      else (
+        let main_syss = scope_and_strategy main_subs in
+        Strategy.next_monolithic_analysis results main_syss all_syss
+      )
   | Horn _ -> (function _ -> assert false)
 
+
+let moxi_params (type s) (input_system : s t) =
+  let param_for_subsystem sub =
+    A.First {
+      A.top = sub.S.scope ;
+      A.uid = A.get_uid () ;
+      A.abstraction_map = Scope.Map.empty ;
+      A.assumptions = Scope.Map.empty ;
+    }
+  in
+  match input_system with
+  | Moxi system_checks ->
+    List.map param_for_subsystem system_checks
+  | _ -> []
 
 let mcs_params (type s) (input_system : s t) =
   let param_for_subsystem sub =
@@ -259,6 +316,8 @@ let mcs_params (type s) (input_system : s t) =
     subs
     |> List.filter (fun { S.has_impl } -> has_impl)
     |> List.map param_for_subsystem
+
+  | Moxi _ -> raise (UnsupportedFileFormat "MoXI")
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
 
@@ -287,6 +346,7 @@ let contract_check_params (type s) (input_system : s t) =
     |> List.filter (fun s -> not s.S.has_impl) 
     |> List.map param_for_subsystem
   )
+  | Moxi _ -> []
   | Native _ -> []
   | Horn _ -> []
 
@@ -319,6 +379,7 @@ let interpreter_param (type s) (input_system : s t) =
         )
         Scope.Map.empty (S.all_subsystems sub)
     )
+    | Moxi _ -> raise (UnsupportedFileFormat "MoXI")
     | Horn _ -> raise (UnsupportedFileFormat "Horn")
   in
 
@@ -334,6 +395,7 @@ let retrieve_lustre_nodes (type s) : s t -> N.t list =
   | Lustre (main_subs, _, _) -> 
     let subsystems = S.all_subsystems_of_list main_subs in
     List.map (fun sb -> sb.S.source) subsystems
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
@@ -343,6 +405,7 @@ let retrieve_lustre_nodes_of_scope (type s) : s t -> Scope.t -> N.t list =
   | Lustre (main_subs, _, _) -> (fun scope ->
     S.find_subsystem_of_list main_subs scope |> N.nodes_of_subsystem
     )
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
@@ -353,6 +416,7 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
     retrieve_lustre_nodes_of_scope in_sys top
     |> List.exists (fun node -> N.partially_defined node)
   )
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
@@ -362,6 +426,7 @@ let get_lustre_node (type s) (input_system : s t) scope =
     try Some (S.find_subsystem_of_list main_subs scope).S.source
     with Not_found -> None
   )
+  | Moxi _ -> None
   | Native _ -> None
   | Horn _ -> None
 
@@ -406,12 +471,14 @@ let pp_print_state_var_defs_debug (type s) : Format.formatter -> s t -> unit =
 let lustre_definitions_of_state_var (type s) (input_system : s t) state_var =
   match input_system with
   | Lustre _ -> N.get_state_var_defs state_var
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
 let lustre_source_ast (type s) (input_system : s t) =
   match input_system with
   | Lustre (_,_,ast) -> ast
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
@@ -441,6 +508,11 @@ let trans_sys_of_analysis (type s)
       t, Lustre ([s], globals, ast)
     )
 
+  | Moxi main_subs -> (function analysis ->
+    let { A.top } = A.info_of_param analysis in
+    let sub = SubSystem.find_subsystem_of_list main_subs top in
+    (sub.S.source, Native sub)
+  )
   | Native sub -> (fun _ -> sub.S.source, Native sub)
     
   | Horn _ -> assert false
@@ -459,6 +531,10 @@ let pp_print_path_pt
     in
     LustrePath.pp_print_path_pt
       trans_sys globals sub first_is_init ppf model
+
+  | Moxi _ ->
+    Format.eprintf "pp_print_path_pt not implemented for MoXI input@.";
+    ()
 
   | Native _ ->
     Format.eprintf "pp_print_path_pt not implemented for native input@.";
@@ -481,6 +557,10 @@ let pp_print_path_xml
     LustrePath.pp_print_path_xml
       trans_sys globals sub first_is_init ppf model
 
+  | Moxi _ ->
+    Format.eprintf "pp_print_path_xml not implemented for MoXI input@.";
+    assert false;
+
   | Native _ ->
     Format.eprintf "pp_print_path_xml not implemented for native input@.";
     assert false;
@@ -502,6 +582,10 @@ let pp_print_path_json
     LustrePath.pp_print_path_json
       trans_sys globals sub first_is_init ppf model
 
+  | Moxi _ ->
+    Format.eprintf "pp_print_path_json not implemented for MoXI input@.";
+    assert false;
+
   | Native _ ->
     Format.eprintf "pp_print_path_json not implemented for native input@.";
     assert false;
@@ -521,6 +605,10 @@ let pp_print_path_in_csv
     LustrePath.pp_print_path_in_csv
       trans_sys globals sub first_is_init ppf model
 
+  | Moxi _ ->
+    Format.eprintf "pp_print_path_in_csv not implemented for MoXI input";
+    assert false
+
   | Native _ ->
     Format.eprintf "pp_print_path_in_csv not implemented for native input";
     assert false
@@ -532,6 +620,7 @@ let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   match input_system with 
   | Lustre (main_subs, _, _) ->
     LustrePath.reconstruct_lustre_streams main_subs state_vars
+  | Moxi _ -> assert false
   | Native _ -> assert false
   | Horn _ -> assert false
 
@@ -615,9 +704,12 @@ let pp_print_term_as_expr
 let is_lustre_input (type s) (input_system : s t) =
   match input_system with 
   | Lustre _ -> true
-  | Native _ -> false
-  | Horn _ -> false
+  | _ -> false
 
+let is_moxi_input (type s) (input_system : s t) =
+  match input_system with 
+  | Moxi _ -> true
+  | _ -> false
 
 let slice_to_abstraction
 (type s) (input_sys: s t) analysis trans_sys: s t =
@@ -767,6 +859,9 @@ let slice_to_abstraction_and_property
 
       Lustre ([subsystem'], globals, ast)
 
+    (* No slicing in MoXI input *)
+    | Moxi m -> Moxi m
+
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
 
@@ -782,6 +877,8 @@ fun sys top_scope target ->
     LustreToRust.implem_to_rust target (
       fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
     ) (S.find_subsystem_of_list main_subs top_scope).S.source
+  | Moxi _ ->
+    Format.printf "can't compile from MoXI input: unsupported"
   | Native _ ->
     Format.printf "can't compile from native input: unsupported"
   | Horn _ ->
@@ -798,6 +895,8 @@ fun sys top_scope target ->
     LustreToRust.oracle_to_rust target (
       fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
     ) (S.find_subsystem_of_list main_subs top_scope).S.source
+  | Moxi _ ->
+    failwith "can't compile from MoXI input: unsupported"
   | Native _ ->
     failwith "can't compile from native input: unsupported"
   | Horn _ ->
@@ -822,6 +921,8 @@ fun sys -> fun top ->
     | Some param ->
       param, (fun scope -> (S.find_subsystem_of_list main_subs scope).S.source)
   )
+  | Moxi _ ->
+    failwith "can't generate contracts from MoXI input: unsupported"
   | Native _ ->
     failwith "can't generate contracts from native input: unsupported"
   | Horn _ ->
@@ -878,6 +979,8 @@ function
     |> fst
 
   )
+
+  | Moxi _ -> raise (UnsupportedFileFormat "MoXI")
 
   | Native _ -> raise (UnsupportedFileFormat "Native")
 
