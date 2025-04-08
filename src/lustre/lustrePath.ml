@@ -1008,6 +1008,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     | Contract -> "Contract of"
     | Type -> "Type"
     | Component -> "Node"
+    | Any -> "'Any' operator"
   in
   
   (* Remove first dimension from index *)

@@ -21,17 +21,13 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
-(* [i] is module state used to guarantee newly created identifiers are unique *)
-let i = ref 0
-
 let mk_fresh_fn_name: Lib.position -> NI.t -> NI.t = 
 fun pos node_id -> 
-  i := !i + 1;
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let name = HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") in
   let name = HString.concat2 name pos in
-  NI.mk_node_id name
+  NI.mk_node_id ~node_type:Any ~user_name:name name
 
 let rec desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
