@@ -23,8 +23,6 @@ module type CandGen = sig
   val mine : bool -> bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list
 end
 
-module IntSet : Set.S with type elt = int
-
 (** Bool candidate term miner. *)
 module Bool : CandGen
 
@@ -32,10 +30,10 @@ module Bool : CandGen
 module Int : CandGen
 
 (** BV candidate term miner. *)
-module BV (L : sig val lengths : IntSet.t end) : CandGen
+module BV (L : sig val lengths : InputSystem.IntSet.t end) : CandGen
 
 (** UBV candidate term miner. *)
-module UBV (L : sig val lengths : IntSet.t end): CandGen
+module UBV (L : sig val lengths : InputSystem.IntSet.t end): CandGen
 
 (** Real candidate term miner. *)
 module Real : CandGen

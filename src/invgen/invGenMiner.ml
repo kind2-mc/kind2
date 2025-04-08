@@ -23,7 +23,6 @@ module Dec = Decimal
 module SVar = StateVar
 module Set = Term.TermSet
 module Sys = TransSys
-module IntSet = Stdlib.Set.Make(Int)
 
 type svar = SVar.t
 (* type svs = SVS.t *)
@@ -705,7 +704,7 @@ module Int = MakeCandGen (IntRules)
 
 
 module type MachineIntegerSig = sig
-  val lengths: IntSet.t
+  val lengths: InputSystem.IntSet.t
   val is_type: Type.t -> bool
   val is_symbol: Symbol.t -> bool
 end
@@ -782,7 +781,7 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
   let post_rules _ constants set =
     let set =
-      IntSet.fold (fun length set ->
+      InputSystem.IntSet.fold (fun length set ->
         let zero = Term.mk_bv (Bitvector.zero length) in
         let one = Term.mk_bv (Bitvector.one length) in
         Set.add zero set
@@ -805,23 +804,23 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
 end
 
-module BVM (S : sig val lengths : IntSet.t end) : MachineIntegerSig = struct
+module BVM (S : sig val lengths : InputSystem.IntSet.t end) : MachineIntegerSig = struct
   let lengths = S.lengths 
   let is_type = Type.is_bitvector
   let is_symbol = Symbol.is_bitvector
 end
 
-module UBVM (S : sig val lengths : IntSet.t end) : MachineIntegerSig = struct
+module UBVM (S : sig val lengths : InputSystem.IntSet.t end) : MachineIntegerSig = struct
   let lengths = S.lengths 
   let is_type = Type.is_bitvector
   let is_symbol = Symbol.is_bitvector
 end
 
 (** BV candidate term miner. *)
-module BV(IS : sig val lengths : IntSet.t end) = MakeCandGen (MachineIntegerRules(BVM(IS)))
+module BV(IS : sig val lengths : InputSystem.IntSet.t end) = MakeCandGen (MachineIntegerRules(BVM(IS)))
 
 (** UBV candidate term miner. *)
-module UBV(IS : sig val lengths : IntSet.t end) = MakeCandGen (MachineIntegerRules(UBVM(IS)))
+module UBV(IS : sig val lengths : InputSystem.IntSet.t end) = MakeCandGen (MachineIntegerRules(UBVM(IS)))
 
 (** Real rules. *)
 module RealRules = struct

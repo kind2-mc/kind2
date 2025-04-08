@@ -28,6 +28,8 @@ module SVar = StateVar
 module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
 
+module IntSet = Stdlib.Set.Make(Int)
+
 type _ t =
 | Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
@@ -349,7 +351,7 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   match in_sys with
   | Lustre _ -> (
     retrieve_lustre_nodes_of_scope in_sys top
-    |> List.exists (fun node -> N.partially_defined node)
+    |> List.exists N.partially_defined
   )
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
@@ -866,6 +868,90 @@ function
 
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
+(*!! Run Kind 2 over machine integer problems
+     https://github.com/kind2-mc/kind2-benchmarks/tree/master/FMCAD08/Int32  
+     Run on the cluster. There should be scripts there already. 
+
+     Also have access to more bitvector problems through Moxi frontend.
+
+     For Moxi, 
+     1) Printing results (on develop branch)
+        * Pull latest changes
+        * To build, use first two (currently commented out lines) in build rule of Makefile
+        * Binary is ./bin/kmoxi
+        * Where are moxi benchmarks? https://github.com/ModelChecker/Benchmarks 
+        * Should follow output from https://github.com/ModelChecker/IL/blob/main/description.md 
+        * Might need to extend Moxi type of InputSystem to store extra information for printing
+        * Can also look at mcil branch for the old (Dolmen-oriented) code
+     2) Merging bv-backend support (either fill holes in frontend, or separate changes)
+*)
+let get_bv_sizes (type s) : s t -> IntSet.t = 
+  let over_svar = (fun acc svar ->
+    let ty = SVar.type_of_state_var svar in 
+    match Type.node_of_type ty with 
+    | Type.BV width -> IntSet.add width acc
+    | _ -> acc  
+  ) in
+  function 
+  | Lustre (main_subs, globals, _) -> 
+    let subsystems = S.all_subsystems_of_list main_subs in 
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    (* Get sizes from every Lustre node *)
+    let sizes = List.fold_left (fun acc source -> 
+      (* Oracle sizes *)
+      let acc = List.fold_left over_svar acc source.N.oracles in 
+      (* Input sizes *)
+      let acc = List.fold_left over_svar acc (LustreIndex.values source.N.inputs) in 
+      (* Output sizes *)
+      let acc = List.fold_left over_svar acc (LustreIndex.values source.N.outputs) in 
+      (* Local sizes *)
+      let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in 
+      (* Global sizes *)
+      let acc = List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq) in 
+      (*!! Also look at free_constants in lustreGlobals.mli, maybe? *)
+      acc
+    ) IntSet.empty sources in 
+    sizes
+  | Native sub -> 
+    let subsystems = S.all_subsystems sub in
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    let state_vars = List.concat_map TransSys.state_vars sources in 
+    List.fold_left over_svar IntSet.empty state_vars
+  | Horn _ -> IntSet.empty
+
+let get_ubv_sizes (type s) : s t -> IntSet.t = 
+  let over_svar = (fun acc svar ->
+    let ty = SVar.type_of_state_var svar in 
+    match Type.node_of_type ty with 
+    | Type.UBV width -> IntSet.add width acc
+    | _ -> acc  
+  ) in
+  function 
+  | Lustre (main_subs, globals, _) -> 
+    let subsystems = S.all_subsystems_of_list main_subs in 
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    (* Get sizes from every Lustre node *)
+    let sizes = List.fold_left (fun acc source -> 
+      (* Oracle sizes *)
+      let acc = List.fold_left over_svar acc source.N.oracles in 
+      (* Input sizes *)
+      let acc = List.fold_left over_svar acc (LustreIndex.values source.N.inputs) in 
+      (* Output sizes *)
+      let acc = List.fold_left over_svar acc (LustreIndex.values source.N.outputs) in 
+      (* Local sizes *)
+      let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in 
+      (* Global sizes *)
+      let acc = List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq) in 
+      (*!! Also look at free_constants in lustreGlobals.mli, maybe? *)
+      acc
+    ) IntSet.empty sources in 
+    sizes
+  | Native sub -> 
+    let subsystems = S.all_subsystems sub in
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    let state_vars = List.concat_map TransSys.state_vars sources in 
+    List.fold_left over_svar IntSet.empty state_vars
+  | Horn _ -> IntSet.empty
 
 (* 
    Local Variables:

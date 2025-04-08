@@ -27,6 +27,8 @@
 
 type _ t
 
+module IntSet : Set.S with type elt = int
+
 exception UnsupportedFileFormat of string
 
 (** [read_input_lustre only_parse filename] read input from [filename]
@@ -149,6 +151,10 @@ val contract_gen_param : _ t -> Scope.t -> (Analysis.param * (Scope.t -> LustreN
 val state_var_dependencies :
   _ t ->
   (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
+
+val get_bv_sizes: _ t -> IntSet.t
+
+val get_ubv_sizes: _ t -> IntSet.t
 
 (* 
    Local Variables:

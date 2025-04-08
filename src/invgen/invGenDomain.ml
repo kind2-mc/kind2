@@ -228,20 +228,20 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
   )
 end
 
-module BVMiner(IS : sig val lengths : InvGenMiner.IntSet.t end): MachineIntegerMiner = struct
+module BVMiner(IS : sig val lengths : InputSystem.IntSet.t end): MachineIntegerMiner = struct
   let name = "BV"
   module BVInstance = InvGenMiner.BV(IS)
   let mine = BVInstance.mine
 end
 
-module UBVMiner(IS : sig val lengths : InvGenMiner.IntSet.t end): MachineIntegerMiner = struct
+module UBVMiner(IS : sig val lengths : InputSystem.IntSet.t end): MachineIntegerMiner = struct
   let name = "UBV"
   module UBVInstance = InvGenMiner.UBV(IS)
   let mine = UBVInstance.mine
 end
 
-module BV(IS : sig val lengths : InvGenMiner.IntSet.t end): Domain = MakeMachineInteger(MakeSigned(BVMiner(IS)))
-module UBV(IS : sig val lengths : InvGenMiner.IntSet.t end): Domain = MakeMachineInteger(MakeUnsigned(UBVMiner(IS)))
+module BV(IS : sig val lengths : InputSystem.IntSet.t end): Domain = MakeMachineInteger(MakeSigned(BVMiner(IS)))
+module UBV(IS : sig val lengths : InputSystem.IntSet.t end): Domain = MakeMachineInteger(MakeUnsigned(UBVMiner(IS)))
 
 
 (** Real domain with less than or equal to. *)

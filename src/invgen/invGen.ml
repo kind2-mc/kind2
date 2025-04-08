@@ -770,10 +770,10 @@ module EqOnly = struct
   module IntInvGen = Make( InvGenGraph.EqOnly.Int )
 
   (** Graph of signed bitvectors. *)
-  module BVInvGen = Make( InvGenGraph.EqOnly.BV(struct let lengths = InvGenMiner.IntSet.of_list [8; 16; 32; 64] end) )
+  module BVInvGen(IS : sig val lengths : InputSystem.IntSet.t end) = Make( InvGenGraph.EqOnly.BV(IS) )
 
   (** Graph of unsigned bitvectors. *)
-  module UBVInvGen = Make( InvGenGraph.EqOnly.UBV(struct let lengths = InvGenMiner.IntSet.of_list [8; 16; 32; 64] end) )
+  module UBVInvGen(IS : sig val lengths : InputSystem.IntSet.t end) = Make( InvGenGraph.EqOnly.UBV(IS) )
 
   (** Graph of reals. *)
   module RealInvGen = Make( InvGenGraph.EqOnly.Real )
@@ -808,14 +808,18 @@ let main_int two_state in_sys param sys =
   run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
            two_state in_sys param sys
 
-let main_bv two_state lengths in_sys param sys =
+let main_bv two_state in_sys param sys =
+  let lengths = InputSystem.get_bv_sizes in_sys in  
   let module BVInvGen = Make(InvGenGraph.BV(struct let lengths = lengths end)) in
-  run_main Flags.Invgen.arith_eq_only EqOnly.BVInvGen.main BVInvGen.main
+  let module BVInvGenEqOnly = EqOnly.BVInvGen(struct let lengths = lengths end) in
+  run_main Flags.Invgen.arith_eq_only BVInvGenEqOnly.main BVInvGen.main
            two_state in_sys param sys
 
-let main_ubv two_state lengths in_sys param sys =
+let main_ubv two_state in_sys param sys =
+  let lengths = InputSystem.get_ubv_sizes in_sys in
   let module UBVInvGen = Make(InvGenGraph.UBV(struct let lengths = lengths end)) in
-  run_main Flags.Invgen.arith_eq_only EqOnly.UBVInvGen.main UBVInvGen.main
+  let module UBVInvGenEqOnly = EqOnly.UBVInvGen(struct let lengths = lengths end) in
+  run_main Flags.Invgen.arith_eq_only UBVInvGenEqOnly.main UBVInvGen.main
             two_state in_sys param sys
 
 let main_real two_state in_sys param sys =
