@@ -914,13 +914,10 @@ let run in_sys =
         
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
-        let valid_props, invalid_props, unknown_props = TSys.get_split_properties sys in
-        Format.printf "Valid:@.";
-        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) valid_props ;
-        Format.printf "Invalid:@.";
-        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) invalid_props ;
-        Format.printf "Unknown:@.";
-        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) unknown_props ;
+        let props = TSys.get_properties sys in
+
+        (* Print results *)
+        MoxiResults.pp_print_results sys in_sys props;
 
         KEvent.log_analysis_end ()
       in

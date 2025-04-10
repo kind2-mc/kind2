@@ -2110,6 +2110,9 @@ let enforce_constantness_via_equations sys =
   in
   sys', const_svars
 
+let global_const_state_vars { global_consts } = 
+  List.map Var.state_var_of_state_var_instance global_consts
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
