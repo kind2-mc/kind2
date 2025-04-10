@@ -237,7 +237,7 @@ let mk_subsystem_calls local_map sys_name systems subsys =
     let lifted_svars =
       lifted_locals @ lifted_internals
     in
-    let map_down, map_up =
+    let map_up, map_down =
       List.fold_left2 
         (fun (map_down, map_up) sv sv'->
           SVM.add sv' sv map_down,
@@ -257,7 +257,7 @@ let mk_subsystem_calls local_map sys_name systems subsys =
           failwith (Format.sprintf "State variable not found!")
       )
     in
-    let map_down, map_up =
+    let map_up, map_down =
       List.fold_left2
         (fun (map_down, map_up) sv sv' ->
           

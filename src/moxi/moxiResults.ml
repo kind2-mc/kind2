@@ -115,7 +115,7 @@ let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit
     )@]@.@."
   (if false then "condensed" else "full") (*!! TODO: Get flag for ITE condition *)
   (Lib.pp_print_list pp_print_prop_result "") props
-  (Lib.pp_print_list pp_print_prop_trace "") (props)
-  (Lib.pp_print_list (pp_print_prop_model trans_sys) "") (props)
-  (Lib.pp_print_list (pp_print_prop_trail () ()) "") (props)
-  (Lib.pp_print_list pp_print_prop_cert  "") (props)
+  (Lib.pp_print_list pp_print_prop_trace "") props
+  (Lib.pp_print_list (pp_print_prop_model trans_sys) "") props
+  (Lib.pp_print_list (pp_print_prop_trail () ()) "") props
+  (Lib.pp_print_list pp_print_prop_cert  "") props
