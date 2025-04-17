@@ -15,20 +15,22 @@ let get_state_var_vals_at_k trans_sys model_assoc_list k =
     (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
     | Some sys_state_var -> (
       let var_name = StateVar.name_of_state_var sys_state_var in 
-      let translated_svar = sys_state_var in
-      let svar_state_values = List.assoc translated_svar model_assoc_list in
+      let svar_state_values = List.assoc sys_state_var model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
-      let state_value_changed = (Numeral.to_int k) == 0 || not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) svar_kth_state_value) in
+      let state_value_changed = 
+        (Numeral.to_int k) == 0 || 
+        not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) 
+                               svar_kth_state_value) 
+      in
       match svar_kth_state_value with
       | Model.Term value -> (
           Some (var_name, Term.string_of_term value, state_value_changed)
       )
-      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.")
-      
+      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counterexample.")
     )
   )
 
-let pp_str_var_val ppf (state_var, value, changed) =
+let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
     Format.fprintf ppf "(%s %s) " (state_var) (value)    
   else 
@@ -37,20 +39,7 @@ let pp_str_var_val ppf (state_var, value, changed) =
     else
       Format.fprintf ppf "@{<black>(%s %s)@} " (state_var) (value)   
 
-let pp_reach_prop ppf (state_var, value, changed) =
-  let name = StateVar.name_of_state_var state_var in 
-  match value with 
-  | Model.Term t ->   
-    if changed then 
-      Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) t
-    else 
-      if false then (*!! TODO: Get flag for condensed output *)
-        ()
-      else
-        Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) t
-  | _ -> ()
-
-let pp_step_of_trace (trans_sys : TransSys.t) path ppf k = 
+let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
   let reachability_svars = 
     List.map (fun Property.({prop_term}) -> 
@@ -89,13 +78,33 @@ let pp_step_of_trace (trans_sys : TransSys.t) path ppf k =
       change_detected || svar_changed
     ) false formatted_svar_names
   in
+
+  (*!! To check reachability, we were checking invariance of the negation of the reachability query. 
+       When displaying the value of the reachability condition, we need to un-negate it. *)
+  let reachability_values = List.map (fun (svar, value, changed) -> match value with 
+    | Model.Term value -> 
+      let negated_value = not (Term.bool_of_term value) in
+      StateVar.name_of_state_var svar, string_of_bool negated_value, changed 
+    | _ -> assert false 
+  ) reachability_values in
+  let reachability_vars = List.map (fun (a, _, _) -> a) reachability_values in
+  let formatted_svar_names = List.filter (fun (var, _, _) ->
+    not (List.exists (String.equal var) reachability_vars) 
+  ) formatted_svar_names in
+
   if any_change then
-    Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (Lib.pp_print_list pp_str_var_val "" ) formatted_svar_names (Lib.pp_print_list pp_reach_prop " ") reachability_values
+    Format.fprintf ppf "(%a %a %a)" 
+      Numeral.pp_print_numeral k 
+      (Lib.pp_print_list pp_print_str_var_val "") formatted_svar_names
+      (Lib.pp_print_list pp_print_str_var_val "") reachability_values
   else
     if false then (*!! TODO: Get flag for condensed output *)
       ()
     else
-      Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (Lib.pp_print_list pp_str_var_val " " ) formatted_svar_names (Lib.pp_print_list pp_reach_prop " ") reachability_values
+      Format.fprintf ppf "@{<black>(%a %a %a)@}" 
+        Numeral.pp_print_numeral k 
+        (Lib.pp_print_list pp_print_str_var_val " ") formatted_svar_names
+        (Lib.pp_print_list pp_print_str_var_val "") reachability_values
     
 let (--) i j = 
   let rec aux n acc =
@@ -104,7 +113,7 @@ let (--) i j =
 
 let pp_print_trail trans_sys ppf path =
   Format.fprintf ppf "%a@," 
-    (Lib.pp_print_list (pp_step_of_trace trans_sys path) "@,") (0 -- (Model.path_length path -1))
+    (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") (0 -- (Model.path_length path - 1))
 
 let pp_print_trail_mcil trans_sys prop_name prefix ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
