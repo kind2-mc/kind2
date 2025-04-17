@@ -160,6 +160,7 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
+  | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -273,6 +274,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
+    | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
   in aux expr
 
 and ast_contains p ast =
@@ -286,7 +288,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) | A.Extract (_,e,_,_) ->
       aux e
     | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)

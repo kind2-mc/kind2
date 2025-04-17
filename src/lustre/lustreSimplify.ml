@@ -1266,6 +1266,14 @@ let rec eval_ast_expr bounds ctx =
     
     fail_at_position pos "'Any' operation not supported in old front end"
 
+  | A.Extract (pos, _, _, _) -> 
+    
+    fail_at_position pos "'Extract' operation not supported in old front end"
+
+  | A.BinaryOp (pos, BVConcat, _, _) -> 
+  
+    fail_at_position pos "Bitvector concatenation not supported in old front end"
+
 
 
 (* ******************************************************************** *)
@@ -2100,6 +2108,10 @@ and eval_ast_type_flatten flatten_arrays ctx = function
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int _ -> D.singleton D.empty_index Type.t_int
 
+  | A.SBitVector (_, size) ->  D.singleton D.empty_index (Type.t_bv size)
+
+  | A.UBitVector (_, size) ->  D.singleton D.empty_index (Type.t_ubv size)
+
   | A.UInt8 _ -> D.singleton D.empty_index (Type.t_ubv 8)
 
   | A.UInt16 _ -> D.singleton D.empty_index (Type.t_ubv 16)
@@ -2179,6 +2191,8 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       (* Type might be forward referenced. *)
       Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
+
+  | A.Map (pos, _, _) -> fail_at_position pos "Map types not supported in old frontend"
 
   | A.UserType (pos, _ :: _, _) -> fail_at_position pos "UserTypes with type arguments not supported in old frontend"
 
