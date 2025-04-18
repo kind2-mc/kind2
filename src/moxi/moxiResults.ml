@@ -4,7 +4,17 @@
      Is it just the top-level transition system? 
 *)
 
-let get_state_var_vals_at_k trans_sys model_assoc_list k = 
+module SVM = StateVar.StateVarMap
+
+let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
+  List.fold_left (fun map (subsys_val, sys_val)  ->
+    let top_val = StateVar.StateVarMap.find_opt sys_val top_to_sys in
+    match top_val with 
+    | None ->       StateVar.StateVarMap.add subsys_val sys_val map
+    | Some value ->  StateVar.StateVarMap.add subsys_val value map 
+) StateVar.StateVarMap.empty (SVM.bindings sys_to_subsys)
+
+let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map = 
   let sys_vars = TransSys.state_vars trans_sys in
   (TransSys.state_vars trans_sys) |> List.filter_map (fun state_var -> 
     let state_var_opt = List.find_opt (fun v -> v == state_var) sys_vars in
@@ -14,8 +24,9 @@ let get_state_var_vals_at_k trans_sys model_assoc_list k =
     (* May want to find a more robust way to filter out invar_props*)
     (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
     | Some sys_state_var -> (
-      let var_name = StateVar.name_of_state_var sys_state_var in 
-      let svar_state_values = List.assoc sys_state_var model_assoc_list in
+      let var_name = prefix ^ StateVar.name_of_state_var sys_state_var in 
+      let translated_svar = StateVar.StateVarMap.find sys_state_var map in
+      let svar_state_values = List.assoc translated_svar model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
       let state_value_changed = 
         (Numeral.to_int k) == 0 || 
@@ -23,12 +34,63 @@ let get_state_var_vals_at_k trans_sys model_assoc_list k =
                                svar_kth_state_value) 
       in
       match svar_kth_state_value with
+      | Model.Term value -> 
+        Some (var_name, Term.string_of_term value, state_value_changed)
+      | _ -> 
+        failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counterexample.")
+    )
+  )
+
+(* let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") map = 
+  let sys_vars = List.assoc (TransSys.scope_of_trans_sys trans_sys) var_map in
+  (TransSys.state_vars trans_sys) |> List.filter_map (fun state_var -> 
+    let state_var_opt = List.find_opt (fun v -> v == state_var) sys_vars in
+    match state_var_opt with 
+    | None -> None
+    | Some sys_state_var when not (StateVar.for_inv_gen sys_state_var) -> None (* Filter out init flags *)
+    | Some sys_state_var -> (
+      let var_name = prefix ^ StateVar.name_of_state_var sys_state_var in 
+      let translated_svar = StateVar.StateVarMap.find sys_state_var map in
+      let svar_state_values = List.assoc translated_svar model_assoc_list in
+      let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
+      let state_value_changed = (Numeral.to_int k) == 0 || not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) svar_kth_state_value) in
+      match svar_kth_state_value with
       | Model.Term value -> (
           Some (var_name, Term.string_of_term value, state_value_changed)
       )
-      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counterexample.")
+      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.")
+      
     )
-  )
+  ) *)
+
+
+let rec get_state_var_vals_at_k_all ?(map = None) trans_sys (model_assoc_list: (StateVar.t * Model.value list) list) k prefix = 
+  let sys_map = match map with 
+    | None -> (* Create the identity map for the top trans system *)
+      List.fold_left (fun map sys_state_var  ->
+          StateVar.StateVarMap.add sys_state_var sys_state_var map
+      ) StateVar.StateVarMap.empty (TransSys.state_vars trans_sys)
+    | Some map -> 
+      map
+  in 
+  
+  let help k subsystems =
+    List.map (fun (subsys_transys, TransSys.({ map_up; })) ->
+      let map = Some (join_maps sys_map map_up) in
+      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal in
+      (get_state_var_vals_at_k_all ~map subsys_transys model_assoc_list k (prefix ^ subsys_name ^ "::"))
+    ) subsystems in
+
+  (* Note, the instances below no longer function as an assoc list*)
+  let instances = 
+    (TransSys.get_subsystem_instances trans_sys) |> 
+    List.map (fun (subsys, subsys_instances) -> 
+      (List.map (fun instance -> (subsys, instance)) subsys_instances)
+    ) |> 
+    List.flatten 
+  in 
+  let subsys_state_vars = (help k instances)  in
+  List.flatten ((get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map) :: subsys_state_vars)
 
 let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
@@ -70,7 +132,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
   let reachability_change = List.fold_left (fun changed (_, _, change) -> 
     changed || change
   ) false reachability_values in
-  let formatted_svar_names = get_state_var_vals_at_k trans_sys model_list k in
+  let formatted_svar_names = get_state_var_vals_at_k_all trans_sys model_list k "" in
   let any_change = 
     reachability_change 
     ||
