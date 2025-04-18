@@ -64,7 +64,7 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
   ) *)
 
 
-let rec get_state_var_vals_at_k_all ?(map = None) trans_sys (model_assoc_list: (StateVar.t * Model.value list) list) k prefix = 
+let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_assoc_list: (StateVar.t * Model.value list) list) k = 
   let sys_map = match map with 
     | None -> (* Create the identity map for the top trans system *)
       List.fold_left (fun map sys_state_var  ->
@@ -78,10 +78,10 @@ let rec get_state_var_vals_at_k_all ?(map = None) trans_sys (model_assoc_list: (
     List.map (fun (subsys_transys, TransSys.({ map_up; })) ->
       let map = Some (join_maps sys_map map_up) in
       let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal in
-      (get_state_var_vals_at_k_all ~map subsys_transys model_assoc_list k (prefix ^ subsys_name ^ "::"))
+      let prefix = prefix ^ subsys_name ^ "::" in
+      (get_state_var_vals_at_k_all ~map ~prefix subsys_transys model_assoc_list k)
     ) subsystems in
 
-  (* Note, the instances below no longer function as an assoc list*)
   let instances = 
     (TransSys.get_subsystem_instances trans_sys) |> 
     List.map (fun (subsys, subsys_instances) -> 
@@ -89,8 +89,13 @@ let rec get_state_var_vals_at_k_all ?(map = None) trans_sys (model_assoc_list: (
     ) |> 
     List.flatten 
   in 
-  let subsys_state_vars = (help k instances)  in
-  List.flatten ((get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map) :: subsys_state_vars)
+  (*!! Include top-level transition system name in prefix? *)
+  (*!! How about for reachability variables, e.g. rch_1? *)
+  let trans_sys_state_vars = 
+    if prefix = "" then [] else get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map 
+  in
+  let subsys_state_vars = (help k instances) in
+  List.flatten (trans_sys_state_vars :: subsys_state_vars)
 
 let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
@@ -132,7 +137,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
   let reachability_change = List.fold_left (fun changed (_, _, change) -> 
     changed || change
   ) false reachability_values in
-  let formatted_svar_names = get_state_var_vals_at_k_all trans_sys model_list k "" in
+  let formatted_svar_names = get_state_var_vals_at_k_all trans_sys model_list k in
   let any_change = 
     reachability_change 
     ||
@@ -149,9 +154,9 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
       StateVar.name_of_state_var svar, string_of_bool negated_value, changed 
     | _ -> assert false 
   ) reachability_values in
-  let reachability_vars = List.map (fun (a, _, _) -> a) reachability_values in
+  let reachability_var_names = List.map (fun (name, _, _) -> name) reachability_values in
   let formatted_svar_names = List.filter (fun (var, _, _) ->
-    not (List.exists (String.equal var) reachability_vars) 
+    not (List.exists (String.equal var) reachability_var_names) 
   ) formatted_svar_names in
 
   if any_change then
