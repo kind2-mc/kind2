@@ -21,6 +21,7 @@ open ModelElement
 module TS = TransSys
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
+module NI = NodeId
 
 module Position = struct
   type t = Lib.position
@@ -185,7 +186,7 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (pos, [], HString.mk_hstring (rand_function_name_for n typ),
+          (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
@@ -194,7 +195,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (pos, [], HString.mk_hstring (rand_function_name_for n typ),
+            (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
@@ -417,9 +418,9 @@ let minimize_contract_node_eq ue lst cne =
   | A.AssumptionVars _ -> [cne]
 
 let minimize_node_decl ue loc_core
-  ((id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
+  ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
-  let id' = HString.string_of_hstring id in
+  let id' = NI.get_internal_name node_id |> HString.string_of_hstring in
   let id_typ_map = build_id_typ_map inputs outputs locals in
 
   let minimize_with_lst lst =
@@ -432,7 +433,7 @@ let minimize_node_decl ue loc_core
     end
     in
     let locals = List.map (minimize_node_local_decl ue lst) locals in
-    (id, extern, opac, tparams, inputs, outputs, locals, items, spec)
+    (node_id, extern, opac, tparams, inputs, outputs, locals, items, spec)
   in
   
   let scope = (Scope.mk_scope [id']) in
@@ -517,7 +518,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
   in
   aux minimized (!max_nb_args)*)
   Hashtbl.fold (fun ts n acc ->
-    (rand_node (HString.mk_hstring n) ts)::acc
+    (rand_node (NI.mk_node_id (HString.mk_hstring n)) ts)::acc
   )
   rand_functions
   minimized

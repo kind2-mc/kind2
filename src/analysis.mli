@@ -145,10 +145,6 @@ val no_system_is_abstract : ?include_top:bool -> param -> bool
 (** Retrieve the assumptions of a [scope] from a [param]. *)
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
-
-
-
-
 (** Returns a result from an analysis. *)
 val mk_result : param -> TransSys.t -> float -> result
 
@@ -207,18 +203,16 @@ val results_is_empty : results -> bool
 contract. *)
 val results_clean : results -> results
 
-(** If the node was originally polymorphic, display information about its 
-   monomorphization cleanly *)
-val clean_polymorphic_info :  Scope.t -> Scope.t
+type pp_print_system_user_name = Format.formatter -> Scope.t -> unit
 
 (** Pretty printer for [param]. *)
-val pp_print_param: bool -> Format.formatter -> param -> unit
+val pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
-val pp_print_result_quiet: Format.formatter -> result -> unit
+val pp_print_result_quiet: pp_print_system_user_name -> Format.formatter -> result -> unit
 
 (** Pretty printer for [result]. *)
-val pp_print_result: Format.formatter -> result -> unit
+val pp_print_result: pp_print_system_user_name -> Format.formatter -> result -> unit
 
 
 (* 

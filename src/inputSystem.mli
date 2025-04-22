@@ -43,6 +43,9 @@ val translate_contracts_lustre : string -> string -> unit
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t
 
+(** Read MoXI input from file *)
+val read_input_moxi : string -> TransSys.t t option
+
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
@@ -67,6 +70,8 @@ val mcs_params : 'a t -> Analysis.param list
     If the system has a contract, the boolean argument is true
 *)
 val contract_check_params : 'a t -> (Analysis.param * bool) list
+
+val moxi_params : 'a t -> Analysis.param list
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
@@ -131,6 +136,8 @@ val call_state_var_to_lustre_reference :
 
 val is_lustre_input : _ t -> bool
 
+val is_moxi_input : _ t -> bool
+
 (** Compiles a system (scope) to Rust to the folder specified as a crate. *)
 val compile_to_rust : _ t -> Scope.t -> string -> unit
 
@@ -149,6 +156,12 @@ val contract_gen_param : _ t -> Scope.t -> (Analysis.param * (Scope.t -> LustreN
 val state_var_dependencies :
   _ t ->
   (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
+
+val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
+
+val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
+
+val get_node_id : _ t -> Scope.t -> NodeId.t
 
 (* 
    Local Variables:

@@ -71,9 +71,6 @@ type t =
     scope: Scope.t;
     (** Scope of transition system *)
 
-    ty_args: LustreAst.lustre_type list;
-    (** Original Lustre node's type arguments used for monomorphization *)
-
     ctr_state_var : StateVar.t option;
     (** State variable corresponding to the internal counter generated
         for reachability queries. Should be 'None' if there are no reachability
@@ -227,7 +224,7 @@ let pp_print_subsystem ppf ({ scope }, instances) =
   Format.fprintf
     ppf
     "@[<hv 1>(%a@ @[<hv 1>(%a)@])@]"
-    Scope.pp_print_scope scope
+    Scope.pp_print_scope_internal scope
     (pp_print_list pp_print_instance "@ ") instances
 
 
@@ -241,7 +238,7 @@ let pp_print_uf ppf uf =
 
 
 let pp_print_trans_sys_name fmt { scope } =
-  Format.fprintf fmt "%a" Scope.pp_print_scope scope
+  Format.fprintf fmt "%a" Scope.pp_print_scope_internal scope
     
 let pp_print_trans_sys 
     ppf
@@ -265,7 +262,7 @@ let pp_print_trans_sys
      @[<hv 2>(prop@ (@[<v>%a@]))@]@,\
      @[<hv 2>(sub@ @[<hv 1>(%a)@])@])"
 
-    Scope.pp_print_scope scope
+    Scope.pp_print_scope_internal scope
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf "@ ") ufs
     (pp_print_list Var.pp_print_var "@ ") init_formals
@@ -293,7 +290,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_property "@ ") properties
     pp_print_contracts contracts
     (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    (pp_print_list (fun ppf { LustreNode.node_id } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
     (pp_print_list pp_print_callers "@,") callers
 *)
 
@@ -591,9 +588,6 @@ let scope_of_trans_sys t = t.scope
 
 (* Returns the properties in the transition system. *)
 let get_properties t = t.properties
-
-(* Returns the type arguments in the transition system. *)
-let get_ty_args t = t.ty_args
 
 (* Return all properties *)
 let get_real_properties t = List.filter (
@@ -1693,7 +1687,6 @@ let copy t =
 let mk_trans_sys 
   ?(instance_var_id_start = 0)
   scope
-  ty_args
   instance_state_var
   init_flag_state_var
   (* global_state_vars *)
@@ -1874,7 +1867,6 @@ let mk_trans_sys
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
-      ty_args;
       (* instance_state_var; *)
       ctr_state_var;
       init_flag_state_var;

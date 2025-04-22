@@ -49,6 +49,7 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module C = LustreContract
+module NI = NodeId
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -102,7 +103,7 @@ type node_call = {
   call_pos : position;
 
   (* Name of called node *)
-  call_node_name : I.t;
+  call_node_id : NI.t;
     
   (* Boolean activation and/or restart conditions if any *)
   call_cond : call_cond list;
@@ -132,28 +133,23 @@ type node_call = {
 (* Left hand side of an equation *)
 type equation_lhs = StateVar.t * E.expr E.bound_or_fixed list
 
-
 (* An equation *)
 type equation = equation_lhs * E.t
 
 (* A contract. *)
 type contract = C.t
 
-
 (* A Lustre node *)
 type t = { 
 
   (* Name of node *)
-  name : I.t;
+  node_id : NI.t;
 
   (* Is the node extern? *)
   is_extern: bool;
 
   (* Whether the node should be always abstracted by its contract, never, or sometimes *)
   opacity: Opacity.t;
-
-  (* Node type arguments *)
-  ty_args: LustreAst.lustre_type list;
 
   (* Constant state variable uniquely identifying the node instance *)
   instance : StateVar.t;
@@ -212,23 +208,21 @@ type t = {
   history_svars: (StateVar.t * StateVar.t) list TM.t;
 }
 
-
 (* An empty node *)
-let empty_node name is_extern = {
-  name ;
+let empty_node (node_id: NI.t) is_extern = {
+  node_id ;
   is_extern ;
   opacity = Translucent;
-  ty_args = [];
   instance = 
     StateVar.mk_state_var
       ~is_const:true
       (I.instance_ident |> I.string_of_ident false)
-      (I.to_scope name @ I.reserved_scope)
+      (I.to_scope (NI.get_internal_name node_id |> I.of_hstring) @ I.reserved_scope)
       Type.t_int;
   init_flag = 
     StateVar.mk_state_var
       (I.init_flag_ident |> I.string_of_ident false)
-      (I.to_scope name @ I.reserved_scope)
+      (I.to_scope (NI.get_internal_name node_id |> I.of_hstring) @ I.reserved_scope)
       Type.t_bool;
   inputs = D.empty;
   oracles = [];
@@ -328,25 +322,26 @@ let pp_print_node_equation safe ppf ((var, bounds), expr) =
 let pp_print_call safe ppf = function 
 
   (* Node call on the base clock *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond = [];
       call_inputs; 
       call_oracles; 
       call_outputs } ->
 
+    
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs)
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (D.values call_inputs @ 
        call_oracles)
 
   (* Node call on the base clock with restart *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond = [CRestart restart_var];
       call_inputs; 
       call_oracles; 
@@ -358,14 +353,14 @@ let pp_print_call safe ppf = function
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs)
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (D.values call_inputs @ 
        call_oracles)
       (E.pp_print_lustre_var safe) restart_var
 
   (* Node call not on the base clock is a condact *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
@@ -379,7 +374,7 @@ let pp_print_call safe ppf = function
          ",@ ") 
       (D.values call_outputs) 
       (E.pp_print_lustre_var safe) call_clock_var
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (List.map  
          (fun (_, sv) -> sv)
@@ -398,7 +393,7 @@ let pp_print_call safe ppf = function
                l)
           
   (* Node call not on the base clock without defaults *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
@@ -411,7 +406,7 @@ let pp_print_call safe ppf = function
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs) 
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (E.pp_print_lustre_var safe) call_clock_var
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (List.map  
@@ -420,7 +415,7 @@ let pp_print_call safe ppf = function
        call_oracles)
 
   (* Node call not on the base clock is a condact with restart *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond =
         ([CActivate call_clock_var; CRestart restart_var] |
          [CRestart restart_var; CActivate call_clock_var]) ;
@@ -436,7 +431,7 @@ let pp_print_call safe ppf = function
          ",@ ") 
       (D.values call_outputs) 
       (E.pp_print_lustre_var safe) call_clock_var
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (E.pp_print_lustre_var safe) restart_var
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (List.map  
@@ -456,7 +451,7 @@ let pp_print_call safe ppf = function
                l)
       
   (* Node call not on the base clock without defaults with restart  *)
-  | { call_node_name; 
+  | { call_node_id; 
       call_cond =
         ([CActivate call_clock_var; CRestart restart_var] |
          [CRestart restart_var; CActivate call_clock_var]) ;
@@ -471,7 +466,7 @@ let pp_print_call safe ppf = function
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs) 
-      (I.pp_print_ident safe) call_node_name
+      NI.pp_print_node_id_user_name call_node_id
       (E.pp_print_lustre_var safe) restart_var
       (E.pp_print_lustre_var safe) call_clock_var
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ")
@@ -599,7 +594,7 @@ let pp_print_node_signature fmt { inputs ; outputs } =
 
 (* Pretty-print a node *)
 let pp_print_node safe ppf {
-  name;
+  node_id;
   inputs; 
   oracles; 
   outputs; 
@@ -636,7 +631,7 @@ let pp_print_node safe ppf {
     (if is_function then "function" else "node")
 
     (* %a *)
-    (I.pp_print_ident safe) name
+    NI.pp_print_node_id_user_name node_id
 
     (* %a *)
     (pp_print_list (pp_print_input safe) ";@ ") 
@@ -716,7 +711,7 @@ let pp_print_node_call_debug
     ppf
     { 
       call_pos;
-      call_node_name; 
+      call_node_id; 
       call_cond; 
       call_inputs; 
       call_oracles; 
@@ -729,7 +724,7 @@ let pp_print_node_call_debug
                      inputs   = [@[<hv>%a@]];@ \
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
-    (I.pp_print_ident false) call_node_name
+    NI.pp_print_node_id_input_name call_node_id
     pp_print_position call_pos
     pp_print_conds call_cond
     pp_print_state_var_trie_debug call_inputs
@@ -738,7 +733,7 @@ let pp_print_node_call_debug
 
 
 let pp_print_node_debug ppf 
-    { name;
+    { node_id;
       (* is_extern; *)
       instance;
       init_flag;
@@ -864,7 +859,7 @@ let pp_print_node_debug ppf
          oracle_state_var_map = [@[<hv>%a@]];@ \
          state_var_expr_map = [@[<hv>%a@]]; }@]"
 
-    (I.pp_print_ident false) name
+    NI.pp_print_node_id_input_name node_id
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
     pp_print_state_var_trie_debug inputs
@@ -896,23 +891,35 @@ let pp_print_node_debug ppf
 
 
 (* Return true if a node of the given name exists in the a list of nodes *)
-let exists_node_of_name name nodes =
+let exists_node_of_name id nodes =
 
   List.exists
-    (function { name = node_name } -> I.equal name node_name)
+    (function { node_id; } -> NI.equal id node_id)
     nodes
 
 
 (* Return the node of the given name from a list of nodes *)
-let node_of_name name nodes =
+let node_of_input_name name nodes =
 
   List.find
-    (function { name = node_name } -> I.equal name node_name)
+    (function { node_id; } -> I.equal name (I.of_hstring (NI.get_name node_id)))
+    nodes
+
+let node_of_node_id id nodes = 
+
+  List.find
+    (function { node_id; } -> NI.equal id node_id)
+    nodes
+
+let node_of_scope scope nodes = 
+
+  List.find
+    (function { node_id; } -> I.equal scope (NI.get_internal_name node_id |> I.of_hstring))
     nodes
 
 
 (* Return the name of the node *)
-let name_of_node { name } = name
+let node_id_of_node { node_id; } = node_id
 
 
 (** [ordered_equations_of_node n stateful init]
@@ -992,12 +999,12 @@ let node_call_svars { calls } =
     calls
 
 (* Return the scope of the name of the node *)
-let scope_of_node { name } = name |> I.to_scope
+let scope_of_node { node_id } = node_id |> NI.get_internal_name |> I.of_hstring |> I.to_scope
 
 (* Return all nodes with --%MAIN annotations *)
 let get_main_annotated_nodes nodes = nodes
     |> List.filter (fun { is_main } -> is_main )
-    |> List.map (fun { name } -> name)
+    |> List.map (fun { node_id } -> node_id )
 
 (* Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
@@ -1012,7 +1019,7 @@ let find_main nodes =
       (* Return name of last node, fail if list of nodes empty *)
       (match nodes with
         | [] -> raise Not_found
-        | { name } :: _ -> [name])
+        | { node_id } :: _ -> [node_id])
     | ids -> ids
 
 (* Return identifier of last node in list *)
@@ -1020,7 +1027,7 @@ let rec ident_of_top = function
   
   | [] -> raise (Invalid_argument "ident_of_top")
 
-  | [{ name }] -> name 
+  | [{ node_id }] -> node_id 
 
   | _ :: tl -> ident_of_top tl
 
@@ -1050,7 +1057,7 @@ let rec subsystem_of_nodes' nodes accum = function
 
       (* Subsystem for node already created? *)
       List.exists
-        (fun (n, _) -> I.equal n top)
+        (fun (n, _) -> NI.equal n top)
         accum
 
     then
@@ -1066,7 +1073,7 @@ let rec subsystem_of_nodes' nodes accum = function
         try 
 
           (* Get node by name *)
-          node_of_name top nodes 
+          node_of_node_id top nodes 
 
         (* Node must be in the list of nodes *)
         with Not_found -> 
@@ -1075,7 +1082,7 @@ let rec subsystem_of_nodes' nodes accum = function
             (Invalid_argument 
                (Format.asprintf
                   "subsystem_of_nodes: node %a not found"
-                  (I.pp_print_ident false) top))
+                  NI.pp_print_node_id_input_name top))
 
       in
 
@@ -1085,18 +1092,16 @@ let rec subsystem_of_nodes' nodes accum = function
       let subsystems, tl' = 
 
         List.fold_left 
-          (fun (a, tl) { call_node_name } -> 
+          (fun (a, tl) { call_node_id; } -> 
 
              try 
 
                (* Find subsystem for callee *)
-               let callee_subsystem = 
+               let _, callee_subsystem = 
 
                  List.find
-                   (fun (n, _) -> I.equal n call_node_name)
+                   (fun (n, _) -> NI.equal n call_node_id)
                    accum
-
-                 |> snd 
 
                in
 
@@ -1104,12 +1109,12 @@ let rec subsystem_of_nodes' nodes accum = function
 
                  (* Callee already seen as a subsystem of this
                     node? *)
-                 let call_node_name_string =
-                   I.string_of_ident false call_node_name in
+                 let call_node_id_string =
+                   NI.get_internal_name call_node_id |> HString.string_of_hstring in
                  List.exists 
                    (function
                      | { SubSystem.scope = [i] } ->
-                       String.equal i call_node_name_string
+                       String.equal i call_node_id_string
                      | _ -> false)
                    a
 
@@ -1127,7 +1132,7 @@ let rec subsystem_of_nodes' nodes accum = function
              with Not_found -> 
 
                (* Must visit callee first *)
-               (a, call_node_name :: tl))
+               (a, call_node_id :: tl))
 
 
           ([], [])
@@ -1139,12 +1144,12 @@ let rec subsystem_of_nodes' nodes accum = function
       if tl' <> [] then 
         
         (* Recurse to create subsystem of callees first *)
-        subsystem_of_nodes' nodes accum (tl' @ top :: tl)
+        subsystem_of_nodes' nodes accum (tl' @ (top :: tl))
           
       else
 
         (* Scope of the system from node name *)
-        let scope = [I.string_of_ident false top] in
+        let scope = [NI.get_internal_name top |> HString.string_of_hstring] in
 
         let opacity = node.opacity in
 
@@ -1183,9 +1188,9 @@ let subsystems_of_nodes tops nodes =
 
   (* Find subsystems of top nodes *)
   List.filter
-    (fun (n, _) -> List.exists (fun t -> I.equal n t) tops)
+    (fun (n, _) -> List.exists (fun t -> NI.equal n t) tops)
     all_subsystems
-  |> List.map snd
+  |> List.map (fun (_, c) -> c)
 
 
 let subsystem_of_nodes top nodes =
@@ -1193,7 +1198,7 @@ let subsystem_of_nodes top nodes =
      Raise Invalid_argument if top is not found *)
   let all_subsystems = subsystem_of_nodes' nodes [] [top] in
 
-  match List.find_opt (fun (n, _) -> I.equal n top) all_subsystems with
+  match List.find_opt (fun (n, _) -> NI.equal n top) all_subsystems with
   | Some (_, sub) -> sub
   | None -> assert false
 
@@ -1242,10 +1247,10 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' = 
         List.fold_left 
-          (fun a { call_pos; call_node_name; call_cond; call_defaults } ->
+          (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
 
              (* Find called node by name *)
-             let node' = node_of_name call_node_name nodes in
+             let node' = node_of_node_id call_node_id nodes in
 
              (* Find subsystem of this node by name *)
              let trans_sys', instances' =
@@ -1253,7 +1258,7 @@ let rec fold_node_calls_with_trans_sys'
                  (fun (t, _) -> 
                     Scope.equal
                       (TransSys.scope_of_trans_sys t)
-                      (I.to_scope call_node_name))
+                      (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
                  subsystems
              in
 
@@ -1576,14 +1581,14 @@ let node_is_visible node =
   let open Lib.ReservedIds in
   let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in
   let r = Str.regexp r in
-  not (Str.string_match r (I.string_of_ident false node.name) 0)
+  not (Str.string_match r (NI.get_internal_name node.node_id |> HString.string_of_hstring) 0)
 
 
 let node_is_state_handler node =
   let open Lib.ReservedIds in
   let r = Format.sprintf ".*\\.\\(%s\\)\\.\\(.*\\)$" handler_string in
   let r = Str.regexp r in
-  let s = I.string_of_ident false node.name in
+  let s = NI.get_internal_name node.node_id |> HString.string_of_hstring in
   if Str.string_match r s 0 then
     try Some (Str.matched_group 2 s)
     with Not_found -> None

@@ -609,7 +609,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
     else
       let props = TSys.props_list_of_bound sys Num.zero in
       (* Issue analysis start notification. *)
-      KEvent.log_analysis_start sys param ;
+      KEvent.log_analysis_start in_sys sys param ;
       (* Debug output system. *)
       Debug.parse "%a" TSys.pp_print_trans_sys sys ;
       (* Issue number of properties. *)
@@ -661,7 +661,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
   (* Issue analysis end notification. *)
   KEvent.log_analysis_end () ;
   (* Issue analysis outcome. *)
-  KEvent.log L_info "Result: %a" Analysis.pp_print_result result
+  KEvent.log L_info "Result: %a" (Analysis.pp_print_result (KEvent.pp_print_user_node_name in_sys)) result
 
 
 let handle_exception process e =
@@ -781,7 +781,7 @@ let run in_sys =
               ~add_functional_constraints:false in_sys param
           in
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
-          KEvent.log_contractck_analysis_start scope ;
+          KEvent.log_contractck_analysis_start in_sys scope ;
           Stat.start_timer Stat.analysis_time ;
           let result =
             if not has_contract then
@@ -818,7 +818,7 @@ let run in_sys =
                 ContractChecker.check_contract_satisfiability sys
               in
               Log.log_result
-                (ContractChecker.pp_print_satisfiability_result_pt param)
+                (ContractChecker.pp_print_satisfiability_result_pt in_sys param)
                 ContractChecker.pp_print_satisfiability_result_xml
                 ContractChecker.pp_print_satisfiability_result_json
                 result ;
@@ -862,7 +862,7 @@ let run in_sys =
           ISys.trans_sys_of_analysis
             (*~preserve_sig:true ~slice_nodes:false*) in_sys param
         in
-        KEvent.log_analysis_start sys param ;
+        KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
         PostAnalysis.run_mcs_post_analysis in_sys param
@@ -883,6 +883,46 @@ let run in_sys =
     )
   ) 
 
+  | modules when InputSystem.is_moxi_input in_sys -> (
+    
+    try (
+      let msg_setup = KEvent.setup () in
+      KEvent.set_module `Supervisor ;
+      KEvent.run_im msg_setup [] (on_exit_success `Supervisor);
+
+      let params = ISys.moxi_params in_sys in
+      let run_check param =
+        let sys, _ =
+          ISys.trans_sys_of_analysis in_sys param
+        in
+        KEvent.log_analysis_start in_sys sys param ;
+        Stat.start_timer Stat.analysis_time ;
+        
+        (* Analyze... *)
+        analyze msg_setup false false false true modules in_sys param sys ;
+        let valid_props, invalid_props, unknown_props = TSys.get_split_properties sys in
+        Format.printf "Valid:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) valid_props ;
+        Format.printf "Invalid:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) invalid_props ;
+        Format.printf "Unknown:@.";
+        List.iter (fun prop -> Format.printf "%a@." Property.pp_print_property prop) unknown_props ;
+
+        KEvent.log_analysis_end ()
+      in
+      (match params with
+       | [] -> (KEvent.log L_note "No system checks found.")
+       | _ -> List.iter run_check params
+      ) ;
+      
+      post_clean_exit_success `Supervisor Exit
+    ) with
+    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
+    | e -> (
+      handle_exception `Supervisor e ;
+      on_exit_success `Supervisor e
+    ) 
+  )
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
@@ -979,8 +1019,9 @@ let run in_sys =
           match Analysis.results_find sys results with
           | last :: _ -> last :: l
           | [] ->
-            Format.asprintf "Unreachable: no results at all for system %a."
-              Scope.pp_print_scope sys
+            let node_name = InputSystem.get_node_user_name in_sys sys in
+            Format.asprintf "Unreachable: no results at all for system @{<blue>%a@}."
+              (LustreIdent.pp_print_ident true) node_name
             |> failwith
         ) with
         | Not_found -> l
@@ -992,7 +1033,7 @@ let run in_sys =
           l
       ) []
       (* Logging the end of the run. *)
-      |> KEvent.log_run_end ;
+      |> KEvent.log_run_end in_sys ;
 
       post_clean_exit_safety_results in_sys `Supervisor Exit
 

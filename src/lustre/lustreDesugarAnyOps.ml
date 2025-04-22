@@ -16,24 +16,20 @@
 *)
 
 module A = LustreAst
+module NI = NodeId
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
-(* [i] is module state used to guarantee newly created identifiers are unique *)
-let i = ref 0
-
-let mk_fresh_fn_name: Lib.position -> HString.t -> HString.t = 
-fun pos node_name -> 
-  i := !i + 1;
-  let node_name = HString.concat2 node_name (HString.mk_hstring ".") in
+let mk_fresh_fn_name: Lib.position -> NI.t -> NI.t = 
+fun pos node_id -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
-  let name = (HString.mk_hstring "any_") in
+  let name = HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") in
   let name = HString.concat2 name pos in
-  HString.concat2 node_name name
+  NI.mk_node_id ~node_type:Any ~user_name:name name
 
-let rec desugar_expr: Ctx.tc_context -> HString.t -> HString.t list -> A.expr -> A.expr * A.declaration list =
+let rec desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
@@ -75,12 +71,12 @@ fun ctx node_name fun_ids expr ->
     Otherwise, we generate an imported function. *)
     let has_pre_arrow_or_node_call = match expr2_opt with 
     | Some expr2 -> 
-      let node_calls1 = AH.calls_of_expr expr1 |> Ctx.SI.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
-      let node_calls2 = AH.calls_of_expr expr2 |> Ctx.SI.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
+      let node_calls1 = AH.calls_of_expr expr1 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
+      let node_calls2 = AH.calls_of_expr expr2 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
       (AH.has_pre_or_arrow expr1 != None) || node_calls1 != [] || 
       (AH.has_pre_or_arrow expr2 != None) || node_calls2 != []
     | None -> 
-      let node_calls1 = AH.calls_of_expr expr1 |> Ctx.SI.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
+      let node_calls1 = AH.calls_of_expr expr1 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
       (AH.has_pre_or_arrow expr1 != None) || (node_calls1 != []) 
     in
     (* The generated imported node might be polymorphic, so we find all the needed type variables *)
@@ -196,7 +192,7 @@ fun ctx node_name fun_ids expr ->
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
     Call (pos, ty_args, id, expr_list), List.flatten gen_nodes
 
-let desugar_contract_item: Ctx.tc_context -> HString.t -> HString.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match ci with
@@ -225,7 +221,7 @@ fun ctx node_name fun_ids ci ->
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> HString.t -> HString.t list -> A.contract option -> A.contract option * A.declaration list =
+let desugar_contract: Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
 fun ctx node_name fun_ids contract -> 
   match contract with 
   | Some (pos, contract_items) -> 
@@ -233,7 +229,7 @@ fun ctx node_name fun_ids contract ->
     Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
-let rec desugar_node_item: Ctx.tc_context -> HString.t -> HString.t list -> A.node_item -> A.node_item * A.declaration list =
+let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
 fun ctx node_name fun_ids ni ->
   let rec_call = desugar_node_item ctx node_name fun_ids in
   match ni with

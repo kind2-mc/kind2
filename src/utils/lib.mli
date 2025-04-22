@@ -462,6 +462,17 @@ val find_file : string -> string list -> string option
 (** A position in the input *)
 type position 
 
+(** A span in the input *)
+type span
+
+val mk_span : position -> position -> span
+
+val start_pos : span -> position
+
+val end_pos : span -> position
+
+val dummy_span : span
+
 (** Dummy position different from any valid position *)
 val dummy_pos : position
 

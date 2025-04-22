@@ -27,6 +27,7 @@ module LN = LustreNode
 module LG = LustreGlobals
 module LD = LustreDeclarations
 module LW = LustreWarnings
+module NI = NodeId
 
 module LNG = LustreNodeGen
 module LPI = LustreParser.Incremental
@@ -183,9 +184,9 @@ let type_check declarations =
         Res.ok (
           decls1 @ decls2, 
           TypeCheckerContext.union ctx1 ctx2, 
-          GI.StringMap.merge GI.union_keys2 gids1 gids2
+          NodeId.Map.merge GI.union_keys2 gids1 gids2
         )
-      else Res.ok (sorted_node_contract_decls, global_ctx, GI.StringMap.empty)
+      else Res.ok (sorted_node_contract_decls, global_ctx, NodeId.Map.empty)
     in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
@@ -317,8 +318,8 @@ let of_channel old_frontend only_parse in_ch =
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
-              let _ = LN.node_of_name s_ident nodes in 
-              [s_ident]
+              let _ = LN.node_of_input_name s_ident nodes in 
+              [NI.mk_node_id (HString.mk_hstring s)]
             (* User-specified main node in command-line input might not exist *)
             with Not_found -> 
               let msg =
@@ -350,19 +351,19 @@ let of_channel old_frontend only_parse in_ch =
           | Some s -> 
             let s_ident = LustreIdent.mk_string_ident s in (
             try 
-              let main_lustre_node =  LN.node_of_name s_ident nodes in 
+              let main_lustre_node =  LN.node_of_input_name s_ident nodes in 
               (* If checking realizability, then 
                 we are actually checking realizability of Kind 2-generated imported nodes representing 
                 the (1) the main node's contract instrumented with type info and 
                     (2) the main node's enviornment, if environment checking is enabled *)
               let main_nodes = 
                 if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                  [LustreIdent.mk_string_ident (LGI.contract_tag ^ s);]
-                else [s_ident] 
+                  [NI.mk_node_id ~node_type:Contract (HString.mk_hstring s)]
+                else [NI.mk_node_id (HString.mk_hstring s)] 
               in
               let main_nodes = 
                 if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
-                  LustreIdent.mk_string_ident (LGI.inputs_tag ^ s) :: main_nodes 
+                  (NI.mk_node_id ~node_type:Environment (HString.mk_hstring s)) :: main_nodes 
                 else 
                   main_nodes 
                 in 
@@ -377,12 +378,11 @@ let of_channel old_frontend only_parse in_ch =
           )
           | None -> (
             match LustreNode.get_main_annotated_nodes nodes with
-            | h :: t -> h :: t
+            | (_ :: _ as node_names) -> node_names
             | [] ->
               match toplevel_nodes with
               | [] -> raise (NoMainNode "No node defined in input model")
-              | _ -> toplevel_nodes |> List.map (fun s ->
-                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident)
+              | _ -> toplevel_nodes |> List.map (fun s -> NI.mk_node_id s)
           )
         in
         let main_nodes = match Flags.lus_main_type () with
@@ -395,11 +395,11 @@ let of_channel old_frontend only_parse in_ch =
               raise (MainTypeWithoutRealizability msg)
             else (
               try 
-                let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in
-                let _ = LN.node_of_name s_ident nodes in  
+                (* let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in *)
+                let _ = LN.node_of_input_name s_ident nodes in  
                 match Flags.lus_main () with 
-                | Some _ -> s_ident :: main_nodes
-                | None -> [s_ident]
+                | Some _ -> (NI.mk_node_id ~node_type:Type (HString.mk_hstring s)) :: main_nodes
+                | None -> [NI.mk_node_id (HString.mk_hstring s)]
               (* User-specified type alias in command-line input might not exist *)
               with Not_found -> 
                 let msg =
@@ -414,14 +414,13 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
-      let nodes = List.map (fun ({ LustreNode.name } as n) ->
-          if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
+      let nodes = List.map (fun ({ LustreNode.node_id = id1; } as n) ->
+          if List.exists (fun id2 -> NI.equal id1 id2) main_nodes then
             { n with is_main = true }
           else n)
         nodes
       in
       print_nodes_and_globals nodes globals;
-
       (* Return a subsystem tree from the list of nodes *)
       Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
     | Error e -> Error e)
