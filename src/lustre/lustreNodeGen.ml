@@ -651,7 +651,7 @@ and compile_ast_type
     in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.Map (_, ty1, ty2) -> 
-    (*!! Maybe not general enough to support structured types *)
+    (* TODO: Not general enough to support structured types *)
     let index_type = compile_ast_type cstate ctx map ty1 in
     let index_type' = (List.hd (X.values index_type)) in
     let element_type = compile_ast_type cstate ctx map ty2 in
