@@ -627,6 +627,10 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> rec_call ty
   )
+  | Map (p, ty1, ty2) -> 
+    let* ty1 = rec_call ty1 in
+    let* ty2 = rec_call ty2 in
+    R.ok (LA.Map (p, ty1, ty2))
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
@@ -2092,15 +2096,20 @@ and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> 
   | LA.Map (pos, ty1, ty2) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
+    if type_contains_ref ctx ty1 then 
+      type_error pos (UnsupportedMapType ty1) 
+    else if type_contains_ref ctx ty2 then 
+      type_error pos (UnsupportedMapType ty2)
+    else 
     let* base_ty1 = expand_type_syn_reftype_history ctx ty1 in 
-    let* base_ty2 = expand_type_syn_reftype_history ctx ty1 in 
+    let* base_ty2 = expand_type_syn_reftype_history ctx ty2 in 
     (match base_ty1 with 
     | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-    | History _ | TArr _ -> type_error pos (UnsupportedMapType ty1)
+    | History _ | TArr _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
       match base_ty2 with 
       | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-      | History _ | TArr _ -> type_error pos (UnsupportedMapType ty2)
+      | History _ | TArr _ -> type_error pos (UnsupportedMapType base_ty2)
       | _ ->
         R.ok (warnings1 @ warnings2))
   | LA.TArr (_, ty1, ty2) ->
@@ -2263,6 +2272,11 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
+           
+  (* map type *)
+  | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
+    R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2
+                    ; eq_lustre_type ctx val_ty1 val_ty2 ]
 
   (* special case for type synonyms *)
   | UserType (pos, ty_args, u), ty

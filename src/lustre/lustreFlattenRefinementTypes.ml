@@ -81,7 +81,7 @@ let rec flatten_ref_type ctx ty = match ty with
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
-      | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
+      | Ok ty -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
   | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
   | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
