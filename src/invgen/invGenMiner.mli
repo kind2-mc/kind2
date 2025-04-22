@@ -30,7 +30,7 @@ module Bool : CandGen
 module Int : CandGen
 
 (** Int8 candidate term miner. *)
-(* module Int8 : CandGen
+module Int8 : CandGen
 
 (** Int16 candidate term miner. *)
 module Int16 : CandGen
@@ -51,7 +51,7 @@ module UInt16 : CandGen
 module UInt32 : CandGen
 
 (** UInt64 candidate term miner. *)
-module UInt64 : CandGen *)
+module UInt64 : CandGen
 
 (** Real candidate term miner. *)
 module Real : CandGen

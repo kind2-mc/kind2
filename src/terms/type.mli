@@ -139,6 +139,30 @@ val is_bitvector : t -> bool
 (** Return [true] if the type is a bitvector (integern) type *)
 val bitvectorsize : t -> int
 
+(** Return [true] if the type is the unsigned integer8 type *)
+val is_uint8 : t -> bool
+
+(** Return [true] if the type is the unsigned integer16 type *)
+val is_uint16 : t -> bool
+
+(** Return [true] if the type is the unsigned integer32 type *)
+val is_uint32 : t -> bool
+
+(** Return [true] if the type is the unsigned integer64 type *)
+val is_uint64 : t -> bool
+
+(** Return [true] if the type is the integer8 type *)
+val is_int8 : t -> bool
+
+(** Return [true] if the type is the integer16 type *)
+val is_int16 : t -> bool
+
+(** Return [true] if the type is the integer32 type *)
+val is_int32 : t -> bool
+
+(** Return [true] if the type is the integer64 type *)
+val is_int64 : t -> bool
+
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
 

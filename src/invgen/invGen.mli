@@ -37,7 +37,7 @@ val main_int :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for int8 invariant generation. *)
-(* val main_int8 :
+val main_int8 :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for int16 invariant generation. *)
@@ -66,7 +66,7 @@ val main_uint32 :
 
 (** Temporary entry point for uint64 invariant generation. *)
 val main_uint64 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit *)
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for real invariant generation. *)
 val main_real :
@@ -106,7 +106,7 @@ module BoolInvGen : Out
 module IntInvGen : Out
 
 (** Int8 invariant generation module. *)
-(* module Int8InvGen : Out
+module Int8InvGen : Out
 
 (** Int16 invariant generation module. *)
 module Int16InvGen : Out
@@ -127,7 +127,7 @@ module UInt16InvGen : Out
 module UInt32InvGen : Out
 
 (** UInt64 invariant generation module. *)
-module UInt64InvGen : Out *)
+module UInt64InvGen : Out
 
 (** Real invariant generation module. *)
 module RealInvGen : Out
@@ -144,7 +144,7 @@ module EqOnly : sig
   module IntInvGen : Out
 
   (** Graph of int8. *)
-  (* module Int8InvGen : Out
+  module Int8InvGen : Out
 
   (** Graph of int16. *)
   module Int16InvGen : Out
@@ -165,7 +165,7 @@ module EqOnly : sig
   module UInt32InvGen : Out
 
   (** Graph of uint64. *)
-  module UInt64InvGen : Out *)
+  module UInt64InvGen : Out
 
   (** Graph of reals. *)
   module RealInvGen : Out

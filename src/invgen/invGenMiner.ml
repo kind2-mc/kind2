@@ -802,7 +802,7 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
 end
 
-(* module Int8M : MachineIntegerSig = struct
+module Int8M : MachineIntegerSig = struct
   let length = 8
   let is_type = Type.is_int8
   let is_symbol = Symbol.is_bv8
@@ -848,10 +848,10 @@ module UInt64M : MachineIntegerSig = struct
   let length = 64
   let is_type = Type.is_uint64
   let is_symbol = Symbol.is_ubv64
-end *)
+end
 
 (** Int8 candidate term miner. *)
-(* module Int8 = MakeCandGen (MachineIntegerRules(Int8M))
+module Int8 = MakeCandGen (MachineIntegerRules(Int8M))
 
 (** Int16 candidate term miner. *)
 module Int16 = MakeCandGen (MachineIntegerRules(Int16M))
@@ -872,7 +872,7 @@ module UInt16 = MakeCandGen (MachineIntegerRules(UInt16M))
 module UInt32 = MakeCandGen (MachineIntegerRules(UInt32M))
 
 (** UInt64 candidate term miner. *)
-module UInt64 = MakeCandGen (MachineIntegerRules(UInt64M)) *)
+module UInt64 = MakeCandGen (MachineIntegerRules(UInt64M))
 
 (** Real rules. *)
 module RealRules = struct
