@@ -817,7 +817,6 @@ and compile_ast_expr
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
   and compile_ite bounds expr1 expr2 expr3 =
-    (*!! TODO: Old code checks that expr1 is a non-indexed boolean *)
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr1 = match X.bindings expr1 with
       | [_, expr] -> expr

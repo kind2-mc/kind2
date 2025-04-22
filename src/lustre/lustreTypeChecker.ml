@@ -64,6 +64,7 @@ type error_kind = Unknown of string
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
   | IlltypedArrayIndex of tc_type
+  | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
@@ -83,6 +84,7 @@ type error_kind = Unknown of string
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedMachineIntegerType of tc_type
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
@@ -102,6 +104,9 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | InvalidExtractUpperBound of int * int
+  | InvalidExtractLowerBound of int * int
+  | UnsupportedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -139,6 +144,7 @@ let error_message kind = match kind with
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
   | ExpectedIntegerTypeForSlice -> "Slicing should have integer types"
   | IlltypedArrayIndex ty -> "Indexing can only be done on an array type but found " ^ string_of_tc_type ty
+  | IlltypedMapIndex (exp_ty, inf_ty) -> "Expected index of type " ^ (string_of_tc_type exp_ty) ^ " but found index of type " ^ (string_of_tc_type inf_ty)
   | ExpectedIntegerTypeForArrayIndex ty -> "Array index should have an integer type but found " ^ string_of_tc_type ty
   | IlltypedArrayConcat (both_array_types, ty1, ty2) -> "Cannot concat "
     ^ (match both_array_types with
@@ -171,6 +177,8 @@ let error_message kind = match kind with
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of machine integer type but found "
+    ^ string_of_tc_type ty
   | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
   | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
@@ -200,6 +208,9 @@ let error_message kind = match kind with
   | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
+  | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
+  | InvalidExtractLowerBound (lb, ub) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub)
+  | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -706,17 +717,17 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
   | LA.BinaryOp (pos, bop, e1, e2) ->
     let* ty, warnings = infer_type_binary_op ctx nname pos bop e1 e2 in 
     R.ok (ty, warnings)
-  | LA.Extract (pos, e, ub, lb) -> 
-    (*!! TODO: check *)
+  | LA.Extract (pos, e, ub, lb) ->
     let* inf_ty, warnings = infer_type_expr ctx nname e in 
     (match inf_ty with 
-    (* e has unsigned bv type big enough to be extracted *)
     | LA.UBitVector (_, size) -> 
-      if size >= ub - lb + 1 then
+      if size >= ub && ub >= lb then
         (R.ok (LA.UBitVector (pos, ub - lb + 1), warnings))
-      else 
-        _ (* error *)
-    | _ -> _ (* error *)) 
+      else if lb > ub then
+        type_error pos (InvalidExtractUpperBound (lb, ub))
+      else
+        type_error pos (InvalidExtractUpperBound (size, ub))
+    | _ -> type_error pos (ExpectedMachineIntegerType inf_ty)) 
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
     | Ite -> 
@@ -861,13 +872,18 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     if is_expr_int_type ctx nname i
     then 
       match ty with
-      | LA.Map (_, _, b_ty) 
+      | LA.Map (_, given_index_type, b_ty) -> 
+        R.ifM (eq_lustre_type ctx given_index_type (LA.Int pos))
+          (R.ok (b_ty, warnings1 @ warnings2))
+          (type_error pos (IlltypedMapIndex (given_index_type, LA.Int pos)))
       | LA.ArrayType (_, (b_ty, _)) -> R.ok (b_ty, warnings1 @ warnings2)
       | ty -> type_error pos (IlltypedArrayIndex ty)
     else (
-      (*!! TODO: Check the given index matches the expected index type *)
       match ty with 
-      | LA.Map (_, _, element_type) -> R.ok (element_type, warnings1)
+      | LA.Map (_, given_index_type, element_type) -> 
+        R.ifM (eq_lustre_type ctx index_type given_index_type)
+          (R.ok (element_type, warnings1 @ warnings2))
+          (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
       | _ -> type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
 
@@ -1252,10 +1268,13 @@ and infer_type_unary_op: tc_context -> HString.t option -> Lib.position -> LA.ex
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
   = fun ctx pos ty1 ty2 ->
-  match ty1, ty2 with 
-  (*!! TODO: Check if this works with type aliases *)
-  | LA.SBitVector (_, s1), SBitVector (_, s2) -> R.ok (s1 = s2)
-  | LA.UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)
+  let* base_ty1 = expand_type_syn_reftype_history ctx ty1 in 
+  let* base_ty2 = expand_type_syn_reftype_history ctx ty2 in
+  match base_ty1, base_ty2 with 
+  | LA.SBitVector _, SBitVector _ -> R.ok true
+  | LA.UBitVector _, UBitVector _ -> R.ok true
+  | LA.SBitVector _, UBitVector _ -> R.ok true
+  | LA.UBitVector _, SBitVector _ -> R.ok true
   | _ ->
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
@@ -1320,11 +1339,12 @@ and infer_type_binary_op: tc_context -> HString.t option -> Lib.position
         | _, Error id -> (type_error pos (UnboundIdentifier id)))
       (type_error pos (UnificationFailed (ty1, ty2))))
   | LA.BVConcat -> 
-      (*!! Chase identifiers for ty1 and ty2 (e.g., type aliases) *)
-      (match ty1, ty2 with
-        | SBitVector (p, s1), SBitVector (_, s2) -> R.ok (LA.SBitVector (p, s1 + s2), warnings1 @ warnings2)
-        | UBitVector (p, s1), UBitVector (_, s2) -> R.ok (LA.UBitVector (p, s1 + s2), warnings1 @ warnings2)
-        | _, _ -> (type_error pos (ExpectedMachineIntegerTypes (ty1, ty2))))
+    let* ty1 = expand_type_syn_reftype_history ctx ty1 in 
+    let* ty2 = expand_type_syn_reftype_history ctx ty2 in
+    (match ty1, ty2 with
+      | SBitVector (p, s1), SBitVector (_, s2) -> R.ok (LA.SBitVector (p, s1 + s2), warnings1 @ warnings2)
+      | UBitVector (p, s1), UBitVector (_, s2) -> R.ok (LA.UBitVector (p, s1 + s2), warnings1 @ warnings2)
+      | _, _ -> (type_error pos (ExpectedMachineIntegerTypes (ty1, ty2))))
   | LA.BVShiftL | LA.BVShiftR ->
     (match is_type_signed_machine_int ctx ty1, is_type_unsigned_machine_int ctx ty1 with
       | Ok(b1), Ok(b2) when b1 || b2 -> 
@@ -2069,7 +2089,20 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 and check_type_well_formed: tc_context -> source -> HString.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
-  | LA.Map (_, ty1, ty2)
+  | LA.Map (pos, ty1, ty2) ->
+    let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
+    let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
+    let* base_ty1 = expand_type_syn_reftype_history ctx ty1 in 
+    let* base_ty2 = expand_type_syn_reftype_history ctx ty1 in 
+    (match base_ty1 with 
+    | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+    | History _ | TArr _ -> type_error pos (UnsupportedMapType ty1)
+    | _ -> 
+      match base_ty2 with 
+      | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+      | History _ | TArr _ -> type_error pos (UnsupportedMapType ty2)
+      | _ ->
+        R.ok (warnings1 @ warnings2))
   | LA.TArr (_, ty1, ty2) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
