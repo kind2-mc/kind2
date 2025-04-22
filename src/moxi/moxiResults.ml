@@ -91,6 +91,9 @@ let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_as
   in 
   (*!! Include top-level transition system name in prefix? *)
   (*!! How about for reachability variables, e.g. rch_1? *)
+  (*!! Right now, there can be name clashes; ask Cesare. 
+       But for now, take away top-level "main::" prefix *)
+  (*!! For now, I remove the (non-reachability) variables in the check-system *)
   let trans_sys_state_vars = 
     if prefix = "" then [] else get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map 
   in
@@ -99,12 +102,12 @@ let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_as
 
 let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
-    Format.fprintf ppf "(%s %s) " (state_var) (value)    
+    Format.fprintf ppf "(%s %s) " state_var value   
   else 
-    if false then (*!! TODO: Get flag for condensed output *)
+    if false then (* TODO: Get flag for condensed output *)
       ()
     else
-      Format.fprintf ppf "@{<black>(%s %s)@} " (state_var) (value)   
+      Format.fprintf ppf "@{<black>(%s %s)@} " state_var value 
 
 let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
@@ -146,8 +149,8 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
     ) false formatted_svar_names
   in
 
-  (*!! To check reachability, we were checking invariance of the negation of the reachability query. 
-       When displaying the value of the reachability condition, we need to un-negate it. *)
+  (* To check reachability, we were checking invariance of the negation of the reachability query. 
+     When displaying the value of the reachability condition, we need to un-negate it. *)
   let reachability_values = List.map (fun (svar, value, changed) -> match value with 
     | Model.Term value -> 
       let negated_value = not (Term.bool_of_term value) in
@@ -165,7 +168,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
       (Lib.pp_print_list pp_print_str_var_val "") formatted_svar_names
       (Lib.pp_print_list pp_print_str_var_val "") reachability_values
   else
-    if false then (*!! TODO: Get flag for condensed output *)
+    if false then (* TODO: Get flag for condensed output *)
       ()
     else
       Format.fprintf ppf "@{<black>(%a %a %a)@}" 
@@ -207,10 +210,10 @@ let pp_print_prop_trace _ prop =
   | PropKTrue _ 
   | PropUnknown -> () 
 
-let has_model trans_sys svar_path = 
-  (*!! List.map will not change the length of the list... so what are we doing? (see mcil branch code) *)
-  List.exists (fun svar -> List.mem_assoc svar svar_path)
-    (TransSys.global_const_state_vars trans_sys)
+let has_model _trans_sys _svar_path = 
+  false 
+  (* List.exists (fun svar -> List.mem_assoc svar svar_path)
+    (TransSys.global_const_state_vars trans_sys) *)
 
 let pp_print_const_decl _ppf (svar, svar_value_path) =
   let svar_type = StateVar.type_of_state_var svar in
@@ -303,7 +306,7 @@ let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit
     %a\
     %a\
     )@]@.@."
-  (if false then "condensed" else "full") (*!! TODO: Get flag for ITE condition *)
+  (if false then "condensed" else "full") (* TODO: Get flag for condensed output *)
   (Lib.pp_print_list pp_print_prop_result "") props
   (Lib.pp_print_list pp_print_prop_trace "") props
   (Lib.pp_print_list (pp_print_prop_model trans_sys) "") props
