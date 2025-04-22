@@ -969,9 +969,6 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
     vars, UnaryOp (pos, op, e')
-  | Extract (pos, e, ub, lb) -> 
-    let vars, e' = r map e in 
-    vars, Extract (pos, e', ub, lb)
   | BinaryOp (pos, op, e1, e2) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
@@ -2126,9 +2123,6 @@ and normalize_expr ?guard info node_id map =
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     UnaryOp (pos, op, nexpr), gids, warnings
-  | Extract (pos, expr, ub, lb) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    Extract (pos, nexpr, ub, lb), gids, warnings
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in

@@ -101,7 +101,6 @@ type expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
-  | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
@@ -590,15 +589,6 @@ let rec pp_print_expr ppf =
       ppos p
       pp_print_typed_ident id
       pp_print_expr e
-
-    | Extract (p, e, idx1, idx2) -> 
-
-      Format.fprintf ppf
-      "%a%a[%d:%d]"
-      ppos p
-      pp_print_expr e
-      idx1 
-      idx2
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =

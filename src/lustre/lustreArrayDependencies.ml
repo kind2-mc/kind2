@@ -156,7 +156,6 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Values *)
   | Const _ -> empty_
   (* Operators *)
-  | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> union_ (r e1) (r e2)
   | TernaryOp (_, Ite, e1, e2, e3) ->

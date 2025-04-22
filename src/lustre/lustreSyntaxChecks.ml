@@ -247,7 +247,7 @@ function
 
 | RecordProject (_, e, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
-| TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
+| TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
@@ -619,7 +619,6 @@ let rec expr_only_supported_in_merge observer expr =
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
-  | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) -> r observer e
   | AnyOp (_, _, e, None) -> r false e
   | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
@@ -919,8 +918,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
-    (*!! TODO: Check that upper bound geq lower bound *)
-    | Extract (_, e, _, _)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in

@@ -330,9 +330,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | UnaryOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, UnaryOp (p, op, expr), decls, node_decls_map
-  | Extract (p, expr, ub, lb) -> 
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, Extract (p, expr, ub, lb), decls, node_decls_map
   | BinaryOp (p, op, expr1, expr2) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 

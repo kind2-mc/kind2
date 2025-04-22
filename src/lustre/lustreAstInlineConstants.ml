@@ -259,7 +259,6 @@ and push_pre is_guarded pos =
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
-  | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
   | RecordExpr (p, i, ps, es) ->
     let es' = List.map (fun (i, e) -> (i, r e)) es in
     RecordExpr (p, i, ps, es')
