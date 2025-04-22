@@ -594,6 +594,15 @@ let rec pp_print_expr ppf =
       pp_print_typed_ident id
       pp_print_expr e
 
+    | Extract (p, e, idx1, idx2) -> 
+
+      Format.fprintf ppf
+      "%a%a[%d:%d]"
+      ppos p
+      pp_print_expr e
+      idx1 
+      idx2
+
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
     Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
@@ -636,6 +645,10 @@ and pp_print_lustre_type ppf = function
   | UserType (_, tys, s) -> 
     Format.fprintf ppf "%a<<%a>>" pp_print_ident s
       (pp_print_list pp_print_lustre_type "; ") tys
+  | Map (_, ty1, ty2) -> 
+    Format.fprintf ppf "map<<%a; %a>>" 
+      pp_print_lustre_type ty1
+      pp_print_lustre_type ty2
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 

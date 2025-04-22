@@ -102,6 +102,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     
   | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
+  | Extract (a, e, b, c) -> Extract (a, fill_ite_helper frame_pos node_id lhs id fill e, b, c)
   | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
   | When (a, e, b) -> When (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)

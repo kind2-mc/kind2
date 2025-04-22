@@ -733,7 +733,7 @@ let rec type_contains_enum_or_subrange ctx = function
   | Bool _ | Int _ | Real _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
   let rec type_contains_ref ctx = function
   | LA.RefinementType _ -> true
@@ -772,6 +772,7 @@ let rec type_contains_enum_subrange_reftype ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -785,7 +786,7 @@ let rec type_contains_enum_subrange_reftype ctx = function
   | Bool _ | Int _ | Real _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_abstract ctx = function
   | LA.UserType (_, ty_args, id) -> 
@@ -800,6 +801,7 @@ let rec type_contains_abstract ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_abstract ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -808,7 +810,7 @@ let rec type_contains_abstract ctx = function
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
@@ -818,6 +820,7 @@ let rec type_contains_array ctx = function
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_array ctx ty)
       false tys
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_array ctx ty1 || type_contains_array ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -831,7 +834,7 @@ let rec type_contains_array ctx = function
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | UInt8 _| UInt16 _| UInt32 _| UInt64 _
   | Int8 _ |Int16 _ |Int32 _ | Int64 _
-  | AbstractType _ -> false
+  | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec ty_vars_of_expr ctx node_name expr = 
   let call = ty_vars_of_expr ctx node_name in match expr with 
@@ -855,6 +858,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> call e
   | BinaryOp (_,_,e1, e2) -> call e1 |> SI.union (call e2)
   | TernaryOp (_,_, e1, e2, e3) -> call e1 |> SI.union (call e2) |> SI.union (call e3) 
@@ -895,6 +899,7 @@ and ty_vars_of_type ctx node_name ty =
   | RecordType (_, _, tis) -> 
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | AbstractType (_, id) -> (
     match lookup_node_ty_vars ctx node_name,
@@ -906,4 +911,4 @@ and ty_vars_of_type ctx node_name ty =
       else SI.empty
   )
   | History _ | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | IntRange _ | Real _  | EnumType _ -> SI.empty
+  | Bool _ | IntRange _ | Real _  | EnumType _ | SBitVector _ | UBitVector _ -> SI.empty

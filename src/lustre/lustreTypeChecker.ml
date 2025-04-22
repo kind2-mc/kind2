@@ -336,8 +336,9 @@ let rec infer_const_attr ctx exp =
   (* Values *)
   | Const _ -> [R.ok ()]
   (* Operators *)
-  | UnaryOp (_,_,e) -> r e
-  | BinaryOp (_,_, e1, e2) -> combine (r e1) (r e2)
+  | Extract (_, e, _, _)
+  | UnaryOp (_, _, e) -> r e
+  | BinaryOp (_, _, e1, e2) -> combine (r e1) (r e2)
   | TernaryOp (_, Ite, e1, e2, e3) -> (
     let r_e2 = r e2 in
     match r e1 with
@@ -345,8 +346,8 @@ let rec infer_const_attr ctx exp =
     | [err] -> List.map (fun _ -> err) r_e2
     | _ -> assert false
   )
-  | ConvOp  (_,_,e) -> r e
-  | CompOp (_,_, e1, e2) -> combine (r e1) (r e2)
+  | ConvOp  (_, _, e) -> r e
+  | CompOp (_, _, e1, e2) -> combine (r e1) (r e2)
   (* Structured expressions *)
   | RecordExpr (_, _, _, flds) ->
     List.fold_left
@@ -525,6 +526,9 @@ let rec instantiate_type_variables_expr: tc_context -> HString.t -> tc_type list
     let* e = call e in
     R.ok (LA.TupleProject (pos, e, idx))
   | Const (_, _) as e -> R.ok e
+  | Extract (pos, e, idx1, idx2) -> 
+    let* e = call e in 
+    R.ok (LA.Extract (pos, e, idx1, idx2))
   | UnaryOp (pos, op, e) -> 
     let* e = call e in
     R.ok (LA.UnaryOp (pos, op, e))
@@ -704,11 +708,15 @@ let rec infer_type_expr: tc_context -> HString.t option -> LA.expr -> (tc_type *
     R.ok (ty, warnings)
   | LA.Extract (pos, e, ub, lb) -> 
     (*!! TODO: check *)
-    let* ty, warnings = infer_type_expr ctx nname e in
-    (match ty with 
-    | LA.SBitVector _ -> R.ok (LA.SBitVector (pos, (ub - lb) + 1), warnings)
-    | LA.UBitVector _ -> R.ok (LA.UBitVector (pos, (ub - lb) + 1), warnings)
-    | _ -> assert false) (*!! TODO: Something sensible *)
+    let* inf_ty, warnings = infer_type_expr ctx nname e in 
+    (match inf_ty with 
+    (* e has unsigned bv type big enough to be extracted *)
+    | LA.UBitVector (_, size) -> 
+      if size >= ub - lb + 1 then
+        (R.ok (LA.UBitVector (pos, ub - lb + 1), warnings))
+      else 
+        _ (* error *)
+    | _ -> _ (* error *)) 
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
     | Ite -> 
@@ -987,6 +995,12 @@ and check_type_expr: tc_context -> HString.t option -> LA.expr -> tc_type -> ([>
     check_type_tuple_proj pos ctx nname expr idx exp_ty
 
   (* Operators *)
+  | Extract (pos, _, idx1, idx2) as expr -> 
+    let* inf_ty, warnings = infer_type_expr ctx nname expr in 
+    R.ifM    
+      (eq_lustre_type ctx (UBitVector (pos, idx1 - idx2 + 1)) exp_ty) 
+      (R.ok warnings)
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | UnaryOp (pos, op, e) ->
     let* inf_ty, warnings = infer_type_unary_op ctx nname pos e op in
     R.ifM 
