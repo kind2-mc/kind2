@@ -2188,8 +2188,6 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
 
-  | A.Map (pos, _, _) -> fail_at_position pos "Map types not supported in old frontend"
-
   | A.UserType (pos, _ :: _, _) -> fail_at_position pos "UserTypes with type arguments not supported in old frontend"
 
   (* User-defined abstract types are represented as an integer reference

@@ -29,10 +29,6 @@ let rec flatten_ref_type ctx ty = match ty with
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis) 
-  | Map (pos, ty1, ty2) -> 
-    let ty1 = flatten_ref_type ctx ty1 in 
-    let ty2 = flatten_ref_type ctx ty2 in 
-    Map (pos, ty1, ty2)
   | TupleType (pos, tys) | GroupType (pos, tys) -> 
     let tys = List.map (flatten_ref_type ctx) tys in 
     TupleType (pos, tys)
@@ -55,11 +51,6 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
-      | Map (pos, ty1, ty2) -> 
-        List.mapi (fun i ty ->
-          let exprs = chase_refinements ty in
-          List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
-        ) [ty1; ty2] |> List.flatten
     | ArrayType (pos, (ty, len)) -> 
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in

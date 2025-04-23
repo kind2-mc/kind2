@@ -130,7 +130,6 @@ type lustre_type =
    *  as we can have more than one arguments and return 
    *  values  *)
   | RefinementType of position * typed_ident * expr
-  | Map of position * lustre_type * lustre_type
   
 (** A Lustre expression *)
 and expr =

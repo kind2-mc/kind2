@@ -622,10 +622,6 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> rec_call ty
   )
-  | Map (p, ty1, ty2) -> 
-    let* ty1 = rec_call ty1 in
-    let* ty2 = rec_call ty2 in
-    R.ok (LA.Map (p, ty1, ty2))
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
@@ -860,18 +856,10 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     if is_expr_int_type ctx nname i
     then 
       match ty with
-      | LA.Map (_, given_index_type, b_ty) -> 
-        R.ifM (eq_lustre_type ctx given_index_type (LA.Int pos))
-          (R.ok (b_ty, warnings1 @ warnings2))
-          (type_error pos (IlltypedMapIndex (given_index_type, LA.Int pos)))
       | LA.ArrayType (_, (b_ty, _)) -> R.ok (b_ty, warnings1 @ warnings2)
       | ty -> type_error pos (IlltypedArrayIndex ty)
     else (
       match ty with 
-      | LA.Map (_, given_index_type, element_type) -> 
-        R.ifM (eq_lustre_type ctx index_type given_index_type)
-          (R.ok (element_type, warnings1 @ warnings2))
-          (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
       | _ -> type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
 
@@ -2070,25 +2058,6 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
-  | LA.Map (pos, ty1, ty2) ->
-    let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
-    let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
-    if type_contains_ref ctx ty1 then 
-      type_error pos (UnsupportedMapType ty1) 
-    else if type_contains_ref ctx ty2 then 
-      type_error pos (UnsupportedMapType ty2)
-    else 
-    let* base_ty1 = expand_type_syn_reftype_history ctx ty1 in 
-    let* base_ty2 = expand_type_syn_reftype_history ctx ty2 in 
-    (match base_ty1 with 
-    | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-    | History _ | TArr _ -> type_error pos (UnsupportedMapType base_ty1)
-    | _ -> 
-      match base_ty2 with 
-      | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-      | History _ | TArr _ -> type_error pos (UnsupportedMapType base_ty2)
-      | _ ->
-        R.ok (warnings1 @ warnings2))
   | LA.TArr (_, ty1, ty2) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
@@ -2249,11 +2218,6 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
-           
-  (* map type *)
-  | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
-    R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2
-                    ; eq_lustre_type ctx val_ty1 val_ty2 ]
 
   (* special case for type synonyms *)
   | UserType (pos, ty_args, u), ty
