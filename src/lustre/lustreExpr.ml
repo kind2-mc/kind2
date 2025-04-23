@@ -672,6 +672,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVSDIV
     | `BVUREM
     | `BVSREM
+    | `BVCONCAT
     | `PLUS
     | `TIMES
     | `DIV
@@ -789,7 +790,6 @@ and pp_print_app ?as_type safe pvar ppf = function
       pp_print_app ?as_type safe pvar ppf (`SELECT (UfSymbol.res_type_of_uf_symbol sym))
         
     (* Unsupported functions symbols *)
-    | `BVCONCAT (*!! TODO: Support *)
     | `DISTINCT
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
@@ -2034,8 +2034,6 @@ let eval_to_uint16 expr =
 (* Type of conversion to unsigned integer16  
 
    int: real -> uint16 
-
-   (*!! Why real goes to int? Why did this test fail after my changes, when it succeeded before? *)
 *)
 let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
@@ -2927,19 +2925,6 @@ let eval_bvconcat expr1 expr2 =
   | _ -> Term.mk_bvconcat [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
-let eval_bvextract expr ub lb = 
-  let ub, lb = match Term.destruct ub, Term.destruct lb with
-  | Term.T.Const c1, Term.T.Const c2 when
-          Symbol.is_numeral c1 && 
-          Symbol.is_numeral c2 -> Symbol.numeral_of_symbol c1, Symbol.numeral_of_symbol c2 
-  | _ -> assert false    
-  in
-  match Term.destruct expr with              
-    
-  | _ -> Term.mk_bvextract ub lb expr
-  | exception Invalid_argument _ -> assert false (*!! TODO: Check *)
-
-
 (* Type of bitvector conjunction*)
 let type_of_bvand = type_of_abv_abv_abv
 
@@ -2948,13 +2933,6 @@ let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2
 
 (* Bitvector concatenation *)
 let mk_bvconcat expr1 expr2 = mk_binary eval_bvconcat type_of_bvconcat expr1 expr2
-
-(* Bitvector extract *)
-let mk_bvextract (lb: int) (ub: int) expr = 
-  { expr_init = eval_bvextract expr.expr_init (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
-  expr_step = eval_bvextract expr.expr_step (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
-  expr_type = (type_of_bvextract expr ub lb) } 
-
 
 (* ********************************************************************** *)
 

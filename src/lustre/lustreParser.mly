@@ -219,7 +219,7 @@ let mk_span start_pos end_pos =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
-%left CONCAT (*!! TODO: Update to real syntax *)
+%left CONCAT
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH

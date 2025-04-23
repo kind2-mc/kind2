@@ -4,7 +4,7 @@ open Format
 type t = bool list
 
 exception ComparingUnequalBVs
-exception NonStandardBVSize (*!! All instances of this *)
+exception NonStandardBVSize
 
 (* Convert a bitvector to an integer *)
 let length_of_bitvector b = List.length b
@@ -120,7 +120,6 @@ let bool_to_bin (b : bool) : Numeral.t =
   | true -> Numeral.one
   
 (*Function that returns the numeral corresponding to a bitvector *)
-(*!! Check if general enough *)
 let rec ubv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   match b with
   | h :: t -> 
@@ -241,7 +240,6 @@ let num_to_bv64 = num_to_bv (Numeral.of_int 64)
 (* Signed BV -> Num                                                       *)
 (* ********************************************************************** *)
 
-(*!! TODO: Check if this is general enough *)
 let bv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   if((List.nth b 0) = false) then
     ubv_to_num' size b
