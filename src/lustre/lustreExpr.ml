@@ -1665,12 +1665,6 @@ let type_of_bvconcat t t' =
     Type.t_ubv (s1 + s2)
   | _, _ -> raise Type_mismatch
 
-let type_of_bvextract t ub lb = 
-  if Type.is_bitvector t.expr_type then
-    Type.t_bv ((ub - lb) + 1)
-  else 
-    Type.t_ubv ((ub - lb) + 1)
-
 (* Type check for bv -> ubv -> bv or ubv -> ubv -> ubv *)
 let type_of_abv_ubv_abv t t' =
 match t, t' with

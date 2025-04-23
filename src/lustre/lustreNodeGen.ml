@@ -809,7 +809,6 @@ and compile_ast_expr
     let (mk_binary, mk_seq, const_expr) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true)
       | false -> (E.mk_neq, E.mk_or, E.t_false) in
-    Format.pp_print_flush Format.std_formatter ();
     let expr = compile_binary bounds mk_binary expr1 expr2 in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
