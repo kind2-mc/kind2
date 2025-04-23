@@ -105,7 +105,6 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
-  | UnsupportedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -209,7 +208,6 @@ let error_message kind = match kind with
   | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
-  | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t

@@ -90,7 +90,6 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
-  | UnsupportedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
