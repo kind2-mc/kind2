@@ -79,7 +79,6 @@ let mk_span start_pos end_pos =
 %token OF
 %token SUBTYPE
 %token HISTORY
-%token MAP
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
