@@ -2253,7 +2253,6 @@ and normalize_ty info node_id map id ty =
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
     A.RefinementType (p1, (p2, id, ty2), nexpr), union h_gids gids, warnings
     
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ 
-  | UInt32 _ | UInt64 _ | History _ | Bool _ | Real _ | IntRange _ 
+  | Int _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
   | ArrayType _ | EnumType _ | TArr _ | SBitVector _ | UBitVector _ -> ty, empty (), []

@@ -383,14 +383,14 @@ lustre_type:
   | BOOL { A.Bool (mk_pos $startpos) }
   | INT { A.Int (mk_pos $startpos) }
   | REAL { A.Real (mk_pos $startpos) }
-  | UINT8 { A.UInt8 (mk_pos $startpos) }
-  | UINT16 { A.UInt16 (mk_pos $startpos) }
-  | UINT32 { A.UInt32 (mk_pos $startpos) }
-  | UINT64 { A.UInt64 (mk_pos $startpos) }
-  | INT8 { A.Int8 (mk_pos $startpos) }
-  | INT16 { A.Int16 (mk_pos $startpos) }
-  | INT32 { A.Int32 (mk_pos $startpos) }
-  | INT64 { A.Int64 (mk_pos $startpos) }
+  | UINT8 { A.UBitVector (mk_pos $startpos, 8) }
+  | UINT16 { A.UBitVector (mk_pos $startpos, 16) }
+  | UINT32 { A.UBitVector (mk_pos $startpos, 32) }
+  | UINT64 { A.UBitVector (mk_pos $startpos, 64) }
+  | INT8 { A.SBitVector (mk_pos $startpos, 8) }
+  | INT16 { A.SBitVector (mk_pos $startpos, 16) }
+  | INT32 { A.SBitVector (mk_pos $startpos, 32) }
+  | INT64 { A.SBitVector (mk_pos $startpos, 64) }
   | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | UINT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;

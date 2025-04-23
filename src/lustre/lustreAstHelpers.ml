@@ -934,8 +934,8 @@ let rec vars_of_type = function
     SI.union vars1 vars2
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> SI.empty
+  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | SBitVector _ | UBitVector _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
@@ -1421,14 +1421,6 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     else match x, y with
     | Bool _, Bool _
     | Int _, Int _
-    | UInt8 _, UInt8 _
-    | UInt16 _, UInt16 _
-    | UInt32 _, UInt32 _
-    | UInt64 _, UInt64 _
-    | Int8 _, Int8 _
-    | Int16 _, Int16 _
-    | Int32 _, Int32 _
-    | Int64 _, Int64 _
     | Real _, Real _ ->
       Ok (true)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->

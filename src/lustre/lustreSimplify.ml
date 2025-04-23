@@ -2108,22 +2108,6 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   | A.UBitVector (_, size) ->  D.singleton D.empty_index (Type.t_ubv size)
 
-  | A.UInt8 _ -> D.singleton D.empty_index (Type.t_ubv 8)
-
-  | A.UInt16 _ -> D.singleton D.empty_index (Type.t_ubv 16)
-
-  | A.UInt32 _ -> D.singleton D.empty_index (Type.t_ubv 32)
-
-  | A.UInt64 _ -> D.singleton D.empty_index (Type.t_ubv 64)
-
-  | A.Int8 _ -> D.singleton D.empty_index (Type.t_bv 8)
-
-  | A.Int16 _ -> D.singleton D.empty_index (Type.t_bv 16)
-
-  | A.Int32 _ -> D.singleton D.empty_index (Type.t_bv 32)
-
-  | A.Int64 _ -> D.singleton D.empty_index (Type.t_bv 64)
-
   (* Basic type real, add to empty trie with empty index *)
   | A.Real _ -> D.singleton D.empty_index Type.t_real
 

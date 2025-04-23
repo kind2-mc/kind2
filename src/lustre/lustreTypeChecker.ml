@@ -1245,14 +1245,6 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
       LA.Int pos
-    ; LA.UInt8 pos
-    ; LA.UInt16 pos
-    ; LA.UInt32 pos
-    ; LA.UInt64 pos
-    ; LA.Int8 pos
-    ; LA.Int16 pos
-    ; LA.Int32 pos
-    ; LA.Int64 pos
     ; LA.IntRange (pos, Some (Const (pos, Num num1)), Some (Const (pos, Num num1))) 
     ; LA.Real pos] in
   let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> (bool, [> error]) result
@@ -1337,43 +1329,43 @@ and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
       | Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt8 ->
     (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
-      | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int8 pos, warnings)  
-      | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int8 pos)))
+      | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.SBitVector (pos, 8), warnings)  
+      | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, LA.SBitVector (pos, 8))))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt16 ->
     (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int16 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int16 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.SBitVector (pos, 16), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, SBitVector (pos, 16))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt32 ->
     (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int32 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int32 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.SBitVector (pos, 32), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, SBitVector (pos, 32))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToInt64 ->
     (match (is_type_signed_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.Int64 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, Int64 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.SBitVector (pos, 64), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, SBitVector (pos, 64))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt8 ->
     (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt8 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt8 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UBitVector (pos, 8), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UBitVector (pos, 8))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt16 ->
     (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt16 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt16 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UBitVector (pos, 16), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UBitVector (pos, 16))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt32 ->
     (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt32 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt32 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UBitVector (pos, 32), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UBitVector (pos, 32))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | ToUInt64 ->
     (match (is_type_unsigned_machine_int ctx ty, is_type_int ctx ty) with
-    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UInt64 pos, warnings)  
-    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UInt64 pos)))
+    | Ok(b1), Ok(b2) when b1 || b2 -> R.ok(LA.UBitVector (pos, 64), warnings)  
+    | Ok _, Ok _ -> (type_error pos (InvalidConversion (ty, UBitVector (pos, 64))))
     | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
 (** Converts from given type to the intended type aka casting *)
     
@@ -2118,8 +2110,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let* v2 = IC.eval_int_expr ctx e2 in
       if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok ([])
     )
-  | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-  | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
+  | Bool _ | Int _ | Real _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok ([])
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
@@ -2152,14 +2143,6 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   (* Simple types *)
   | Bool _, Bool _ -> R.ok true
   | Int _, Int _ -> R.ok true
-  | UInt8 _, UInt8 _ -> R.ok true
-  | UInt16 _, UInt16 _ -> R.ok true              
-  | UInt32 _, UInt32 _ -> R.ok true
-  | UInt64 _,UInt64 _ -> R.ok true 
-  | Int8 _, Int8 _ -> R.ok true 
-  | Int16 _, Int16 _ -> R.ok true
-  | Int32 _, Int32 _ -> R.ok true
-  | Int64 _, Int64 _ -> R.ok true
   | Real _, Real _ -> R.ok true
   | SBitVector (_, s1), SBitVector (_, s2) -> R.ok (s1 = s2)
   | UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)

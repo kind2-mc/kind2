@@ -439,8 +439,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
           let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
           t
 
-        | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-        | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+        | Bool _ | Int _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
         | EnumType _ | TArr _ | RefinementType _ | History _
         | SBitVector _ | UBitVector _ -> assert false)
@@ -488,8 +487,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
         let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
         extract_bounds_from_type ty
       
-      | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-      | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+      | Bool _ | Int _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _ 
       | SBitVector _ | UBitVector _ -> assert false) 

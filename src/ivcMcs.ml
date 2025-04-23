@@ -137,14 +137,6 @@ let previous_rands = Hashtbl.create 10
 let rec unannot_pos = function
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
-  | A.UInt8 _ -> A.UInt8 dpos
-  | A.UInt16 _ -> A.UInt16 dpos
-  | A.UInt32 _ -> A.UInt32 dpos
-  | A.UInt64 _ -> A.UInt64 dpos
-  | A.Int8 _ -> A.Int8 dpos
-  | A.Int16 _ -> A.Int16 dpos
-  | A.Int32 _ -> A.Int32 dpos
-  | A.Int64 _ -> A.Int64 dpos
   | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
   | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
   | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)

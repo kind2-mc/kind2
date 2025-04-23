@@ -591,14 +591,6 @@ and compile_ast_type
   = function
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
-  | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
-  | A.UInt16 _ -> X.singleton X.empty_index (Type.t_ubv 16)
-  | A.UInt32 _ -> X.singleton X.empty_index (Type.t_ubv 32)
-  | A.UInt64 _ -> X.singleton X.empty_index (Type.t_ubv 64)
-  | A.Int8 _ -> X.singleton X.empty_index (Type.t_bv 8)
-  | A.Int16 _ -> X.singleton X.empty_index (Type.t_bv 16)
-  | A.Int32 _ -> X.singleton X.empty_index (Type.t_bv 32)
-  | A.Int64 _ -> X.singleton X.empty_index (Type.t_bv 64)
   | A.SBitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
   | A.UBitVector (_, s) -> X.singleton X.empty_index (Type.t_ubv s)
   | A.Real _ -> X.singleton X.empty_index Type.t_real
