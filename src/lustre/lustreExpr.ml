@@ -623,7 +623,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `INT16_TO_INT
   | `INT32_TO_INT
   | `INT64_TO_INT
-  | `BV_TO_INT
+  | `SBV_TO_INT
   | `TO_UINT8
   | `TO_UINT16
   | `TO_UINT32

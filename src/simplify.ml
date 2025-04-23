@@ -798,7 +798,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `UINT16_TO_INT, _
       | `UINT32_TO_INT, _
       | `UINT64_TO_INT, _
-      | `BV_TO_INT, _
+      | `SBV_TO_INT, _
       | `INT8_TO_INT, _
       | `INT16_TO_INT, _
       | `INT32_TO_INT, _
@@ -2253,7 +2253,7 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `INT64_TO_INT -> bv_to_int args
 
-          | `BV_TO_INT -> bv_to_int args
+          | `SBV_TO_INT -> bv_to_int args
 
           (* Conversion to unsigned integer8 is a monomial with polynomial
              subterms *)
@@ -2966,7 +2966,7 @@ let rec remove_ite' fterm args =
 
         | `INT64_TO_INT -> bv_to_int args
 
-        | `BV_TO_INT -> bv_to_int args
+        | `SBV_TO_INT -> bv_to_int args
 
         (* Conversion to unsigned integer8 is a monomial with polynomial
            subterms *)

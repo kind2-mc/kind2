@@ -663,7 +663,7 @@ let rec type_of_term' t = match T.destruct t with
         | `INT16_TO_INT
         | `INT32_TO_INT
         | `INT64_TO_INT
-        | `BV_TO_INT
+        | `SBV_TO_INT
         | `MOD
         | `ABS
         | `INTDIV
@@ -1486,7 +1486,7 @@ let mk_uint32_to_int t = mk_app_of_symbol_node `UINT32_TO_INT [t]
 let mk_ubv_to_int t = mk_app_of_symbol_node `BV2NAT [t]
 
 (* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
-let mk_bv_to_int t = mk_app_of_symbol_node `BV_TO_INT [t]
+let mk_bv_to_int t = mk_app_of_symbol_node `SBV_TO_INT [t]
 
 (* Hashcons a unary conversion from uint64 to an integer numeral *)
 let mk_uint64_to_int t = mk_app_of_symbol_node `UINT64_TO_INT [t]

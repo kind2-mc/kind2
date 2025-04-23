@@ -754,7 +754,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
   | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
   | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
-  | `BV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
+  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"

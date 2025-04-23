@@ -540,7 +540,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `INT64_TO_INT, _ -> raise Not_in_LIA
 
                (* Fail on conversion from signed bitvector to integer *)        
-               | `BV_TO_INT, _ -> raise Not_in_LIA
+               | `SBV_TO_INT, _ -> raise Not_in_LIA
                
                (* Fail on conversion to unsigned integer8 *)
                | `TO_UINT8, _ -> raise Not_in_LIA

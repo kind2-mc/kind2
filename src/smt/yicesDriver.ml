@@ -318,7 +318,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
-  | `BV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
+  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE _ ->
