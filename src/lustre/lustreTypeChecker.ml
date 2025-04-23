@@ -84,6 +84,7 @@ type error_kind = Unknown of string
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedUnsignedMachineIntegerTypes of tc_type * tc_type
   | ExpectedMachineIntegerType of tc_type
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
@@ -174,6 +175,8 @@ let error_message kind = match kind with
   | ExpectedNumberTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type (or type real) but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
+    ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | ExpectedUnsignedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of unsigned machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of machine integer type but found "
     ^ string_of_tc_type ty
@@ -1321,9 +1324,8 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     let* ty1 = expand_type_syn_reftype_history ctx ty1 in 
     let* ty2 = expand_type_syn_reftype_history ctx ty2 in
     (match ty1, ty2 with
-      | SBitVector (p, s1), SBitVector (_, s2) -> R.ok (LA.SBitVector (p, s1 + s2), warnings1 @ warnings2)
       | UBitVector (p, s1), UBitVector (_, s2) -> R.ok (LA.UBitVector (p, s1 + s2), warnings1 @ warnings2)
-      | _, _ -> (type_error pos (ExpectedMachineIntegerTypes (ty1, ty2))))
+      | _, _ -> (type_error pos (ExpectedUnsignedMachineIntegerTypes (ty1, ty2))))
   | LA.BVShiftL | LA.BVShiftR ->
     (match is_type_signed_machine_int ctx ty1, is_type_unsigned_machine_int ctx ty1 with
       | Ok(b1), Ok(b2) when b1 || b2 -> 
