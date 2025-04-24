@@ -2917,7 +2917,7 @@ let eval_bvconcat expr1 expr2 =
   match Term.destruct expr1, Term.destruct expr2 with              
     
   | _ -> Term.mk_bvconcat expr1 expr2
-  | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvconcat expr1 expr2
 
 (* Type of bitvector conjunction*)
 let type_of_bvand = type_of_abv_abv_abv

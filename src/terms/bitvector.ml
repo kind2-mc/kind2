@@ -636,14 +636,9 @@ let pp_print_unsigned_machine_integer ppf b =
 (* Pretty-print a signed Lustre machine integer *)
 let pp_print_signed_machine_integer ppf b =
   let len = length_of_bitvector b in
-    let num = (match len with
-               | 8 -> bv8_to_num b
-               | 16 -> bv16_to_num b
-               | 32 -> bv32_to_num b
-               | 64 -> bv64_to_num b
-               | _ -> bv_to_num b) in
-      let num_str = Numeral.string_of_numeral num in
-        pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+  let num = bv_to_num b in
+  let num_str = Numeral.string_of_numeral num in
+  pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
 
 
 (* Hexadecimal *)

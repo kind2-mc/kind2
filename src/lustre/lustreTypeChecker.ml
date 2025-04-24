@@ -2046,9 +2046,9 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
-  | LA.TArr (_, ty1, ty2) ->
-    let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
-    let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
+  | LA.TArr (_, arg_ty, res_ty) ->
+    let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
+    let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
     R.ok (warnings1 @ warnings2)
   | LA.RecordType (_, _, idTys) ->
       let* warnings = (R.seq (List.map (fun (_, _, ty)
