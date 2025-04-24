@@ -1237,10 +1237,8 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
   let* base_ty1 = expand_type_syn_reftype_history ctx ty1 in 
   let* base_ty2 = expand_type_syn_reftype_history ctx ty2 in
   match base_ty1, base_ty2 with 
-  | LA.SBitVector _, SBitVector _ -> R.ok true
-  | LA.UBitVector _, UBitVector _ -> R.ok true
-  | LA.SBitVector _, UBitVector _ -> R.ok true
-  | LA.UBitVector _, SBitVector _ -> R.ok true
+  | LA.SBitVector (_, s1), SBitVector (_, s2)
+  | LA.UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)
   | _ ->
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
