@@ -1970,7 +1970,7 @@ let eval_to_uint8 expr =
             else if (Type.is_ubitvector tt) then
               let s = Type.get_bv_size tt |> Option.get in
               if (s < 8) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (8 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (8 - s))) expr
               else if (s = 8) then 
                 expr
               else
@@ -2018,7 +2018,7 @@ let eval_to_uint16 expr =
                         if (s = 16) then
                           expr
                         else if (s < 16) then
-                          Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (16 - s))); expr]
+                          Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (16 - s))) expr
                         else
                           Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
                       else
@@ -2063,7 +2063,7 @@ let eval_to_uint32 expr =
               if (s = 32) then
                 expr
               else if (s < 32) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (32 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (32 - s))) expr
               else
                 Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
                 (*let n = Term.mk_bv2nat expr in
@@ -2110,7 +2110,7 @@ let eval_to_uint64 expr =
               if (s = 64) then
                 expr
               else if (s < 64) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (64 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (64 - s))) expr
               else
                 Term.mk_bvextract (Numeral.of_int 63) (Numeral.of_int 0) expr
             else
@@ -2916,7 +2916,7 @@ let eval_bvconcat expr1 expr2 =
 
   match Term.destruct expr1, Term.destruct expr2 with              
     
-  | _ -> Term.mk_bvconcat [expr1; expr2]
+  | _ -> Term.mk_bvconcat expr1 expr2
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
 (* Type of bitvector conjunction*)

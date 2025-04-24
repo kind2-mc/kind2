@@ -318,7 +318,7 @@ val mk_bv2nat : t -> t
 val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
 
 (** Create a BV concatenation *)
-val mk_bvconcat : t list -> t
+val mk_bvconcat : t -> t -> t
 
 (** Create a BV sign extension *)
 val mk_bvsignext : Numeral.t -> t -> t

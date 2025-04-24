@@ -1325,10 +1325,8 @@ let mk_bvor = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVOR a
 
-let mk_bvconcat = function 
-  | [] -> invalid_arg "Term.mk_bvconcat"
-  | [a] -> a 
-  | a -> mk_app_of_symbol_node `BVCONCAT a
+(* Hashcons a BV concatenation *)
+let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
 
 (* Hashcons a bitwise negation *)
 let mk_bvnot t = mk_app_of_symbol_node `BVNOT [t]
