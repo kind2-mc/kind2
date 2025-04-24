@@ -64,7 +64,7 @@ type unary_operator =
 type binary_operator =
   | And | Or | Xor | Impl
   | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
   | Ite
@@ -126,14 +126,8 @@ type expr =
 and lustre_type =
   | Bool of position
   | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
@@ -495,6 +489,7 @@ let rec pp_print_expr ppf =
     | UnaryOp (p, BVNot, e) -> p1 p "!" e
     | BinaryOp (p, BVShiftL, e1, e2) -> p2 p "shl" e1 e2
     | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
+    | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
@@ -602,14 +597,8 @@ and pp_print_field_assign ppf (i, e) =
 and pp_print_lustre_type ppf = function
   | Bool _ -> Format.fprintf ppf "bool"
   | Int _ -> Format.fprintf ppf "int"
-  | UInt8 _ -> Format.fprintf ppf "uint8"
-  | UInt16 _ -> Format.fprintf ppf "uint16"
-  | UInt32 _ -> Format.fprintf ppf "uint32"
-  | UInt64 _ -> Format.fprintf ppf "uint64"
-  | Int8 _ -> Format.fprintf ppf "int8"
-  | Int16 _ -> Format.fprintf ppf "int16"
-  | Int32 _ -> Format.fprintf ppf "int32"
-  | Int64 _ -> Format.fprintf ppf "int64"
+  | SBitVector (_, i) -> Format.fprintf ppf "int[%d]" i
+  | UBitVector (_, i) -> Format.fprintf ppf "uint[%d]" i
   | IntRange (_, l, u) -> 
     let pp_print_opt ppf expr_opt = (match expr_opt with
       | Some expr -> pp_print_expr ppf expr

@@ -3084,3 +3084,48 @@ Syntax Error!
 main: OPAQUE XOR
 
 Syntax Error!
+
+one_expr: ANY UINT XOR
+
+Syntax Error!
+
+one_expr: ANY UINT LSQBRACKET XOR
+
+Syntax Error!
+
+one_expr: ANY UINT LSQBRACKET NUMERAL XOR
+
+Syntax Error!
+
+
+
+one_expr: ANY INT WEAKLY
+
+Syntax Error!
+
+one_expr: ANY INT LSQBRACKET XOR
+
+Syntax Error!
+
+one_expr: ANY INT LSQBRACKET NUMERAL XOR
+
+Syntax Error!
+
+one_expr: ASSUME CONCAT XOR
+
+Syntax Error!
+
+one_expr: ASSUME CONCAT DECIMAL WEAKLY
+
+Syntax Error!
+
+
+
+
+main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT ASSUME CONCAT XOR
+
+Syntax Error!
+
+main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT ASSUME CONCAT DECIMAL WEAKLY
+
+Syntax Error!
