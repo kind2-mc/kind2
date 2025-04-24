@@ -1571,12 +1571,12 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_bitvector t -> (
       match t' with
-      | t when Type.is_bitvector t -> 
+      | t' when Type.is_bitvector t' -> 
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_bv s1 else 
@@ -1584,7 +1584,7 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
       | _ -> raise Type_mismatch)
     | t when Type.is_ubitvector t -> (
       match t' with
-      | t when Type.is_ubitvector t -> 
+      | t' when Type.is_ubitvector t' -> 
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_ubv s1 else 
@@ -1592,7 +1592,7 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
       | _ -> raise Type_mismatch)
     | t when Type.is_real t -> (
       match t' with
-      | t when Type.is_real t -> Type.t_real
+      | t' when Type.is_real t' -> Type.t_real
       | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch)
   
@@ -1605,12 +1605,12 @@ let type_of_numOrSBV_numOrSBV_numOrSBV ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_bitvector t -> (
       match t' with
-      | t when Type.is_bitvector t ->
+      | t' when Type.is_bitvector t' ->
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_bv s1 else 
@@ -1619,7 +1619,7 @@ let type_of_numOrSBV_numOrSBV_numOrSBV ?(is_div = false) op t t' =
 
     | t when Type.is_real t -> (
       match t' with
-      | t when Type.is_real t -> Type.t_real
+      | t' when Type.is_real t' -> Type.t_real
       | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch)
 
@@ -2859,7 +2859,7 @@ let type_of_intdiv t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_ubitvector t -> (

@@ -1422,7 +1422,9 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | Bool _, Bool _
     | Int _, Int _
     | Real _, Real _ ->
-      Ok (true)
+      Ok true
+    | SBitVector (_, s1), SBitVector (_, s2)
+    | UBitVector (_, s1), UBitVector (_, s2) -> Ok (s1 = s2)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
       let* e1 = match xe1, ye1 with
         | None, None -> Ok true
@@ -1468,7 +1470,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
-    | _ -> Ok (false)
+    | _ -> Ok false
   in
   r 0 x y
 
