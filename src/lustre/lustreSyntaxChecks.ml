@@ -666,6 +666,7 @@ and check_ty_node_calls i ty =
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
+    | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 

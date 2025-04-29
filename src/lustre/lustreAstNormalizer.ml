@@ -2255,4 +2255,4 @@ and normalize_ty info node_id map id ty =
     
   | Int _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ | SBitVector _ | UBitVector _ -> ty, empty (), []
+  | ArrayType _ | EnumType _ | TArr _ | Map _ | SBitVector _ | UBitVector _ -> ty, empty (), []

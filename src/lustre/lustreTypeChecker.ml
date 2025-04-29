@@ -64,6 +64,7 @@ type error_kind = Unknown of string
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
   | IlltypedArrayIndex of tc_type
+  | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
@@ -104,6 +105,7 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | UnsupportedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -141,6 +143,7 @@ let error_message kind = match kind with
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
   | ExpectedIntegerTypeForSlice -> "Slicing should have integer types"
   | IlltypedArrayIndex ty -> "Indexing can only be done on an array type but found " ^ string_of_tc_type ty
+  | IlltypedMapIndex (exp_ty, inf_ty) -> "Expected index of type " ^ (string_of_tc_type exp_ty) ^ " but found index of type " ^ (string_of_tc_type inf_ty)
   | ExpectedIntegerTypeForArrayIndex ty -> "Array index should have an integer type but found " ^ string_of_tc_type ty
   | IlltypedArrayConcat (both_array_types, ty1, ty2) -> "Cannot concat "
     ^ (match both_array_types with
@@ -206,6 +209,7 @@ let error_message kind = match kind with
   | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
+  | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -618,6 +622,10 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> rec_call ty
   )
+  | Map (p, ty1, ty2) -> 
+    let* ty1 = rec_call ty1 in
+    let* ty2 = rec_call ty2 in
+    R.ok (LA.Map (p, ty1, ty2))
   | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
@@ -852,10 +860,18 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     if is_expr_int_type ctx nname i
     then 
       match ty with
+      | LA.Map (_, given_index_type, b_ty) -> 
+        R.ifM (eq_lustre_type ctx given_index_type (LA.Int pos))
+          (R.ok (b_ty, warnings1 @ warnings2))
+          (type_error pos (IlltypedMapIndex (given_index_type, LA.Int pos)))
       | LA.ArrayType (_, (b_ty, _)) -> R.ok (b_ty, warnings1 @ warnings2)
       | ty -> type_error pos (IlltypedArrayIndex ty)
     else (
       match ty with 
+      | LA.Map (_, given_index_type, element_type) -> 
+        R.ifM (eq_lustre_type ctx index_type given_index_type)
+          (R.ok (element_type, warnings1 @ warnings2))
+          (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
       | _ -> type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
 
@@ -2044,6 +2060,20 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
+  | LA.Map (pos, ty1, ty2) ->
+    let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
+    let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
+    let base_ty1 = expand_type_syn ctx ty1 in 
+    let base_ty2 = expand_type_syn ctx ty2 in 
+    (match base_ty1 with 
+    | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+    | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
+    | _ -> 
+      match base_ty2 with 
+      | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+      | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty2)
+      | _ ->
+        R.ok (warnings1 @ warnings2))
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
     let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
@@ -2195,6 +2225,11 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
+           
+  (* map type *)
+  | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
+    R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2
+                    ; eq_lustre_type ctx val_ty1 val_ty2 ]
 
   (* special case for type synonyms *)
   | UserType (pos, ty_args, u), ty
