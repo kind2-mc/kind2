@@ -79,6 +79,7 @@ let mk_span start_pos end_pos =
 %token OF
 %token SUBTYPE
 %token HISTORY
+%token MAP
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -402,6 +403,8 @@ lustre_type:
     OF
     INT 
     { A.IntRange (mk_pos $startpos, l, u) }
+  | MAP; LPARAMBRACKET; ty1 = lustre_type; SEMICOLON; ty2 = lustre_type; RPARAMBRACKET
+    { A.Map (mk_pos $startpos, ty1, ty2) }
 
   (* User-defined type *)
   | s = ident; ps = call_static_params { A.UserType (mk_pos $startpos, ps, s) }

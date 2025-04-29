@@ -49,6 +49,7 @@ type error_kind = Unknown of string
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
   | IlltypedArrayIndex of tc_type
+  | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
@@ -89,6 +90,7 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | UnsupportedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

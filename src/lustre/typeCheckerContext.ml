@@ -205,6 +205,10 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
     let ty1 = expand_type_syn ctx ty1 in 
     let ty2 = expand_type_syn ctx ty2 in 
     TArr (p, ty1, ty2)
+  | Map (p, ty1, ty2) -> 
+    let ty1 = expand_type_syn ctx ty1 in 
+    let ty2 = expand_type_syn ctx ty2 in 
+    Map (p, ty1, ty2)
   | LA.RefinementType (p1, (p2, id, ty), e) -> 
     let ty = expand_type_syn ctx ty in
     LA.RefinementType (p1, (p2, id, ty), e)
@@ -665,6 +669,7 @@ let rec type_contains_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -688,6 +693,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_or_subrange ctx ty1 || type_contains_enum_or_subrange ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -709,6 +715,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
+  | Map (_, ty1, ty2)
   | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -735,6 +742,7 @@ let rec type_contains_enum_subrange_reftype ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -761,6 +769,7 @@ let rec type_contains_abstract ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_abstract ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -777,6 +786,7 @@ let rec type_contains_array ctx = function
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_array ctx ty)
       false tys
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_array ctx ty1 || type_contains_array ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -852,6 +862,7 @@ and ty_vars_of_type ctx node_name ty =
   | RecordType (_, _, tis) -> 
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | AbstractType (_, id) -> (
     match lookup_node_ty_vars ctx node_name,

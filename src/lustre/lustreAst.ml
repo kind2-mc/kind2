@@ -140,6 +140,7 @@ and lustre_type =
   | History of position * ident
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
+  | Map of position * lustre_type * lustre_type
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -615,6 +616,10 @@ and pp_print_lustre_type ppf = function
   | UserType (_, tys, s) -> 
     Format.fprintf ppf "%a<<%a>>" pp_print_ident s
       (pp_print_list pp_print_lustre_type "; ") tys
+  | Map (_, ty1, ty2) -> 
+    Format.fprintf ppf "map<<%a; %a>>" 
+      pp_print_lustre_type ty1
+      pp_print_lustre_type ty2
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 
