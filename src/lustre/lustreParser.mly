@@ -64,6 +64,7 @@ let mk_span start_pos end_pos =
 (* Tokens for types *)
 %token TYPE
 %token INT
+%token UINT
 %token UINT8;
 %token UINT16;
 %token UINT32;
@@ -162,6 +163,7 @@ let mk_span start_pos end_pos =
 %token FORALL
 %token EXISTS
 %token ANY
+%token CONCAT
     
 (* Tokens for relations *)
 %token LTE
@@ -216,6 +218,7 @@ let mk_span start_pos end_pos =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
+%left CONCAT
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
@@ -380,14 +383,16 @@ lustre_type:
   | BOOL { A.Bool (mk_pos $startpos) }
   | INT { A.Int (mk_pos $startpos) }
   | REAL { A.Real (mk_pos $startpos) }
-  | UINT8 { A.UInt8 (mk_pos $startpos) }
-  | UINT16 { A.UInt16 (mk_pos $startpos) }
-  | UINT32 { A.UInt32 (mk_pos $startpos) }
-  | UINT64 { A.UInt64 (mk_pos $startpos) }
-  | INT8 { A.Int8 (mk_pos $startpos) }
-  | INT16 { A.Int16 (mk_pos $startpos) }
-  | INT32 { A.Int32 (mk_pos $startpos) }
-  | INT64 { A.Int64 (mk_pos $startpos) }
+  | UINT8 { A.UBitVector (mk_pos $startpos, 8) }
+  | UINT16 { A.UBitVector (mk_pos $startpos, 16) }
+  | UINT32 { A.UBitVector (mk_pos $startpos, 32) }
+  | UINT64 { A.UBitVector (mk_pos $startpos, 64) }
+  | INT8 { A.SBitVector (mk_pos $startpos, 8) }
+  | INT16 { A.SBitVector (mk_pos $startpos, 16) }
+  | INT32 { A.SBitVector (mk_pos $startpos, 32) }
+  | INT64 { A.SBitVector (mk_pos $startpos, 64) }
+  | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | UINT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 
@@ -823,6 +828,7 @@ struct_item_list:
 index_var:
   | LSQBRACKET; s = ident; RSQBRACKET { s }
 
+
 (* Two colons (for mode reference). *)
 two_colons:
   | COLON ; COLON {}
@@ -931,6 +937,7 @@ pexpr(Q):
   | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
   | MINUS; e = expr { A.UnaryOp (mk_pos $startpos, A.Uminus, e) } 
   | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Plus, e1, e2) }
+  | e1 = pexpr(Q); CONCAT; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVConcat, e1, e2) }
   | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Times, e1, e2) }
   | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Div, e1, e2) }
   | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.IntDiv, e1, e2) }
@@ -1151,8 +1158,7 @@ pexpr(Q):
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
   (* A node or function call *)
-  | e = node_call { e } 
-
+  | e = node_call { e }
 
 %inline qexpr:
   | e = pexpr(quantified) { e }

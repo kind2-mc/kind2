@@ -55,7 +55,7 @@ let pos_of_expr = function
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _ , _) | Call (pos, _ , _ , _ )
+  | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _, _)
   -> pos
 
@@ -72,7 +72,7 @@ let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) 
+  | Pre (_, e)
     -> expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
   | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2)
@@ -104,7 +104,7 @@ let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
   | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
     -> expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
   | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
@@ -876,11 +876,11 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
-  | UnaryOp (_,_,e) -> vars e
-  | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
-  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
-  | ConvOp  (_,_,e) -> vars e
-  | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
+  | UnaryOp (_, _, e) -> vars e
+  | BinaryOp (_, _, e1, e2) -> vars e1 |> SI.union (vars e2)
+  | TernaryOp (_, _, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
+  | ConvOp  (_, _, e) -> vars e
+  | CompOp (_, _, e1, e2) -> (vars e1) |> SI.union (vars e2)
   (* Structured expressions *)
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
@@ -934,8 +934,8 @@ let rec vars_of_type = function
     SI.union vars1 vars2
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
+  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | SBitVector _ | UBitVector _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
@@ -1154,6 +1154,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
+  let r = replace_idents locals1 locals2 in 
   match expr with
   | Ident (pos, i) -> (
     match List.assoc_opt i (List.combine locals1 locals2) with
@@ -1161,25 +1162,25 @@ let rec replace_idents locals1 locals2 expr =
       | None -> Ident (pos, i)
   )
   (* Everything else is just recursing to find Idents *)
-  | Pre (a, e) -> Pre (a, replace_idents locals1 locals2 e)
-  | Arrow (a, e1, e2) -> Arrow (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Pre (a, e) -> Pre (a, r e)
+  | Arrow (a, e1, e2) -> Arrow (a, r e1, r e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, replace_idents locals1 locals2 e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, replace_idents locals1 locals2 e)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, replace_idents locals1 locals2 e)
+  | RecordProject (a, e, b) -> RecordProject (a, r e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, r e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, r e)
   
-  | When (a, e, b) -> When (a, replace_idents locals1 locals2 e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, replace_idents locals1 locals2 e, b)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
+  | When (a, e, b) -> When (a, r e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, r e, b)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, r e1, r e2)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, r e1, r e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, r e1, r e2, r e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
-  | Call (a, b, c, l) -> Call (a, b, c, List.map (replace_idents locals1 locals2) l)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1192,28 +1193,28 @@ let rec replace_idents locals1 locals2 expr =
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine
     (List.map fst l)
-    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
     List.combine
     (List.map fst l)
-    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (replace_idents locals1 locals2) l, replace_idents locals1 locals2 e)
-  | Activate (a, b, e, r, l) ->
-    Activate (a, b, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, List.map (replace_idents locals1 locals2) l)
-  | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, b, 
-             List.map (replace_idents locals1 locals2) l1, List.map (replace_idents locals1 locals2) l2)
+    RestartEvery (a, b, List.map r l, r e)
+  | Activate (a, b, e1, e2, l) ->
+    Activate (a, b, r e1, r e2, List.map r l)
+  | Condact (a, e1, e2, b, l1, l2) ->
+    Condact (a, r e1, r e2, b, 
+             List.map r l1, List.map r l2)
 
   | StructUpdate (a, e1, li, e2) -> 
-    StructUpdate (a, replace_idents locals1 locals2 e1, 
+    StructUpdate (a, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
-              | Index (a, e) -> Index (a, replace_idents locals1 locals2 e)
+              | Index (a, e) -> Index (a, r e)
              ) li, 
-    replace_idents locals1 locals2 e2)
+    r e2)
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1420,16 +1421,10 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     else match x, y with
     | Bool _, Bool _
     | Int _, Int _
-    | UInt8 _, UInt8 _
-    | UInt16 _, UInt16 _
-    | UInt32 _, UInt32 _
-    | UInt64 _, UInt64 _
-    | Int8 _, Int8 _
-    | Int16 _, Int16 _
-    | Int32 _, Int32 _
-    | Int64 _, Int64 _
     | Real _, Real _ ->
-      Ok (true)
+      Ok true
+    | SBitVector (_, s1), SBitVector (_, s2)
+    | UBitVector (_, s1), UBitVector (_, s2) -> Ok (s1 = s2)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
       let* e1 = match xe1, ye1 with
         | None, None -> Ok true
@@ -1475,7 +1470,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
-    | _ -> Ok (false)
+    | _ -> Ok false
   in
   r 0 x y
 

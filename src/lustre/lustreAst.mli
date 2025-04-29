@@ -80,7 +80,7 @@ type unary_operator =
 type binary_operator =
   | And | Or | Xor | Impl
   | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
   | Ite
@@ -105,14 +105,8 @@ type group_expr =
 type lustre_type =
   | Bool of position
   | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident

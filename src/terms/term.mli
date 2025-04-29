@@ -260,6 +260,12 @@ val mk_to_int : t -> t
 (** Create a conversion from uint8 to an integer numeral *)
 val mk_uint8_to_int : t -> t
 
+(** Create a conversion from unsigned bitvector to an integer numeral *)
+val mk_ubv_to_int : t -> t
+
+(** Create a conversion from signed bitvector to an integer numeral *)
+val mk_bv_to_int : t -> t
+
 (** Create a conversion from uint16 to an integer numeral *)
 val mk_uint16_to_int : t -> t
 

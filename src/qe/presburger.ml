@@ -538,6 +538,9 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
                (* Fail on conversion from signed integer64 to integer *)        
                | `INT64_TO_INT, _ -> raise Not_in_LIA
+
+               (* Fail on conversion from signed bitvector to integer *)        
+               | `SBV_TO_INT, _ -> raise Not_in_LIA
                
                (* Fail on conversion to unsigned integer8 *)
                | `TO_UINT8, _ -> raise Not_in_LIA

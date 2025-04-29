@@ -270,15 +270,9 @@ let empty_hs = HString.mk_hstring ""
 let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | Bool _
     | Int _
-    | UInt8 _
-    | UInt16 _
-    | UInt32 _ 
-    | UInt64 _ 
-    | Int8 _ 
-    | Int16 _
-    | Int32 _
-    | Int64 _
-    | Real _ -> empty_dependency_analysis_data
+    | Real _ 
+    | SBitVector _ 
+    | UBitVector _ -> empty_dependency_analysis_data
   | EnumType (pos, _, evals) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (Lib.flip (singleton_dependency_analysis_data const_prefix) pos) evals)   
@@ -430,11 +424,11 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
   | RefinementType (_, (_, _, ty), e) -> extract_node_calls_type ty @ get_node_call_from_expr e
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
-  | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | Real _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _ 
+  | UserType _ | AbstractType _ | EnumType _ | History _ -> []
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data

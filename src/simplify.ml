@@ -798,6 +798,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `UINT16_TO_INT, _
       | `UINT32_TO_INT, _
       | `UINT64_TO_INT, _
+      | `SBV_TO_INT, _
       | `INT8_TO_INT, _
       | `INT16_TO_INT, _
       | `INT32_TO_INT, _
@@ -1858,14 +1859,8 @@ let bv2nat = function
 | [BV b] -> let t = term_of_nf (BV b) in
   let tp = Term.type_of_term t in
   let bv = Term.bitvector_of_term t in
-  if (Type.is_int8 tp || Type.is_uint8 tp) then
-    Num (Bitvector.ubv8_to_num bv, [])
-  else if (Type.is_int16 tp || Type.is_uint16 tp) then
-    Num (Bitvector.ubv16_to_num bv, [])
-  else if (Type.is_int32 tp || Type.is_uint32 tp) then
-    Num (Bitvector.ubv32_to_num bv, [])
-  else if (Type.is_int64 tp || Type.is_uint64 tp) then
-    Num (Bitvector.ubv64_to_num bv, [])
+  if (Type.is_bitvector tp || Type.is_ubitvector tp) then
+    Num (Bitvector.ubv_to_num bv, [])
   else
     assert false
 | _ -> assert false
@@ -2257,6 +2252,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `INT32_TO_INT -> bv_to_int args
 
           | `INT64_TO_INT -> bv_to_int args
+
+          | `SBV_TO_INT -> bv_to_int args
 
           (* Conversion to unsigned integer8 is a monomial with polynomial
              subterms *)
@@ -2968,6 +2965,8 @@ let rec remove_ite' fterm args =
         | `INT32_TO_INT -> bv_to_int args
 
         | `INT64_TO_INT -> bv_to_int args
+
+        | `SBV_TO_INT -> bv_to_int args
 
         (* Conversion to unsigned integer8 is a monomial with polynomial
            subterms *)

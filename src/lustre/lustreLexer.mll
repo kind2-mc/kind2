@@ -224,6 +224,7 @@ let keyword_table = mk_hashtbl [
   (* Types *)
   "type", TYPE ;
   "int", INT ;
+  "uint", UINT ; 
   "uint8", UINT8 ;
   "uint16", UINT16 ;
   "uint32", UINT32 ;
@@ -482,6 +483,7 @@ rule token = parse
   | "!" { BVNOT }
   | "lsh" { LSH } 
   | "rsh" { RSH }
+  | "++" { CONCAT }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }

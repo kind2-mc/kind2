@@ -663,6 +663,7 @@ let rec type_of_term' t = match T.destruct t with
         | `INT16_TO_INT
         | `INT32_TO_INT
         | `INT64_TO_INT
+        | `SBV_TO_INT
         | `MOD
         | `ABS
         | `INTDIV
@@ -1324,6 +1325,9 @@ let mk_bvor = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVOR a
 
+(* Hashcons a BV concatenation *)
+let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
+
 (* Hashcons a bitwise negation *)
 let mk_bvnot t = mk_app_of_symbol_node `BVNOT [t]
 
@@ -1476,6 +1480,12 @@ let mk_uint16_to_int t = mk_app_of_symbol_node `UINT16_TO_INT [t]
 (* Hashcons a unary conversion from uint32 to an integer numeral *)
 let mk_uint32_to_int t = mk_app_of_symbol_node `UINT32_TO_INT [t]
 
+(* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
+let mk_ubv_to_int t = mk_app_of_symbol_node `BV2NAT [t]
+
+(* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
+let mk_bv_to_int t = mk_app_of_symbol_node `SBV_TO_INT [t]
+
 (* Hashcons a unary conversion from uint64 to an integer numeral *)
 let mk_uint64_to_int t = mk_app_of_symbol_node `UINT64_TO_INT [t]
 
@@ -1521,9 +1531,6 @@ let mk_bv2nat t = mk_app_of_symbol_node `BV2NAT [t]
 
 (* Hashcons a BV extraction *)
 let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
-
-(* Hashcons a BV concatenation *)
-let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
 
 (* Hashcons a BV sign extension *)
 let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]

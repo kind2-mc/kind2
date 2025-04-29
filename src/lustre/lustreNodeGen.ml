@@ -591,14 +591,8 @@ and compile_ast_type
   = function
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
-  | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
-  | A.UInt16 _ -> X.singleton X.empty_index (Type.t_ubv 16)
-  | A.UInt32 _ -> X.singleton X.empty_index (Type.t_ubv 32)
-  | A.UInt64 _ -> X.singleton X.empty_index (Type.t_ubv 64)
-  | A.Int8 _ -> X.singleton X.empty_index (Type.t_bv 8)
-  | A.Int16 _ -> X.singleton X.empty_index (Type.t_bv 16)
-  | A.Int32 _ -> X.singleton X.empty_index (Type.t_bv 32)
-  | A.Int64 _ -> X.singleton X.empty_index (Type.t_bv 64)
+  | A.SBitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
+  | A.UBitVector (_, s) -> X.singleton X.empty_index (Type.t_ubv s)
   | A.Real _ -> X.singleton X.empty_index Type.t_real
   | A.IntRange (_, lbound, ubound) -> 
     (* TODO: Old code does subtyping here, currently missing *)
@@ -647,7 +641,7 @@ and compile_ast_type
       let over_indices j t a = X.add (X.ListIndex i :: j) t a in
       let compiled_type = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_type a
-    in
+    in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
@@ -1100,6 +1094,8 @@ and compile_ast_expr
     compile_binary bounds E.mk_bvshl expr1 expr2
   | A.BinaryOp (_, A.BVShiftR, expr1, expr2) ->
     compile_binary bounds E.mk_bvshr expr1 expr2
+  | A.BinaryOp (_, A.BVConcat, expr1, expr2) -> 
+    compile_binary bounds E.mk_bvconcat expr1 expr2
   | A.CompOp (_, A.Lte, expr1, expr2) ->
     compile_binary bounds E.mk_lte expr1 expr2 
   | A.CompOp (_, A.Lt, expr1, expr2) ->

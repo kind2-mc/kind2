@@ -131,9 +131,7 @@ let rec ubv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
 
 let ubv_to_num (b : t) : Numeral.t =
   let len = length_of_bitvector b in
-  match len with
-  | 8 | 16 | 32 | 64 -> ubv_to_num' (Numeral.of_int len) b
-  | _ -> raise NonStandardBVSize
+  ubv_to_num' (Numeral.of_int len) b
 
 let ubv8_to_num = ubv_to_num' (Numeral.of_int 8)
 
@@ -252,9 +250,7 @@ let bv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
 
 let bv_to_num (b : t) : Numeral.t =
   let len = length_of_bitvector b in
-  match len with
-  | 8 | 16 | 32 | 64 -> bv_to_num' (Numeral.of_int len) b
-  | _ -> raise NonStandardBVSize
+  bv_to_num' (Numeral.of_int len) b
 
 
 let bv8_to_num = bv_to_num' (Numeral.of_int 8)
@@ -620,12 +616,7 @@ let pp_yices_print_bitvector_b ppf b =
 (* Pretty-print a bitvector in Yices' binary format given the decimal value and size *)
 let pp_yices_print_bitvector_d ppf i s = 
   let size = (Numeral.to_int s) in
-  let b = (match size with
-    | 8 -> num_to_ubv8 i
-    | 16 -> num_to_ubv16 i
-    | 32 -> num_to_ubv32 i
-    | 64 -> num_to_ubv64 i
-    | _ -> raise NonStandardBVSize) 
+  let b = num_to_ubv (Numeral.of_int size) i
   in
     fprintf ppf "0b%a" pp_print_bitvector_b' b
 
@@ -638,26 +629,16 @@ let pp_smtlib_print_bitvector_d ppf b =
 (* Pretty-print an unsigned Lustre machine integer *)
 let pp_print_unsigned_machine_integer ppf b =
   let len = length_of_bitvector b in
-    let num = (match len with
-               | 8 -> ubv8_to_num b
-               | 16 -> ubv16_to_num b
-               | 32 -> ubv32_to_num b
-               | 64 -> ubv64_to_num b
-               | _ -> raise NonStandardBVSize) in
-      let num_str = Numeral.string_of_numeral num in
-        pp_print_string ppf ("(uint" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+  let num = ubv_to_num b in
+  let num_str = Numeral.string_of_numeral num in
+  pp_print_string ppf ("(uint" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
 
 (* Pretty-print a signed Lustre machine integer *)
 let pp_print_signed_machine_integer ppf b =
   let len = length_of_bitvector b in
-    let num = (match len with
-               | 8 -> bv8_to_num b
-               | 16 -> bv16_to_num b
-               | 32 -> bv32_to_num b
-               | 64 -> bv64_to_num b
-               | _ -> raise NonStandardBVSize) in
-      let num_str = Numeral.string_of_numeral num in
-        pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+  let num = bv_to_num b in
+  let num_str = Numeral.string_of_numeral num in
+  pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
 
 
 (* Hexadecimal *)
