@@ -173,7 +173,7 @@ let pp_print_trail trans_sys ppf path =
   Format.fprintf ppf "%a@," 
     (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") (0 -- (Model.path_length path - 1))
 
-let pp_print_trail_mcil trans_sys prop_name prefix ppf cex = 
+let pp_print_cex_trail trans_sys prop_name prefix ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
     prop_name
     (if prefix then "_prefix" else "_lasso")
@@ -182,7 +182,7 @@ let pp_print_trail_mcil trans_sys prop_name prefix ppf cex =
 let pp_print_prop_trail trans_sys ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with 
-  | PropFalse cex -> (pp_print_trail_mcil trans_sys prop_name true ppf cex) 
+  | PropFalse cex -> (pp_print_cex_trail trans_sys prop_name true ppf cex) 
   | PropInvariant _
   | PropKTrue _ 
   | PropUnknown -> () 
@@ -251,23 +251,20 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
 let pp_print_prop_cert _ppf prop = 
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with
-  | PropFalse _ -> () 
   | PropInvariant (k, inv) -> 
     Format.printf "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
       (prop_name ^ "_cert")
       (LustreExpr.pp_print_term_as_expr false)
       inv
       k
-  | PropKTrue k -> 
-    Format.printf "@[<hv 2>:certificate@ (@[<v>%s :inv None :k %i@])@]@,"
-      (prop_name ^ "_cert")
-      k
+  | PropFalse _ 
+  | PropKTrue _
   | PropUnknown -> ()
 
 let prop_result_info prop_name prop_result = match prop_result with 
 | Property.PropFalse _ -> Format.sprintf ":model %s_model :trace %s_trace" prop_name prop_name
-| PropInvariant _
-| PropKTrue _ -> Format.sprintf ":certificate %s_cert" prop_name
+| PropInvariant _ -> Format.sprintf ":certificate %s_cert" prop_name
+| PropKTrue _
 | PropUnknown -> ""
 
 let pp_print_prop_result _ppf prop =
@@ -275,8 +272,8 @@ let pp_print_prop_result _ppf prop =
   let prop_result = Property.get_prop_status prop in
   let result = match prop_result with
   | PropFalse _ -> "sat"
-  | PropInvariant _
-  | PropKTrue _ -> "unsat"
+  | PropInvariant _ -> "unsat"
+  | PropKTrue _ 
   | PropUnknown -> "unknown"
   in
   Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %s)@]@]@]@,"
