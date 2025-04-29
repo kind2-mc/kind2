@@ -1205,6 +1205,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
   in
   let node_inputs_of_exprs inputs ast =
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
+    A.pp_print_expr Format.std_formatter ast_group_expr;
     let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
     let cexpr = flatten_list_indexes cexpr in
     let over_indices i input_sv expr accum =

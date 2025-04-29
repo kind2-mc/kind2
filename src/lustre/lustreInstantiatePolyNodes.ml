@@ -105,7 +105,11 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
   in
   (* Check for pre-existing instantiation of the node before compiling a new one *)
-  let decl, tyss = NI.Map.find node_id node_decls_map in 
+  (* print_endline (HString.string_of_hstring (NI.get_internal_name node_id)); *)
+  match NI.Map.find_opt node_id node_decls_map with 
+  | None -> ctx, gids, node_id, [], node_decls_map  
+  | Some (decl, tyss) ->
+  (* let decl, tyss = NI.Map.find node_id node_decls_map in *)
   let find_decl tys = 
     (List.length tys = List.length ty_args) &&
     (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic 
@@ -282,12 +286,49 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   | Int32 _ | Int64 _ | IntRange _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ -> ctx, gids, ty, [], node_decls_map
 
+and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map = 
+  let ctx, gids_map, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids_map, acc_decls, acc_glocals, acc_node_decls_map) -> 
+    let ctx, gids_map, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids_map (Some node_id) acc_node_decls_map ty in 
+    ctx, gids_map, decls @ acc_decls, GI.StringMap.add id ty acc_glocals, node_decls_map
+  ) gids.GI.locals (ctx, gids_map, [], GI.StringMap.empty, node_decls_map) in
+  let ctx, gids_map, decls, ib_oracles, node_decls_map = List.fold_left (fun (ctx, gids_map, acc_decls, acc_ib_oracles, acc_node_decls_map) (id, ty) -> 
+    let ctx, gids_map, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids_map (Some node_id) acc_node_decls_map ty in 
+    ctx, gids_map, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
+  ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.ib_oracles in 
+  let ctx, gids_map, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids_map, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
+    let ctx, gids_map, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids_map (Some node_id) acc_node_decls_map expr in 
+    ctx, gids_map, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
+  ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.equations in 
+
+  let gids = { gids with 
+    locals = glocals; 
+    ib_oracles = ib_oracles; 
+    equations = geqs 
+    } in
+  let gids_map = match NI.Map.find_opt node_id gids_map with 
+  | Some gids' -> 
+    (* print_endline "-----------------------------";
+    HString.pp_print_hstring Format.std_formatter (NI.get_internal_name node_id);
+    LustreAstNormalizer.pp_print_generated_identifiers Format.std_formatter gids';
+    print_endline "------------------------";
+    LustreAstNormalizer.pp_print_generated_identifiers Format.std_formatter gids; 
+    print_endline "-----------------------------"; *)
+    (* gids_map *)
+    NI.Map.add node_id gids gids_map
+  | None -> NI.Map.add node_id gids gids_map in
+
+  ctx, gids_map, decls, node_decls_map
+  (* ctx, gids_map, [], node_decls_map *)
+
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                              A.expr -> Ctx.tc_context * GI.t NI.Map.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
 = fun ctx gids caller_nname node_decls_map expr -> 
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
-  | A.Call (pos, ty :: tys, node_id, exprs) -> 
+  | A.Call (pos, ty :: tys, node_id, exprs) ->
+    (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (Lib.pp_print_list A.pp_print_lustre_type "; ") (ty :: tys); *)
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
@@ -524,6 +565,12 @@ and gen_poly_decls_decls
   let ctx, gids, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_node_decls_map) decl -> match decl with
   | A.FuncDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some node_id) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -554,6 +601,12 @@ and gen_poly_decls_decls
     )
   | NodeDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some node_id) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -584,6 +637,12 @@ and gen_poly_decls_decls
     )
   | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
     let ctx = Chk.add_ty_params_node_ctx ctx cname ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt cname gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids cname acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some cname) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
