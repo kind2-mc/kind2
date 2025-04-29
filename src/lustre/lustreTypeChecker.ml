@@ -2063,20 +2063,15 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
   | LA.Map (pos, ty1, ty2) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
-    if type_contains_ref ctx ty1 then 
-      type_error pos (UnsupportedMapType ty1) 
-    else if type_contains_ref ctx ty2 then 
-      type_error pos (UnsupportedMapType ty2)
-    else 
     let base_ty1 = expand_type_syn ctx ty1 in 
     let base_ty2 = expand_type_syn ctx ty2 in 
     (match base_ty1 with 
     | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-    | History _ | TArr _ | IntRange _ -> type_error pos (UnsupportedMapType base_ty1)
+    | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
       match base_ty2 with 
       | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-      | History _ | TArr _ | IntRange _ -> type_error pos (UnsupportedMapType base_ty2)
+      | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty2)
       | _ ->
         R.ok (warnings1 @ warnings2))
   | LA.TArr (_, arg_ty, res_ty) ->
