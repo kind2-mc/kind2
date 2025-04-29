@@ -9,10 +9,10 @@ LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 all: build
 
 build:
-	@dune build src @install
-	@dune install --sections=bin --prefix . 2> /dev/null
-#    @dune build -p kind2 @install
-#	 @dune install -p kind2 --sections=bin --prefix . 2> /dev/null
+#	@dune build src @install
+#	@dune install --sections=bin --prefix . 2> /dev/null
+	@dune build -p kind2 @install
+	@dune install -p kind2 --sections=bin --prefix . 2> /dev/null
 
 static:
 	@LINKING_MODE=static dune build -p kind2 @install

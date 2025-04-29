@@ -1,7 +1,19 @@
-(* 
-  Questions
-  1) Top-level function takes a trans_sys argument. How do we know we're passing the correct one? 
-     Is it just the top-level transition system? 
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2025 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 module SVM = StateVar.StateVarMap
@@ -41,29 +53,6 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
     )
   )
 
-(* let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") map = 
-  let sys_vars = List.assoc (TransSys.scope_of_trans_sys trans_sys) var_map in
-  (TransSys.state_vars trans_sys) |> List.filter_map (fun state_var -> 
-    let state_var_opt = List.find_opt (fun v -> v == state_var) sys_vars in
-    match state_var_opt with 
-    | None -> None
-    | Some sys_state_var when not (StateVar.for_inv_gen sys_state_var) -> None (* Filter out init flags *)
-    | Some sys_state_var -> (
-      let var_name = prefix ^ StateVar.name_of_state_var sys_state_var in 
-      let translated_svar = StateVar.StateVarMap.find sys_state_var map in
-      let svar_state_values = List.assoc translated_svar model_assoc_list in
-      let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
-      let state_value_changed = (Numeral.to_int k) == 0 || not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) svar_kth_state_value) in
-      match svar_kth_state_value with
-      | Model.Term value -> (
-          Some (var_name, Term.string_of_term value, state_value_changed)
-      )
-      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.")
-      
-    )
-  ) *)
-
-
 let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_assoc_list: (StateVar.t * Model.value list) list) k = 
   let sys_map = match map with 
     | None -> (* Create the identity map for the top trans system *)
@@ -89,11 +78,10 @@ let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_as
     ) |> 
     List.flatten 
   in 
-  (*!! Include top-level transition system name in prefix? *)
-  (*!! How about for reachability variables, e.g. rch_1? *)
-  (*!! Right now, there can be name clashes; ask Cesare. 
-       But for now, take away top-level "main::" prefix *)
-  (*!! For now, I remove the (non-reachability) variables in the check-system *)
+
+  (* For now, we remove the (non-reachability) variables in the check-system renamings. 
+     This could reasonably change in the future.
+  *)
   let trans_sys_state_vars = 
     if prefix = "" then [] else get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map 
   in
