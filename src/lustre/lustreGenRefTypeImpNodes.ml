@@ -83,6 +83,7 @@ let rec expr_contains_mode_ref expr =
   | Activate (_, _, e1, e2, expr_list) -> 
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | Extract (_, e, _, _) -> r e
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> false
 

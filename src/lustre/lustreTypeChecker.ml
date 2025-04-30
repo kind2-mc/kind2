@@ -105,6 +105,8 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | InvalidExtractUpperBound of int * int
+  | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
 
 type error = [
@@ -209,6 +211,8 @@ let error_message kind = match kind with
   | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
+  | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
+  | InvalidExtractLowerBound (lb, ub) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub)
   | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
 
 type warning_kind = 
@@ -346,6 +350,7 @@ let rec infer_const_attr ctx exp =
   (* Values *)
   | Const _ -> [R.ok ()]
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> combine (r e1) (r e2)
   | TernaryOp (_, Ite, e1, e2, e3) -> (
@@ -535,6 +540,9 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e = call e in
     R.ok (LA.TupleProject (pos, e, idx))
   | Const (_, _) as e -> R.ok e
+  | Extract (pos, e, idx1, idx2) -> 
+    let* e = call e in 
+    R.ok (LA.Extract (pos, e, idx1, idx2))
   | UnaryOp (pos, op, e) -> 
     let* e = call e in
     R.ok (LA.UnaryOp (pos, op, e))
@@ -716,6 +724,17 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   | LA.BinaryOp (pos, bop, e1, e2) ->
     let* ty, warnings = infer_type_binary_op ctx nname pos bop e1 e2 in 
     R.ok (ty, warnings)
+  | LA.Extract (pos, e, ub, lb) ->
+    let* inf_ty, warnings = infer_type_expr ctx nname e in 
+    (match inf_ty with 
+    | LA.UBitVector (_, size) -> 
+      if size >= ub && ub >= lb then
+        (R.ok (LA.UBitVector (pos, ub - lb + 1), warnings))
+      else if lb > ub then
+        type_error pos (InvalidExtractUpperBound (lb, ub))
+      else
+        type_error pos (InvalidExtractUpperBound (size, ub))
+    | _ -> type_error pos (ExpectedMachineIntegerType inf_ty)) 
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
     | Ite -> 
@@ -999,6 +1018,12 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     check_type_tuple_proj pos ctx nname expr idx exp_ty
 
   (* Operators *)
+  | Extract (pos, _, idx1, idx2) as expr -> 
+    let* inf_ty, warnings = infer_type_expr ctx nname expr in 
+    R.ifM    
+      (eq_lustre_type ctx (UBitVector (pos, idx1 - idx2 + 1)) exp_ty) 
+      (R.ok warnings)
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | UnaryOp (pos, op, e) ->
     let* inf_ty, warnings = infer_type_unary_op ctx nname pos e op in
     R.ifM 

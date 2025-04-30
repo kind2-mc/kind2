@@ -822,6 +822,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> call e
   | BinaryOp (_,_,e1, e2) -> call e1 |> SI.union (call e2)
   | TernaryOp (_,_, e1, e2, e3) -> call e1 |> SI.union (call e2) |> SI.union (call e3) 

@@ -1163,6 +1163,10 @@ pexpr(Q):
   (* A node or function call *)
   | e = node_call { e }
 
+  | e = pexpr(Q); LSQBRACKET; n1 = NUMERAL; COLON; n2 = NUMERAL; RSQBRACKET 
+    { A.Extract (mk_pos $startpos, e, int_of_string (HString.string_of_hstring n1), int_of_string (HString.string_of_hstring n2)) }
+
+
 %inline qexpr:
   | e = pexpr(quantified) { e }
 
