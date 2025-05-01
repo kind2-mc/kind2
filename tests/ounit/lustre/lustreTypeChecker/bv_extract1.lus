@@ -1,0 +1,5 @@
+node M(x: uint[64]) returns (y: uint[32])
+let
+  y = x[65:0];  
+  check x = x;  
+tel  
