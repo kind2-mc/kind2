@@ -524,6 +524,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ArrayConstr _ -> assert false
   | Quantifier _ -> assert false
   | When _ -> assert false
+  | Extract _ -> assert false
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) 

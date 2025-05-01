@@ -381,6 +381,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Values *)
   | LA.Const _ -> []
   (* Operators *)
+  | LA.Extract (_, e, _, _)
   | LA.UnaryOp (_, _, e) -> get_node_call_from_expr e
   | LA.BinaryOp (_, _, e1, e2) -> (get_node_call_from_expr e1)
                                   @ (get_node_call_from_expr e2)
@@ -644,6 +645,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Const _ -> SI.empty
 
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> r e
   | BinaryOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   | TernaryOp (_,_, e1, e2, e3) -> SI.union (SI.union (r e1) (r e2)) (r e3)
@@ -783,6 +785,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok [List.fold_left union_dependency_analysis_data
              empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)
+    | LA.Extract (_, e, _, _)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
   | LA.BinaryOp (_, _, e1, e2)
     | LA.CompOp (_, _, e1, e2) ->

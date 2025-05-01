@@ -707,6 +707,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedMapIndex _)) -> true
     | _ -> false);
+  mk_test "erroneous bv extract 1" (fun () ->
+    match load_file "./lustreTypeChecker/bv_extract1.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidExtractUpperBound _)) -> true
+    | _ -> false);
+  mk_test "erroneous bv extract 2" (fun () ->
+    match load_file "./lustreTypeChecker/bv_extract2.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidExtractLowerBound _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

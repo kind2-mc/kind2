@@ -90,6 +90,8 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | InvalidExtractUpperBound of int * int
+  | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
 
 type error = [

@@ -786,6 +786,10 @@ and compile_ast_expr
     (* TODO: Old code does three error checks here doublecheck *)
     X.map2 (fun _ -> mk) expr1 expr2
 
+  and compile_bvextract bounds mk expr ub lb =
+    (* TODO: Old code does a type check here *)
+    X.map (mk ub lb) (compile_ast_expr cstate ctx bounds map expr)
+
   and compile_quantifier bounds mk avars expr =
     let vars, quant_var_map = vars_of_quant cstate ctx map avars in
     let bounds = bounds @
@@ -1133,6 +1137,8 @@ and compile_ast_expr
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases
+  | A.Extract (_, expr, ub, lb) -> 
+    compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
