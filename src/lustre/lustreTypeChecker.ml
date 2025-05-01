@@ -180,7 +180,7 @@ let error_message kind = match kind with
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedUnsignedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of unsigned machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
-  | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of machine integer type but found "
+  | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of unsigned machine integer type but found "
     ^ string_of_tc_type ty
   | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
@@ -212,7 +212,7 @@ let error_message kind = match kind with
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
-  | InvalidExtractLowerBound (lb, ub) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub)
+  | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
 
 type warning_kind = 
@@ -728,10 +728,10 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     let* inf_ty, warnings = infer_type_expr ctx nname e in 
     (match inf_ty with 
     | LA.UBitVector (_, size) -> 
-      if size >= ub && ub >= lb then
+      if size > ub && ub >= lb then
         (R.ok (LA.UBitVector (pos, ub - lb + 1), warnings))
       else if lb > ub then
-        type_error pos (InvalidExtractUpperBound (lb, ub))
+        type_error pos (InvalidExtractLowerBound (ub, lb))
       else
         type_error pos (InvalidExtractUpperBound (size, ub))
     | _ -> type_error pos (ExpectedMachineIntegerType inf_ty)) 

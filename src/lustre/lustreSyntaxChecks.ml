@@ -918,7 +918,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
-    (*!! TODO: Check that upper bound geq lower bound *)
     | Extract (_, e, _, _)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->

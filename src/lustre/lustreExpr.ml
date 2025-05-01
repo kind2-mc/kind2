@@ -1665,6 +1665,12 @@ let type_of_bvconcat t t' =
     Type.t_ubv (s1 + s2)
   | _, _ -> raise Type_mismatch
 
+let type_of_bvextract t ub lb = 
+  if Type.is_bitvector t.expr_type then
+    Type.t_bv ((ub - lb) + 1)
+  else 
+    Type.t_ubv ((ub - lb) + 1)
+
 (* Type check for bv -> ubv -> bv or ubv -> ubv -> ubv *)
 let type_of_abv_ubv_abv t t' =
 match t, t' with
@@ -2912,6 +2918,18 @@ let eval_bvand expr1 expr2 =
   | _ -> Term.mk_bvand [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
+let eval_bvextract expr ub lb = 
+  let ub, lb = match Term.destruct ub, Term.destruct lb with
+  | Term.T.Const c1, Term.T.Const c2 when
+          Symbol.is_numeral c1 && 
+          Symbol.is_numeral c2 -> Symbol.numeral_of_symbol c1, Symbol.numeral_of_symbol c2 
+  | _ -> assert false    
+  in
+  match Term.destruct expr with              
+    
+  | _ -> Term.mk_bvextract ub lb expr
+  | exception Invalid_argument _ -> assert false (*!! TODO: Check *)
+
 let eval_bvconcat expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with              
@@ -2927,6 +2945,13 @@ let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2
 
 (* Bitvector concatenation *)
 let mk_bvconcat expr1 expr2 = mk_binary eval_bvconcat type_of_bvconcat expr1 expr2
+
+(* Bitvector extract *)
+let mk_bvextract (lb: int) (ub: int) expr = 
+  { expr_init = eval_bvextract expr.expr_init (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
+  expr_step = eval_bvextract expr.expr_step (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
+  expr_type = (type_of_bvextract expr ub lb) } 
+
 
 (* ********************************************************************** *)
 
