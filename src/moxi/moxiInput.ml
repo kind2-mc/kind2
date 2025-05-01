@@ -189,6 +189,26 @@ let rec kind2_term scope = function
                (string_of_symbol symbol))
     )
   )
+  | A.Let (_, var_bindings, term) -> (
+    (* TODO: Add full support for shadowing *)
+    let vars =
+      var_bindings |> List.map (fun (_, s, t) ->
+        let term' = kind2_term scope t in
+        let ty = Term.type_of_term term' in
+        let var =
+          let name = string_of_symbol s in
+          let svar =
+            StateVar.mk_state_var
+              ~is_input:false ~is_const:false ~for_inv_gen:true
+              name scope ty
+          in
+          Var.mk_state_var_instance svar TS.init_base
+        in
+        var, term'
+      )
+    in
+    Term.mk_let vars (kind2_term scope term)
+  )
 
 let mk_subsystem_calls local_map sys_name systems subsys =
   let process_subsys_attr
