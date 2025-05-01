@@ -2928,7 +2928,7 @@ let eval_bvextract expr ub lb =
   match Term.destruct expr with              
     
   | _ -> Term.mk_bvextract ub lb expr
-  | exception Invalid_argument _ -> assert false (*!! TODO: Check *)
+  | exception Invalid_argument _ -> Term.mk_bvextract ub lb expr
 
 let eval_bvconcat expr1 expr2 = 
 
