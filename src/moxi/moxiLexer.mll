@@ -41,6 +41,7 @@
     "set-logic", P.SET_LOGIC ;
     "true", P.TRUE ;
     "false", P.FALSE ;
+    "let", P.LET ;
   ]
 }
 

@@ -56,6 +56,9 @@ type term =
   | Constant of constant
   | QualId of qual_identifier
   | App of span * qual_identifier * term list
+  | Let of span * var_binding list * term
+
+and var_binding = span * symbol * term
 
 type formula_type = Assumption | Reachable
 
