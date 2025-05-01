@@ -731,7 +731,7 @@ let slice_to_abstraction
     let subsystem' =
       let sub = S.find_subsystem_of_list main_subs scope in
         LustreSlicing.slice_to_abstraction
-          (Flags.slice_nodes ()) analysis sub
+          (Flags.slice_nodes () == `On) analysis sub
     in
 
     Lustre ([subsystem'], globals, ast)
@@ -857,7 +857,7 @@ let slice_to_abstraction_and_property
         let sub = S.find_subsystem_of_list main_subs scope in
         if is_prop'_instantiated then
           LustreSlicing.slice_to_abstraction
-            (Flags.slice_nodes ()) analysis' sub
+            (Flags.slice_nodes () == `On) analysis' sub
         else
           LustreSlicing.slice_to_abstraction_and_property
             analysis' vars sub

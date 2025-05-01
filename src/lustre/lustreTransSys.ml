@@ -39,7 +39,7 @@ module TM = Type.TypeMap
 
 type settings = {
   preserve_sig: bool;
-  slice_nodes: bool;
+  slice_nodes: Flags.slice_nodes;
   add_functional_constraints: bool;
   slice_to_prop: P.t option
 }
@@ -2336,12 +2336,13 @@ let rec trans_sys_of_node'
             )
           in
 
-          if not (Flags.slice_nodes ()) then
+          if (Flags.slice_nodes () != `On) then
             all_state_vars |> List.iter (fun state_var ->
               let state_var_type = StateVar.type_of_state_var state_var in
               if Type.is_array state_var_type then (
                 (* Enforce creation of 'select' functions required to retrieve models, even if
-                   the array variable is not used in the input, when slice_nodes=false *)
+                   the array variable is not used in the input. Legacy slicing algorithm
+                   handles this case for us *)
                 StateVar.encode_select state_var |> ignore
               )
             )
@@ -2872,22 +2873,28 @@ let trans_sys_of_nodes
   );
 
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
-  
+
   let { SubSystem.source = { N.node_id = top_name; } } as subsystem' =
+
+  if options.slice_nodes != `Experimental then
     let preserve_sig, slice_nodes =
       options.preserve_sig, options.slice_nodes
     in
     match options.slice_to_prop with
     | None -> 
       S.slice_to_abstraction
-        ~preserve_sig slice_nodes analysis_param subsystem'
+        ~preserve_sig (slice_nodes == `On) analysis_param subsystem'
     | Some prop ->
       let vars =
         Term.state_vars_of_term prop.P.prop_term
       in
       S.slice_to_abstraction_and_property
         ~preserve_sig analysis_param vars subsystem'
+  else
+    subsystem'
   in
+
+  let top_name = subsystem'.source.N.node_id in
 
   let nodes = N.nodes_of_subsystem subsystem' in
 
