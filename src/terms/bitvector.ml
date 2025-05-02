@@ -431,6 +431,17 @@ let bv_or (bv1 : t) (bv2 : t) : t =
   else
     bv_or_aux bv1 bv2 []
 
+let rec bv_xor_aux (bv1 : t) (bv2 : t) (acc : t) : t =
+  match bv1, bv2 with
+  | [], [] -> acc
+  | h1 :: t1, h2 :: t2 -> bv_xor_aux t1 t2 (List.append acc [h1 <> h2])
+  | _ -> assert false
+
+let bv_xor (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    bv_xor_aux bv1 bv2 []
 
 (* Negation *)
 let rec bv_not_aux (bv : t) (acc : t) : t =
