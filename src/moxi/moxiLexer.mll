@@ -23,8 +23,6 @@
 
   exception Unexpected_EOF
 
-  let buffer = Buffer.create 1024
-
   (* Create and populate a reserved word hashtable *)
   let mk_hashtbl words =
     let tbl =
@@ -53,6 +51,8 @@ let white_space_char = ['\t' '\r' '\n' ' ']
 
 let printable_char = [' '-'~'] | ['\x80'-'\xFF']
 
+let white_space_or_printable = ['\t' '\n' '\r' ' '-'~' '\x80'-'\xFF']
+
 let digit = ['0'-'9']
 
 let letter = ['A'-'Z' 'a'-'z']
@@ -69,6 +69,8 @@ let symbol_char =
   ['~' '!' '@' '$' '%' '^' '&' '*' '_' '-' '+' '=' '<' '>' '.' '?' '/']
 
 let simple_symbol = (letter | symbol_char) (letter | digit | symbol_char)*
+
+let quoted_symbol_char = (white_space_or_printable # ['|' '\\'])
 
 rule token = parse
   (* Comment *)
@@ -99,10 +101,17 @@ rule token = parse
   | ":query"        { P.QUERY_KW }
 
   (* Quoted symbol *)
-  | '|'              { 
-    Buffer.clear buffer;
-    let sym = quoted_symbol lexbuf in
-    P.QUOTED_SYMBOL (HString.mk_hstring sym)
+  | '|' (quoted_symbol_char* as s) '|'
+  {
+    for i = 0 to (String.length s - 1) do
+      match s.[i] with
+      | '\n' -> Lexing.new_line lexbuf
+      | _ -> ()
+    done;
+    try
+      Hashtbl.find reserved_word_table s
+    with Not_found ->
+      P.QUOTED_SYMBOL (HString.mk_hstring s)
   }
 
   | simple_symbol as s
@@ -131,19 +140,3 @@ and skip_to_eol = parse
 
   (* Ignore characters *)
   | _ { skip_to_eol lexbuf }
-
-and quoted_symbol = parse
-  | '\\' as c {
-    raise (Unexpected_Char c) (* Refine error *)
-  }
-  | '|' 
-  { 
-    Buffer.contents buffer
-  }
-  | (white_space_char | printable_char)* as chars 
-  { 
-    Buffer.add_string buffer chars; quoted_symbol lexbuf
-  }
-  | _ as c { 
-    raise (Unexpected_Char c) (* Refine error *)
-  }
