@@ -96,14 +96,16 @@ let type_of_sort A.{ id; parameters } =
 
   let _, symbol, indices = id in
 
-  if indices <> [] then
-    failwith("Indexed identifiers are not supported yet") ;
-
   let name = string_of_symbol symbol in
 
   if name = "Bool" then Type.t_bool
   else if name = "Int" then Type.t_int
   else if name = "Real" then Type.t_real
+  else if name = "BitVec" then (
+    match indices with
+    | [NumericIndex (_, n)] -> Type.t_ubv (Numeral.to_int n)
+    | _ -> failwith("Unexpected index for BitVec sort")
+  )
   else raise (Invalid_argument
     (Format.asprintf "Sort '%s' is not supported" name))
 
@@ -145,7 +147,7 @@ let rec kind2_term scope = function
     let _, symbol, indices = id in
 
     if indices <> [] then
-      failwith("Indexed identifiers are not supported yet") ;
+      failwith("Unexpected indexed identifier") ;
 
     let name = string_of_symbol symbol in
     
@@ -175,15 +177,26 @@ let rec kind2_term scope = function
 
     let _, symbol, indices = id in
 
-    if indices <> [] then
-      failwith("Indexed identifiers are not supported yet") ;
-
     try
       if is_prime then raise Not_found ;
-      let symb =
-        GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
-      in
-      Term.mk_app symb args
+      match indices with
+      | [] -> (
+        let symb =
+          GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+        in
+        Term.mk_app symb args
+      )
+      | [idx1; idx2] -> (
+        if (string_of_symbol symbol = "extract") then (
+          match idx1, idx2 with
+          | NumericIndex (_, i1), NumericIndex (_, i2) -> (
+            Term.mk_app (Symbol.s_extract i1 i2) args
+          )
+          | _ -> failwith("Unexpected indices for extract operator")
+        )
+        else raise Not_found
+      )
+      | _ -> raise Not_found
     with Not_found -> (
       failwith(Format.sprintf "Invalid function symbol '%s'"
                (string_of_symbol symbol))
