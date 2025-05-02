@@ -237,7 +237,7 @@ let define_fun s uf_symbol vars term =
        (UfSymbol.string_of_uf_symbol uf_symbol)
        vars
        (UfSymbol.res_type_of_uf_symbol uf_symbol)
-       term)
+       (S.Conv.smtexpr_of_term term))
 
 
 
