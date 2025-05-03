@@ -365,6 +365,8 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `STORE -> Format.pp_print_string ppf "update"
 
+  | `CONST_ARRAY _ -> Format.pp_print_string ppf ""
+
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
   | `UINT8_TO_INT -> assert false

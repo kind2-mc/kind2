@@ -691,6 +691,11 @@ let rec type_of_term' t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
+        | `CONST_ARRAY _ (* ty_array *) ->
+
+          (match l with
+           | [v] -> (type_of_term' v)
+           | _ -> assert false)
 
         (* Bitvector-valued function *)
         | `BVEXTRACT (i, j) -> 
@@ -1555,6 +1560,7 @@ let mk_select a i = mk_app_of_symbol_node (`SELECT (type_of_term a)) [a; i]
 let mk_store a i v =
   mk_app_of_symbol_node `STORE [a; i; v]
 
+let mk_const_array t v = mk_app_of_symbol_node (`CONST_ARRAY t) [v]
 
 (* Generate a new tag *)
 let newid =

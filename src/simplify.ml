@@ -764,6 +764,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `DIVISIBLE _, _
       | `UF _, _
       | `SELECT _, _
+      | `CONST_ARRAY _, _
       | `STORE, _ -> Term.mk_not term
 
       (* Negate both cases of ite term *)
@@ -1172,6 +1173,12 @@ let store = function
  (* Store is ternary *)
  | _ -> assert false
 
+let const_array ty_array = function
+ | [v] ->
+
+  atom_of_term (Term.mk_const_array ty_array (term_of_nf v))
+
+ | _ -> assert false
 
 let select simplify_term_node model fterm = function
 
@@ -2075,6 +2082,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           (* array store *)
           | `STORE -> store args
+
+          | `CONST_ARRAY ty_array -> const_array ty_array args
 
           | `UF _ when Symbol.is_select s ->
 
@@ -3114,6 +3123,8 @@ let rec remove_ite' fterm args =
 
         (* Selec from an array *)
         | `SELECT _ -> select remove_ite' (Var.VarHashtbl.create 0) fterm args
+
+        | `CONST_ARRAY ty_array -> const_array ty_array args
 
         (* Array store *)
         | `STORE -> store args

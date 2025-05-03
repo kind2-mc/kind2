@@ -226,8 +226,8 @@ let rec pp_print_type_node ppf = function
     Format.fprintf
       ppf 
       "(Array %a %a)"
-      pp_print_type s 
       pp_print_type t
+      pp_print_type s
 
   | Abstr s -> Format.pp_print_string ppf s
 
@@ -284,8 +284,8 @@ let rec pp_print_type_node_debug ppf = function
     Format.fprintf
       ppf 
       "(Array %a %a)"
-      pp_print_type s 
       pp_print_type t
+      pp_print_type s
 
   | Abstr s -> Format.pp_print_string ppf s
 
