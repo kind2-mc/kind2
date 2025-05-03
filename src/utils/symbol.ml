@@ -124,6 +124,8 @@ type interpreted_symbol =
   (* Selection from array (binary) *)
   | `SELECT of Type.t
   | `STORE                (* Update of an array (ternary) *)
+
+  | `CONST_ARRAY of Type.t (** Constant array (unary) *)
   ]
 
 
@@ -240,6 +242,9 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
+    | `CONST_ARRAY a1, `CONST_ARRAY a2 ->
+      Type.equal_types a1 a2
+
     | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
     | `BVSIGNEXT i1, `BVSIGNEXT i2 -> Numeral.equal i1 i2
     | `BVZEROEXT i1, `BVZEROEXT i2 -> Numeral.equal i1 i2
@@ -312,6 +317,7 @@ module Symbol_node = struct
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ 
+    | `CONST_ARRAY _, _
     | `BVEXTRACT _, _
     | `BVCONCAT, _
     | `BVSIGNEXT _, _
@@ -531,6 +537,11 @@ let rec pp_print_symbol_node ppf = function
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"
+  | `CONST_ARRAY a ->
+      Format.fprintf
+      ppf
+      "(as const %a)"
+      Type.pp_print_type a
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)
@@ -787,11 +798,17 @@ let is_select = function
      with Scanf.Scan_failure _ -> false)
   | _ -> false
 
+let is_const_array = function
+  | { Hashcons.node = `CONST_ARRAY _ } -> true
+  | _ -> false
+
 let is_divisible = function
   | { Hashcons.node = `DIVISIBLE _ } -> true
   | _ -> false
 
 let s_store = mk_symbol `STORE
+
+let s_const_array ta = mk_symbol (`CONST_ARRAY ta)
 
 (* Bit-vector extract operator *)
 let s_extract i j = mk_symbol (`BVEXTRACT (i,j))

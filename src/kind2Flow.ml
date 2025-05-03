@@ -903,6 +903,7 @@ let run in_sys =
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
       KEvent.run_im msg_setup [] (on_exit_success `Supervisor);
+      Flags.Arrays.set_smt true ;
 
       let params = ISys.moxi_params in_sys in
       let run_check param =

@@ -774,6 +774,17 @@ and pp_print_app ?as_type safe pvar ppf = function
             
         | _ -> assert false)
 
+    | `CONST_ARRAY _ ->
+
+      (function
+        | [v] ->
+
+          Format.fprintf ppf
+          "@[<hv 2>%a^?@]"
+          (pp_print_term_node safe pvar) v
+
+        | _ -> assert false)
+
     | `STORE ->
       
       (function 

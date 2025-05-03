@@ -338,6 +338,8 @@ val mk_select : t -> t -> t
 (** Functionally update an array at a given index *)
 val mk_store : t -> t -> t -> t
 
+val mk_const_array : Type.t -> t -> t
+
 (** Uniquely name a term with an integer and return a named term and
     its name *)
 val mk_named : t -> int * t

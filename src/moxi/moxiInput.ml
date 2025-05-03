@@ -90,10 +90,7 @@ let rec mk_subsystem sys = {
 let hstring_of_symbol = snd
 let string_of_symbol symbol = HString.string_of_hstring (snd symbol)
 
-let type_of_sort A.{ id; parameters } =
-  if parameters <> [] then
-    failwith("Parametric identifiers are not supported yet") ;
-
+let rec type_of_sort A.{ id; parameters } =
   let _, symbol, indices = id in
 
   let name = string_of_symbol symbol in
@@ -105,6 +102,11 @@ let type_of_sort A.{ id; parameters } =
     match indices with
     | [NumericIndex (_, n)] -> Type.t_ubv (Numeral.to_int n)
     | _ -> failwith("Unexpected index for BitVec sort")
+  )
+  else if name = "Array" then (
+    match parameters with
+    | [idx_ty; elem_ty] -> Type.mk_array (type_of_sort elem_ty) (type_of_sort idx_ty)
+    | _ -> failwith("Incorrect arity for Array sort")
   )
   else raise (Invalid_argument
     (Format.asprintf "Sort '%s' is not supported" name))
@@ -172,7 +174,7 @@ let rec kind2_term scope = function
       )
     )
   )
-  | A.App (_, (id, is_prime, _), args) -> (
+  | A.App (_, (id, is_prime, sort), args) -> (
     let args = List.map (kind2_term scope) args in
 
     let _, symbol, indices = id in
@@ -184,7 +186,17 @@ let rec kind2_term scope = function
         let symb =
           GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
         in
-        Term.mk_app symb args
+        if Symbol.is_const_array symb then (
+          match sort with
+          | Some sort -> (
+            match args with
+            | [v] -> Term.mk_const_array (type_of_sort sort) v
+            | _ -> failwith("Incorrect number of arguments for const function")
+          )
+          | None -> failwith("Couldn't determine sort for const function")
+        )
+        else
+          Term.mk_app symb args
       )
       | [idx1; idx2] -> (
         if (string_of_symbol symbol = "extract") then (

@@ -604,6 +604,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
                | `SELECT _, _
                | `STORE, _
+               | `CONST_ARRAY _, _
 
 
                | `BVULT, _

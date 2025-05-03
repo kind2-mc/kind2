@@ -85,6 +85,7 @@
     {- [`BVZEROEXT i] unary: extend bitvectors with zeros}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
+    {- [`CONST_ARRAY] unary: constant array}
     }
 
     A chainable symbol is to be read as the conjunction of successive
@@ -200,6 +201,8 @@ type interpreted_symbol =
 
   | `STORE                (** Update of an array (ternary) *)
 
+  | `CONST_ARRAY of Type.t (** Constant array (unary) *)
+
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -304,6 +307,8 @@ val s_select : Type.t -> t
 (** array store symbol *)
 val s_store : t
 
+val s_const_array : Type.t -> t
+
 (**  Bit-vector extract operator *)
 val s_extract : Numeral.t -> Numeral.t -> t
 
@@ -391,6 +396,9 @@ val is_to_int64 : t -> bool
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
+
+(** Return true if the symbol is a constant array  *)
+  val is_const_array : t -> bool
 
 (** Return true if the symbol is the divisible function *)
 val is_divisible : t -> bool

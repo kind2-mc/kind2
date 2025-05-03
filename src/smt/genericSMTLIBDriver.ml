@@ -686,7 +686,10 @@ let smtlib_string_symbol_list =
    (* uninterpreted select *)
    (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
 
-   ("store", Symbol.mk_symbol `STORE)
+   ("store", Symbol.mk_symbol `STORE);
+
+   ("const", Symbol.mk_symbol
+      (`CONST_ARRAY (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
 
   ]
 
@@ -825,6 +828,13 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
       )
 
   | `STORE -> Format.pp_print_string ppf "store"
+
+  | `CONST_ARRAY ty_array ->
+    Format.fprintf
+      ppf
+      "(as const %a)"
+      Type.pp_print_type ty_array
+
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
                                 
 
