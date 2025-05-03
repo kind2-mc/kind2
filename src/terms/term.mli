@@ -174,6 +174,9 @@ val mk_bvand : t list -> t
 (** Create a bitvector disjunction *)
 val mk_bvor : t list -> t
 
+(** Create a bitvector exclusive disjunction *)
+val mk_bvxor : t list -> t
+
 (** Create a bitwise negation *)
 val mk_bvnot : t -> t
 

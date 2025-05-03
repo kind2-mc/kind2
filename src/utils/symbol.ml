@@ -94,6 +94,7 @@ type interpreted_symbol =
   | `BVNEG                (* Arithmetic negation (unary) *)
   | `BVAND                (* Bit-wise conjunction (binary) *)
   | `BVOR                 (* Bit-wise disjunction (binary) *)
+  | `BVXOR                (* Bit-wise exclusive disjunction (binary) *)
   | `BVADD                (* Signed bitvector sum (binary) *)
   | `BVSUB                (* Signed bitvector difference (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
@@ -246,6 +247,7 @@ module Symbol_node = struct
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
     | `BVOR, `BVOR
+    | `BVXOR, `BVXOR
     | `BVADD, `BVADD
     | `BVSUB, `BVSUB
     | `BVMUL, `BVMUL
@@ -319,6 +321,7 @@ module Symbol_node = struct
     | `BVNEG, _
     | `BVAND, _
     | `BVOR, _
+    | `BVXOR, _
     | `BVADD, _
     | `BVSUB, _
     | `BVMUL, _
@@ -489,6 +492,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
+  | `BVXOR -> Format.pp_print_string ppf "bvxor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"

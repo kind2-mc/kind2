@@ -665,6 +665,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `XOR
     | `BVAND
     | `BVOR
+    | `BVXOR
     | `BVADD
     | `BVSUB
     | `BVMUL

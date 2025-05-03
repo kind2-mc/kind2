@@ -654,6 +654,7 @@ let smtlib_string_symbol_list =
    ("bvneg", Symbol.mk_symbol `BVNEG);
    ("bvand", Symbol.mk_symbol `BVAND);
    ("bvor", Symbol.mk_symbol `BVOR);
+   ("bvxor", Symbol.mk_symbol `BVXOR);
    ("bvadd", Symbol.mk_symbol `BVADD);
    ("bvsub", Symbol.mk_symbol `BVSUB);
    ("bvmul", Symbol.mk_symbol `BVMUL);
@@ -773,6 +774,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
+  | `BVXOR -> Format.pp_print_string ppf "bvxor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"

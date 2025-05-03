@@ -764,6 +764,7 @@ let rec type_of_term' t = match T.destruct t with
 
         | `BVAND
         | `BVOR
+        | `BVXOR
         | `BVADD
         | `BVSUB
         | `BVMUL
@@ -1324,6 +1325,11 @@ let mk_bvor = function
   | [] -> invalid_arg "Term.mk_bvor"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVOR a
+
+let mk_bvxor = function
+  | [] -> invalid_arg "Term.mk_bvxor"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVXOR a
 
 (* Hashcons a BV concatenation *)
 let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]

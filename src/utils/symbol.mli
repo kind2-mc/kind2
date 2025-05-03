@@ -60,6 +60,7 @@
     {- [`BVNEG] unary: arithmetic negation (unary)}
     {- [`BVAND] binary: bit-wise conjunction}
     {- [`BVOR] binary: bit-wise disjunction}
+    {- [`BVXOR] binary: bit-wise exclusive disjunction}
     {- [`BVADD] binary: signed bitvector sum}
     {- [`BVSUB] binary: signed bitvector difference}
     {- [`BVMUL] binary: arithmetic multiplication}
@@ -168,6 +169,7 @@ type interpreted_symbol =
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
+  | `BVXOR                (** Bit-wise exclusive disjunction (binary) *)
   | `BVADD                (** Signed bitvector sum (binary) *)
   | `BVSUB                (** Signed bitvector difference (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)

@@ -834,6 +834,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSGE, _
       | `BVNOT, _
       | `BVOR, _ 
+      | `BVXOR, _ 
       | `BVAND, _
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
@@ -2303,6 +2304,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `BVOR -> binary_bv_op Bitvector.bv_or args
 
+          | `BVXOR -> binary_bv_op Bitvector.bv_xor args
+
           | `BVNOT -> unary_bv_op Bitvector.bv_not args
 
           | `BVSHL -> binary_bv_op Bitvector.bv_lsh args
@@ -3009,6 +3012,8 @@ let rec remove_ite' fterm args =
         | `BVAND -> binary_bv_op Bitvector.bv_and args
 
         | `BVOR -> binary_bv_op Bitvector.bv_or args
+
+        | `BVXOR -> binary_bv_op Bitvector.bv_xor args
 
         | `BVNOT -> unary_bv_op Bitvector.bv_not args
 
