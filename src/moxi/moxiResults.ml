@@ -16,6 +16,7 @@
 
 *)
 
+module TS = TransSys
 module SVM = StateVar.StateVarMap
 
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
@@ -97,6 +98,42 @@ let pp_print_str_var_val ppf (state_var, value, changed) =
     else
       Format.fprintf ppf "@{<black>(%s %s)@} " state_var value 
 
+
+
+let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
+  let reachability_prop = TransSys.get_properties trans_sys in
+  let reachability_svars =
+    List.map (fun Property.({prop_term}) ->
+      StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)
+    ) reachability_prop |> List.flatten in
+
+  let model_list = Model.path_to_list path in
+  let formatted_svar_names = get_state_var_vals_at_k_all trans_sys model_list k in
+  let any_change =
+    List.fold_left (fun change_detected (_, _, svar_changed) ->
+      change_detected || svar_changed
+    ) false formatted_svar_names
+  in
+
+  let reachability_var_names = List.map (fun svar ->
+    StateVar.name_of_state_var svar) reachability_svars
+  in
+  let formatted_svar_names = List.filter (fun (var, _, _) ->
+    not (List.exists (String.equal var) reachability_var_names)
+  ) formatted_svar_names in
+
+  if any_change then
+    Format.fprintf ppf "(%a %a)"
+      Numeral.pp_print_numeral k
+      (Lib.pp_print_list pp_print_str_var_val "") formatted_svar_names
+  else
+    if false then (* TODO: Get flag for condensed output *)
+      ()
+    else
+      Format.fprintf ppf "@{<black>(%a %a)@}"
+        Numeral.pp_print_numeral k
+        (Lib.pp_print_list pp_print_str_var_val " ") formatted_svar_names
+
 let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
   let reachability_svars = 
@@ -114,7 +151,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
 
   let model_list = Model.path_to_list path in
   let values = List.map (fun reachability_svar -> 
-    List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)
+    List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k + 1)
   ) reachability_svars  in
   let reachability_values = List.map2 (fun value reachability_svar -> 
     if (Numeral.to_int k) == 0 then 
@@ -122,7 +159,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
     else 
       reachability_svar, 
       value, 
-      not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)-1) ))
+      not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)) ))
     ) values reachability_svars
    in
   let reachability_change = List.fold_left (fun changed (_, _, change) -> 
@@ -169,20 +206,36 @@ let (--) i j =
     if n < i then acc else aux (n-1) ((Numeral.of_int n) :: acc)
   in aux j [] 
 
-let pp_print_trail trans_sys ppf path =
-  Format.fprintf ppf "%a@," 
-    (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") (0 -- (Model.path_length path - 1))
+let pp_print_trail is_current_state trans_sys ppf path =
+  let range = 0 -- (Model.path_length path - 2) in
 
-let pp_print_cex_trail trans_sys prop_name prefix ppf cex = 
+  (match range with
+  | [] -> ()
+  | _ ->
+    Format.fprintf ppf "%a@,"
+      (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") range );
+
+  (* Only show the last state if it is not a property of the current state. *)
+  if not is_current_state then
+    (* In the last state, do not print value of reachability variables *)
+    Format.fprintf ppf "%a@,"
+      (pp_print_last_step_of_trace trans_sys path)
+      (Numeral.of_int (Model.path_length path - 1))
+
+let pp_print_cex_trail trans_sys prop_name prefix is_current_state ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
     prop_name
     (if prefix then "_prefix" else "_lasso")
-    (pp_print_trail trans_sys) (Model.path_of_list cex)
+    (pp_print_trail is_current_state trans_sys) (Model.path_of_list cex)
 
-let pp_print_prop_trail trans_sys ppf prop =
+let pp_print_prop_trail trans_sys current_state_props ppf prop =
   let prop_name = prop.Property.prop_name in
+  let is_current_state =
+    List.mem prop_name current_state_props
+  in
   match Property.get_prop_status prop with 
-  | PropFalse cex -> (pp_print_cex_trail trans_sys prop_name true ppf cex) 
+  | PropFalse cex -> 
+    (pp_print_cex_trail trans_sys prop_name true is_current_state ppf cex)
   | PropInvariant _
   | PropKTrue _ 
   | PropUnknown -> () 
@@ -281,7 +334,10 @@ let pp_print_prop_result _ppf prop =
     (prop_result_info prop_name prop_result)
 
 let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 
-= fun trans_sys _in_sys props ->
+= fun trans_sys in_sys props ->
+  let current_state_props =
+    InputSystem.current_state_props in_sys (TS.scope_of_trans_sys trans_sys)
+  in
   Format.printf
   "@[<v 1>(check-system-response @,\
    @[<hv 2>:verbosity@ %s@]@,\
@@ -295,5 +351,5 @@ let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit
   (Lib.pp_print_list pp_print_prop_result "") props
   (Lib.pp_print_list pp_print_prop_trace "") props
   (Lib.pp_print_list (pp_print_prop_model trans_sys) "") props
-  (Lib.pp_print_list (pp_print_prop_trail trans_sys) "") props
+  (Lib.pp_print_list (pp_print_prop_trail trans_sys current_state_props) "") props
   (Lib.pp_print_list pp_print_prop_cert "") props
