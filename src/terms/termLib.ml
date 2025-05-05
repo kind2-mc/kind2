@@ -46,22 +46,8 @@ let default_of_type t =
     | Type.Int -> Term.mk_num Numeral.zero
 
     (* Fixed-width integers are zero by default *)
-    | Type.UBV i ->
-      begin match i with
-      | 8 -> Term.mk_ubv (Bitvector.zero 8)
-      | 16 -> Term.mk_ubv (Bitvector.zero 16)
-      | 32 -> Term.mk_ubv (Bitvector.zero 32)
-      | 64 -> Term.mk_ubv (Bitvector.zero 64)
-      | _ -> raise (Invalid_argument "default_of_type: BV size not allowed")
-      end
-    | Type.BV i ->
-      begin match i with
-      | 8 -> Term.mk_bv (Bitvector.zero 8)
-      | 16 -> Term.mk_bv (Bitvector.zero 16)
-      | 32 -> Term.mk_bv (Bitvector.zero 32)
-      | 64 -> Term.mk_bv (Bitvector.zero 64)
-      | _ -> raise (Invalid_argument "default_of_type: BV size not allowed")
-      end
+    | Type.UBV i -> Term.mk_ubv (Bitvector.zero i)
+    | Type.BV i -> Term.mk_bv (Bitvector.zero i)
 
     (* Integer range values are their lower bound by default *)
     | Type.IntRange (Some l, _) -> Term.mk_num l

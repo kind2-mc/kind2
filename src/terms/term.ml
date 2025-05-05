@@ -718,19 +718,20 @@ let rec type_of_term' t = match T.destruct t with
 
           (match l with 
 
-            (* Concat is binary *)
-            | [a; b] -> 
+            | fst :: _ ->
 
-              (* Compute width of resulting bitvector *)
-              (match 
-                  (Type.node_of_type (type_of_term' a), 
-                   Type.node_of_type (type_of_term' b))
-               with
-                 | Type.BV i, Type.BV j -> 
-                    Type.mk_bv (i + j)
-                 | Type.UBV i, Type.UBV j -> 
-                    Type.mk_ubv (i + j)
-                 | _ -> assert false)
+              let new_size =
+                List.fold_left (fun acc a ->
+                  match Type.get_bv_size (type_of_term' a) with
+                  | Some s -> acc + s
+                  | None -> assert false
+                ) 0 l
+              in
+
+              if Type.is_bitvector (type_of_term' fst) then
+                Type.mk_bv new_size
+              else
+                Type.mk_ubv new_size
 
             | _ -> assert false)
 

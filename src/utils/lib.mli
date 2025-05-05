@@ -84,6 +84,8 @@ val string_starts_with : string -> string -> bool
     that the result does not overflow to a negtive number *)
 val safe_hash_interleave : int -> int -> int -> int
 
+val power_of_two : int -> int
+
 (** {1 List functions} *)
 
 val find_opt_index : ('a -> bool) -> 'a list -> int option
