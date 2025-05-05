@@ -1751,6 +1751,9 @@ let log_analysis_start in_sys sys param =
       let names = List.map (InputSystem.get_node_id in_sys) scopes 
         |> List.map NI.get_user_name         
       in
+      let pp_print_quoted_hstring ppf hs =
+        Format.fprintf ppf "\"%a\"" HString.pp_print_hstring hs
+      in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
           ,@.{@[<v 1>@,\
@@ -1762,8 +1765,8 @@ let log_analysis_start in_sys sys param =
           @]@.}@.\
         "
         NI.pp_print_node_id_user_name node_id
-        (pp_print_list_attrib HString.pp_print_hstring) concrete
-        (pp_print_list_attrib HString.pp_print_hstring) abstract
+        (pp_print_list_attrib pp_print_quoted_hstring) concrete
+        (pp_print_list_attrib pp_print_quoted_hstring) abstract
         (pp_print_list_attrib (fun fmt (name, cpt) ->
             Format.fprintf fmt "[\"%a\",%d]" HString.pp_print_hstring name cpt
           )
