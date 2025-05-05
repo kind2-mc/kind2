@@ -1920,11 +1920,14 @@ let bv_zeroext i = function
   | _ -> assert false
 
 let bv_concat = function
-  | [a] -> a
-  | [BV a; BV b] ->
-    BV (Term.mk_ubv (Bitvector.bvconcat
-      (Term.bitvector_of_term a)
-      (Term.bitvector_of_term b)))
+  | b :: rest ->
+    let to_bv = function
+      | BV t -> Term.bitvector_of_term t
+      | _ -> assert false
+    in
+    let bvs = List.map to_bv rest in
+    let concatenation = List.fold_left Bitvector.bvconcat (to_bv b) bvs in
+    BV (Term.mk_ubv concatenation)
   | _ -> assert false
 
 

@@ -361,6 +361,16 @@ let mk_subsystem_calls local_map sys_name systems subsys =
   in
   subsystems, lifted_svars, formulas
 
+let rec bounds ty =
+  let fixed_bound ty' =
+    match Type.node_of_type ty' with
+    | UBV s
+    | BV s -> LustreExpr.mk_int_expr (Lib.power_of_two s |> Numeral.of_int)
+    | _ -> failwith("Only arrays with a Bitvector index type are currently supported")
+  in
+  match Type.node_of_type ty with
+  | Bool | Int | IntRange _ | Enum _ | Real | UBV _ | BV _ | Abstr _ -> []
+  | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
 
 let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_system_cmd) =
 
@@ -471,6 +481,12 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   in
   let trans_term = Term.mk_and trans_conj in
 
+  let state_var_bounds = SVH.create 7 in
+
+  state_vars |> List.iter (fun sv ->
+    SVH.add state_var_bounds sv (bounds (SV.type_of_state_var sv))
+  );
+
   let sys, _ =
     TS.mk_trans_sys
       scope
@@ -478,7 +494,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       init_flag
       state_vars
       SVS.empty (* unconstrained_inputs *)
-      (SVH.create 3) (* state_var_bounds *)
+      state_var_bounds
       global_consts
       global_constraints
       ufs

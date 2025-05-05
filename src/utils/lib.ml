@@ -67,6 +67,13 @@ let flip f = fun b a -> f a b
    to a negtive number *)
 let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
   
+let power_of_two n =
+  let rec aux acc n =
+    if n = 0 then acc
+    else aux (acc * 2) (n - 1)
+  in
+  aux 1 n
+
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)

@@ -603,12 +603,27 @@ let get_var_values s state_var_indexes vars =
         with Exit -> []
       in
       
+      let index_term, term_to_index =
+        let idx_ty = Type.index_type_of_array ty in
+        if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
+          let size =
+            match Type.get_bv_size idx_ty with
+            | Some s -> Numeral.of_int s
+            | None -> assert false
+          in
+          (fun i -> Bitvector.num_to_ubv size (Numeral.of_int i) |> Term.mk_ubv),
+          (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
+        else
+          (fun i -> (Term.mk_num_of_int i)),
+          (fun t -> Numeral.to_int (Term.numeral_of_term t))
+      in
+
       let args_list = cross (List.map range bnds) in
       let vt = Term.mk_var v in
       let sexprs =
         List.map (fun args ->
             List.fold_left Term.mk_select
-              vt (List.rev_map Term.mk_num_of_int args)
+              vt (List.rev_map index_term args)
             |> Term.convert_select
             |> S.Conv.smtexpr_of_term
           ) args_list in
@@ -619,14 +634,14 @@ let get_var_values s state_var_indexes vars =
           | `Values v -> v
           | r -> smt_error s r
       in
+
       let m =
         List.fold_left (fun acc (t, e) ->
             let t = S.Conv.term_of_smtexpr t in
             assert (Term.is_select t);
             let v', args_t = Term.indexes_and_var_of_select t in
             assert (Var.equal_vars v v');
-            let args = List.map
-                (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
+            let args = List.map term_to_index args_t in
             Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
           ) Model.MIL.empty values in
       Var.VarHashtbl.add model v (Model.Map m)
