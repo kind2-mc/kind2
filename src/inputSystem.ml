@@ -32,7 +32,7 @@ module SVM = SVar.StateVarMap
 
 type _ t =
 | Lustre : (N.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> N.t t
-| Moxi: (TransSys.t S.t) list -> TransSys.t t
+| Moxi: (TransSys.t S.t * string list) list -> TransSys.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
@@ -65,7 +65,8 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
     S.all_subsystems_of_list main_subs
     |> List.map (fun { S.scope } -> scope)
 
-  | Moxi main_subs ->
+  | Moxi checks ->
+    let main_subs = List.map fst checks in
     S.all_subsystems_of_list main_subs
     |> List.map (fun { S.scope } -> scope)
 
@@ -85,7 +86,7 @@ let analyzable_subsystems (type s) : s t -> s S.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | Moxi main_subs -> main_subs
+  | Moxi checks -> let main_subs = List.map fst checks in main_subs
 
   | Native subsystem ->
     let subsystems' =
@@ -227,12 +228,13 @@ let next_analysis_of_strategy (type s)
       )
   )
   
-  | Moxi main_subs -> 
+  | Moxi checks -> 
     fun results ->
       let scope_and_strategy =
         List.map (fun ({ S.scope } as sub) ->
           scope, S.strategy_info_of sub)
       in
+      let main_subs = List.map fst checks in
       let all_syss =
         scope_and_strategy (S.all_subsystems_of_list main_subs)
       in
@@ -264,8 +266,9 @@ let moxi_params (type s) (input_system : s t) =
     }
   in
   match input_system with
-  | Moxi system_checks ->
-    List.map param_for_subsystem system_checks
+  | Moxi checks ->
+    let main_subs = List.map fst checks in
+    List.map param_for_subsystem main_subs
   | _ -> []
 
 let mcs_params (type s) (input_system : s t) =
@@ -508,8 +511,9 @@ let trans_sys_of_analysis (type s)
       t, Lustre ([s], globals, ast)
     )
 
-  | Moxi main_subs -> (function analysis ->
+  | Moxi checks -> (function analysis ->
     let { A.top } = A.info_of_param analysis in
+    let main_subs = List.map fst checks in
     let sub = SubSystem.find_subsystem_of_list main_subs top in
     (sub.S.source, Native sub)
   )
@@ -986,6 +990,18 @@ function
 
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
+
+let current_state_props (type s): s t -> Scope.t -> string list =
+fun sys -> fun top ->
+  match sys with
+  | Moxi checks -> (
+    match List.find_opt (fun ({S.scope}, _) -> scope = top) checks with
+    | Some (_, props) -> props
+    | _ -> []
+  )
+  | Lustre _ -> []
+  | Native _ -> []
+  | Horn _ -> []
 
 (* 
    Local Variables:

@@ -53,7 +53,7 @@ type system_check = TS.t SubSystem.t
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
-  checks: system_check list
+  checks: (system_check * string list) list
 }
 
 let empty_input =
@@ -386,15 +386,24 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
 
   let sys_scope = mk_sys_scope sys_name in
 
-  let def_svars, def_terms =
+  let def_svars, init_defs, trans_defs =
     List.fold_left
-      (fun (def_svars, def_terms) ((symb, sort), term) ->
+      (fun (def_svars, init_defs, trans_defs) ((symb, sort), (init, trans)) ->
         let svar = mk_svar ~reserved:true sys_name false symb sort in
-        let var = Var.mk_state_var_instance svar TS.init_base in
-        let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope term] in
-        svar :: def_svars, eq :: def_terms
+        let init_defs =
+          match init with
+          | None -> init_defs
+          | Some init -> (
+            let var = Var.mk_state_var_instance svar TS.init_base in
+            let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope init] in
+            eq :: init_defs
+          )
+        in
+        let var' = Var.mk_state_var_instance svar TS.trans_base in
+        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term sys_scope trans] in
+        svar :: def_svars, init_defs, eq' :: trans_defs
       )
-      ([], [])
+      ([], [], [])
       defs
   in
 
@@ -434,7 +443,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let init_conj = def_terms @ subsys_init in
+  let init_conj = init_defs @ subsys_init in
   let init_conj =
     if (sys_def.inv = A.Constant True) then init_conj
     else (kind2_term sys_scope sys_def.inv) :: init_conj
@@ -466,9 +475,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let trans_conj = 
-    List.map (Term.bump_state Numeral.one) def_terms @ subsys_trans
-  in
+  let trans_conj = trans_defs @ subsys_trans in
   let trans_conj =
     if (sys_def.inv = A.Constant True) then trans_conj
     else
@@ -536,6 +543,16 @@ let sort_of_name name =
 
 let bool_sort = sort_of_name "Bool"
 
+let rec current_state_term = function
+  | A.Constant _ -> true
+  | QualId (_, is_prime, _) -> not is_prime
+  | App (_, (_, is_prime, _), args) ->
+    not is_prime &&
+    List.for_all current_state_term args
+  | Let (_, bindings, t) ->
+    List.for_all (fun (_, _, t') -> current_state_term t') bindings &&
+    current_state_term t
+
 let negate term =
   let symb = (Lib.dummy_span, HString.mk_hstring "not") in
   let id = (Lib.dummy_span, symb, []) in
@@ -581,20 +598,20 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
         (fun (defs, vars) (_, (symb, term)) ->
           let v =
             let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
-            Var.mk_state_var_instance svar TS.init_base
+            Var.mk_state_var_instance svar TS.trans_base
           in
-          ((symb, bool_sort), term) :: defs, v :: vars
+          ((symb, bool_sort), (None, term)) :: defs, v :: vars
         )
         ([], [])
         assumption_fs
     in
-    let defs, props =
+    let defs, props, curr_state_props =
       match reachable_fs with
       | [] -> failwith("check-system query with no reachable attribute")
       | [(_, (symb, term))] -> (
         let v =
           let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
-          Var.mk_state_var_instance svar TS.init_base
+          Var.mk_state_var_instance svar TS.prop_base
         in
         let p =
           Property.{
@@ -605,7 +622,12 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
             prop_status = PropUnknown ; 
           }
         in
-        ((symb, bool_sort), negate term) :: defs, [p]
+        let curr_state_props =
+          if current_state_term term then [p.Property.prop_name]
+          else []
+        in
+        ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
+        [p], curr_state_props
       )
       | _ -> failwith("check-system query with multiple reachable attributes is not supported")
     in
@@ -650,18 +672,16 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
-      let init_ass =
+      let trans_ass =
         List.map Term.mk_var assumption_vars |> Term.mk_and
       in
-      let trans_ass = Term.bump_state Numeral.one init_ass in
-      let init_eq = Term.mk_and [init_ass; init_eq] in
       let trans_eq = Term.mk_and [trans_ass; trans_eq] in
       TS.set_subsystem_equations sys sys_scope init_eq trans_eq
     in
     let sys =
       TS.set_subsystem_properties sys sys_scope props
     in
-    mk_subsystem sys
+    mk_subsystem sys, curr_state_props
   )
   | _ -> failwith("check-system with more than one query is not currently supported")
 

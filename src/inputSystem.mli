@@ -163,6 +163,8 @@ val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_id : _ t -> Scope.t -> NodeId.t
 
+val current_state_props : _ t -> Scope.t -> string list
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

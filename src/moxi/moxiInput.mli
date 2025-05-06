@@ -24,4 +24,4 @@ type system_check = TransSys.t SubSystem.t
 
 (* val of_file : string -> (TransSys.t SubSystem.t, [> error]) result *)
 
-val of_file : string -> (system_check list, error) result
+val of_file : string -> ((system_check * string list) list, error) result
