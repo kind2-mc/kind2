@@ -1234,8 +1234,15 @@ let select simplify_term_node model fterm = function
 
           else
 
-            let args = List.map (fun x ->
-                Term.numeral_of_term x |> Numeral.to_int) i' in
+            let term_to_index =
+              let idx_ty = Type.index_type_of_array (Var.type_of_var v) in
+              if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
+                (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
+              else
+                (fun t -> Numeral.to_int (Term.numeral_of_term t))
+            in
+
+            let args = List.map term_to_index i' in
 
             let value =
               try Model.MIL.find args m
