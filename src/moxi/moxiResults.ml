@@ -49,8 +49,10 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
       match svar_kth_state_value with
       | Model.Term value -> 
         Some (var_name, Term.string_of_term value, state_value_changed)
+      | Model.Map _ ->
+        Some (var_name, "[...]", true)
       | _ -> 
-        failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counterexample.")
+        failwith (Format.asprintf "Received unexpected model value. Unable to construct counterexample.")
     )
   )
 
