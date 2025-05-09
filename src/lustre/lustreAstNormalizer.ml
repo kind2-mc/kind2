@@ -1969,12 +1969,16 @@ and normalize_expr ?guard info node_id map =
         (fun arg -> normalize_expr ?guard info node_id map arg)
         args
       in
-      let nexpr = get_inline_func_expr info.inlinable_funcs id nargs in
+      let expr = get_inline_func_expr info.inlinable_funcs id nargs in
+      let nexpr, gids2, warnings2 =
+        normalize_expr ?guard info node_id map expr
+      in
       let args =
         List.map (fun a -> AH.apply_subst_in_expr vmap a) args
       in
-      let _, gids2, warnings2 = handle_call true args in
-      nexpr, union_list [gids0; gids1; gids2], warnings1 @ warnings2
+      let _, gids3, warnings3 = handle_call true args in
+      nexpr, union_list [gids0; gids1; gids2; gids3],
+      warnings1 @ warnings2 @ warnings3
     )
     else (
       handle_call false args

@@ -1,0 +1,21 @@
+function F1(x: int) returns (y:int);
+let
+  y = x + 1;
+tel
+
+function F2(x: int) returns (y:int);
+let
+  y = F1(x);
+tel
+
+function F3(x: int) returns (y:int);
+var l: int;
+let
+  l = F1(x) + F2(2);
+  y = F2(x) + l;
+tel
+
+function F4() returns ();
+let
+ check forall (n:int) n>=0 => F3(n) > n;
+tel
