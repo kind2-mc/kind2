@@ -1,0 +1,9 @@
+const N: int = 3;
+
+type MyArray = bool^N^N^N;
+
+node N() returns (B: MyArray);
+let
+  B = false^N^N^N -> true^N^N^N;
+  check not B[0][0][0];
+tel
