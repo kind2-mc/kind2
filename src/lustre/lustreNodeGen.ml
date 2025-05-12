@@ -1698,41 +1698,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       result :: glocals
     in List.fold_left over_generated_locals glocals gids.GI.node_args
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Locals for Array Constructors      *)
-  (* ****************************************************************** *)
-  in
-  let glocals =
-    let array_ctor_list = GI.StringMap.bindings gids.GI.array_constructors in
-    let over_generated_locals glocals (id, (expr_type, expr, size_expr)) =
-      let pos = AH.pos_of_expr expr in
-      let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map expr_type in
-      let nsize_expr = compile_ast_expr cstate ctx [] map size_expr in
-      let size = (nsize_expr |> X.values |> List.hd).expr_init in
-      let is_numeral = Term.is_numeral (E.unsafe_term_of_expr size) in
-      let bound = if is_numeral then E.Fixed size else E.Bound size in
-        let over_indices = fun index index_type accum ->
-          let possible_state_var = mk_state_var 
-            map
-            (node_scope @ I.reserved_scope)
-            ident
-            index
-            index_type
-            None
-          in
-          match possible_state_var with
-          | Some(state_var) ->
-            if not (StateVar.is_input state_var)
-              then N.add_state_var_def ~is_dep:true state_var (N.GeneratedEq (pos, index));
-            SVT.add !map.bounds state_var [bound];
-            X.add index state_var accum
-          | None -> accum
-      in
-      let result = X.fold over_indices index_types X.empty in
-      result :: glocals
-    in
-    List.fold_left over_generated_locals glocals array_ctor_list
-  (* ****************************************************************** *)
   (* (State Variables for) Node Calls, to put in the map for oracles    *)
   (* ****************************************************************** *)
   in

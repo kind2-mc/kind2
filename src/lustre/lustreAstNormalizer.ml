@@ -210,21 +210,12 @@ type info = {
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals in
-  let array_ctor_list = StringMap.bindings gids.array_constructors
-    |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
-  in
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
   let pp_print_local ppf (id, ty) = Format.fprintf ppf "(%a, %a)"
     HString.pp_print_hstring id
     LustreAst.pp_print_lustre_type ty
-  in
-  let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
-    HString.pp_print_hstring id
-    LustreAst.pp_print_lustre_type ty
-    LustreAst.pp_print_expr e
-    LustreAst.pp_print_expr s
   in
   let pp_print_node_arg ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
     HString.pp_print_hstring id
@@ -280,10 +271,9 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
-    (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
@@ -392,17 +382,6 @@ let get_inline_func_expr inlinable_funcs name args =
   match var_map with
   | (_, e) :: _ -> AH.apply_subst_in_expr input_map e
   | _ -> assert false
-
-let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_varray") in
-  let nexpr = A.Ident (pos, name) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let gids = { (empty ()) with
-    array_constructors = StringMap.singleton name (expr_type, expr, size_expr);
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
-  in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const expr_type expr =
   match NodeArgCache.find_opt node_arg_cache expr with
@@ -2094,16 +2073,31 @@ and normalize_expr ?guard info node_id map =
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
-  | ArrayConstr (pos, expr, size_expr) ->
-    let ivars = info.inductive_variables in
-    let ty = if expr_has_inductive_var ivars expr then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context (Some node_id) expr |> unwrap |> fst
+  | ArrayConstr (pos, expr, _) as e -> (
+    (* Desugar v^N into a new array variable A, defined as A[i]=v *)
+    let base_expr, gids1, warnings =
+      normalize_expr ?guard info node_id map expr
     in
-    let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
-    let ivars = info.inductive_variables in
-    let iexpr, gids2= mk_fresh_array_ctor info pos ivars ty nexpr size_expr in
-    ArrayConstr (pos, iexpr, size_expr), union gids1 gids2, warnings
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_array_ctor") in
+    let gids2 =
+      let locals =
+        let expr_type =
+          Chk.infer_type_expr info.context (Some node_id) e |> unwrap |> fst
+        in
+        StringMap.singleton name expr_type
+      in
+      let index = HString.mk_hstring "i" in
+      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index])]) in
+      let equations =
+        [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+      in
+      { (empty ()) with locals; equations }
+    in
+    let nexpr = A.Ident (pos, name) in
+    nexpr, union gids1 gids2, warnings
+  )
   | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
     let nexpr_list, gids1, warnings = normalize_list
       (normalize_expr ?guard:None info node_id map)
