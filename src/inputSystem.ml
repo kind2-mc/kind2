@@ -1032,16 +1032,23 @@ let get_bv_sizes (type s) : s t -> IntSet.t =
       let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in 
       (* Global sizes *)
       let acc = List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq) in 
-      (*!! Also look at free_constants in lustreGlobals.mli, maybe? *)
+      (*!! Q: Also look at free_constants in lustreGlobals.mli, maybe?
+           A: Not necessary for now; already captured in state_var_bounds. But double check this. *)
       acc
     ) IntSet.empty sources in 
     sizes
+  | Moxi checks -> 
+    let subsystems = List.map fst checks in 
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    let state_vars = List.concat_map TransSys.state_vars sources in 
+    List.fold_left over_svar IntSet.empty state_vars
   | Native sub -> 
     let subsystems = S.all_subsystems sub in
     let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
     let state_vars = List.concat_map TransSys.state_vars sources in 
     List.fold_left over_svar IntSet.empty state_vars
   | Horn _ -> IntSet.empty
+  
 
 let get_ubv_sizes (type s) : s t -> IntSet.t = 
   let over_svar = (fun acc svar ->
@@ -1070,6 +1077,11 @@ let get_ubv_sizes (type s) : s t -> IntSet.t =
       acc
     ) IntSet.empty sources in 
     sizes
+  | Moxi checks -> 
+    let subsystems = List.map fst checks in
+    let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+    let state_vars = List.concat_map TransSys.state_vars sources in 
+    List.fold_left over_svar IntSet.empty state_vars
   | Native sub -> 
     let subsystems = S.all_subsystems sub in
     let sources = List.map (fun subsys -> subsys.S.source) subsystems in 

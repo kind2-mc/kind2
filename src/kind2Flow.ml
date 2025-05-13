@@ -551,18 +551,12 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | `Inferred fs when mem BV fs -> (
       let other_modules =
         if (List.mem `INVGENMACHOS invgenmach_modules) then
-          (*== `INVGENINT8OS :: `INVGENINT16OS :: `INVGENINT32OS :: `INVGENINT64OS ::
-          `INVGENUINT8OS :: `INVGENUINT16OS :: `INVGENUINT32OS :: `INVGENUINT64OS
-          ::   *)
           `INVGENBVOS :: `INVGENUBVOS ::other_modules
         else
           other_modules
        in
        let other_modules =
         if (List.mem `INVGENMACH invgenmach_modules) then
-          (* `INVGENINT8 :: `INVGENINT16 :: `INVGENINT32 :: `INVGENINT64 ::
-          `INVGENUINT8 :: `INVGENUINT16 :: `INVGENUINT32 :: `INVGENUINT64
-          ::  *)
           `INVGENBV :: `INVGENUBV ::other_modules
         else
           other_modules
