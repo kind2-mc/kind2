@@ -1,4 +1,4 @@
-node N <<T5>> (x: int[22]; m: map<<int[22]; real>>) returns (y: real)
+node N <T5> (x: int<22>; m: map<int<22>; real>) returns (y: real)
 let    
     y = m[x];
     check y = m[x];

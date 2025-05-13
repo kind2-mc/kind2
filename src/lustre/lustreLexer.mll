@@ -449,14 +449,15 @@ rule token = parse
   }
 
   (* Operators that are not identifiers *)
+  | '@' { ATSIGN }
   | ';' { SEMICOLON }
   | '=' { EQUALS }
+  | "::" { DOUBLE_COLON }
   | ':' { COLON }
   | ',' { COMMA }
   | '[' { LSQBRACKET }
   | ']' { RSQBRACKET }
   | '(' { LPAREN }
-  | ')' { RPAREN }
   | ')' { RPAREN }
   | '.' { DOT }
   | ".." { DOTDOT }
@@ -464,8 +465,6 @@ rule token = parse
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
-  | "<<" { LPARAMBRACKET }
-  | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }

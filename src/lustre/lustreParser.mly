@@ -33,9 +33,11 @@ let mk_span start_pos end_pos =
 %}
 
 (* Special characters *)
+%token ATSIGN
 %token SEMICOLON 
 %token EQUALS 
-%token COLON 
+%token COLON
+%token DOUBLE_COLON
 %token COMMA 
 %token LSQBRACKET 
 %token RSQBRACKET 
@@ -96,8 +98,6 @@ let mk_span start_pos end_pos =
 %token TRANSPARENT
 %token IMPORTED
 %token NODE
-%token LPARAMBRACKET
-%token RPARAMBRACKET
 %token FUNCTION
 %token RETURNS
 %token VAR
@@ -209,7 +209,7 @@ let mk_span start_pos end_pos =
     
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT ASSUMING BAR
+%nonassoc WHEN CURRENT BAR
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -227,7 +227,6 @@ let mk_span start_pos end_pos =
 %nonassoc INT REAL 
 %nonassoc NOT
 %nonassoc BVNOT 
-%nonassoc ANY
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -284,6 +283,9 @@ decl:
 
 (* ********************************************************************** *)
 
+comma_or_semicolon:
+  | COMMA {}
+  | SEMICOLON {}
 
 (* A constant declaration *)
 const_decl: CONST; l = nonempty_list(const_decl_body) { List.flatten l }
@@ -343,7 +345,7 @@ type_decl:
 
   (* A type alias with static parameters 
     (must be a separate rule from previous to avoid shift-reduce conflicts) *)
-  | TYPE; l = ident_list; p = static_params; EQUALS; t = lustre_type; SEMICOLON
+  | TYPE; l = ident_list; p = decl_static_params; EQUALS; t = lustre_type; SEMICOLON
      { List.map (fun e -> 
                  A.AliasType (mk_pos $startpos, e, p, t)) l }
 
@@ -363,7 +365,7 @@ type_decl:
                         A.RecordType (mk_pos $startpos, e, t))) 
          l }
 
-  | TYPE; l = ident_list; p = static_params; EQUALS; t = record_type; SEMICOLON
+  | TYPE; l = ident_list; p = decl_static_params; EQUALS; t = record_type; SEMICOLON
      { List.map
          (function e ->
            A.AliasType (mk_pos $startpos,
@@ -392,8 +394,8 @@ lustre_type:
   | INT16 { A.SBitVector (mk_pos $startpos, 16) }
   | INT32 { A.SBitVector (mk_pos $startpos, 32) }
   | INT64 { A.SBitVector (mk_pos $startpos, 64) }
-  | INT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
-  | UINT; LSQBRACKET; i = NUMERAL; RSQBRACKET; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | INT; LT; i = NUMERAL; GT; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | UINT; LT; i = NUMERAL; GT; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;
     LSQBRACKET;
     l = expr_opt; 
@@ -403,11 +405,11 @@ lustre_type:
     OF
     INT 
     { A.IntRange (mk_pos $startpos, l, u) }
-  | MAP; LPARAMBRACKET; ty1 = lustre_type; SEMICOLON; ty2 = lustre_type; RPARAMBRACKET
+  | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
     { A.Map (mk_pos $startpos, ty1, ty2) }
 
   (* User-defined type *)
-  | s = ident; ps = call_static_params { A.UserType (mk_pos $startpos, ps, s) }
+  | s = ident; ps = type_static_params { A.UserType (mk_pos $startpos, ps, s) }
 
   (* Tuple type *)
   | t = tuple_type { A.TupleType (mk_pos $startpos, t) } 
@@ -468,7 +470,7 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 (* A node declaration and contract. *)
 node_decl:
 | n = ident;
-  p = loption(static_params);
+  p = loption(decl_static_params);
   i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
@@ -489,7 +491,7 @@ node_def:
   { (List.flatten l, e) }
 
 contract_ghost_vars:
-  | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
+  | VAR; l = typed_idents_list; EQUALS; e = aexpr(nonquantified); SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
@@ -535,9 +537,11 @@ contract_import:
 
 call_static_params: 
   | { [] }
-  | ty_args = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); { ty_args }
+  | ATSIGN; ty_args = tlist (LT, comma_or_semicolon, GT, lustre_type); { ty_args }
 
-   
+type_static_params:
+  | { [] }
+  | ty_args = tlist (LT, comma_or_semicolon, GT, lustre_type); { ty_args }
 
 assumption_vars:
   ASSUMP_VARS ; ids = ident_list_pos; SEMICOLON
@@ -562,7 +566,7 @@ contract_in_block:
 contract_decl:
   | CONTRACT;
     n = ident; 
-    p = loption(static_params);
+    p = loption(decl_static_params);
     i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
@@ -599,7 +603,7 @@ node_param_inst:
     EQUALS;
     s = ident; 
     p = tlist 
-         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, lustre_type); 
+         (LT, comma_or_semicolon, GT, lustre_type); 
     SEMICOLON
     { (n, s, p) } 
 
@@ -614,8 +618,8 @@ static_param:
 
 
 (* The static parameters of a node *)
-static_params:
-  | l = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, static_param)
+decl_static_params:
+  | l = tlist (LT, comma_or_semicolon, GT, static_param)
     
     { l }  
 
@@ -780,8 +784,9 @@ node_equation:
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)
-  | l = left_side; EQUALS; e = expr; SEMICOLON
+  | l = left_side; EQUALS; e = aexpr(nonquantified); SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
+
 
 left_side:
 
@@ -832,10 +837,6 @@ index_var:
   | LSQBRACKET; s = ident; RSQBRACKET { s }
 
 
-(* Two colons (for mode reference). *)
-two_colons:
-  | COLON ; COLON {}
-
 (* ********************************************************************** *)
 
 (* dummy rule for parameter of pexpr to signal we allow quantifiers *)
@@ -845,7 +846,27 @@ two_colons:
 (* dummy rule for parameter of pexpr to signal we do not allow quantifiers *)
 %inline nonquantified:
   | { false }
-  
+
+aexpr(Q):
+  | e = pexpr(Q) { e }
+  | e = any_expr { e }
+
+any_expr:
+  (* 'Any' operation *)
+  | ANY; r = refinement_type_base
+    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e, None) }
+  | ANY; r = refinement_type_base ASSUMING; e2 = qexpr
+    { let (id, e1) = r in A.AnyOp (mk_pos $startpos, id, e1, Some e2) }
+  | ANY; ty = lustre_type;
+    {
+      match ty with
+        | A.RefinementType (_, id, e) ->
+          A.AnyOp(mk_pos $startpos, id, e, None)
+        | _ ->
+          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty),
+                      Const(mk_pos $startpos, True), None)
+    }
+
 (* An possibly quantified expression *)
 pexpr(Q): 
   
@@ -853,7 +874,7 @@ pexpr(Q):
   | s = ident { A.Ident (mk_pos $startpos, s) } 
 
   (* A mode reference. *)
-  | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
+  | DOUBLE_COLON ; mode_ref = separated_nonempty_list(DOUBLE_COLON, ident) {
     A.ModeRef (mk_pos $startpos, mode_ref)
   }
 
@@ -888,10 +909,10 @@ pexpr(Q):
 
   (* A tuple expression (not quantified) *)
   (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
+  | LCURLYBRACKET; l = aexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
 
   (* An array expression (not quantified) *)
-  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
+  | LSQBRACKET; l = aexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
 
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
@@ -931,7 +952,7 @@ pexpr(Q):
     WITH; 
     i = nonempty_list(label_or_index); 
     EQUALS; 
-    e2 = pexpr(Q); 
+    e2 = aexpr(Q); 
     RPAREN
 
     { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
@@ -992,21 +1013,6 @@ pexpr(Q):
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
-
-  (* 'Any' operation *)
-  | ANY; r = refinement_type_base
-    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e, None) } 
-  | ANY; r = refinement_type_base ASSUMING; e2 = pexpr(Q)
-    { let (id, e1) = r in A.AnyOp (mk_pos $startpos, id, e1, Some e2) } 
-  | ANY; ty = lustre_type;
-    { 
-      match ty with 
-        | RefinementType (_, id, e) -> 
-          A.AnyOp(mk_pos $startpos, id, e, None)
-        | _ ->
-          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty), 
-                      Const(mk_pos $startpos, True), None)
-    }
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
@@ -1176,6 +1182,8 @@ pexpr(Q):
 
 (* A list of expressions *)
 pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
+
+aexpr_list(Q): l = separated_nonempty_list(COMMA, aexpr(Q)) { l }
       
 (* A node or function call *)
 node_call:
@@ -1195,7 +1203,7 @@ array_slice:
 
 
 (* An assignment to a record field *)
-record_field_assign: s = ident; EQUALS; e = expr { (s, e) } 
+record_field_assign: s = ident; EQUALS; e = aexpr(nonquantified) { (s, e) } 
 
 
 (* ********************************************************************** *)

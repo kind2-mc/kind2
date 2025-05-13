@@ -1,4 +1,4 @@
-node N (x: int[23]; m: map<<int[22]; real>>;) returns (y: real)
+node N (x: int<23>; m: map<int<22>; real>) returns (y: real)
 let    
     y = m[x];
 tel 

@@ -1,4 +1,4 @@
-node N <<T5>> (m1: map<<[int, int]; real>>;) returns (m2: map<<[int, int]; real>>; )
+node N <T5> (m1: map<[int, int]; real>;) returns (m2: map<[int, int]; real>; )
 let    
     m2 = m1;
 tel  
