@@ -1,5 +1,5 @@
-node M(x: uint[64]) returns (y: uint[32])
+node M(x: uint<64>) returns (y: uint<32>)
 let
-  y = x[32:33];  
+  y = x[32:33];
   check x = x;  
 tel  

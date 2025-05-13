@@ -1,6 +1,6 @@
-type UserType<<T1; T2>> = [T1, T2];  
+type UserType<T1; T2> = [T1, T2];  
 
-node N2(x: UserType<<int; int>>) returns (y: UserType<<int; real>>;);
+node N2(x: UserType<int; int>) returns (y: UserType<int; real>;);
 let
     y = x;
   check y = x;

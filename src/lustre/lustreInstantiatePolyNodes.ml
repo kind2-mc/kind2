@@ -100,7 +100,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   let node_type = NI.get_node_type node_id in 
   let name = NI.get_name node_id in
   let user_name = Format.asprintf
-    "%a<<%a>>"
+    "%a<%a>"
     HString.pp_print_hstring name
     (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
   in
@@ -220,7 +220,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         (q_vars, sc, lhs, expr, source)
       ) polymorphic_gids.equations in
 
-      (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<<int>> *)
+      (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<int> *)
       let ctx, gids, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids, acc_decls, acc_glocals, acc_node_decls_map) -> 
         let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some node_id) acc_node_decls_map ty in 
         ctx, gids, decls @ acc_decls, GI.StringMap.add id ty acc_glocals, node_decls_map

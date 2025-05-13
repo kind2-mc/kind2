@@ -1,4 +1,4 @@
-node N (x1: uint[22]; x2: uint[20]; x3: uint[4];) returns (z: uint[46])
+node N (x1: uint<22>; x2: uint<20>; x3: uint<4>) returns (z: uint<46>)
 let   
   z = (x1 ++ x2) ++ x3;  
   check z = x1 ++ (x2 ++ x3); 

@@ -438,7 +438,7 @@ let rec pp_print_expr ppf =
           match ty_args with
           | [] -> ()
           | _  ->
-            Format.fprintf ppf "<<%a>>"
+            Format.fprintf ppf "@<%a>"
               (pp_print_list pp_print_lustre_type ";") ty_args
         )
         (pp_print_list pp_print_field_assign ";@ ") l
@@ -560,7 +560,7 @@ let rec pp_print_expr ppf =
     | Call (p, ty_args, id, l) ->
 
       Format.fprintf ppf
-        "%a%a<<%a>>(%a)"
+        "%a%a@<%a>(%a)"
         ppos p
         HString.pp_print_hstring (NI.get_name id)
         (pp_print_list pp_print_lustre_type ";") ty_args
@@ -624,10 +624,10 @@ and pp_print_lustre_type ppf = function
   | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s
   | UserType (_, tys, s) -> 
-    Format.fprintf ppf "%a<<%a>>" pp_print_ident s
+    Format.fprintf ppf "%a<%a>" pp_print_ident s
       (pp_print_list pp_print_lustre_type "; ") tys
   | Map (_, ty1, ty2) -> 
-    Format.fprintf ppf "map<<%a; %a>>" 
+    Format.fprintf ppf "map<%a; %a>" 
       pp_print_lustre_type ty1
       pp_print_lustre_type ty2
   | AbstractType (_, s) ->
@@ -719,7 +719,7 @@ let pp_print_type_decl ppf = function
   | AliasType (_, s, p, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 2>%a<<%a>> =@ %a@]" 
+      "@[<hv 2>%a<%a> =@ %a@]" 
       pp_print_ident s 
       (pp_print_list pp_print_ident ";") p
       pp_print_lustre_type t
@@ -779,7 +779,7 @@ let pp_print_node_param_list ppf = function
   | l ->
     
     Format.fprintf ppf
-      "@[<hv 2><<%a>>@]"
+      "@[<hv 2><%a>@]"
       (pp_print_list pp_print_node_param ";@ ") l
 
 
@@ -1096,7 +1096,7 @@ let pp_print_contract_call fmt (_, id, tys, in_params, out_params) =
       (pp_print_list pp_print_ident ", ") out_params
   | tys ->
     Format.fprintf
-      fmt "@[<hov 2>import %a<<%a>>(@,%a@,) returns (@,%a@,) ;@]"
+      fmt "@[<hov 2>import %a@<%a>(@,%a@,) returns (@,%a@,) ;@]"
       NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_lustre_type "; ") tys
       (pp_print_list pp_print_expr ", ") in_params
@@ -1212,7 +1212,7 @@ let pp_print_declaration ppf = function
   | NodeParamInst (_, (n, _, p)) -> 
 
     Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 
+      "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><%a>@];@]" 
       pp_print_ident n 
       pp_print_ident n 
       (pp_print_list pp_print_lustre_type "@ ") p
