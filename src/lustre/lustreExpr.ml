@@ -1694,7 +1694,7 @@ match t, t' with
   | t, t' when Type.is_ubitvector t && Type.is_ubitvector t' -> 
     let s1 = Type.get_bv_size t |> Option.get in 
     let s2 = Type.get_bv_size t' |> Option.get in
-    if s1 = s2 then Type.t_bv s1
+    if s1 = s2 then Type.t_ubv s1
     else raise Type_mismatch
   | _, _ -> raise Type_mismatch
 
