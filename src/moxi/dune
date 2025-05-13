@@ -1,0 +1,6 @@
+(ocamllex moxiLexer)
+
+(menhir
+ (infer false)
+ (flags --explain --table)
+ (modules moxiParser))

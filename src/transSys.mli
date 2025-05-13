@@ -193,9 +193,6 @@ val get_logic : t -> TermLib.logic
 (** Return the scope identifying the transition system *)
 val scope_of_trans_sys : t -> Scope.t
 
-(** Returns the type arguments in a transition system. *)
-val get_ty_args : t -> LustreAst.lustre_type list
-
 (** Returns the properties in a transition system. *)
 val get_properties : t -> Property.t list
 
@@ -246,9 +243,6 @@ val mk_trans_sys :
   
   (* Name of the transition system *)
   Scope.t ->
-
-  (* Original Lustre node's type arguments used for monomorphization *)
-  LustreAst.lustre_type list ->
     
   (* State variable for instance identifier *)
   StateVar.t option ->
@@ -646,7 +640,7 @@ val add_invariant : t -> Term.t -> Certificate.t -> bool -> Term.t
 Returns the normalized terms and a boolean indicating whether it is one
 state. *)
 val add_scoped_invariant :
-  t -> string list -> Term.t -> Certificate.t -> bool -> Term.t
+  t -> Scope.t -> Term.t -> Certificate.t -> bool -> Term.t
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
@@ -702,6 +696,8 @@ val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
     variables that have been converted to a state variable *)
 val enforce_constantness_via_equations : t -> (t * StateVar.t list)
 
+(** Return the global constant state variables of the transition system *)
+val global_const_state_vars : t -> StateVar.t list
 
 (* 
    Local Variables:

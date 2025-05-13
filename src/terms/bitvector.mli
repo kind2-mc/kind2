@@ -219,8 +219,11 @@ val sbv_neg : t -> t
 (** Function that computes bitwise conjunction *)
 val bv_and : t -> t -> t
 
-(** Funciton that computes bitwise disjunction *)
+(** Function that computes bitwise disjunction *)
 val bv_or : t -> t -> t
+
+(** Function that computes bitwise exclusive disjunction *)
+val bv_xor : t -> t -> t
 
 (** Function that computes bitwise negation *)
 val bv_not : t -> t

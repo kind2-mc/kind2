@@ -21,6 +21,7 @@
 
 open Lib
 module LA = LustreAst
+module NI = NodeId
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
@@ -48,28 +49,28 @@ module IMap = HString.HStringMap
 
 (** Context from a node identifier to a map of its
   variable identifiers to their inferred subrange bounds *)
-type context = LA.lustre_type IMap.t IMap.t
+type context = LA.lustre_type IMap.t NodeId.Map.t
 
 let dpos = Lib.dummy_pos
 
-let dnode_id = HString.mk_hstring "dummy_node_id"
+let dnode_id: NI.t = NI.mk_node_id (HString.mk_hstring "dummy_node_id")
 
-let empty_context = IMap.empty
+let empty_context = NodeId.Map.empty
 
-let union a b = IMap.union
+let union a b = NodeId.Map.union
   (fun _ n1 n2 -> Some (IMap.union
     (fun _ _ i2 -> Some i2)
     n1 n2))
   a b
 
-let get_type ctx node_name id = match IMap.find_opt node_name ctx with
+let get_type ctx node_name id = match NodeId.Map.find_opt node_name ctx with
   | Some node_ctx -> (match IMap.find_opt id node_ctx with
     | Some ty -> Some ty
     | None -> None)
   | None -> None
 
 let add_type ctx node_name id ty =
-  let update = IMap.singleton node_name (IMap.singleton id ty) in
+  let update = NodeId.Map.singleton node_name (IMap.singleton id ty) in
   union ctx update
 
 let extract_bounds_from_type ty =
@@ -193,7 +194,7 @@ let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
-and interpret_contract node_id ctx ty_ctx contract =
+and interpret_contract (node_id: NI.t) ctx ty_ctx contract =
   let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id contract |> unwrap |> fst
   in
   List.fold_left (fun acc eqn ->
@@ -201,7 +202,7 @@ and interpret_contract node_id ctx ty_ctx contract =
     ctx
     (snd contract)
 
-and interpret_contract_eqn node_id ctx ty_ctx = function
+and interpret_contract_eqn (node_id: NI.t) ctx ty_ctx = function
   | LA.GhostConst _ -> empty_context
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
@@ -237,13 +238,13 @@ and interpret_contract_node ty_ctx (id, ps, ins, outs, contract) =
 and interpret_node ty_ctx gids (id, _, _, ps, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
   let ty_ctx = TC.add_io_node_ctx ty_ctx id ps ins outs in
-  let ctx = IMap.empty in
+  let ctx = NodeId.Map.empty in
   let contract_ctx = match contract with
     | Some contract -> interpret_contract id ctx ty_ctx contract 
     | None -> empty_context
   in
   let ty_ctx = TC.add_local_node_ctx ty_ctx locals in
-  let gids_node = GeneratedIdentifiers.StringMap.find id gids in
+  let gids_node = NodeId.Map.find id gids in
   let ty_ctx = GeneratedIdentifiers.StringMap.fold
     (fun id ty ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
@@ -438,10 +439,10 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
           let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
           t
 
-        | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-        | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+        | Bool _ | Int _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false)
+        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ 
+        | SBitVector _ | UBitVector _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
@@ -486,10 +487,10 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
         let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
         extract_bounds_from_type ty
       
-      | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-      | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+      | Bool _ | Int _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-      | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
+      | EnumType _ | TArr _ | RefinementType _ | History _ 
+      | Map _ | SBitVector _ | UBitVector _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
@@ -523,9 +524,10 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ArrayConstr _ -> assert false
   | Quantifier _ -> assert false
   | When _ -> assert false
+  | Extract _ -> assert false
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _)
+  | RestartEvery (_, id, _, _) 
   | Call (_, _, id, _) ->
     let ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let output_ty = match ty with
@@ -695,8 +697,8 @@ let rec interpret_global_consts ty_ctx decls =
 
 and check_global_const_subrange ty_ctx ctx pos_map =
   let ctx =
-    match IMap.find_opt dnode_id ctx with
-    | None -> empty_context
+    match NodeId.Map.find_opt dnode_id ctx with
+    | None -> IMap.empty
     | Some ctx -> ctx
   in
   IMap.fold (fun id inferred_range acc ->

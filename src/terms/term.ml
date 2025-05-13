@@ -663,7 +663,7 @@ let rec type_of_term' t = match T.destruct t with
         | `INT16_TO_INT
         | `INT32_TO_INT
         | `INT64_TO_INT
-        | `BV_TO_INT
+        | `SBV_TO_INT
         | `MOD
         | `ABS
         | `INTDIV
@@ -691,6 +691,11 @@ let rec type_of_term' t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
+        | `CONST_ARRAY _ (* ty_array *) ->
+
+          (match l with
+           | [v] -> (type_of_term' v)
+           | _ -> assert false)
 
         (* Bitvector-valued function *)
         | `BVEXTRACT (i, j) -> 
@@ -713,19 +718,20 @@ let rec type_of_term' t = match T.destruct t with
 
           (match l with 
 
-            (* Concat is binary *)
-            | [a; b] -> 
+            | fst :: _ ->
 
-              (* Compute width of resulting bitvector *)
-              (match 
-                  (Type.node_of_type (type_of_term' a), 
-                   Type.node_of_type (type_of_term' b))
-               with
-                 | Type.BV i, Type.BV j -> 
-                    Type.mk_bv (i + j)
-                 | Type.UBV i, Type.UBV j -> 
-                    Type.mk_ubv (i + j)
-                 | _ -> assert false)
+              let new_size =
+                List.fold_left (fun acc a ->
+                  match Type.get_bv_size (type_of_term' a) with
+                  | Some s -> acc + s
+                  | None -> assert false
+                ) 0 l
+              in
+
+              if Type.is_bitvector (type_of_term' fst) then
+                Type.mk_bv new_size
+              else
+                Type.mk_ubv new_size
 
             | _ -> assert false)
 
@@ -764,6 +770,7 @@ let rec type_of_term' t = match T.destruct t with
 
         | `BVAND
         | `BVOR
+        | `BVXOR
         | `BVADD
         | `BVSUB
         | `BVMUL
@@ -1325,10 +1332,13 @@ let mk_bvor = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVOR a
 
-let mk_bvconcat = function 
-  | [] -> invalid_arg "Term.mk_bvconcat"
-  | [a] -> a 
-  | a -> mk_app_of_symbol_node `BVCONCAT a
+let mk_bvxor = function
+  | [] -> invalid_arg "Term.mk_bvxor"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVXOR a
+
+(* Hashcons a BV concatenation *)
+let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
 
 (* Hashcons a bitwise negation *)
 let mk_bvnot t = mk_app_of_symbol_node `BVNOT [t]
@@ -1486,7 +1496,7 @@ let mk_uint32_to_int t = mk_app_of_symbol_node `UINT32_TO_INT [t]
 let mk_ubv_to_int t = mk_app_of_symbol_node `BV2NAT [t]
 
 (* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
-let mk_bv_to_int t = mk_app_of_symbol_node `BV_TO_INT [t]
+let mk_bv_to_int t = mk_app_of_symbol_node `SBV_TO_INT [t]
 
 (* Hashcons a unary conversion from uint64 to an integer numeral *)
 let mk_uint64_to_int t = mk_app_of_symbol_node `UINT64_TO_INT [t]
@@ -1551,6 +1561,7 @@ let mk_select a i = mk_app_of_symbol_node (`SELECT (type_of_term a)) [a; i]
 let mk_store a i v =
   mk_app_of_symbol_node `STORE [a; i; v]
 
+let mk_const_array t v = mk_app_of_symbol_node (`CONST_ARRAY t) [v]
 
 (* Generate a new tag *)
 let newid =

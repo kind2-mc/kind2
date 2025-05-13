@@ -20,11 +20,11 @@ open Lib
 open LustreReporting 
 
 (* Abbreviations *)
-module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module Contract = LustreContract
 module N = LustreNode
+module NI = NodeId
 
 module A = Analysis
 module S = SubSystem
@@ -150,7 +150,7 @@ let rec describe_cycle node accum = function
 
        try 
          (* Find node call with state variable as output *)
-         let { N.call_node_name } =
+         let { N.call_node_id } =
            List.find
              (fun { N.call_outputs } -> 
                 D.exists (fun _ sv -> StateVar.equal_state_vars state_var sv)
@@ -161,7 +161,7 @@ let rec describe_cycle node accum = function
          (* Output name of called node *)
          describe_cycle node
            ((Format.asprintf "<call to %a>"
-               (I.pp_print_ident false) call_node_name)
+               NI.pp_print_node_id_user_name call_node_id)
             :: accum)
            tl
 
@@ -273,7 +273,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (Format.asprintf
             "Circular dependency for %a in %a: @[<hov>%a@]@."
             (E.pp_print_lustre_var false) state_var
-            (I.pp_print_ident false) node.N.name
+            NI.pp_print_node_id_user_name node.N.node_id
             (pp_print_list Format.pp_print_string " ->@ ") str_path)
 
       | _ -> ()
@@ -337,7 +337,7 @@ let rec node_state_var_dependencies' init output_input_deps
           
           (fun
             accum
-            { N.call_node_name; 
+            { N.call_node_id; 
               N.call_inputs;
               N.call_outputs; 
               N.call_defaults;
@@ -357,7 +357,7 @@ let rec node_state_var_dependencies' init output_input_deps
           (* Get computed dependencies of outputs on inputs for called
               node *)
           let output_input_dep =
-            try List.assoc call_node_name output_input_deps
+            try List.assoc call_node_id output_input_deps
                 |> if init then fst else snd
             with Not_found -> D.empty
           in
@@ -667,10 +667,9 @@ let slice_all_of_node
     ?(keep_props = true)
     ?(keep_contracts = true)
     ?(keep_asserts = true)
-    { N.name;
+    { N.node_id;
       N.is_extern;
       N.opacity;
-      N.ty_args;
       N.instance;
       N.init_flag;
       N.inputs; 
@@ -691,10 +690,9 @@ let slice_all_of_node
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
      properties, assertions, contracts and main annotation *)
-  { N.name;
+  { N.node_id;
     N.is_extern;
     N.opacity;
-    N.ty_args;
     N.instance;
     N.init_flag;
     N.inputs;
@@ -921,12 +919,12 @@ let rec slice_nodes
 
         (* State variable is an output of a called node that is not
            already sliced? *)
-        let { N.call_node_name } =
+        let { N.call_node_id } =
           List.find
-            (function { N.call_node_name; N.call_outputs } ->
+            (function { N.call_node_id; N.call_outputs } ->
 
               (* Called node is not already sliced? *)
-              (not (N.exists_node_of_name call_node_name accum)
+              (not (N.exists_node_of_name call_node_id accum)
 
                &&
 
@@ -938,7 +936,7 @@ let rec slice_nodes
         in
 
         (* Get called node by name *)
-        let node = N.node_of_name call_node_name nodes in
+        let node = N.node_of_node_id call_node_id nodes in
 
         (* Slice called node first, then return to this node
 
@@ -1200,9 +1198,9 @@ let root_and_leaves_of_contracts
 (* Return [true] if the node is flagged as abstract in
    [abstraction_map]. Default to [false] if the node is not in the
    map. *)
-let node_is_abstract analysis { N.name } = 
+let node_is_abstract analysis { N.node_id } = 
 
-  [I.string_of_ident false name]
+  [NI.get_internal_name node_id |> HString.string_of_hstring]
   |> Analysis.param_scope_is_abstract analysis
 
 
@@ -1246,7 +1244,7 @@ let slice_to_abstraction'
   in
   
   (* Create subsystem from list of nodes *)
-  let { N.name = top } = List.hd nodes in
+  let { N.node_id = top; } = List.hd nodes in
   N.subsystem_of_nodes top nodes'
 
 

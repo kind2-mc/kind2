@@ -100,7 +100,7 @@ let string_of_ident safe = string_of_t (pp_print_ident safe)
 let mk_string_ident string = (string, [])
 
 (* Construct an identifier of a scope *)
-let of_scope = function 
+let of_scope: Scope.t -> t = function 
 
   (* Only allow flat scopes for now *)
   | [i] -> Ident.to_string i |> mk_string_ident
@@ -151,6 +151,10 @@ let reserved_scope = Scope.mk_scope [ Ident.of_string "res" ]
 
 (* Scope for identifiers in user input *)
 let user_scope = Scope.mk_scope [ Ident.of_string "usr" ]
+
+let of_hstring: HString.t -> t 
+= fun hstring -> 
+  hstring |> HString.string_of_hstring |> mk_string_ident
 
 
 (* 

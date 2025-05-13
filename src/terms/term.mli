@@ -174,6 +174,9 @@ val mk_bvand : t list -> t
 (** Create a bitvector disjunction *)
 val mk_bvor : t list -> t
 
+(** Create a bitvector exclusive disjunction *)
+val mk_bvxor : t list -> t
+
 (** Create a bitwise negation *)
 val mk_bvnot : t -> t
 
@@ -318,7 +321,7 @@ val mk_bv2nat : t -> t
 val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
 
 (** Create a BV concatenation *)
-val mk_bvconcat : t list -> t
+val mk_bvconcat : t -> t -> t
 
 (** Create a BV sign extension *)
 val mk_bvsignext : Numeral.t -> t -> t
@@ -334,6 +337,8 @@ val mk_select : t -> t -> t
 
 (** Functionally update an array at a given index *)
 val mk_store : t -> t -> t -> t
+
+val mk_const_array : Type.t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)

@@ -1,0 +1,4 @@
+function N (x1,x2: uint8) returns ()
+let
+  check "P1" (uint8 0) > (x2 rsh x1);
+tel

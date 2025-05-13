@@ -73,7 +73,7 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
         elnum ecnum
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (id, imported, _, _, _, _, _, _, contract) =
+    (node_id, imported, _, _, _, _, _, _, contract) =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   match contract with 
@@ -92,7 +92,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"endColumn\" : %d,@,\
      \"contractStartLine\" : %d,@,\ 
      \"contractStartColumn\" : %d@]@.}@."
-    HString.pp_print_hstring id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
     celnum cecnum
@@ -108,12 +108,12 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    HString.pp_print_hstring id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
 let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (id, imported, _, _, _, _, _, _, _) =
+    (node_id, imported, _, _, _, _, _, _, _) =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf
@@ -127,12 +127,12 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    HString.pp_print_hstring id
+    NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
 let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (id, _, _, _, _) =
+    (node_id, _, _, _, _) =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf
@@ -145,7 +145,7 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
-    HString.pp_print_hstring id
+    NodeId.pp_print_node_id_user_name node_id
     pp_print_fname_json file slnum scnum elnum
     ecnum
 

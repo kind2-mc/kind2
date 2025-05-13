@@ -623,7 +623,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `INT16_TO_INT
   | `INT32_TO_INT
   | `INT64_TO_INT
-  | `BV_TO_INT
+  | `SBV_TO_INT
   | `TO_UINT8
   | `TO_UINT16
   | `TO_UINT32
@@ -665,6 +665,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `XOR
     | `BVAND
     | `BVOR
+    | `BVXOR
     | `BVADD
     | `BVSUB
     | `BVMUL
@@ -672,6 +673,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVSDIV
     | `BVUREM
     | `BVSREM
+    | `BVCONCAT
     | `PLUS
     | `TIMES
     | `DIV
@@ -772,6 +774,17 @@ and pp_print_app ?as_type safe pvar ppf = function
             
         | _ -> assert false)
 
+    | `CONST_ARRAY _ ->
+
+      (function
+        | [v] ->
+
+          Format.fprintf ppf
+          "@[<hv 2>%a^?@]"
+          (pp_print_term_node safe pvar) v
+
+        | _ -> assert false)
+
     | `STORE ->
       
       (function 
@@ -789,7 +802,6 @@ and pp_print_app ?as_type safe pvar ppf = function
       pp_print_app ?as_type safe pvar ppf (`SELECT (UfSymbol.res_type_of_uf_symbol sym))
         
     (* Unsupported functions symbols *)
-    | `BVCONCAT (*!! TODO: Support *)
     | `DISTINCT
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
@@ -1571,12 +1583,12 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_bitvector t -> (
       match t' with
-      | t when Type.is_bitvector t -> 
+      | t' when Type.is_bitvector t' -> 
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_bv s1 else 
@@ -1584,7 +1596,7 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
       | _ -> raise Type_mismatch)
     | t when Type.is_ubitvector t -> (
       match t' with
-      | t when Type.is_ubitvector t -> 
+      | t' when Type.is_ubitvector t' -> 
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_ubv s1 else 
@@ -1592,7 +1604,7 @@ let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
       | _ -> raise Type_mismatch)
     | t when Type.is_real t -> (
       match t' with
-      | t when Type.is_real t -> Type.t_real
+      | t' when Type.is_real t' -> Type.t_real
       | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch)
   
@@ -1605,12 +1617,12 @@ let type_of_numOrSBV_numOrSBV_numOrSBV ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_bitvector t -> (
       match t' with
-      | t when Type.is_bitvector t ->
+      | t' when Type.is_bitvector t' ->
         let s1 = Type.get_bv_size t |> Option.get in 
         let s2 = Type.get_bv_size t' |> Option.get in 
         if s1 = s2 then Type.t_bv s1 else 
@@ -1619,7 +1631,7 @@ let type_of_numOrSBV_numOrSBV_numOrSBV ?(is_div = false) op t t' =
 
     | t when Type.is_real t -> (
       match t' with
-      | t when Type.is_real t -> Type.t_real
+      | t' when Type.is_real t' -> Type.t_real
       | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch)
 
@@ -1682,7 +1694,7 @@ match t, t' with
   | t, t' when Type.is_ubitvector t && Type.is_ubitvector t' -> 
     let s1 = Type.get_bv_size t |> Option.get in 
     let s2 = Type.get_bv_size t' |> Option.get in
-    if s1 = s2 then Type.t_bv s1
+    if s1 = s2 then Type.t_ubv s1
     else raise Type_mismatch
   | _, _ -> raise Type_mismatch
 
@@ -1976,7 +1988,7 @@ let eval_to_uint8 expr =
             else if (Type.is_ubitvector tt) then
               let s = Type.get_bv_size tt |> Option.get in
               if (s < 8) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (8 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (8 - s))) expr
               else if (s = 8) then 
                 expr
               else
@@ -2024,7 +2036,7 @@ let eval_to_uint16 expr =
                         if (s = 16) then
                           expr
                         else if (s < 16) then
-                          Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (16 - s))); expr]
+                          Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (16 - s))) expr
                         else
                           Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
                       else
@@ -2034,8 +2046,6 @@ let eval_to_uint16 expr =
 (* Type of conversion to unsigned integer16  
 
    int: real -> uint16 
-
-   (*!! Why real goes to int? Why did this test fail after my changes, when it succeeded before? *)
 *)
 let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
@@ -2071,7 +2081,7 @@ let eval_to_uint32 expr =
               if (s = 32) then
                 expr
               else if (s < 32) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (32 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (32 - s))) expr
               else
                 Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
                 (*let n = Term.mk_bv2nat expr in
@@ -2118,7 +2128,7 @@ let eval_to_uint64 expr =
               if (s = 64) then
                 expr
               else if (s < 64) then
-                Term.mk_bvconcat [(Term.mk_ubv (Bitvector.zero (64 - s))); expr]
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (64 - s))) expr
               else
                 Term.mk_bvextract (Numeral.of_int 63) (Numeral.of_int 0) expr
             else
@@ -2867,7 +2877,7 @@ let type_of_intdiv t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | t' when Type.is_int t' || Type.is_int_range t' -> Type.t_int
       | _ -> raise Type_mismatch
     )
     | t when Type.is_ubitvector t -> (
@@ -2920,13 +2930,6 @@ let eval_bvand expr1 expr2 =
   | _ -> Term.mk_bvand [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
-let eval_bvconcat expr1 expr2 = 
-
-  match Term.destruct expr1, Term.destruct expr2 with              
-    
-  | _ -> Term.mk_bvconcat [expr1; expr2]
-  | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
-
 let eval_bvextract expr ub lb = 
   let ub, lb = match Term.destruct ub, Term.destruct lb with
   | Term.T.Const c1, Term.T.Const c2 when
@@ -2937,8 +2940,14 @@ let eval_bvextract expr ub lb =
   match Term.destruct expr with              
     
   | _ -> Term.mk_bvextract ub lb expr
-  | exception Invalid_argument _ -> assert false (*!! TODO: Check *)
+  | exception Invalid_argument _ -> Term.mk_bvextract ub lb expr
 
+let eval_bvconcat expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with              
+    
+  | _ -> Term.mk_bvconcat expr1 expr2
+  | exception Invalid_argument _ -> Term.mk_bvconcat expr1 expr2
 
 (* Type of bitvector conjunction*)
 let type_of_bvand = type_of_abv_abv_abv

@@ -60,6 +60,7 @@
     {- [`BVNEG] unary: arithmetic negation (unary)}
     {- [`BVAND] binary: bit-wise conjunction}
     {- [`BVOR] binary: bit-wise disjunction}
+    {- [`BVXOR] binary: bit-wise exclusive disjunction}
     {- [`BVADD] binary: signed bitvector sum}
     {- [`BVSUB] binary: signed bitvector difference}
     {- [`BVMUL] binary: arithmetic multiplication}
@@ -84,6 +85,7 @@
     {- [`BVZEROEXT i] unary: extend bitvectors with zeros}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
+    {- [`CONST_ARRAY] unary: constant array}
     }
 
     A chainable symbol is to be read as the conjunction of successive
@@ -158,7 +160,7 @@ type interpreted_symbol =
   | `TO_INT32             (** Conversion to an integer32 numeral (unary) *)  
   | `TO_INT64             (** Conversion to an integer64 numeral (unary) *)    
   | `BV2NAT               (** Conversion from bitvector to a natural number *)
-  | `BV_TO_INT            (** Conversion from signed bitvector to natural number *)
+  | `SBV_TO_INT            (** Conversion from signed bitvector to integer number *)
   | `IS_INT               (** Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t
@@ -168,6 +170,7 @@ type interpreted_symbol =
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
+  | `BVXOR                (** Bit-wise exclusive disjunction (binary) *)
   | `BVADD                (** Signed bitvector sum (binary) *)
   | `BVSUB                (** Signed bitvector difference (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)
@@ -197,6 +200,8 @@ type interpreted_symbol =
   | `SELECT of Type.t     (** Selection from array (binary) *)
 
   | `STORE                (** Update of an array (ternary) *)
+
+  | `CONST_ARRAY of Type.t (** Constant array (unary) *)
 
   ]
 
@@ -302,6 +307,8 @@ val s_select : Type.t -> t
 (** array store symbol *)
 val s_store : t
 
+val s_const_array : Type.t -> t
+
 (**  Bit-vector extract operator *)
 val s_extract : Numeral.t -> Numeral.t -> t
 
@@ -389,6 +396,9 @@ val is_to_int64 : t -> bool
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
+
+(** Return true if the symbol is a constant array  *)
+  val is_const_array : t -> bool
 
 (** Return true if the symbol is the divisible function *)
 val is_divisible : t -> bool

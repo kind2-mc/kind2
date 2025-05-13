@@ -84,7 +84,7 @@ type interpreted_symbol =
   | `TO_INT32             (* Conversion to an integer32 numeral (unary) *)  
   | `TO_INT64             (* Conversion to an integer64 numeral (unary) *)  
   | `BV2NAT               (* Conversion from unsigned bitvector to natural number *)
-  | `BV_TO_INT            (* Conversion from signed bitvector to natural number *)
+  | `SBV_TO_INT            (* Conversion from signed bitvector to natural number *)
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -94,6 +94,7 @@ type interpreted_symbol =
   | `BVNEG                (* Arithmetic negation (unary) *)
   | `BVAND                (* Bit-wise conjunction (binary) *)
   | `BVOR                 (* Bit-wise disjunction (binary) *)
+  | `BVXOR                (* Bit-wise exclusive disjunction (binary) *)
   | `BVADD                (* Signed bitvector sum (binary) *)
   | `BVSUB                (* Signed bitvector difference (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
@@ -123,6 +124,8 @@ type interpreted_symbol =
   (* Selection from array (binary) *)
   | `SELECT of Type.t
   | `STORE                (* Update of an array (ternary) *)
+
+  | `CONST_ARRAY of Type.t (** Constant array (unary) *)
   ]
 
 
@@ -229,7 +232,7 @@ module Symbol_node = struct
     | `TO_INT32, `TO_INT32
     | `TO_INT64, `TO_INT64
     | `BV2NAT, `BV2NAT
-    | `BV_TO_INT, `BV_TO_INT
+    | `SBV_TO_INT, `SBV_TO_INT
     | `IS_INT, `IS_INT -> true
 
   
@@ -239,6 +242,9 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
+    | `CONST_ARRAY a1, `CONST_ARRAY a2 ->
+      Type.equal_types a1 a2
+
     | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
     | `BVSIGNEXT i1, `BVSIGNEXT i2 -> Numeral.equal i1 i2
     | `BVZEROEXT i1, `BVZEROEXT i2 -> Numeral.equal i1 i2
@@ -246,6 +252,7 @@ module Symbol_node = struct
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
     | `BVOR, `BVOR
+    | `BVXOR, `BVXOR
     | `BVADD, `BVADD
     | `BVSUB, `BVSUB
     | `BVMUL, `BVMUL
@@ -306,10 +313,11 @@ module Symbol_node = struct
     | `TO_INT32, _ 
     | `TO_INT64, _ 
     | `BV2NAT, _
-    | `BV_TO_INT, _ 
+    | `SBV_TO_INT, _ 
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ 
+    | `CONST_ARRAY _, _
     | `BVEXTRACT _, _
     | `BVCONCAT, _
     | `BVSIGNEXT _, _
@@ -319,6 +327,7 @@ module Symbol_node = struct
     | `BVNEG, _
     | `BVAND, _
     | `BVOR, _
+    | `BVXOR, _
     | `BVADD, _
     | `BVSUB, _
     | `BVMUL, _
@@ -477,7 +486,7 @@ let rec pp_print_symbol_node ppf = function
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
-  | `BV_TO_INT -> assert false (*!! TODO: fix *)
+  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
@@ -489,6 +498,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
+  | `BVXOR -> Format.pp_print_string ppf "bvxor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
@@ -527,6 +537,11 @@ let rec pp_print_symbol_node ppf = function
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"
+  | `CONST_ARRAY a ->
+      Format.fprintf
+      ppf
+      "(as const %a)"
+      Type.pp_print_type a
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)
@@ -783,11 +798,17 @@ let is_select = function
      with Scanf.Scan_failure _ -> false)
   | _ -> false
 
+let is_const_array = function
+  | { Hashcons.node = `CONST_ARRAY _ } -> true
+  | _ -> false
+
 let is_divisible = function
   | { Hashcons.node = `DIVISIBLE _ } -> true
   | _ -> false
 
 let s_store = mk_symbol `STORE
+
+let s_const_array ta = mk_symbol (`CONST_ARRAY ta)
 
 (* Bit-vector extract operator *)
 let s_extract i j = mk_symbol (`BVEXTRACT (i,j))

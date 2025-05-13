@@ -226,8 +226,8 @@ let rec pp_print_type_node ppf = function
     Format.fprintf
       ppf 
       "(Array %a %a)"
-      pp_print_type s 
       pp_print_type t
+      pp_print_type s
 
   | Abstr s -> Format.pp_print_string ppf s
 
@@ -284,8 +284,8 @@ let rec pp_print_type_node_debug ppf = function
     Format.fprintf
       ppf 
       "(Array %a %a)"
-      pp_print_type s 
       pp_print_type t
+      pp_print_type s
 
   | Abstr s -> Format.pp_print_string ppf s
 
@@ -447,6 +447,34 @@ let is_bitvector { Hashcons.node = t } = match t with
 let is_ubitvector { Hashcons.node = t } = match t with
   | UBV _ -> true 
   | _-> false
+
+let is_uint8 { Hashcons.node = t } = match t with
+  | UBV 8 -> true 
+  | _-> false
+
+let is_uint16 { Hashcons.node = t } = match t with
+  | UBV 16 -> true 
+  | _-> false
+
+let is_uint32 { Hashcons.node = t } = match t with
+  | UBV 32 -> true 
+  | _-> false
+
+let is_uint64 { Hashcons.node = t } = match t with
+  | UBV 64 -> true 
+  | _-> false
+
+let is_int8 { Hashcons.node = t } = match t with
+  | BV 8 -> true 
+  | _-> false
+
+let is_int16 { Hashcons.node = t } = match t with
+  | BV 16 -> true 
+  | _ -> false
+
+let is_int32 { Hashcons.node = t } = match t with
+  | BV 32 -> true 
+  | _ -> false
 
 let is_int64 { Hashcons.node = t } = match t with
   | BV 64 -> true 

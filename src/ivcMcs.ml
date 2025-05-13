@@ -21,6 +21,7 @@ open ModelElement
 module TS = TransSys
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
+module NI = NodeId
 
 module Position = struct
   type t = Lib.position
@@ -136,14 +137,6 @@ let previous_rands = Hashtbl.create 10
 let rec unannot_pos = function
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
-  | A.UInt8 _ -> A.UInt8 dpos
-  | A.UInt16 _ -> A.UInt16 dpos
-  | A.UInt32 _ -> A.UInt32 dpos
-  | A.UInt64 _ -> A.UInt64 dpos
-  | A.Int8 _ -> A.Int8 dpos
-  | A.Int16 _ -> A.Int16 dpos
-  | A.Int32 _ -> A.Int32 dpos
-  | A.Int64 _ -> A.Int64 dpos
   | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
   | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
   | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
@@ -160,6 +153,7 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
+  | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -184,7 +178,7 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (pos, [], HString.mk_hstring (rand_function_name_for n typ),
+          (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
             (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
@@ -193,7 +187,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (pos, [], HString.mk_hstring (rand_function_name_for n typ),
+            (pos, [], NI.mk_node_id (HString.mk_hstring (rand_function_name_for n typ)),
               (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
@@ -273,6 +267,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
+    | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
   in aux expr
 
 and ast_contains p ast =
@@ -286,7 +281,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) | A.Extract (_,e,_,_) ->
       aux e
     | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
@@ -415,9 +410,9 @@ let minimize_contract_node_eq ue lst cne =
   | A.AssumptionVars _ -> [cne]
 
 let minimize_node_decl ue loc_core
-  ((id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
+  ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
-  let id' = HString.string_of_hstring id in
+  let id' = NI.get_internal_name node_id |> HString.string_of_hstring in
   let id_typ_map = build_id_typ_map inputs outputs locals in
 
   let minimize_with_lst lst =
@@ -430,7 +425,7 @@ let minimize_node_decl ue loc_core
     end
     in
     let locals = List.map (minimize_node_local_decl ue lst) locals in
-    (id, extern, opac, tparams, inputs, outputs, locals, items, spec)
+    (node_id, extern, opac, tparams, inputs, outputs, locals, items, spec)
   in
   
   let scope = (Scope.mk_scope [id']) in
@@ -515,7 +510,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
   in
   aux minimized (!max_nb_args)*)
   Hashtbl.fold (fun ts n acc ->
-    (rand_node (HString.mk_hstring n) ts)::acc
+    (rand_node (NI.mk_node_id (HString.mk_hstring n)) ts)::acc
   )
   rand_functions
   minimized

@@ -16,6 +16,7 @@
  *)
 
 module A = LustreAst
+module NI = NodeId
 module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
 module GI = GeneratedIdentifiers
@@ -35,56 +36,17 @@ type error = [
 
 let mk_error pos kind = Error (`LustreGenRefTypeImpNodesError (pos, kind))
 
-let inputs_tag = ".inputs_"
-let contract_tag = ".contract_"
-let type_tag = ".type_"
-let poly_gen_node_tag = ".poly_"
-
-type node_type = Environment | Contract | Type | User
-
-(* Module state for fresh identifiers *)
-let i = ref 0
-
-let mk_fresh_id id = 
-  i := !i + 1;
-  let prefix = HString.concat2 (HString.mk_hstring (string_of_int !i)) (HString.mk_hstring "_") in
-  HString.concat2 prefix id
-
-
-let get_node_type_and_name: string -> node_type * string 
-= fun name ->
-  let inputs_tag_len = String.length inputs_tag in
-  let contract_tag_len = String.length contract_tag in
-  let type_tag_len = String.length type_tag in
-  let poly_gen_node_tag_len = String.length poly_gen_node_tag in
-  if String.length name > inputs_tag_len && 
-      String.sub name 0 inputs_tag_len = inputs_tag then
-    Environment, (String.sub name inputs_tag_len (String.length name - inputs_tag_len))
-  else if String.length name > contract_tag_len && 
-          String.sub name 0 contract_tag_len = contract_tag then 
-    Contract, (String.sub name contract_tag_len (String.length name - contract_tag_len))
-  else if String.length name > type_tag_len && 
-          String.sub name 0 type_tag_len = type_tag then 
-    Type, (String.sub name type_tag_len (String.length name - type_tag_len))
-  else if String.length name > poly_gen_node_tag_len && 
-          String.sub name 0 poly_gen_node_tag_len = poly_gen_node_tag then 
-    let s = String.sub name poly_gen_node_tag_len (String.length name - poly_gen_node_tag_len) in
-    let re = Str.regexp "^[0-9]+" in
-    let len_prefix = 
-      if Str.string_match re s 0 then
-        String.length (Str.matched_string s) + 1
-      else 1
-    in
-    User, (String.sub s len_prefix (String.length s - len_prefix))
-  else
-    User, name
-
 let unwrap = function 
   | Ok x -> x 
   | Error _ -> assert false
 
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
+
+let mk_fresh_id id = 
+  i := !i + 1;
+  let prefix = HString.concat2 (HString.mk_hstring (string_of_int !i)) (HString.mk_hstring "_") in
+  HString.concat2 prefix id
 
 let mk_fresh_ghost_var pos ty rhs =
   i := !i + 1;
@@ -121,6 +83,7 @@ let rec expr_contains_mode_ref expr =
   | Activate (_, _, e1, e2, expr_list) -> 
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | Extract (_, e, _, _) -> r e
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
     -> false
 
@@ -131,9 +94,9 @@ let mk_generated_env_contract_eqs ctx base_contract =
     | A.Assume (pos, name, b, expr) ->
       if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
       R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
-    | A.ContractCall (pos, name, ty_args, ips, ops) ->
+    | A.ContractCall (pos, node_id, ty_args, ips, ops) ->
       if Flags.Contracts.check_environment () then ( 
-        let name = HString.concat2 (HString.mk_hstring inputs_tag) name in
+        let name = NI.mk_node_id ~node_type:NI.Environment (NI.get_name node_id) in
         (* Since we are flipping the inputs and outputs of the generated contract, 
           we also need to flip inputs and outputs of the call *)
         let ips' = List.map (fun id -> A.Ident (pos, id)) ops in
@@ -178,13 +141,13 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
   inputs2, outputs2
 
 let contract_node_decl_to_contracts
-= fun ctx (id, params, inputs, outputs, (pos, base_contract)) -> 
+= fun ctx (node_id, params, inputs, outputs, (pos, base_contract)) -> 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
-  let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
+  let gen_node_id = NI.mk_node_id ~node_type:Environment (NI.get_name node_id) in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   (* We generate a contract representing this contract's inputs/environment *)
   let environment = gen_node_id, params, inputs2, outputs2, (pos, contract') in
-  let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
+  let gids = List.fold_left GI.union (GI.empty ()) gids |> NI.Map.singleton gen_node_id in
   if Flags.Contracts.check_environment () 
   then 
     (* Update ctx with info about the generated contract *)
@@ -193,7 +156,7 @@ let contract_node_decl_to_contracts
   else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
-= fun pos ctx (id, extern, _, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -207,10 +170,10 @@ let node_decl_to_contracts
   let extern' = true in 
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
-  let gen_node_id = HString.concat2 (HString.mk_hstring inputs_tag) id in
-  let gen_node_id2 = HString.concat2 (HString.mk_hstring contract_tag) id in
+  let gen_node_id = NI.mk_node_id ~node_type:Environment (NI.get_name node_id) in
+  let gen_node_id2 = NI.mk_node_id ~node_type:Contract (NI.get_name node_id) in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
-  let gids = List.fold_left GI.union (GI.empty ()) gids |> GI.StringMap.singleton gen_node_id in
+  let gids = List.fold_left GI.union (GI.empty ()) gids |> NI.Map.singleton gen_node_id in
   (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
@@ -242,14 +205,14 @@ let node_decl_to_contracts
 let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t list -> A.declaration option
 = fun pos id ty ps -> 
   let span = { A.start_pos = pos; end_pos = pos } in
-  let gen_node_id = HString.concat2 (HString.mk_hstring type_tag) id in
+  let gen_node_id = NI.mk_node_id ~node_type:Type id in
   (* To prevent slicing, we mark generated imported nodes as main nodes *)
   let node_items = [A.AnnotMain(pos, true)] in 
   (* Avoid name clashes (e.g., with enum constants) *)
   let id = mk_fresh_id id in
   Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
-let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t HString.HStringMap.t, [> error]) result
+let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t NI.Map.t, [> error]) result
 = fun ctx decls -> 
   let* decls, ctx, gids = R.seq_chain (fun (acc_decls, acc_ctx, acc_gids) decl -> 
     match decl with 
@@ -271,7 +234,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
       R.ok (
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
-        GI.StringMap.merge GI.union_keys2 gids acc_gids
+        NI.Map.merge GI.union_keys2 gids acc_gids
       )
     | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
       (* Add main annotations to imported functions *)
@@ -283,16 +246,16 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
       R.ok (
         A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
-        GI.StringMap.merge GI.union_keys2 gids acc_gids
+        NI.Map.merge GI.union_keys2 gids acc_gids
       )
     | A.ContractNodeDecl (span, contract_node_decl) -> 
       let* decls, acc_ctx, gids = contract_node_decl_to_contracts acc_ctx contract_node_decl in 
       let decls = List.map (fun decl -> A.ContractNodeDecl (span, decl)) decls in
       R.ok (
         A.ContractNodeDecl (span, contract_node_decl) :: decls @ acc_decls, acc_ctx, 
-        GI.StringMap.merge GI.union_keys2 gids acc_gids
+        NI.Map.merge GI.union_keys2 gids acc_gids
       )
     | A.NodeParamInst _ -> R.ok (decl :: acc_decls, acc_ctx, acc_gids)
-  ) ([], ctx, GI.StringMap.empty) decls 
+  ) ([], ctx, NI.Map.empty) decls 
   in 
   R.ok (List.rev decls, ctx, gids)

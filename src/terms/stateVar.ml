@@ -308,7 +308,7 @@ let mk_state_var
     
     try 
       
-      if (Flags.Smt.short_names () && not is_const) then raise Not_found;
+      if (Flags.Smt.short_names ()) then raise Not_found;
 
       let _ = 
         UfSymbol.uf_symbol_of_string 
@@ -328,7 +328,7 @@ let mk_state_var
        (* Create an uninterpreted function symbol for the state variable *)
        let state_var_uf_symbol = 
 
-         (if (Flags.Smt.short_names () && not is_const) then 
+         (if (Flags.Smt.short_names ()) then
             
             gen_uf
               

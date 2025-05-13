@@ -40,6 +40,8 @@
 
 open Lib
 
+module NI = NodeId
+
 (** Error while parsing *)
 exception Parser_error
 
@@ -52,6 +54,8 @@ module SI: sig
   include (Set.S with type elt = ident)
   val flatten: t list -> t
 end
+
+
 
 (** A single index *)
 type index = HString.t
@@ -101,14 +105,6 @@ type group_expr =
 type lustre_type =
   | Bool of position
   | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
   | SBitVector of position * int
   | UBitVector of position * int
   | IntRange of position * expr option * expr option
@@ -156,15 +152,15 @@ and expr =
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
-  | Condact of position * expr * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr * expr list
+  | Condact of position * expr * expr * NI.t * expr list * expr list
+  | Activate of position * NI.t * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
-  | RestartEvery of position * ident * expr list * expr
+  | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
   (* Node calls *)
-  | Call of position * lustre_type list * ident * expr list
+  | Call of position * lustre_type list * NI.t * expr list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -266,7 +262,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * lustre_type list * expr list * ident list
+type contract_call = position * NI.t * lustre_type list * expr list * ident list
 
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
@@ -306,7 +302,7 @@ type opacity =
     - its equations, assertions and annotiations, and
     - its optional contract specification *)
 type node_decl =
-  ident
+  NI.t
   * bool
   * opacity
   * ident list
@@ -324,7 +320,7 @@ type node_decl =
   - its outputs,
   - its body as a [contract]. *)
 type contract_node_decl =
-  ident
+  NI.t
   * ident list
   * const_clocked_typed_decl list
   * clocked_typed_decl list

@@ -84,6 +84,8 @@ val string_starts_with : string -> string -> bool
     that the result does not overflow to a negtive number *)
 val safe_hash_interleave : int -> int -> int -> int
 
+val power_of_two : int -> int
+
 (** {1 List functions} *)
 
 val find_opt_index : ('a -> bool) -> 'a list -> int option
@@ -407,6 +409,22 @@ type kind_module =
   | `INVGENUBVOS
   | `INVGENMACH
   | `INVGENMACHOS
+  | `INVGENINT8
+  | `INVGENINT8OS
+  | `INVGENINT16
+  | `INVGENINT16OS
+  | `INVGENINT32
+  | `INVGENINT32OS
+  | `INVGENINT64
+  | `INVGENINT64OS
+  | `INVGENUINT8
+  | `INVGENUINT8OS
+  | `INVGENUINT16
+  | `INVGENUINT16OS
+  | `INVGENUINT32
+  | `INVGENUINT32OS
+  | `INVGENUINT64
+  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -465,6 +483,17 @@ val find_file : string -> string list -> string option
 
 (** A position in the input *)
 type position 
+
+(** A span in the input *)
+type span
+
+val mk_span : position -> position -> span
+
+val start_pos : span -> position
+
+val end_pos : span -> position
+
+val dummy_span : span
 
 (** Dummy position different from any valid position *)
 val dummy_pos : position

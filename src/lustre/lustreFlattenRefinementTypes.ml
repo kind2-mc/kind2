@@ -55,6 +55,11 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
+      | Map (pos, ty1, ty2) -> 
+        List.mapi (fun i ty ->
+          let exprs = chase_refinements ty in
+          List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
+        ) [ty1; ty2] |> List.flatten
     | ArrayType (pos, (ty, len)) -> 
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in
@@ -67,19 +72,18 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
-    | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
-    | History _ | TArr _ | UserType _ -> []
+    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
-      | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
+      | Ok ty -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
-  | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
-  | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
+  | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+  | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -110,6 +114,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, rec_call e1, rec_call e2, rec_call e3)
   | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
+  | Extract (p, e, idx1, idx2) -> Extract (p, rec_call e, idx1, idx2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | RecordExpr (p, i, ps, flds) ->
     let ps = List.map (flatten_ref_type ctx) ps in

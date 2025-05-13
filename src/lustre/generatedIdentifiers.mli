@@ -31,18 +31,13 @@ type t = {
     * LustreAst.lustre_type
     * LustreAst.expr)
     list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
   asserts : (Lib.position * LustreAst.expr) list;
   contract_calls :
     (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
+    * (Lib.position * NodeId.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
@@ -51,13 +46,13 @@ type t = {
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
-    * HString.t (* node name *)
+    * NodeId.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
   subrange_constraints : (source
-    * (Lib.position * HString.t) list (* contract scope  *)
+    * (Lib.position * NodeId.t) list (* contract scope  *)
     * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
@@ -71,7 +66,7 @@ type t = {
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
+    * (Lib.position * NodeId.t) list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr
     * source option) (* Record the source of the equation if generated before normalization step *)

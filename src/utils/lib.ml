@@ -67,6 +67,13 @@ let flip f = fun b a -> f a b
    to a negtive number *)
 let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
   
+let power_of_two n =
+  let rec aux acc n =
+    if n = 0 then acc
+    else aux (acc * 2) (n - 1)
+  in
+  aux 1 n
+
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)
@@ -851,6 +858,22 @@ type kind_module =
   | `INVGENUBVOS
   | `INVGENMACH
   | `INVGENMACHOS
+  | `INVGENINT8
+  | `INVGENINT8OS
+  | `INVGENINT16
+  | `INVGENINT16OS
+  | `INVGENINT32
+  | `INVGENINT32OS
+  | `INVGENINT64
+  | `INVGENINT64OS
+  | `INVGENUINT8
+  | `INVGENUINT8OS
+  | `INVGENUINT16
+  | `INVGENUINT16OS
+  | `INVGENUINT32
+  | `INVGENUINT32OS
+  | `INVGENUINT64
+  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -914,6 +937,22 @@ let short_name_of_kind_module = function
  | `INVGENUBVOS -> "invgenubvos"
  | `INVGENMACH -> "invgenmachts"
  | `INVGENMACHOS -> "invgenmachos"
+ | `INVGENINT8 -> "invgenint8ts"
+ | `INVGENINT8OS -> "invgenint8os"
+ | `INVGENINT16 -> "invgenint16ts"
+ | `INVGENINT16OS -> "invgenint16os"
+ | `INVGENINT32 -> "invgenint32ts"
+ | `INVGENINT32OS -> "invgenint32os"
+ | `INVGENINT64 -> "invgenuint64ts"
+ | `INVGENINT64OS -> "invgenuint64os"
+ | `INVGENUINT8 -> "invgenuint8ts"
+ | `INVGENUINT8OS -> "invgenuint8os"
+ | `INVGENUINT16 -> "invgenuint16ts"
+ | `INVGENUINT16OS -> "invgenuint16os"
+ | `INVGENUINT32 -> "invgenuint32ts"
+ | `INVGENUINT32OS -> "invgenuint32os"
+ | `INVGENUINT64 -> "invgenuint64ts"
+ | `INVGENUINT64OS -> "invgenuint64os"
  | `INVGENREAL -> "invgenintts"
  | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
@@ -940,6 +979,22 @@ let kind_module_of_string = function
   | "INVGENINTOS" -> `INVGENINTOS
   | "INVGENMACH" -> `INVGENMACH
   | "INVGENMACHOS" -> `INVGENMACHOS
+  | "INVGENINT8" -> `INVGENINT8
+  | "INVGENINT8OS" -> `INVGENINT8OS
+  | "INVGENINT16" -> `INVGENINT16
+  | "INVGENINT16OS" -> `INVGENINT16OS
+  | "INVGENINT32" -> `INVGENINT32
+  | "INVGENINT32OS" -> `INVGENINT32OS
+  | "INVGENINT64" -> `INVGENINT64
+  | "INVGENINT64OS" -> `INVGENINT64OS
+  | "INVGENUINT8" -> `INVGENUINT8
+  | "INVGENUINT8OS" -> `INVGENUINT8OS
+  | "INVGENUINT16" -> `INVGENUINT16
+  | "INVGENUINT16OS" -> `INVGENUINT16OS
+  | "INVGENUINT32" -> `INVGENUINT32
+  | "INVGENUINT32OS" -> `INVGENUINT32OS
+  | "INVGENUINT64" -> `INVGENUINT64
+  | "INVGENUINT64OS" -> `INVGENUINT64OS
   | "INVGENREAL" -> `INVGENREAL
   | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
@@ -965,6 +1020,22 @@ let int_of_kind_module = function
   | `INVGENREAL -> 9
   | `INVGENREALOS -> 10
   | `C2I -> 11
+  | `INVGENINT8 -> 12
+  | `INVGENINT8OS -> 13
+  | `INVGENINT16 -> 14
+  | `INVGENINT16OS -> 15
+  | `INVGENINT32 -> 16
+  | `INVGENINT32OS -> 17
+  | `INVGENINT64 -> 18
+  | `INVGENINT64OS -> 19
+  | `INVGENUINT8 -> 20
+  | `INVGENUINT8OS -> 21
+  | `INVGENUINT16 -> 22
+  | `INVGENUINT16OS -> 23
+  | `INVGENUINT32 -> 24
+  | `INVGENUINT32OS -> 25
+  | `INVGENUINT64 -> 26
+  | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
@@ -1141,7 +1212,6 @@ let rec find_file filename = function
 (* Parser and lexer functions                                             *)
 (* ********************************************************************** *)
 
-
 (* A position in a file
 
    The column is the actual colum number, not an offset from the
@@ -1149,6 +1219,13 @@ let rec find_file filename = function
 type position =
   { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
+type location = { lnum: int; cnum: int }
+
+type span = {
+  filename: string;
+  start_loc : location;
+  end_loc : location;
+}
 
 let equal_pos
   { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }
@@ -1168,6 +1245,42 @@ let compare_pos
     (p1, (l1, c1)) 
     (p2, (l2, c2)) 
 
+
+let mk_span start_pos end_pos =
+  { filename = start_pos.pos_fname ;
+    start_loc = { 
+      lnum = start_pos.pos_lnum;
+      cnum = start_pos.pos_cnum
+    };
+    end_loc = { 
+      lnum = end_pos.pos_lnum;
+      cnum = end_pos.pos_cnum
+    };
+  }
+
+let start_pos { filename; start_loc } =
+  { pos_fname = filename;
+    pos_lnum = start_loc.lnum;
+    pos_cnum = start_loc.cnum
+  }
+
+let end_pos { filename; end_loc } =
+  { pos_fname = filename;
+    pos_lnum = end_loc.lnum;
+    pos_cnum = end_loc.cnum
+  }
+
+let dummy_span =
+  { filename = "" ;
+    start_loc = { 
+      lnum = 0;
+      cnum = -1
+    };
+    end_loc = { 
+      lnum = 0;
+      cnum = -1
+    };
+  }
 
 (* A dummy position, different from any valid position *)
 let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }

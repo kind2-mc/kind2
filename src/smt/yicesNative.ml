@@ -507,6 +507,7 @@ let ensure_symbol_qf_lira s =
   | `BVNEG
   | `BVAND
   | `BVOR
+  | `BVXOR
   | `BVADD
   | `BVSUB
   | `BVMUL
@@ -546,8 +547,9 @@ let ensure_symbol_qf_lira s =
   | `TO_INT32
   | `TO_INT64
   | `BV2NAT
-  | `BV_TO_INT
+  | `SBV_TO_INT
   | `SELECT _
+  | `CONST_ARRAY _
   | `STORE ->
     
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \

@@ -32,6 +32,8 @@ module Lsd = LockStepDriver
 (* Term set. *)
 module Set = Term.TermSet
 
+module NI = NodeId
+
 
 (*
 
@@ -101,8 +103,9 @@ let fmt_term = Term.pp_print_term
 (* |===| Communication stuff. *)
 
 (** Name of a transition system. *)
-let sys_name sys =
-  Sys.scope_of_trans_sys sys |> Scope.to_string
+let sys_name in_sys sys =
+  let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
+  node_name |> LustreIdent.string_of_ident true
 
 
 
@@ -248,12 +251,13 @@ module Make (Graph : GraphSig) : Out = struct
 
   (** Communicates some invariants and adds them to the trans sys. *)
   let communicate_and_add
-    two_state top_sys sys_map sys k blah non_trivial trivial
+    two_state in_sys top_sys sys_map sys k blah non_trivial trivial
   =
     (* Format.printf "trivial: @[<v>%a@]@.@."
       (pp_print_list fmt_term "@ ") trivial ;
     Format.printf "non trivial: @[<v>%a@]@.@."
       (pp_print_list fmt_term "@ ") non_trivial ; *)
+    let node_id = InputSystem.get_node_id in_sys (Sys.scope_of_trans_sys sys) in
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
@@ -263,7 +267,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -275,7 +279,7 @@ module Make (Graph : GraphSig) : Out = struct
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length trivial)
@@ -287,7 +291,7 @@ module Make (Graph : GraphSig) : Out = struct
             @   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
+          NI.pp_print_node_id_user_name node_id
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -340,11 +344,11 @@ module Make (Graph : GraphSig) : Out = struct
   (** Queries step to identify invariants, prunes trivial ones away,
   communicates non-trivial ones and adds them to the transition system. *)
   let find_invariants
-    blah two_state lsd sys_map top_sys sys pruner k f candidates
+    blah two_state in_sys lsd sys_map top_sys sys pruner k f candidates
   =
     (* Format.printf "find_invariants (%d)@.@." (List.length candidates) ;
     Format.printf "  query_step@.@." ; *)
-    let invs = Lsd.query_step two_state lsd candidates in
+    let invs = Lsd.query_step two_state in_sys lsd candidates in
     
     (* Applying client function. *)
     let invs = f invs in
@@ -353,14 +357,14 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "  pruning@.@." ; *)
     let (non_trivial, trivial) =
       if Flags.Invgen.prune_trivial () then
-        Lsd.query_pruning pruner two_state invs
+        Lsd.query_pruning in_sys pruner two_state invs
       else (invs, [])
     in
 
     (* Communicating and adding to trans sys. *)
     let top_level_inc, invs =
       communicate_and_add
-        two_state top_sys sys_map sys k blah non_trivial trivial
+        two_state in_sys top_sys sys_map sys k blah non_trivial trivial
     in
 
     (* Adding sanitized non-trivial to step checker. *)
@@ -376,7 +380,7 @@ module Make (Graph : GraphSig) : Out = struct
   | rest -> res, rest
 
   let controlled_find_invariants
-    blah two_state lsd sys_map top_sys sys pruner k f
+    blah two_state in_sys lsd sys_map top_sys sys pruner k f
   =
     let rec loop non_trivial trivial non_invs top_level_inc candidates =
       let candidates, postponed = take non_invs 1 candidates in
@@ -384,7 +388,7 @@ module Make (Graph : GraphSig) : Out = struct
         (List.length candidates) (List.length postponed) ; *)
       let non_trivial', trivial', top_level_inc' =
         find_invariants
-          blah two_state lsd sys_map top_sys sys pruner k f candidates
+          blah two_state in_sys lsd sys_map top_sys sys pruner k f candidates
       in
       let non_invs =
         candidates |> List.fold_left (
@@ -426,10 +430,11 @@ module Make (Graph : GraphSig) : Out = struct
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
+    let node_id = InputSystem.get_node_id input_sys (Sys.scope_of_trans_sys sys) in
     let blah = if sys == top_sys then " (top)" else "" in
     KEvent.log L_info
       "%s Running on %a%s at %a (%d candidate terms, %d classes)"
-      (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
+      (pref_s two_state) NI.pp_print_node_id_user_name node_id blah
       Num.pp_print_numeral k (Graph.term_count graph)
       (Graph.class_count graph) ;
 
@@ -442,13 +447,13 @@ module Make (Graph : GraphSig) : Out = struct
       try SysMap.find sys_map sys with Not_found -> (
         KEvent.log L_fatal
           "%s could not find pruning checker for system [%s]"
-          (pref_s two_state) (sys_name sys) ;
+          (pref_s two_state) (sys_name input_sys sys) ;
         exit ()
       )
     in
 
     (* Creating base checker. *)
-    let lsd = Lsd.mk_base_checker sys k in
+    let lsd = Lsd.mk_base_checker input_sys sys k in
     (* Memorizing LSD instance for clean exit. *)
     base_ref := Some lsd ;
 
@@ -487,7 +492,7 @@ module Make (Graph : GraphSig) : Out = struct
     Note that we use `is_inv` here and not `prune`. The latter also removes
     terms that **might** be invariant in the one-state version, but which at
     this stage might cause the graph to split. *)
-    Graph.stabilize graph sys is_inv lsd ;
+    Graph.stabilize graph input_sys sys is_inv lsd ;
 
     (* InvGenGraph.write_dot_to
       "./" "classes" "after"
@@ -522,7 +527,7 @@ module Make (Graph : GraphSig) : Out = struct
             "class equalities (%d candidates)"
             (List.length equalities)
         )
-        two_state lsd sys_map top_sys sys pruning_checker k
+        two_state input_sys lsd sys_map top_sys sys pruning_checker k
         (
           List.map (
             fun (eq, (rep, term)) ->
@@ -575,8 +580,8 @@ module Make (Graph : GraphSig) : Out = struct
             "graph relations (%d candidates)"
             (List.length relations)
         )
-        two_state lsd sys_map top_sys sys pruning_checker k
-        (List.map fst)
+        two_state input_sys lsd sys_map top_sys sys pruning_checker k
+        (List.map fst) 
         relations
     in
 
@@ -635,29 +640,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* minisleep 2.0 ;
     exit () ; *)
 
-    (* Forget the graph if it is stale. *)
-    let memory, res =
-      (* if Graph.is_stale graph then (
-        KEvent.log L_info
-          "%s Graph for system %a is stale, forgetting it."
-          (pref_s two_state)
-          Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
-        (
-          try
-            SysMap.find sys_map sys |> Lsd.kill_pruning
-          with Not_found ->
-            KEvent.log L_warn
-              "%s Could not find pruning checker for system %a."
-              (pref_s two_state)
-              Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
-        ) ;
-        SysMap.remove sys_map sys ;
-        prune_ref := SysMap.fold (
-          fun _ prune acc -> prune :: acc
-        ) sys_map [] ;
-        memory, (sys, non_trivial, trivial) :: res
-      ) else *)
-        (sys, graph, non_trivial, trivial) :: memory, res
+    let memory, res = (sys, graph, non_trivial, trivial) :: memory, res
     in
 
     (* Looping. *)
@@ -712,7 +695,7 @@ module Make (Graph : GraphSig) : Out = struct
       invariants. *)
       Graph.mine top_only two_state aparam sys (
         fun sys ->
-          let pruning_checker = Lsd.mk_pruning_checker sys two_state in
+          let pruning_checker = Lsd.mk_pruning_checker input_sys sys two_state in
           prune_ref := pruning_checker :: (! prune_ref) ;
           SysMap.replace sys_map sys pruning_checker
       )

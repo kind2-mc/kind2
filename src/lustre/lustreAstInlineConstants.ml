@@ -259,6 +259,7 @@ and push_pre is_guarded pos =
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
+  | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
   | RecordExpr (p, i, ps, es) ->
     let es' = List.map (fun (i, e) -> (i, r e)) es in
     RecordExpr (p, i, ps, es')
@@ -395,8 +396,7 @@ let rec inline_constants_of_lustre_type ctx ty = match ty with
     let ty' = inline_constants_of_lustre_type ctx ty in 
     RefinementType (pos, (pos2, id, ty'), expr)
     
-  | History _ | Int _ | Bool _ | UInt8 _ | UInt16 _ | UInt32 _
-  | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | Real _
+  | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty
 
 

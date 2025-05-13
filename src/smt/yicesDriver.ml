@@ -147,12 +147,8 @@ let pp_print_logic _ _ =  failwith "no logic selection in yices"
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
   | Type.Enum _
-  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
-  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
-  | Type.BV 32 | Type.BV 64 | Type.Real | Type.Abstr _  -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ 
   | Type.UBV _ | Type.BV _ -> t 
-  (*!! Here, support arb widths *)
-      (* raise (Invalid_argument "rec_interpr_type: BV size not allowed") *)
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -236,6 +232,7 @@ let string_symbol_list =
    ("bv-neg", Symbol.mk_symbol `BVNEG);
    ("bv-and", Symbol.mk_symbol `BVAND);
    ("bv-or", Symbol.mk_symbol `BVOR);
+   ("bv-xor", Symbol.mk_symbol `BVXOR);
    ("bv-add", Symbol.mk_symbol `BVADD);
    ("bv-sub", Symbol.mk_symbol `BVSUB);
    ("bv-mul", Symbol.mk_symbol `BVMUL);
@@ -320,7 +317,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
-  | `BV_TO_INT -> assert false (*!! TODO: fix *)
+  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE _ ->
@@ -330,6 +327,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVNEG -> Format.pp_print_string ppf "bv-neg"
   | `BVAND -> Format.pp_print_string ppf "bv-and"
   | `BVOR -> Format.pp_print_string ppf "bv-or"
+  | `BVXOR -> Format.pp_print_string ppf "bv-xor"
   | `BVADD -> Format.pp_print_string ppf "bv-add"
   | `BVSUB -> Format.pp_print_string ppf "bv-sub"
   | `BVMUL -> Format.pp_print_string ppf "bv-mul"
@@ -366,6 +364,8 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `SELECT _ -> Format.pp_print_string ppf ""
 
   | `STORE -> Format.pp_print_string ppf "update"
+
+  | `CONST_ARRAY _ -> Format.pp_print_string ppf ""
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 

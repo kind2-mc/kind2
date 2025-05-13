@@ -4,7 +4,7 @@ open Format
 type t = bool list
 
 exception ComparingUnequalBVs
-exception NonStandardBVSize (*!! All instances of this *)
+exception NonStandardBVSize
 
 (* Convert a bitvector to an integer *)
 let length_of_bitvector b = List.length b
@@ -120,7 +120,6 @@ let bool_to_bin (b : bool) : Numeral.t =
   | true -> Numeral.one
   
 (*Function that returns the numeral corresponding to a bitvector *)
-(*!! Check if general enough *)
 let rec ubv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   match b with
   | h :: t -> 
@@ -241,7 +240,6 @@ let num_to_bv64 = num_to_bv (Numeral.of_int 64)
 (* Signed BV -> Num                                                       *)
 (* ********************************************************************** *)
 
-(*!! TODO: Check if this is general enough *)
 let bv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   if((List.nth b 0) = false) then
     ubv_to_num' size b
@@ -433,6 +431,17 @@ let bv_or (bv1 : t) (bv2 : t) : t =
   else
     bv_or_aux bv1 bv2 []
 
+let rec bv_xor_aux (bv1 : t) (bv2 : t) (acc : t) : t =
+  match bv1, bv2 with
+  | [], [] -> acc
+  | h1 :: t1, h2 :: t2 -> bv_xor_aux t1 t2 (List.append acc [h1 <> h2])
+  | _ -> assert false
+
+let bv_xor (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    bv_xor_aux bv1 bv2 []
 
 (* Negation *)
 let rec bv_not_aux (bv : t) (acc : t) : t =
@@ -618,7 +627,7 @@ let pp_yices_print_bitvector_b ppf b =
 (* Pretty-print a bitvector in Yices' binary format given the decimal value and size *)
 let pp_yices_print_bitvector_d ppf i s = 
   let size = (Numeral.to_int s) in
-  let b = num_to_bv (Numeral.of_int size) i
+  let b = num_to_ubv (Numeral.of_int size) i
   in
     fprintf ppf "0b%a" pp_print_bitvector_b' b
 
@@ -631,21 +640,16 @@ let pp_smtlib_print_bitvector_d ppf b =
 (* Pretty-print an unsigned Lustre machine integer *)
 let pp_print_unsigned_machine_integer ppf b =
   let len = length_of_bitvector b in
-  let num = bv_to_num b in
+  let num = ubv_to_num b in
   let num_str = Numeral.string_of_numeral num in
   pp_print_string ppf ("(uint" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
 
 (* Pretty-print a signed Lustre machine integer *)
 let pp_print_signed_machine_integer ppf b =
   let len = length_of_bitvector b in
-    let num = (match len with
-               | 8 -> bv8_to_num b
-               | 16 -> bv16_to_num b
-               | 32 -> bv32_to_num b
-               | 64 -> bv64_to_num b
-               | _ -> bv_to_num b) in
-      let num_str = Numeral.string_of_numeral num in
-        pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+  let num = bv_to_num b in
+  let num_str = Numeral.string_of_numeral num in
+  pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
 
 
 (* Hexadecimal *)
