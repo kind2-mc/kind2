@@ -550,11 +550,12 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     let open TermLib.FeatureSet in
     match TransSys.get_logic sys with
     | `Inferred fs when mem BV fs -> (
-      let widths = InputSystem.get_bv_sizes in_sys in
-      let widths = ISys.IntSet.union widths (InputSystem.get_bv_sizes in_sys) in
+      let signed_widths = InputSystem.get_bv_sizes in_sys in
+      let unsigned_widths = InputSystem.get_ubv_sizes in_sys in
       let other_modules =
         let inv_gen_os_modules = 
-          List.concat_map (fun width -> [`INVGENBVOS width; `INVGENUBVOS width]) (ISys.IntSet.elements widths) 
+          List.map (fun width -> `INVGENBVOS width) (ISys.IntSet.elements signed_widths) @
+          List.map (fun width -> `INVGENUBVOS width) (ISys.IntSet.elements unsigned_widths)
         in
         if (List.mem `INVGENMACHOS invgenmach_modules) then
           inv_gen_os_modules @ other_modules
@@ -562,7 +563,8 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
           other_modules
         in
         let inv_gen_modules = 
-          List.concat_map (fun width -> [`INVGENBV width; `INVGENUBV width]) (ISys.IntSet.elements widths) 
+          List.map (fun width -> `INVGENBV width) (ISys.IntSet.elements signed_widths) @
+          List.map (fun width -> `INVGENUBV width) (ISys.IntSet.elements unsigned_widths)
         in
         let other_modules =
         if (List.mem `INVGENMACH invgenmach_modules) then
