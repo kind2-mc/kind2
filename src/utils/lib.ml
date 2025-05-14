@@ -852,10 +852,10 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
-  | `INVGENBV
-  | `INVGENBVOS
-  | `INVGENUBV
-  | `INVGENUBVOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
   | `INVGENREAL
@@ -884,10 +884,10 @@ let pp_print_kind_module ppf = function
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENMACH -> fprintf ppf "two state invariant generator (mach int)"
   | `INVGENMACHOS -> fprintf ppf "one state invariant generator (mach int)"
-  | `INVGENBV -> fprintf ppf "two state invariant generator (bv)"
-  | `INVGENBVOS -> fprintf ppf "one state invariant generator (bv)"
-  | `INVGENUBV -> fprintf ppf "two state invariant generator (ubv)"
-  | `INVGENUBVOS -> fprintf ppf "one state invariant generator (ubv)"
+  | `INVGENBV width -> fprintf ppf "two state invariant generator (bv%d)" width
+  | `INVGENBVOS width -> fprintf ppf "one state invariant generator (bv%d)" width
+  | `INVGENUBV width -> fprintf ppf "two state invariant generator (ubv%d)" width
+  | `INVGENUBVOS width -> fprintf ppf "one state invariant generator (ubv%d)" width
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
@@ -915,10 +915,10 @@ let short_name_of_kind_module = function
  | `INVGENOS -> "invgenos"
  | `INVGENINT -> "invgenintts"
  | `INVGENINTOS -> "invgenintos"
- | `INVGENBV -> "invgenbv"
- | `INVGENBVOS -> "invgenbvos"
- | `INVGENUBV -> "invgenubv"
- | `INVGENUBVOS -> "invgenubvos"
+ | `INVGENBV width -> "invgenbv" ^ (string_of_int width)
+ | `INVGENBVOS width -> "invgenbvos" ^ (string_of_int width)
+ | `INVGENUBV width -> "invgenubv" ^ (string_of_int width)
+ | `INVGENUBVOS width -> "invgenubvos" ^ (string_of_int width)
  | `INVGENMACH -> "invgenmachts"
  | `INVGENMACHOS -> "invgenmachos"
  | `INVGENREAL -> "invgenintts"
@@ -931,6 +931,25 @@ let short_name_of_kind_module = function
  | `MCS -> "mcs"
  | `CONTRACTCK -> "contractck"
                 
+let parse_invgen_module s =
+  let len = String.length s in
+  let prefix_and_suffix prefix =
+    let plen = String.length prefix in
+    if len > plen && String.sub s 0 plen = prefix then
+      let suffix = String.sub s plen (len - plen) in
+      try Some (prefix, int_of_string suffix)
+      with Failure _ -> None
+    else None
+  in
+  match prefix_and_suffix "INVGENBV",
+        prefix_and_suffix "INVGENBVOS",
+        prefix_and_suffix "INVGENUBV",
+        prefix_and_suffix "INVGENUBVOS" with
+  | Some (_, n), _, _, _ -> Some (`INVGENBV n)
+  | _, Some (_, n), _, _ -> Some (`INVGENBVOS n)
+  | _, _, Some (_, n), _ -> Some (`INVGENUBV n)
+  | _, _, _, Some (_, n) -> Some (`INVGENUBVOS n)
+  | _ -> None
 
 (* Process type of a string *)
 let kind_module_of_string = function 
@@ -947,14 +966,13 @@ let kind_module_of_string = function
   | "INVGENINTOS" -> `INVGENINTOS
   | "INVGENMACH" -> `INVGENMACH
   | "INVGENMACHOS" -> `INVGENMACHOS
-  | "INVGENBV" -> `INVGENBV
-  | "INVGENBVOS" -> `INVGENBVOS
-  | "INVGENUBV" -> `INVGENUBV
-  | "INVGENUBVOS" -> `INVGENUBVOS
   | "INVGENREAL" -> `INVGENREAL
   | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
-  | _ -> raise (Invalid_argument "kind_module_of_string")
+  | s -> 
+    match parse_invgen_module s with 
+    | Some m -> m 
+    | None -> raise (Invalid_argument "kind_module_of_string")
 
 
 let int_of_kind_module = function
@@ -980,10 +998,10 @@ let int_of_kind_module = function
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
   | `IC3QE -> 32
-  | `INVGENBV -> 33
-  | `INVGENBVOS -> 34
-  | `INVGENUBV -> 35
-  | `INVGENUBVOS -> 36
+  | `INVGENBV width -> 1000 + width
+  | `INVGENBVOS width -> 2000 + width
+  | `INVGENUBV width -> 3000 + width
+  | `INVGENUBVOS width -> 4000 + width
 
 
 (* Timeouts *)

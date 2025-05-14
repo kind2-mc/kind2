@@ -75,10 +75,10 @@ module Bool : Domain
 module Int : Domain
 
 (** BV domain with less than or equal to. *)
-module BV (L : sig val lengths : InputSystem.IntSet.t end) : Domain
+module BV (L : sig val length : int end) : Domain
 
 (** UBV domain with less than or equal to. *)
-module UBV (L : sig val lengths : InputSystem.IntSet.t end) : Domain
+module UBV (L : sig val length : int end) : Domain
 
 (** Real domain with less than or equal to. *)
 module Real : Domain

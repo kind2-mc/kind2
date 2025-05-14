@@ -704,7 +704,7 @@ module Int = MakeCandGen (IntRules)
 
 
 module type MachineIntegerSig = sig
-  val lengths: InputSystem.IntSet.t
+  val length: int
   val is_type: Type.t -> bool
   val is_symbol: Symbol.t -> bool
 end
@@ -780,16 +780,14 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
     else set, constants
 
   let post_rules _ constants set =
+    let zero = Term.mk_bv (Bitvector.zero M.length) in
+    let one = Term.mk_bv (Bitvector.one M.length) in
     let set =
-      InputSystem.IntSet.fold (fun length set ->
-        let zero = Term.mk_bv (Bitvector.zero length) in
-        let one = Term.mk_bv (Bitvector.one length) in
-        Set.add zero set
-        |> Set.add one
-        |> octagons_bv true eval(
-          Set.add one constants |> Set.elements
-        )
-      ) M.lengths set
+      Set.add zero set
+      |> Set.add one
+      |> octagons_bv true eval(
+        Set.add one constants |> Set.elements
+      )
     in
     let set =
       Set.fold (
@@ -804,23 +802,23 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
 
 end
 
-module BVM (S : sig val lengths : InputSystem.IntSet.t end) : MachineIntegerSig = struct
-  let lengths = S.lengths 
+module BVM (S : sig val length : int end) : MachineIntegerSig = struct
+  let length = S.length 
   let is_type = Type.is_bitvector
   let is_symbol = Symbol.is_bitvector
 end
 
-module UBVM (S : sig val lengths : InputSystem.IntSet.t end) : MachineIntegerSig = struct
-  let lengths = S.lengths 
+module UBVM (S : sig val length : int end) : MachineIntegerSig = struct
+  let length = S.length 
   let is_type = Type.is_bitvector
   let is_symbol = Symbol.is_bitvector
 end
 
 (** BV candidate term miner. *)
-module BV(IS : sig val lengths : InputSystem.IntSet.t end) = MakeCandGen (MachineIntegerRules(BVM(IS)))
+module BV(IS : sig val length : int end) = MakeCandGen (MachineIntegerRules(BVM(IS)))
 
 (** UBV candidate term miner. *)
-module UBV(IS : sig val lengths : InputSystem.IntSet.t end) = MakeCandGen (MachineIntegerRules(UBVM(IS)))
+module UBV(IS : sig val length : int end) = MakeCandGen (MachineIntegerRules(UBVM(IS)))
 
 (** Real rules. *)
 module RealRules = struct

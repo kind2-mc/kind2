@@ -30,10 +30,10 @@ module Bool : CandGen
 module Int : CandGen
 
 (** BV candidate term miner. *)
-module BV (L : sig val lengths : InputSystem.IntSet.t end) : CandGen
+module BV (L : sig val length : int end) : CandGen
 
 (** UBV candidate term miner. *)
-module UBV (L : sig val lengths : InputSystem.IntSet.t end): CandGen
+module UBV (L : sig val length : int end): CandGen
 
 (** Real candidate term miner. *)
 module Real : CandGen

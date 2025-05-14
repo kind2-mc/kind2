@@ -403,10 +403,10 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
-  | `INVGENBV
-  | `INVGENBVOS
-  | `INVGENUBV
-  | `INVGENUBVOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
   | `INVGENREAL
