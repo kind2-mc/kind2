@@ -444,8 +444,16 @@ let is_bitvector { Hashcons.node = t } = match t with
   | BV _ -> true 
   | _-> false
 
+let is_bitvector_len n { Hashcons.node = t } = match t with
+  | BV w -> n = w 
+  | _-> false
+
 let is_ubitvector { Hashcons.node = t } = match t with
-  | UBV _ -> true 
+  | UBV _ -> true
+  | _-> false
+
+let is_ubitvector_len n { Hashcons.node = t } = match t with
+  | UBV w -> n = w 
   | _-> false
 
 let is_uint8 { Hashcons.node = t } = match t with

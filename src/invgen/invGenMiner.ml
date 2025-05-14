@@ -804,14 +804,14 @@ end
 
 module BVM (S : sig val length : int end) : MachineIntegerSig = struct
   let length = S.length 
-  let is_type = Type.is_bitvector
+  let is_type = Type.is_bitvector_len S.length
   let is_symbol = Symbol.is_bitvector
 end
 
 module UBVM (S : sig val length : int end) : MachineIntegerSig = struct
   let length = S.length 
-  let is_type = Type.is_bitvector
-  let is_symbol = Symbol.is_bitvector
+  let is_type = Type.is_ubitvector_len S.length
+  let is_symbol = Symbol.is_ubitvector
 end
 
 (** BV candidate term miner. *)
