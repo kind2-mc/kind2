@@ -269,7 +269,7 @@ and push_pre is_guarded pos =
   | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | ArrayIndex (p, e1, e2) -> ArrayIndex (p, r e1, e2)
-  | Quantifier (p, e1, l, e2) -> Quantifier (p, e1, l, r e2)
+  | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | When _ as e -> LA.Pre (pos, e)
   | Condact _ as e -> LA.Pre (pos, e)
@@ -358,11 +358,21 @@ and simplify_expr ?(is_guarded = false) ctx =
   | Call (pos, ty_args, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~is_guarded:false ctx e) es in
     Call (pos, ty_args, i, es')
+  | Quantifier (pos, q, tis, e) -> 
+    (* 1. Don't inline constants that are shadowed by quantified vars (by removing these constants from the ctx)
+       2. Perform inlining within tis *)
+    let ctx, tis = List.fold_left (fun (acc_ctx, acc_tis) (p, id, ty) -> 
+      let acc_ctx = TC.remove_const acc_ctx id in 
+      let acc_ti  = (p, id, inline_constants_of_lustre_type acc_ctx ty) in 
+      acc_ctx, acc_tis @ [acc_ti] 
+    ) (ctx, []) tis in
+    let e' = simplify_expr ~is_guarded:false ctx e in
+    Quantifier (pos, q, tis, e')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 
-let rec inline_constants_of_lustre_type ctx ty = match ty with
+and inline_constants_of_lustre_type ctx ty = match ty with
   | LA.IntRange (pos, lbound, ubound) ->
     let lbound' = match lbound with 
       | None -> None
@@ -394,7 +404,8 @@ let rec inline_constants_of_lustre_type ctx ty = match ty with
     TArr (pos, ty1', ty2')
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    RefinementType (pos, (pos2, id, ty'), expr)
+    let expr' = simplify_expr ctx expr in
+    RefinementType (pos, (pos2, id, ty'), expr')
     
   | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty

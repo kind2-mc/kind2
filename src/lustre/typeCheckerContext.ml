@@ -322,6 +322,10 @@ let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_cont
   = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
 
+let remove_const: tc_context -> LA.ident -> tc_context
+  = fun ctx i -> {ctx with vl_ctx = IMap.remove i ctx.vl_ctx} 
+(** Removes a constant variable *)
+
 let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
 = fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
 
