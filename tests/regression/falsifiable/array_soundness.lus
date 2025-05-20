@@ -1,0 +1,7 @@
+const N: int = 3;
+const A : int^N = [2, 0, 3];
+
+node M() returns ();
+let
+  check forall (i,j:int) (0 <= i and i < N and 0 <= j and j < N) => A[i] <= A[j];
+tel
