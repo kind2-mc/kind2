@@ -555,6 +555,8 @@ val reset_gc_params : unit -> unit
 (* Print bound of (possibly) open interval *)
 val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
 
+val concat_map : ('a -> 'b list) -> 'a list -> 'b list
+
 (** Paths Kind 2 can write some files.
 Factored to avoid clashes. *)
 module Paths : sig

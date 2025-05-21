@@ -1465,6 +1465,8 @@ let pp_print_bound_opt ppf bound = match bound with
   | None -> Format.fprintf ppf "%s" unbounded_limit_string
   | Some bound -> Numeral.pp_print_numeral ppf bound 
 
+let concat_map f lst =
+  List.fold_right (fun x acc -> f x @ acc) lst []
 
 (* ********************************************************************** *)
 (* Paths techniques write to                                              *)
