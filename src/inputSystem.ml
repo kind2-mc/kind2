@@ -6,7 +6,7 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0  
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -992,23 +992,6 @@ function
 
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
-(*!! Run Kind 2 over machine integer problems
-     https://github.com/kind2-mc/kind2-benchmarks/tree/master/FMCAD08/Int32  
-     Run on the cluster. There should be scripts there already. 
-
-     Also have access to more bitvector problems through Moxi frontend.
-
-     For Moxi, 
-     1) Printing results (on develop branch)
-        * Pull latest changes
-        * To build, use first two (currently commented out lines) in build rule of Makefile
-        * Binary is ./bin/kmoxi
-        * Where are moxi benchmarks? https://github.com/ModelChecker/Benchmarks 
-        * Should follow output from https://github.com/ModelChecker/IL/blob/main/description.md 
-        * Might need to extend Moxi type of InputSystem to store extra information for printing
-        * Can also look at mcil branch for the old (Dolmen-oriented) code
-     2) Merging bv-backend support (either fill holes in frontend, or separate changes)
-*)
 let get_bv_sizes (type s) : s t -> IntSet.t = 
   let over_svar = (fun acc svar ->
     let ty = SVar.type_of_state_var svar in 
@@ -1032,8 +1015,6 @@ let get_bv_sizes (type s) : s t -> IntSet.t =
       let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in 
       (* Global sizes *)
       let acc = List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq) in 
-      (*!! Q: Also look at free_constants in lustreGlobals.mli, maybe?
-           A: Not necessary for now; already captured in state_var_bounds. But double check this. *)
       acc
     ) IntSet.empty sources in 
     sizes
@@ -1073,7 +1054,6 @@ let get_ubv_sizes (type s) : s t -> IntSet.t =
       let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in 
       (* Global sizes *)
       let acc = List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq) in 
-      (*!! Also look at free_constants in lustreGlobals.mli, maybe? *)
       acc
     ) IntSet.empty sources in 
     sizes
