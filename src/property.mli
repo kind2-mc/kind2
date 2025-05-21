@@ -131,6 +131,8 @@ val get_prop_status : t -> prop_status
 
 val get_prop_original_source : t -> prop_source
 
+val get_prop_term : t -> Term.t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
