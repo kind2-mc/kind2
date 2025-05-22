@@ -21,7 +21,7 @@ which in addition to its own state contains that of its subnodes recursively.
 
 Compositional reasoning thus improves the scalability of Kind 2 by taking
 advantage of information provided by the user to abstract the complexity away.
-When in compositional mode (\ ``--composition true``\ ), Kind 2 will abstract all
+When in compositional mode (\ ``--compositional true``\ ), Kind 2 will abstract all
 calls (to subnodes that have a contract with at least one guarantee or one mode)
 in the top node and verify the resulting, abstract system.
 
