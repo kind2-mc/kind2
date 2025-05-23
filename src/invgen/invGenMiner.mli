@@ -29,29 +29,11 @@ module Bool : CandGen
 (** Integer candidate term miner. *)
 module Int : CandGen
 
-(** Int8 candidate term miner. *)
-module Int8 : CandGen
+(** BV candidate term miner. *)
+module BV (L : sig val length : int end) : CandGen
 
-(** Int16 candidate term miner. *)
-module Int16 : CandGen
-
-(** Int32 candidate term miner. *)
-module Int32 : CandGen
-
-(** Int64 candidate term miner. *)
-module Int64 : CandGen
-
-(** UInt8 candidate term miner. *)
-module UInt8 : CandGen
-
-(** UInt16 candidate term miner. *)
-module UInt16 : CandGen
-
-(** UInt32 candidate term miner. *)
-module UInt32 : CandGen
-
-(** UInt64 candidate term miner. *)
-module UInt64 : CandGen
+(** UBV candidate term miner. *)
+module UBV (L : sig val length : int end): CandGen
 
 (** Real candidate term miner. *)
 module Real : CandGen

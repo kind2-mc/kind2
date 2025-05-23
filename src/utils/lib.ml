@@ -852,24 +852,12 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
-  | `INVGENINT8
-  | `INVGENINT8OS
-  | `INVGENINT16
-  | `INVGENINT16OS
-  | `INVGENINT32
-  | `INVGENINT32OS
-  | `INVGENINT64
-  | `INVGENINT64OS
-  | `INVGENUINT8
-  | `INVGENUINT8OS
-  | `INVGENUINT16
-  | `INVGENUINT16OS
-  | `INVGENUINT32
-  | `INVGENUINT32OS
-  | `INVGENUINT64
-  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -896,22 +884,10 @@ let pp_print_kind_module ppf = function
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENMACH -> fprintf ppf "two state invariant generator (mach int)"
   | `INVGENMACHOS -> fprintf ppf "one state invariant generator (mach int)"
-  | `INVGENINT8 -> fprintf ppf "two state invariant generator (int8)"
-  | `INVGENINT8OS -> fprintf ppf "one state invariant generator (int8)"
-  | `INVGENINT16 -> fprintf ppf "two state invariant generator (int16)"
-  | `INVGENINT16OS -> fprintf ppf "one state invariant generator (int16)"
-  | `INVGENINT32 -> fprintf ppf "two state invariant generator (int32)"
-  | `INVGENINT32OS -> fprintf ppf "one state invariant generator (int32)"
-  | `INVGENINT64 -> fprintf ppf "two state invariant generator (int64)"
-  | `INVGENINT64OS -> fprintf ppf "one state invariant generator (int64)"
-  | `INVGENUINT8 -> fprintf ppf "two state invariant generator (uint8)"
-  | `INVGENUINT8OS -> fprintf ppf "one state invariant generator (uint8)"
-  | `INVGENUINT16 -> fprintf ppf "two state invariant generator (uint16)"
-  | `INVGENUINT16OS -> fprintf ppf "one state invariant generator (uint16)"
-  | `INVGENUINT32 -> fprintf ppf "two state invariant generator (uint32)"
-  | `INVGENUINT32OS -> fprintf ppf "one state invariant generator (uint32)"
-  | `INVGENUINT64 -> fprintf ppf "two state invariant generator (uint64)"
-  | `INVGENUINT64OS -> fprintf ppf "one state invariant generator (uint64)"
+  | `INVGENBV width -> fprintf ppf "two state invariant generator (bv%d)" width
+  | `INVGENBVOS width -> fprintf ppf "one state invariant generator (bv%d)" width
+  | `INVGENUBV width -> fprintf ppf "two state invariant generator (ubv%d)" width
+  | `INVGENUBVOS width -> fprintf ppf "one state invariant generator (ubv%d)" width
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
@@ -939,24 +915,12 @@ let short_name_of_kind_module = function
  | `INVGENOS -> "invgenos"
  | `INVGENINT -> "invgenintts"
  | `INVGENINTOS -> "invgenintos"
+ | `INVGENBV width -> "invgenbv" ^ (string_of_int width)
+ | `INVGENBVOS width -> "invgenbvos" ^ (string_of_int width)
+ | `INVGENUBV width -> "invgenubv" ^ (string_of_int width)
+ | `INVGENUBVOS width -> "invgenubvos" ^ (string_of_int width)
  | `INVGENMACH -> "invgenmachts"
  | `INVGENMACHOS -> "invgenmachos"
- | `INVGENINT8 -> "invgenint8ts"
- | `INVGENINT8OS -> "invgenint8os"
- | `INVGENINT16 -> "invgenint16ts"
- | `INVGENINT16OS -> "invgenint16os"
- | `INVGENINT32 -> "invgenint32ts"
- | `INVGENINT32OS -> "invgenint32os"
- | `INVGENINT64 -> "invgenuint64ts"
- | `INVGENINT64OS -> "invgenuint64os"
- | `INVGENUINT8 -> "invgenuint8ts"
- | `INVGENUINT8OS -> "invgenuint8os"
- | `INVGENUINT16 -> "invgenuint16ts"
- | `INVGENUINT16OS -> "invgenuint16os"
- | `INVGENUINT32 -> "invgenuint32ts"
- | `INVGENUINT32OS -> "invgenuint32os"
- | `INVGENUINT64 -> "invgenuint64ts"
- | `INVGENUINT64OS -> "invgenuint64os"
  | `INVGENREAL -> "invgenintts"
  | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
@@ -967,6 +931,25 @@ let short_name_of_kind_module = function
  | `MCS -> "mcs"
  | `CONTRACTCK -> "contractck"
                 
+let parse_invgen_module s =
+  let len = String.length s in
+  let prefix_and_suffix prefix =
+    let plen = String.length prefix in
+    if len > plen && String.sub s 0 plen = prefix then
+      let suffix = String.sub s plen (len - plen) in
+      try Some (prefix, int_of_string suffix)
+      with Failure _ -> None
+    else None
+  in
+  match prefix_and_suffix "INVGENBV",
+        prefix_and_suffix "INVGENBVOS",
+        prefix_and_suffix "INVGENUBV",
+        prefix_and_suffix "INVGENUBVOS" with
+  | Some (_, n), _, _, _ -> Some (`INVGENBV n)
+  | _, Some (_, n), _, _ -> Some (`INVGENBVOS n)
+  | _, _, Some (_, n), _ -> Some (`INVGENUBV n)
+  | _, _, _, Some (_, n) -> Some (`INVGENUBVOS n)
+  | _ -> None
 
 (* Process type of a string *)
 let kind_module_of_string = function 
@@ -983,26 +966,13 @@ let kind_module_of_string = function
   | "INVGENINTOS" -> `INVGENINTOS
   | "INVGENMACH" -> `INVGENMACH
   | "INVGENMACHOS" -> `INVGENMACHOS
-  | "INVGENINT8" -> `INVGENINT8
-  | "INVGENINT8OS" -> `INVGENINT8OS
-  | "INVGENINT16" -> `INVGENINT16
-  | "INVGENINT16OS" -> `INVGENINT16OS
-  | "INVGENINT32" -> `INVGENINT32
-  | "INVGENINT32OS" -> `INVGENINT32OS
-  | "INVGENINT64" -> `INVGENINT64
-  | "INVGENINT64OS" -> `INVGENINT64OS
-  | "INVGENUINT8" -> `INVGENUINT8
-  | "INVGENUINT8OS" -> `INVGENUINT8OS
-  | "INVGENUINT16" -> `INVGENUINT16
-  | "INVGENUINT16OS" -> `INVGENUINT16OS
-  | "INVGENUINT32" -> `INVGENUINT32
-  | "INVGENUINT32OS" -> `INVGENUINT32OS
-  | "INVGENUINT64" -> `INVGENUINT64
-  | "INVGENUINT64OS" -> `INVGENUINT64OS
   | "INVGENREAL" -> `INVGENREAL
   | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
-  | _ -> raise (Invalid_argument "kind_module_of_string")
+  | s -> 
+    match parse_invgen_module s with 
+    | Some m -> m 
+    | None -> raise (Invalid_argument "kind_module_of_string")
 
 
 let int_of_kind_module = function
@@ -1024,26 +994,14 @@ let int_of_kind_module = function
   | `INVGENREAL -> 9
   | `INVGENREALOS -> 10
   | `C2I -> 11
-  | `INVGENINT8 -> 12
-  | `INVGENINT8OS -> 13
-  | `INVGENINT16 -> 14
-  | `INVGENINT16OS -> 15
-  | `INVGENINT32 -> 16
-  | `INVGENINT32OS -> 17
-  | `INVGENINT64 -> 18
-  | `INVGENINT64OS -> 19
-  | `INVGENUINT8 -> 20
-  | `INVGENUINT8OS -> 21
-  | `INVGENUINT16 -> 22
-  | `INVGENUINT16OS -> 23
-  | `INVGENUINT32 -> 24
-  | `INVGENUINT32OS -> 25
-  | `INVGENUINT64 -> 26
-  | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
   | `IC3QE -> 32
+  | `INVGENBV width -> 100*width + 90
+  | `INVGENBVOS width -> 100*width + 91
+  | `INVGENUBV width -> 100*width + 92
+  | `INVGENUBVOS width -> 100*width + 93
 
 
 (* Timeouts *)
@@ -1507,6 +1465,8 @@ let pp_print_bound_opt ppf bound = match bound with
   | None -> Format.fprintf ppf "%s" unbounded_limit_string
   | Some bound -> Numeral.pp_print_numeral ppf bound 
 
+let concat_map f lst =
+  List.fold_right (fun x acc -> f x @ acc) lst []
 
 (* ********************************************************************** *)
 (* Paths techniques write to                                              *)

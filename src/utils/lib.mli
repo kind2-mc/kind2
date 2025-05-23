@@ -403,24 +403,12 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
-  | `INVGENINT8
-  | `INVGENINT8OS
-  | `INVGENINT16
-  | `INVGENINT16OS
-  | `INVGENINT32
-  | `INVGENINT32OS
-  | `INVGENINT64
-  | `INVGENINT64OS
-  | `INVGENUINT8
-  | `INVGENUINT8OS
-  | `INVGENUINT16
-  | `INVGENUINT16OS
-  | `INVGENUINT32
-  | `INVGENUINT32OS
-  | `INVGENUINT64
-  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -566,6 +554,8 @@ val reset_gc_params : unit -> unit
 
 (* Print bound of (possibly) open interval *)
 val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
+
+val concat_map : ('a -> 'b list) -> 'a list -> 'b list
 
 (** Paths Kind 2 can write some files.
 Factored to avoid clashes. *)

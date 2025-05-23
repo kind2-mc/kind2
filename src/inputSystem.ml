@@ -6,7 +6,7 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0  
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,8 @@ module SVar = StateVar
 
 module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
+
+module IntSet = Stdlib.Set.Make(Int)
 
 type _ t =
 | Lustre : (N.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> N.t t
@@ -417,7 +419,7 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   match in_sys with
   | Lustre _ -> (
     retrieve_lustre_nodes_of_scope in_sys top
-    |> List.exists (fun node -> N.partially_defined node)
+    |> List.exists N.partially_defined
   )
   | Moxi _ -> failwith "Unsupported input system: MoXI"
   | Native _ -> failwith "Unsupported input system: Native"
@@ -990,6 +992,55 @@ function
 
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
+let get_bv_sizes' (type s) : (IntSet.t -> SVar.t -> IntSet.t) -> s t -> IntSet.t = 
+fun over_svar -> function 
+| Lustre (main_subs, globals, _) -> 
+  let subsystems = S.all_subsystems_of_list main_subs in 
+  let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+  (* Get sizes from every Lustre node *)
+  List.fold_left (fun acc source -> 
+    (* Oracle sizes *)
+    let acc = List.fold_left over_svar acc source.N.oracles in 
+    (* Input sizes *)
+    let acc = List.fold_left over_svar acc (LustreIndex.values source.N.inputs) in 
+    (* Output sizes *)
+    let acc = List.fold_left over_svar acc (LustreIndex.values source.N.outputs) in 
+    (* Local sizes *)
+    let acc = List.fold_left over_svar acc (Lib.concat_map LustreIndex.values source.N.locals) in 
+    (* Global sizes *)
+    List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq)
+  ) IntSet.empty sources
+| Moxi checks -> 
+  let subsystems = List.map fst checks in 
+  let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+  let state_vars = Lib.concat_map TransSys.state_vars sources in 
+  List.fold_left over_svar IntSet.empty state_vars
+| Native sub -> 
+  let subsystems = S.all_subsystems sub in
+  let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
+  let state_vars = Lib.concat_map TransSys.state_vars sources in 
+  List.fold_left over_svar IntSet.empty state_vars
+| Horn _ -> IntSet.empty
+
+let get_bv_sizes (type s) : s t -> IntSet.t 
+= fun sys -> 
+  let over_svar = (fun acc svar ->
+    let ty = SVar.type_of_state_var svar in 
+    match Type.node_of_type ty with 
+    | Type.BV width -> IntSet.add width acc
+    | _ -> acc  
+  ) in
+  get_bv_sizes' over_svar sys
+  
+let get_ubv_sizes (type s) : s t -> IntSet.t 
+= fun sys -> 
+  let over_svar = (fun acc svar ->
+    let ty = SVar.type_of_state_var svar in 
+    match Type.node_of_type ty with 
+    | Type.UBV width -> IntSet.add width acc
+    | _ -> acc  
+  ) in
+  get_bv_sizes' over_svar sys
 
 let current_state_props (type s): s t -> Scope.t -> string list =
 fun sys -> fun top ->

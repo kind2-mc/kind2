@@ -133,8 +133,14 @@ val is_int : t -> bool
 (** Return [true] if the type is an unsigned bitvector (integern) type *)
 val is_ubitvector : t -> bool
 
+(** Return [true] if the type is an unsigned bitvector (integern) type of the given width *)
+val is_ubitvector_len : int -> t -> bool
+
 (** Return [true] if the type is a bitvector (integern) type *)
 val is_bitvector : t -> bool
+
+(** Return [true] if the type is a bitvector (integern) type of the given width *)
+val is_bitvector_len : int -> t -> bool
 
 (** Return [true] if the type is a bitvector (integern) type *)
 val bitvectorsize : t -> int
