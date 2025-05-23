@@ -998,10 +998,10 @@ let int_of_kind_module = function
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
   | `IC3QE -> 32
-  | `INVGENBV width -> 1000 + width
-  | `INVGENBVOS width -> 2000 + width
-  | `INVGENUBV width -> 3000 + width
-  | `INVGENUBVOS width -> 4000 + width
+  | `INVGENBV width -> 100*width + 90
+  | `INVGENBVOS width -> 100*width + 91
+  | `INVGENUBV width -> 100*width + 92
+  | `INVGENUBVOS width -> 100*width + 93
 
 
 (* Timeouts *)
