@@ -229,13 +229,13 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
 end
 
 module BVMiner(IS : sig val length : int end): MachineIntegerMiner = struct
-  let name = "BV"
+  let name = Format.asprintf "BV<%d>" IS.length
   module BVInstance = InvGenMiner.BV(IS)
   let mine = BVInstance.mine
 end
 
 module UBVMiner(IS : sig val length : int end): MachineIntegerMiner = struct
-  let name = "UBV"
+  let name = Format.asprintf "UBV<%d>" IS.length
   module UBVInstance = InvGenMiner.UBV(IS)
   let mine = UBVInstance.mine
 end
