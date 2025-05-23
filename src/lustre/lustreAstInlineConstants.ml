@@ -351,7 +351,7 @@ and simplify_expr ?(is_guarded = false) ctx =
      let e2' = simplify_expr ~is_guarded ctx e2 in
      let e' = LA.ArrayConstr (pos, e1', e2') in e'
      (*(match (eval_int_expr ctx e2) with
-      | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
+      | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, List.init size (fun _ -> e1'))
       | Error _ -> e')*)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
