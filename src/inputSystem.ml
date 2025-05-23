@@ -1022,23 +1022,25 @@ fun over_svar -> function
   List.fold_left over_svar IntSet.empty state_vars
 | Horn _ -> IntSet.empty
 
-let get_bv_sizes (type s) : s t -> IntSet.t = 
+let get_bv_sizes (type s) : s t -> IntSet.t 
+= fun sys -> 
   let over_svar = (fun acc svar ->
     let ty = SVar.type_of_state_var svar in 
     match Type.node_of_type ty with 
     | Type.BV width -> IntSet.add width acc
     | _ -> acc  
   ) in
-  get_bv_sizes' over_svar
+  get_bv_sizes' over_svar sys
   
-let get_ubv_sizes (type s) : s t -> IntSet.t = 
+let get_ubv_sizes (type s) : s t -> IntSet.t 
+= fun sys -> 
   let over_svar = (fun acc svar ->
     let ty = SVar.type_of_state_var svar in 
     match Type.node_of_type ty with 
     | Type.UBV width -> IntSet.add width acc
     | _ -> acc  
   ) in
-  get_bv_sizes' over_svar
+  get_bv_sizes' over_svar sys
 
 let current_state_props (type s): s t -> Scope.t -> string list =
 fun sys -> fun top ->
