@@ -251,7 +251,7 @@ let fill_ite_oracles f_pos node_id nes ni =
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), rhs_expr)) -> 
     (* Find initialization value *)
-    let lhs_init_e = Lib.find_map (fun ne -> match ne with 
+    let lhs_init_e = List.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> Some (lhs, init_expr, rhs_expr)
       (* In this case, the initialization is a recursive array definition, but 
          the body equation is not. So, we have to make the whole desugared equation recursive. *)
@@ -277,7 +277,7 @@ match ni with
     let pos2 = AH.pos_of_expr rhs_expr in 
     (* Find initialization value *)
     let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos2, expr, A.Ident(pos2, j))) (A.Ident(pos2, i1)) inds1 in
-    let init = Lib.find_map (fun ne -> match ne with 
+    let init = List.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> 
         Some (AH.replace_idents inds2 inds1 expr)
       (* In this case, the body equation is a recursive array definition, but 

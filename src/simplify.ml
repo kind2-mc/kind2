@@ -252,7 +252,7 @@ let const_of_dec_polynomial = function
 
 
 (* Compare monomials by comparing their terms *)
-let compare_monomials (_, t1) (_, t2) = compare_lists Term.compare t1 t2 
+let compare_monomials (_, t1) (_, t2) = List.compare Term.compare t1 t2 
 
 
 (* Add two lists of sorted monomials *)
@@ -288,7 +288,7 @@ let add_monomial_lists add is_zero l1 l2 =
     (* First term is smaller: add to accumulator first *)
     | (c1, t1) :: tl1, (_, t2) :: _ 
       when 
-        compare_lists Term.compare t1 t2 < 0 -> 
+        List.compare Term.compare t1 t2 < 0 -> 
 
       add_monomial_lists' ((c1, t1) :: accum) tl1 l2 
 

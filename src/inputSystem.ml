@@ -1006,19 +1006,19 @@ fun over_svar -> function
     (* Output sizes *)
     let acc = List.fold_left over_svar acc (LustreIndex.values source.N.outputs) in 
     (* Local sizes *)
-    let acc = List.fold_left over_svar acc (Lib.concat_map LustreIndex.values source.N.locals) in 
+    let acc = List.fold_left over_svar acc (List.concat_map LustreIndex.values source.N.locals) in
     (* Global sizes *)
     List.fold_left over_svar acc (SVar.StateVarHashtbl.to_seq_keys globals.state_var_bounds |> List.of_seq)
   ) IntSet.empty sources
 | Moxi checks -> 
   let subsystems = List.map fst checks in 
   let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
-  let state_vars = Lib.concat_map TransSys.state_vars sources in 
+  let state_vars = List.concat_map TransSys.state_vars sources in
   List.fold_left over_svar IntSet.empty state_vars
 | Native sub -> 
   let subsystems = S.all_subsystems sub in
   let sources = List.map (fun subsys -> subsys.S.source) subsystems in 
-  let state_vars = Lib.concat_map TransSys.state_vars sources in 
+  let state_vars = List.concat_map TransSys.state_vars sources in
   List.fold_left over_svar IntSet.empty state_vars
 | Horn _ -> IntSet.empty
 

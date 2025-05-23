@@ -977,7 +977,7 @@ and compile_ast_expr
         |> E.unsafe_term_of_expr
         |> Term.numeral_of_term
         |> Numeral.to_int
-        |> list_init (fun _ -> expr)
+        |> (flip List.init) (fun _ -> expr)
       in let gexpr = A.GroupExpr (pos, A.ArrayExpr, l_expr) in
       let result = compile_ast_expr cstate ctx bounds map gexpr in
       result

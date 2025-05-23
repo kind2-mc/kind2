@@ -92,17 +92,6 @@ let ( @:: ) =
     | Some e -> (function l -> e :: l)
 
 
-(* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
-let list_init f n =
-  if n = 0 then [] else
-    let rec init_aux i =
-      if i = n-1 then
-        [f i]
-      else
-        (f i) :: (init_aux (i+1))
-    in
-    init_aux 0
-
 (* Returns the maximum element of a non-empty list *)
 let list_max = function
   | [] -> assert false
@@ -406,31 +395,6 @@ let compare_pairs cmp_a cmp_b (a1, b1) (a2, b2) =
   let c_a = cmp_a a1 a2 in if c_a = 0 then cmp_b b1 b2 else c_a
 
 
-(* Lexicographic comparison of lists *)
-let rec compare_lists f l1 l2 = 
-
-    match l1, l2 with 
-
-      (* Two empty lists are equal *)
-      | [], [] -> 0
-
-      (* An empty list is smaller than a non-empty list *)
-      | [], _ -> -1 
-
-      (* An non-empty list is greater than an empty list *)
-      | _, [] -> 1
-
-      (* Compare two non-empty lists *)
-      | h1 :: tl1, h2 :: tl2 -> 
-
-        (* Compare head elements of lists *)
-        let c = f h1 h2 in
-
-        (* If head elements are equal, compare tails of lists,
-           otherwise return comparison of head elements *)
-        if c = 0 then compare_lists f tl1 tl2 else c
-
-
 (* Given two ordered association lists with identical keys, push the
    values of each element of the first association list to the list of
    elements of the second association list. 
@@ -464,28 +428,10 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
-let list_filter_map f =
-  let rec aux accu = function
-    | [] -> List.rev accu
-    | x :: l ->
-        match f x with
-        | None -> aux accu l
-        | Some v -> aux (v :: accu) l
-  in
-  aux []
-
 let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
   | f :: rest -> f arg :: (list_apply rest arg)  
-
-let rec find_map f = function
-  | [] -> None
-  | h :: tl -> (
-    match f h with
-    | None -> find_map f tl
-    | v -> v
-  )
 
 let rec drop_last: 'a list -> 'a list
   = function
@@ -537,7 +483,7 @@ let pp_print_arrayi pp sep ppf array  =
       (pp ppf i array.(i);
        fprintf ppf sep)
   in
-  let indices = list_init (fun i -> i) n in  
+  let indices = List.init n (fun i -> i) in
   List.iter print_element indices
 
 let pp_print_pair pp1 pp2 sep ppf (left, right) =
@@ -1465,8 +1411,6 @@ let pp_print_bound_opt ppf bound = match bound with
   | None -> Format.fprintf ppf "%s" unbounded_limit_string
   | Some bound -> Numeral.pp_print_numeral ppf bound 
 
-let concat_map f lst =
-  List.fold_right (fun x acc -> f x @ acc) lst []
 
 (* ********************************************************************** *)
 (* Paths techniques write to                                              *)

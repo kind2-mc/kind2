@@ -1121,7 +1121,7 @@ let rec eval_ast_expr bounds ctx =
           |> E.unsafe_term_of_expr
           |> Term.numeral_of_term
           |> Numeral.to_int
-          |> Lib.list_init (fun _ -> expr) in
+          |> (flip List.init) (fun _ -> expr) in
         
         eval_ast_expr bounds ctx (A.GroupExpr (pos, A.ArrayExpr, l_expr))
       else
