@@ -261,24 +261,16 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
        (pp_print_list Format.pp_print_string ", ") cs
 
   | Type.UBV i -> 
-     begin match i with
-     | 8 -> Format.pp_print_string ppf "uint8"
-     | 16 -> Format.pp_print_string ppf "uint16"
-     | 32 -> Format.pp_print_string ppf "uint32"
-     | 64 -> Format.pp_print_string ppf "uint64"
-     | _ -> raise 
+     if i > 0 then
+       Format.fprintf ppf "uint<%d>" i
+     else raise 
       (Invalid_argument "pp_print_lustre_type: UBV size not allowed")
-     end
 
   | Type.BV i -> 
-     begin match i with
-     | 8 -> Format.pp_print_string ppf "int8"
-     | 16 -> Format.pp_print_string ppf "int16"
-     | 32 -> Format.pp_print_string ppf "int32"
-     | 64 -> Format.pp_print_string ppf "int64"
-     | _ -> raise 
+     if i > 0 then
+       Format.fprintf ppf "int<%d>" i
+     else raise 
       (Invalid_argument "pp_print_lustre_type: BV size not allowed")
-     end
 
   | Type.Array (s, _) ->
 
@@ -1967,48 +1959,18 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 (* ********************************************************************** *)
 
+(* Type of conversion to unsigned integer of width n  
 
-(* Evaluate conversion to unsigned integer8 *)
-let eval_to_uint8 expr =
-
-  match Term.destruct expr with
-
-    | Term.T.Const c when Symbol.is_numeral c ->
-
-      Term.mk_ubv (Bitvector.num_to_ubv8 (Symbol.numeral_of_symbol c))
-
-    | Term.T.App (_, [ sub_expr ])
-      when Term.is_negative_numeral expr ->
-        Term.mk_ubv
-          (Bitvector.num_to_ubv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
-
-    | _ -> let tt = Term.type_of_term expr in
-            if (Type.is_int tt) then
-              Term.mk_to_uint8 expr
-            else if (Type.is_ubitvector tt) then
-              let s = Type.get_bv_size tt |> Option.get in
-              if (s < 8) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero (8 - s))) expr
-              else if (s = 8) then 
-                expr
-              else
-                Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
-            else 
-              raise Type_mismatch
-
- 
-(* Type of conversion to unsigned integer8  
-
-   int: real -> uint8 
+   int: real -> uint<n>
 *)
-let type_of_to_uint8 = function
+let type_of_to_ubv n = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int t || Type.is_int_range t || Type.is_ubitvector t -> Type.t_ubv 8
+  | t when Type.is_int t || Type.is_int_range t || Type.is_ubitvector t -> Type.t_ubv n
   | _ -> raise Type_mismatch
 
 
 (* Conversion to unsigned integer8 *)
-let mk_to_uint8 expr = mk_unary eval_to_uint8 type_of_to_uint8 expr
+let mk_to_ubv n expr = mk_unary eval_to_ubv (type_of_to_ubv n) expr
 
 
 (* ********************************************************************** *)
@@ -2151,47 +2113,18 @@ let mk_to_uint64 expr = mk_unary eval_to_uint64 type_of_to_uint64 expr
 
 (* ********************************************************************** *)
 
-(* Evaluate conversion to integer8 *)
-let eval_to_int8 expr =
-  
-  match Term.destruct expr with
-
-    | Term.T.Const c when Symbol.is_numeral c ->
-
-      Term.mk_bv (Bitvector.num_to_bv8 (Symbol.numeral_of_symbol c))
-
-    | Term.T.App (_, [ sub_expr ])
-      when Term.is_negative_numeral expr ->
-        Term.mk_bv
-          (Bitvector.num_to_bv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
-
-    | _ -> let tt = Term.type_of_term expr in
-            if (Type.is_int tt) then
-              Term.mk_to_int8 expr
-            else if (Type.is_bitvector tt) then
-              let s = Type.get_bv_size tt |> Option.get in
-              if (s < 8) then
-                Term.mk_bvsignext (Numeral.of_int (8 - s)) expr
-              else if (s = 8) then 
-                expr
-              else
-                Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
-            else 
-              raise Type_mismatch
-
-
 (* Type of conversion to integer8  
 
    int: real -> int8 
 *)
-let type_of_to_int8 = function
+let type_of_to_bv n = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_bitvector t || Type.is_int t || Type.is_int_range t -> Type.t_bv 8
+  | t when Type.is_int t || Type.is_int_range t || Type.is_ubitvector t -> Type.t_bv n
   | _ -> raise Type_mismatch
 
 
 (* Conversion to integer8 *)
-let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
+let mk_to_bv n expr = mk_unary eval_to_bv (type_of_to_bv n) expr
 
 
 (* ********************************************************************** *)

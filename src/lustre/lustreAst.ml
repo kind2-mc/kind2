@@ -53,9 +53,10 @@ type clock_expr =
 
 (* Some symbols for lustre expressions *)
 type conversion_operator =
-  | ToInt | ToReal
-  | ToInt8 | ToInt16 | ToInt32 | ToInt64
-  | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
+  | ToInt 
+  | ToReal
+  | ToBV of int
+  | ToUBV of int
 
 type unary_operator =
   | Not | Uminus
@@ -453,14 +454,8 @@ let rec pp_print_expr ppf =
     | Const (p, Dec d) -> ps p d
 
     | ConvOp (p, ToInt, e) -> p1 p "int" e
-    | ConvOp (p, ToUInt8, e) -> p1 p "uint8" e
-    | ConvOp (p, ToUInt16, e) -> p1 p "uint16" e
-    | ConvOp (p, ToUInt32, e) -> p1 p "uint32" e
-    | ConvOp (p, ToUInt64, e) -> p1 p "uint64" e
-    | ConvOp (p, ToInt8, e) -> p1 p "int8" e
-    | ConvOp (p, ToInt16, e) -> p1 p "int16" e
-    | ConvOp (p, ToInt32, e) -> p1 p "int32" e
-    | ConvOp (p, ToInt64, e) -> p1 p "int64" e
+    | ConvOp (p, ToBV n, e) -> p1 p (Format.asprintf "int@<%d>" n) e
+    | ConvOp (p, ToUBV n, e) -> p1 p (Format.asprintf "uint@<%d>" n) e
     | ConvOp (p, ToReal, e) -> p1 p "real" e
 
     | UnaryOp (p, Not, e) -> p1 p "not" e

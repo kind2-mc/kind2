@@ -69,9 +69,10 @@ type clock_expr =
 
 (* Some symbols for lustre expressions *)
 type conversion_operator =
-  | ToInt | ToReal
-  | ToInt8 | ToInt16 | ToInt32 | ToInt64
-  | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
+  | ToInt 
+  | ToReal
+  | ToBV of int
+  | ToUBV of int
 
 type unary_operator =
   | Not | Uminus
