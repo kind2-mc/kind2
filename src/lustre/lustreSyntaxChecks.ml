@@ -251,7 +251,7 @@ function
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-| ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
+| ArrayIndex (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2
 
 | TernaryOp (_, _, e1, e2, e3) ->
@@ -531,7 +531,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (_, ArrayIndex (_, _, _)) -> Ok ()
+  | LA.Pre (_, ArrayIndex (_, _, _, _)) -> Ok ()
   | LA.Pre (pos, e) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
@@ -627,7 +627,7 @@ let rec expr_only_supported_in_merge observer expr =
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
-  | ArrayIndex (_, e1, e2)
+  | ArrayIndex (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
@@ -928,7 +928,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
-    | ArrayIndex (_, e1, e2)
+    | ArrayIndex (_, e1, e2, _)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 

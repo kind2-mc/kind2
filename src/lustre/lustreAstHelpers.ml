@@ -48,7 +48,7 @@ let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
   | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
-  | ArrayIndex (pos , _, _)
+  | ArrayIndex (pos , _, _, _)
   | RecordExpr (pos , _ , _, _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
   | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
   | Quantifier (pos, _, _, _)
@@ -75,7 +75,7 @@ let rec expr_contains_call = function
   | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
   | TernaryOp (_, _, e1, e2, e3)
@@ -108,7 +108,7 @@ let rec expr_contains_id id = function
   | Extract (_, e, _, _)
     -> expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
@@ -161,8 +161,8 @@ let rec substitute_naive (var:HString.t) t = function
     StructUpdate (pos, substitute_naive var t e1, idx, substitute_naive var t e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, substitute_naive var t e1, substitute_naive var t e2)
+  | ArrayIndex (pos, e1, e2, kind) ->
+    ArrayIndex (pos, substitute_naive var t e1, substitute_naive var t e2, kind)
   | When (pos, e, clock) -> When (pos, substitute_naive var t e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
@@ -213,8 +213,8 @@ let rec apply_subst_in_expr sigma = function
     StructUpdate (pos, apply_subst_in_expr sigma e1, idx, apply_subst_in_expr sigma e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | ArrayIndex (pos, e1, e2, kind) ->
+    ArrayIndex (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2, kind)
   | When (pos, e, clock) -> When (pos, apply_subst_in_expr sigma e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
@@ -272,8 +272,8 @@ let rec apply_type_subst_in_expr
     StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | ArrayIndex (pos, e1, e2, kind) ->
+    ArrayIndex (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2, kind)
   | When (pos, e, clock) -> When (pos, apply_type_subst_in_expr sigma e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
@@ -372,7 +372,7 @@ let rec has_unguarded_pre ung = function
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
+  | ArrayIndex (_, e1, e2, _) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
@@ -454,7 +454,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u3 = has_unguarded_pre_no_warn ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
+  | ArrayIndex (_, e1, e2, _) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
@@ -530,7 +530,7 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | ArrayIndex (_, e1, e2, _) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -778,7 +778,7 @@ let rec vars_of_node_calls_h obs =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
+  | ArrayIndex (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars obs e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -819,7 +819,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  | ArrayIndex (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -867,7 +867,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
   | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | ArrayIndex (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | ArrayIndex (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
   | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NI.Set.flatten
@@ -899,7 +899,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  | ArrayIndex (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -1054,10 +1054,10 @@ let rec replace_with_constants: expr -> expr =
      let e2' = replace_with_constants e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayIndex (p, e1, e2) ->
+  | ArrayIndex (p, e1, e2, k) ->
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
-     ArrayIndex (p, e1', e2') 
+     ArrayIndex (p, e1', e2', k) 
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -1134,10 +1134,10 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayIndex (p, e1, e2) ->
+  | ArrayIndex (p, e1, e2, k) ->
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
-     ArrayIndex (p, e1', e2')
+     ArrayIndex (p, e1', e2', k)
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -1191,7 +1191,7 @@ let rec replace_idents locals1 locals2 expr =
   | TupleProject (a, e, b) -> TupleProject (a, r e, b)
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
-  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, r e1, r e2)
+  | ArrayIndex (a, e1, e2, k) -> ArrayIndex (a, r e1, r e2, k)
   | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, r e1, r e2)
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, r e1, r e2, r e3)
   
@@ -1360,11 +1360,14 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun e3 ->
       Ok (e1 && e2 && e3)
-    | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2)
-    | ArrayIndex (_, xe1, xe2), ArrayIndex (_, ye1, ye2) ->
+    | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
+    | ArrayIndex (_, xe1, xe2, xk), ArrayIndex (_, ye1, ye2, yk) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2 && xk=yk)
     | Quantifier (_, xq, xl, xe), Quantifier (_, yq, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       let l = if List.length xl = List.length yl then
@@ -1552,10 +1555,10 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (14, e1_hash, e2_hash)
-      | ArrayIndex (_, e1, e2) ->
+      | ArrayIndex (_, e1, e2, k) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (15, e1_hash, e2_hash)
+        Hashtbl.hash (15, e1_hash, e2_hash, k)
       | Quantifier (_, e1, l, e2) ->
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
@@ -1652,8 +1655,8 @@ let rec rename_contract_vars = function
     StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | ArrayIndex (pos, e1, e2, kind) ->
+    ArrayIndex (pos, rename_contract_vars e1, rename_contract_vars e2, kind)
   | Quantifier (pos, kind, idents, e) ->
     Quantifier (pos, kind, idents, rename_contract_vars e)
   | When (pos, e, clock) -> When (pos, rename_contract_vars e, clock)

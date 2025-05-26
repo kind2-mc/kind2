@@ -1,5 +1,5 @@
 -- Illegal `->` in function.
-function blah ( in: int ) returns ( out: int ) ;
+function blah ( i: int ) returns ( out: int ) ;
 let
-  out = 0 -> in ;
+  out = 0 -> i ;
 tel

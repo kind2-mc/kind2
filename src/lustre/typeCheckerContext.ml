@@ -838,7 +838,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
   | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (call e1) (call e2)
+  | ArrayIndex (_, e1, e2,_) -> SI.union (call e1) (call e2)
   (* Clock operators *)
   | When (_, e, _) -> call e
   | Condact (_, e1, e2, _, es1, es2) ->

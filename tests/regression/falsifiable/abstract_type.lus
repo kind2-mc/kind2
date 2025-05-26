@@ -2,12 +2,12 @@
 type COUNTER;
 
 (* Operation to get counter value *)
-function imported get_counter (in: COUNTER) returns (out: int) ;
+function imported get_counter (i: COUNTER) returns (out: int) ;
 
 (* Increment a counter -- the new one is bigger than the old one *)
-function imported increment (in: COUNTER) returns (out: COUNTER) ;
+function imported increment (i: COUNTER) returns (out: COUNTER) ;
 (*@contract
-  guarantee get_counter(out) = get_counter(in) + 1 ;
+  guarantee get_counter(out) = get_counter(i) + 1 ;
 *)
 
 (* Try to prove that incrementing the counter does nothing... *)

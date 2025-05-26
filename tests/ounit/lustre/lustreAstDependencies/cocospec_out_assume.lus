@@ -21,25 +21,25 @@ let
   ) ;
 tel
 
-contract bli_spec (in: real ; ignored: bool) returns (out: real) ;
+contract bli_spec (i: real ; ignored: bool) returns (out: real) ;
 let
-  guarantee out = in - 1.0 ;
-  import bla_spec (in, ignored) returns (out) ;
+  guarantee out = i - 1.0 ;
+  import bla_spec (i, ignored) returns (out) ;
 tel
 
-node bla(in: real ; ignored: bool) returns (out: real) ;
+node bla(i: real ; ignored: bool) returns (out: real) ;
 (*@contract
-  import bla_spec (in, ignored) returns (out) ;
+  import bla_spec (i, ignored) returns (out) ;
 *)
 let
-  out = if ignored then in - 1.0 else in - 1.0 ;
+  out = if ignored then i - 1.0 else i - 1.0 ;
 tel
 
-node bli(in: real ; ignored: bool) returns (out: real) ;
+node bli(i: real ; ignored: bool) returns (out: real) ;
 (*@contract
-  import bli_spec (in, ignored) returns (out) ;
-  import bla_spec (in, ignored) returns (out) ;
+  import bli_spec (i, ignored) returns (out) ;
+  import bla_spec (i, ignored) returns (out) ;
 *)
 let
-  out = bla(in, ignored) ;
+  out = bla(i, ignored) ;
 tel

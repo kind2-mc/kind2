@@ -290,7 +290,7 @@ let mk_ident id =
   That assumption is made explicit by calling this function. *)
 let extract_normalized = function
   | A.Ident (_, ident) -> mk_ident ident
-  | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
+  | A.ArrayIndex (_, A.Ident (_, ident), _, _) -> mk_ident ident
   | _ -> assert false
 
 module XMap = Map.Make(struct
@@ -644,12 +644,20 @@ and compile_ast_type
     in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.Map (_, ty1, ty2) -> 
-    (* TODO: Not general enough to support structured types *)
+    (* TODO: Not general enough to support structured types as keys *)
     let index_type = compile_ast_type cstate ctx map ty1 in
     let index_type' = (List.hd (X.values index_type)) in
-    let element_type = compile_ast_type cstate ctx map ty2 in
-    let element_type' = (List.hd (X.values element_type)) in 
-    X.singleton X.empty_index  (Type.mk_array element_type' index_type')
+    let ty2' =
+      A.TupleType (Lib.dummy_pos, [A.Bool Lib.dummy_pos; ty2])
+    in
+    let element_type = compile_ast_type cstate ctx map ty2' in
+    let dummy_expr = E.init_expr E.t_true in
+    let over_element_type j t a = X.add
+        (j @ [X.ArrayVarIndex dummy_expr])
+        (Type.mk_array t index_type')
+        a
+      in
+      X.fold over_element_type element_type X.empty
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
@@ -1084,7 +1092,10 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Xor, expr1, expr2) ->
     compile_binary bounds E.mk_xor expr1 expr2 
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
-    compile_binary bounds E.mk_impl expr1 expr2 
+    compile_binary bounds E.mk_impl expr1 expr2
+  | A.BinaryOp (_, A.In, k, map_expr) ->
+    let map_expr = compile_array_index bounds map_expr k in
+    X.find_prefix [(X.TupleIndex 0)] map_expr
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
@@ -1177,7 +1188,11 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> j @[X.ArrayIntIndex i]) expr_list
   | A.ArrayConstr (_, expr, size_expr) ->
     compile_array_ctor bounds expr size_expr
-  | A.ArrayIndex (_, expr, i) -> compile_array_index bounds expr i
+  | A.ArrayIndex (_, expr, i, Array) -> compile_array_index bounds expr i
+  | A.ArrayIndex (_, expr, i, Map) ->
+    let expr = compile_array_index bounds expr i in
+    X.find_prefix [(X.TupleIndex 1)] expr
+  | A.ArrayIndex _ -> assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
@@ -1743,7 +1758,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
         | A.Ident (_, id')
-        | A.ArrayIndex (_, A.Ident (_, id'), _) ->
+        | A.ArrayIndex (_, A.Ident (_, id'), _, _) ->
           let ident = mk_ident id' in
           let closed_sv = H.find !map.state_var ident in
           Some closed_sv
@@ -1883,7 +1898,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let op (pos, name_opt, expr, kind) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
-        | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
+        | A.ArrayIndex (_, A.Ident (_, id_str), _, _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in

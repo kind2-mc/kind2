@@ -1,6 +1,6 @@
-contract C<Y>(in: Y) returns (out: Y);
+contract C<Y>(i: Y) returns (out: Y);
 let
-  guarantee true -> (out = (pre in));
+  guarantee true -> (out = (pre i));
 tel
 
 node N(x: int) returns (y: int) 

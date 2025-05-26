@@ -78,7 +78,7 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl
+  | And | Or | Xor | Impl | In
   | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
@@ -100,6 +100,8 @@ type group_expr =
   | ExprList (* List of expressions *)
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
+
+type access_kind = Array | Map | Unknown
 
 (** A Lustre type *)
 type lustre_type =
@@ -147,7 +149,7 @@ and expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr 
-  | ArrayIndex of position * expr * expr
+  | ArrayIndex of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)

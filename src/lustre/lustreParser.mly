@@ -152,20 +152,19 @@ let mk_span start_pos end_pos =
 %token AND
 %token XOR
 %token OR
+%token IMPL
+%token FORALL
+%token EXISTS
+%token IN
+
+(* Tokens for conditionals and blocks *)
 %token IF
-%token FI
-%token FRAME
-%token WITH
 %token THEN
 %token ELSE
 %token ELSIF
-%token IMPL
-%token HASH
-%token FORALL
-%token EXISTS
-%token ANY
-%token CONCAT
-    
+%token FI
+%token FRAME
+
 (* Tokens for relations *)
 %token LTE
 %token GTE
@@ -187,6 +186,7 @@ let mk_span start_pos end_pos =
 %token BVNOT
 %token LSH
 %token RSH
+%token CONCAT
 
 (* Tokens for clocks *)
 %token WHEN
@@ -203,7 +203,12 @@ let mk_span start_pos end_pos =
 %token PRE
 %token FBY
 %token ARROW
-    
+
+(* Other tokens *)
+%token ANY
+%token WITH
+%token HASH
+
 (* Token for end of file marker *)
 %token EOF
     
@@ -216,6 +221,7 @@ let mk_span start_pos end_pos =
 %right IMPL
 %left OR XOR
 %left AND
+%left IN
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
@@ -930,7 +936,7 @@ pexpr(Q):
 
   (* An array index (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
-    { A.ArrayIndex (mk_pos $startpos, e, i) }
+    { A.ArrayIndex (mk_pos $startpos, e, i, Unknown) }
     
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 
@@ -973,6 +979,7 @@ pexpr(Q):
   | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Or, e1, e2) }
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
+  | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In, e1, e2) }
   | HASH; LPAREN; pexpr_list(Q); RPAREN { 
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: #" }

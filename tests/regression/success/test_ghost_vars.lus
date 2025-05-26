@@ -1,14 +1,14 @@
-node top (in:bool) returns (out:bool);
+node top (i:bool) returns (out:bool);
 (*@contract
   var v2 : bool = false -> pre v1;
   var v1 : bool = false;
   guarantee true;
 *)
 let
-  out = in;
+  out = i;
 tel
 
-node top2 (in:bool) returns (out:bool);
+node top2 (i:bool) returns (out:bool);
 (*@contract
  mode m1 (
  require true -> pre(v2) = pre(v2););
@@ -17,5 +17,5 @@ node top2 (in:bool) returns (out:bool);
  guarantee true;
 *)
 let
-  out = in;
+  out = i;
 tel

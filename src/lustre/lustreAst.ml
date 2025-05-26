@@ -62,7 +62,7 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl
+  | And | Or | Xor | Impl | In
   | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
@@ -84,6 +84,11 @@ type group_expr =
   | ExprList (* List of expressions *)
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
+
+type access_kind =
+  | Array 
+  | Map 
+  | Unknown
 
 (** A Lustre expression *)
 type expr =
@@ -108,7 +113,7 @@ type expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr  
-  | ArrayIndex of position * expr * expr
+  | ArrayIndex of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
@@ -412,7 +417,7 @@ let rec pp_print_expr ppf =
         pp_print_expr e1 
         pp_print_expr e2
 
-    | ArrayIndex (p, e, l) -> 
+    | ArrayIndex (p, e, l, _) -> 
 
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
@@ -468,6 +473,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
+    | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
