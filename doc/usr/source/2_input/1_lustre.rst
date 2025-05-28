@@ -561,20 +561,20 @@ Say now we call this node as follows:
 
 That is, we want ``sum_ge_10(in)`` to tick iff ``in`` is positive. Here is an
 example trace of ``example`` sliced to ``tmp``; notice how the internal state of
-``sub`` (*i.e.* ``pre sub.sum``) is maintained so that it does refer to the value
-of ``sub.sum`` *at the last clock tick of the ``activate``*:
+``sum_ge_10`` (*i.e.* ``pre sum_ge_10.sum``) is maintained so that it does refer to the value
+of ``sum_ge_10.sum`` *at the last clock tick of the ``activate``*:
 
-====  ==  ======  ======  ======  ===========  =======
-step  in  in_pos  tmp     sub.in  pre sub.sum  sub.sum
-====  ==  ======  ======  ======  ===========  =======
-0     3   true    false   3       nil          3
-1     2   true    false   2       3            5
-2     -1  false   nil     nil     5            nil
-3     2   true    false   2       5            7
-4     -7  false   nil     nil     7            nil
-5     35  true    true    35      7            42
-6     -2  false   nil     nil     42           nil
-====  ==  ======  ======  ======  ===========  =======
+====  ==  ======  ======  ============  =================  =============
+step  in  in_pos  tmp     sum_ge_10.in  pre sum_ge_10.sum  sum_ge_10.sum
+====  ==  ======  ======  ============  =================  =============
+0     3   true    false   3             nil                3
+1     2   true    false   2             3                  5
+2     -1  false   nil     nil           5                  nil
+3     2   true    false   2             5                  7
+4     -7  false   nil     nil           7                  nil
+5     35  true    true    35            7                  42
+6     -2  false   nil     nil           42                 nil
+====  ==  ======  ======  ============  =================  =============
 
 Now, as mentioned above the ``merge`` operator combines two streams defined on
 **complimentary** clocks. The syntax of ``merge`` is:
