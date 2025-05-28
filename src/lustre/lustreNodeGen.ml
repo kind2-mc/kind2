@@ -644,20 +644,28 @@ and compile_ast_type
     in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.Map (_, ty1, ty2) -> 
-    (* TODO: Not general enough to support structured types as keys *)
     let index_type = compile_ast_type cstate ctx map ty1 in
-    let index_type' = (List.hd (X.values index_type)) in
+    let types = List.rev (X.values index_type) in
+    let last_type = List.hd types in
     let ty2' =
       A.TupleType (Lib.dummy_pos, [A.Bool Lib.dummy_pos; ty2])
     in
     let element_type = compile_ast_type cstate ctx map ty2' in
     let dummy_expr = E.init_expr E.t_true in
-    let over_element_type j t a = X.add
-        (j @ [X.ArrayVarIndex dummy_expr])
-        (Type.mk_array t index_type')
-        a
-      in
-      X.fold over_element_type element_type X.empty
+    let over_element_type ty j t a = X.add
+      (j @ [X.ArrayVarIndex dummy_expr])
+      (Type.mk_array t ty)
+      a
+    in
+    let base_map_type =
+      X.fold (over_element_type last_type) element_type X.empty
+    in
+    List.fold_left
+      (fun acc ty ->
+         X.fold (over_element_type ty) acc X.empty
+      )
+      base_map_type
+      (List.tl types)
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
@@ -996,10 +1004,21 @@ and compile_ast_expr
       in let result = X.fold over_indices cexpr X.empty in
       result
 
+  and compile_map_index bounds expr k =
+    let compiled_k = compile_ast_expr cstate ctx bounds map k in
+    let index_exprs = X.values compiled_k in
+    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    List.fold_left
+      (fun acc index ->
+        compile_array_index' acc index
+      )
+      compiled_expr
+      index_exprs
+
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index_e = compiled_i |> X.values |> List.hd in
-    let index = E.mk_of_expr index_e.expr_init in
+    let index = E.mk_of_expr index_e.E.expr_init in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in
@@ -1008,6 +1027,9 @@ and compile_ast_expr
       with Invalid_argument _ | Failure _ -> bounds
     in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    compile_array_index' compiled_expr index
+
+  and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
       | X.ArrayVarIndex _ :: _, v
       | X.ArrayIntIndex _ :: _, v ->
@@ -1094,7 +1116,7 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
   | A.BinaryOp (_, A.In, k, map_expr) ->
-    let map_expr = compile_array_index bounds map_expr k in
+    let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
@@ -1189,8 +1211,8 @@ and compile_ast_expr
   | A.ArrayConstr (_, expr, size_expr) ->
     compile_array_ctor bounds expr size_expr
   | A.ArrayIndex (_, expr, i, Array) -> compile_array_index bounds expr i
-  | A.ArrayIndex (_, expr, i, Map) ->
-    let expr = compile_array_index bounds expr i in
+  | A.ArrayIndex (_, expr, k, Map) ->
+    let expr = compile_map_index bounds expr k in
     X.find_prefix [(X.TupleIndex 1)] expr
   | A.ArrayIndex _ -> assert false
   (* ****************************************************************** *)

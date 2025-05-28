@@ -699,8 +699,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreSyntaxChecks/array_quantified_var.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedArray _)) -> true
     | _ -> false);
-  mk_test "test map with unsupported nested type" (fun () ->
-    match load_file "./lustreTypeChecker/map_nested_type.lus" with
+  mk_test "test map with unsupported array key type" (fun () ->
+    match load_file "./lustreTypeChecker/map_array_key_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
     | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
