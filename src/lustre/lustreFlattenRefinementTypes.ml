@@ -55,16 +55,24 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
-      | Map (pos, ty1, ty2) -> 
-        List.mapi (fun i ty ->
-          let exprs = chase_refinements ty in
-          List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
-        ) [ty1; ty2] |> List.flatten
-    | ArrayType (pos, (ty, len)) -> 
+    | Map (pos, ty1, ty2) ->
+      let dummy_index = AN.mk_fresh_dummy_index () in
+      let exprs = chase_refinements ty2 in
+      List.map (fun expr ->
+        let idx =
+          A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index), Map)
+        in
+        let expr = AH.substitute_naive id idx expr in
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
+      ) exprs
+    | ArrayType (pos, (ty, len)) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in
-      List.map (fun expr -> 
-        let expr = AH.substitute_naive id (A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index))) expr in
+      List.map (fun expr ->
+        let idx =
+          A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index), Array)
+        in
+        let expr = AH.substitute_naive id idx expr in
         let bound1 = 
           A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
         in 
@@ -122,7 +130,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
   | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
-  | ArrayIndex (p, e1, e2) -> ArrayIndex (p, rec_call e1, rec_call e2)
+  | ArrayIndex (p, e1, e2, k) -> ArrayIndex (p, rec_call e1, rec_call e2, k)
   | When (p, e, c) -> When (p, rec_call e, c) 
   | Condact (p, e1, e2, i, es1, es2) ->
     Condact (p, rec_call e1

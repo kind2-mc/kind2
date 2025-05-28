@@ -5,31 +5,31 @@ type one = { blah: two } ;
 const two_c: real = 0.0 ;
 
 -- node two: real -> real
-node two (in: real) returns (out: real) ;
+node two (i: real) returns (out: real) ;
 let
-  out = 0.0 -> pre in ;
+  out = 0.0 -> pre i ;
 tel
 
 -- contract one: two -> real
-contract one (in: two) returns (out: real) ;
+contract one (i: two) returns (out: real) ;
 let
-  assume in >= 0 ;
+  assume i >= 0 ;
   guarantee out >= 0.0 ;
 tel
 
 -- contract two: two -> real
-contract two (in: two) returns (out: real) ;
+contract two (i: two) returns (out: real) ;
 let
-  import one (in) returns (out) ;
-  assume in >= 0 ;
+  import one (i) returns (out) ;
+  assume i >= 0 ;
   guarantee out >= 0.0 ;
 tel
 
 -- node one: real -> real
-node one (in: real) returns (out: real) ;
+node one (i: real) returns (out: real) ;
 (*@contract
-  import two ((int in)) returns (out) ;
+  import two ((int i)) returns (out) ;
 *)
 let
-  out = two(two_c -> pre in) ;
+  out = two(two_c -> pre i) ;
 tel

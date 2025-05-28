@@ -1,7 +1,7 @@
-node bla (in: int) returns (out: int) ;
+node bla (i: int) returns (out: int) ;
 var sliced: int ;
 let
-  assert sliced > in - 2 ;
-  out = 0 -> 3 + pre in ;
+  assert sliced > i - 2 ;
+  out = 0 -> 3 + pre i ;
   --%PROPERTY out >= 0 ;
 tel

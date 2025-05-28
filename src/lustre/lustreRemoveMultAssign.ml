@@ -77,7 +77,9 @@ let create_new_eqs ctx lhs expr =
         (* Type error, shouldn't be possible *)
         | None -> assert false) in
       let temp, gids = mk_fresh_temp_var ty in
-      let array_index = List.fold_left (fun expr j -> A.ArrayIndex(rhs_pos, expr, A.Ident(rhs_pos, j))) (A.Ident(rhs_pos, temp)) js in
+      let array_index = List.fold_left (fun expr j ->
+        A.ArrayIndex(rhs_pos, expr, A.Ident(rhs_pos, j), Array)) (A.Ident(rhs_pos, temp)) js
+      in
       (
         [gids],
         [A.ArrayDef(p, temp, js)],

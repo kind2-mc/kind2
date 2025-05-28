@@ -1,5 +1,5 @@
 -- Illegal `pre` in function.
-function blah ( in: int ) returns ( out: int ) ;
+function blah ( i: int ) returns ( out: int ) ;
 let
-  out = pre in ;
+  out = pre i ;
 tel

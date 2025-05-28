@@ -1,8 +1,8 @@
 
-node N(in:bool) returns (out:bool);
+node N(i:bool) returns (out:bool);
 (*@contract
   var A : bool = Undefined(cancel);
 *)
 let
-  out = in;
+  out = i;
 tel

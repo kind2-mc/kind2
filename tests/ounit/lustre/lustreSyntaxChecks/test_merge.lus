@@ -1,8 +1,8 @@
-node example (in: int) returns (safe_tmp: bool) ;
+node example (i: int) returns (safe_tmp: bool) ;
 var tmp, in_pos, pre_tmp: bool ;
 let
-  in_pos = in >= 0 ;
-  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  in_pos = i >= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(i) ;
   pre_tmp = false -> pre safe_tmp  ;
   safe_tmp = merge( in_pos ; tmp ; pre_tmp when not in_pos ) ;
 tel
@@ -21,21 +21,21 @@ let
 tel
 
 
-node sum_ge_10 (const in: int) returns (out: bool) ;
+node sum_ge_10 (const i: int) returns (out: bool) ;
 var sum: int ;
 let
-  sum = in + (0 -> pre sum) ;
+  sum = i + (0 -> pre sum) ;
   out = sum >= 10 ;
 tel
 
-node merge_when_activate (in: int) returns (safe_tmp: bool) ;
+node merge_when_activate (i: int) returns (safe_tmp: bool) ;
 var in_pos, pre_tmp: bool;
 let
-  in_pos = in >= 0 ;
+  in_pos = i >= 0 ;
   pre_tmp = false -> pre safe_tmp  ;
   safe_tmp = merge(
     in_pos ;
-    (activate sum_ge_10 every in_pos)(in) ;
+    (activate sum_ge_10 every in_pos)(i) ;
     pre_tmp when not in_pos
   ) ;
 tel

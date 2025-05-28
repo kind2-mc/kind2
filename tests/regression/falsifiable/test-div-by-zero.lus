@@ -1,12 +1,12 @@
-node bla(in: real)
+node bla(i: real)
 returns (out: real ; OK: bool) ;
 var
   inf_pos, inf_neg, inf_p_div_n, inf_p_sub_n,
   inf_p_div_n_mul_3, one_div_inf_p, inf_p_sum_inf_n: real ;
 let
-  OK = (in <> 0.0) or (out = 1.0) ;
-  inf_pos = 1.0 / in ;
-  inf_neg = -1.0 / in ;
+  OK = (i <> 0.0) or (out = 1.0) ;
+  inf_pos = 1.0 / i ;
+  inf_neg = -1.0 / i ;
   inf_p_div_n = inf_pos / inf_neg ;
   inf_p_sub_n = inf_pos - inf_neg ;
   inf_p_div_n_mul_3 = 3.0 * inf_p_div_n ;
@@ -18,9 +18,9 @@ let
   --%PROPERTY OK ;
 tel
 
-node bli(in: real) returns (out: real ; OK: bool) ;
+node bli(i: real) returns (out: real ; OK: bool) ;
 let
-  (out, OK) = bla(in) ;
+  (out, OK) = bla(i) ;
   --%PROPERTY OK ;
   --%MAIN ;
 tel

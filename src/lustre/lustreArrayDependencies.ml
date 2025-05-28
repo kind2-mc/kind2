@@ -104,7 +104,7 @@ let empty_ = R.ok G.empty
 let zero = A.Const (Lib.dummy_pos, A.Num (HString.mk_hstring "0"))
 
 let rec expr_index_layers = function
-  | A.ArrayIndex (_, e, _) -> 1 + expr_index_layers e
+  | A.ArrayIndex (_, e, _, _) -> 1 + expr_index_layers e
   | _ -> 0
 
 (** TODO: node summaries need offset information *)
@@ -176,7 +176,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> union_ (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> union_ (r e1) (r e2)
-  | ArrayIndex (p, e, idx) ->
+  | ArrayIndex (p, e, idx, _) ->
     let n = match ind_vars with
       | Some iv -> List.length iv
       | None -> 0

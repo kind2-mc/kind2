@@ -449,11 +449,12 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       (match parent_ty with
       | TupleType (_, types) -> List.nth types idx
       | _ -> assert false)
-    | ArrayIndex (_, e, _) ->
+    | ArrayIndex (_, e, _, _) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | ArrayType (_, (ty, _)) -> ty
+      | Map (_, _, ty) -> ty
       | _ -> assert false)
     | GroupExpr (_, ExprList, es) -> (
       let g = interpret_structured_expr f node_id ctx ty_ctx ty in
@@ -496,7 +497,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       let ty = List.nth nested idx in
       extract_bounds_from_type ty
     | _ -> assert false)
-  | ArrayIndex (_, e, _) -> (match infer e with
+  | ArrayIndex (_, e, _, _) -> (match infer e with
     | ArrayType (_, (t, _)) -> extract_bounds_from_type t
     | _ -> assert false)
   | Const (_, const) -> (match const with

@@ -257,6 +257,10 @@ let rec eval_ast_expr bounds ctx =
 
       eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
 
+  | A.BinaryOp (pos, A.In, _, _) ->
+
+    fail_at_position pos "Membership check not supported in old front end"
+
   (* Universal quantification *)
   | A.Quantifier (pos, A.Forall, avars, expr) ->
 
@@ -1150,7 +1154,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Array indexing *)
-  | A.ArrayIndex (pos, expr, i) -> 
+  | A.ArrayIndex (pos, expr, i, _) ->
 
     (* Evaluate expression to an integer constant *)
     let index_e = static_int_of_ast_expr ctx pos i in
