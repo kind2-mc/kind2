@@ -515,59 +515,18 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                (* Fail on conversion to integer *)
                | `TO_INT, _ -> raise Not_in_LIA
 
-               (* Fail on conversion from unsigned integer8 to integer *)
-               | `UINT8_TO_INT, _ -> raise Not_in_LIA
-        
-               (* Fail on conversion from unsigned integer16 to integer *)
-               | `UINT16_TO_INT, _ -> raise Not_in_LIA
-        
-               (* Fail on conversion from unsigned integer32 to integer *)
-               | `UINT32_TO_INT, _ -> raise Not_in_LIA
-              
-               (* Fail on conversion from unsigned integer64 to integer *)
-               | `UINT64_TO_INT, _ -> raise Not_in_LIA
-            
-               (* Fail on conversion from signed integer8 to integer *)
-               | `INT8_TO_INT, _ -> raise Not_in_LIA
-
-               (* Fail on conversion from signed integer16 to integer *)        
-               | `INT16_TO_INT, _ -> raise Not_in_LIA
-
-               (* Fail on conversion from signed integer32 to integer *)        
-               | `INT32_TO_INT, _ -> raise Not_in_LIA
-
-               (* Fail on conversion from signed integer64 to integer *)        
-               | `INT64_TO_INT, _ -> raise Not_in_LIA
 
                (* Fail on conversion from signed bitvector to integer *)        
                | `SBV_TO_INT, _ -> raise Not_in_LIA
-               
-               (* Fail on conversion to unsigned integer8 *)
-               | `TO_UINT8, _ -> raise Not_in_LIA
 
-               (* Fail on conversion to unsigned integer16 *)
-               | `TO_UINT16, _ -> raise Not_in_LIA
+               (* Fail on conversion to unsigned bv *)
+               | `TO_UBV _, _ -> raise Not_in_LIA
 
-               (* Fail on conversion to unsigned integer32 *)
-               | `TO_UINT32, _ -> raise Not_in_LIA
-
-               (* Fail on conversion to unsigned integer64 *)
-               | `TO_UINT64, _ -> raise Not_in_LIA
-
-               (* Fail on conversion to integer8 *)
-               | `TO_INT8, _ -> raise Not_in_LIA
-
-               (* Fail on conversion to integer16 *)
-               | `TO_INT16, _ -> raise Not_in_LIA
-
-               (* Fail on conversion to integer32 *)
-               | `TO_INT32, _ -> raise Not_in_LIA
-
-               (* Fail on conversion to integer64 *)
-               | `TO_INT64, _ -> raise Not_in_LIA
+               (* Fail on conversion to signed bv *)
+               | `TO_BV _, _ -> raise Not_in_LIA
 
                (* Fail on bitvector to nat conversion *)
-               | `BV2NAT, _ -> raise Not_in_LIA
+               | `UBV_TO_INT, _ -> raise Not_in_LIA
 
                (* Fail on coincidence with integer predicate *)
                | `IS_INT, _ -> raise Not_in_LIA

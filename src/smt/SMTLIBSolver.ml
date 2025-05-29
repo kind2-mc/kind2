@@ -992,19 +992,6 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           "(declare-sort FArray 2)";
         ]
       else [] in
-
-    let define_bv2int =
-      match logic with 
-      | `Inferred l -> if TermLib.FeatureSet.mem BV l && TermLib.FeatureSet.mem IA l then true else false
-      | _ -> false
-    in
-    
-    let header_bv2int =
-      [ "(define-fun int8_to_int ((x (_ BitVec 8))) Int (ite (bvsle x (_ bv0 8)) (- (bv2nat (bvneg x))) (bv2nat x)))" ;
-        "(define-fun int16_to_int ((x (_ BitVec 16))) Int (ite (bvsle x (_ bv0 16)) (- (bv2nat (bvneg x))) (bv2nat x)))" ; 
-        "(define-fun int32_to_int ((x (_ BitVec 32))) Int (ite (bvsle x (_ bv0 32)) (- (bv2nat (bvneg x))) (bv2nat x)))" ;
-        "(define-fun int64_to_int ((x (_ BitVec 64))) Int (ite (bvsle x (_ bv0 64)) (- (bv2nat (bvneg x))) (bv2nat x)))" ; ]
-    in
     
     let headers =
       "(set-option :print-success true)" ::
@@ -1022,8 +1009,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
        else []) @
       header_logic @
-      header_farray @
-      (if define_bv2int then header_bv2int else [])
+      header_farray
     in
     
     (* Print specific headers specifications *)

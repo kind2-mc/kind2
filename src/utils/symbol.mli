@@ -143,23 +143,9 @@ type interpreted_symbol =
   | `GT                   (** Greater than relation (chainable) *)
   | `TO_REAL              (** Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (** Conversion to an unsigned integer numeral (unary) *)
-  | `UINT8_TO_INT         (** Conversion from an unsigned integer 8 numeral to an integer *)
-  | `UINT16_TO_INT        (** Conversion from an unsigned integer 16 numeral to an integer *)
-  | `UINT32_TO_INT        (** Conversion from an unsigned integer 32 numeral to an integer *)
-  | `UINT64_TO_INT        (** Conversion from an unsigned integer 64 numeral to an integer *)
-  | `INT8_TO_INT          (** Conversion from a signed integer 8 numeral to an integer *)
-  | `INT16_TO_INT         (** Conversion from a signed integer 16 numeral to an integer *)
-  | `INT32_TO_INT         (** Conversion from a signed integer 32 numeral to an integer *)
-  | `INT64_TO_INT         (** Conversion from a signed integer 64 numeral to an integer *)
-  | `TO_UINT8             (** Conversion to an unsigned integer8 numeral (unary) *)  
-  | `TO_UINT16            (** Conversion to an unsigned integer16 numeral (unary) *)  
-  | `TO_UINT32            (** Conversion to an unsigned integer32 numeral (unary) *)  
-  | `TO_UINT64            (** Conversion to an unsigned integer64 numeral (unary) *)
-  | `TO_INT8              (** Conversion to an integer8 numeral (unary) *)  
-  | `TO_INT16             (** Conversion to an integer16 numeral (unary) *)  
-  | `TO_INT32             (** Conversion to an integer32 numeral (unary) *)  
-  | `TO_INT64             (** Conversion to an integer64 numeral (unary) *)    
-  | `BV2NAT               (** Conversion from bitvector to a natural number *)
+  | `TO_UBV of int        (** Conversion to an unsigned bv numeral (unary) *)
+  | `TO_BV of int         (** Conversion to a signed bv numeral (unary) *)  
+  | `UBV_TO_INT               (** Conversion from bitvector to a natural number *)
   | `SBV_TO_INT            (** Conversion from signed bitvector to integer number *)
   | `IS_INT               (** Real is an integer (unary) *)
 
@@ -316,14 +302,9 @@ val s_signext : Numeral.t -> t
 
 val s_zeroext : Numeral.t -> t
 
-(** int -> machine int converters *)
-val s_to_uint8 : t
+val s_to_ubv : int -> t
 
-val s_to_uint16 : t
-
-val s_to_uint32 : t
-
-val s_to_uint64 : t
+val s_to_bv : int -> t
 
 val s_bvneg : t
 
@@ -370,29 +351,11 @@ val is_bv32 : t -> bool
 (** Return true if the symbol is a bitvector of size 64 *)
 val is_bv64 : t -> bool
 
-(** Return true if the symbol is a touint8 *)
-val is_to_uint8 : t -> bool
+(** Return true if the symbol is a toubv *)
+val is_to_ubv : t -> bool
 
-(** Return true if the symbol is a touint16 *)
-val is_to_uint16 : t -> bool
-
-(** Return true if the symbol is a touint32 *)
-val is_to_uint32 : t -> bool
-
-(** Return true if the symbol is a touint64 *)
-val is_to_uint64 : t -> bool
-
-(** Return true if the symbol is a toint8 *)
-val is_to_int8 : t -> bool
-
-(** Return true if the symbol is a toint16 *)
-val is_to_int16 : t -> bool
-
-(** Return true if the symbol is a toint32 *)
-val is_to_int32 : t -> bool
-
-(** Return true if the symbol is a toint64 *)
-val is_to_int64 : t -> bool
+(** Return true if the symbol is a tobv*)
+val is_to_bv : t -> bool
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool

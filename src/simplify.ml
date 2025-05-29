@@ -795,24 +795,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `ABS, _
       | `TO_REAL, _
       | `TO_INT, _
-      | `UINT8_TO_INT, _
-      | `UINT16_TO_INT, _
-      | `UINT32_TO_INT, _
-      | `UINT64_TO_INT, _
       | `SBV_TO_INT, _
-      | `INT8_TO_INT, _
-      | `INT16_TO_INT, _
-      | `INT32_TO_INT, _
-      | `INT64_TO_INT, _
-      | `TO_UINT8, _
-      | `TO_UINT16, _
-      | `TO_UINT32, _
-      | `TO_UINT64, _ 
-      | `TO_INT8, _
-      | `TO_INT16, _
-      | `TO_INT32, _
-      | `TO_INT64, _ 
-      | `BV2NAT, _
+      | `TO_UBV _, _
+      | `TO_BV _, _
+      | `UBV_TO_INT, _
 
       | `BVNEG, _
       | `BVADD, _
@@ -1745,16 +1731,6 @@ let to_int = function
   (* Conversion is only unary *)
   | _ -> assert false
 
-
-let ubv_to_int = function
-
-  | [BV b] -> Num (Bitvector.ubv_to_num (Term.bitvector_of_term b), [])
-
-  | [Num _ as a] -> a
-
-  | _ -> assert false
-
-
 let bv_to_int = function
 
   | [BV b] -> Num (Bitvector.bv_to_num (Term.bitvector_of_term b), [])
@@ -1763,114 +1739,31 @@ let bv_to_int = function
 
   | _ -> assert false
 
-
-let to_uint8 = function
+let to_ubv n = function
   | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
     (match s with
-    | 8 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
-    | [Num n] -> BV (Term.mk_ubv
-                  (Bitvector.num_to_ubv8
+    | k when k < n -> BV (Term.mk_ubv (Bitvector.bvsignext (n-k) (Term.bitvector_of_term b)))
+    | k when k = n -> BV b
+    | _ -> BV (Term.mk_ubv (Bitvector.bvextract (n-1) 0 (Term.bitvector_of_term b))))
+  | [Num k] ->  BV (Term.mk_ubv
+                  (Bitvector.num_to_ubv (Numeral.of_int n)
                     (Term.numeral_of_term
-                      (term_of_nf (Num n)))))
+                      (term_of_nf (Num k)))))
   | _ -> assert false
 
-
-let to_uint16 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+let to_bv n = function
+  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
     (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 8 (Term.bitvector_of_term b)))
-    | 16 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 15 0 (Term.bitvector_of_term b))))
-    | [Num n] ->  BV (Term.mk_ubv
-                   (Bitvector.num_to_ubv16
-                     (Term.numeral_of_term
-                       (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let to_uint32 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
-    (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 24 (Term.bitvector_of_term b)))
-    | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 16 (Term.bitvector_of_term b)))
-    | 32 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 31 0 (Term.bitvector_of_term b))))
-  | [Num n] ->  BV (Term.mk_ubv
-                 (Bitvector.num_to_ubv32
-                   (Term.numeral_of_term
-                     (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let to_uint64 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
-    (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 56 (Term.bitvector_of_term b)))
-    | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.bitvector_of_term b)))
-    | 32 -> BV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.bitvector_of_term b)))
-    | _ -> BV b)
-  | [Num n] -> BV (Term.mk_ubv
-                (Bitvector.num_to_ubv64
+    | k when k < n -> BV (Term.mk_ubv (Bitvector.bvsignext (k-n) (Term.sbitvector_of_term b)))
+    | k when k = n -> BV b
+    | _ -> BV (Term.mk_ubv (Bitvector.bvextract (n-1) 0 (Term.bitvector_of_term b))))
+  | [Num k] -> BV (Term.mk_ubv
+                (Bitvector.num_to_bv (Numeral.of_int n)
                   (Term.numeral_of_term
-                    (term_of_nf (Num n)))))
+                    (term_of_nf (Num k)))))
   | _ -> assert false
 
-
-let to_int8 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
-    (match s with
-    | 8 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
-    | [Num n] -> BV (Term.mk_ubv
-                  (Bitvector.num_to_bv8
-                    (Term.numeral_of_term
-                      (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let to_int16 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
-    (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 8 (Term.sbitvector_of_term b)))
-    | 16 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 15 0 (Term.bitvector_of_term b))))
-  | [Num n] -> BV (Term.mk_ubv
-                (Bitvector.num_to_bv16
-                  (Term.numeral_of_term
-                    (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let to_int32 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
-    (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 24 (Term.sbitvector_of_term b)))
-    | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 16 (Term.sbitvector_of_term b)))
-    | 32 -> BV b
-    | _ -> BV (Term.mk_ubv (Bitvector.bvextract 31 0 (Term.bitvector_of_term b))))
-  | [Num n] -> BV (Term.mk_ubv
-                 (Bitvector.num_to_bv32
-                   (Term.numeral_of_term
-                     (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let to_int64 = function
-  | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
-    (match s with
-    | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 56 (Term.sbitvector_of_term b)))
-    | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.sbitvector_of_term b)))
-    | 32 -> BV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.sbitvector_of_term b)))
-    | _ -> BV b)
-  | [Num n] -> BV (Term.mk_ubv
-                 (Bitvector.num_to_bv64
-                   (Term.numeral_of_term
-                     (term_of_nf (Num n)))))
-  | _ -> assert false
-
-
-let bv2nat = function
+let ubv_to_int = function
 | [BV b] -> let t = term_of_nf (BV b) in
   let tp = Term.type_of_term t in
   let bv = Term.bitvector_of_term t in
@@ -2256,58 +2149,18 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           (* Conversion to integer is a monomial with polynomial
              subterms *)
           | `TO_INT -> to_int args
-          
-          | `UINT8_TO_INT -> ubv_to_int args
-        
-          | `UINT16_TO_INT -> ubv_to_int args
-
-          | `UINT32_TO_INT -> ubv_to_int args
-        
-          | `UINT64_TO_INT -> ubv_to_int args
-        
-          | `INT8_TO_INT -> bv_to_int args
-
-          | `INT16_TO_INT -> bv_to_int args
-          
-          | `INT32_TO_INT -> bv_to_int args
-
-          | `INT64_TO_INT -> bv_to_int args
 
           | `SBV_TO_INT -> bv_to_int args
 
-          (* Conversion to unsigned integer8 is a monomial with polynomial
+          (* Conversion to unsigned bitvector is a monomial with polynomial
              subterms *)
-          | `TO_UINT8 -> to_uint8 args
+          | `TO_UBV n -> to_ubv n args
 
-          (* Conversion to unsigned integer16 is a monomial with polynomial
+          (* Conversion to signed bitvector is a monomial with polynomial
              subterms *)
-          | `TO_UINT16 -> to_uint16 args
-
-          (* Conversion to unsigned integer32 is a monomial with polynomial
-             subterms *)
-          | `TO_UINT32 -> to_uint32 args
-
-          (* Conversion to unsigned integer64 is a monomial with polynomial
-             subterms *)
-          | `TO_UINT64 -> to_uint64 args
-
-          (* Conversion to integer8 is a monomial with polynomial
-             subterms *)
-          | `TO_INT8 -> to_int8 args
-
-          (* Conversion to integer16 is a monomial with polynomial
-             subterms *)
-          | `TO_INT16 -> to_int16 args
-
-          (* Conversion to integer32 is a monomial with polynomial
-             subterms *)
-          | `TO_INT32 -> to_int32 args
-
-          (* Conversion to integer64 is a monomial with polynomial
-             subterms *)
-          | `TO_INT64 -> to_int64 args
+          | `TO_BV n -> to_bv n args
           
-          | `BV2NAT -> bv2nat args
+          | `UBV_TO_INT -> ubv_to_int args
 
           (* Conversion to real is a monomial with polynomial
              subterms *)
@@ -2972,57 +2825,18 @@ let rec remove_ite' fterm args =
            subterms *)
         | `TO_INT -> to_int args (* |> const_nf "TO_INT" *)
 
-        | `UINT8_TO_INT -> ubv_to_int args
-
-        | `UINT16_TO_INT -> ubv_to_int args
-
-        | `UINT32_TO_INT -> ubv_to_int args
-
-        | `UINT64_TO_INT -> ubv_to_int args
-
-        | `INT8_TO_INT -> bv_to_int args
-
-        | `INT16_TO_INT -> bv_to_int args
-
-        | `INT32_TO_INT -> bv_to_int args
-
-        | `INT64_TO_INT -> bv_to_int args
-
         | `SBV_TO_INT -> bv_to_int args
 
-        (* Conversion to unsigned integer8 is a monomial with polynomial
+        (* Conversion to unsigned bv is a monomial with polynomial
            subterms *)
-        | `TO_UINT8 -> to_uint8 args
+        | `TO_UBV n -> to_ubv n args
 
-        (* Conversion to unsigned integer16 is a monomial with polynomial
+        (* Conversion to signed bv is a monomial with polynomial
            subterms *)
-        | `TO_UINT16 -> to_uint16 args
+        | `TO_BV n -> to_bv n args
 
-        (* Conversion to unsigned integer32 is a monomial with polynomial
-           subterms *)
-        | `TO_UINT32 -> to_uint32 args
 
-        (* Conversion to unsigned integer64 is a monomial with polynomial
-           subterms *)
-        | `TO_UINT64 -> to_uint64 args
-
-        (* Conversion to integer8 is a monomial with polynomial
-           subterms *)
-        | `TO_INT8 -> to_int8 args
-
-        (* Conversion to integer16 is a monomial with polynomial
-           subterms *)
-        | `TO_INT16 -> to_int16 args
-
-        (* Conversion to integer32 is a monomial with polynomial
-           subterms *)
-        | `TO_INT32 -> to_int32 args
-
-        (* Conversion to integer64 is a monomial with polynomial
-           subterms *)
-        | `TO_INT64 -> to_int64 args
-
-        | `BV2NAT -> bv2nat args
+        | `UBV_TO_INT -> ubv_to_int args
 
         (* Conversion to real is a monomial with polynomial
            subterms *)

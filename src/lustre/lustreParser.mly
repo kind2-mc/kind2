@@ -889,8 +889,16 @@ pexpr(Q):
   (* Conversions *)
   | INT; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt, e) }
   | REAL; e = expr { A.ConvOp (mk_pos $startpos, A.ToReal, e) }
+  | UINT8; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV 8, e) }
+  | UINT16; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV 16, e) }
+  | UINT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV 32, e) }
+  | UINT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV 64, e) }
+  | INT8; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 8, e) }
+  | INT16; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 16, e) }
+  | INT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 32, e) }
+  | INT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 64, e) }
   | UINT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV (int_of_string (HString.string_of_hstring n)), e) }
-  | UINT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV (int_of_string (HString.string_of_hstring n)), e) }
+  | INT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV (int_of_string (HString.string_of_hstring n)), e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 

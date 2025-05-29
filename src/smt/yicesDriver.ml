@@ -197,67 +197,6 @@ let type_of_string_sexpr = function
             "Sort %a not supported" 
             HStringSExpr.pp_print_sexpr s))
 
-
-
-(* Association list of strings to function symbols *) 
-let string_symbol_list =
-  [("not", Symbol.mk_symbol `NOT);
-   ("=>", Symbol.mk_symbol `IMPLIES);
-   ("and", Symbol.mk_symbol `AND);
-   ("or", Symbol.mk_symbol `OR);
-   (* ("xor", Symbol.mk_symbol `XOR); *)
-   ("=", Symbol.mk_symbol `EQ);
-   (* ("distinct", Symbol.mk_symbol `DISTINCT); *)
-   ("ite", Symbol.mk_symbol `ITE);
-   ("-", Symbol.mk_symbol `MINUS);
-   ("+", Symbol.mk_symbol `PLUS);
-   ("*", Symbol.mk_symbol `TIMES);
-   ("/", Symbol.mk_symbol `DIV);
-   ("div", Symbol.mk_symbol `INTDIV);
-   ("mod", Symbol.mk_symbol `MOD);
-   (* ("abs", Symbol.mk_symbol `ABS); *)
-   ("<=", Symbol.mk_symbol `LEQ);
-   ("<", Symbol.mk_symbol `LT);
-   (">=", Symbol.mk_symbol `GEQ);
-   (">", Symbol.mk_symbol `GT);
-   ("to_real", Symbol.mk_symbol `TO_REAL);
-   ("to_int", Symbol.mk_symbol `TO_INT);
-   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
-   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
-   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
-   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);
-   (* ("is_int", Symbol.mk_symbol `IS_INT); *)
-
-   ("bv-not", Symbol.mk_symbol `BVNOT);
-   ("bv-neg", Symbol.mk_symbol `BVNEG);
-   ("bv-and", Symbol.mk_symbol `BVAND);
-   ("bv-or", Symbol.mk_symbol `BVOR);
-   ("bv-xor", Symbol.mk_symbol `BVXOR);
-   ("bv-add", Symbol.mk_symbol `BVADD);
-   ("bv-sub", Symbol.mk_symbol `BVSUB);
-   ("bv-mul", Symbol.mk_symbol `BVMUL);
-   ("bv-div", Symbol.mk_symbol `BVUDIV);
-   ("bv-sdiv", Symbol.mk_symbol `BVSDIV);
-   ("bv-rem", Symbol.mk_symbol `BVUREM);
-   ("bv-srem", Symbol.mk_symbol `BVSREM);
-   ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
-   ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
-   ("bv-ashift-right", Symbol.mk_symbol `BVASHR);
-   ("bv-lt", Symbol.mk_symbol `BVULT);
-   ("bv-le", Symbol.mk_symbol `BVULE);
-   ("bv-gt", Symbol.mk_symbol `BVUGT);
-   ("bv-ge", Symbol.mk_symbol `BVUGE);
-   ("bv-slt", Symbol.mk_symbol `BVSLT);
-   ("bv-sle", Symbol.mk_symbol `BVSLE);
-   ("bv-sgt", Symbol.mk_symbol `BVSGT);
-   ("bv-sge", Symbol.mk_symbol `BVSGE);
-   ("bv-concat", Symbol.mk_symbol `BVCONCAT);
-   (* ("select", Symbol.mk_symbol `SELECT); *)
-
-   ("update", Symbol.mk_symbol `STORE)
-
-  ]
-
 (* TODO add support for arrays by keeping info on which function symbols are
    in fact arrays *)
 
@@ -308,15 +247,9 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
-  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
-  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
+  | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
+  | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
+  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int"
   | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
@@ -368,15 +301,6 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `CONST_ARRAY _ -> Format.pp_print_string ppf ""
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-
-  | `UINT8_TO_INT -> assert false
-  | `UINT16_TO_INT -> assert false
-  | `UINT32_TO_INT -> assert false
-  | `UINT64_TO_INT -> assert false
-  | `INT8_TO_INT -> assert false
-  | `INT16_TO_INT -> assert false
-  | `INT32_TO_INT -> assert false
-  | `INT64_TO_INT -> assert false
   
 
 (* Pretty-print a hashconsed symbol *)

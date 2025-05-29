@@ -323,7 +323,11 @@ let bitvector_of_term t = match destruct t with
       Symbol.ubitvector_of_symbol s
 
   | T.Const s when Symbol.is_numeral s ->
-      Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol s)
+      (*!! Some places have hard-coded width of 64 
+           Can just compute the size of bitvector we need to store s.
+           (can no longer assume 64 is max possible width)
+      *)
+      Bitvector.num_to_ubv (Numeral.of_int 64) (Symbol.numeral_of_symbol s)
   (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"
@@ -655,29 +659,14 @@ let rec type_of_term' t = match T.destruct t with
 
         (* Integer-valued functions *)
         | `TO_INT
-        | `UINT8_TO_INT
-        | `UINT16_TO_INT
-        | `UINT32_TO_INT
-        | `UINT64_TO_INT
-        | `INT8_TO_INT
-        | `INT16_TO_INT
-        | `INT32_TO_INT
-        | `INT64_TO_INT
         | `SBV_TO_INT
         | `MOD
         | `ABS
         | `INTDIV
-        | `BV2NAT -> Type.mk_int ()
+        | `UBV_TO_INT -> Type.mk_int ()
+        | `TO_UBV n -> Type.mk_ubv n
 
-        | `TO_UINT8 -> Type.mk_ubv 8
-        | `TO_UINT16 -> Type.mk_ubv 16
-        | `TO_UINT32 -> Type.mk_ubv 32
-        | `TO_UINT64 -> Type.mk_ubv 64
-
-        | `TO_INT8 -> Type.mk_bv 8
-        | `TO_INT16 -> Type.mk_bv 16
-        | `TO_INT32 -> Type.mk_bv 32
-        | `TO_INT64 -> Type.mk_bv 64 
+        | `TO_BV n -> Type.mk_bv n
 
         (* Real-valued functions *)
         | `TO_REAL
@@ -866,24 +855,6 @@ let type_check_app s a =
     | `IS_INT 
     | `TO_INT 
         when a = [Type.Real] -> true
-
-    | `TO_UINT8
-        when a = [Type.Real] || a = [Type.Int]
-    | `TO_UINT16
-        when a = [Type.Real] || a = [Type.Int]
-    | `TO_UINT32
-        when a = [Type.Real] || a = [Type.Int]    
-    | `TO_UINT64
-        when a = [Type.Real] || a = [Type.Int]  -> true
-    
-    | `TO_INT8
-        when a = [Type.Real] || a = [Type.Int]
-    | `TO_INT16
-        when a = [Type.Real] || a = [Type.Int]
-    | `TO_INT32
-        when a = [Type.Real] || a = [Type.Int]    
-    | `TO_INT64
-        when a = [Type.Real] || a = [Type.Int]  -> true
 
     (* Variadic, but at least binary function symbols of Boolean arguments *)
     | `IMPLIES 
@@ -1483,63 +1454,21 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
-(* Hashcons a unary conversion from uint8 to an integer numeral *)
-let mk_uint8_to_int t = mk_app_of_symbol_node `UINT8_TO_INT [t]
-
-(* Hashcons a unary conversion from uint16 to an integer numeral *)
-let mk_uint16_to_int t = mk_app_of_symbol_node `UINT16_TO_INT [t]
-
-(* Hashcons a unary conversion from uint32 to an integer numeral *)
-let mk_uint32_to_int t = mk_app_of_symbol_node `UINT32_TO_INT [t]
-
 (* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
-let mk_ubv_to_int t = mk_app_of_symbol_node `BV2NAT [t]
+let mk_ubv_to_int t = mk_app_of_symbol_node `UBV_TO_INT [t]
 
 (* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
 let mk_bv_to_int t = mk_app_of_symbol_node `SBV_TO_INT [t]
 
-(* Hashcons a unary conversion from uint64 to an integer numeral *)
-let mk_uint64_to_int t = mk_app_of_symbol_node `UINT64_TO_INT [t]
-
-(* Hashcons a unary conversion from int8 to an integer numeral *)
-let mk_int8_to_int t = mk_app_of_symbol_node `INT8_TO_INT [t]
-
-(* Hashcons a unary conversion from int16 to an integer numeral *)
-let mk_int16_to_int t = mk_app_of_symbol_node `INT16_TO_INT [t]
-
-(* Hashcons a unary conversion from int32 to an integer numeral *)
-let mk_int32_to_int t = mk_app_of_symbol_node `INT32_TO_INT [t]
-
-(* Hashcons a unary conversion from int64 to an integer numeral *)
-let mk_int64_to_int t = mk_app_of_symbol_node `INT64_TO_INT [t]
-
-(* Hashcons a unary conversion to an unsigned integer8 numeral *)
-let mk_to_uint8 t = mk_app_of_symbol_node `TO_UINT8 [t]
-
-(* Hashcons a unary conversion to an unsigned integer16 numeral *)
-let mk_to_uint16 t = mk_app_of_symbol_node `TO_UINT16 [t]
-
-(* Hashcons a unary conversion to an unsigned integer32 numeral *)
-let mk_to_uint32 t = mk_app_of_symbol_node `TO_UINT32 [t]
-
-(* Hashcons a unary conversion to an unsigned integer64 numeral *)
-let mk_to_uint64 t = mk_app_of_symbol_node `TO_UINT64 [t]
+(* Hashcons a unary conversion to an unsigned bv numeral *)
+let mk_to_ubv n t = mk_app_of_symbol_node (`TO_UBV n) [t]
 
 
-(* Hashcons a unary conversion to an integer8 numeral *)
-let mk_to_int8 t = mk_app_of_symbol_node `TO_INT8 [t]
-
-(* Hashcons a unary conversion to an integer16 numeral *)
-let mk_to_int16 t = mk_app_of_symbol_node `TO_INT16 [t]
-
-(* Hashcons a unary conversion to an integer32 numeral *)
-let mk_to_int32 t = mk_app_of_symbol_node `TO_INT32 [t]
-
-(* Hashcons a unary conversion to an integer64 numeral *)
-let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
+(* Hashcons a unary conversion to a signed bv numeral *)
+let mk_to_bv n t = mk_app_of_symbol_node (`TO_BV n) [t]
 
 (* Hashcons a unary bitvector to nat conversion *)
-let mk_bv2nat t = mk_app_of_symbol_node `BV2NAT [t]
+let mk_bv2nat t = mk_app_of_symbol_node `UBV_TO_INT [t]
 
 (* Hashcons a BV extraction *)
 let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
