@@ -43,7 +43,7 @@ kind2-doc:
 
 test: build
 	@dune build @runtest
-	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
+	@cd $(CURDIR)/tests/ && pytest
 
 uninstall:
 	@opam remove -y kind2
