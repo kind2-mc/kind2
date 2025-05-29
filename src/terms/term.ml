@@ -307,6 +307,17 @@ let rec numeral_of_term t = match destruct t with
   | _ -> invalid_arg "numeral_of_term"
 
 
+(* Given input n, return an integer representing a bit width sufficiently 
+   large to store n as an unsigned machine integer. *)
+let sufficiently_large_bit_width (n : int) : int =
+  if n = 0 then 1
+  else
+    let rec aux count value =
+      if value = 0 then count
+      else aux (count + 1) (value lsr 1)
+    in
+    aux 0 n
+
 (* Return bitvector constant of a term *)
 (* This function is to be used for terms that are 
    returned from the SMT solver. As a result, 
@@ -323,11 +334,9 @@ let bitvector_of_term t = match destruct t with
       Symbol.ubitvector_of_symbol s
 
   | T.Const s when Symbol.is_numeral s ->
-      (*!! Some places have hard-coded width of 64 
-           Can just compute the size of bitvector we need to store s.
-           (can no longer assume 64 is max possible width)
-      *)
-      Bitvector.num_to_ubv (Numeral.of_int 64) (Symbol.numeral_of_symbol s)
+      let num = Symbol.numeral_of_symbol s in
+      let width = sufficiently_large_bit_width (num |> Numeral.to_int) |> Numeral.of_int in
+      Bitvector.num_to_ubv (Numeral.of_int 64) width
   (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"

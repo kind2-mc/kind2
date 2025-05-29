@@ -748,19 +748,14 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT -> Format.pp_print_string ppf "to_int"
   (*!! Need to address this (see other comment) 
        Can just use sbv_to_int, and get rid of the hardcoded translations (e.g. int32_to_int).
-       Again, need to find first version of z3/cvc5 that support this. Not sure about MathSAT and so on.
+       Again, need to find first version of z3/cvc5 that support this for Flags module solver support. Not sure about MathSAT and so on.
+
+       cvc5: 
+         https://github.com/cvc5/cvc5/commit/ed10fc9175e196b67f45784db0edc485af38d78e
   *)
   | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
-  (*!! Why both use int_to_bv? No uint_to_bv? 
-       The intended semantics is correct regardless of int or uint. 
-       Now called "int_to_bv". Leaning towards only supporting the new syntax and just doing a breaking change.
-       Need to test and make sure nothing breaks.
-       Need to update the set of supported versions of solvers in the Flags module.
-       
-       *)
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
-  (*!! Now deprecated. Use ubv_to_int. Get rid of bv2 nat. *)
   | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int" 
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 

@@ -260,12 +260,15 @@ val mk_to_real : t -> t
 (** Create a conversion to an integer numeral *)
 val mk_to_int : t -> t
 
+(** Return an integer representing a bit width sufficiently 
+   large to store the input as an unsigned machine integer. *)
+val sufficiently_large_bit_width : int -> int
+
 (** Create a conversion from unsigned bitvector to an integer numeral *)
 val mk_ubv_to_int : t -> t
 
 (** Create a conversion from signed bitvector to an integer numeral *)
 val mk_bv_to_int : t -> t
-
 
 (** Create a conversion to an unsigned bv numeral *)
 val mk_to_ubv : int -> t -> t

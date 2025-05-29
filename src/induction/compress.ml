@@ -282,12 +282,8 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
             let term_of_state s =
               let n =
                 if only_bv then
-                  (*!! Some places have hard-coded width of 64 
-                       Need to check if (aux s) fits in ubv64(??)
-                       Need to choose a bit width sufficiently large.
-                       Can factor out code with other similar place.
-                  *)
-                  Term.mk_ubv (Bitvector.num_to_ubv (Numeral.of_int 64) (aux s))
+                  let width = Term.sufficiently_large_bit_width (aux s |> Numeral.to_int) |> Numeral.of_int in
+                  Term.mk_ubv (Bitvector.num_to_ubv (Numeral.of_int 64) width)
                 else
                   Term.mk_num (aux s)
               in
