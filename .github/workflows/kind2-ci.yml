@@ -64,8 +64,14 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install z3
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+
     - name: Install unit test dependencies
       run: opam install ounit2
+
+    - name: Install regression test dependencies
+      run: uv tool install pytest
 
     - name: Run ounit and regression tests
       run: opam exec make test
