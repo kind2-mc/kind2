@@ -214,7 +214,7 @@ let error_message kind = match kind with
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
-  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
+  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, and tuples are supported"
   | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
 
 type warning_kind = 
@@ -2096,7 +2096,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     let base_ty1 = expand_type_syn ctx ty1 in 
     (match base_ty1 with 
-    | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+    | GroupType _ | ArrayType _ | EnumType _ | Map _
     | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
       R.ok (warnings1 @ warnings2))
