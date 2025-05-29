@@ -746,12 +746,15 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  (*!! Need to address this (see other comment) 
-       Can just use sbv_to_int, and get rid of the hardcoded translations (e.g. int32_to_int).
+  (*!! Can just use sbv_to_int, and get rid of the hardcoded translations (e.g. int32_to_int).
+       Use updated SMT-LIB2 bitvector ast operators sbv_to_int and ubv_to_int (deprecating bv2nat).
        Again, need to find first version of z3/cvc5 that support this for Flags module solver support. Not sure about MathSAT and so on.
 
        cvc5: 
          https://github.com/cvc5/cvc5/commit/ed10fc9175e196b67f45784db0edc485af38d78e
+
+        z3: 
+          https://github.com/Z3Prover/z3/blob/4b2e5adc1192d6c2a0770554c78de5dac1bcfba3/RELEASE_NOTES.md?plain=1#L20 
   *)
   | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
