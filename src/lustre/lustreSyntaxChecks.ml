@@ -909,6 +909,32 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
+and check_ty_quantified_var ctx f = function 
+| LA.RefinementType (_, (_, i, ty), expr) -> 
+  (*!! Augment context *)
+  let ctx = ctx_add_quant_var ctx i (Some ty) in
+  common_node_equations_checks ctx expr
+| GroupType (_, tys) 
+| TupleType (_, tys) -> 
+  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) tys) in 
+  Res.ok (List.flatten warnings)
+| Map (_, ty1, ty2) 
+| TArr (_, ty1, ty2) -> 
+  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) [ty1; ty2]) in 
+  Res.ok (List.flatten warnings)
+| ArrayType (_, (ty, expr)) -> 
+  let* warnings1 = check_ty_quantified_var ctx f ty in 
+  let* warnings2 = check_expr ctx f expr in 
+  Res.ok (warnings1 @ warnings2)
+| RecordType (_, _, tis) -> 
+  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty_quantified_var ctx f ty) tis) in 
+  Res.ok (List.flatten warnings)
+| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
+| Real _ | AbstractType _ | UserType _ | EnumType _
+| History _ -> Res.ok []
+
+
+
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let res = f ctx expr in
@@ -921,10 +947,14 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
-        let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
-        let ctx = List.fold_left over_vars ctx vars in
-        check_quantified_vars ctx vars >>
-        check_expr ctx f e
+      let over_vars (warnings, ctx) (_, i, ty) = 
+        let* warnings2 = check_ty_quantified_var ctx f ty in
+        Res.ok (warnings @ warnings2, ctx_add_quant_var ctx i (Some ty))
+      in
+      let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
+      let* _ = check_quantified_vars ctx vars in
+      let* warnings2 = check_expr ctx f e in 
+      Res.ok (warnings @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
