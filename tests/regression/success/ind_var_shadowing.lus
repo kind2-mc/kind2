@@ -1,6 +1,6 @@
 const j: int = 2;
 
-node M() returns (A:int^3; B: int^3; x: int);
+node M() returns (A:int^3;);
 let
   A[j] = j;
   check A[0] = 0;
