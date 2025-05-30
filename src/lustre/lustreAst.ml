@@ -454,7 +454,7 @@ let rec pp_print_expr ppf =
     | Const (p, Dec d) -> ps p d
 
     | ConvOp (p, ToInt, e) -> p1 p "int" e
-    | ConvOp (p, ToBV n, e) -> p1 p (Format.asprintf "int@<%d>" n) e
+    | ConvOp (p, ToBV n, e) -> p1 p (Format.asprintf "sint@<%d>" n) e
     | ConvOp (p, ToUBV n, e) -> p1 p (Format.asprintf "uint@<%d>" n) e
     | ConvOp (p, ToReal, e) -> p1 p "real" e
 

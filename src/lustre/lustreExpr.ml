@@ -268,7 +268,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.BV i -> 
      if i > 0 then
-       Format.fprintf ppf "int<%d>" i
+       Format.fprintf ppf "sint<%d>" i
      else raise 
       (Invalid_argument "pp_print_lustre_type: BV size not allowed")
 
@@ -298,7 +298,7 @@ let string_of_symbol = function
   | `BV b -> 
     let len = Bitvector.length_of_bitvector b in
     if len > 0 then 
-      Format.asprintf "(int@<%d> %s)" len (Numeral.string_of_numeral (Bitvector.bv_to_num b))
+      Format.asprintf "(sint@<%d> %s)" len (Numeral.string_of_numeral (Bitvector.bv_to_num b))
     else 
       raise Type_mismatch
   | `MINUS -> "-"
@@ -1904,7 +1904,7 @@ let eval_to_bv n expr =
 
 (* Type of conversion to signed bitvector of width n
 
-   int: real -> int<n> 
+   int: real -> sint<n> 
 *)
 let type_of_to_bv n = function
   | t when Type.is_real t -> Type.t_int

@@ -67,6 +67,7 @@ let mk_span start_pos end_pos =
 %token TYPE
 %token INT
 %token UINT
+%token SINT
 %token UINT8;
 %token UINT16;
 %token UINT32;
@@ -394,7 +395,7 @@ lustre_type:
   | INT16 { A.SBitVector (mk_pos $startpos, 16) }
   | INT32 { A.SBitVector (mk_pos $startpos, 32) }
   | INT64 { A.SBitVector (mk_pos $startpos, 64) }
-  | INT; LT; i = NUMERAL; GT; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
+  | SINT; LT; i = NUMERAL; GT; { A.SBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | UINT; LT; i = NUMERAL; GT; { A.UBitVector (mk_pos $startpos, int_of_string (HString.string_of_hstring i)) }
   | SUBRANGE;
     LSQBRACKET;
@@ -898,7 +899,7 @@ pexpr(Q):
   | INT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 32, e) }
   | INT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV 64, e) }
   | UINT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToUBV (int_of_string (HString.string_of_hstring n)), e) }
-  | INT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV (int_of_string (HString.string_of_hstring n)), e) }
+  | SINT; ATSIGN; LT; n = NUMERAL; GT; e = expr { A.ConvOp (mk_pos $startpos, A.ToBV (int_of_string (HString.string_of_hstring n)), e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 
