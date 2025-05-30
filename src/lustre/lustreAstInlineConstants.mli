@@ -47,11 +47,8 @@ val error_message: error_kind -> string
 val inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result
 (** Best effort at inlining constants *)
 
-val inline_constants_of_lustre_type: TC.tc_context -> LA.lustre_type -> LA.lustre_type
+val inline_constants_of_lustre_type: ?ind_vars:HString.t list -> TC.tc_context -> LA.lustre_type -> LA.lustre_type
 (** Best effort at inlining constants in a lustre type *)
 
 val eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result
 (** try to evaluate an expression to an int *)
-
-val simplify_expr: ?is_guarded:bool -> TC.tc_context -> LA.expr -> LA.expr
-(** Best effort at inlining constants in a lustre expr *)
