@@ -737,6 +737,12 @@ and compile_ast_expr
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
+      H.find !map.quant_vars ident
+    with Not_found ->
+    try
+      H.find !map.array_index ident
+    with Not_found ->
+    try
       let (_, _, var) = List.find (fun (n, i, _) -> match (n, !map.node_name) with
         | Some n, Some n' -> n = n' && i = id_str
         | None, _ -> i = id_str
@@ -753,12 +759,6 @@ and compile_ast_expr
       let id_str = HString.string_of_hstring id_str in
       let ty = Type.enum_of_constr id_str in
       X.singleton X.empty_index (E.mk_constr id_str ty)
-    with Not_found ->
-    try
-      H.find !map.quant_vars ident
-    with Not_found ->
-    try
-      H.find !map.array_index ident
     with Not_found ->
       let id_str = HString.string_of_hstring id_str in
       (match String.split_on_char '_' id_str with
