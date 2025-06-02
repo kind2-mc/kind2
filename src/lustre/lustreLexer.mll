@@ -285,13 +285,17 @@ let keyword_table = mk_hashtbl [
   "forall", FORALL ;
   "exists", EXISTS ;
   "or", OR ;
+  "in", IN ;
+
+  (* Blocks/Conditionals *)
   "if", IF ;
-  "fi", FI ;
-  "frame", FRAME ; 
   "then", THEN ;
   "else", ELSE ;
   "elsif", ELSIF ;
-  "with", WITH ;
+  "fi", FI ;
+  "frame", FRAME ;
+
+  (* Arithmetic operators *)
   "div", INTDIV ;
   "mod", MOD ;
 
@@ -314,7 +318,7 @@ let keyword_table = mk_hashtbl [
   "pre", PRE ;
   "fby", FBY ;
 
-  (* |===| Block annotation contract stuff. *)
+  (* Block annotation contract stuff. *)
   "mode", MODE;
   "assume", ASSUME;
   "guarantee", GUARANTEE;
@@ -322,7 +326,8 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
-      
+
+  "with", WITH ;
   ]
 
     

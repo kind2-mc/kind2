@@ -48,7 +48,7 @@ type error_kind = Unknown of string
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
-  | IlltypedArrayIndex of tc_type
+  | IlltypedIndexAccess of tc_type
   | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
@@ -93,6 +93,7 @@ type error_kind = Unknown of string
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
+  | ExpectedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

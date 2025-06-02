@@ -1,19 +1,19 @@
-node one (in: two) returns (out: two) ;
+node one (i: two) returns (out: two) ;
 (*@contract
-  import two (in) returns (out) ;
+  import two (i) returns (out) ;
 *)
 let
-  out = two(0.0 -> pre in) ;
+  out = two(0.0 -> pre i) ;
 tel
 
-node two (in: two) returns (out: two) ;
+node two (i: two) returns (out: two) ;
 let
-  out = one(0.0 -> pre in) ;
+  out = one(0.0 -> pre i) ;
 tel
 
-contract two (in: two) returns (out: real) ;
+contract two (i: two) returns (out: real) ;
 let
-  assume in >= 0.0 ;
+  assume i >= 0.0 ;
   guarantee out >= 0.0 ;
 tel
 

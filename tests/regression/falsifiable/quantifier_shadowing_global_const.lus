@@ -1,0 +1,7 @@
+const N: int = 3;
+const j: int = 2; 
+
+node M() returns ();
+let
+  check forall (i,j:int) (0 <= i and i < N and 0 <= j and j < N) => i <= j;
+tel

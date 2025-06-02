@@ -1,13 +1,13 @@
 
-contract Spec(in:bool) returns (out:bool);
+contract Spec(i:bool) returns (out:bool);
 let
-   guarantee in => out;
+   guarantee i => out;
 tel
 
-node N(in:bool) returns (out:bool);
+node N(i:bool) returns (out:bool);
 (*@contract
   import Spec(x) returns (out);
 *)
 let
-  out = in;
+  out = i;
 tel

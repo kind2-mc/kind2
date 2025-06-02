@@ -290,7 +290,7 @@ let mk_ident id =
   That assumption is made explicit by calling this function. *)
 let extract_normalized = function
   | A.Ident (_, ident) -> mk_ident ident
-  | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
+  | A.ArrayIndex (_, A.Ident (_, ident), _, _) -> mk_ident ident
   | _ -> assert false
 
 module XMap = Map.Make(struct
@@ -644,12 +644,28 @@ and compile_ast_type
     in 
     List.fold_left over_types (0, X.empty) types |> snd
   | A.Map (_, ty1, ty2) -> 
-    (* TODO: Not general enough to support structured types *)
     let index_type = compile_ast_type cstate ctx map ty1 in
-    let index_type' = (List.hd (X.values index_type)) in
-    let element_type = compile_ast_type cstate ctx map ty2 in
-    let element_type' = (List.hd (X.values element_type)) in 
-    X.singleton X.empty_index  (Type.mk_array element_type' index_type')
+    let types = List.rev (X.values index_type) in
+    let last_type = List.hd types in
+    let ty2' =
+      A.TupleType (Lib.dummy_pos, [A.Bool Lib.dummy_pos; ty2])
+    in
+    let element_type = compile_ast_type cstate ctx map ty2' in
+    let dummy_expr = E.init_expr E.t_true in
+    let over_element_type ty j t a = X.add
+      (j @ [X.ArrayVarIndex dummy_expr])
+      (Type.mk_array t ty)
+      a
+    in
+    let base_map_type =
+      X.fold (over_element_type last_type) element_type X.empty
+    in
+    List.fold_left
+      (fun acc ty ->
+         X.fold (over_element_type ty) acc X.empty
+      )
+      base_map_type
+      (List.tl types)
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
@@ -721,6 +737,12 @@ and compile_ast_expr
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
+      H.find !map.quant_vars ident
+    with Not_found ->
+    try
+      H.find !map.array_index ident
+    with Not_found ->
+    try
       let (_, _, var) = List.find (fun (n, i, _) -> match (n, !map.node_name) with
         | Some n, Some n' -> n = n' && i = id_str
         | None, _ -> i = id_str
@@ -737,12 +759,6 @@ and compile_ast_expr
       let id_str = HString.string_of_hstring id_str in
       let ty = Type.enum_of_constr id_str in
       X.singleton X.empty_index (E.mk_constr id_str ty)
-    with Not_found ->
-    try
-      H.find !map.quant_vars ident
-    with Not_found ->
-    try
-      H.find !map.array_index ident
     with Not_found ->
       let id_str = HString.string_of_hstring id_str in
       (match String.split_on_char '_' id_str with
@@ -977,7 +993,7 @@ and compile_ast_expr
         |> E.unsafe_term_of_expr
         |> Term.numeral_of_term
         |> Numeral.to_int
-        |> list_init (fun _ -> expr)
+        |> (flip List.init) (fun _ -> expr)
       in let gexpr = A.GroupExpr (pos, A.ArrayExpr, l_expr) in
       let result = compile_ast_expr cstate ctx bounds map gexpr in
       result
@@ -988,10 +1004,21 @@ and compile_ast_expr
       in let result = X.fold over_indices cexpr X.empty in
       result
 
+  and compile_map_index bounds expr k =
+    let compiled_k = compile_ast_expr cstate ctx bounds map k in
+    let index_exprs = X.values compiled_k in
+    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    List.fold_left
+      (fun acc index ->
+        compile_array_index' acc index
+      )
+      compiled_expr
+      index_exprs
+
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index_e = compiled_i |> X.values |> List.hd in
-    let index = E.mk_of_expr index_e.expr_init in
+    let index = E.mk_of_expr index_e.E.expr_init in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in
@@ -1000,6 +1027,9 @@ and compile_ast_expr
       with Invalid_argument _ | Failure _ -> bounds
     in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    compile_array_index' compiled_expr index
+
+  and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
       | X.ArrayVarIndex _ :: _, v
       | X.ArrayIntIndex _ :: _, v ->
@@ -1078,7 +1108,10 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Xor, expr1, expr2) ->
     compile_binary bounds E.mk_xor expr1 expr2 
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
-    compile_binary bounds E.mk_impl expr1 expr2 
+    compile_binary bounds E.mk_impl expr1 expr2
+  | A.BinaryOp (_, A.In, k, map_expr) ->
+    let map_expr = compile_map_index bounds map_expr k in
+    X.find_prefix [(X.TupleIndex 0)] map_expr
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
@@ -1171,7 +1204,11 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> j @[X.ArrayIntIndex i]) expr_list
   | A.ArrayConstr (_, expr, size_expr) ->
     compile_array_ctor bounds expr size_expr
-  | A.ArrayIndex (_, expr, i) -> compile_array_index bounds expr i
+  | A.ArrayIndex (_, expr, i, Array) -> compile_array_index bounds expr i
+  | A.ArrayIndex (_, expr, k, Map) ->
+    let expr = compile_map_index bounds expr k in
+    X.find_prefix [(X.TupleIndex 1)] expr
+  | A.ArrayIndex _ -> assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
@@ -1737,7 +1774,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
         | A.Ident (_, id')
-        | A.ArrayIndex (_, A.Ident (_, id'), _) ->
+        | A.ArrayIndex (_, A.Ident (_, id'), _, _) ->
           let ident = mk_ident id' in
           let closed_sv = H.find !map.state_var ident in
           Some closed_sv
@@ -1877,7 +1914,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let op (pos, name_opt, expr, kind) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
-        | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
+        | A.ArrayIndex (_, A.Ident (_, id_str), _, _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in

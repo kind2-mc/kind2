@@ -1,44 +1,44 @@
-function imported sincos(in: real) returns (sin: real; cos: real);
+function imported sincos(i: real) returns (sin: real; cos: real);
 (*@contract
   const max = 1.0;
   const pi = 3.14;
   const tau = 2.0 * pi;
   var min:real = - max;
-  assume in <= 0.0 or in >= 0.0;
+  assume i <= 0.0 or i >= 0.0;
   guarantee min <= sin and sin <= max;
 
   mode pos (
-    require 0.0 <= in and in <= tau;
+    require 0.0 <= i and i <= tau;
     ensure sin >= 0.0;
   );
 
   mode neg (
-    require - tau <= in and in <= 0.0;
+    require - tau <= i and i <= 0.0;
     ensure sin <= 0.0;
   );
 *)
 
-node X (in: real) returns (OK: bool);
+node X (i: real) returns (OK: bool);
 var inn: real ;
 let
-  inn = in ; 
+  inn = i ; 
   OK =
     exp(0.0 -> inn, 1.0 -> inn) > 0.0 or
     sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = (0.0, 0.0);
 tel;
 
-node id (in: real) returns (out: int);
+node id (i: real) returns (out: int);
 (*@contract
   const max = 1.0;
   const pi = 3.14;
   const tau = 2.0 * pi;
   var min:real = - max;
-  assume - tau <= in ;
+  assume - tau <= i ;
 *)
 var inn: real ; ok: bool ;
 let
-  out = (int in);
-  inn = in ;
+  out = (int i);
+  inn = i ;
   ok = X(inn) ;
   --%PROPERTY ok ;
   --%MAIN ;
@@ -50,7 +50,7 @@ function imported exp (x, y: real) returns (out: real);
    guarantee out <= sin(out);
 *)
 
-function sin(in: real) returns (out: int);
+function sin(i: real) returns (out: int);
 let
-   out = (int in);
+   out = (int i);
 tel

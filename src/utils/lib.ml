@@ -92,17 +92,6 @@ let ( @:: ) =
     | Some e -> (function l -> e :: l)
 
 
-(* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
-let list_init f n =
-  if n = 0 then [] else
-    let rec init_aux i =
-      if i = n-1 then
-        [f i]
-      else
-        (f i) :: (init_aux (i+1))
-    in
-    init_aux 0
-
 (* Returns the maximum element of a non-empty list *)
 let list_max = function
   | [] -> assert false
@@ -406,31 +395,6 @@ let compare_pairs cmp_a cmp_b (a1, b1) (a2, b2) =
   let c_a = cmp_a a1 a2 in if c_a = 0 then cmp_b b1 b2 else c_a
 
 
-(* Lexicographic comparison of lists *)
-let rec compare_lists f l1 l2 = 
-
-    match l1, l2 with 
-
-      (* Two empty lists are equal *)
-      | [], [] -> 0
-
-      (* An empty list is smaller than a non-empty list *)
-      | [], _ -> -1 
-
-      (* An non-empty list is greater than an empty list *)
-      | _, [] -> 1
-
-      (* Compare two non-empty lists *)
-      | h1 :: tl1, h2 :: tl2 -> 
-
-        (* Compare head elements of lists *)
-        let c = f h1 h2 in
-
-        (* If head elements are equal, compare tails of lists,
-           otherwise return comparison of head elements *)
-        if c = 0 then compare_lists f tl1 tl2 else c
-
-
 (* Given two ordered association lists with identical keys, push the
    values of each element of the first association list to the list of
    elements of the second association list. 
@@ -464,28 +428,10 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
-let list_filter_map f =
-  let rec aux accu = function
-    | [] -> List.rev accu
-    | x :: l ->
-        match f x with
-        | None -> aux accu l
-        | Some v -> aux (v :: accu) l
-  in
-  aux []
-
 let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
   | f :: rest -> f arg :: (list_apply rest arg)  
-
-let rec find_map f = function
-  | [] -> None
-  | h :: tl -> (
-    match f h with
-    | None -> find_map f tl
-    | v -> v
-  )
 
 let rec drop_last: 'a list -> 'a list
   = function
@@ -537,7 +483,7 @@ let pp_print_arrayi pp sep ppf array  =
       (pp ppf i array.(i);
        fprintf ppf sep)
   in
-  let indices = list_init (fun i -> i) n in  
+  let indices = List.init n (fun i -> i) in
   List.iter print_element indices
 
 let pp_print_pair pp1 pp2 sep ppf (left, right) =
@@ -852,24 +798,12 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
-  | `INVGENINT8
-  | `INVGENINT8OS
-  | `INVGENINT16
-  | `INVGENINT16OS
-  | `INVGENINT32
-  | `INVGENINT32OS
-  | `INVGENINT64
-  | `INVGENINT64OS
-  | `INVGENUINT8
-  | `INVGENUINT8OS
-  | `INVGENUINT16
-  | `INVGENUINT16OS
-  | `INVGENUINT32
-  | `INVGENUINT32OS
-  | `INVGENUINT64
-  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -896,22 +830,10 @@ let pp_print_kind_module ppf = function
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENMACH -> fprintf ppf "two state invariant generator (mach int)"
   | `INVGENMACHOS -> fprintf ppf "one state invariant generator (mach int)"
-  | `INVGENINT8 -> fprintf ppf "two state invariant generator (int8)"
-  | `INVGENINT8OS -> fprintf ppf "one state invariant generator (int8)"
-  | `INVGENINT16 -> fprintf ppf "two state invariant generator (int16)"
-  | `INVGENINT16OS -> fprintf ppf "one state invariant generator (int16)"
-  | `INVGENINT32 -> fprintf ppf "two state invariant generator (int32)"
-  | `INVGENINT32OS -> fprintf ppf "one state invariant generator (int32)"
-  | `INVGENINT64 -> fprintf ppf "two state invariant generator (int64)"
-  | `INVGENINT64OS -> fprintf ppf "one state invariant generator (int64)"
-  | `INVGENUINT8 -> fprintf ppf "two state invariant generator (uint8)"
-  | `INVGENUINT8OS -> fprintf ppf "one state invariant generator (uint8)"
-  | `INVGENUINT16 -> fprintf ppf "two state invariant generator (uint16)"
-  | `INVGENUINT16OS -> fprintf ppf "one state invariant generator (uint16)"
-  | `INVGENUINT32 -> fprintf ppf "two state invariant generator (uint32)"
-  | `INVGENUINT32OS -> fprintf ppf "one state invariant generator (uint32)"
-  | `INVGENUINT64 -> fprintf ppf "two state invariant generator (uint64)"
-  | `INVGENUINT64OS -> fprintf ppf "one state invariant generator (uint64)"
+  | `INVGENBV width -> fprintf ppf "two state invariant generator (bv%d)" width
+  | `INVGENBVOS width -> fprintf ppf "one state invariant generator (bv%d)" width
+  | `INVGENUBV width -> fprintf ppf "two state invariant generator (ubv%d)" width
+  | `INVGENUBVOS width -> fprintf ppf "one state invariant generator (ubv%d)" width
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
@@ -939,24 +861,12 @@ let short_name_of_kind_module = function
  | `INVGENOS -> "invgenos"
  | `INVGENINT -> "invgenintts"
  | `INVGENINTOS -> "invgenintos"
+ | `INVGENBV width -> "invgenbv" ^ (string_of_int width)
+ | `INVGENBVOS width -> "invgenbvos" ^ (string_of_int width)
+ | `INVGENUBV width -> "invgenubv" ^ (string_of_int width)
+ | `INVGENUBVOS width -> "invgenubvos" ^ (string_of_int width)
  | `INVGENMACH -> "invgenmachts"
  | `INVGENMACHOS -> "invgenmachos"
- | `INVGENINT8 -> "invgenint8ts"
- | `INVGENINT8OS -> "invgenint8os"
- | `INVGENINT16 -> "invgenint16ts"
- | `INVGENINT16OS -> "invgenint16os"
- | `INVGENINT32 -> "invgenint32ts"
- | `INVGENINT32OS -> "invgenint32os"
- | `INVGENINT64 -> "invgenuint64ts"
- | `INVGENINT64OS -> "invgenuint64os"
- | `INVGENUINT8 -> "invgenuint8ts"
- | `INVGENUINT8OS -> "invgenuint8os"
- | `INVGENUINT16 -> "invgenuint16ts"
- | `INVGENUINT16OS -> "invgenuint16os"
- | `INVGENUINT32 -> "invgenuint32ts"
- | `INVGENUINT32OS -> "invgenuint32os"
- | `INVGENUINT64 -> "invgenuint64ts"
- | `INVGENUINT64OS -> "invgenuint64os"
  | `INVGENREAL -> "invgenintts"
  | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
@@ -967,6 +877,25 @@ let short_name_of_kind_module = function
  | `MCS -> "mcs"
  | `CONTRACTCK -> "contractck"
                 
+let parse_invgen_module s =
+  let len = String.length s in
+  let prefix_and_suffix prefix =
+    let plen = String.length prefix in
+    if len > plen && String.sub s 0 plen = prefix then
+      let suffix = String.sub s plen (len - plen) in
+      try Some (prefix, int_of_string suffix)
+      with Failure _ -> None
+    else None
+  in
+  match prefix_and_suffix "INVGENBV",
+        prefix_and_suffix "INVGENBVOS",
+        prefix_and_suffix "INVGENUBV",
+        prefix_and_suffix "INVGENUBVOS" with
+  | Some (_, n), _, _, _ -> Some (`INVGENBV n)
+  | _, Some (_, n), _, _ -> Some (`INVGENBVOS n)
+  | _, _, Some (_, n), _ -> Some (`INVGENUBV n)
+  | _, _, _, Some (_, n) -> Some (`INVGENUBVOS n)
+  | _ -> None
 
 (* Process type of a string *)
 let kind_module_of_string = function 
@@ -983,26 +912,13 @@ let kind_module_of_string = function
   | "INVGENINTOS" -> `INVGENINTOS
   | "INVGENMACH" -> `INVGENMACH
   | "INVGENMACHOS" -> `INVGENMACHOS
-  | "INVGENINT8" -> `INVGENINT8
-  | "INVGENINT8OS" -> `INVGENINT8OS
-  | "INVGENINT16" -> `INVGENINT16
-  | "INVGENINT16OS" -> `INVGENINT16OS
-  | "INVGENINT32" -> `INVGENINT32
-  | "INVGENINT32OS" -> `INVGENINT32OS
-  | "INVGENINT64" -> `INVGENINT64
-  | "INVGENINT64OS" -> `INVGENINT64OS
-  | "INVGENUINT8" -> `INVGENUINT8
-  | "INVGENUINT8OS" -> `INVGENUINT8OS
-  | "INVGENUINT16" -> `INVGENUINT16
-  | "INVGENUINT16OS" -> `INVGENUINT16OS
-  | "INVGENUINT32" -> `INVGENUINT32
-  | "INVGENUINT32OS" -> `INVGENUINT32OS
-  | "INVGENUINT64" -> `INVGENUINT64
-  | "INVGENUINT64OS" -> `INVGENUINT64OS
   | "INVGENREAL" -> `INVGENREAL
   | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
-  | _ -> raise (Invalid_argument "kind_module_of_string")
+  | s -> 
+    match parse_invgen_module s with 
+    | Some m -> m 
+    | None -> raise (Invalid_argument "kind_module_of_string")
 
 
 let int_of_kind_module = function
@@ -1024,26 +940,14 @@ let int_of_kind_module = function
   | `INVGENREAL -> 9
   | `INVGENREALOS -> 10
   | `C2I -> 11
-  | `INVGENINT8 -> 12
-  | `INVGENINT8OS -> 13
-  | `INVGENINT16 -> 14
-  | `INVGENINT16OS -> 15
-  | `INVGENINT32 -> 16
-  | `INVGENINT32OS -> 17
-  | `INVGENINT64 -> 18
-  | `INVGENINT64OS -> 19
-  | `INVGENUINT8 -> 20
-  | `INVGENUINT8OS -> 21
-  | `INVGENUINT16 -> 22
-  | `INVGENUINT16OS -> 23
-  | `INVGENUINT32 -> 24
-  | `INVGENUINT32OS -> 25
-  | `INVGENUINT64 -> 26
-  | `INVGENUINT64OS -> 27
   | `INVGENMACH -> 28
   | `INVGENMACHOS -> 29
   | `IC3IA -> 31
   | `IC3QE -> 32
+  | `INVGENBV width -> 100*width + 90
+  | `INVGENBVOS width -> 100*width + 91
+  | `INVGENUBV width -> 100*width + 92
+  | `INVGENUBVOS width -> 100*width + 93
 
 
 (* Timeouts *)

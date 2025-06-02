@@ -1,8 +1,8 @@
 
-node N(in:bool) returns (out:bool);
+node N(i:bool) returns (out:bool);
 (*@contract
-  import UndefinedSpec(in) returns (out);
+  import UndefinedSpec(i) returns (out);
 *)
 let
-  out = in;
+  out = i;
 tel

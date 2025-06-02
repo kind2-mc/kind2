@@ -2522,9 +2522,9 @@ let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2
 let mk_bvconcat expr1 expr2 = mk_binary eval_bvconcat type_of_bvconcat expr1 expr2
 
 (* Bitvector extract *)
-let mk_bvextract (lb: int) (ub: int) expr = 
-  { expr_init = eval_bvextract expr.expr_init (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
-  expr_step = eval_bvextract expr.expr_step (Term.mk_num_of_int lb) (Term.mk_num_of_int ub);
+let mk_bvextract ub lb expr = 
+  { expr_init = eval_bvextract expr.expr_init (Term.mk_num_of_int ub) (Term.mk_num_of_int lb);
+  expr_step = eval_bvextract expr.expr_step (Term.mk_num_of_int ub) (Term.mk_num_of_int lb);
   expr_type = (type_of_bvextract expr ub lb) } 
 
 

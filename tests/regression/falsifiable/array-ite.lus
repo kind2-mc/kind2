@@ -1,5 +1,5 @@
-node top(c: bool; in: int^2) returns (out: int^2)
+node top(c: bool; i: int^2) returns (out: int^2)
 let
-  out = if c then [0,0] else in;
+  out = if c then [0,0] else i;
   --%PROPERTY out[0]=0;
 tel

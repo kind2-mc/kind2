@@ -63,7 +63,7 @@ type error_kind = Unknown of string
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
-  | IlltypedArrayIndex of tc_type
+  | IlltypedIndexAccess of tc_type
   | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
@@ -108,6 +108,7 @@ type error_kind = Unknown of string
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
+  | ExpectedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -144,7 +145,7 @@ let error_message kind = match kind with
   | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
   | ExpectedIntegerTypeForSlice -> "Slicing should have integer types"
-  | IlltypedArrayIndex ty -> "Indexing can only be done on an array type but found " ^ string_of_tc_type ty
+  | IlltypedIndexAccess ty -> "Indexing can only be done on an array or map type but found " ^ string_of_tc_type ty
   | IlltypedMapIndex (exp_ty, inf_ty) -> "Expected index of type " ^ (string_of_tc_type exp_ty) ^ " but found index of type " ^ (string_of_tc_type inf_ty)
   | ExpectedIntegerTypeForArrayIndex ty -> "Array index should have an integer type but found " ^ string_of_tc_type ty
   | IlltypedArrayConcat (both_array_types, ty1, ty2) -> "Cannot concat "
@@ -213,7 +214,8 @@ let error_message kind = match kind with
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
-  | UnsupportedMapType ty -> "Unsupported map key or value type " ^ (string_of_tc_type ty) ^ "; only primitive types are supported"
+  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, and tuples are supported"
+  | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -377,7 +379,7 @@ let rec infer_const_attr ctx exp =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> combine (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> combine (r e1) (r e2)
-  | ArrayIndex (_, e1, e2) -> combine (r e1) (r e2)
+  | ArrayIndex (_, e1, e2, _) -> combine (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (_, _, _, _) ->
     [error exp "quantified expression"]
@@ -582,10 +584,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.ArrayConstr (pos, e1, e2))
-  | ArrayIndex (pos, e1, e2) ->
+  | ArrayIndex (pos, e1, e2, kind) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
-    R.ok (LA.ArrayIndex (pos, e1, e2))
+    R.ok (LA.ArrayIndex (pos, e1, e2, kind))
   | When (pos, e, clock) -> 
     let* e = call e in
     R.ok (LA.When (pos, e, clock))
@@ -871,29 +873,24 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
       )
-  | LA.ArrayIndex (pos, e, i) ->
+  | LA.ArrayIndex (pos, e, i, _) -> (
     let* index_type, warnings1 = infer_type_expr ctx nname i in
     let* index_type = expand_type_syn_reftype_history ctx index_type in
     let* ty, warnings2 = infer_type_expr ctx nname e in 
-    let* ty = expand_type_syn_reftype_history ctx ty in 
-    if is_expr_int_type ctx nname i
-    then 
-      match ty with
-      | LA.Map (_, given_index_type, b_ty) -> 
-        R.ifM (eq_lustre_type ctx given_index_type (LA.Int pos))
-          (R.ok (b_ty, warnings1 @ warnings2))
-          (type_error pos (IlltypedMapIndex (given_index_type, LA.Int pos)))
-      | LA.ArrayType (_, (b_ty, _)) -> R.ok (b_ty, warnings1 @ warnings2)
-      | ty -> type_error pos (IlltypedArrayIndex ty)
-    else (
-      match ty with 
-      | LA.Map (_, given_index_type, element_type) -> 
-        R.ifM (eq_lustre_type ctx index_type given_index_type)
-          (R.ok (element_type, warnings1 @ warnings2))
-          (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
-      | _ -> type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+    let* ty = expand_type_syn_reftype_history ctx ty in
+    match ty with
+    | LA.Map (_, given_index_type, element_type) -> 
+      R.ifM (eq_lustre_type ctx index_type given_index_type)
+        (R.ok (element_type, warnings1 @ warnings2))
+        (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
+    | LA.ArrayType (_, (b_ty, _)) -> (
+      if is_expr_int_type ctx nname i then
+        R.ok (b_ty, warnings1 @ warnings2)
+      else
+        type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
-
+    | ty -> type_error pos (IlltypedIndexAccess ty)
+  )
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
     let* warnings1 =
@@ -1157,7 +1154,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx exp_ty arr_ty)
       (R.ok (warnings1 @ warnings2))
       (type_error pos (ExpectedType (exp_ty, arr_ty)))
-  | ArrayIndex (pos, e, idx) ->
+  | ArrayIndex (pos, e, idx, _) ->
     let* index_type, warnings1 = infer_type_expr ctx nname idx in
     if is_expr_int_type ctx nname idx
     then 
@@ -1306,6 +1303,15 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
+  | LA.In -> (
+    match ty2 with
+    | LA.Map (_, given_index_type, _) -> (
+      R.ifM (eq_lustre_type ctx ty1 given_index_type)
+        (R.ok (LA.Bool pos, warnings1 @ warnings2))
+        (type_error pos (ExpectedType (given_index_type, ty1)))
+    )
+    | _ -> (type_error pos (ExpectedMapType ty2))
+  )
   | LA.Mod ->
     (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
       | Ok(true), Ok(true) -> 
@@ -1636,7 +1642,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
   | ArrayDef (pos, base_e, idxs) ->
     check_array_dimensions pos ctx base_e idxs >>
     let array_idx_expr =
-      List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
+      List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i, Array))
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in
@@ -2059,16 +2065,11 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     let base_ty1 = expand_type_syn ctx ty1 in 
-    let base_ty2 = expand_type_syn ctx ty2 in 
     (match base_ty1 with 
-    | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
+    | GroupType _ | ArrayType _ | EnumType _ | Map _
     | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
-      match base_ty2 with 
-      | TupleType _ | GroupType _ | RecordType _ | ArrayType _ | EnumType _ | Map _
-      | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty2)
-      | _ ->
-        R.ok (warnings1 @ warnings2))
+      R.ok (warnings1 @ warnings2))
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
     let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 

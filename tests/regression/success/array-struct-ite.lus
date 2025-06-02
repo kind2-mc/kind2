@@ -5,8 +5,8 @@ type rec = {
   y: int;
 };
 
-node N(in: rec^N; e: rec) returns (out: rec^N);
+node N(A: rec^N; e: rec) returns (out: rec^N);
 let
-  out[i] = if i = 0 then e else in[i];
+  out[i] = if i = 0 then e else A[i];
   check out[0]=e;
 tel

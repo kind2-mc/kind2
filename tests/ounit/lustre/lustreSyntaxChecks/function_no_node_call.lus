@@ -1,13 +1,13 @@
 -- Illegal call to a node in a function.
-node delay (in: int) returns (out: int) ;
+node delay (i: int) returns (out: int) ;
 let
-  out = 0 -> pre in ;
+  out = 0 -> pre i ;
 tel
 
-function blah ( in: int ) returns ( out: int ) ;
+function blah ( i: int ) returns ( out: int ) ;
 (*@contract
-  guarantee out = in ;
+  guarantee out = i ;
 *)
 let
-  out = delay(in) ;
+  out = delay(i) ;
 tel
