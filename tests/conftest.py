@@ -21,8 +21,9 @@ common_args = {
 # All the different test conditions, will override common_args if there is a
 # disagreement
 test_cases = {
-    "slice_true": {"--slice_nodes": "true"},
-    "slice_false": {"--slice_nodes": "false"},
+    "slice_on": {"--slice_nodes": "on"},
+    "slice_off": {"--slice_nodes": "off"},
+    "slice_experimental": {"--slice_nodes": "experimental"},
 }
 
 # Where to find the regression tests
