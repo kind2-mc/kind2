@@ -3903,6 +3903,7 @@ let parse_clas specs anon_action =
   | [] ->
     failwith "expected at least one argument, got zero"
 
+(* True iff the current solver support sbv_to_int and ubv_to_int operators *)
 let support_new_bv_cast_operators' = ref false
 let support_new_bv_cast_operators () = !support_new_bv_cast_operators'
 

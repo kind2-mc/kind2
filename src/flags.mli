@@ -252,7 +252,7 @@ val lus_push_pre : unit -> bool
 (** Colored output. *)
 val color : unit -> bool
 
-(** Major, minor, patch version, if available *)
+(** True iff the current solver support sbv_to_int and ubv_to_int operators *)
 val support_new_bv_cast_operators : unit -> bool
 
 
