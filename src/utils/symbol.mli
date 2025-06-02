@@ -145,8 +145,9 @@ type interpreted_symbol =
   | `TO_INT               (** Conversion to an unsigned integer numeral (unary) *)
   | `TO_UBV of int        (** Conversion to an unsigned bv numeral (unary) *)
   | `TO_BV of int         (** Conversion to a signed bv numeral (unary) *)  
-  | `UBV_TO_INT               (** Conversion from bitvector to a natural number *)
-  | `SBV_TO_INT            (** Conversion from signed bitvector to integer number *)
+  | `BV2NAT               (** Conversion from bitvector to a natural number (now deprecated in SMT-LIB) *)
+  | `UBV_TO_INT           (** Conversion from bitvector to a natural number *)
+  | `SBV_TO_INT           (** Conversion from signed bitvector to integer number *)
   | `IS_INT               (** Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t

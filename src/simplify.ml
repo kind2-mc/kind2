@@ -799,6 +799,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `TO_UBV _, _
       | `TO_BV _, _
       | `UBV_TO_INT, _
+      | `BV2NAT, _
 
       | `BVNEG, _
       | `BVADD, _
@@ -2160,6 +2161,7 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
              subterms *)
           | `TO_BV n -> to_bv n args
           
+          | `BV2NAT
           | `UBV_TO_INT -> ubv_to_int args
 
           (* Conversion to real is a monomial with polynomial
@@ -2835,7 +2837,7 @@ let rec remove_ite' fterm args =
            subterms *)
         | `TO_BV n -> to_bv n args
 
-
+        | `BV2NAT
         | `UBV_TO_INT -> ubv_to_int args
 
         (* Conversion to real is a monomial with polynomial

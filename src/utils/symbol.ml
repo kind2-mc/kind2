@@ -69,8 +69,9 @@ type interpreted_symbol =
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
   | `TO_UBV of int        (* Conversion to an unsigned bv numeral (unary) *)
   | `TO_BV of int         (* Conversion to a signed bv numeral (unary) *)  
-  | `UBV_TO_INT               (* Conversion from unsigned bitvector to natural number *)
-  | `SBV_TO_INT            (* Conversion from signed bitvector to natural number *)
+  | `BV2NAT               (* Conversion from unsigned bitvector to natural number (now deprecated in SMT-LIB) *)
+  | `UBV_TO_INT           (* Conversion from unsigned bitvector to natural number *)
+  | `SBV_TO_INT           (* Conversion from signed bitvector to natural number *)
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -201,6 +202,7 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
+    | `BV2NAT, `BV2NAT
     | `UBV_TO_INT, `UBV_TO_INT
     | `SBV_TO_INT, `SBV_TO_INT
     | `IS_INT, `IS_INT -> true
@@ -271,6 +273,7 @@ module Symbol_node = struct
     | `TO_INT, _
     | `TO_BV _, _
     | `TO_UBV _, _
+    | `BV2NAT, _
     | `UBV_TO_INT, _
     | `SBV_TO_INT, _ 
     | `IS_INT, _
@@ -430,14 +433,9 @@ let rec pp_print_symbol_node ppf = function
   | `TO_INT -> Format.pp_print_string ppf "to_int"
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
-  | `UBV_TO_INT n -> 
-    if Flags.support_new_bv_cast_operators () then
-      Format.pp_print_string ppf "ubv_to_int"
-    else Format.pp_print_string ppf "bv2nat"
-  | `SBV_TO_INT n -> 
-    if Flags.support_new_bv_cast_operators () then
-      Format.pp_print_string ppf "ubv_to_int"
-    else _
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
+  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int"
+  | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 

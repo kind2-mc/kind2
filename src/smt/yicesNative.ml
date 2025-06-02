@@ -532,6 +532,7 @@ let ensure_symbol_qf_lira s =
   | `BVZEROEXT _
   | `TO_BV _ 
   | `TO_UBV _
+  | `BV2NAT
   | `UBV_TO_INT
   | `SBV_TO_INT
   | `SELECT _

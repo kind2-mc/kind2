@@ -581,6 +581,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `DECIMAL _
   | `UBV _
   | `BV _ 
+  | `BV2NAT
   | `UBV_TO_INT -> (function _ -> assert false)
 
   (* Unary symbols *) 
@@ -1771,46 +1772,23 @@ let eval_to_int expr =
         (Numeral.of_big_int
            (Decimal.to_big_int
               (Symbol.decimal_of_symbol s)))
-    (* | Term.T.Const s when Symbol.is_ubv8 s ->
-      Term.mk_num
-        (Bitvector.ubv8_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv16 s ->
-      Term.mk_num
-        (Bitvector.ubv16_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv32 s ->
-      Term.mk_num
-        (Bitvector.ubv32_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv64 s ->
-      Term.mk_num
-        (Bitvector.ubv64_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv8 s ->
-      Term.mk_num
-        (Bitvector.bv8_to_num
-          (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv16 s ->
-      Term.mk_num
-        (Bitvector.bv16_to_num
-          (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv32 s ->
-      Term.mk_num
-        (Bitvector.bv32_to_num
-          (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv64 s ->
-      Term.mk_num
-        (Bitvector.bv64_to_num
-          (Symbol.bitvector_of_symbol s)) *)
     | _ when Type.is_ubitvector tt -> Term.mk_ubv_to_int expr
-    | _ when Type.is_bitvector tt -> Term.mk_bv_to_int expr
+    | _ when Type.is_bitvector tt -> 
+      let bit_width = match Type.get_bv_size tt with 
+      | Some bit_width -> bit_width 
+      | None -> assert false 
+      in
+      Term.mk_bv_to_int bit_width expr
     | _ -> Term.mk_to_int expr
     | exception Invalid_argument _ -> 
       if Type.is_ubitvector (Term.type_of_term expr) then
         Term.mk_ubv_to_int expr
       else if Type.is_bitvector (Term.type_of_term expr) then
-        Term.mk_bv_to_int expr
+        let bit_width = match Type.get_bv_size tt with 
+        | Some bit_width -> bit_width 
+        | None -> assert false 
+        in
+        Term.mk_bv_to_int bit_width expr
       else
         Term.mk_to_int expr
 

@@ -646,8 +646,8 @@ let smtlib_string_symbol_list =
    ("to_int", Symbol.mk_symbol `TO_INT);
    ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
    ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
-   ("bv2int", Symbol.mk_symbol `UBV_TO_INT);     
-   ("bv2nat", Symbol.mk_symbol `UBV_TO_INT);     
+   ("bv2int", Symbol.mk_symbol `BV2NAT);     
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);     
    ("is_int", Symbol.mk_symbol `IS_INT);
 
    ("bvnot", Symbol.mk_symbol `BVNOT);
@@ -679,8 +679,8 @@ let smtlib_string_symbol_list =
    ("bvsge", Symbol.mk_symbol `BVSGE);
    ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
    ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
-   ("bv2nat", Symbol.mk_symbol `UBV_TO_INT);
-   ("bv2int", Symbol.mk_symbol `UBV_TO_INT); 
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("bv2int", Symbol.mk_symbol `BV2NAT); 
    ("concat", Symbol.mk_symbol `BVCONCAT);
 
    ("select", Symbol.mk_symbol
@@ -750,19 +750,9 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `UBV_TO_INT -> 
-    if Flags.support_new_bv_cast_operators () then  
-      Format.pp_print_string ppf "ubv_to_int" 
-    else Format.pp_print_string ppf "bv2nat"  
-  | `SBV_TO_INT m -> 
-    if Flags.support_new_bv_cast_operators () then 
-      Format.pp_print_string ppf "sbv_to_int"
-    else 
-      let max_val = 1 lsl m in
-      Format.fprintf ppf 
-      "(ite (= ((_ extract (- %d 1) (- %d 1)) INP) #b0) (bv2nat inp) (- (bv2nat inp)) %d))"
-        m m max_val;
-      _; ()
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat" 
+  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int" 
+  | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `IS_INT -> Format.pp_print_string ppf "is_int"

@@ -268,7 +268,7 @@ val sufficiently_large_bit_width : int -> int
 val mk_ubv_to_int : t -> t
 
 (** Create a conversion from signed bitvector to an integer numeral *)
-val mk_bv_to_int : t -> t
+val mk_bv_to_int : int -> t -> t
 
 (** Create a conversion to an unsigned bv numeral *)
 val mk_to_ubv : int -> t -> t

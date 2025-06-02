@@ -672,6 +672,7 @@ let rec type_of_term' t = match T.destruct t with
         | `MOD
         | `ABS
         | `INTDIV
+        | `BV2NAT
         | `UBV_TO_INT -> Type.mk_int ()
         | `TO_UBV n -> Type.mk_ubv n
 
@@ -1196,10 +1197,8 @@ let mk_distinct a = mk_app_of_symbol_node `DISTINCT a
 (* Hashcons a ternary if-then-else expression *)
 let mk_ite p l r = mk_app_of_symbol_node `ITE [p; l; r]
 
-
 (* Hashcons a unary minus or higher arity minus *)
 let mk_minus a = mk_app_of_symbol_node `MINUS a
-
 
 (* Hashcons an integer numeral *)
 let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
@@ -1463,27 +1462,38 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
-(* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
-let mk_ubv_to_int t = mk_app_of_symbol_node `UBV_TO_INT [t]
-
-(* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
-let mk_bv_to_int t = mk_app_of_symbol_node `SBV_TO_INT [t]
-
 (* Hashcons a unary conversion to an unsigned bv numeral *)
 let mk_to_ubv n t = mk_app_of_symbol_node (`TO_UBV n) [t]
 
-
 (* Hashcons a unary conversion to a signed bv numeral *)
 let mk_to_bv n t = mk_app_of_symbol_node (`TO_BV n) [t]
-
-(* Hashcons a unary bitvector to nat conversion *)
-let mk_bv2nat t = mk_app_of_symbol_node `UBV_TO_INT [t]
 
 (* Hashcons a BV extraction *)
 let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
 
 (* Hashcons a BV sign extension *)
 let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
+
+(* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
+let mk_ubv_to_int t = 
+  if Flags.support_new_bv_cast_operators () then
+    mk_app_of_symbol_node `UBV_TO_INT [t]
+  else 
+    mk_app_of_symbol_node `BV2NAT [t]
+
+let mk_bv2nat t = 
+  mk_app_of_symbol_node `BV2NAT [t]
+
+(* Hashcons a unary conversion from a signed bitvector to an integer numeral *)
+let mk_bv_to_int bit_width t = 
+  if Flags.support_new_bv_cast_operators () then
+    mk_app_of_symbol_node `SBV_TO_INT [t]
+  else 
+    let max_val = 1 lsl bit_width in
+    let width_minus_1 = bit_width - 1 |> Numeral.of_int in
+    mk_ite (mk_eq [mk_bvextract width_minus_1 width_minus_1 t; mk_ubv (Bitvector.zero 1)])
+           (mk_bv2nat t) 
+           (mk_minus [(mk_bv2nat t);  (mk_num_of_int max_val)])
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
