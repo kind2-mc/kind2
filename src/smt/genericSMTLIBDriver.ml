@@ -644,8 +644,10 @@ let smtlib_string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
+   ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
    ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
    ("bv2int", Symbol.mk_symbol `UBV_TO_INT);     
+   ("bv2nat", Symbol.mk_symbol `UBV_TO_INT);     
    ("is_int", Symbol.mk_symbol `IS_INT);
 
    ("bvnot", Symbol.mk_symbol `BVNOT);
@@ -675,7 +677,9 @@ let smtlib_string_symbol_list =
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE);
+   ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
    ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
+   ("bv2nat", Symbol.mk_symbol `UBV_TO_INT);
    ("bv2int", Symbol.mk_symbol `UBV_TO_INT); 
    ("concat", Symbol.mk_symbol `BVCONCAT);
 
@@ -746,20 +750,21 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  (*!! Can just use sbv_to_int, and get rid of the hardcoded translations (e.g. int32_to_int).
-       Use updated SMT-LIB2 bitvector ast operators sbv_to_int and ubv_to_int (deprecating bv2nat).
-       Again, need to find first version of z3/cvc5 that support this for Flags module solver support. Not sure about MathSAT and so on.
-
-       cvc5: 
-         https://github.com/cvc5/cvc5/commit/ed10fc9175e196b67f45784db0edc485af38d78e
-
-        z3: 
-          https://github.com/Z3Prover/z3/blob/4b2e5adc1192d6c2a0770554c78de5dac1bcfba3/RELEASE_NOTES.md?plain=1#L20 
-  *)
-  | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
+  | `UBV_TO_INT -> 
+    if Flags.support_new_bv_cast_operators () then  
+      Format.pp_print_string ppf "ubv_to_int" 
+    else Format.pp_print_string ppf "bv2nat"  
+  | `SBV_TO_INT m -> 
+    if Flags.support_new_bv_cast_operators () then 
+      Format.pp_print_string ppf "sbv_to_int"
+    else 
+      let max_val = 1 lsl m in
+      Format.fprintf ppf 
+      "(ite (= ((_ extract (- %d 1) (- %d 1)) INP) #b0) (bv2nat inp) (- (bv2nat inp)) %d))"
+        m m max_val;
+      _; ()
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
-  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int" 
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 

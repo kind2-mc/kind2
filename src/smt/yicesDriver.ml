@@ -249,8 +249,14 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT -> Format.pp_print_string ppf "to_int"
   | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
-  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int"
-  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
+  | `UBV_TO_INT n -> 
+    if Flags.support_new_bv_cast_operators () then
+      Format.pp_print_string ppf "ubv_to_int"
+    else Format.pp_print_string ppf "bv2nat"
+  | `SBV_TO_INT n -> 
+    if Flags.support_new_bv_cast_operators () then
+      Format.pp_print_string ppf "sbv_to_int"
+    else _
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE _ ->

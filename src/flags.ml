@@ -3903,6 +3903,8 @@ let parse_clas specs anon_action =
   | [] ->
     failwith "expected at least one argument, got zero"
 
+let support_new_bv_cast_operators' = ref false
+let support_new_bv_cast_operators () = !support_new_bv_cast_operators'
 
 let solver_dependant_actions solver =
 
@@ -3920,7 +3922,15 @@ let solver_dependant_actions solver =
       let major_rev = get_rev output 1 in
       let minor_rev = get_rev output 2 in
       let patch_rev = if with_patch then get_rev output 3 else 0 in
-      Some (major_rev, minor_rev, patch_rev)
+      let result = Some (major_rev, minor_rev, patch_rev) in 
+      (match Smt.solver () with
+        | `Z3_SMTLIB -> 
+          if
+            (major_rev > 4) ||
+            (major_rev = 4 && (minor_rev > 14 || (minor_rev = 14 && patch_rev >= 1)))
+          then support_new_bv_cast_operators' := true;
+        | _ -> ());
+      result
     with Not_found -> None
   in
 
