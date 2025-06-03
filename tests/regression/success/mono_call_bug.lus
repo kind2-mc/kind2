@@ -1,0 +1,17 @@
+type P<T> = struct { f: T };
+
+function RId<T>(v: T) returns (r: P<T>);
+let
+  r = P@<T> { f = v };
+tel
+
+function Id(p: P<int>) returns (r: int);
+let
+  r = p.f;
+tel
+
+node N(x: int) returns (z:int);
+let
+  z = Id(RId@<int>(x));
+  check z=x;
+tel
