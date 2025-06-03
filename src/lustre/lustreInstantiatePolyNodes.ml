@@ -96,7 +96,6 @@ let build_node_fun_ty
 let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                    NI.t -> A.lustre_type list -> Ctx.tc_context * GI.t NI.Map.t * NI.t *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t 
 = fun ctx gids caller_nname node_decls_map node_id ty_args ->
-  NI.pp_print_node_id_input_name Format.std_formatter node_id;
   (* Get node_id fields *)
   let node_type = NI.get_node_type node_id in 
   let name = NI.get_name node_id in
