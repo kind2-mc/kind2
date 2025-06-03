@@ -2219,7 +2219,11 @@ and normalize_expr ?guard info node_id map =
         quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    let nexpr =
+    (*!! nest quantifiers whenever we encounter refinement types so the 
+         desugaring of forall x: int | P(x), y: int. <expr> is 
+                       forall x: int. P(x) --> forall y: int. <expr> 
+         rather than   forall x, y: int. P(x) --> <expr> *)
+    (* let nexpr =
       let constraints =
         (* Assume constraints are constant expressions, and thus,
            no normalization is required *)
@@ -2230,7 +2234,17 @@ and normalize_expr ?guard info node_id map =
       | Some c, A.Exists -> A.BinaryOp (pos, A.And, c, nexpr)
       | Some c, A.Forall -> A.BinaryOp (pos, A.Impl, c, nexpr)
     in
-    Quantifier (pos, kind, vars, nexpr), gids, warnings
+    Quantifier (pos, kind, vars, nexpr), gids, warnings *)
+    List.fold_left (fun acc var ->
+      (*!! Could still lump together non-refinement type vars in quantifier expression if possible *)
+      (* Assume constraints are constant expressions, and thus,
+           no normalization is required *)
+      let c = mk_enum_subrange_reftype_constraints (Some node_id) info [var] in 
+      match c, kind with
+      | None, _ -> A.Quantifier (pos, kind, [var], acc)
+      | Some c, A.Exists -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.And, c, acc))
+      | Some c, A.Forall -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.Impl, c, acc))
+    ) nexpr (List.rev vars), gids, warnings
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     When (pos, nexpr, clock_expr), gids, warnings

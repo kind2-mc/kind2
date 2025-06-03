@@ -911,9 +911,8 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
 
 and check_ty_quantified_var ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
-  (*!! Augment context *)
   let ctx = ctx_add_quant_var ctx i (Some ty) in
-  common_node_equations_checks ctx expr
+  check_expr ctx f expr
 | GroupType (_, tys) 
 | TupleType (_, tys) -> 
   let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) tys) in 
