@@ -895,7 +895,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   | LA.Quantifier (_, _, qs, e) ->
     let* warnings1, _ =
       (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
-        let* warnings = check_type_well_formed acc_ctx Local nname false ty in 
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_w @ warnings, acc_ctx)
       ) ([], ctx) qs)
@@ -1174,7 +1174,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
   | Quantifier (_, _, qs, e) -> (
     let* warnings1, _ =
       (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
-        let* warnings = check_type_well_formed acc_ctx Local nname false ty in 
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_w @ warnings, acc_ctx)
       ) ([], ctx) qs)
@@ -2119,12 +2119,6 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     >> check_type_well_formed ctx src nname is_const b_ty
   )
   | LA.RefinementType (pos, (_, i, ty), e) ->
-    (*!! Relaxation: Allow quantified variables in ref type expressions
-         Restriction 1: quantifier variables can only be used as arguments of inlinable functions 
-         Restriction 2: don't allow temporal operators over the bound variable of a subtype
-         
-         Make sure ref type expr variables correctly reference either the quantified variable or global const 
-         (the shadowing works according to Daniel's example in Zulip)*)
     let ctx = add_ty ctx i ty in
     (if is_const then 
       let ctx = add_const ctx i (LA.Ident (pos, i)) ty Local in
