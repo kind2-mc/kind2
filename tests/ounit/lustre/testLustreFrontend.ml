@@ -723,6 +723,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/bv_extract2.lus" with
     | Error (`LustreTypeCheckerError (_, InvalidExtractLowerBound _)) -> true
     | _ -> false);
+  mk_test "test bound variable with refinement type 3" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

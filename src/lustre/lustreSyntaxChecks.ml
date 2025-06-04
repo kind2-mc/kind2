@@ -909,6 +909,10 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
+(* The syntax checks performed by this function are currently redundant,  
+   since they are subsumed by the check/requirement that bound variable refinement 
+   type predicates must be constant expressions. However, this requirement 
+   may be lifted in the future, and in that case, we would want these checks to be applied. *)
 and check_ty_quantified_var ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
   let ctx = ctx_add_quant_var ctx i (Some ty) in

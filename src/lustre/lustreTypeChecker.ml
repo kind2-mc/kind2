@@ -896,6 +896,8 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     let* warnings1, _ =
       (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
         let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_w @ warnings, acc_ctx)
       ) ([], ctx) qs)
@@ -1175,6 +1177,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let* warnings1, _ =
       (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
         let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_w @ warnings, acc_ctx)
       ) ([], ctx) qs)
