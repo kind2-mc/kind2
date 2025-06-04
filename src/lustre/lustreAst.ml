@@ -113,7 +113,7 @@ type expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr  
-  | ArrayIndex of position * expr * expr * access_kind
+  | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
@@ -417,7 +417,7 @@ let rec pp_print_expr ppf =
         pp_print_expr e1 
         pp_print_expr e2
 
-    | ArrayIndex (p, e, l, _) -> 
+    | IndexAccess (p, e, l, _) -> 
 
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 

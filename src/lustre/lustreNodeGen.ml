@@ -290,7 +290,7 @@ let mk_ident id =
   That assumption is made explicit by calling this function. *)
 let extract_normalized = function
   | A.Ident (_, ident) -> mk_ident ident
-  | A.ArrayIndex (_, A.Ident (_, ident), _, _) -> mk_ident ident
+  | A.IndexAccess (_, A.Ident (_, ident), _, _) -> mk_ident ident
   | _ -> assert false
 
 module XMap = Map.Make(struct
@@ -1210,11 +1210,11 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> j @[X.ArrayIntIndex i]) expr_list
   | A.ArrayConstr (_, expr, size_expr) ->
     compile_array_ctor bounds expr size_expr
-  | A.ArrayIndex (_, expr, i, Array) -> compile_array_index bounds expr i
-  | A.ArrayIndex (_, expr, k, Map) ->
+  | A.IndexAccess (_, expr, i, Array) -> compile_array_index bounds expr i
+  | A.IndexAccess (_, expr, k, Map) ->
     let expr = compile_map_index bounds expr k in
     X.find_prefix [(X.TupleIndex 1)] expr
-  | A.ArrayIndex _ -> assert false
+  | A.IndexAccess _ -> assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
@@ -1780,7 +1780,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
         | A.Ident (_, id')
-        | A.ArrayIndex (_, A.Ident (_, id'), _, _) ->
+        | A.IndexAccess (_, A.Ident (_, id'), _, _) ->
           let ident = mk_ident id' in
           let closed_sv = H.find !map.state_var ident in
           Some closed_sv
@@ -1920,7 +1920,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let op (pos, name_opt, expr, kind) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
-        | A.ArrayIndex (_, A.Ident (_, id_str), _, _) -> id_str
+        | A.IndexAccess (_, A.Ident (_, id_str), _, _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
