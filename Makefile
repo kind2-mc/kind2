@@ -43,7 +43,7 @@ kind2-doc:
 
 test: build
 	@dune build @runtest
-	@cd $(CURDIR)/tests/ && pytest
+	@cd $(CURDIR)/tests/ && ./run || pytest
 
 uninstall:
 	@opam remove -y kind2
