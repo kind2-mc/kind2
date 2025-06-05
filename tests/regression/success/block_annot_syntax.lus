@@ -1,64 +1,64 @@
-node abs (in: int) returns (out: int) ;
+node abs (i: int) returns (out: int) ;
 let
-  out = if in < 0 then -in else in ;
+  out = if i < 0 then -i else i ;
   (*%PROPERTY out >= 0 ; *)
-  /*!PROPERTY : if in < 0 then (out = -in) else (out = in) ; */
+  /*!PROPERTY : if i < 0 then (out = -i) else (out = i) ; */
 tel
 
-node has_been_true(in: bool) returns (out: bool) ;
+node has_been_true(i: bool) returns (out: bool) ;
 
 /* @contract
 
   mode false_so_far (
-    require not (in or (false -> pre out)) ;
+    require not (i or (false -> pre out)) ;
     ensure not out ;
   ) ;
 
-  mode in_true (
-    require in ;
+  mode i_true (
+    require i ;
     ensure out ;
   ) ;
 
   mode always_true (
-    require in -> pre out ;
+    require i -> pre out ;
     ensure out ;
   ) ;
 */
 let
-  out = in or (false -> pre out) ;
+  out = i or (false -> pre out) ;
 tel
 
 
-node my_node (in: int) returns (out: int) ;
+node my_node (i: int) returns (out: int) ;
 
 (*@contract
 
   const bound = 10 ;
-  var in_bounded: bool = abs(in) < bound ;
+  var i_bounded: bool = abs(i) < bound ;
 
-  assume in_bounded ;
+  assume i_bounded ;
   guarantee out >= - bound ;
 
-  mode in_neg (
-    require in < 0 ;
-    ensure out = in ;
+  mode i_neg (
+    require i < 0 ;
+    ensure out = i ;
   ) ;
 
-  mode in_pos (
-    require in >= 0 ;
+  mode i_pos (
+    require i >= 0 ;
     ensure out >= 0 ;
     ensure true -> (
-      (pre has_been_true(in > 0)) => out > in
+      (pre has_been_true(i > 0)) => out > i
     ) ;
   ) ;
 *)
 var mem: int ;
 let
-  mem = abs(in) + (0 -> pre mem) ;
-  out = if in < 0 then in else mem ;
+  mem = abs(i) + (0 -> pre mem) ;
+  out = if i < 0 then i else mem ;
 
   (* Old style still works. *)
-  --%PROPERTY out - in >= 0 ;
+  --%PROPERTY out - i >= 0 ;
 
   (* Doing the same thing using different annotations. *)
   (*!MAIN: true ; *)

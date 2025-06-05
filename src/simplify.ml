@@ -252,7 +252,7 @@ let const_of_dec_polynomial = function
 
 
 (* Compare monomials by comparing their terms *)
-let compare_monomials (_, t1) (_, t2) = compare_lists Term.compare t1 t2 
+let compare_monomials (_, t1) (_, t2) = List.compare Term.compare t1 t2 
 
 
 (* Add two lists of sorted monomials *)
@@ -288,7 +288,7 @@ let add_monomial_lists add is_zero l1 l2 =
     (* First term is smaller: add to accumulator first *)
     | (c1, t1) :: tl1, (_, t2) :: _ 
       when 
-        compare_lists Term.compare t1 t2 < 0 -> 
+        List.compare Term.compare t1 t2 < 0 -> 
 
       add_monomial_lists' ((c1, t1) :: accum) tl1 l2 
 
@@ -764,6 +764,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `DIVISIBLE _, _
       | `UF _, _
       | `SELECT _, _
+      | `CONST_ARRAY _, _
       | `STORE, _ -> Term.mk_not term
 
       (* Negate both cases of ite term *)
@@ -798,6 +799,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `UINT16_TO_INT, _
       | `UINT32_TO_INT, _
       | `UINT64_TO_INT, _
+      | `SBV_TO_INT, _
       | `INT8_TO_INT, _
       | `INT16_TO_INT, _
       | `INT32_TO_INT, _
@@ -833,6 +835,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSGE, _
       | `BVNOT, _
       | `BVOR, _ 
+      | `BVXOR, _ 
       | `BVAND, _
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
@@ -1170,6 +1173,12 @@ let store = function
  (* Store is ternary *)
  | _ -> assert false
 
+let const_array ty_array = function
+ | [v] ->
+
+  atom_of_term (Term.mk_const_array ty_array (term_of_nf v))
+
+ | _ -> assert false
 
 let select simplify_term_node model fterm = function
 
@@ -1225,8 +1234,15 @@ let select simplify_term_node model fterm = function
 
           else
 
-            let args = List.map (fun x ->
-                Term.numeral_of_term x |> Numeral.to_int) i' in
+            let term_to_index =
+              let idx_ty = Type.index_type_of_array (Var.type_of_var v) in
+              if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
+                (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
+              else
+                (fun t -> Numeral.to_int (Term.numeral_of_term t))
+            in
+
+            let args = List.map term_to_index i' in
 
             let value =
               try Model.MIL.find args m
@@ -1858,14 +1874,8 @@ let bv2nat = function
 | [BV b] -> let t = term_of_nf (BV b) in
   let tp = Term.type_of_term t in
   let bv = Term.bitvector_of_term t in
-  if (Type.is_int8 tp || Type.is_uint8 tp) then
-    Num (Bitvector.ubv8_to_num bv, [])
-  else if (Type.is_int16 tp || Type.is_uint16 tp) then
-    Num (Bitvector.ubv16_to_num bv, [])
-  else if (Type.is_int32 tp || Type.is_uint32 tp) then
-    Num (Bitvector.ubv32_to_num bv, [])
-  else if (Type.is_int64 tp || Type.is_uint64 tp) then
-    Num (Bitvector.ubv64_to_num bv, [])
+  if (Type.is_bitvector tp || Type.is_ubitvector tp) then
+    Num (Bitvector.ubv_to_num bv, [])
   else
     assert false
 | _ -> assert false
@@ -1917,11 +1927,14 @@ let bv_zeroext i = function
   | _ -> assert false
 
 let bv_concat = function
-  | [a] -> a
-  | [BV a; BV b] ->
-    BV (Term.mk_ubv (Bitvector.bvconcat
-      (Term.bitvector_of_term a)
-      (Term.bitvector_of_term b)))
+  | b :: rest ->
+    let to_bv = function
+      | BV t -> Term.bitvector_of_term t
+      | _ -> assert false
+    in
+    let bvs = List.map to_bv rest in
+    let concatenation = List.fold_left Bitvector.bvconcat (to_bv b) bvs in
+    BV (Term.mk_ubv concatenation)
   | _ -> assert false
 
 
@@ -2079,6 +2092,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           (* array store *)
           | `STORE -> store args
+
+          | `CONST_ARRAY ty_array -> const_array ty_array args
 
           | `UF _ when Symbol.is_select s ->
 
@@ -2258,6 +2273,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `INT64_TO_INT -> bv_to_int args
 
+          | `SBV_TO_INT -> bv_to_int args
+
           (* Conversion to unsigned integer8 is a monomial with polynomial
              subterms *)
           | `TO_UINT8 -> to_uint8 args
@@ -2305,6 +2322,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `BVAND -> binary_bv_op Bitvector.bv_and args
 
           | `BVOR -> binary_bv_op Bitvector.bv_or args
+
+          | `BVXOR -> binary_bv_op Bitvector.bv_xor args
 
           | `BVNOT -> unary_bv_op Bitvector.bv_not args
 
@@ -2969,6 +2988,8 @@ let rec remove_ite' fterm args =
 
         | `INT64_TO_INT -> bv_to_int args
 
+        | `SBV_TO_INT -> bv_to_int args
+
         (* Conversion to unsigned integer8 is a monomial with polynomial
            subterms *)
         | `TO_UINT8 -> to_uint8 args
@@ -3010,6 +3031,8 @@ let rec remove_ite' fterm args =
         | `BVAND -> binary_bv_op Bitvector.bv_and args
 
         | `BVOR -> binary_bv_op Bitvector.bv_or args
+
+        | `BVXOR -> binary_bv_op Bitvector.bv_xor args
 
         | `BVNOT -> unary_bv_op Bitvector.bv_not args
 
@@ -3110,6 +3133,8 @@ let rec remove_ite' fterm args =
 
         (* Selec from an array *)
         | `SELECT _ -> select remove_ite' (Var.VarHashtbl.create 0) fterm args
+
+        | `CONST_ARRAY ty_array -> const_array ty_array args
 
         (* Array store *)
         | `STORE -> store args

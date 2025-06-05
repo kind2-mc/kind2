@@ -163,6 +163,9 @@ val is_enum_variant: tc_context -> LA.ident -> bool
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
 
+val remove_const: tc_context -> LA.ident -> tc_context
+(** Removes a constant variable *)
+
 val remove_ty_ctx: tc_context -> tc_context
                   
 val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context

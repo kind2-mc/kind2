@@ -62,9 +62,9 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl
+  | And | Or | Xor | Impl | In
   | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
   | Ite
@@ -85,6 +85,11 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+type access_kind =
+  | Array 
+  | Map 
+  | Unknown
+
 (** A Lustre expression *)
 type expr =
   (* Identifiers *)
@@ -101,13 +106,14 @@ type expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
+  | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr  
-  | ArrayIndex of position * expr * expr
+  | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
@@ -126,14 +132,8 @@ type expr =
 and lustre_type =
   | Bool of position
   | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
@@ -146,6 +146,7 @@ and lustre_type =
   | History of position * ident
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
+  | Map of position * lustre_type * lustre_type
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -416,7 +417,7 @@ let rec pp_print_expr ppf =
         pp_print_expr e1 
         pp_print_expr e2
 
-    | ArrayIndex (p, e, l) -> 
+    | IndexAccess (p, e, l, _) -> 
 
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
@@ -442,7 +443,7 @@ let rec pp_print_expr ppf =
           match ty_args with
           | [] -> ()
           | _  ->
-            Format.fprintf ppf "<<%a>>"
+            Format.fprintf ppf "@<%a>"
               (pp_print_list pp_print_lustre_type ";") ty_args
         )
         (pp_print_list pp_print_field_assign ";@ ") l
@@ -472,6 +473,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
+    | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
@@ -495,6 +497,7 @@ let rec pp_print_expr ppf =
     | UnaryOp (p, BVNot, e) -> p1 p "!" e
     | BinaryOp (p, BVShiftL, e1, e2) -> p2 p "shl" e1 e2
     | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
+    | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
@@ -563,7 +566,7 @@ let rec pp_print_expr ppf =
     | Call (p, ty_args, id, l) ->
 
       Format.fprintf ppf
-        "%a%a<<%a>>(%a)"
+        "%a%a@<%a>(%a)"
         ppos p
         HString.pp_print_hstring (NI.get_name id)
         (pp_print_list pp_print_lustre_type ";") ty_args
@@ -586,6 +589,15 @@ let rec pp_print_expr ppf =
       pp_print_typed_ident id
       pp_print_expr e
 
+    | Extract (p, e, idx1, idx2) -> 
+
+      Format.fprintf ppf
+      "%a%a[%d:%d]"
+      ppos p
+      pp_print_expr e
+      idx1 
+      idx2
+
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
     Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
@@ -602,14 +614,8 @@ and pp_print_field_assign ppf (i, e) =
 and pp_print_lustre_type ppf = function
   | Bool _ -> Format.fprintf ppf "bool"
   | Int _ -> Format.fprintf ppf "int"
-  | UInt8 _ -> Format.fprintf ppf "uint8"
-  | UInt16 _ -> Format.fprintf ppf "uint16"
-  | UInt32 _ -> Format.fprintf ppf "uint32"
-  | UInt64 _ -> Format.fprintf ppf "uint64"
-  | Int8 _ -> Format.fprintf ppf "int8"
-  | Int16 _ -> Format.fprintf ppf "int16"
-  | Int32 _ -> Format.fprintf ppf "int32"
-  | Int64 _ -> Format.fprintf ppf "int64"
+  | SBitVector (_, i) -> Format.fprintf ppf "int[%d]" i
+  | UBitVector (_, i) -> Format.fprintf ppf "uint[%d]" i
   | IntRange (_, l, u) -> 
     let pp_print_opt ppf expr_opt = (match expr_opt with
       | Some expr -> pp_print_expr ppf expr
@@ -624,8 +630,12 @@ and pp_print_lustre_type ppf = function
   | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s
   | UserType (_, tys, s) -> 
-    Format.fprintf ppf "%a<<%a>>" pp_print_ident s
+    Format.fprintf ppf "%a<%a>" pp_print_ident s
       (pp_print_list pp_print_lustre_type "; ") tys
+  | Map (_, ty1, ty2) -> 
+    Format.fprintf ppf "map<%a; %a>" 
+      pp_print_lustre_type ty1
+      pp_print_lustre_type ty2
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 
@@ -715,7 +725,7 @@ let pp_print_type_decl ppf = function
   | AliasType (_, s, p, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 2>%a<<%a>> =@ %a@]" 
+      "@[<hv 2>%a<%a> =@ %a@]" 
       pp_print_ident s 
       (pp_print_list pp_print_ident ";") p
       pp_print_lustre_type t
@@ -775,7 +785,7 @@ let pp_print_node_param_list ppf = function
   | l ->
     
     Format.fprintf ppf
-      "@[<hv 2><<%a>>@]"
+      "@[<hv 2><%a>@]"
       (pp_print_list pp_print_node_param ";@ ") l
 
 
@@ -1092,7 +1102,7 @@ let pp_print_contract_call fmt (_, id, tys, in_params, out_params) =
       (pp_print_list pp_print_ident ", ") out_params
   | tys ->
     Format.fprintf
-      fmt "@[<hov 2>import %a<<%a>>(@,%a@,) returns (@,%a@,) ;@]"
+      fmt "@[<hov 2>import %a@<%a>(@,%a@,) returns (@,%a@,) ;@]"
       NI.pp_print_node_id_user_name id
       (pp_print_list pp_print_lustre_type "; ") tys
       (pp_print_list pp_print_expr ", ") in_params
@@ -1208,7 +1218,7 @@ let pp_print_declaration ppf = function
   | NodeParamInst (_, (n, _, p)) -> 
 
     Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 
+      "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><%a>@];@]" 
       pp_print_ident n 
       pp_print_ident n 
       (pp_print_list pp_print_lustre_type "@ ") p

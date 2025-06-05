@@ -36,37 +36,13 @@ val main_bool :
 val main_int :
   bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-(** Temporary entry point for int8 invariant generation. *)
-val main_int8 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+(** Temporary entry point for bitvector invariant generation. *)
+val main_bv :
+  bool ->  int -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-(** Temporary entry point for int16 invariant generation. *)
-val main_int16 :
-bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for int32 invariant generation. *)
-val main_int32 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for int64 invariant generation. *)
-val main_int64 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint8 invariant generation. *)
-val main_uint8 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint16 invariant generation. *)
-val main_uint16 :
-bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint32 invariant generation. *)
-val main_uint32 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-(** Temporary entry point for uint64 invariant generation. *)
-val main_uint64 :
-  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+(** Temporary entry point for unsigned bitvector invariant generation. *)
+val main_ubv :
+  bool ->  int -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary entry point for real invariant generation. *)
 val main_real :
@@ -105,30 +81,6 @@ module BoolInvGen : Out
 (** Int invariant generation module. *)
 module IntInvGen : Out
 
-(** Int8 invariant generation module. *)
-module Int8InvGen : Out
-
-(** Int16 invariant generation module. *)
-module Int16InvGen : Out
-
-(** Int32 invariant generation module. *)
-module Int32InvGen : Out
-
-(** Int64 invariant generation module. *)
-module Int64InvGen : Out
-
-(** UInt8 invariant generation module. *)
-module UInt8InvGen : Out
-
-(** UInt16 invariant generation module. *)
-module UInt16InvGen : Out
-
-(** UInt32 invariant generation module. *)
-module UInt32InvGen : Out
-
-(** UInt64 invariant generation module. *)
-module UInt64InvGen : Out
-
 (** Real invariant generation module. *)
 module RealInvGen : Out
 
@@ -143,29 +95,11 @@ module EqOnly : sig
   (** Graph of integers. *)
   module IntInvGen : Out
 
-  (** Graph of int8. *)
-  module Int8InvGen : Out
+  (** Graph of bitvectors. *)
+  module BVInvGen(IS : sig val length : int end) : Out
 
-  (** Graph of int16. *)
-  module Int16InvGen : Out
-
-  (** Graph of int32. *)
-  module Int32InvGen : Out
-
-  (** Graph of int64. *)
-  module Int64InvGen : Out
-
-  (** Graph of uint8. *)
-  module UInt8InvGen : Out
-
-  (** Graph of uint16. *)
-  module UInt16InvGen : Out
-
-  (** Graph of uint32. *)
-  module UInt32InvGen : Out
-
-  (** Graph of uint64. *)
-  module UInt64InvGen : Out
+  (** Graph of unsigned bitvectors. *)
+  module UBVInvGen(IS : sig val length : int end) : Out
 
   (** Graph of reals. *)
   module RealInvGen : Out

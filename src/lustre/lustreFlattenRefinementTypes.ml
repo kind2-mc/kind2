@@ -28,7 +28,11 @@ let rec flatten_ref_type ctx ty = match ty with
     | None -> A.UserType (pos, ty_args, str))
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
-    RecordType (pos, id, tis)
+    RecordType (pos, id, tis) 
+  | Map (pos, ty1, ty2) -> 
+    let ty1 = flatten_ref_type ctx ty1 in 
+    let ty2 = flatten_ref_type ctx ty2 in 
+    Map (pos, ty1, ty2)
   | TupleType (pos, tys) | GroupType (pos, tys) -> 
     let tys = List.map (flatten_ref_type ctx) tys in 
     TupleType (pos, tys)
@@ -51,11 +55,24 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
-    | ArrayType (pos, (ty, len)) -> 
+    | Map (pos, ty1, ty2) ->
+      let dummy_index = AN.mk_fresh_dummy_index () in
+      let exprs = chase_refinements ty2 in
+      List.map (fun expr ->
+        let idx =
+          A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Map)
+        in
+        let expr = AH.substitute_naive id idx expr in
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
+      ) exprs
+    | ArrayType (pos, (ty, len)) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in
-      List.map (fun expr -> 
-        let expr = AH.substitute_naive id (A.ArrayIndex(pos, Ident(pos, id), Ident(pos, dummy_index))) expr in
+      List.map (fun expr ->
+        let idx =
+          A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Array)
+        in
+        let expr = AH.substitute_naive id idx expr in
         let bound1 = 
           A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
         in 
@@ -63,19 +80,18 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ 
-    | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
-    | History _ | TArr _ | UserType _ -> []
+    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
-      | Ok (ty) -> RefinementType (pos, (pos2, id, ty), expr)
+      | Ok ty -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
-  | Int _ | Int64 _ | Int32 _ | Int16 _ | Int8 _ | UInt64 _ | UInt32 _ | UInt16 _ | UInt8 _ | Bool _  
-  | IntRange _ | Real _ | AbstractType _ | EnumType _ | History _ | TArr _ -> ty
+  | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+  | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -106,6 +122,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, rec_call e1, rec_call e2, rec_call e3)
   | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
+  | Extract (p, e, idx1, idx2) -> Extract (p, rec_call e, idx1, idx2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | RecordExpr (p, i, ps, flds) ->
     let ps = List.map (flatten_ref_type ctx) ps in
@@ -113,7 +130,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
   | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
-  | ArrayIndex (p, e1, e2) -> ArrayIndex (p, rec_call e1, rec_call e2)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, rec_call e1, rec_call e2, k)
   | When (p, e, c) -> When (p, rec_call e, c) 
   | Condact (p, e1, e2, i, es1, es2) ->
     Condact (p, rec_call e1

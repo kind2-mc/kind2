@@ -270,15 +270,9 @@ let empty_hs = HString.mk_hstring ""
 let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | Bool _
     | Int _
-    | UInt8 _
-    | UInt16 _
-    | UInt32 _ 
-    | UInt64 _ 
-    | Int8 _ 
-    | Int16 _
-    | Int32 _
-    | Int64 _
-    | Real _ -> empty_dependency_analysis_data
+    | Real _ 
+    | SBitVector _ 
+    | UBitVector _ -> empty_dependency_analysis_data
   | EnumType (pos, _, evals) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (Lib.flip (singleton_dependency_analysis_data const_prefix) pos) evals)   
@@ -302,6 +296,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
+  | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
   (* Circular dependencies in refinement type predicates are allowed *)
   | RefinementType (_, (_, _, ty), e) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
@@ -329,7 +324,7 @@ and mk_graph_expr ?(only_modes = false)
   | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
-  | LA.ArrayIndex (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.IndexAccess (_, e1, e2, _) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.GroupExpr (_, _, es) ->
     List.fold_left union_dependency_analysis_data
       empty_dependency_analysis_data
@@ -386,6 +381,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Values *)
   | LA.Const _ -> []
   (* Operators *)
+  | LA.Extract (_, e, _, _)
   | LA.UnaryOp (_, _, e) -> get_node_call_from_expr e
   | LA.BinaryOp (_, _, e1, e2) -> (get_node_call_from_expr e1)
                                   @ (get_node_call_from_expr e2)
@@ -401,7 +397,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Update of structured expressions *)
   | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ArrayIndex (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
   (* Clock operators *)
@@ -431,10 +427,11 @@ let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) lis
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ 
-  | Bool _ | Real _ | IntRange _ | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _ 
+  | UserType _ | AbstractType _ | EnumType _ | History _ -> []
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
@@ -648,6 +645,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Const _ -> SI.empty
 
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> r e
   | BinaryOp (_,_,e1, e2) -> SI.union (r e1) (r e2)
   | TernaryOp (_,_, e1, e2, e3) -> SI.union (SI.union (r e1) (r e2)) (r e3)
@@ -665,7 +663,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (r e1) (r e2)
+  | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
@@ -787,6 +785,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok [List.fold_left union_dependency_analysis_data
              empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)
+    | LA.Extract (_, e, _, _)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
   | LA.BinaryOp (_, _, e1, e2)
     | LA.CompOp (_, _, e1, e2) ->
@@ -822,7 +821,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
-  | LA.ArrayIndex (_, e1, _) -> mk_graph_expr2 m e1
+  | LA.IndexAccess (_, e1, _, _) -> mk_graph_expr2 m e1
 
   | LA.GroupExpr (_, ExprList, es) ->
     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)

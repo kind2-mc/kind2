@@ -257,6 +257,10 @@ let rec eval_ast_expr bounds ctx =
 
       eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
 
+  | A.BinaryOp (pos, A.In, _, _) ->
+
+    fail_at_position pos "Membership check not supported in old front end"
+
   (* Universal quantification *)
   | A.Quantifier (pos, A.Forall, avars, expr) ->
 
@@ -1121,7 +1125,7 @@ let rec eval_ast_expr bounds ctx =
           |> E.unsafe_term_of_expr
           |> Term.numeral_of_term
           |> Numeral.to_int
-          |> Lib.list_init (fun _ -> expr) in
+          |> (flip List.init) (fun _ -> expr) in
         
         eval_ast_expr bounds ctx (A.GroupExpr (pos, A.ArrayExpr, l_expr))
       else
@@ -1150,7 +1154,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Array indexing *)
-  | A.ArrayIndex (pos, expr, i) -> 
+  | A.IndexAccess (pos, expr, i, _) ->
 
     (* Evaluate expression to an integer constant *)
     let index_e = static_int_of_ast_expr ctx pos i in
@@ -1265,6 +1269,14 @@ let rec eval_ast_expr bounds ctx =
   | A.AnyOp (pos, _, _, _) -> 
     
     fail_at_position pos "'Any' operation not supported in old front end"
+
+  | A.Extract (pos, _, _, _) -> 
+    
+    fail_at_position pos "'Extract' operation not supported in old front end"
+
+  | A.BinaryOp (pos, BVConcat, _, _) -> 
+  
+    fail_at_position pos "Bitvector concatenation not supported in old front end"
 
 
 
@@ -2100,21 +2112,9 @@ and eval_ast_type_flatten flatten_arrays ctx = function
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int _ -> D.singleton D.empty_index Type.t_int
 
-  | A.UInt8 _ -> D.singleton D.empty_index (Type.t_ubv 8)
+  | A.SBitVector (_, size) ->  D.singleton D.empty_index (Type.t_bv size)
 
-  | A.UInt16 _ -> D.singleton D.empty_index (Type.t_ubv 16)
-
-  | A.UInt32 _ -> D.singleton D.empty_index (Type.t_ubv 32)
-
-  | A.UInt64 _ -> D.singleton D.empty_index (Type.t_ubv 64)
-
-  | A.Int8 _ -> D.singleton D.empty_index (Type.t_bv 8)
-
-  | A.Int16 _ -> D.singleton D.empty_index (Type.t_bv 16)
-
-  | A.Int32 _ -> D.singleton D.empty_index (Type.t_bv 32)
-
-  | A.Int64 _ -> D.singleton D.empty_index (Type.t_bv 64)
+  | A.UBitVector (_, size) ->  D.singleton D.empty_index (Type.t_ubv size)
 
   (* Basic type real, add to empty trie with empty index *)
   | A.Real _ -> D.singleton D.empty_index Type.t_real
@@ -2179,6 +2179,8 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       (* Type might be forward referenced. *)
       Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
+
+  | A.Map (pos, _, _) -> fail_at_position pos "Map types not supported in old frontend"
 
   | A.UserType (pos, _ :: _, _) -> fail_at_position pos "UserTypes with type arguments not supported in old frontend"
 

@@ -1,44 +1,44 @@
-node abs (in: int) returns (out: int) ;
+node abs (i: int) returns (out: int) ;
 let
-  out = if in < 0 then -in else in ;
+  out = if i < 0 then -i else i ;
   (*%PROPERTY out >= 0 ; *)
-  /*!PROPERTY : if in < 0 then (out = -in) else (out = in) ; */
+  /*!PROPERTY : if i < 0 then (out = -i) else (out = i) ; */
 tel
 
-node has_been_true(in: bool) returns (out: bool) ;
+node has_been_true(i: bool) returns (out: bool) ;
 
 /*@contract
 
   mode false_so_far (
-    require not (in or (false -> pre out)) ;
+    require not (i or (false -> pre out)) ;
     ensure not out ;
   ) ;
 
-  mode in_true (
-    require in ;
+  mode i_true (
+    require i ;
     require ::always_true ;
     ensure out ;
   ) ;
 
   mode always_true (
     require not ::false_so_far ;
-    require in -> pre out ;
+    require i -> pre out ;
     ensure out ;
   ) ;
 */
 let
-  out = in or (false -> pre out) ;
+  out = i or (false -> pre out) ;
 tel
 
 
-node my_node (in: int) returns (out: int) ;
+node my_node (i: int) returns (out: int) ;
 var mem: int ;
 let
-  mem = abs(in) + (0 -> pre mem) ;
-  out = if in < 0 then in else mem ;
+  mem = abs(i) + (0 -> pre mem) ;
+  out = if i < 0 then i else mem ;
 
   (* Old style still works. *)
-  --%PROPERTY out - in >= 0 ;
+  --%PROPERTY out - i >= 0 ;
 
   (* Doing the same thing using different annotations. *)
   (*!MAIN: true ; *)

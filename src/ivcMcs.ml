@@ -137,14 +137,8 @@ let previous_rands = Hashtbl.create 10
 let rec unannot_pos = function
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
-  | A.UInt8 _ -> A.UInt8 dpos
-  | A.UInt16 _ -> A.UInt16 dpos
-  | A.UInt32 _ -> A.UInt32 dpos
-  | A.UInt64 _ -> A.UInt64 dpos
-  | A.Int8 _ -> A.Int8 dpos
-  | A.Int16 _ -> A.Int16 dpos
-  | A.Int32 _ -> A.Int32 dpos
-  | A.Int64 _ -> A.Int64 dpos
+  | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
+  | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
   | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
   | A.Real _ -> A.Real dpos
   | A.UserType (_,ps,id) -> A.UserType (dpos,ps,id)
@@ -159,6 +153,7 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
+  | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -252,7 +247,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
     | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
-    | A.ArrayIndex (p,e1, e2) -> A.ArrayIndex (p,aux e1,aux e2)
+    | A.IndexAccess (p,e1, e2,k) -> A.IndexAccess (p,aux e1,aux e2,k)
     | A.RecordExpr (p,id,ps,lst) ->
       A.RecordExpr (p,id,ps,List.map (fun (i,e) -> (i, aux e)) lst)
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
@@ -272,6 +267,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
+    | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
   in aux expr
 
 and ast_contains p ast =
@@ -285,11 +281,11 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e,None) | A.Extract (_,e,_,_) ->
       aux e
     | A.AnyOp (_,_,e1,Some e2) -> aux e1 || aux e2
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
-    | A.ArrayIndex (_,e1,e2) 
+    | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
     | A.Arrow (_,e1,e2) -> aux e1 || aux e2
     | A.GroupExpr (_,_,es) ->

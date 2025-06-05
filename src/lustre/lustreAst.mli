@@ -78,9 +78,9 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl
+  | And | Or | Xor | Impl | In
   | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
   | Ite
@@ -101,18 +101,14 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+type access_kind = Array | Map | Unknown
+
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
   | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
+  | SBitVector of position * int
+  | UBitVector of position * int
   | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
@@ -128,6 +124,7 @@ type lustre_type =
    *  as we can have more than one arguments and return 
    *  values  *)
   | RefinementType of position * typed_ident * expr
+  | Map of position * lustre_type * lustre_type
   
 (** A Lustre expression *)
 and expr =
@@ -145,13 +142,14 @@ and expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr * expr option
+  | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr 
-  | ArrayIndex of position * expr * expr
+  | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)

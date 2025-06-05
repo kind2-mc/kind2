@@ -12,19 +12,19 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-latest
             pkg_update: sudo apt-get update -y
-            ocaml-version: 4.09.1
+            ocaml-version: 4.14.2
           - name: linux-arm64
             os: ubuntu-24.04-arm
             pkg_update: sudo apt-get update -y
-            ocaml-version: 4.09.1
+            ocaml-version: 4.14.2
           - name: macos-x86_64
             os: macos-13
             pkg_update: brew update
-            ocaml-version: 4.09.1
+            ocaml-version: 4.14.2
           - name: macos-arm64
             os: macos-14
             pkg_update: brew update
-            ocaml-version: 4.10.2 # Oldest version available
+            ocaml-version: 4.14.2
 
     runs-on: ${{ matrix.os }}
 

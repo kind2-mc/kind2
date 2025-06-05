@@ -14,6 +14,10 @@ build:
 	@dune build -p kind2 @install
 	@dune install -p kind2 --sections=bin --prefix . 2> /dev/null
 
+kmoxi:
+	@dune build -p kmoxi @install
+	@dune install -p kmoxi --sections=bin --prefix . 2> /dev/null
+
 static:
 	@LINKING_MODE=static dune build -p kind2 @install
 	@dune install -p kind2 --sections=bin --prefix . 2> /dev/null

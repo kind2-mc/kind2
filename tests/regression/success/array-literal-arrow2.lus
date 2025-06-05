@@ -1,6 +1,6 @@
 
 
-node top(in : int;) returns (out : int^2;)
+node top(i : int;) returns (out : int^2;)
 let
   out = 0^2 -> [0, 0];
   --%PROPERTY out[0] = 0;

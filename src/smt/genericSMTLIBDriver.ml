@@ -596,11 +596,8 @@ let pp_print_logic = TermLib.pp_print_logic ~enforce_logic:false
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ | Type.Enum _ -> Type.mk_int ()
-  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
-  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
-  | Type.BV 32 | Type.BV 64 -> t
-  | Type.UBV _ | Type.BV _ -> raise 
-      (Invalid_argument "rec_interpr_type: BV size not allowed")
+  | Type.Bool | Type.Int 
+  | Type.UBV _ | Type.BV _
   | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
@@ -657,6 +654,7 @@ let smtlib_string_symbol_list =
    ("bvneg", Symbol.mk_symbol `BVNEG);
    ("bvand", Symbol.mk_symbol `BVAND);
    ("bvor", Symbol.mk_symbol `BVOR);
+   ("bvxor", Symbol.mk_symbol `BVXOR);
    ("bvadd", Symbol.mk_symbol `BVADD);
    ("bvsub", Symbol.mk_symbol `BVSUB);
    ("bvmul", Symbol.mk_symbol `BVMUL);
@@ -688,7 +686,10 @@ let smtlib_string_symbol_list =
    (* uninterpreted select *)
    (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
 
-   ("store", Symbol.mk_symbol `STORE)
+   ("store", Symbol.mk_symbol `STORE);
+
+   ("const", Symbol.mk_symbol
+      (`CONST_ARRAY (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
 
   ]
 
@@ -755,6 +756,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
   | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
   | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
+  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
   | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
@@ -775,6 +777,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
+  | `BVXOR -> Format.pp_print_string ppf "bvxor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
@@ -825,6 +828,13 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
       )
 
   | `STORE -> Format.pp_print_string ppf "store"
+
+  | `CONST_ARRAY ty_array ->
+    Format.fprintf
+      ppf
+      "(as const %a)"
+      Type.pp_print_type ty_array
+
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
                                 
 

@@ -48,15 +48,15 @@ let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
   | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
-  | ArrayIndex (pos , _, _)
+  | IndexAccess (pos , _, _, _)
   | RecordExpr (pos , _ , _, _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
   | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
   | Quantifier (pos, _, _, _)
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _ , _) | Call (pos, _ , _ , _ )
-  | AnyOp (pos, _, _, _)
+  | Arrow (pos , _, _) | Call (pos, _, _, _)
+  | AnyOp (pos, _, _, _) | Extract (pos, _, _, _)
   -> pos
 
 let type_arity ty =
@@ -72,10 +72,10 @@ let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) 
+  | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
   | TernaryOp (_, _, e1, e2, e3)
@@ -105,9 +105,10 @@ let rec expr_contains_id id = function
   | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
+  | Extract (_, e, _, _)
     -> expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
-  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
@@ -136,6 +137,7 @@ let rec substitute_naive (var:HString.t) t = function
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
+  | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
   | BinaryOp (pos, op, e1, e2) ->
     BinaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
@@ -159,8 +161,8 @@ let rec substitute_naive (var:HString.t) t = function
     StructUpdate (pos, substitute_naive var t e1, idx, substitute_naive var t e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, substitute_naive var t e1, substitute_naive var t e2)
+  | IndexAccess (pos, e1, e2, kind) ->
+    IndexAccess (pos, substitute_naive var t e1, substitute_naive var t e2, kind)
   | When (pos, e, clock) -> When (pos, substitute_naive var t e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
@@ -192,6 +194,7 @@ let rec apply_subst_in_expr sigma = function
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
+  | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
   | BinaryOp (pos, op, e1, e2) ->
     BinaryOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
@@ -210,8 +213,8 @@ let rec apply_subst_in_expr sigma = function
     StructUpdate (pos, apply_subst_in_expr sigma e1, idx, apply_subst_in_expr sigma e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | IndexAccess (pos, e1, e2, kind) ->
+    IndexAccess (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2, kind)
   | When (pos, e, clock) -> When (pos, apply_subst_in_expr sigma e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
@@ -252,6 +255,7 @@ let rec apply_type_subst_in_expr
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_type_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
+  | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
   | BinaryOp (pos, op, e1, e2) ->
     BinaryOp (pos, op, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
@@ -268,8 +272,8 @@ let rec apply_type_subst_in_expr
     StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | IndexAccess (pos, e1, e2, kind) ->
+    IndexAccess (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2, kind)
   | When (pos, e, clock) -> When (pos, apply_type_subst_in_expr sigma e, clock)
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
@@ -310,6 +314,8 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | Map(pos, ty1, ty2) -> 
+    Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | RecordType (pos, name, tis) -> 
@@ -336,6 +342,8 @@ let rec apply_subst_in_type sigma = function
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_subst_in_type sigma) tys)
+  | Map(pos, ty1, ty2) -> 
+    Map(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | RecordType (pos, name, tis) -> 
@@ -350,7 +358,7 @@ let rec has_unguarded_pre ung = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
   | AnyOp (pos, _, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
@@ -364,7 +372,7 @@ let rec has_unguarded_pre ung = function
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
+  | IndexAccess (_, e1, e2, _) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
@@ -432,7 +440,7 @@ let rec has_unguarded_pre_no_warn ung = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
@@ -446,7 +454,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u3 = has_unguarded_pre_no_warn ung e3 in
     u1 || u2 || u3
 
-  | ArrayIndex (_, e1, e2) ->
+  | IndexAccess (_, e1, e2, _) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
@@ -515,14 +523,14 @@ let rec has_pre_or_arrow = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
-  | AnyOp (_, _, e, None) -> 
+  | AnyOp (_, _, e, None) | Extract (_, e, _, _) -> 
     has_pre_or_arrow e
 
   | AnyOp (_, _, e1, Some e2) -> 
     has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -594,7 +602,7 @@ let rec lasts_of_expr acc = function
     lasts_of_expr acc e
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-    | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
+    | ArrayConcat (_, e1, e2) | IndexAccess (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
      lasts_of_expr (lasts_of_expr acc e1) e2
 
   | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
@@ -756,6 +764,7 @@ let rec vars_of_node_calls_h obs =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> vars obs e
   | BinaryOp (_,_,e1, e2) -> vars obs e1 |> SI.union (vars obs e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
@@ -769,7 +778,7 @@ let rec vars_of_node_calls_h obs =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
+  | IndexAccess (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars obs e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -798,6 +807,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> vars e
   | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
   | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
@@ -809,7 +819,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -847,6 +857,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | RecordProject (_, e, _) -> calls_of_expr e 
   | TupleProject (_, e, _) -> calls_of_expr e
   | Const _ -> NI.Set.empty
+  | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> calls_of_expr e
   | BinaryOp (_,_,e1, e2) -> calls_of_expr e1 |> NI.Set.union (calls_of_expr e2)
   | TernaryOp (_,_, e1, e2, e3) -> calls_of_expr e1 |> NI.Set.union (calls_of_expr e2) |> NI.Set.union (calls_of_expr e3) 
@@ -856,7 +867,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
   | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | ArrayIndex (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
   | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NI.Set.flatten
@@ -876,18 +887,19 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
-  | UnaryOp (_,_,e) -> vars e
-  | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
-  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
-  | ConvOp  (_,_,e) -> vars e
-  | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
+  | Extract (_, e, _, _)
+  | UnaryOp (_, _, e) -> vars e
+  | BinaryOp (_, _, e1, e2) -> vars e1 |> SI.union (vars e2)
+  | TernaryOp (_, _, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
+  | ConvOp  (_, _, e) -> vars e
+  | CompOp (_, _, e1, e2) -> (vars e1) |> SI.union (vars e2)
   (* Structured expressions *)
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
-  | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
@@ -932,10 +944,11 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Bool _ 
-  | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ -> SI.empty
+  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | SBitVector _ | UBitVector _ -> SI.empty
 
 
 let rec defined_vars_with_pos = function
@@ -1008,6 +1021,7 @@ let rec replace_with_constants: expr -> expr =
   | Const _ as e -> e
 
   (* Operators *)
+  | Extract (p, e, idx1, idx2) -> Extract (p, replace_with_constants e, idx1, idx2)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, replace_with_constants e)
   | BinaryOp (p, op,e1, e2) ->
      let e1' = replace_with_constants e1 in
@@ -1040,10 +1054,10 @@ let rec replace_with_constants: expr -> expr =
      let e2' = replace_with_constants e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayIndex (p, e1, e2) ->
+  | IndexAccess (p, e1, e2, k) ->
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
-     ArrayIndex (p, e1', e2') 
+     IndexAccess (p, e1', e2', k) 
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -1103,6 +1117,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      CompOp (p, op, e1', e2')
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | Extract (p, e, ub, lb) -> Extract (p, abstract_pre_subexpressions e, ub, lb)
 
   (* Structured expressions *)
   | RecordExpr (p, i, ps, flds) -> RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))
@@ -1119,10 +1134,10 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e2' = abstract_pre_subexpressions e2 in
      ArrayConstr (p, e1', e2') 
 
-  | ArrayIndex (p, e1, e2) ->
+  | IndexAccess (p, e1, e2, k) ->
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
-     ArrayIndex (p, e1', e2')
+     IndexAccess (p, e1', e2', k)
 
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
@@ -1154,6 +1169,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
                  
 let rec replace_idents locals1 locals2 expr = 
+  let r = replace_idents locals1 locals2 in 
   match expr with
   | Ident (pos, i) -> (
     match List.assoc_opt i (List.combine locals1 locals2) with
@@ -1161,25 +1177,26 @@ let rec replace_idents locals1 locals2 expr =
       | None -> Ident (pos, i)
   )
   (* Everything else is just recursing to find Idents *)
-  | Pre (a, e) -> Pre (a, replace_idents locals1 locals2 e)
-  | Arrow (a, e1, e2) -> Arrow (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Pre (a, e) -> Pre (a, r e)
+  | Arrow (a, e1, e2) -> Arrow (a, r e1, r e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, replace_idents locals1 locals2 e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, replace_idents locals1 locals2 e)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, replace_idents locals1 locals2 e)
+  | RecordProject (a, e, b) -> RecordProject (a, r e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, r e)
+  | Extract (a, e, b, c) -> Extract (a, r e, b, c)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, r e)
   
-  | When (a, e, b) -> When (a, replace_idents locals1 locals2 e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, replace_idents locals1 locals2 e, b)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
+  | When (a, e, b) -> When (a, r e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, r e, b)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
+  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, r e1, r e2, k)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, r e1, r e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, r e1, r e2, r e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
-  | Call (a, b, c, l) -> Call (a, b, c, List.map (replace_idents locals1 locals2) l)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1192,28 +1209,28 @@ let rec replace_idents locals1 locals2 expr =
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine
     (List.map fst l)
-    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
     List.combine
     (List.map fst l)
-    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (replace_idents locals1 locals2) l, replace_idents locals1 locals2 e)
-  | Activate (a, b, e, r, l) ->
-    Activate (a, b, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, List.map (replace_idents locals1 locals2) l)
-  | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, b, 
-             List.map (replace_idents locals1 locals2) l1, List.map (replace_idents locals1 locals2) l2)
+    RestartEvery (a, b, List.map r l, r e)
+  | Activate (a, b, e1, e2, l) ->
+    Activate (a, b, r e1, r e2, List.map r l)
+  | Condact (a, e1, e2, b, l1, l2) ->
+    Condact (a, r e1, r e2, b, 
+             List.map r l1, List.map r l2)
 
   | StructUpdate (a, e1, li, e2) -> 
-    StructUpdate (a, replace_idents locals1 locals2 e1, 
+    StructUpdate (a, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
-              | Index (a, e) -> Index (a, replace_idents locals1 locals2 e)
+              | Index (a, e) -> Index (a, r e)
              ) li, 
-    replace_idents locals1 locals2 e2)
+    r e2)
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1343,11 +1360,14 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun e3 ->
       Ok (e1 && e2 && e3)
-    | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2)
-    | ArrayIndex (_, xe1, xe2), ArrayIndex (_, ye1, ye2) ->
+    | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
+    | IndexAccess (_, xe1, xe2, xk), IndexAccess (_, ye1, ye2, yk) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2 && xk=yk)
     | Quantifier (_, xq, xl, xe), Quantifier (_, yq, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       let l = if List.length xl = List.length yl then
@@ -1420,16 +1440,10 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     else match x, y with
     | Bool _, Bool _
     | Int _, Int _
-    | UInt8 _, UInt8 _
-    | UInt16 _, UInt16 _
-    | UInt32 _, UInt32 _
-    | UInt64 _, UInt64 _
-    | Int8 _, Int8 _
-    | Int16 _, Int16 _
-    | Int32 _, Int32 _
-    | Int64 _, Int64 _
     | Real _, Real _ ->
-      Ok (true)
+      Ok true
+    | SBitVector (_, s1), SBitVector (_, s2)
+    | UBitVector (_, s1), UBitVector (_, s2) -> Ok (s1 = s2)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
       let* e1 = match xe1, ye1 with
         | None, None -> Ok true
@@ -1475,7 +1489,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
-    | _ -> Ok (false)
+    | _ -> Ok false
   in
   r 0 x y
 
@@ -1541,10 +1555,10 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (14, e1_hash, e2_hash)
-      | ArrayIndex (_, e1, e2) ->
+      | IndexAccess (_, e1, e2, k) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (15, e1_hash, e2_hash)
+        Hashtbl.hash (15, e1_hash, e2_hash, k)
       | Quantifier (_, e1, l, e2) ->
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
@@ -1600,6 +1614,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
+      | Extract (_, e, idx1, idx2) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (26, e_hash, idx1, idx2)
   in
   r 0 expr
 
@@ -1620,6 +1637,7 @@ let rec rename_contract_vars = function
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e
+  | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
   | BinaryOp (pos, op, e1, e2) ->
     BinaryOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
@@ -1637,8 +1655,8 @@ let rec rename_contract_vars = function
     StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
-  | ArrayIndex (pos, e1, e2) ->
-    ArrayIndex (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | IndexAccess (pos, e1, e2, kind) ->
+    IndexAccess (pos, rename_contract_vars e1, rename_contract_vars e2, kind)
   | Quantifier (pos, kind, idents, e) ->
     Quantifier (pos, kind, idents, rename_contract_vars e)
   | When (pos, e, clock) -> When (pos, rename_contract_vars e, clock)

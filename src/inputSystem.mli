@@ -27,6 +27,8 @@
 
 type _ t
 
+module IntSet : Set.S with type elt = int
+
 exception UnsupportedFileFormat of string
 
 (** [read_input_lustre only_parse filename] read input from [filename]
@@ -157,11 +159,17 @@ val state_var_dependencies :
   _ t ->
   (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
 
+val get_bv_sizes: _ t -> IntSet.t
+
+val get_ubv_sizes: _ t -> IntSet.t
+
 val get_node_internal_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_id : _ t -> Scope.t -> NodeId.t
+
+val current_state_props : _ t -> Scope.t -> string list
 
 (* 
    Local Variables:

@@ -174,6 +174,9 @@ val mk_bvand : t list -> t
 (** Create a bitvector disjunction *)
 val mk_bvor : t list -> t
 
+(** Create a bitvector exclusive disjunction *)
+val mk_bvxor : t list -> t
+
 (** Create a bitwise negation *)
 val mk_bvnot : t -> t
 
@@ -260,6 +263,12 @@ val mk_to_int : t -> t
 (** Create a conversion from uint8 to an integer numeral *)
 val mk_uint8_to_int : t -> t
 
+(** Create a conversion from unsigned bitvector to an integer numeral *)
+val mk_ubv_to_int : t -> t
+
+(** Create a conversion from signed bitvector to an integer numeral *)
+val mk_bv_to_int : t -> t
+
 (** Create a conversion from uint16 to an integer numeral *)
 val mk_uint16_to_int : t -> t
 
@@ -328,6 +337,8 @@ val mk_select : t -> t -> t
 
 (** Functionally update an array at a given index *)
 val mk_store : t -> t -> t -> t
+
+val mk_const_array : Type.t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)

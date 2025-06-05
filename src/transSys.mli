@@ -696,6 +696,8 @@ val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
     variables that have been converted to a state variable *)
 val enforce_constantness_via_equations : t -> (t * StateVar.t list)
 
+(** Return the global constant state variables of the transition system *)
+val global_const_state_vars : t -> StateVar.t list
 
 (* 
    Local Variables:

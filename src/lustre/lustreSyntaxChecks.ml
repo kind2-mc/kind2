@@ -247,11 +247,11 @@ function
 
 | RecordProject (_, e, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
-| TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
+| TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-| ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
+| IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2
 
 | TernaryOp (_, _, e1, e2, e3) ->
@@ -531,7 +531,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (_, ArrayIndex (_, _, _)) -> Ok ()
+  | LA.Pre (_, IndexAccess (_, _, _, _)) -> Ok ()
   | LA.Pre (pos, e) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
@@ -619,6 +619,7 @@ let rec expr_only_supported_in_merge observer expr =
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
+  | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) -> r observer e
   | AnyOp (_, _, e, None) -> r false e
   | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
@@ -626,7 +627,7 @@ let rec expr_only_supported_in_merge observer expr =
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
-  | ArrayIndex (_, e1, e2)
+  | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
@@ -666,9 +667,9 @@ and check_ty_node_calls i ty =
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
+    | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
-    | UInt8 _ | UInt16 _ | UInt32 _ | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _
-    | AbstractType _ | History _ | TArr _ -> Ok ()
+    | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
@@ -917,6 +918,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
+    | Extract (_, e, _, _)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
         let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
@@ -926,7 +928,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
-    | ArrayIndex (_, e1, e2)
+    | IndexAccess (_, e1, e2, _)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 

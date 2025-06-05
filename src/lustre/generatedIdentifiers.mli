@@ -31,11 +31,6 @@ type t = {
     * LustreAst.lustre_type
     * LustreAst.expr)
     list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;

@@ -1,4 +1,4 @@
-type R0<<T>> = struct {
+type R0<T> = struct {
   v: T;
 };
 
@@ -9,7 +9,7 @@ type R1 = struct {
 };
 
 type R2 = struct {
-  opt: R0<<R1>>;
+  opt: R0<R1>;
 };
 
 node N(x: R2) returns (y: R2);

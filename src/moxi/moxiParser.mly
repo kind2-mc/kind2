@@ -55,6 +55,7 @@ let mk_span start_pos end_pos =
 
 (* Reserved words *)
 %token AS
+%token LET
 
 (* Command names *)
 %token CHECK_SYSTEM
@@ -236,6 +237,16 @@ term:
   | "(" qid=qual_identifier ts=term+ ")"
   {
     A.App (mk_span $startpos $endpos, qid, ts)
+  }
+  | "(" LET "(" bs=var_binding+; ")" t=term; ")"
+  {
+    A.Let (mk_span $startpos $endpos, bs, t)
+  }
+
+var_binding:
+  "(" s=symbol; t=term; ")"
+  {
+    (mk_span $startpos $endpos, s, t)
   }
 
 spec_constant:

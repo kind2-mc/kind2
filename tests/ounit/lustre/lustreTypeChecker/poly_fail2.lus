@@ -1,4 +1,4 @@
-node N<<T>>(x: T) returns (y: T) 
+node N<T>(x: T) returns (y: T) 
 let 
     y = x -> pre x + x;
 tel

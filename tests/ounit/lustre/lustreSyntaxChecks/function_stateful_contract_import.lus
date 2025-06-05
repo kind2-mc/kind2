@@ -1,13 +1,13 @@
 -- Illegal call to a stateful contract in a function.
-contract blah_spec (in: int) returns (out: int) ;
+contract blah_spec (i: int) returns (out: int) ;
 let
-  guarantee out = (0 -> pre in) ;
+  guarantee out = (0 -> pre i) ;
 tel
 
-function blah ( in: int ) returns ( out: int ) ;
+function blah ( i: int ) returns ( out: int ) ;
 (*@contract
-  import blah_spec (in) returns (out) ;
+  import blah_spec (i) returns (out) ;
 *)
 let
-  out = in ;
+  out = i ;
 tel

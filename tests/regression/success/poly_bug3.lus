@@ -1,15 +1,15 @@
-node O<<T>>(x: T) returns (y: T);
+node O<T>(x: T) returns (y: T);
 let
   y = x;
 tel
 
-node N<<T>>(x: T) returns (y: T);
+node N<T>(x: T) returns (y: T);
 let
-  y = O<<T>>(x);
+  y = O@<T>(x);
 tel
 
 node M(x: int) returns (y: int)
 let 
-  y = N<<int>>(x);
+  y = N@<int>(x);
   check y = x;
 tel

@@ -1,8 +1,8 @@
 -- Illegal temporal contract for function.
-function blah ( in: int ) returns ( out: int ) ;
+function blah ( i: int ) returns ( out: int ) ;
 (*@contract
-  guarantee out = (0 -> pre in) ;
+  guarantee out = (0 -> pre i) ;
 *)
 let
-  out = in ;
+  out = i ;
 tel

@@ -224,6 +224,7 @@ let keyword_table = mk_hashtbl [
   (* Types *)
   "type", TYPE ;
   "int", INT ;
+  "uint", UINT ; 
   "uint8", UINT8 ;
   "uint16", UINT16 ;
   "uint32", UINT32 ;
@@ -241,6 +242,7 @@ let keyword_table = mk_hashtbl [
   "struct", STRUCT ;
   "enum", ENUM ;
   "history", HISTORY ;
+  "map", MAP ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;
@@ -282,13 +284,17 @@ let keyword_table = mk_hashtbl [
   "forall", FORALL ;
   "exists", EXISTS ;
   "or", OR ;
+  "in", IN ;
+
+  (* Blocks/Conditionals *)
   "if", IF ;
-  "fi", FI ;
-  "frame", FRAME ; 
   "then", THEN ;
   "else", ELSE ;
   "elsif", ELSIF ;
-  "with", WITH ;
+  "fi", FI ;
+  "frame", FRAME ;
+
+  (* Arithmetic operators *)
   "div", INTDIV ;
   "mod", MOD ;
 
@@ -311,7 +317,7 @@ let keyword_table = mk_hashtbl [
   "pre", PRE ;
   "fby", FBY ;
 
-  (* |===| Block annotation contract stuff. *)
+  (* Block annotation contract stuff. *)
   "mode", MODE;
   "assume", ASSUME;
   "guarantee", GUARANTEE;
@@ -319,7 +325,8 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
-      
+
+  "with", WITH ;
   ]
 
     
@@ -447,14 +454,15 @@ rule token = parse
   }
 
   (* Operators that are not identifiers *)
+  | '@' { ATSIGN }
   | ';' { SEMICOLON }
   | '=' { EQUALS }
+  | "::" { DOUBLE_COLON }
   | ':' { COLON }
   | ',' { COMMA }
   | '[' { LSQBRACKET }
   | ']' { RSQBRACKET }
   | '(' { LPAREN }
-  | ')' { RPAREN }
   | ')' { RPAREN }
   | '.' { DOT }
   | ".." { DOTDOT }
@@ -462,8 +470,6 @@ rule token = parse
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
-  | "<<" { LPARAMBRACKET }
-  | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }
@@ -482,6 +488,7 @@ rule token = parse
   | "!" { BVNOT }
   | "lsh" { LSH } 
   | "rsh" { RSH }
+  | "++" { CONCAT }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }

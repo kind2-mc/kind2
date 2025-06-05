@@ -439,21 +439,22 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
           let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
           t
 
-        | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-        | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+        | Bool _ | Int _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false)
+        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ 
+        | SBitVector _ | UBitVector _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | TupleType (_, types) -> List.nth types idx
       | _ -> assert false)
-    | ArrayIndex (_, e, _) ->
+    | IndexAccess (_, e, _, _) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | ArrayType (_, (ty, _)) -> ty
+      | Map (_, _, ty) -> ty
       | _ -> assert false)
     | GroupExpr (_, ExprList, es) -> (
       let g = interpret_structured_expr f node_id ctx ty_ctx ty in
@@ -487,16 +488,16 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
         let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
         extract_bounds_from_type ty
       
-      | Bool _ | Int _ | UInt8 _ | UInt16 _ | UInt32 _
-      | UInt64 _ | Int8 _ | Int16 _ | Int32 _ | Int64 _ | IntRange _ | Real _
+      | Bool _ | Int _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-      | EnumType _ | TArr _ | RefinementType _ | History _ -> assert false) 
+      | EnumType _ | TArr _ | RefinementType _ | History _ 
+      | Map _ | SBitVector _ | UBitVector _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
       extract_bounds_from_type ty
     | _ -> assert false)
-  | ArrayIndex (_, e, _) -> (match infer e with
+  | IndexAccess (_, e, _, _) -> (match infer e with
     | ArrayType (_, (t, _)) -> extract_bounds_from_type t
     | _ -> assert false)
   | Const (_, const) -> (match const with
@@ -524,6 +525,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ArrayConstr _ -> assert false
   | Quantifier _ -> assert false
   | When _ -> assert false
+  | Extract _ -> assert false
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) 

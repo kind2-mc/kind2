@@ -27,7 +27,7 @@ let path_offset = Numeral.zero
 module MIL = Map.Make
     (struct
       type t = int list
-      let compare = Lib.compare_lists Int.compare
+      let compare = List.compare Int.compare
     end)
 
 

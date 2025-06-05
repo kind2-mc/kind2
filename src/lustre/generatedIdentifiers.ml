@@ -31,11 +31,6 @@ type t = {
     * LustreAst.lustre_type
     * LustreAst.expr)
     list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
@@ -108,8 +103,6 @@ let union_keys key id1 id2 = match key, id1, id2 with
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
     asserts = ids1.asserts @ ids2.asserts;
-    array_constructors = StringMap.merge union_keys
-      ids1.array_constructors ids2.array_constructors;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
@@ -135,7 +128,6 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
 let empty () = {
   locals = StringMap.empty;
   asserts = [];
-  array_constructors = StringMap.empty;
   node_args = [];
   oracles = [];
   ib_oracles = [];

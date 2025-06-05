@@ -84,6 +84,8 @@ val string_starts_with : string -> string -> bool
     that the result does not overflow to a negtive number *)
 val safe_hash_interleave : int -> int -> int -> int
 
+val power_of_two : int -> int
+
 (** {1 List functions} *)
 
 val find_opt_index : ('a -> bool) -> 'a list -> int option
@@ -99,9 +101,6 @@ val find_opt_index : ('a -> bool) -> 'a list -> int option
     {[ \[1;2;3;4\] ]}
 *)
 val ( @:: ) : 'a option -> 'a list -> 'a list 
-
-(** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
-val list_init : (int -> 'a) -> int -> 'a list
 
 (** Returns the maximum element of a non-empty list *)
 val list_max : 'a list -> 'a
@@ -192,21 +191,11 @@ val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
     at each element are equal. *)
 val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
 
-(** Apply a map over a list where if the output is None then the element
-    is dropped from the resulting list and if the output is Some value
-    then that value is added to the resulting list *)
-val list_filter_map : ('a -> 'b option) -> 'a list -> 'b list
-
 (** Lexicographic comparison of pairs *)
 val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b -> int 
 
-(** Lexicographic comparison of lists *)
-val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
-
 (** Apply a list of functions to a single argument. Kind of List.map but not really *)
 val list_apply: ('a -> 'b) list -> 'a -> 'b list
-
-val find_map : ('a -> 'b option) -> 'a list -> 'b option
 
 val drop_last: 'a list -> 'a list
 (** Returns the list with its last element dropped *)  
@@ -401,24 +390,12 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENBV of int
+  | `INVGENBVOS of int
+  | `INVGENUBV of int
+  | `INVGENUBVOS of int
   | `INVGENMACH
   | `INVGENMACHOS
-  | `INVGENINT8
-  | `INVGENINT8OS
-  | `INVGENINT16
-  | `INVGENINT16OS
-  | `INVGENINT32
-  | `INVGENINT32OS
-  | `INVGENINT64
-  | `INVGENINT64OS
-  | `INVGENUINT8
-  | `INVGENUINT8OS
-  | `INVGENUINT16
-  | `INVGENUINT16OS
-  | `INVGENUINT32
-  | `INVGENUINT32OS
-  | `INVGENUINT64
-  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I

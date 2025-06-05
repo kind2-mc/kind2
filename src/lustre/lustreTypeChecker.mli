@@ -48,7 +48,8 @@ type error_kind = Unknown of string
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
   | ExpectedIntegerTypeForSlice
-  | IlltypedArrayIndex of tc_type
+  | IlltypedIndexAccess of tc_type
+  | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
@@ -68,6 +69,8 @@ type error_kind = Unknown of string
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedUnsignedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedMachineIntegerType of tc_type
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
@@ -87,6 +90,10 @@ type error_kind = Unknown of string
   | UnsupportedQuantifiedArray of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
+  | InvalidExtractUpperBound of int * int
+  | InvalidExtractLowerBound of int * int
+  | UnsupportedMapType of tc_type
+  | ExpectedMapType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

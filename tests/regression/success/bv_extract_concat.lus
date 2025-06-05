@@ -1,0 +1,7 @@
+node N(x: uint<27>) returns (y: uint<13>; z: uint<14>)
+let
+    y = x[26:14];
+    z = x[13:0];
+
+    check (y ++ z) = x;
+tel

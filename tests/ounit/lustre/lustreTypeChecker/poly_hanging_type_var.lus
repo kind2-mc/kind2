@@ -6,7 +6,7 @@ let
     check true -> (y = pre x);
 tel
 
-node M(in: T) returns (out: T)
+node M(i: T) returns (out: T)
 let
-    out = N(in);
+    out = N(i);
 tel

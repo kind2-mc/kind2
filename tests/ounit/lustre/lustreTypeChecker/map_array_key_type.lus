@@ -1,0 +1,4 @@
+node N <T5> (m1: map<int^2; real>;) returns (m2: map<int^2; real>; )
+let    
+    m2 = m1;
+tel  

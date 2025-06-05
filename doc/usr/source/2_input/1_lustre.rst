@@ -561,20 +561,20 @@ Say now we call this node as follows:
 
 That is, we want ``sum_ge_10(in)`` to tick iff ``in`` is positive. Here is an
 example trace of ``example`` sliced to ``tmp``; notice how the internal state of
-``sub`` (*i.e.* ``pre sub.sum``) is maintained so that it does refer to the value
-of ``sub.sum`` *at the last clock tick of the ``activate``*:
+``sum_ge_10`` (*i.e.* ``pre sum_ge_10.sum``) is maintained so that it does refer to the value
+of ``sum_ge_10.sum`` *at the last clock tick of the ``activate``*:
 
-====  ==  ======  ======  ======  ===========  =======
-step  in  in_pos  tmp     sub.in  pre sub.sum  sub.sum
-====  ==  ======  ======  ======  ===========  =======
-0     3   true    false   3       nil          3
-1     2   true    false   2       3            5
-2     -1  false   nil     nil     5            nil
-3     2   true    false   2       5            7
-4     -7  false   nil     nil     7            nil
-5     35  true    true    35      7            42
-6     -2  false   nil     nil     42           nil
-====  ==  ======  ======  ======  ===========  =======
+====  ==  ======  ======  ============  =================  =============
+step  in  in_pos  tmp     sum_ge_10.in  pre sum_ge_10.sum  sum_ge_10.sum
+====  ==  ======  ======  ============  =================  =============
+0     3   true    false   3             nil                3
+1     2   true    false   2             3                  5
+2     -1  false   nil     nil           5                  nil
+3     2   true    false   2             5                  7
+4     -7  false   nil     nil           7                  nil
+5     35  true    true    35            7                  42
+6     -2  false   nil     nil           42                 nil
+====  ==  ======  ======  ============  =================  =============
 
 Now, as mentioned above the ``merge`` operator combines two streams defined on
 **complimentary** clocks. The syntax of ``merge`` is:
@@ -1170,24 +1170,25 @@ the first value of the input stream.
 
 Kind 2 allows the user to express such variations more concisely through *polymorphic nodes*,
 where the user includes a set of polymorphic type parameters in the node declaration
-and the specific type arguments at the call site. Both polymorphic type parameters and 
-call-site polymorphic arguments are specified with double angle bracket syntax ``<<ty1; ...; tyn>>``.
+and the specific type arguments at the call site. Polymorphic type parameters 
+are specified using angle brackets as ``<ty1; ...; tyn>`` whereas 
+call-site polymorphic arguments are specified using the ``@`` instantiation operator.
 
 .. code-block:: none
 
-   node SafePre<<T>>(x: T) returns (y: T);
+   node SafePre<T>(x: T) returns (y: T);
    let
      y = x -> pre x;
    tel
 
    node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
    let
-     y1 = SafePre<<int>>(y1);
-     y2 = SafePre<<bool>>(y2);
+     y1 = SafePre@<int>(y1);
+     y2 = SafePre@<bool>(y2);
    tel
 
 Note that ``SafePre`` can be called 
-with any type, not just primitive types (e.g. ``SafePre<<[int, bool]>>(.)`` and ``SafePre<<[int, U]>>(.)``,
+with any type, not just primitive types (e.g. ``SafePre@<[int, bool]>(.)`` and ``SafePre@<[int, U]>(.)``,
 where ``U`` is itself a type parameter in the caller's declaration).
 Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
 
@@ -1196,7 +1197,7 @@ returns the corresponding swapped pair tuple as output.
 
 .. code-block:: none
 
-   node PairSwap<<T; U>>(x: [T, U]) returns (y: [U, T]);
+   node PairSwap<T; U>(x: [T, U]) returns (y: [U, T]);
    let
    y = {x.%1, x.%0};
    tel
@@ -1213,7 +1214,7 @@ the following polymorphic node will give a type error, as it cannot be instantia
 .. code-block:: none
 
    -- Generates a type error
-   node BadPolymorphicAdd<<T>>(x1, x2: T) returns (y: T);
+   node BadPolymorphicAdd<T>(x1, x2: T) returns (y: T);
    let
      y = x1 + x2;
    tel
@@ -1231,7 +1232,7 @@ For example, the ``Stutter`` contract states that the output ``y`` must either b
 
 .. code-block:: none
 
-   contract Stutter<<T>> (x: T) returns (y: T) ;
+   contract Stutter<T> (x: T) returns (y: T) ;
    let
       guarantee 
         (y = x) or
@@ -1244,7 +1245,7 @@ node call).
 
 .. code-block:: none
 
-   contract Stutter<<T>> (x: T) returns (y: T) ;
+   contract Stutter<T> (x: T) returns (y: T) ;
    let
       guarantee 
         (y = x) or
@@ -1253,16 +1254,16 @@ node call).
 
    node N (x: int) returns (y: int);
    (*@contract 
-      import Stutter<<int>>(x) returns (y);
+      import Stutter@<int>(x) returns (y);
    *)
    let
       y = pre x;
    tel
 
 
-   node P<<U>>(x: U) returns (y: U);
+   node P<U>(x: U) returns (y: U);
    (*@contract 
-      import Stutter<<U>>(x) returns (y);
+      import Stutter@<U>(x) returns (y);
    *)
    let
       y = pre x;
@@ -1277,7 +1278,7 @@ node declaration with the ``(*@contract ... *)`` syntax.
 
 .. code-block:: none
 
-   node M<<T>>(x: int) returns (y: int);
+   node M<T>(x: int) returns (y: int);
    (*@contract
       guarantee 
          (y = x) or

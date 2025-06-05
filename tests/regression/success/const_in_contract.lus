@@ -4,11 +4,11 @@ let
 tel
 
 const ok: bool = true;
-node x(in: bool) returns (out: bool);
+node x(i: bool) returns (out: bool);
 (*@contract
   guarantee id_bool(ok);
 *)
 let
-  out = in;
+  out = i;
   --%PROPERTY id_bool(ok);
 tel

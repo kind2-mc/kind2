@@ -228,55 +228,21 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
   )
 end
 
-module Int8Miner: MachineIntegerMiner = struct
-  let name = "Int8"
-  let mine = InvGenMiner.Int8.mine
+module BVMiner(IS : sig val length : int end): MachineIntegerMiner = struct
+  let name = Format.asprintf "BV<%d>" IS.length
+  module BVInstance = InvGenMiner.BV(IS)
+  let mine = BVInstance.mine
 end
 
-module Int16Miner: MachineIntegerMiner = struct
-  let name = "Int16"
-  let mine = InvGenMiner.Int16.mine
+module UBVMiner(IS : sig val length : int end): MachineIntegerMiner = struct
+  let name = Format.asprintf "UBV<%d>" IS.length
+  module UBVInstance = InvGenMiner.UBV(IS)
+  let mine = UBVInstance.mine
 end
 
-module Int32Miner: MachineIntegerMiner = struct
-  let name = "Int32"
-  let mine = InvGenMiner.Int32.mine
-end
+module BV(IS : sig val length : int end): Domain = MakeMachineInteger(MakeSigned(BVMiner(IS)))
+module UBV(IS : sig val length : int end): Domain = MakeMachineInteger(MakeUnsigned(UBVMiner(IS)))
 
-module Int64Miner: MachineIntegerMiner = struct
-  let name = "Int64"
-  let mine = InvGenMiner.Int64.mine
-end
-
-module Int8: Domain = MakeMachineInteger(MakeSigned(Int8Miner))
-module Int16: Domain = MakeMachineInteger(MakeSigned(Int16Miner))
-module Int32: Domain = MakeMachineInteger(MakeSigned(Int32Miner))
-module Int64: Domain = MakeMachineInteger(MakeSigned(Int64Miner))
-
-module UInt8Miner: MachineIntegerMiner = struct
-  let name = "UInt8"
-  let mine = InvGenMiner.UInt8.mine
-end
-
-module UInt16Miner: MachineIntegerMiner = struct
-  let name = "UInt16"
-  let mine = InvGenMiner.UInt16.mine
-end
-
-module UInt32Miner: MachineIntegerMiner = struct
-  let name = "UInt32"
-  let mine = InvGenMiner.UInt32.mine
-end
-
-module UInt64Miner: MachineIntegerMiner = struct
-  let name = "UInt64"
-  let mine = InvGenMiner.UInt64.mine
-end
-
-module UInt8: Domain = MakeMachineInteger(MakeUnsigned(UInt8Miner))
-module UInt16: Domain = MakeMachineInteger(MakeUnsigned(UInt16Miner))
-module UInt32: Domain = MakeMachineInteger(MakeUnsigned(UInt32Miner))
-module UInt64: Domain = MakeMachineInteger(MakeUnsigned(UInt64Miner))
 
 (** Real domain with less than or equal to. *)
 module Real: Domain = struct
