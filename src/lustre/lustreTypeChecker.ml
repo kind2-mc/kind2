@@ -893,14 +893,19 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   )
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
-    let* warnings1 =
-      R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname true ty) qs)
+    let* warnings1, _ =
+      (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
+        let acc_ctx = add_ty acc_ctx id ty in
+        R.ok (acc_w @ warnings, acc_ctx)
+      ) ([], ctx) qs)
     in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* ty, warnings2 = infer_type_expr extn_ctx nname e in
-    R.ok (ty, List.flatten warnings1 @ warnings2)
+    R.ok (ty, warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
   (* Already desugared in lustreDesugarAnyOps *)
@@ -1169,9 +1174,14 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> (
-    let* warnings1 =
-      R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname true ty) qs)
+    let* warnings1, _ =
+      (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
+        let acc_ctx = add_ty acc_ctx id ty in
+        R.ok (acc_w @ warnings, acc_ctx)
+      ) ([], ctx) qs)
     in
     (* Disallow quantification over abstract types *)
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
@@ -1185,7 +1195,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* warnings2 = check_type_expr extn_ctx nname e exp_ty in
-    R.ok (List.flatten warnings1 @ warnings2)
+    R.ok (warnings1 @ warnings2)
   )
   | AnyOp _ -> assert false 
     (* Already desugared in lustreDesugarAnyOps *)

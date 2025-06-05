@@ -182,6 +182,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/history_quantified_var_3.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalHistoryVar _)) -> true
     | _ -> false);
+  mk_test "test bound variable with refinement type 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_ref_type_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
+    | _ -> false);
   mk_test "node call in any op in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
@@ -722,6 +726,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "erroneous bv extract 2" (fun () ->
     match load_file "./lustreTypeChecker/bv_extract2.lus" with
     | Error (`LustreTypeCheckerError (_, InvalidExtractLowerBound _)) -> true
+    | _ -> false);
+  mk_test "test bound variable with refinement type 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_ref_type_1.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test bound variable with refinement type 3" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
 ])
 
