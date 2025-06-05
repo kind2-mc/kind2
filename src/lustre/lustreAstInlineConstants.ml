@@ -226,13 +226,13 @@ and simplify_array_index ctx pos e1 idx kind =
   | LA.GroupExpr (_, ArrayExpr, es) ->
      (match (eval_int_expr ctx idx) with
       | Ok i -> if List.length es > i then List.nth es i else raise_error ()
-      | Error _ -> LA.ArrayIndex (pos, e1', idx', kind))
+      | Error _ -> LA.IndexAccess (pos, e1', idx', kind))
   | LA.ArrayConstr (_, v, s) ->
      (match (eval_int_expr ctx idx), (eval_int_expr ctx s) with
      | Ok i, Ok j -> if j > i then v else raise_error ()
-     | _, _ -> LA.ArrayIndex (pos, e1', idx', kind))
+     | _, _ -> LA.IndexAccess (pos, e1', idx', kind))
   | _ ->
-    ArrayIndex (pos, e1', idx', kind)
+    IndexAccess (pos, e1', idx', kind)
 (** picks out the idx'th component of an array if it can *)
 
 and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.expr
@@ -267,7 +267,7 @@ and push_pre is_guarded pos =
     GroupExpr (p, op, es')
   | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
-  | ArrayIndex (p, e1, e2, k) -> ArrayIndex (p, r e1, e2, k)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | When _ as e -> LA.Pre (pos, e)
@@ -353,7 +353,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
      (*(match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, List.init size (fun _ -> e1'))
       | Error _ -> e')*)
-  | LA.ArrayIndex (pos, e1, e2, kind) -> simplify_array_index ctx pos e1 e2 kind
+  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_array_index ctx pos e1 e2 kind
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
   | Call (pos, ty_args, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded:false ctx e) es in

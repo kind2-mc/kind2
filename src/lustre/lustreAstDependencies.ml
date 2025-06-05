@@ -324,7 +324,7 @@ and mk_graph_expr ?(only_modes = false)
   | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
-  | LA.ArrayIndex (_, e1, e2, _) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.IndexAccess (_, e1, e2, _) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.GroupExpr (_, _, es) ->
     List.fold_left union_dependency_analysis_data
       empty_dependency_analysis_data
@@ -397,7 +397,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Update of structured expressions *)
   | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-  | LA.ArrayIndex (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
   (* Clock operators *)
@@ -663,7 +663,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> SI.union (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
-  | ArrayIndex (_, e1, e2, _) -> SI.union (r e1) (r e2)
+  | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
@@ -821,7 +821,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
-  | LA.ArrayIndex (_, e1, _, _) -> mk_graph_expr2 m e1
+  | LA.IndexAccess (_, e1, _, _) -> mk_graph_expr2 m e1
 
   | LA.GroupExpr (_, ExprList, es) ->
     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)

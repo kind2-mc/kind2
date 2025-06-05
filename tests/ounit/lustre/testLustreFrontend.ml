@@ -186,6 +186,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/quant_ref_type_2.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
     | _ -> false);
+  mk_test "node call in any op in function" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | _ -> false);
+  mk_test "pre in any op in function" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

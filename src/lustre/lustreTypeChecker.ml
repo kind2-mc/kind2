@@ -379,7 +379,7 @@ let rec infer_const_attr ctx exp =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> combine (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> combine (r e1) (r e2)
-  | ArrayIndex (_, e1, e2, _) -> combine (r e1) (r e2)
+  | IndexAccess (_, e1, e2, _) -> combine (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (_, _, _, _) ->
     [error exp "quantified expression"]
@@ -584,10 +584,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.ArrayConstr (pos, e1, e2))
-  | ArrayIndex (pos, e1, e2, kind) ->
+  | IndexAccess (pos, e1, e2, kind) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
-    R.ok (LA.ArrayIndex (pos, e1, e2, kind))
+    R.ok (LA.IndexAccess (pos, e1, e2, kind))
   | When (pos, e, clock) -> 
     let* e = call e in
     R.ok (LA.When (pos, e, clock))
@@ -873,7 +873,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
       )
-  | LA.ArrayIndex (pos, e, i, _) -> (
+  | LA.IndexAccess (pos, e, i, _) -> (
     let* index_type, warnings1 = infer_type_expr ctx nname i in
     let* index_type = expand_type_syn_reftype_history ctx index_type in
     let* ty, warnings2 = infer_type_expr ctx nname e in 
@@ -1159,7 +1159,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx exp_ty arr_ty)
       (R.ok (warnings1 @ warnings2))
       (type_error pos (ExpectedType (exp_ty, arr_ty)))
-  | ArrayIndex (pos, e, idx, _) ->
+  | IndexAccess (pos, e, idx, _) ->
     let* index_type, warnings1 = infer_type_expr ctx nname idx in
     if is_expr_int_type ctx nname idx
     then 
@@ -1682,7 +1682,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
   | ArrayDef (pos, base_e, idxs) ->
     check_array_dimensions pos ctx base_e idxs >>
     let array_idx_expr =
-      List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i, Array))
+      List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in
