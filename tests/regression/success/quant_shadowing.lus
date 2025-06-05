@@ -1,10 +1,6 @@
 const N: int = 3;
 const j: int = 2; 
 
-function f (x: int) returns (y: int) 
-let
-tel
-
 node M(inp: subtype {x: int | (0 -> pre x) < 5 } ) returns ();
 let
   check forall ( q: subtype { x: int | x > j }; i,j: int;  )  
