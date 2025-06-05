@@ -1,0 +1,9 @@
+node n(x: int) returns (y: int);
+let
+tel
+
+function f() returns (y: int);
+let
+  y = any subtype { y: int | n(y) > 0 };
+  check y > 0;
+tel

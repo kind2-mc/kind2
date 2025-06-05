@@ -50,7 +50,6 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | AnyOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
@@ -102,7 +101,6 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
-  | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
@@ -551,7 +549,6 @@ let no_calls_to_node ctx = function
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction (NI.get_user_name node_id))
     else Ok ()
-  | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
 
 let no_temporal_operator decl_ctx expr =
