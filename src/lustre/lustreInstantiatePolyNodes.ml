@@ -227,22 +227,8 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
       ) polymorphic_gids.equations in
 
       (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<int> *)
-      let ctx, gids, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids, acc_decls, acc_glocals, acc_node_decls_map) -> 
-        let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some node_id) acc_node_decls_map ty in 
-        ctx, gids, decls @ acc_decls, GI.StringMap.add id ty acc_glocals, node_decls_map
-      ) glocals (ctx, gids, [], GI.StringMap.empty, node_decls_map) in
-      let ctx, gids, decls, ib_oracles, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_ib_oracles, acc_node_decls_map) (id, ty) -> 
-        let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some node_id) acc_node_decls_map ty in 
-        ctx, gids, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
-      ) (ctx, gids, decls, [], node_decls_map) ib_oracles in 
-      let ctx, gids, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
-        let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids (Some node_id) acc_node_decls_map expr in 
-        ctx, gids, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
-      ) (ctx, gids, decls, [], node_decls_map) geqs in 
-
       let monomorphized_gids = { polymorphic_gids with locals = glocals; equations = geqs; ib_oracles = ib_oracles; } in
-      let gids = NI.Map.add pnname monomorphized_gids gids in 
-      ctx, gids, decls, node_decls_map
+      gen_poly_decls_gids ctx monomorphized_gids gids pnname node_decls_map
     in
 
     (* Recursively create new instantiations (this node could use the given polymorphic 
@@ -309,7 +295,7 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
     locals = glocals; 
     ib_oracles = ib_oracles; 
     equations = geqs 
-    } in
+  } in
   let gids_map = NI.Map.add node_id gids gids_map in
 
   ctx, gids_map, decls, node_decls_map
