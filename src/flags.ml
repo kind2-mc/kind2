@@ -3903,11 +3903,11 @@ let parse_clas specs anon_action =
   | [] ->
     failwith "expected at least one argument, got zero"
 
-(* True iff the current solver support sbv_to_int and ubv_to_int operators *)
+(* True iff the current solver supports sbv_to_int and ubv_to_int operators *)
 let support_new_bv_cast_operators' = ref false
 let support_new_bv_cast_operators () = !support_new_bv_cast_operators'
 
-let solver_dependant_actions solver =
+let solver_dependent_actions solver =
 
   let get_version with_patch cmd =
     let get_rev output idx =
@@ -4217,16 +4217,16 @@ let parse_argv () =
     Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
   ) ;
 
-  solver_dependant_actions (Smt.solver ());
+  solver_dependent_actions (Smt.solver ());
 
   (match Smt.solver (), Smt.qe_solver () with
   | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
   | `Z3_SMTLIB, `Z3_SMTLIB -> ()
-  | _, `cvc5_SMTLIB -> solver_dependant_actions `cvc5_SMTLIB
-  | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
+  | _, `cvc5_SMTLIB -> solver_dependent_actions `cvc5_SMTLIB
+  | _, `Z3_SMTLIB -> solver_dependent_actions `Z3_SMTLIB
   | _, _ -> ()) ;
 
-  if Certif.proof () then solver_dependant_actions `cvc5_SMTLIB;
+  if Certif.proof () then solver_dependent_actions `cvc5_SMTLIB;
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
