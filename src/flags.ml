@@ -3969,7 +3969,7 @@ let solver_dependant_actions solver =
   )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
-    match get_version false cmd with
+    match get_version true cmd with
     | Some (major_rev, minor_rev, _) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
