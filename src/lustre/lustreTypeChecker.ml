@@ -183,9 +183,9 @@ let error_message kind = match kind with
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of unsigned machine integer type but found "
     ^ string_of_tc_type ty
-  | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
+  | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shift operator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
-  | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
+  | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shift operator to be of type signed "
     ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
   | InvalidConversion (ty1, ty2) -> "Cannot convert type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentOnLHS v -> "Input '" ^ HString.string_of_hstring v ^ "' can not be defined"
