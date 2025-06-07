@@ -28,7 +28,9 @@ type t = {
   user_name : HString.t; (* For printing to the user (distinguishes monomorphizations) *)
   internal_name : HString.t; (* For a unique ID that is an HString *)
   node_type : node_type;
-  monomorphization : int option; (* Instantiation of a polymorphic node. The int is a unique ID *)
+  (* Instantiation of a polymorphic node. The ints comprise a unique ID. 
+     Have a list because a monomorphization can be further monomorphized. *)
+  monomorphization : int list; 
 }
 
 let pp_print_node_type ppf node_type = 
@@ -40,11 +42,13 @@ let pp_print_node_type ppf node_type =
       | Type -> ".type_"
       | Any -> ".any_")
 
-let pp_print_monomorphization ppf monomorphization = 
-  Format.fprintf ppf "%s"
-    (match monomorphization with 
-      | Some i ->  ".poly_" ^ (string_of_int i)
-      | None -> "")
+let rec pp_print_monomorphization ppf monomorphization = 
+  match monomorphization with 
+    | hd :: tl ->  
+      Format.fprintf ppf ".poly_%d%a"
+        hd 
+        pp_print_monomorphization tl
+    | [] -> ()
 
 let pp_print_node_id_input_name ppf { name; } = 
   Format.fprintf ppf "%a" HString.pp_print_hstring name
@@ -52,7 +56,7 @@ let pp_print_node_id_input_name ppf { name; } =
 let pp_print_node_id_user_name ppf { user_name; } = 
   Format.fprintf ppf "%a" HString.pp_print_hstring user_name
 
-let mk_node_id ?(node_type=Component) ?monomorphization ?user_name name = 
+let mk_node_id ?(node_type=Component) ?(monomorphization = []) ?user_name name = 
   let user_name = Option.value user_name ~default:name in
   let internal_name = 
     Format.asprintf "%a%a%a"

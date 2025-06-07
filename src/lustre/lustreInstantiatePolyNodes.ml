@@ -99,6 +99,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   (* Get node_id fields *)
   let node_type = NI.get_node_type node_id in 
   let name = NI.get_name node_id in
+  let monomorphization = NI.get_monomorphization node_id in
   let user_name = Format.asprintf
     "%a<%a>"
     HString.pp_print_hstring name
@@ -121,7 +122,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   match Lib.find_opt_index find_decl tyss with 
   (* This polymorphic instantiation already exists *)
   | Some j -> 
-    let pnname = NI.mk_node_id ~node_type ~monomorphization:j ~user_name name in
+    let pnname = NI.mk_node_id ~node_type ~monomorphization:(monomorphization @ [j]) ~user_name name in
     ctx, gids, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
@@ -168,7 +169,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         List.fold_left Ctx.SI.union Ctx.SI.empty ty_vars |> Ctx.SI.elements
     in
     (* Create fresh identifier for instantiated polymorphic node *)
-    let pnname = NI.mk_node_id ~node_type ~monomorphization:(List.length tyss) ~user_name name in
+    let pnname = NI.mk_node_id ~node_type ~monomorphization:(monomorphization @ [List.length tyss]) ~user_name name in
     (* Remember new instantiation *)
     let node_decls_map = NI.Map.add node_id (decl, tyss @ [ty_args]) node_decls_map in
     let ctx, called_decl = 
@@ -176,7 +177,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in 
         let node_ty = build_node_fun_ty span.start_pos ips ops in
-        Ctx.add_ty_node ctx pnname node_ty, 
+        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty) pnname ps, 
         A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
       else if is_contract then 
         let c = Option.get c in
@@ -185,21 +186,26 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         | Ok ctx -> ctx 
         | Error _ -> assert false 
         in
-        ctx, 
+        Ctx.add_ty_vars_contract ctx pnname ps, 
         ContractNodeDecl (span, (pnname, ps, ips, ops, c))
       else     
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
-        Ctx.add_ty_node ctx pnname node_ty, 
+        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty) pnname ps, 
         NodeDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
     in
-    
+
+    (* If the monomorphization still has parameters, it could be monomorphized again *)
+    let node_decls_map = 
+      if List.length ps > 0 then 
+        NI.Map.add pnname (called_decl, []) node_decls_map 
+      else 
+        node_decls_map 
+    in
+
     let ctx, gids, decls, node_decls_map = match NI.Map.find_opt node_id gids with
     | None -> 
-      (* let gids = NI.Map.add node_id { (GI.empty ()) with 
-        monomorphization_info = GI.IntMap.singleton (List.length tyss) ty_args 
-      } gids in *)
       ctx, gids, [], node_decls_map 
     | Some polymorphic_gids -> 
 
@@ -221,22 +227,8 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
       ) polymorphic_gids.equations in
 
       (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<int> *)
-      let ctx, gids, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids, acc_decls, acc_glocals, acc_node_decls_map) -> 
-        let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some node_id) acc_node_decls_map ty in 
-        ctx, gids, decls @ acc_decls, GI.StringMap.add id ty acc_glocals, node_decls_map
-      ) glocals (ctx, gids, [], GI.StringMap.empty, node_decls_map) in
-      let ctx, gids, decls, ib_oracles, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_ib_oracles, acc_node_decls_map) (id, ty) -> 
-        let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids (Some node_id) acc_node_decls_map ty in 
-        ctx, gids, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
-      ) (ctx, gids, decls, [], node_decls_map) ib_oracles in 
-      let ctx, gids, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
-        let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids (Some node_id) acc_node_decls_map expr in 
-        ctx, gids, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
-      ) (ctx, gids, decls, [], node_decls_map) geqs in 
-
       let monomorphized_gids = { polymorphic_gids with locals = glocals; equations = geqs; ib_oracles = ib_oracles; } in
-      let gids = NI.Map.add pnname monomorphized_gids gids in 
-      ctx, gids, decls, node_decls_map
+      gen_poly_decls_gids ctx monomorphized_gids gids pnname node_decls_map
     in
 
     (* Recursively create new instantiations (this node could use the given polymorphic 
@@ -285,12 +277,38 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   | Bool _ | Int _ | IntRange _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
 
+and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map = 
+  let ctx, gids_map, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids_map, acc_decls, acc_glocals, acc_node_decls_map) -> 
+    let ctx, gids_map, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids_map (Some node_id) acc_node_decls_map ty in 
+    ctx, gids_map, decls @ acc_decls, GI.StringMap.add id ty acc_glocals, node_decls_map
+  ) gids.GI.locals (ctx, gids_map, [], GI.StringMap.empty, node_decls_map) in
+  let ctx, gids_map, decls, ib_oracles, node_decls_map = List.fold_left (fun (ctx, gids_map, acc_decls, acc_ib_oracles, acc_node_decls_map) (id, ty) -> 
+    let ctx, gids_map, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids_map (Some node_id) acc_node_decls_map ty in 
+    ctx, gids_map, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
+  ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.ib_oracles in 
+  let ctx, gids_map, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids_map, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
+    let ctx, gids_map, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids_map (Some node_id) acc_node_decls_map expr in 
+    ctx, gids_map, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
+  ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.equations in 
+
+  let gids = { gids with 
+    locals = glocals; 
+    ib_oracles = ib_oracles; 
+    equations = geqs 
+  } in
+  let gids_map = NI.Map.add node_id gids gids_map in
+
+  ctx, gids_map, decls, node_decls_map
+
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                              A.expr -> Ctx.tc_context * GI.t NI.Map.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
 = fun ctx gids caller_nname node_decls_map expr -> 
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
-  | A.Call (pos, ty :: tys, node_id, exprs) -> 
+  | A.Call (pos, ty :: tys, node_id, exprs) ->
+    (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (Lib.pp_print_list A.pp_print_lustre_type "; ") (ty :: tys); *)
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
@@ -535,6 +553,12 @@ and gen_poly_decls_decls
   let ctx, gids, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_node_decls_map) decl -> match decl with
   | A.FuncDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some node_id) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -565,6 +589,12 @@ and gen_poly_decls_decls
     )
   | NodeDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
     let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some node_id) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
@@ -595,6 +625,12 @@ and gen_poly_decls_decls
     )
   | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
     let ctx = Chk.add_ty_params_node_ctx ctx cname ps in
+    let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt cname gids with  
+    | Some node_gids -> 
+      let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids cname acc_node_decls_map in 
+      ctx, gids, acc_decls @ decls, node_decls_map
+    | None -> ctx, gids, acc_decls, acc_node_decls_map
+    in 
     let ctx, gids, ips, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_ips, acc_decls, acc_node_decls_map) ip -> 
       let ctx, gids, ip, decls, node_decls_map = gen_poly_decls_ip ctx gids (Some cname) acc_node_decls_map ip in 
       ctx, gids, acc_ips @ [ip], decls @ acc_decls, node_decls_map
