@@ -106,9 +106,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
   in
   (* Check for pre-existing instantiation of the node before compiling a new one *)
-  match NI.Map.find_opt node_id node_decls_map with 
-  | None -> assert false
-  | Some (decl, tyss) ->
+  let decl, tyss = NI.Map.find node_id node_decls_map in 
   let find_decl tys = 
     (List.length tys = List.length ty_args) &&
     (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic 
@@ -315,7 +313,6 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
   let gids_map = NI.Map.add node_id gids gids_map in
 
   ctx, gids_map, decls, node_decls_map
-  (* ctx, gids_map, [], node_decls_map *)
 
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                              A.expr -> Ctx.tc_context * GI.t NI.Map.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
