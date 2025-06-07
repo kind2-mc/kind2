@@ -609,8 +609,8 @@ and pp_print_field_assign ppf (i, e) =
 and pp_print_lustre_type ppf = function
   | Bool _ -> Format.fprintf ppf "bool"
   | Int _ -> Format.fprintf ppf "int"
-  | SBitVector (_, i) -> Format.fprintf ppf "int[%d]" i
-  | UBitVector (_, i) -> Format.fprintf ppf "uint[%d]" i
+  | SBitVector (_, i) -> Format.fprintf ppf "sint<%d>" i
+  | UBitVector (_, i) -> Format.fprintf ppf "uint<%d>" i
   | IntRange (_, l, u) -> 
     let pp_print_opt ppf expr_opt = (match expr_opt with
       | Some expr -> pp_print_expr ppf expr
