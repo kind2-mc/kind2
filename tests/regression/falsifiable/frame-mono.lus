@@ -1,0 +1,15 @@
+node Swap<T>(x1, x2:T) returns (y1,y2:T);
+let
+ check false;
+tel
+
+node N(x1,x2:int) returns (y1,y2:int);
+let
+  frame (y1,y2)
+    y1,y2=Swap@<int>(x1,x2);
+  let
+    y1,y2=Swap@<int>(x1,x2);
+  tel
+  
+  check y1=x2;
+tel
