@@ -22,7 +22,7 @@ type node_type = Component | Contract | Environment | Type | Any
 type t
 
 (* Required HString.t arg is the node's input name *)
-val mk_node_id: ?node_type:node_type -> ?monomorphization:int -> ?user_name:HString.t -> HString.t -> t
+val mk_node_id: ?node_type:node_type -> ?monomorphization:int list -> ?user_name:HString.t -> HString.t -> t
 val pp_print_node_id_input_name: Format.formatter -> t -> unit
 val pp_print_node_id_user_name: Format.formatter -> t -> unit
 val hash: t -> int 
@@ -32,7 +32,7 @@ val get_name: t -> HString.t
 val get_user_name: t -> HString.t 
 val get_internal_name: t -> HString.t
 val get_node_type: t -> node_type
-val get_monomorphization: t -> int option
+val get_monomorphization: t -> int list
 
 module Map : Map.S with type key = t
 

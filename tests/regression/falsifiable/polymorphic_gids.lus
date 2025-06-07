@@ -5,8 +5,17 @@ tel
 node N<T> (c: bool;) returns (y1, y2: T)
 let
   if c then 
+    -- this call gets "monomorphized" with type T, 
+    -- then fails when trying to get monomorphized again 
+    -- to types int and bool
+
+    -- without the initial monomorphize_gids pass, we don't 
+    -- try to monomorphize with type T, so monomorphization with 
+    -- types int and bool works
     y1, y2 = M@<T>();
   fi
+
+  check y1 = y2;
 tel
 
 node top (c: bool) returns (y1, y2: int; y3, y4: bool)
