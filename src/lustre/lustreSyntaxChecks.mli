@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | UnsupportedWhen of LustreAst.expr
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident

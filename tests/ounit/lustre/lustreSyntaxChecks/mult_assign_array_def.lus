@@ -1,0 +1,12 @@
+node N(input: int) returns (x, y: int)
+let
+  x = input; 
+  y = input;
+tel
+
+node M() returns (A:int^3; B: int^3; x1, x2: int);
+let
+  --!! Disallow combination of multiple assignment and inductive array definition
+  B[j], x2 = N(j);
+  check x2 = 2;
+tel
