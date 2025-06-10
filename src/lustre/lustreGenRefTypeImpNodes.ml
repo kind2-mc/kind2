@@ -65,7 +65,8 @@ let rec expr_contains_mode_ref expr =
   match expr with 
   | A.ModeRef (_, _) -> true
   | Ident (_, _) 
-  | Const (_, _) -> false
+  | Const (_, _)
+  | EmptyMap _ -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) 

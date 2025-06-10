@@ -104,6 +104,7 @@ fun ctx node_name fun_ids expr ->
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
+  | EmptyMap _ as e -> e, []
   | Const (_, _) as e -> e, []
   | RecordProject (pos, e, idx) -> 
     let e, gen_nodes = rec_call e in

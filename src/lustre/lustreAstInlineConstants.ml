@@ -250,6 +250,7 @@ and push_pre is_guarded pos =
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
+  | EmptyMap _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> TupleProject (p, r e, i)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)

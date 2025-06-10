@@ -1009,6 +1009,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | Call(pos, ty_args, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, ty_args, id, expr_list')
+  | EmptyMap _ -> StringSet.empty, expr
   | Merge (pos, ident, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, Merge (pos, ident, expr_list')
@@ -2131,6 +2132,7 @@ and normalize_expr ?guard info node_id map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
+  | EmptyMap _ as expr -> expr, empty (), []
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings

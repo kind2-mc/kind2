@@ -480,6 +480,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
       extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
+  | EmptyMap _ -> assert false
   | RecordProject (_, e, p) -> 
     let ty = infer e in 
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in

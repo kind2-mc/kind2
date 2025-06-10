@@ -1270,6 +1270,10 @@ let rec eval_ast_expr bounds ctx =
     
     fail_at_position pos "'Any' operation not supported in old front end"
 
+  | A.EmptyMap (pos, _) -> 
+    
+    fail_at_position pos "Empty map constructor is not supported in old front end"
+
   | A.Extract (pos, _, _, _) -> 
     
     fail_at_position pos "'Extract' operation not supported in old front end"

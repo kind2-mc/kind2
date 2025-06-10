@@ -351,6 +351,7 @@ let rec infer_const_attr ctx exp =
   | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> [R.ok ()]
+  | EmptyMap _ -> [R.ok ()]
   (* Operators *)
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
@@ -526,6 +527,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) old_ty_args) in
     let* es = R.seq (List.map call es) in
     Ok (LA.Call (pos, ty_args, id, es))
+  | EmptyMap (pos, (kt, vt)) ->
+    let* kt = instantiate_type_variables ctx pos nname kt ty_args in
+    let* vt = instantiate_type_variables ctx pos nname vt ty_args in
+    Ok (LA.EmptyMap (pos, (kt, vt)))
   | Quantifier (pos, q, tis, e) -> 
     let* tis = R.seq (List.map (fun (p, id, ty) -> 
       let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
@@ -689,6 +694,8 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
                 | Some ty -> R.ok ty in
     let* ty = lookup_mode_ty ctx ids in 
     R.ok (ty, [])
+  | LA.EmptyMap (pos, (kt, vt)) ->
+    R.ok (LA.Map (pos, kt, vt), [])
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1014,6 +1021,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
               | [] -> failwith ("empty mode name")
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx nname (LA.Ident (pos, id)) exp_ty
+  | EmptyMap _ -> R.ok []
   | RecordProject (pos, expr, fld) -> 
     check_type_record_proj pos ctx nname expr fld exp_ty
   | TupleProject (pos, expr, idx) -> 

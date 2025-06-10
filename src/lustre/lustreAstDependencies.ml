@@ -373,6 +373,7 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
   | Ident _ -> []
+  | EmptyMap _ -> []
   | ModeRef (pos, ids) ->
     if List.length ids = 1 then []
     else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
@@ -639,6 +640,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   match expr with
   | Ident (_ , i) -> SI.singleton i
   | ModeRef _ -> SI.empty
+  | EmptyMap _ -> SI.empty
   | RecordProject (_, e, _) -> r e 
   | TupleProject (_, e, _) -> r e
   (* Values *)

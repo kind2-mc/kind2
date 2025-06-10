@@ -923,6 +923,12 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
+  | MAP LSQBRACKET RSQBRACKET ATSIGN
+    LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
+  {
+    A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))
+  }
+
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
   { let idx = try (int_of_string (HString.string_of_hstring i)) with
