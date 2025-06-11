@@ -4,9 +4,8 @@ let
   y = input;
 tel
 
-node M() returns (A:int^3; B: int^3; x1, x2: int);
+node M() returns (B: int^3; x: int);
 let
-  --!! Disallow combination of multiple assignment and inductive array definition
-  B[j], x2 = N(j);
-  check x2 = 2;
+  B[j], x = N(j);
+  check x = 2;
 tel
