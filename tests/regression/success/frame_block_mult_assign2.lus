@@ -28,14 +28,16 @@ let
   tel
   
   frame ( y3, y4 )
-  (y3, y4[i]) = (4, if i = 0 then 0 else y4[i-1] + 1);
+  y3 = 4; 
+  y4[i] = if i = 0 then 0 else y4[i-1] + 1;
   let
     y3 = 4;
     y4[i] = if i = 0 then 0 else y4[i-1] + 1;
   tel
 
   frame ( y5, y6 )
-  (y5, y6[i]) = (4, if i = 0 then 0 else y6[i-1] + 1);
+  y5 = 4;
+  y6[i] = if i = 0 then 0 else y6[i-1] + 1;
   let
     if (oscillate())
     then
