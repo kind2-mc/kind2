@@ -62,6 +62,7 @@ type error_kind = Unknown of string
   | UnsupportedWhen of LustreAst.expr
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
@@ -116,6 +117,7 @@ let error_message kind = match kind with
   | UnsupportedWhen e -> "The `when` expression '" ^ LA.string_of_expr e ^ "' can only be the top most expression of a merge case"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
+  | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
@@ -845,7 +847,9 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | (LA.SingleIdent (pos, id)) :: tail ->
+  | LA.ArrayDef (pos, _, _) :: _ :: _ 
+  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
+  | (SingleIdent (pos, id)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
   | (ArrayDef (pos, id, _)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
