@@ -337,7 +337,7 @@ let bitvector_of_term t = match destruct t with
   | T.Const s when Symbol.is_numeral s ->
       let num = Symbol.numeral_of_symbol s in
       let width = sufficiently_large_bit_width (num |> Numeral.to_int) |> Numeral.of_int in
-      Bitvector.num_to_ubv (Numeral.of_int 64) width
+      Bitvector.num_to_ubv width num
   (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"
