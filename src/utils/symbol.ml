@@ -704,6 +704,12 @@ let s_div = mk_symbol `DIV
 
 let s_to_int = mk_symbol `TO_INT
 
+let s_ubv_to_int = mk_symbol `UBV_TO_INT
+
+let s_sbv_to_int = mk_symbol `SBV_TO_INT
+
+let s_bv2nat = mk_symbol `BV2NAT
+
 let s_to_real = mk_symbol `TO_REAL
 
 (* Array read operator *)

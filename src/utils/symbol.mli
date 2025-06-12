@@ -284,8 +284,19 @@ val s_times : t
 (** Constant division operator symbol *)
 val s_div : t
 
+(** Constant cast to int symbol *)
 val s_to_int : t
 
+(** Constant cast ubv to int symbol *)
+val s_ubv_to_int : t
+
+(** Constant cast sbv to int symbol *)
+val s_sbv_to_int : t
+
+(** Constant cast bv to int (nat) symbol *)
+val s_bv2nat : t
+
+(** Constant cast to real symbol *)
 val s_to_real : t
 
 (** Array read operator *)

@@ -195,7 +195,8 @@ let logic_of_flat fun_symbols t acc =
     if List.mem (Symbol.uf_of_symbol s) fun_symbols then sup_logics acc
     else add UF (sup_logics acc)
 
-  | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
+  | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || s == s_ubv_to_int ||
+                            s == s_sbv_to_int || s == s_bv2nat || is_divisible s) ->
     sup_logics acc |> add LA |> add IA |> add RA
 
   | App (s, _) when Symbol.(is_to_bv s || is_to_ubv s) ->
