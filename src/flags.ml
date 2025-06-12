@@ -3923,15 +3923,7 @@ let solver_dependent_actions solver =
       let major_rev = get_rev output 1 in
       let minor_rev = get_rev output 2 in
       let patch_rev = if with_patch then get_rev output 3 else 0 in
-      let result = Some (major_rev, minor_rev, patch_rev) in 
-      (match Smt.solver () with
-        | `Z3_SMTLIB -> 
-          if
-            (major_rev > 4) ||
-            (major_rev = 4 && (minor_rev > 14 || (minor_rev = 14 && patch_rev >= 1)))
-          then support_new_bv_cast_operators' := true;
-        | _ -> ());
-      result
+      Some (major_rev, minor_rev, patch_rev)
     with Not_found -> None
   in
 
@@ -3970,13 +3962,16 @@ let solver_dependent_actions solver =
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version true cmd with
-    | Some (major_rev, minor_rev, _) ->
+    | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected Z3 4.5.x or older: disabling check_sat_assume";
           Smt.set_check_sat_assume false
         )
-      )
+      );
+      if (major_rev > 4) ||
+         (major_rev = 4 && (minor_rev > 14 || (minor_rev = 14 && patch_rev >= 1)))
+      then support_new_bv_cast_operators' := true;
     | None -> Log.log L_warn "Couldn't determine Z3 version"
   )
   | `Yices2_SMTLIB -> (
