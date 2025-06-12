@@ -1,0 +1,8 @@
+const N: int = 3;
+const j: int = 2; 
+
+node M(inp: subtype {x: int | (0 -> pre x) < 5 } ) returns ();
+let
+  check forall ( i,j: int; q: subtype { x: int | x > j }; )   
+    (0 <= i and i < N and 0 <= j and j < N) => q > 2;
+tel

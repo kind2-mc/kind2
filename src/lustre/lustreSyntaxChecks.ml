@@ -50,7 +50,6 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | AnyOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
@@ -63,6 +62,7 @@ type error_kind = Unknown of string
   | UnsupportedWhen of LustreAst.expr
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
@@ -102,7 +102,6 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
-  | AnyOpInFunction -> "Illegal any operator in function"
   | NodeCallInFunction node -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
@@ -118,6 +117,7 @@ let error_message kind = match kind with
   | UnsupportedWhen e -> "The `when` expression '" ^ LA.string_of_expr e ^ "' can only be the top most expression of a merge case"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
+  | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
@@ -251,7 +251,7 @@ function
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-| ArrayIndex (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
+| IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2
 
 | TernaryOp (_, _, e1, e2, e3) ->
@@ -531,7 +531,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (_, ArrayIndex (_, _, _, _)) -> Ok ()
+  | LA.Pre (_, IndexAccess (_, _, _, _)) -> Ok ()
   | LA.Pre (pos, e) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
@@ -551,7 +551,6 @@ let no_calls_to_node ctx = function
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     if check_nodes then syntax_error pos (NodeCallInFunction (NI.get_user_name node_id))
     else Ok ()
-  | AnyOp (pos, _, _, _) -> syntax_error pos AnyOpInFunction
   | _ -> Ok ()
 
 let no_temporal_operator decl_ctx expr =
@@ -627,7 +626,7 @@ let rec expr_only_supported_in_merge observer expr =
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
-  | ArrayIndex (_, e1, e2, _)
+  | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
@@ -848,7 +847,9 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | (LA.SingleIdent (pos, id)) :: tail ->
+  | LA.ArrayDef (pos, _, _) :: _ :: _ 
+  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
+  | (SingleIdent (pos, id)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
   | (ArrayDef (pos, id, _)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
@@ -909,6 +910,35 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
+(* The syntax checks performed by this function are currently redundant,  
+   since they are subsumed by the check/requirement that bound variable refinement 
+   type predicates must be constant expressions. However, this requirement 
+   may be lifted in the future, and in that case, we would want these checks to be applied. *)
+and check_ty_quantified_var ctx f = function 
+| LA.RefinementType (_, (_, i, ty), expr) -> 
+  let ctx = ctx_add_quant_var ctx i (Some ty) in
+  check_expr ctx f expr
+| GroupType (_, tys) 
+| TupleType (_, tys) -> 
+  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) tys) in 
+  Res.ok (List.flatten warnings)
+| Map (_, ty1, ty2) 
+| TArr (_, ty1, ty2) -> 
+  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) [ty1; ty2]) in 
+  Res.ok (List.flatten warnings)
+| ArrayType (_, (ty, expr)) -> 
+  let* warnings1 = check_ty_quantified_var ctx f ty in 
+  let* warnings2 = check_expr ctx f expr in 
+  Res.ok (warnings1 @ warnings2)
+| RecordType (_, _, tis) -> 
+  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty_quantified_var ctx f ty) tis) in 
+  Res.ok (List.flatten warnings)
+| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
+| Real _ | AbstractType _ | UserType _ | EnumType _
+| History _ -> Res.ok []
+
+
+
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let res = f ctx expr in
@@ -921,14 +951,18 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
-        let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
-        let ctx = List.fold_left over_vars ctx vars in
-        check_quantified_vars ctx vars >>
-        check_expr ctx f e
+      let over_vars (warnings, ctx) (_, i, ty) = 
+        let* warnings2 = check_ty_quantified_var ctx f ty in
+        Res.ok (warnings @ warnings2, ctx_add_quant_var ctx i (Some ty))
+      in
+      let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
+      let* _ = check_quantified_vars ctx vars in
+      let* warnings2 = check_expr ctx f e in 
+      Res.ok (warnings @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | ArrayConstr (_, e1, e2)
-    | ArrayIndex (_, e1, e2, _)
+    | IndexAccess (_, e1, e2, _)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 

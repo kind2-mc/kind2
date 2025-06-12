@@ -1148,7 +1148,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Array indexing *)
-  | A.ArrayIndex (pos, expr, i, _) ->
+  | A.IndexAccess (pos, expr, i, _) ->
 
     (* Evaluate expression to an integer constant *)
     let index_e = static_int_of_ast_expr ctx pos i in

@@ -344,7 +344,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
     | ind_vars ->
       A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
       List.fold_left (fun acc ind_var -> 
-        A.ArrayIndex (dpos, acc, A.Ident (dpos, ind_var), Array)  
+        A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)  
       ) nexpr ind_vars 
   in
   eq_lhs, nexpr
@@ -452,7 +452,7 @@ let mk_range_expr ctx node_id expr_type expr =
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in
       let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
-      let expr = A.ArrayIndex (dpos, expr, id, Array) in
+      let expr = A.IndexAccess (dpos, expr, id, Array) in
       let rexpr = mk ctx (succ n) ty expr in
       let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
       let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
@@ -540,7 +540,7 @@ let mk_enum_range_expr ctx node_id expr_type expr =
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in
       let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
-      let expr = A.ArrayIndex (dpos, expr, id, Array) in
+      let expr = A.IndexAccess (dpos, expr, id, Array) in
       let rexpr = mk ctx (succ n) ty expr in
       let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
       let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
@@ -609,7 +609,7 @@ let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> A.lustre_type -> A.expr li
   | ArrayType (_, (ty, len)) -> 
     let pos = AH.pos_of_expr id in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs = mk_ref_type_expr ctx (A.ArrayIndex(pos, id, Ident(pos, dummy_index), Array)) ty in
+    let exprs = mk_ref_type_expr ctx (A.IndexAccess(pos, id, Ident(pos, dummy_index), Array)) ty in
     List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
@@ -826,7 +826,7 @@ let add_history_var_and_equation info id h_id =
       let prev_hist =
         A.Arrow (dpos,
           A.Ident(dpos, id),
-          A.ArrayIndex (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index), Array)
+          A.IndexAccess (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index), Array)
         )
       in
       A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
@@ -892,7 +892,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
                 let eq =
                   let lhs = A.Ident(pos, bv) in
                   let rhs =
-                    A.ArrayIndex(pos,
+                    A.IndexAccess(pos,
                       Ident(pos, hist_varid), Ident(pos, idx_varid), Array)
                   in
                   A.CompOp(pos, A.Eq, lhs, rhs)
@@ -938,7 +938,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     match StringMap.find_opt id map with
     | None -> StringSet.empty, expr
     | Some hist_varid ->
-      StringSet.empty, ArrayIndex(pos, Ident(pos, hist_varid), expr, Array)
+      StringSet.empty, IndexAccess(pos, Ident(pos, hist_varid), expr, Array)
   )
   | ModeRef _ -> StringSet.empty, expr
   | RecordProject (pos, e, idx) ->
@@ -990,11 +990,11 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     ArrayConstr (pos, e1', e2')
-  | ArrayIndex (pos, e1, e2, kind) ->
+  | IndexAccess (pos, e1, e2, kind) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
-    ArrayIndex (pos, e1', e2', kind)
+    IndexAccess (pos, e1', e2', kind)
   | When (pos, e, c) ->
     let vars, e' = r map e in
     vars, When (pos, e', c)
@@ -2052,8 +2052,8 @@ and normalize_expr ?guard info node_id map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
-  | Pre (pos1, ArrayIndex (pos2, expr1, expr2, kind)) ->
-    let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2, kind) in
+  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind)) ->
+    let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
@@ -2074,16 +2074,16 @@ and normalize_expr ?guard info node_id map =
     if previously_guarded then
       let rec process_expr nexpr = 
         match nexpr with
-        | A.ArrayIndex (pos2, expr1, expr2, kind) ->
-          A.ArrayIndex (pos2, process_expr expr1, expr2, kind)
+        | A.IndexAccess (pos2, expr1, expr2, kind) ->
+          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
         | e -> Pre (pos, e)
       in 
       process_expr nexpr, gids, warnings
     else
       let rec process_expr nexpr = 
         match nexpr with
-        | A.ArrayIndex (pos2, expr1, expr2, kind) ->
-          A.ArrayIndex (pos2, process_expr expr1, expr2, kind)
+        | A.IndexAccess (pos2, expr1, expr2, kind) ->
+          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
         | e -> A.Arrow (pos, guard, Pre (pos, e))
       in 
       process_expr nexpr, gids, warnings
@@ -2181,7 +2181,7 @@ and normalize_expr ?guard info node_id map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | ArrayIndex (pos, expr1, expr2, _) ->
+  | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty =
       let ivars = info.inductive_variables in
       if expr_has_inductive_var ivars expr1 then
@@ -2209,7 +2209,7 @@ and normalize_expr ?guard info node_id map =
       | Map _ -> Map
       | _ -> assert false
     in
-    ArrayIndex (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+    IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
@@ -2219,18 +2219,15 @@ and normalize_expr ?guard info node_id map =
         quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    let nexpr =
-      let constraints =
-        (* Assume constraints are constant expressions, and thus,
+    List.fold_left (fun acc var ->
+      (* Assume constraints are constant expressions, and thus,
            no normalization is required *)
-        mk_enum_subrange_reftype_constraints (Some node_id) info vars
-      in
-      match constraints, kind with
-      | None, _ -> nexpr
-      | Some c, A.Exists -> A.BinaryOp (pos, A.And, c, nexpr)
-      | Some c, A.Forall -> A.BinaryOp (pos, A.Impl, c, nexpr)
-    in
-    Quantifier (pos, kind, vars, nexpr), gids, warnings
+      let c = mk_enum_subrange_reftype_constraints (Some node_id) info [var] in 
+      match c, kind with
+      | None, _ -> A.Quantifier (pos, kind, [var], acc)
+      | Some c, A.Exists -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.And, c, acc))
+      | Some c, A.Forall -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.Impl, c, acc))
+    ) nexpr (List.rev vars), gids, warnings
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     When (pos, nexpr, clock_expr), gids, warnings
@@ -2258,7 +2255,7 @@ and expand_node_calls_in_place info node_id var count expr =
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
   | StructUpdate (p, e1, u, e2) -> A.StructUpdate (p, r e1, u, r e2)
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
-  | ArrayIndex (p, e1, e2, k) -> A.ArrayIndex (p, r e1, r e2, k)
+  | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)
   | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
   | GroupExpr (p, k, expr_list) ->

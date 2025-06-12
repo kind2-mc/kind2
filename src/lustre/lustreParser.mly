@@ -939,7 +939,7 @@ pexpr(Q):
 
   (* An array index (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
-    { A.ArrayIndex (mk_pos $startpos, e, i, Unknown) }
+    { A.IndexAccess (mk_pos $startpos, e, i, Unknown) }
     
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 

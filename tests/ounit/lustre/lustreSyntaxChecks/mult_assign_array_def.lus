@@ -1,0 +1,11 @@
+node N(input: int) returns (x, y: int)
+let
+  x = input; 
+  y = input;
+tel
+
+node M() returns (B: int^3; x: int);
+let
+  B[j], x = N(j);
+  check x = 2;
+tel

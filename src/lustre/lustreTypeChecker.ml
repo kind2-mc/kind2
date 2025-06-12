@@ -183,9 +183,9 @@ let error_message kind = match kind with
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerType ty -> "Expected argument of operator to be of unsigned machine integer type but found "
     ^ string_of_tc_type ty
-  | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
+  | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shift operator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
-  | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
+  | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shift operator to be of type signed "
     ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
   | InvalidConversion (ty1, ty2) -> "Cannot convert type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentOnLHS v -> "Input '" ^ HString.string_of_hstring v ^ "' can not be defined"
@@ -379,7 +379,7 @@ let rec infer_const_attr ctx exp =
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) -> combine (r e1) (r e2)
   | ArrayConstr (_, e1, e2) -> combine (r e1) (r e2)
-  | ArrayIndex (_, e1, e2, _) -> combine (r e1) (r e2)
+  | IndexAccess (_, e1, e2, _) -> combine (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (_, _, _, _) ->
     [error exp "quantified expression"]
@@ -584,10 +584,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.ArrayConstr (pos, e1, e2))
-  | ArrayIndex (pos, e1, e2, kind) ->
+  | IndexAccess (pos, e1, e2, kind) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
-    R.ok (LA.ArrayIndex (pos, e1, e2, kind))
+    R.ok (LA.IndexAccess (pos, e1, e2, kind))
   | When (pos, e, clock) -> 
     let* e = call e in
     R.ok (LA.When (pos, e, clock))
@@ -873,7 +873,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
       )
-  | LA.ArrayIndex (pos, e, i, _) -> (
+  | LA.IndexAccess (pos, e, i, _) -> (
     let* index_type, warnings1 = infer_type_expr ctx nname i in
     let* index_type = expand_type_syn_reftype_history ctx index_type in
     let* ty, warnings2 = infer_type_expr ctx nname e in 
@@ -893,14 +893,19 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   )
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
-    let* warnings1 =
-      R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname true ty) qs)
+    let* warnings1, _ =
+      (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
+        let acc_ctx = add_ty acc_ctx id ty in
+        R.ok (acc_w @ warnings, acc_ctx)
+      ) ([], ctx) qs)
     in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* ty, warnings2 = infer_type_expr extn_ctx nname e in
-    R.ok (ty, List.flatten warnings1 @ warnings2)
+    R.ok (ty, warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
   (* Already desugared in lustreDesugarAnyOps *)
@@ -1154,7 +1159,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx exp_ty arr_ty)
       (R.ok (warnings1 @ warnings2))
       (type_error pos (ExpectedType (exp_ty, arr_ty)))
-  | ArrayIndex (pos, e, idx, _) ->
+  | IndexAccess (pos, e, idx, _) ->
     let* index_type, warnings1 = infer_type_expr ctx nname idx in
     if is_expr_int_type ctx nname idx
     then 
@@ -1169,9 +1174,14 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> (
-    let* warnings1 =
-      R.seq (List.map (fun (_, _, ty) ->
-        check_type_well_formed ctx Local nname true ty) qs)
+    let* warnings1, _ =
+      (Res.seq_chain (fun (acc_w, acc_ctx) (_, id, ty) ->
+        let* warnings = check_type_well_formed acc_ctx Local nname true ty in 
+        (* bound variables shadow global constants *)
+        let acc_ctx = remove_const acc_ctx id in 
+        let acc_ctx = add_ty acc_ctx id ty in
+        R.ok (acc_w @ warnings, acc_ctx)
+      ) ([], ctx) qs)
     in
     (* Disallow quantification over abstract types *)
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
@@ -1185,7 +1195,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* warnings2 = check_type_expr extn_ctx nname e exp_ty in
-    R.ok (List.flatten warnings1 @ warnings2)
+    R.ok (warnings1 @ warnings2)
   )
   | AnyOp _ -> assert false 
     (* Already desugared in lustreDesugarAnyOps *)
@@ -1642,7 +1652,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
   | ArrayDef (pos, base_e, idxs) ->
     check_array_dimensions pos ctx base_e idxs >>
     let array_idx_expr =
-      List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i, Array))
+      List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in

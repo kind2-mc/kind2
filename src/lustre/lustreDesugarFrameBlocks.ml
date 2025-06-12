@@ -111,7 +111,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | ArrayIndex (a, e1, e2, k) -> ArrayIndex (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, k)
+  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, k)
   | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
   
@@ -180,8 +180,8 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
     ) nis in 
     let pos2 = AH.pos_of_expr init in 
     let rec build_array_index js = (match js with
-      | [j] -> A.ArrayIndex(pos2, A.Ident(pos2, id1), A.Ident(pos2, j), Array)
-      | j :: js -> ArrayIndex(pos2, build_array_index js, A.Ident(pos2, j), Array)
+      | [j] -> A.IndexAccess(pos2, A.Ident(pos2, id1), A.Ident(pos2, j), Array)
+      | j :: js -> IndexAccess(pos2, build_array_index js, A.Ident(pos2, j), Array)
       | [] -> assert false (* not possible *)
     ) in
     (match res with
@@ -258,7 +258,7 @@ match ni with
       | A.Equation (_, (StructDef(_, [ArrayDef(_, id, inds1)]) as lhs), init_expr) when id = i  -> 
         let pos = AH.pos_of_expr init_expr in
         let rhs_expr = List.fold_left (fun acc ind -> 
-          A.ArrayIndex (pos, acc, Ident (pos, ind), Array)  
+          A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
         ) rhs_expr inds1 in
         Some (lhs, init_expr, rhs_expr)
       | _ -> None
@@ -277,7 +277,7 @@ match ni with
     let pos2 = AH.pos_of_expr rhs_expr in 
     (* Find initialization value *)
     let array_index = List.fold_left (fun expr j ->
-      A.ArrayIndex(pos2, expr, A.Ident(pos2, j), Array)) (A.Ident(pos2, i1)) inds1
+      A.IndexAccess(pos2, expr, A.Ident(pos2, j), Array)) (A.Ident(pos2, i1)) inds1
     in
     let init = List.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> 
@@ -287,7 +287,7 @@ match ni with
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i1  -> 
         let pos = AH.pos_of_expr expr in
         let expr = List.fold_left (fun acc ind -> 
-          A.ArrayIndex (pos, acc, Ident (pos, ind), Array)  
+          A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
         ) expr inds1 in
         Some (expr)
       | _ -> None

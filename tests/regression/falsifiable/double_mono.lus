@@ -1,0 +1,21 @@
+node M<T1, T2> () returns (y1: T1; y2: T2)
+let
+tel
+
+node N<T> (c: bool;) returns (y1: T; y2: int)
+let
+  if c then 
+    y1, y2 = M@<T, int>();
+  fi
+
+  check y2 + 3 < 4;
+tel
+
+node top (c: bool) returns (y1, y2, y4: int; y3: bool)
+let
+  y1, y2 = N@<int>(c);
+  y3, y4 = N@<bool>(c);
+
+  check y1 = y2;
+  check y3 = y3;
+tel

@@ -32,7 +32,6 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | AnyOpInFunction
   | NodeCallInFunction of HString.t
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
@@ -45,6 +44,7 @@ type error_kind = Unknown of string
   | UnsupportedWhen of LustreAst.expr
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
