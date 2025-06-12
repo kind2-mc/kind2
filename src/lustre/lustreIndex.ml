@@ -43,6 +43,8 @@ type one_index =
   (* Array field indexed by variable *)
   | ArrayVarIndex of E.expr
 
+  | MapIndex
+
   (* Index to the representation field of an abstract type *)
   | AbstractTypeIndex of string
 
@@ -58,6 +60,7 @@ let pp_print_one_index' db = function
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
        | ArrayVarIndex _ -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
+       | MapIndex -> ()
        | AbstractTypeIndex _ -> ())
 
   | true ->
@@ -68,6 +71,7 @@ let pp_print_one_index' db = function
        | ListIndex i -> Format.fprintf ppf "_%d" i
        | ArrayIntIndex i -> Format.fprintf ppf "_%d" i
        | ArrayVarIndex _ ->  Format.fprintf ppf "_X%d" db
+       | MapIndex ->  Format.fprintf ppf "_Y%d" db 
        | AbstractTypeIndex i -> Format.fprintf ppf ".%s" i)
 
 
@@ -119,27 +123,31 @@ let compare_one_index a b = match a, b with
 
   (* Variable indexes are equal regardless of the bound expression *)
   | ArrayVarIndex _, ArrayVarIndex _ -> 0
+  | MapIndex, MapIndex -> 0
 
   (* Record indexes are greatest *)
   | RecordIndex _, TupleIndex _
   | RecordIndex _, ListIndex _
   | RecordIndex _, ArrayIntIndex _
   | RecordIndex _, ArrayVarIndex _
-  | RecordIndex _, AbstractTypeIndex _ -> 1 
+  | RecordIndex _, AbstractTypeIndex _
+  | RecordIndex _, MapIndex -> 1 
 
   (* Tuple indexes are only smaller than record indexes *)
   | TupleIndex _, RecordIndex _ -> -1 
   | TupleIndex _, ListIndex _
   | TupleIndex _, ArrayIntIndex _
   | TupleIndex _, ArrayVarIndex _
-  | TupleIndex _, AbstractTypeIndex _ -> 1 
+  | TupleIndex _, AbstractTypeIndex _
+  | TupleIndex _, MapIndex -> 1 
 
   (* List indexes are smaller than tuple and record indexes *)
   | ListIndex _, RecordIndex _
   | ListIndex _, TupleIndex _ -> -1 
   | ListIndex _, ArrayIntIndex _
   | ListIndex _, ArrayVarIndex _
-  | ListIndex _, AbstractTypeIndex _ -> 1 
+  | ListIndex _, AbstractTypeIndex _
+  | ListIndex _, MapIndex -> 1 
 
   (* Intger array indexes are greater than array variables
    * and abstract type indexes *)
@@ -147,6 +155,7 @@ let compare_one_index a b = match a, b with
   | ArrayIntIndex _, TupleIndex _
   | ArrayIntIndex _, ListIndex _ -> -1
   | ArrayIntIndex _, ArrayVarIndex _
+  | ArrayIntIndex _, MapIndex
   | ArrayIntIndex _, AbstractTypeIndex _ -> 1
 
   (* Array variable indexes are only greater than abstract type indexes *)
@@ -154,14 +163,23 @@ let compare_one_index a b = match a, b with
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ListIndex _
   | ArrayVarIndex _, TupleIndex _ -> -1
+  | ArrayVarIndex _, MapIndex 
   | ArrayVarIndex _, AbstractTypeIndex _ -> 1
+
+  | MapIndex, RecordIndex _
+  | MapIndex, ArrayIntIndex _
+  | MapIndex, ListIndex _
+  | MapIndex, TupleIndex _ 
+  | MapIndex, ArrayVarIndex _ -> -1
+  | MapIndex, AbstractTypeIndex _ -> 1
 
   (* Abstract type indexes are the smallest *)
   | AbstractTypeIndex _, RecordIndex _
   | AbstractTypeIndex _, ArrayIntIndex _
   | AbstractTypeIndex _, ListIndex _
   | AbstractTypeIndex _, TupleIndex _
-  | AbstractTypeIndex _, ArrayVarIndex _ -> -1
+  | AbstractTypeIndex _, ArrayVarIndex _ 
+  | AbstractTypeIndex _, MapIndex -> -1
 
 (* Equality of indexes *)
 let equal_one_index a b = match a,b with 
@@ -273,7 +291,8 @@ let filter_array_indices index = List.filter (
   | RecordIndex _
   | TupleIndex _
   | ListIndex _
-  | AbstractTypeIndex _ -> true)
+  | AbstractTypeIndex _ 
+  | MapIndex -> true) (*!! Not sure if this should count as an array index *)
   index
 
 let compatible_one_index i1 i2 = match i1, i2 with

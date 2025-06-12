@@ -184,6 +184,7 @@ let mk_state_var_name ident index = Format.asprintf "%a%a"
 let bounds_of_index index =
   List.fold_left (fun acc -> function
       | X.ArrayVarIndex b -> E.Bound b :: acc
+      | X.MapIndex -> E.Unbound None :: acc
       | X.ArrayIntIndex i ->
         E.Fixed (E.mk_int_expr (Numeral.of_int (i + 1))) :: acc
       | _ -> acc
@@ -377,6 +378,11 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
+  | (X.MapIndex :: lhs_index_tl, state_var) :: lhs_tl,
+    ([], expr) :: rhs_tl ->
+    expand_tuple' pos accum (E.Unbound None :: bounds)
+      ((lhs_index_tl, state_var) :: lhs_tl)
+      (([], expr) :: rhs_tl)
   | (X.ArrayIntIndex idx :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
     let expr_type = E.type_of_lustre_expr expr in
@@ -449,6 +455,19 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
+  (* Map index on right and left side *)
+  | (X.MapIndex :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.MapIndex :: rhs_index_tl, expr) :: rhs_tl -> 
+    let expr_type = expr.E.expr_type in
+    let array_index_types = Type.all_index_types_of_array expr_type in
+    let over_index_types (e, i) _ =
+      E.mk_select_and_push e (E.mk_index_var i), succ i
+    in
+    let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
+    let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
+    expand_tuple' pos accum (E.Unbound None :: bounds)
+      ((lhs_index_tl, state_var) :: lhs_tl)
+      ((rhs_index_tl, expr) :: rhs_tl)
   (* Tuple index on left-hand and right-hand side *)
   | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.TupleIndex j :: rhs_index_tl, expr) :: rhs_tl) 
@@ -519,34 +538,48 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.RecordIndex _ :: _, _) :: _, (X.MapIndex :: _, _) :: _
 
   | (X.TupleIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.TupleIndex _ :: _, _) :: _, (X.MapIndex :: _, _) :: _
 
   | (X.ListIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.ListIndex _ :: _, _) :: _, (X.MapIndex :: _, _) :: _
 
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.ArrayIntIndex _ :: _, _) :: _, (X.MapIndex :: _, _) :: _
 
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.ArrayVarIndex _::_, _)::_, (MapIndex :: _, _)::_
 
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
+  | (X.AbstractTypeIndex _ :: _, _) :: _, (X.MapIndex :: _, _) :: _
+
+  | (X.MapIndex :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
+  | (X.MapIndex :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
+  | (X.MapIndex :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
+  | (X.MapIndex :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
+  | (X.MapIndex :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
+  | (X.MapIndex :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
     (internal_error pos "Type mismatch in equation: head indexes do not match";
@@ -651,9 +684,8 @@ and compile_ast_type
       A.TupleType (Lib.dummy_pos, [A.Bool Lib.dummy_pos; ty2])
     in
     let element_type = compile_ast_type cstate ctx map ty2' in
-    let dummy_expr = E.init_expr E.t_true in
     let over_element_type ty j t a = X.add
-      (j @ [X.ArrayVarIndex dummy_expr])
+      (j @ [X.MapIndex])
       (Type.mk_array t ty)
       a
     in
@@ -809,7 +841,7 @@ and compile_ast_expr
   and compile_quantifier bounds mk avars expr =
     let vars, quant_var_map = vars_of_quant cstate ctx map avars in
     let bounds = bounds @
-      List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+      List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
         vars in
     let quant_vars = H.to_seq quant_var_map in
     H.add_seq !map.quant_vars quant_vars;
@@ -999,6 +1031,7 @@ and compile_ast_expr
       result
     else *)
       let over_indices = fun j (e:LustreExpr.t) a -> 
+        LustreExpr.pp_print_lustre_expr true Format.std_formatter e;
         let e' = state_var_of_expr e |> E.mk_var
         in X.add (j @ [X.ArrayVarIndex array_size]) e' a
       in let result = X.fold over_indices cexpr X.empty in
@@ -1031,9 +1064,11 @@ and compile_ast_expr
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
+      | X.MapIndex :: _, v
       | X.ArrayVarIndex _ :: _, v
       | X.ArrayIntIndex _ :: _, v ->
         let over_expr = fun e -> match e with
+          | X.MapIndex :: tl
           | X.ArrayVarIndex _ :: tl
           | X.ArrayIntIndex _ :: tl -> X.add tl
           | _ -> assert false
@@ -1218,6 +1253,8 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
+  (* Abstracted away in normalization; handled in generated identifiers *)
+  | A.EmptyMap _ -> assert false
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
@@ -2048,7 +2085,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes in
       let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
       let bounds = lhs_bounds @
-        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+        List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
           vars in
       H.add_seq !map.quant_vars (H.to_seq quant_var_map);
       let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
@@ -2065,11 +2102,29 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)
       equations @ eqns
-    in List.fold_left over_equations [] gids.GI.equations
+    in List.fold_left over_equations [] gids.GI.equations in
+  (* ****************************************************************** *)
+  (* Maps                                                               *)
+  (* ****************************************************************** *)
+  let empty_map_eqs = 
+    let over_empty_maps acc (id, _, _) =
+      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
+      let eq_lhs = flatten_list_indexes eq_lhs in
+      let idx, sv = X.choose eq_lhs in
+      let eq_lhs = X.singleton idx sv in
+      let eq_rhs = X.singleton [X.TupleIndex 0; X.MapIndex] E.t_false in
+      Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;
+      let empty_map_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      empty_map_eqs @ acc
+    in 
+    List.fold_left over_empty_maps [] gids.GI.empty_maps 
+  in 
+  let gequations = gequations @ empty_map_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
-  in 
 (*   Format.eprintf "map:\n\n%a\n\n" pp_print_identifier_maps !map; *)
   let equations =
     let over_equations = fun eqns (pos, lhs, ast_expr) ->

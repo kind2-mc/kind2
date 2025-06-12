@@ -593,7 +593,8 @@ let mk_state_var
            | D.RecordIndex _
            | D.TupleIndex _
            | D.ListIndex _
-           | D.AbstractTypeIndex _ -> true)
+           | D.AbstractTypeIndex _ -> true
+           | D.MapIndex -> failwith "Map types not supported in old frontend")
          index)
   in
 
@@ -1008,7 +1009,7 @@ let bounds_of_expr bounds ctx expr =
   List.map (fun bnd -> incr i; match bnd with
       | E.Bound _ | E.Fixed _ | E.Unbound _ ->
         let vi = match bnd with
-          | E.Unbound e -> E.mk_of_expr e |> E.var_of_expr
+          | E.Unbound (Some e) -> E.mk_of_expr e |> E.var_of_expr
           | _ -> E.mk_index_var !i |> E.var_of_expr
         in
         try
@@ -1051,7 +1052,7 @@ let fresh_state_var_for_expr
 
       let (v, ixes) = E.indexes_and_var_of_array_select expr in
       let sv = Var.state_var_of_state_var_instance v in
-      let ixes' = List.map (fun i -> E.Unbound i) ixes in
+      let ixes' = List.map (fun i -> E.Unbound (Some i)) ixes in
       (sv, ixes'), ctx
 
   else
@@ -1114,6 +1115,7 @@ let mk_abs_for_expr
     List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
         let vi = E.mk_index_var i |> E.var_of_expr in
         fun b1 bp -> match b1 with
+          | _, E.Unbound None -> failwith "Map types not supported in old frontend"
           | ev, ((E.Bound b | E.Fixed b) as bnd)
             when Var.equal_vars ev vi ->
             if not (has_var_index vi expr) then
@@ -1127,7 +1129,7 @@ let mk_abs_for_expr
               bp :: bounds_acc,
               bnd :: bounds_acc',
               succ i
-          | ev, (E.Unbound b | E.Bound b | E.Fixed b as bnd) ->
+          | ev, (E.Unbound (Some b) | E.Bound b | E.Fixed b as bnd) ->
             if not (has_var_index ev expr) then
               ty, expr, bounds_acc, bounds_acc', i
             else

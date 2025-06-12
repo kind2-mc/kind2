@@ -773,6 +773,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data empty_hs i pos]
   | LA.ModeRef (pos, ids) ->
      R.ok [singleton_dependency_analysis_data mode_prefix (List.nth ids (List.length ids - 1) ) pos] 
+  | LA.EmptyMap _ 
   | LA.Const _ ->
      R.ok [empty_dependency_analysis_data]
 

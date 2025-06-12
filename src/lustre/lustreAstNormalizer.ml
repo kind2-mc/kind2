@@ -261,6 +261,12 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
+  let pp_print_empty_map ppf (id, kt, vt) =
+    Format.fprintf ppf "(%a, %a, %a)"
+      HString.pp_print_hstring id
+      A.pp_print_lustre_type kt 
+      A.pp_print_lustre_type vt
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -271,7 +277,7 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -279,6 +285,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
+    (pp_print_list pp_print_empty_map "\n") gids.empty_maps
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -2132,7 +2139,16 @@ and normalize_expr ?guard info node_id map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
-  | EmptyMap _ as expr -> expr, empty (), []
+  | EmptyMap (pos, (kt, vt)) -> 
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_empty_map") in
+    let gids = { (empty ()) with 
+      empty_maps = [ name, kt, vt ]; 
+      locals = StringMap.singleton name (A.Map (pos, kt, vt));
+    } in
+    let nexpr = A.Ident (pos, name) in
+    nexpr, gids, []
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings

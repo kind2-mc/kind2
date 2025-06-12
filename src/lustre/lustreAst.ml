@@ -409,7 +409,7 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
 
-    | EmptyMap (p, (key_ty, value_ty)) ->
+    | EmptyMap (_, (key_ty, value_ty)) ->
 
       Format.fprintf ppf
         "map[]@<%a,%a>"
