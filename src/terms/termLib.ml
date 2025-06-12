@@ -198,9 +198,8 @@ let logic_of_flat fun_symbols t acc =
   | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
     sup_logics acc |> add LA |> add IA |> add RA
 
-  (* | App (s, _) when Symbol.(is_to_uint8 s || is_to_uint16 s || is_to_uint32 s || is_to_uint64 s ||
-                            is_to_int8 s || is_to_int16 s || is_to_int32 s || is_to_int64 s) ->
-    add BV (sup_logics acc) *)
+  | App (s, _) when Symbol.(is_to_bv s || is_to_ubv s) ->
+    add BV (sup_logics acc)
 
   | App _ -> sup_logics acc
 
