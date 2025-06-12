@@ -209,10 +209,10 @@ let rec eval_ast_expr bounds ctx =
   (* Conversion to an integer number [int expr] *)
     | A.ConvOp (pos, A.ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
-  (* Conversion to unsigned fixed-width integer numbers [uint8-uint64 expr] *)
+  (* Conversion to unsigned bitvector [bv expr] *)
     | A.ConvOp (pos, A.ToUBV n, expr) -> eval_unary_ast_expr bounds ctx pos (E.mk_to_ubv n) expr
 
-  (* Conversion to signed fixed-width integer numbers [int8-int64 expr] *)
+  (* Conversion to signed bitvector [ubv expr] *)
     | A.ConvOp (pos, A.ToBV n, expr) -> eval_unary_ast_expr bounds ctx pos (E.mk_to_bv n) expr
 
   (* Conversion to a real number [real expr] *)

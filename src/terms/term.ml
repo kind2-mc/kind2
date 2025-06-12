@@ -310,7 +310,8 @@ let rec numeral_of_term t = match destruct t with
 (* Given input n, return an integer representing a bit width sufficiently 
    large to store n as an unsigned machine integer. *)
 let sufficiently_large_bit_width (n : int) : int =
-  if n = 0 then 1
+  if n < 0 then invalid_arg "sufficiently_large_bit_width: input must be non-negative"
+  else if n = 0 then 1
   else
     let rec aux count value =
       if value = 0 then count
