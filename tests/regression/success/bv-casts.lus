@@ -1,0 +1,22 @@
+node N(x1: uint<23>; x2: sint<25>) returns (y1, y2: int)
+let
+    y1 = (int x1);
+    y2 = if (x2 <> (sint@<25> 0)) and 
+            ((x2 rsh (uint@<25> 24)) <> (sint@<25> 0)) 
+         then -(int x2) 
+         else (int x2);
+    check y1 >= 0;
+    check y2 >= 0;
+    
+    check (int (sint@<25> -16777216)) = -16777216;
+    check (int (sint@<25> 16777215)) = 16777215;
+    check ((sint@<25> -1) rsh (uint@<25> 24)) = (sint@<25> -1);
+    check ((sint@<25> -2) rsh (uint@<25> 1)) = (sint@<25> -1);
+    check (int (sint@<25> 0)) = 0;
+    check (int (uint@<23> 0)) = 0;
+    check ((sint@<25> -16777215) rsh (uint@<25> 24)) <> (sint@<25> 0);
+    check -(int (sint@<25> -16777215)) = 16777215;
+    check (int (uint@<23> 8388607)) = 8388607;
+    check ((sint@<25> -16777216) rsh (uint@<25> 24)) = (sint@<25> -1);
+    check ((sint@<25> 123456) rsh (uint@<25> 24)) = (sint@<25> 0);
+tel

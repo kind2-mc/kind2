@@ -81,8 +81,8 @@ type expr_of_string_sexpr_conv =
     (* String constant for indexed (underscore) operator *)
     s_index : HString.t;
 
-    (* String constant for int2bv operator *)
-    s_int2bv : HString.t;
+    (* String constant for int_to_bv operator *)
+    s_int_to_bv : HString.t;
 
     (* String constant for bvextract operator *)
     s_extract : HString.t;
@@ -203,7 +203,7 @@ let gen_expr_of_string_sexpr'
        s_div; 
        s_minus;
        s_index;
-       s_int2bv;
+       s_int_to_bv;
        s_extract;
        s_signext;
        s_zeroext;
@@ -422,21 +422,19 @@ let gen_expr_of_string_sexpr'
 
       )
 
-    (* Parse ((_ int2bv n) x) *)
+    (* Parse ((_ int_to_bv n) x) *)
     | HStringSExpr.List
         (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
                             HStringSExpr.Atom n;] :: tl)
-      when s1 == s_index && s2 = s_int2bv ->
+      when s1 == s_index && s2 = s_int_to_bv ->
 
         (* parse arguments *)
         let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
-        (match (int_of_string (HString.string_of_hstring n)) with
-        | 8 -> Term.mk_app Symbol.s_to_uint8 args
-        | 16 -> Term.mk_app Symbol.s_to_uint16 args
-        | 32 -> Term.mk_app Symbol.s_to_uint32 args
-        | 64 -> Term.mk_app Symbol.s_to_uint64 args
-        | _ -> failwith "Invalid S-expression")
+        let len = (int_of_string (HString.string_of_hstring n)) in 
+        if len > 0 then 
+          Term.mk_app (Symbol.s_to_ubv len) args
+        else failwith "Invalid S-expression"
 
     (* Parse ((_ sign_extend i) x) or ((_ zero_extend i) x) *)
     | HStringSExpr.List
@@ -646,8 +644,10 @@ let smtlib_string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
-   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
+   ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
    ("bv2int", Symbol.mk_symbol `BV2NAT);     
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);     
    ("is_int", Symbol.mk_symbol `IS_INT);
 
    ("bvnot", Symbol.mk_symbol `BVNOT);
@@ -677,6 +677,8 @@ let smtlib_string_symbol_list =
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE);
+   ("sbv_to_int", Symbol.mk_symbol `SBV_TO_INT);
+   ("ubv_to_int", Symbol.mk_symbol `UBV_TO_INT);
    ("bv2nat", Symbol.mk_symbol `BV2NAT);
    ("bv2int", Symbol.mk_symbol `BV2NAT); 
    ("concat", Symbol.mk_symbol `BVCONCAT);
@@ -748,24 +750,11 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `UINT8_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT16_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT32_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT64_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `INT8_TO_INT -> Format.pp_print_string ppf "int8_to_int"
-  | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
-  | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
-  | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
-  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
-  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
-  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
-  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat" 
+  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int" 
+  | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
+  | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
+  | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
@@ -1011,7 +1000,7 @@ let smtlib_string_sexpr_conv =
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
     s_index = HString.mk_hstring "_";
-    s_int2bv = HString.mk_hstring "int2bv";
+    s_int_to_bv = HString.mk_hstring "int_to_bv";
     s_extract = HString.mk_hstring "extract";
     s_signext = HString.mk_hstring "sign_extend";
     s_zeroext = HString.mk_hstring "zero_extend";

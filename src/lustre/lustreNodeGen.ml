@@ -1092,14 +1092,8 @@ and compile_ast_expr
   (* Unary Operators                                                    *)
   (* ****************************************************************** *)
   | A.ConvOp (_, A.ToInt, expr) -> compile_unary bounds E.mk_to_int expr 
-  | A.ConvOp (_, A.ToUInt8, expr) -> compile_unary bounds E.mk_to_uint8 expr
-  | A.ConvOp (_, A.ToUInt16, expr) -> compile_unary bounds E.mk_to_uint16 expr
-  | A.ConvOp (_, A.ToUInt32, expr) -> compile_unary bounds E.mk_to_uint32 expr
-  | A.ConvOp (_, A.ToUInt64, expr) -> compile_unary bounds E.mk_to_uint64 expr
-  | A.ConvOp (_, A.ToInt8, expr) -> compile_unary bounds E.mk_to_int8 expr
-  | A.ConvOp (_, A.ToInt16, expr) -> compile_unary bounds E.mk_to_int16 expr
-  | A.ConvOp (_, A.ToInt32, expr) -> compile_unary bounds E.mk_to_int32 expr
-  | A.ConvOp (_, A.ToInt64, expr) -> compile_unary bounds E.mk_to_int64 expr
+  | A.ConvOp (_, A.ToUBV n, expr) -> compile_unary bounds (E.mk_to_ubv n) expr
+  | A.ConvOp (_, A.ToBV n, expr) -> compile_unary bounds (E.mk_to_bv n) expr
   | A.ConvOp (_, A.ToReal, expr) -> compile_unary bounds E.mk_to_real expr
   | A.UnaryOp (_, A.Not, expr) -> compile_unary bounds E.mk_not expr 
   | A.UnaryOp (_, A.Uminus, expr) -> compile_unary bounds E.mk_uminus expr 

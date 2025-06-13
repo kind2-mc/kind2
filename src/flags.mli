@@ -252,6 +252,10 @@ val lus_push_pre : unit -> bool
 (** Colored output. *)
 val color : unit -> bool
 
+(** True iff the current solver support sbv_to_int and ubv_to_int operators *)
+val support_new_bv_cast_operators : unit -> bool
+
+
 
 (** {2 SMT solver flags} *)
 module Smt : sig

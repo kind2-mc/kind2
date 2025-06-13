@@ -100,15 +100,6 @@ let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
   in
   pad bv (Numeral.sub size l)
 
-  let num_to_ubv8 = num_to_ubv (Numeral.of_int 8)
-
-  let num_to_ubv16 = num_to_ubv (Numeral.of_int 16)
-
-  let num_to_ubv32 = num_to_ubv (Numeral.of_int 32)
-
-  let num_to_ubv64 = num_to_ubv (Numeral.of_int 64)
-
-
 (* ********************************************************************** *)
 (* Unsigned BV -> Numeral                                                 *)
 (* ********************************************************************** *)
@@ -132,15 +123,6 @@ let rec ubv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
 let ubv_to_num (b : t) : Numeral.t =
   let len = length_of_bitvector b in
   ubv_to_num' (Numeral.of_int len) b
-
-let ubv8_to_num = ubv_to_num' (Numeral.of_int 8)
-
-let ubv16_to_num = ubv_to_num' (Numeral.of_int 16)
-
-let ubv32_to_num = ubv_to_num' (Numeral.of_int 32)
-
-let ubv64_to_num = ubv_to_num' (Numeral.of_int 64)
-
 
 (* ********************************************************************** *)
 (* Numeral -> Signed BV                                                   *)
@@ -227,15 +209,6 @@ let num_to_bv (size : Numeral.t) (i : Numeral.t) : t =
       let onescomp = ones_comp pos in
       plus_one onescomp (bin_one (Numeral.to_int size))
 
-let num_to_bv8 = num_to_bv (Numeral.of_int 8) 
-
-let num_to_bv16 = num_to_bv (Numeral.of_int 16)
-
-let num_to_bv32 = num_to_bv (Numeral.of_int 32)
-
-let num_to_bv64 = num_to_bv (Numeral.of_int 64)
-
-
 (* ********************************************************************** *)
 (* Signed BV -> Num                                                       *)
 (* ********************************************************************** *)
@@ -251,15 +224,6 @@ let bv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
 let bv_to_num (b : t) : Numeral.t =
   let len = length_of_bitvector b in
   bv_to_num' (Numeral.of_int len) b
-
-
-let bv8_to_num = bv_to_num' (Numeral.of_int 8)
-
-let bv16_to_num = bv_to_num' (Numeral.of_int 16)
-
-let bv32_to_num = bv_to_num' (Numeral.of_int 32)
-
-let bv64_to_num = bv_to_num' (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)

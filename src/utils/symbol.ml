@@ -67,24 +67,11 @@ type interpreted_symbol =
   | `GT                   (* Greater than relation (chainable) *)
   | `TO_REAL              (* Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
-  | `UINT8_TO_INT         (* Conversion from an unsigned integer 8 numeral to an integer *)
-  | `UINT16_TO_INT        (* Conversion from an unsigned integer 16 numeral to an integer *)
-  | `UINT32_TO_INT        (* Conversion from an unsigned integer 32 numeral to an integer *)
-  | `UINT64_TO_INT        (* Conversion from an unsigned integer 64 numeral to an integer *)
-  | `INT8_TO_INT          (* Conversion from a signed integer 8 numeral to an integer *)
-  | `INT16_TO_INT         (* Conversion from a signed integer 16 numeral to an integer *)
-  | `INT32_TO_INT         (* Conversion from a signed integer 32 numeral to an integer *)
-  | `INT64_TO_INT         (* Conversion from a signed integer 64 numeral to an integer *)
-  | `TO_UINT8             (* Conversion to an unsigned integer8 numeral (unary) *)  
-  | `TO_UINT16            (* Conversion to an unsigned integer16 numeral (unary) *)  
-  | `TO_UINT32            (* Conversion to an unsigned integer32 numeral (unary) *)  
-  | `TO_UINT64            (* Conversion to an unsigned integer64 numeral (unary) *)
-  | `TO_INT8              (* Conversion to an integer8 numeral (unary) *)  
-  | `TO_INT16             (* Conversion to an integer16 numeral (unary) *)  
-  | `TO_INT32             (* Conversion to an integer32 numeral (unary) *)  
-  | `TO_INT64             (* Conversion to an integer64 numeral (unary) *)  
-  | `BV2NAT               (* Conversion from unsigned bitvector to natural number *)
-  | `SBV_TO_INT            (* Conversion from signed bitvector to natural number *)
+  | `TO_UBV of int        (* Conversion to an unsigned bv numeral (unary) *)
+  | `TO_BV of int         (* Conversion to a signed bv numeral (unary) *)  
+  | `BV2NAT               (* Conversion from unsigned bitvector to natural number (now deprecated in SMT-LIB) *)
+  | `UBV_TO_INT           (* Conversion from unsigned bitvector to natural number *)
+  | `SBV_TO_INT           (* Conversion from signed bitvector to natural number *)
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -215,25 +202,13 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
-    | `UINT8_TO_INT, `UINT8_TO_INT
-    | `UINT16_TO_INT, `UINT16_TO_INT
-    | `UINT32_TO_INT, `UINT32_TO_INT
-    | `UINT64_TO_INT, `UINT64_TO_INT
-    | `INT8_TO_INT, `INT8_TO_INT
-    | `INT16_TO_INT, `INT16_TO_INT
-    | `INT32_TO_INT, `INT32_TO_INT
-    | `INT64_TO_INT, `INT64_TO_INT
-    | `TO_UINT8, `TO_UINT8
-    | `TO_UINT16, `TO_UINT16
-    | `TO_UINT32, `TO_UINT32
-    | `TO_UINT64, `TO_UINT64
-    | `TO_INT8, `TO_INT8
-    | `TO_INT16, `TO_INT16
-    | `TO_INT32, `TO_INT32
-    | `TO_INT64, `TO_INT64
     | `BV2NAT, `BV2NAT
+    | `UBV_TO_INT, `UBV_TO_INT
     | `SBV_TO_INT, `SBV_TO_INT
     | `IS_INT, `IS_INT -> true
+
+    | `TO_BV n1, `TO_BV n2 when n1 = n2 -> true
+    | `TO_UBV n1, `TO_UBV n2 when n1 = n2 -> true 
 
   
     | `SELECT a1, `SELECT a2 ->
@@ -296,23 +271,10 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
-    | `UINT8_TO_INT, _
-    | `UINT16_TO_INT, _
-    | `UINT32_TO_INT, _
-    | `UINT64_TO_INT, _
-    | `INT8_TO_INT, _
-    | `INT16_TO_INT, _
-    | `INT32_TO_INT, _
-    | `INT64_TO_INT, _
-    | `TO_UINT8, _    
-    | `TO_UINT16, _ 
-    | `TO_UINT32, _ 
-    | `TO_UINT64, _
-    | `TO_INT8, _    
-    | `TO_INT16, _ 
-    | `TO_INT32, _ 
-    | `TO_INT64, _ 
+    | `TO_BV _, _
+    | `TO_UBV _, _
     | `BV2NAT, _
+    | `UBV_TO_INT, _
     | `SBV_TO_INT, _ 
     | `IS_INT, _
     | `SELECT _, _
@@ -469,24 +431,11 @@ let rec pp_print_symbol_node ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `UINT8_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT16_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT32_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `UINT64_TO_INT -> Format.pp_print_string ppf "bv2nat"
-  | `INT8_TO_INT -> Format.pp_print_string ppf "int8_to_int"
-  | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
-  | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
-  | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
-  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
-  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
-  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
-  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
-  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_UBV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
+  | `TO_BV n -> Format.fprintf ppf "(_ int_to_bv %d)" n
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
-  | `SBV_TO_INT -> failwith "Arbitrary-width bitvector to int conversion not supported"
+  | `UBV_TO_INT -> Format.pp_print_string ppf "ubv_to_int"
+  | `SBV_TO_INT -> Format.pp_print_string ppf "sbv_to_int"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
@@ -578,92 +527,14 @@ let is_ubitvector = function
   | { Hashcons.node = `UBV _ } -> true
   | _ -> false
 
-(* Return true if the symbol is an unsigned bitvector of size 8 *)
-let is_ubv8 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 8) then true else false
+(* Return true if the symbol is a to_ubv *)
+let is_to_ubv = function
+  | { Hashcons.node = `TO_UBV _ } -> true
   | _ -> false
 
-(* Return true if the symbol is an unsigned bitvector of size 16 *)
-let is_ubv16 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 16) then true else false
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 32 *)
-let is_ubv32 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 32) then true else false
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 64 *)
-let is_ubv64 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 64) then true else false
-  | _ -> false
-
-(* Return true if the symbol is a bitvector of size 8 *)
-let is_bv8 = function
-  | { Hashcons.node = `BV n } -> 
-      if (Bitvector.length_of_bitvector n = 8) then true else false
-  | _ -> false
-
-(* Return true if the symbol is a bitvector of size 16 *)
-let is_bv16 = function
-  | { Hashcons.node = `BV n } -> 
-      if (Bitvector.length_of_bitvector n = 16) then true else false
-  | _ -> false
-
-(* Return true if the symbol is a bitvector of size 32 *)
-let is_bv32 = function
-  | { Hashcons.node = `BV n } -> 
-      if (Bitvector.length_of_bitvector n = 32) then true else false
-  | _ -> false
-
-(* Return true if the symbol is a bitvector of size 64 *)
-let is_bv64 = function
-  | { Hashcons.node = `BV n } -> 
-      if (Bitvector.length_of_bitvector n = 64) then true else false
-  | _ -> false
-
-(* Return true if the symbol is a to_uint8 *)
-let is_to_uint8 = function
-  | { Hashcons.node = `TO_UINT8 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_uint16 *)
-let is_to_uint16 = function
-  | { Hashcons.node = `TO_UINT16 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_uint32 *)
-let is_to_uint32 = function
-  | { Hashcons.node = `TO_UINT32 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_uint64 *)
-let is_to_uint64 = function
-  | { Hashcons.node = `TO_UINT64 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_int8 *)
-let is_to_int8 = function
-  | { Hashcons.node = `TO_INT8 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_int16 *)
-let is_to_int16 = function
-  | { Hashcons.node = `TO_INT16 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_int32 *)
-let is_to_int32 = function
-  | { Hashcons.node = `TO_INT32 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a to_int64 *)
-let is_to_int64 = function
-  | { Hashcons.node = `TO_INT64 } -> true
+(* Return true if the symbol is a to_bv *)
+let is_to_bv = function
+  | { Hashcons.node = `TO_BV _ } -> true
   | _ -> false
 
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
@@ -785,6 +656,12 @@ let s_div = mk_symbol `DIV
 
 let s_to_int = mk_symbol `TO_INT
 
+let s_ubv_to_int = mk_symbol `UBV_TO_INT
+
+let s_sbv_to_int = mk_symbol `SBV_TO_INT
+
+let s_bv2nat = mk_symbol `BV2NAT
+
 let s_to_real = mk_symbol `TO_REAL
 
 (* Array read operator *)
@@ -818,13 +695,10 @@ let s_signext i = mk_symbol (`BVSIGNEXT i)
 let s_zeroext i = mk_symbol (`BVZEROEXT i)
 
 (* Constant integer -> machine integer operators *)
-let s_to_uint8 = mk_symbol `TO_UINT8
+let s_to_ubv n = mk_symbol (`TO_UBV n)
 
-let s_to_uint16 = mk_symbol `TO_UINT16
-
-let s_to_uint32 = mk_symbol `TO_UINT32
-
-let s_to_uint64 = mk_symbol `TO_UINT64
+(* Constant integer -> machine integer operators *)
+let s_to_bv n = mk_symbol (`TO_BV n)
 
 let s_bvneg = mk_symbol `BVNEG
 

@@ -102,7 +102,7 @@ let smtlib_string_sexpr_conv =
        s_div = HString.mk_hstring "/";
        s_minus = HString.mk_hstring "-";
        s_index = HString.mk_hstring "_";
-       s_int2bv = HString.mk_hstring "int2bv";
+       s_int_to_bv = HString.mk_hstring "int_to_bv";
        s_extract = HString.mk_hstring "extract";
        s_signext = HString.mk_hstring "sign_extend";
        s_zeroext = HString.mk_hstring "zero_extend";
@@ -530,23 +530,10 @@ let ensure_symbol_qf_lira s =
   | `BVCONCAT
   | `BVSIGNEXT _
   | `BVZEROEXT _
-  | `UINT8_TO_INT
-  | `UINT16_TO_INT
-  | `UINT32_TO_INT
-  | `UINT64_TO_INT
-  | `INT8_TO_INT
-  | `INT16_TO_INT
-  | `INT32_TO_INT
-  | `INT64_TO_INT
-  | `TO_UINT8
-  | `TO_UINT16
-  | `TO_UINT32
-  | `TO_UINT64
-  | `TO_INT8
-  | `TO_INT16
-  | `TO_INT32
-  | `TO_INT64
+  | `TO_BV _ 
+  | `TO_UBV _
   | `BV2NAT
+  | `UBV_TO_INT
   | `SBV_TO_INT
   | `SELECT _
   | `CONST_ARRAY _
