@@ -339,30 +339,6 @@ val is_bitvector : t -> bool
 (** Return true if the symbol is an unsigned bitvector *)
 val is_ubitvector : t -> bool
 
-(** Return true if the symbol is an unsigned bitvector of size 8 *)
-val is_ubv8 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 16 *)
-val is_ubv16 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 32 *)
-val is_ubv32 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 64 *)
-val is_ubv64 : t -> bool
-
-(** Return true if the symbol is a bitvector of size 8 *)
-val is_bv8 : t -> bool
-
-(** Return true if the symbol is a bitvector of size 16 *)
-val is_bv16 : t -> bool
-
-(** Return true if the symbol is a bitvector of size 32 *)
-val is_bv32 : t -> bool
-
-(** Return true if the symbol is a bitvector of size 64 *)
-val is_bv64 : t -> bool
-
 (** Return true if the symbol is a toubv *)
 val is_to_ubv : t -> bool
 

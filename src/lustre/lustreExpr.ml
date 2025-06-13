@@ -1772,6 +1772,14 @@ let eval_to_int expr =
         (Numeral.of_big_int
            (Decimal.to_big_int
               (Symbol.decimal_of_symbol s)))
+    | Term.T.Const s when Symbol.is_ubitvector s ->
+      Term.mk_num
+        (Bitvector.ubv_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_bitvector s ->
+        Term.mk_num
+          (Bitvector.bv_to_num
+            (Symbol.bitvector_of_symbol s))
     | _ when Type.is_ubitvector tt -> Term.mk_ubv_to_int expr
     | _ when Type.is_bitvector tt -> 
       let bit_width = match Type.get_bv_size tt with 
