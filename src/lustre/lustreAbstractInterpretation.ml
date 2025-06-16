@@ -480,7 +480,6 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
       extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
-  | EmptyMap _ -> assert false
   | RecordProject (_, e, p) -> 
     let ty = infer e in 
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in
@@ -500,6 +499,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     | _ -> assert false)
   | IndexAccess (_, e, _, _) -> (match infer e with
     | ArrayType (_, (t, _)) -> extract_bounds_from_type t
+    | Map (_, _, t) -> extract_bounds_from_type t
     | _ -> assert false)
   | Const (_, const) -> (match const with
     | True | False -> assert false
@@ -538,6 +538,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | _ -> assert false
     in
     extract_bounds_from_type output_ty
+  | EmptyMap _
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2

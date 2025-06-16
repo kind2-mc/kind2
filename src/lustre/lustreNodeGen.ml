@@ -2113,9 +2113,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let idx, sv = X.choose eq_lhs in
       let eq_lhs = X.singleton idx sv in
       let eq_rhs = X.singleton [X.TupleIndex 0; X.MapIndex] E.t_false in
-      Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       let empty_map_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       empty_map_eqs @ acc
     in 
