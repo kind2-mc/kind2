@@ -158,7 +158,7 @@ let compare_one_index a b = match a, b with
   | ArrayIntIndex _, MapIndex
   | ArrayIntIndex _, AbstractTypeIndex _ -> 1
 
-  (* Array variable indexes are only greater than abstract type indexes *)
+  (* Array variable indexes are greater than map indexes and abstract type indexes *)
   | ArrayVarIndex _, RecordIndex _
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ListIndex _
@@ -166,6 +166,7 @@ let compare_one_index a b = match a, b with
   | ArrayVarIndex _, MapIndex 
   | ArrayVarIndex _, AbstractTypeIndex _ -> 1
 
+  (* Map indexes are only greater than abstract types indexes *)
   | MapIndex, RecordIndex _
   | MapIndex, ArrayIntIndex _
   | MapIndex, ListIndex _
@@ -287,12 +288,12 @@ let top_max_index t =
 let filter_array_indices index = List.filter (
   function
   | ArrayVarIndex _
-  | ArrayIntIndex _ -> false
+  | ArrayIntIndex _ 
+  | MapIndex -> false (*!! Not sure if this should count as an array index *)
   | RecordIndex _
   | TupleIndex _
   | ListIndex _
-  | AbstractTypeIndex _ 
-  | MapIndex -> true) (*!! Not sure if this should count as an array index *)
+  | AbstractTypeIndex _ -> true)
   index
 
 let compatible_one_index i1 i2 = match i1, i2 with

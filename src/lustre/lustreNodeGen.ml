@@ -1031,7 +1031,6 @@ and compile_ast_expr
       result
     else *)
       let over_indices = fun j (e:LustreExpr.t) a -> 
-        LustreExpr.pp_print_lustre_expr true Format.std_formatter e;
         let e' = state_var_of_expr e |> E.mk_var
         in X.add (j @ [X.ArrayVarIndex array_size]) e' a
       in let result = X.fold over_indices cexpr X.empty in
