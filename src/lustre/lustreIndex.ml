@@ -289,7 +289,7 @@ let filter_array_indices index = List.filter (
   function
   | ArrayVarIndex _
   | ArrayIntIndex _ 
-  | MapIndex -> false (*!! Not sure if this should count as an array index *)
+  | MapIndex -> false 
   | RecordIndex _
   | TupleIndex _
   | ListIndex _
