@@ -1021,7 +1021,12 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
               | [] -> failwith ("empty mode name")
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx nname (LA.Ident (pos, id)) exp_ty
-  | EmptyMap _ -> R.ok []
+  | EmptyMap (pos, _) as e ->
+    let* inf_ty, warnings = infer_type_expr ctx nname e in 
+    R.ifM    
+      (eq_lustre_type ctx inf_ty exp_ty) 
+      (R.ok warnings)
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | RecordProject (pos, expr, fld) -> 
     check_type_record_proj pos ctx nname expr fld exp_ty
   | TupleProject (pos, expr, idx) -> 

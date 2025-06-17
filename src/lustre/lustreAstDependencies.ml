@@ -339,6 +339,10 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
+  | LA.EmptyMap (_, (kt, vt)) -> 
+    union_dependency_analysis_data
+      (mk_graph_type kt)
+      (mk_graph_type vt)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
@@ -1418,6 +1422,8 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> 
   | d :: ds -> let* ds' = sort_and_check_equations ad ds in R.ok (d :: ds')
   | [] -> R.ok ([])
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)
+
+(*!! Need to make sure empty map constructor that references type aliases comes after those type aliases *)
 
 let sort_globals decls =
   let* (sorted_decls, _) = sort_declarations decls in
