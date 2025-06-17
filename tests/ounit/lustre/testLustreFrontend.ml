@@ -190,6 +190,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/mult_assign_array_def.lus" with
     | Error (`LustreSyntaxChecksError (_, MultAssignArrayDef)) -> true
     | _ -> false);
+  mk_test "symbolic array index passed to non-inlinable function" (fun () ->
+    match load_file "./lustreSyntaxChecks/array_index.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

@@ -1,0 +1,18 @@
+const Num_Leaders: int;
+const Num_Values: int;
+
+type ValBal = { v: int; b: int };
+
+function imported AcceptorIdSet_Add(set: int; id: int)
+returns (new_set: int);
+
+type ReceivedAccepts = int^Num_Values^Num_Leaders;
+
+function ReceivedAccepts_Add(ra: ReceivedAccepts; vb: ValBal; id: int)
+returns (new_ra: ReceivedAccepts)
+let
+  new_ra[b][v] =
+    if (vb.v = v and vb.b = b)
+    then AcceptorIdSet_Add(ra[b][v], id)
+    else ra[b][v];
+tel
