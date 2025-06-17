@@ -64,6 +64,15 @@ type eq_or_framecond =
 let pos_list_map : (Lib.position * eq_or_framecond) list NI.Hashtbl.t = 
   NI.Hashtbl.create 20
 
+let i = ref 0
+
+let mk_fresh_indices inds =
+  List.fold_left (fun acc _ ->
+    let new_name = (string_of_int !i) ^ "_ind" in 
+    i := !i + 1; 
+    (HString.mk_hstring new_name) :: acc
+  ) [] inds
+
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
     | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> 
@@ -241,9 +250,6 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
         NI.Hashtbl.add pos_list_map node_id frame_info;
 
         R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
-      
-    
-
 
 (** Helper function to fill in ITE oracles and guard equations with specified
     initialization values (if present). *)
@@ -255,11 +261,15 @@ match ni with
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> Some (lhs, init_expr, rhs_expr)
       (* In this case, the initialization is a recursive array definition, but 
          the body equation is not. So, we have to make the whole desugared equation recursive. *)
-      | A.Equation (_, (StructDef(_, [ArrayDef(_, id, inds1)]) as lhs), init_expr) when id = i  -> 
+      | A.Equation (_, StructDef(p1, [ArrayDef(p2, id, inds1)]), init_expr) when id = i  -> 
+        (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
+        let fresh = mk_fresh_indices inds1 in
+        let lhs = A.StructDef(p1, [ArrayDef(p2, id, fresh)]) in
+        let init_expr = AH.replace_idents inds1 fresh init_expr in
         let pos = AH.pos_of_expr init_expr in
         let rhs_expr = List.fold_left (fun acc ind -> 
           A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
-        ) rhs_expr inds1 in
+        ) rhs_expr fresh in
         Some (lhs, init_expr, rhs_expr)
       | _ -> None
     ) nes in
@@ -273,22 +283,26 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i
                                 (A.Pre (pos2, Ident(pos2, i)))
                                 rhs_expr))))
-  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(_, i1, inds1)]) as lhs), rhs_expr)) ->
+  | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1)]), rhs_expr)) ->
+    (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
+    let fresh = mk_fresh_indices inds1 in
+    let lhs = A.StructDef (p1, [ArrayDef(p2, i1, fresh)]) in
+    let rhs_expr = AH.replace_idents inds1 fresh rhs_expr in
     let pos2 = AH.pos_of_expr rhs_expr in 
     (* Find initialization value *)
     let array_index = List.fold_left (fun expr j ->
-      A.IndexAccess(pos2, expr, A.Ident(pos2, j), Array)) (A.Ident(pos2, i1)) inds1
+      A.IndexAccess(pos2, expr, A.Ident(pos2, j), Array)) (A.Ident(pos2, i1)) fresh
     in
     let init = List.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> 
-        Some (AH.replace_idents inds2 inds1 expr)
+        Some (AH.replace_idents inds2 fresh expr)
       (* In this case, the body equation is a recursive array definition, but 
          the initialization is not. So, we have to make the whole desugared equation recursive. *)
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i1  -> 
         let pos = AH.pos_of_expr expr in
         let expr = List.fold_left (fun acc ind -> 
           A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
-        ) expr inds1 in
+        ) expr fresh in
         Some (expr)
       | _ -> None
     ) nes in 
