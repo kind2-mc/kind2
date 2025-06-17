@@ -301,9 +301,9 @@ let no_mismatched_clock is_bool e =
     if clocks_match c1 c2 then Ok ()
     else type_error pos ClockMismatchInMerge
   in
-  let rec check_clocks clock = let r = check_clocks clock in function
+  let rec check_clocks clock = function
     | LA.Activate (pos, _, c, e, es) ->
-      r e >> Res.seq_ (List.map r es) >>
+      check_clocks clock e >> Res.seq_ (List.map (check_clocks clock) es) >>
       let* clk_exp =
         match c with
         | LA.Ident (_, i) -> Ok (LA.ClockPos i)
@@ -316,25 +316,25 @@ let no_mismatched_clock is_bool e =
     | Ident _ | Const _ | ModeRef _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e, None) -> r e
+    | AnyOp (_, _, e, None) -> check_clocks clock e
     | AnyOp (_, _, e1, Some e2) | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
-    | ArrayConstr (_, e1, e2) -> r e1 >> r e2
+    | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
     | TernaryOp (_, _, e1, e2, e3) -> 
-      r e1 >> r e2 >> r e3
-    | GroupExpr (_, _, es) | Call (_, _, _, es) -> Res.seq_ (List.map r es)
+      check_clocks clock e1 >> check_clocks clock e2 >> check_clocks clock e3
+    | GroupExpr (_, _, es) | Call (_, _, _, es) -> Res.seq_ (List.map (check_clocks clock) es)
     | RecordExpr (_, _, _, es) | Merge (_, _, es) -> 
-      Res.seq_ (List.map r (List.map (fun (_, x) -> x) es))
+      Res.seq_ (List.map (check_clocks clock) (List.map (fun (_, x) -> x) es))
     | Condact (_, e1, e2, _, es1, es2 ) -> 
-      r e1 >> r e2 >> 
-      Res.seq_ (List.map r es1) >>  Res.seq_ (List.map r es2)
+      check_clocks clock e1 >> check_clocks clock e2 >> 
+      Res.seq_ (List.map (check_clocks clock) es1) >>  Res.seq_ (List.map (check_clocks clock) es2)
     | RestartEvery (_, _, es, e) -> 
-      Res.seq_ (List.map r es) >> r e
+      Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
     | When (pos, e, c) -> 
-      r e >> clocks_match_result pos c clock
+      check_clocks clock e >> clocks_match_result pos c clock
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
-    result = let r = check_merge in function
+    result = function
     | Merge (_, clock, exprs) ->
       if not is_bool then
         let case (i, e) = check_clocks (ClockConstr (i, clock)) e in
@@ -345,31 +345,31 @@ let no_mismatched_clock is_bool e =
         let false_variant = List.nth_opt exprs 1 in
         (match true_variant, false_variant with
         | Some (_, e1), Some (_, e2) ->
-          let* _ = r e1 in 
-          let* _ = r e2 in
+          let* _ = check_merge e1 in 
+          let* _ = check_merge e2 in
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
     | Ident _ | Const _ | ModeRef _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e, None) | When (_, e, _) -> r e
+    | AnyOp (_, _, e, None) | When (_, e, _) -> check_merge e
     | AnyOp (_, _, e1, Some e2) | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
-    | ArrayConstr (_, e1, e2) -> r e1 >> r e2
+    | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
     | TernaryOp (_, _, e1, e2, e3) -> 
-      r e1 >> r e2 >> r e3
+      check_merge e1 >> check_merge e2 >> check_merge e3
     | GroupExpr (_, _, es)
-    | Call (_, _, _, es) -> Res.seq_ (List.map r es)
+    | Call (_, _, _, es) -> Res.seq_ (List.map check_merge es)
     | RecordExpr (_, _, _, es) -> 
-      Res.seq_ (List.map r (List.map (fun (_, x) -> x) es))
+      Res.seq_ (List.map check_merge (List.map (fun (_, x) -> x) es))
     | Condact (_, e1, e2, _, es1, es2 ) -> 
-      r e1 >> r e2 >> 
-      Res.seq_ (List.map r es1) >>  Res.seq_ (List.map r es2)
+      check_merge e1 >> check_merge e2 >> 
+      Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
     | Activate (_, _, e1, e2, es) -> 
-      r e1 >> r e2 >> Res.seq_ (List.map r es)
+      check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
     | RestartEvery (_, _, es, e) -> 
-      Res.seq_ (List.map r es) >> r e
+      Res.seq_ (List.map check_merge es) >> check_merge e
   in
   check_merge e
 
