@@ -23,6 +23,7 @@ module LA = LustreAst
 module LAH = LustreAstHelpers
 module H = HString
 module NI = NodeId
+module Ctx = TypeCheckerContext
 
 exception Cycle (* Exception raised locally when a cycle in contract imports is detected *)
 
@@ -64,10 +65,8 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | MultAssignArrayDef
   | AssumptionVariablesInContractNode
-  | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
-  | IllegalClockExprInActivate of LustreAst.expr
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
@@ -119,10 +118,8 @@ let error_message kind = match kind with
   | UnsupportedAssignment -> "Assignment not supported"
   | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
-  | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
-  | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
   | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
@@ -370,20 +367,31 @@ let build_local_ctx ctx locals inputs outputs =
   let ctx = List.fold_left over_inputs ctx inputs in
   List.fold_left over_outputs ctx outputs
 
-let build_equation_ctx ctx = function
+let unwrap = function 
+| Result.Ok r -> r 
+| Error _ -> assert false
+
+let build_equation_ctx ctx tc_ctx = function
   | LA.StructDef (_, items) ->
     let over_items ctx = function
       | LA.ArrayDef (_, i, indices) ->
         let output_type_opt = StringMap.find_opt i ctx.locals |> Lib.join in
         let is_symbolic = match output_type_opt with
-          | Some ty -> (match ty with
-            | ArrayType (_, (_, e)) ->
-              let vars = LAH.vars_without_node_call_ids e in
-              let check_var e = StringMap.mem e ctx.free_consts
-                || StringMap.mem e ctx.locals
-              in
-              LA.SI.exists check_var vars
-            | _ -> false)
+          | Some ty -> 
+            (* Chase type aliases if we have proper type context *)
+            let ty = match tc_ctx with 
+            | Some tc_ctx -> 
+              LustreTypeChecker.expand_type_syn_reftype_history_subrange tc_ctx ty |> unwrap 
+            | None -> ty 
+            in
+            (match ty with
+              | ArrayType (_, (_, e)) ->
+                let vars = LAH.vars_without_node_call_ids e in
+                let check_var e = StringMap.mem e ctx.free_consts
+                  || StringMap.mem e ctx.locals
+                in
+                LA.SI.exists check_var vars
+              | _ -> false)
           | None -> false
         in
         let over_indices acc id =
@@ -797,9 +805,9 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     let* warnings = (check_contract true ctx common_contract_checks contract) in
     (Ok (warnings, decl))
 
-and check_items: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.node_item list -> ([> warning] list, 'a) result 
-= fun ctx f items ->
+= fun ctx ?(tc_ctx=None) f items ->
   (* Record duplicate properties if we find them *)
   let over_props props = function
     | LA.AnnotProperty (pos, name, _, kind) ->
@@ -809,18 +817,18 @@ and check_items: context -> (context -> LA.expr -> ([> warning] list, ([> error]
       else Ok (StringSet.add name props)
     | _ -> Ok props
   in
-  let check_item: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
-    LA.node_item -> ([> warning] list, 'a) result = fun ctx f -> function
+  let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+    LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
-      let ctx' = build_equation_ctx ctx lhs in
+      let ctx' = build_equation_ctx ctx tc_ctx lhs in
       let StructDef (_, struct_items) = lhs in
       check_struct_items ctx struct_items
         >> (expr_only_supported_in_merge false e)
         >> check_expr ctx' f e
     | LA.IfBlock (_, e, l1, l2) -> 
       let* warnings1 = check_expr ctx f e in 
-      let* warnings2 = (check_items ctx f l1) in 
-      let* warnings3 = (check_items ctx f l2) in 
+      let* warnings2 = (check_items ctx ~tc_ctx f l1) in 
+      let* warnings3 = (check_items ctx ~tc_ctx f l2) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
@@ -830,9 +838,9 @@ and check_items: context -> (context -> LA.expr -> ([> warning] list, ([> error]
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
-      let* warnings1 = check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes in
-      let* warnings2 = check_items ctx f nes in 
-      let* warnings3 = (check_items ctx f nis) in
+      let* warnings1 = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes in
+      let* warnings2 = check_items ctx ~tc_ctx f nes in 
+      let* warnings3 = (check_items ctx ~tc_ctx f nis) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
@@ -840,7 +848,7 @@ and check_items: context -> (context -> LA.expr -> ([> warning] list, ([> error]
   in
   (* Check for duplicate properties *)
   Res.seq_chain (fun props -> over_props props) StringSet.empty items >> 
-  let* warnings = Res.seq (List.map (check_item ctx f) items) in 
+  let* warnings = Res.seq (List.map (check_item ctx tc_ctx f) items) in 
   Ok (List.flatten warnings)
 
 and check_struct_items ctx items =
@@ -1035,58 +1043,6 @@ and check_expr_list ctx f l =
   let* warnings = Res.seq (List.map (check_expr ctx f) l) in 
   Ok(List.flatten warnings)
 
-let no_mismatched_clock is_bool e =
-  let ctx = empty_ctx () in
-  let clocks_match c1 c2 =
-    match c1, c2 with
-    | LA.ClockTrue, LA.ClockTrue -> true
-    | ClockPos i, ClockPos j -> HString.equal i j
-    | ClockNeg i, ClockNeg j -> HString.equal i j
-    | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
-      HString.equal i1 j1 && HString.equal i2 j2
-    | _ -> false
-  in
-  let clocks_match_result pos c1 c2 =
-    if clocks_match c1 c2 then Ok []
-    else syntax_error pos ClockMismatchInMerge
-  in
-  let check_clocks clock = function
-    | LA.When (pos, _, c) -> clocks_match_result pos c clock
-    | LA.Activate (pos, _, c, _, _) ->
-      let* clk_exp =
-        match c with
-        | LA.Ident (_, i) -> Ok (LA.ClockPos i)
-        | LA.UnaryOp (_, LA.Not, LA.Ident (_, i)) -> Ok (LA.ClockNeg i)
-        | LA.CompOp (_, LA.Eq, LA.Ident (_, c), LA.Ident (_, cv)) ->
-          Ok (LA.ClockConstr (cv, c))
-        | _ -> syntax_error pos (IllegalClockExprInActivate c)
-      in
-      clocks_match_result pos clk_exp clock
-    | _ -> Ok []
-  in
-  let check_merge: LA.expr -> ( [> warning] list, [> error])
-    result = function
-    | LA.Merge (_, clock, exprs) ->
-      if not is_bool then
-        let case (i, e) = check_expr ctx
-          (fun _ -> check_clocks (ClockConstr (i, clock))) e
-        in
-        let* warnings = Res.seq (List.map case exprs) in 
-        Ok (List.flatten warnings)
-      else
-        let true_variant = List.nth_opt exprs 0 in
-        let false_variant = List.nth_opt exprs 1 in
-        (match true_variant, false_variant with
-        | Some (_, e1), Some (_, e2) ->
-          let* warnings1 = check_clocks (ClockPos clock) e1 in
-          let* warnings2 = check_clocks (ClockNeg clock) e2 in 
-          Ok (warnings1 @ warnings2)
-        | _ -> Ok [])
-    | _ -> Ok ([])
-  in
-  check_expr ctx (fun _ -> check_merge) e
-
-
 let ovq_check_expr inlinable_funcs ctx = function
 | LA.Call (pos, _, node_id, args) ->
   let inlinable_funcs = 
@@ -1116,7 +1072,7 @@ let ovq_check_expr inlinable_funcs ctx = function
   List.fold_left (>>) (Ok []) check
 | _ -> Ok []
 
-let oqv_check_node_decl inlinable_funcs ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
+let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
   let* warnings1 =
     match contract with
     | Some c ->
@@ -1131,6 +1087,7 @@ let oqv_check_node_decl inlinable_funcs ctx (_, _, _, _, inputs, outputs, locals
   let* warnings2 =
     check_items
       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+      ~tc_ctx
       (ovq_check_expr inlinable_funcs)
       items
   in
@@ -1143,17 +1100,17 @@ let oqv_check_contract_node_decl inlinable_funcs ctx (_, _, inputs, outputs, con
   in
   Ok warnings
 
-let oqv_check_decl: NI.Set.t -> context -> LA.declaration -> ([> warning] list, [> error]) result
-= fun inlinable_funcs ctx -> function
+let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> ([> warning] list, [> error]) result
+= fun inlinable_funcs ctx tc_ctx -> function
   | NodeDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx decl
+    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
   | FuncDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx decl
+    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
   | ContractNodeDecl (_, decl) ->
     oqv_check_contract_node_decl inlinable_funcs ctx decl
   | _ -> Ok []
 
-let no_quant_vars_in_calls_to_non_inlinable_funcs inlinable_funcs ast =
+let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
   let ctx = build_global_ctx ast in
-  let* warnings = Res.seq (List.map (oqv_check_decl inlinable_funcs ctx) ast) in
+  let* warnings = Res.seq (List.map (oqv_check_decl inlinable_funcs ctx tc_ctx) ast) in
   Ok (List.flatten warnings)

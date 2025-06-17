@@ -46,10 +46,8 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | MultAssignArrayDef
   | AssumptionVariablesInContractNode
-  | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
-  | IllegalClockExprInActivate of LustreAst.expr
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
@@ -71,12 +69,5 @@ val warning_message : warning_kind -> string
 
 val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
 
-val no_mismatched_clock : bool -> LA.expr -> ([> warning ] list, [> error]) result
-(** Conservative syntactic check of clock arguments for merge expressions.
-  To eventually be replaced with more general clock inference/checking.
-
-  Note: type information is needed for this check, causing this check to
-  be called in the lustreTypeChecker *)
-
 val no_quant_vars_in_calls_to_non_inlinable_funcs :
-  NodeId.Set.t -> LA.t -> ([> warning ] list, [> error]) result
+  TypeCheckerContext.tc_context -> NodeId.Set.t -> LA.t -> ([> warning ] list, [> error]) result

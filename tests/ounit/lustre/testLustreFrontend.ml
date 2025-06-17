@@ -118,14 +118,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_stateful_contract_import_2.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
     | _ -> false);
-  mk_test "test merge clock mismatch" (fun () ->
-    match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
-    | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
-    | _ -> false);
-  mk_test "test activate clock mismatch" (fun () ->
-    match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
-    | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
-    | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
@@ -738,6 +730,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test bound variable with refinement type 3" (fun () ->
     match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test merge clock mismatch" (fun () ->
+    match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
+    | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
+    | _ -> false);
+  mk_test "test activate clock mismatch" (fun () ->
+    match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
 ])
 

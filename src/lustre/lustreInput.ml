@@ -222,7 +222,7 @@ let type_check declarations =
       LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts
     in
     let* warnings5 =
-      LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlinable_funcs declarations
+      LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
     (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)

@@ -28,7 +28,6 @@ module R = Res
 module LA = LustreAst
 module LH = LustreAstHelpers
 module IC = LustreAstInlineConstants
-module LSC = LustreSyntaxChecks
 open TypeCheckerContext
 
 type tc_type  = LA.lustre_type
@@ -109,10 +108,11 @@ type error_kind = Unknown of string
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
   | ExpectedMapType of tc_type
+  | ClockMismatchInMerge
+  | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
@@ -216,6 +216,8 @@ let error_message kind = match kind with
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, and tuples are supported"
   | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
+  | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
+  | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -283,10 +285,81 @@ let add_full_node_ctx ctx nname params inputs outputs locals =
   | _ -> Bool pos
 (** Infers type of constants *)
 
+(* Conservative syntactic check of clock arguments for merge expressions.
+  To eventually be replaced with more general clock inference/checking. *)
+let no_mismatched_clock is_bool e =
+  let clocks_match c1 c2 =
+    match c1, c2 with
+    | LA.ClockTrue, LA.ClockTrue -> true
+    | ClockPos i, ClockPos j -> HString.equal i j
+    | ClockNeg i, ClockNeg j -> HString.equal i j
+    | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
+      HString.equal i1 j1 && HString.equal i2 j2
+    | _ -> false
+  in
+  let clocks_match_result pos c1 c2 =
+    if clocks_match c1 c2 then Ok ()
+    else type_error pos ClockMismatchInMerge
+  in
+  let check_clocks clock = function
+    | LA.When (pos, _, c) -> clocks_match_result pos c clock
+    | LA.Activate (pos, _, c, _, _) ->
+      let* clk_exp =
+        match c with
+        | LA.Ident (_, i) -> Ok (LA.ClockPos i)
+        | LA.UnaryOp (_, LA.Not, LA.Ident (_, i)) -> Ok (LA.ClockNeg i)
+        | LA.CompOp (_, LA.Eq, LA.Ident (_, c), LA.Ident (_, cv)) ->
+          Ok (LA.ClockConstr (cv, c))
+        | _ -> type_error pos (IllegalClockExprInActivate c)
+      in
+      clocks_match_result pos clk_exp clock
+    | _ -> Ok ()
+  in
+  let rec check_merge: LA.expr -> ( unit, [> error])
+    result = function
+    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+    | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
+    | AnyOp (_, _, e, None) -> check_merge e
+    | AnyOp (_, _, e1, Some e2) | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
+    | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
+    | TernaryOp (_, _, e1, e2, e3) -> 
+      check_merge e1 >> check_merge e2 >> check_merge e3
+    | GroupExpr (_, _, es)
+    | Call (_, _, _, es) -> Res.seq_ (List.map check_merge es)
+    | RecordExpr (_, _, _, es) -> 
+      Res.seq_ (List.map check_merge (List.map (fun (_, x) -> x) es))
+    | Condact (_, e1, e2, _, es1, es2 ) -> 
+      check_merge e1 >> check_merge e2 >> 
+      Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
+    | Activate (_, _, e1, e2, es) -> 
+      check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
+    | RestartEvery (_, _, es, e) -> 
+      Res.seq_ (List.map check_merge es) >> check_merge e
+    | LA.Merge (_, clock, exprs) ->
+      if not is_bool then
+        let case (i, e) = check_clocks (ClockConstr (i, clock)) e in
+        let* _ = Res.seq (List.map case exprs) in 
+        Ok ()
+      else
+        let true_variant = List.nth_opt exprs 0 in
+        let false_variant = List.nth_opt exprs 1 in
+        (match true_variant, false_variant with
+        | Some (_, e1), Some (_, e2) ->
+          let* _ = check_merge e1 in 
+          let* _ = check_merge e2 in
+          let* _ = check_clocks (ClockPos clock) e1 in
+          check_clocks (ClockNeg clock) e2
+        | _ -> Ok ())
+    | _ -> Ok (())
+  in
+  check_merge e
+
 let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
-  | EnumType _ -> LSC.no_mismatched_clock false e >> Ok ()
-  | Bool _ -> LSC.no_mismatched_clock true e >> Ok ()
+  | EnumType _ -> no_mismatched_clock false e >> Ok ()
+  | Bool _ -> no_mismatched_clock true e >> Ok ()
   | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
