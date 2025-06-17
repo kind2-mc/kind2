@@ -1,0 +1,4 @@
+node irrelevant_array_variable() returns (y: int^3; x:int);
+let
+  check x>0;
+tel;

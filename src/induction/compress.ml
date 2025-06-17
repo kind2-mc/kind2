@@ -282,7 +282,9 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
             let term_of_state s =
               let n =
                 if only_bv then
-                  Term.mk_ubv (Bitvector.num_to_ubv64 (aux s))
+                  let n' = aux s in
+                  let width = Term.sufficiently_large_bit_width (n' |> Numeral.to_int) |> Numeral.of_int in
+                  Term.mk_ubv (Bitvector.num_to_ubv width n')
                 else
                   Term.mk_num (aux s)
               in

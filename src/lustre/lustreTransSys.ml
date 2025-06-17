@@ -2327,6 +2327,17 @@ let rec trans_sys_of_node'
             )
           in
 
+          if not (Flags.slice_nodes ()) then
+            all_state_vars |> List.iter (fun state_var ->
+              let state_var_type = StateVar.type_of_state_var state_var in
+              if Type.is_array state_var_type then (
+                (* Enforce creation of 'select' functions required to retrieve models, even if
+                   the array variable is not used in the input, when slice_nodes=false *)
+                StateVar.encode_select state_var |> ignore
+              )
+            )
+          ;
+
           let subrange_and_enum_state_vars =
             let enum_state_vars = filter_enum_svars all_state_vars in
             (* Inputs, defined outputs, and locals require a check.

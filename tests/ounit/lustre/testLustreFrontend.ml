@@ -194,6 +194,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
+  mk_test "inductive array definition in multiple assignment" (fun () ->
+    match load_file "./lustreSyntaxChecks/mult_assign_array_def.lus" with
+    | Error (`LustreSyntaxChecksError (_, MultAssignArrayDef)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

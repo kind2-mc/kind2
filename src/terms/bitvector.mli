@@ -58,125 +58,24 @@ val bvconcat : t -> t -> t
 (** [num_to_ubv s n] returns size [s] unsigned bitvector converted from numeral [n] *)
 val num_to_ubv : Numeral.t -> Numeral.t -> t
 
-(** Return size 8 unsigned bitvector converted from a numeral *)
-val num_to_ubv8 : Numeral.t -> t
-
-(** Return size 16 unsigned bitvector converted from a numeral *)
-val num_to_ubv16 : Numeral.t -> t
-
-(** Return size 32 unsigned bitvector converted from a numeral *)
-val num_to_ubv32 : Numeral.t -> t
-
-(** Return size 64 unsigned bitvector converted from a numeral *)
-val num_to_ubv64 : Numeral.t -> t
-
-
 (** {1 Usigned Bitvector to Numeral}
 @author Arjun Viswanathan*)
 
 (** Return numeral converted from an unsigned bitvector *)
 val ubv_to_num : t -> Numeral.t
 
-(** Return numeral converted from a size 8 unsigned bitvector *)
-val ubv8_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 16 unsigned bitvector *)
-val ubv16_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 32 unsigned bitvector *)
-val ubv32_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 64 unsigned bitvector *)
-val ubv64_to_num : t -> Numeral.t
-
 
 (** {1 Numeral to Signed Bitvector}
 @author Arjun Viswanathan*)
 
-(** Return size 8 signed bitvector converted from a numeral *)
-val num_to_bv8 : Numeral.t -> t
-
-(** Return size 16 signed bitvector converted from a numeral *)
-val num_to_bv16 : Numeral.t -> t
-
-(** Return size 32 signed bitvector converted from a numeral *)
-val num_to_bv32 : Numeral.t -> t
-
-(** Return size 64 signed bitvector converted from a numeral *)
-val num_to_bv64 : Numeral.t -> t
-
+(** Return signed bitvector converted from a numeral *)
+val num_to_bv : Numeral.t -> Numeral.t -> t
 
 (** {1 Signed Bitvector to Numeral}
 @author Arjun Viswanathan*)
 
 (** Return numeral converted from a signed bitvector *)
 val bv_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 8 signed bitvector *)
-val bv8_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 16 signed bitvector *)
-val bv16_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 32 signed bitvector *)
-val bv32_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 64 signed bitvector *)
-val bv64_to_num : t -> Numeral.t
-
-
-(* @author Arjun Viswanathan
-(** Return size 8 unsigned bitvector converted from an int *)
-val int_to_ubv8 : int -> t
-
-(** Return size 16 unsigned bitvector converted from an int *)
-val int_to_ubv16 : int -> t
-
-(** Return size 32 unsigned bitvector converted from an int *)
-val int_to_ubv32 : int -> t
-
-(** Return size 64 unsigned bitvector converted from an int *)
-val int_to_ubv64 : int -> t
-
-
-(** Return integer converted from a size 8 unsigned bitvector *)
-val ubv8_to_int : t -> int
-
-(** Return integer converted from a size 16 unsigned bitvector *)
-val ubv16_to_int : t -> int
-
-(** Return integer converted from a size 32 unsigned bitvector *)
-val ubv32_to_int : t -> int
-
-(** Return integer converted from a size 64 unsigned bitvector *)
-val ubv64_to_int : t -> int
-
-
-(** Return size 8 bitvector converted from an int *)
-val int_to_bv8 : int -> t
-
-(** Return size 16 bitvector converted from an int *)
-val int_to_bv16 : int -> t
-
-(** Return size 32 bitvector converted from an int *)
-val int_to_bv32 : int -> t
-
-(** Return size 64 bitvector converted from an int *)
-val int_to_bv64 : int -> t
-
-
-(** Return integer converted from a size 8 bitvector *)
-val bv8_to_int : t -> int
-
-(** Return integer converted from a size 16 bitvector *)
-val bv16_to_int : t -> int
-
-(** Return integer converted from a size 32 bitvector *)
-val bv32_to_int : t -> int
-
-(** Return integer converted from a size 64 bitvector *)
-val bv64_to_int : t -> int
-*)
 
 
 (** {1 Arithmetic Operations}

@@ -23,7 +23,8 @@ let
 
 
    frame ( y1, y2, x1 )
-   y1, y2[i][j] = (7, if i=0 or j=0 then 0 else y2[i-1][j-1] + 1);
+   y1 = 7;
+   y2[i][j] = if i=0 or j=0 then 0 else y2[i-1][j-1] + 1;
    let
       if oscillate()
       then
@@ -42,19 +43,22 @@ let
       then
          x2 = 0;
       else
-         y3, y4[i][j] = (8, if (i=0 or j=0) then 0 else y4[i-1][j-1] + 2);
+         y3 = 8;
+         y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 2;
       fi
    tel
    
 
    frame ( y5, y6, x3 )
-   y5, y6[i][j] = (7, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1);
+   y5 = 7;
+   y6[i][j] = if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1;
    let
       if oscillate()
       then
          x3 = 0;
       else
-         y5, y6[i][j] = (8, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 2);
+         y5 = 8; 
+         y6[i][j] = if (i=0 or j=0) then 0 else y6[i-1][j-1] + 2;
       fi
    tel   
       
