@@ -150,6 +150,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     A.StructUpdate (a, fill_ite_helper frame_pos node_id lhs id fill e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
+              | MapIndex (a, e) -> MapIndex (a, fill_ite_helper frame_pos node_id lhs id fill e)
               | Index (a, e) -> Index (a, fill_ite_helper frame_pos node_id lhs id fill e)
              ) li, 
     fill_ite_helper frame_pos node_id lhs id fill e2)

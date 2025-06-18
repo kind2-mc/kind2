@@ -956,11 +956,30 @@ and compile_ast_expr
         let cexpr_sub = X.find_prefix accum cexpr1 in
         let index_term = (index : E.expr :> Term.t ) in
         let value = Term.numeral_of_term index_term |> Numeral.to_int in
+        print_endline (string_of_int value);
         let i = if Term.is_numeral index_term then
             (match X.choose cexpr_sub with
               | X.ArrayVarIndex _ :: _, _
-              | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
-              | X.TupleIndex _ :: _,_ -> X.TupleIndex value
+              | X.ArrayIntIndex _ :: _, _ -> print_endline "got here"; X.ArrayIntIndex value
+              | X.TupleIndex _ :: _, _ -> X.TupleIndex value
+              | _ -> assert false (* guaranteed by type checker *))
+          else (match X.choose cexpr_sub with
+            | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
+            | _ -> assert false (* guaranteed by type checker *) )
+        in aux (i :: accum) tl
+      (*!!*)
+      | A.MapIndex (_, index_expr) :: tl -> 
+        let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
+        let index = (index_cexpr |> X.values |> List.hd).expr_init in
+        let cexpr_sub = X.find_prefix accum cexpr1 in
+        let index_term = (index : E.expr :> Term.t ) in
+        let value = Term.numeral_of_term index_term |> Numeral.to_int in
+        print_endline (string_of_int value);
+        let i = if Term.is_numeral index_term then
+            (match X.choose cexpr_sub with
+              | X.ArrayVarIndex _ :: _, _
+              | X.ArrayIntIndex _ :: _, _ -> print_endline "got here"; X.ArrayIntIndex value
+              | X.TupleIndex _ :: _, _ -> X.TupleIndex value
               | _ -> assert false (* guaranteed by type checker *))
           else (match X.choose cexpr_sub with
             | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index

@@ -412,6 +412,7 @@ let rec has_unguarded_pre ung = function
     let u1 = has_unguarded_pre ung e1 in
     let us = List.map (function
         | Label _ -> false
+        | MapIndex (_, e)
         | Index (_, e) -> has_unguarded_pre ung e
       ) li in
     let u2 = has_unguarded_pre ung e2 in
@@ -494,6 +495,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let us = List.map (function
         | Label _ -> false
+        | MapIndex (_, e)
         | Index (_, e) -> has_unguarded_pre_no_warn ung e
       ) li in
     let u2 = has_unguarded_pre_no_warn ung e2 in
@@ -588,6 +590,7 @@ let rec has_pre_or_arrow = function
           fun _ ->
             List.map (function
               | Label _ -> None
+              | MapIndex (_, e)
               | Index (_, e) -> has_pre_or_arrow e
             ) li
             |> some_of_list
@@ -1243,6 +1246,7 @@ let rec replace_idents locals1 locals2 expr =
     List.map (function
               | Label (a, b) -> Label (a, b)
               | Index (a, e) -> Index (a, r e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
              ) li, 
     r e2)
 (** For every identifier, if that identifier is position n in locals1,
@@ -1560,8 +1564,9 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (function
-          | Label (_, i) -> HString.hash i
-          | Index (_, e) -> r (depth + 1) e)
+          | Label (_, i) -> Hashtbl.hash (0, HString.hash i)
+          | MapIndex (_, e) -> Hashtbl.hash (1, r (depth + 1) e)
+          | Index (_, e) -> Hashtbl.hash (2, r (depth + 1) e))
           l
         in
         Hashtbl.hash (13, e1_hash, l_hash, e2_hash)

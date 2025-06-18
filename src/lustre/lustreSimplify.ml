@@ -801,6 +801,8 @@ let rec eval_ast_expr bounds ctx =
       (* All indexes consumed return in original order *)
       | [] -> List.rev accum
 
+      | A.MapIndex (pos, _) :: tl -> fail_at_position pos "Map types are not supported in old front end" 
+
       (* First index is a record field label *)
       | A.Label (pos, index) :: tl -> 
 
