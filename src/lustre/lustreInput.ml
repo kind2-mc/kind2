@@ -358,12 +358,16 @@ let of_channel old_frontend only_parse in_ch =
                     (2) the main node's enviornment, if environment checking is enabled *)
               let main_nodes = 
                 if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
-                  [NI.mk_node_id ~node_type:Contract (HString.mk_hstring s)]
+                  let node_id = NI.mk_node_id ~node_type:Contract (HString.mk_hstring s) in 
+                  let _ = LN.node_of_node_id node_id nodes in
+                  [node_id]
                 else [NI.mk_node_id (HString.mk_hstring s)] 
               in
               let main_nodes = 
                 if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
-                  (NI.mk_node_id ~node_type:Environment (HString.mk_hstring s)) :: main_nodes 
+                  let node_id = NI.mk_node_id ~node_type:Environment (HString.mk_hstring s) in 
+                  let _ = LN.node_of_node_id node_id nodes in
+                  node_id :: main_nodes 
                 else 
                   main_nodes 
                 in 
@@ -395,11 +399,11 @@ let of_channel old_frontend only_parse in_ch =
               raise (MainTypeWithoutRealizability msg)
             else (
               try 
-                (* let s_ident = LustreIdent.mk_string_ident (LGI.type_tag ^ s) in *)
-                let _ = LN.node_of_input_name s_ident nodes in  
+                let node_id = NI.mk_node_id ~node_type:Type (HString.mk_hstring s) in
+                let _ = LN.node_of_node_id node_id nodes in  
                 match Flags.lus_main () with 
-                | Some _ -> (NI.mk_node_id ~node_type:Type (HString.mk_hstring s)) :: main_nodes
-                | None -> [NI.mk_node_id (HString.mk_hstring s)]
+                | Some _ -> node_id :: main_nodes
+                | None -> [node_id]
               (* User-specified type alias in command-line input might not exist *)
               with Not_found -> 
                 let msg =
