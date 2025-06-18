@@ -1072,10 +1072,6 @@ let rec subsystem_of_nodes' nodes accum = function
 
         try 
 
-          Format.fprintf Format.std_formatter "Node names: %a\n looking for: %a\n"
-            (Lib.pp_print_list (fun ppf node -> HString.pp_print_hstring ppf (NI.get_internal_name node.node_id)) ", ") nodes
-            HString.pp_print_hstring (NI.get_internal_name top); 
-
           (* Get node by name *)
           node_of_node_id top nodes 
 
