@@ -94,10 +94,11 @@ type error_kind = Unknown of string
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
   | ExpectedMapType of tc_type
+  | ClockMismatchInMerge
+  | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
