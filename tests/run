@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if command -v uvx >/dev/null 2>&1
+then
+	uvx pytest
+else
+	pytest
+fi
