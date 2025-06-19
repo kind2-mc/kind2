@@ -1,8 +1,8 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["pytest"]
-# ///
-import pytest
+#!/usr/bin/env bash
 
-pytest.main()
+if command -v uvx >/dev/null 2>&1
+then
+	uvx pytest
+else
+	pytest
+fi
