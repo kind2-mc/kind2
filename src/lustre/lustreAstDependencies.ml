@@ -1423,8 +1423,6 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> 
   | [] -> R.ok ([])
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)
 
-(*!! Need to make sure empty map constructor that references type aliases comes after those type aliases *)
-
 let sort_globals decls =
   let* (sorted_decls, _) = sort_declarations decls in
   Debug.parse "Sorting types and constants declarations done.
