@@ -316,7 +316,7 @@ let no_mismatched_clock is_bool e =
         | _ -> type_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e, None) -> check_clocks clock e
@@ -353,7 +353,7 @@ let no_mismatched_clock is_bool e =
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
-    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e, None) | When (_, e, _) -> check_merge e
