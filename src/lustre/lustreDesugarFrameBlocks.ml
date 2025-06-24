@@ -50,6 +50,9 @@ type warning_kind =
 let warning_message warning = match warning with
   | UninitializedVariableWarning id -> "Uninitialized frame block variable " ^ HString.string_of_hstring id
 
+let error_if_lus_strict = function
+  | UninitializedVariableWarning _ -> true
+
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
 ]

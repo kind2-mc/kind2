@@ -16,6 +16,11 @@
 
  *)
 
+module LDF = LustreDesugarFrameBlocks
+module LAN = LustreAstNormalizer
+module LTC = LustreTypeChecker
+module LSC = LustreSyntaxChecks
+
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
   | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
@@ -37,3 +42,9 @@ let warning_message warning = match warning with
 
 let sort_warnings_by_pos l =
   List.sort (fun w1 w2 -> Lib.compare_pos (warning_position w1) (warning_position w2)) l
+
+let error_if_lus_strict = function
+  | `LustreDesugarFrameBlocksWarning (_, kind) -> LDF.error_if_lus_strict kind
+  | `LustreAstNormalizerWarning (_, kind) -> LAN.error_if_lus_strict kind
+  | `LustreTypeCheckerWarning (_, kind) -> LTC.error_if_lus_strict kind
+  | `LustreSyntaxChecksWarning (_, kind) -> LSC.error_if_lus_strict kind

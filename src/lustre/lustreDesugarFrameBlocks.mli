@@ -47,6 +47,8 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val error_if_lus_strict : warning_kind -> bool
+
 type eq_or_framecond =
   | Eq of A.eq_lhs
   | FCond of A.eq_lhs

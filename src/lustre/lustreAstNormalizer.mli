@@ -80,6 +80,8 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val error_if_lus_strict : warning_kind -> bool
+
 val mk_fresh_dummy_index : 'a -> HString.t
 
 val mk_range_expr : TypeCheckerContext.tc_context ->

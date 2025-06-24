@@ -132,6 +132,9 @@ type warning_kind =
 let warning_message warning = match warning with
   | UnusedBoundVariableWarning id -> "Unused 'any' operator bound variable " ^ HString.string_of_hstring id
 
+let error_if_lus_strict = function
+  | UnusedBoundVariableWarning _ -> false
+
 type warning = [
   | `LustreSyntaxChecksWarning of Lib.position * warning_kind
 ]
