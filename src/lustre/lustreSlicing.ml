@@ -220,7 +220,8 @@ let union_noind_set m s =
 
 let rec state_vars_of_bounds acc = function
   | [] -> acc
-  | (E.Bound e | E.Fixed e | E.Unbound e) :: l ->
+  | E.Unbound None :: l -> state_vars_of_bounds acc l
+  | (E.Bound e | E.Fixed e | E.Unbound (Some e)) :: l ->
     let acc =
       Term.state_vars_of_term (E.unsafe_term_of_expr e) |> SVS.union acc in
     state_vars_of_bounds acc l

@@ -63,6 +63,7 @@ type t = {
     * HString.t (* Generated name for refinement type constraint *)
     * LustreAst.expr) 
     list;
+  empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)

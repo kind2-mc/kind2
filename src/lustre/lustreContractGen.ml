@@ -535,7 +535,7 @@ let fmt_ghost_def fmt ((var, bounds), expr) =
   (Expr.pp_print_lustre_var false) var
   (pp_print_listi
      (fun ppf i -> function
-        | Expr.Bound e | Expr.Unbound e ->
+        | Expr.Bound e | Expr.Unbound (Some e) ->
           Format.fprintf
             ppf
             "[%a(%a)]"
@@ -543,7 +543,9 @@ let fmt_ghost_def fmt ((var, bounds), expr) =
             (LustreIdent.push_index LustreIdent.index_ident i)
             (Expr.pp_print_expr false) e
         | Expr.Fixed e ->
-          Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e)
+          Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e
+        | Expr.Unbound None ->
+          Format.fprintf ppf "[Unbound]")
      "")
   bounds
   (Expr.pp_print_lustre_type true) (SVar.type_of_state_var var)

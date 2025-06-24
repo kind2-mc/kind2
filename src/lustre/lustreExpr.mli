@@ -71,7 +71,7 @@ type 'a bound_or_fixed =
   | Bound of 'a    (** Equation is for each value of the index variable
                        between zero and the upper bound *)
   | Fixed of 'a    (** Fixed value for index variable *)
-  | Unbound of 'a  (** unbounded index variable *)
+  | Unbound of 'a option (** unbounded index variable *)
 
 
 (** Return the type of the expression *)

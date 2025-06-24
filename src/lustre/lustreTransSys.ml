@@ -1704,9 +1704,10 @@ let rec constraints_of_asserts init_terms trans_terms = function
 module MBounds = Map.Make (struct
     type t = E.expr E.bound_or_fixed list
     let compare_bounds b1 b2 = match b1, b2 with
+      | E.Unbound None, E.Unbound None -> 0
       | E.Fixed e1, E.Fixed e2
       | E.Bound e1, E.Bound e2
-      | E.Unbound e1, E.Unbound e2 -> E.compare_expr e1 e2
+      | E.Unbound (Some e1), E.Unbound (Some e2) -> E.compare_expr e1 e2
       | E.Fixed _, _ -> -1
       | _, E.Fixed _ -> 1
       | E.Unbound _, _ -> 1

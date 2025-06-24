@@ -339,6 +339,10 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
+  | LA.EmptyMap (_, (kt, vt)) -> 
+    union_dependency_analysis_data
+      (mk_graph_type kt)
+      (mk_graph_type vt)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
@@ -373,6 +377,7 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
   | Ident _ -> []
+  | EmptyMap _ -> []
   | ModeRef (pos, ids) ->
     if List.length ids = 1 then []
     else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
@@ -639,6 +644,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   match expr with
   | Ident (_ , i) -> SI.singleton i
   | ModeRef _ -> SI.empty
+  | EmptyMap _ -> SI.empty
   | RecordProject (_, e, _) -> r e 
   | TupleProject (_, e, _) -> r e
   (* Values *)
@@ -771,6 +777,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data empty_hs i pos]
   | LA.ModeRef (pos, ids) ->
      R.ok [singleton_dependency_analysis_data mode_prefix (List.nth ids (List.length ids - 1) ) pos] 
+  | LA.EmptyMap _ 
   | LA.Const _ ->
      R.ok [empty_dependency_analysis_data]
 

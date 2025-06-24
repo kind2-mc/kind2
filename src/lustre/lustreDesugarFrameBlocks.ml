@@ -112,6 +112,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
   | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
+  | EmptyMap _ as e -> e
     
   | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
   | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)

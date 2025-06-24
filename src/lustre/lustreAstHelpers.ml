@@ -57,6 +57,7 @@ let pos_of_expr = function
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _, _) | Extract (pos, _, _, _)
+  | EmptyMap (pos, _)
   -> pos
 
 let type_arity ty =
@@ -69,7 +70,7 @@ let type_arity ty =
   | _ -> (0, 0)
 
 let rec expr_contains_call = function
-  | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _)
@@ -102,7 +103,7 @@ let rec type_contains_array = function
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
-  | ModeRef (_, _) | Const (_, _) -> false
+  | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _)
@@ -134,6 +135,7 @@ let rec expr_contains_id id = function
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
+  | EmptyMap _ as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
@@ -191,6 +193,7 @@ let rec apply_subst_in_expr sigma = function
       | None -> Ident (pos, i)
   )
   | ModeRef (_, _) as e -> e
+  | EmptyMap _ as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
@@ -242,7 +245,11 @@ let rec apply_type_subst_in_expr
 = fun sigma expr -> match expr with
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
-    Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list) 
+    Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list)
+  | EmptyMap (pos, (kt, vt)) ->
+    let kt = apply_type_subst_in_type sigma kt in
+    let vt = apply_type_subst_in_type sigma vt in
+    EmptyMap (pos, (kt, vt))
   | Quantifier (pos, q, tis, expr) -> 
     let tis = List.map (fun (p, id, ty) -> 
       p, id, apply_type_subst_in_type sigma ty
@@ -354,8 +361,8 @@ let rec apply_subst_in_type sigma = function
   | ty -> ty
     
 let rec has_unguarded_pre ung = function
-  | Const _ | Ident _ | ModeRef _ -> false
-    
+  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
+
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
@@ -436,7 +443,7 @@ let has_unguarded_pre e =
   then raise Parser_error; u
 
 let rec has_unguarded_pre_no_warn ung = function
-  | Const _ | Ident _ | ModeRef _ -> false
+  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
@@ -518,7 +525,7 @@ let some_of_list = List.fold_left (
 
 (** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | Const _ | Ident _ | ModeRef _ -> None
+  | Const _ | Ident _ | ModeRef _ | EmptyMap _ -> None
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
@@ -761,6 +768,7 @@ let rec vars_of_node_calls_h obs =
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
+  | EmptyMap _ -> SI.empty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -804,6 +812,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
+  | EmptyMap _ -> SI.empty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -867,6 +876,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
   | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | EmptyMap _ -> NI.Set.empty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
@@ -884,6 +894,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
+  | EmptyMap _ -> SI.empty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -1017,6 +1028,7 @@ let rec replace_with_constants: expr -> expr =
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
+  | EmptyMap _ as e -> e
   (* Values *)
   | Const _ as e -> e
 
@@ -1094,7 +1106,8 @@ and is used inside abstract_pre_subexpressions *)
   
 let rec abstract_pre_subexpressions: expr -> expr = function
   | Ident _ 
-    | ModeRef _ as e -> e 
+  | ModeRef _ 
+  | EmptyMap _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
   (* Values *)
@@ -1197,6 +1210,7 @@ let rec replace_idents locals1 locals2 expr =
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
   | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
+  | EmptyMap (p, t) -> EmptyMap (p, t)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1617,6 +1631,7 @@ let hash depth_limit expr =
       | Extract (_, e, idx1, idx2) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (26, e_hash, idx1, idx2)
+      | EmptyMap (_, _) -> Hashtbl.hash 27
   in
   r 0 expr
 
@@ -1634,6 +1649,7 @@ let rec rename_contract_vars = function
       else e
     with _ -> e)
   | ModeRef (_, _) as e -> e
+  | EmptyMap _ as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e

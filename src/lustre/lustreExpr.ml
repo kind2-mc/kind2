@@ -57,7 +57,7 @@ type t = {
 type 'a bound_or_fixed = 
   | Bound of 'a  (* Upper bound for index variable *)
   | Fixed of 'a  (* Fixed value for index variable *)
-  | Unbound of 'a  (* unbounded index variable *)
+  | Unbound of 'a option (* unbounded index variable *)
 
 type num = 
   | Number of Numeral.t 
@@ -837,7 +837,8 @@ let pp_print_lustre_expr safe ppf = function
 let pp_print_bound_or_fixed ppf = function
   | Bound x -> Format.fprintf ppf "@[<hv 1>(Bound %a)@]" (pp_print_expr true) x
   | Fixed x -> Format.fprintf ppf "@[<hv 1>(Fixed %a)@]" (pp_print_expr true) x
-  | Unbound x -> Format.fprintf ppf "@[<hv 1>(Unbound %a)@]" (pp_print_expr true) x
+  | Unbound (Some x) -> Format.fprintf ppf "@[<hv 1>(Unbound %a)@]" (pp_print_expr true) x
+  | Unbound None -> Format.fprintf ppf "@[<hv 1>(Unbound)@]"
 
 (* ********************************************************************** *)
 (* Predicates                                                             *)

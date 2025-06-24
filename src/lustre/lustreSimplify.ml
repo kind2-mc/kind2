@@ -260,7 +260,7 @@ let rec eval_ast_expr bounds ctx =
 
     let ctx, vars = vars_of_quant ctx avars in
     let bounds = bounds @
-      List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+      List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
         vars in
     eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
       
@@ -269,7 +269,7 @@ let rec eval_ast_expr bounds ctx =
 
     let ctx, vars = vars_of_quant ctx avars in
     let bounds = bounds @
-      List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+      List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
         vars in
     eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
 
@@ -841,6 +841,8 @@ let rec eval_ast_expr bounds ctx =
           (* All indexes are of the same type *)
           (match D.choose expr1'_sub with
 
+            | D.MapIndex :: _, _ -> fail_at_position pos "Map types are not supported in old front end" 
+
             (* Expression is indexed with a variable *)
             | D.ArrayVarIndex _ :: _, _ -> 
 
@@ -1171,6 +1173,8 @@ let rec eval_ast_expr bounds ctx =
     (* Every index starts with ArrayVarIndex or none does *)
       match D.choose expr' with 
 
+      | D.MapIndex :: _, _ -> fail_at_position pos "Map types are not supported in old front end"
+
       (* Projection from an array indexed by variable *)
       | D.ArrayVarIndex _ (* s *) :: _ (* tl *), v -> 
 
@@ -1263,6 +1267,10 @@ let rec eval_ast_expr bounds ctx =
   | A.AnyOp (pos, _, _, _) -> 
     
     fail_at_position pos "'Any' operation not supported in old front end"
+
+  | A.EmptyMap (pos, _) -> 
+    
+    fail_at_position pos "Empty map constructor is not supported in old front end"
 
   | A.Extract (pos, _, _, _) -> 
     
@@ -1565,6 +1573,8 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
 (* Return the trie starting at the given index *)
 and eval_ast_projection bounds ctx pos expr = function
+
+  | D.MapIndex -> fail_at_position pos "Map types are not supported in old front end"
 
   (* Record or tuple field *)
   | D.RecordIndex _ 
@@ -1964,7 +1974,7 @@ and array_select_of_bounds_term bounds e =
   let (_, e) = List.fold_left (fun (i, t) -> function
     | E.Bound _ ->
         succ i, Term.mk_select t (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
-    | E.Unbound v ->
+    | E.Unbound (Some v) ->
         i, Term.mk_select t (E.unsafe_term_of_expr v)
     | _ -> assert false)
       (0, e) bounds

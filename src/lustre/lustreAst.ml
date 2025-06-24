@@ -113,6 +113,7 @@ type expr =
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
+  | EmptyMap of position * (lustre_type * lustre_type)
   | ArrayConstr of position * expr * expr  
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
@@ -409,6 +410,12 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
 
+    | EmptyMap (_, (key_ty, value_ty)) ->
+
+      Format.fprintf ppf
+        "map[]@<%a,%a>"
+        pp_print_lustre_type key_ty
+        pp_print_lustre_type value_ty
 
     | ArrayConstr (p, e1, e2) -> 
 

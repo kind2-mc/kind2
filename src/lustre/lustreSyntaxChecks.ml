@@ -243,7 +243,7 @@ function
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
-| Const _ | Ident _ | ModeRef _ -> false
+| Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
 
 | RecordProject (_, e, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
@@ -623,7 +623,7 @@ let rec expr_only_supported_in_merge observer expr =
     Res.seq_ (List.map (fun (_, e) -> match e with
       | LA.When (_, e, _) | e -> r true e)
       e)
-  | Ident _ | Const _ | ModeRef _ -> Ok ()
+  | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
   | RecordProject (_, e, _)
   | TupleProject (_, e, _)
   | UnaryOp (_, _, e)
@@ -1036,7 +1036,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr extn_ctx f e1) in 
       let* warnings3 = (check_expr extn_ctx f e2)  in 
       Ok (warnings1 @ warnings2 @ warnings3)
-    | Ident _ | ModeRef _ | Const _ -> Ok ([])
+    | Ident _ | ModeRef _ | Const _ | EmptyMap _ -> Ok ([])
   in
   let* warnings1 = res in 
   let* warnings2 = check expr in 

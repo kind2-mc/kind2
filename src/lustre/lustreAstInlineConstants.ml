@@ -250,6 +250,7 @@ and push_pre is_guarded pos =
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
+  | EmptyMap _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> TupleProject (p, r e, i)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
@@ -368,6 +369,9 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     Quantifier (pos, q, tis, e')
+  | EmptyMap (pos, (kt, vt)) -> 
+    EmptyMap (pos, (inline_constants_of_lustre_type ~ind_vars ctx kt, 
+                    inline_constants_of_lustre_type ~ind_vars ctx vt))
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)

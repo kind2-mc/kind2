@@ -149,6 +149,7 @@ and expr =
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
+  | EmptyMap of position * (lustre_type * lustre_type)
   | ArrayConstr of position * expr * expr 
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
