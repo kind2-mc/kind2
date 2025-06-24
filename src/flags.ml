@@ -3490,8 +3490,8 @@ let check_nonvacuity_default = true
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Strict mode in Lustre: uninitialized pre and undefined@ \
-          Local variables are not allowed when this flag is present@ \
+          Strict mode in Lustre: uninitialized pre expressions@ \
+          are not allowed when this flag is present@ \
           Default: %a\
         "
         fmt_bool lus_strict_default

@@ -145,6 +145,13 @@ let ast_of_channel(in_ch: in_channel) =
     let pos = (Lib.position_of_lexing lexbuf.lex_curr_p) in
     Error (`LustreParserError (pos, err))
 
+let fail_or_warn warning =
+  if Flags.lus_strict () && LW.error_if_lus_strict warning then (
+    fail_at_position (LW.warning_position warning) (LW.warning_message warning)
+  )
+  else
+    (warn_at_position (LW.warning_position warning) (LW.warning_message warning); Ok ())
+
 let type_check declarations =
   let tc_res = (
     (* Step 1. Basic syntax checks on declarations  *)
@@ -240,13 +247,10 @@ let type_check declarations =
   match tc_res with
   | Error e -> Error e
   | Ok (c, g, d, toplevel, warnings) -> 
-    let warnings = List.map (fun warning -> 
-        if Flags.lus_strict () then (
-          fail_at_position (LW.warning_position warning) (LW.warning_message warning)
-        )
-        else
-          (warn_at_position (LW.warning_position warning) (LW.warning_message warning); Ok ())
-    ) (LW.sort_warnings_by_pos warnings)
+    let warnings =
+      List.map
+        (fun warning -> fail_or_warn warning)
+        (LW.sort_warnings_by_pos warnings)
     in
     let warning = List.fold_left (>>) (Ok ()) warnings in
     Debug.parse "Type checking done";

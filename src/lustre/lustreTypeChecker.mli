@@ -111,6 +111,8 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val error_if_lus_strict: warning_kind -> bool
+
 val error_message: error_kind -> string
 
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 

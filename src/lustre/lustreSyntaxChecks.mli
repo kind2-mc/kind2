@@ -67,6 +67,8 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+val error_if_lus_strict: warning_kind -> bool
+
 val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
 
 val no_quant_vars_in_calls_to_non_inlinable_funcs :

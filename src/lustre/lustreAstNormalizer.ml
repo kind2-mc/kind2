@@ -91,6 +91,10 @@ let warning_message warning = match warning with
   | UseOfAssertionWarning ->
     "Assertions are not checked; please consider using a contract assumption instead"
 
+let error_if_lus_strict = function
+  | UnguardedPreWarning _ -> true
+  | UseOfAssertionWarning -> false
+
 type warning = [
   | `LustreAstNormalizerWarning of Lib.position * warning_kind
 ]
