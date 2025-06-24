@@ -57,7 +57,7 @@ type one_index =
   | ArrayVarIndex of LustreExpr.expr
     (** Variable as index of an array of given size *)
 
-  | MapIndex
+  | MapIndex of LustreExpr.expr 
 
   | AbstractTypeIndex of string
     (* Index to the representation field of an abstract type *)

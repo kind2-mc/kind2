@@ -883,12 +883,12 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         let* ue_ty, warnings1 = infer_type_expr ctx nname ue in
          (match ue_ty with 
          | Map (_, kt, vt) -> (
-            let* index_type, warnings1 = infer_type_expr ctx nname idx_e in
+            let* index_type, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
-              (let* e_ty, warnings2 = infer_type_expr ctx nname e in
+              (let* e_ty, warnings3 = infer_type_expr ctx nname e in
                 R.ifM (eq_lustre_type ctx e_ty vt)
-                  (R.ok (ue_ty, warnings1 @ warnings2))
+                  (R.ok (ue_ty, warnings1 @ warnings2 @ warnings3))
                   (type_error pos (ExpectedType (e_ty, vt))))
               (type_error pos (ExpectedType (index_type, kt)))
           )
