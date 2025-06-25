@@ -1177,8 +1177,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
-      (*!!*)
-      | LA.MapIndex (_, i) -> 
+      | LA.MapIndex _ -> 
         let* inf_ty, warnings = infer_type_expr ctx nname (StructUpdate (pos, ue, i_or_ls, e)) in 
         (R.ifM (eq_lustre_type ctx exp_ty inf_ty)
                 (R.ok warnings)

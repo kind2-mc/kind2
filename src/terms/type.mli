@@ -212,6 +212,9 @@ val all_index_types_of_array : t -> t list
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
 
+(** Return type of array indices *)
+val idx_type_of_array : t -> t
+
 (** Return all array index types of a nested array type *)
 val last_elem_type_of_array : t -> t
 
