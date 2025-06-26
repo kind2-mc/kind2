@@ -4,23 +4,23 @@ var l2: int;
 var l3: int;
 let
     o = map[]@<int, int>[3 := 5];
-    o2 = map[]@<[int, int], int>[{3, 3} := 5];
-    o3 = map[]@<[[int, int], int], int>[{{3, 3}, 3} := 5];
+    o2 = map[]@<[int, int], int>[{3, 4} := 5];
+    o3 = map[]@<[[int, int], int], int>[{{3, 4}, 5} := 5];
 
     l = o[3];
-    l2 = o2[{3, 3}];
-    l3 = o3[{{3, 3}, 3}];
+    l2 = o2[{3, 4}];
+    l3 = o3[{{3, 4}, 5}];
 
     check l = 5;
     check (l2 = 5);
     check l3 = 5;
     check 3 in o;
-    check {3, 3} in o2;
-    check {{3, 3}, 3} in o3;
+    check {3, 4} in o2;
+    check {{3, 4}, 5} in o3;
 
     check (forall (i: int) i <> 3 => not (i in o));
-    check (forall (i: [int, int]) i <> {3, 3} => not (i in o2)); 
-    check (forall (i: [[int, int], int]) i <> {{3, 3}, 3} => not (i in o3)); 
+    check (forall (i: [int, int]) i <> {3, 4} => not (i in o2)); 
+    check (forall (i: [[int, int], int]) i <> {{3, 4}, 5} => not (i in o3)); 
 tel
 
 
