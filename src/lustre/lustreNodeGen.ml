@@ -972,18 +972,19 @@ and compile_ast_expr
         let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
         let cexpr_sub = X.find_prefix accum cexpr1 in
         let rec mk_map_indices cexpr_sub index = 
-          (match X.choose cexpr_sub, index with
-            | (X.ArrayVarIndex _ :: tl, _), idx_hd :: idx_tl -> 
-              let tl = X.find_prefix accum cexpr1 in 
+          (match cexpr_sub, index with
+            | X.ArrayVarIndex _ :: tl , idx_hd :: idx_tl -> 
               let index' = idx_hd.E.expr_init in
-              X.ArrayVarIndex index' :: (mk_map_indices tl idx_tl) 
-            | (X.TupleIndex _ :: X.MapIndex _ :: tl, _), idx_hd :: idx_tl -> 
+              mk_map_indices tl idx_tl @ [X.ArrayVarIndex index']
+            | X.TupleIndex _ :: X.MapIndex _ :: tl, idx_hd :: idx_tl -> 
               let index' = idx_hd.E.expr_init in
-              let tl = X.find_prefix accum cexpr1 in 
-              X.MapIndex index' :: mk_map_indices tl idx_tl 
-            | _, [] -> []
-            | _, _ -> assert false (* guaranteed by type checker *) ) in
-        let i = mk_map_indices cexpr_sub (index_cexpr |> X.values) in
+              mk_map_indices tl idx_tl @ [X.MapIndex index'] 
+            | X.MapIndex _ :: tl, idx_hd :: idx_tl -> 
+              let index' = idx_hd.E.expr_init in
+              mk_map_indices tl idx_tl @ [X.MapIndex index']
+            | [], [] -> []
+            | _ -> assert false (* guaranteed by type checker *) ) in
+        let i = mk_map_indices (fst (X.choose cexpr_sub)) (index_cexpr |> X.values) in
         aux (i @ accum) tl
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
@@ -1015,11 +1016,6 @@ and compile_ast_expr
         let a' = List.fold_left E.mk_select_and_push a acc in
         let x = mk_store [i] a' ri' x in
         E.mk_store a i x
-      (*| X.TupleIndex _ :: X.MapIndex vi :: ri' -> 
-        let i = E.mk_of_expr vi in
-        let a' = List.fold_left E.mk_select_and_push a acc in
-        let x = mk_store [i] a' ri' x in
-        E.mk_store a i x*)
       | _ :: ri' -> mk_store acc a ri' x
       | [] -> x
     in
@@ -1049,14 +1045,14 @@ and compile_ast_expr
           else 
             let v' = mk_store [] v cindex new_v in 
             X.add [] v' a
-        else (
+        else ( 
           let cond = mk_cond_indexes ([], 0) i cindex in 
           let v' = E.mk_ite cond new_v old_v in
           if map_flag then 
             if map_present_flag then X.add [X.TupleIndex 0] v' a else X.add [TupleIndex 1] v' a
           else 
             X.add [] v' a
-        )
+        ) 
         with Not_found -> X.add i v a
     in
     X.fold over_indices cexpr1 X.empty
