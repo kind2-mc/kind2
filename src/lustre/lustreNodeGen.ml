@@ -977,17 +977,10 @@ and compile_ast_expr
               let tl = X.find_prefix accum cexpr1 in 
               let index' = idx_hd.E.expr_init in
               X.ArrayVarIndex index' :: (mk_map_indices tl idx_tl) 
-            | (X.MapIndex _ :: tl, _), idx_hd :: idx_tl -> 
-              (*!! Temporal index? *)
-              let index' = idx_hd.E.expr_init in
-              let tl = X.find_prefix accum cexpr1 in 
-              X.MapIndex index' :: mk_map_indices tl idx_tl 
             | (X.TupleIndex _ :: X.MapIndex _ :: tl, _), idx_hd :: idx_tl -> 
               let index' = idx_hd.E.expr_init in
               let tl = X.find_prefix accum cexpr1 in 
               X.MapIndex index' :: mk_map_indices tl idx_tl 
-               (* [idx1; idx2] *)
-                (*!! Remove the TupleIndex? Not sure... *) 
             | _, [] -> []
             | _, _ -> assert false (* guaranteed by type checker *) ) in
         let i = mk_map_indices cexpr_sub (index_cexpr |> X.values) in
@@ -1022,11 +1015,11 @@ and compile_ast_expr
         let a' = List.fold_left E.mk_select_and_push a acc in
         let x = mk_store [i] a' ri' x in
         E.mk_store a i x
-      | X.MapIndex vi :: ri' -> 
+      (*| X.TupleIndex _ :: X.MapIndex vi :: ri' -> 
         let i = E.mk_of_expr vi in
         let a' = List.fold_left E.mk_select_and_push a acc in
         let x = mk_store [i] a' ri' x in
-        E.mk_store a i x
+        E.mk_store a i x*)
       | _ :: ri' -> mk_store acc a ri' x
       | [] -> x
     in
@@ -1048,17 +1041,15 @@ and compile_ast_expr
         let old_v = List.fold_left (fun (acc, cpt) _ ->
           E.mk_select_and_push acc (E.mk_index_var cpt), cpt + 1) (v, 0) i |> fst in
         let new_v = if map_present_flag then E.t_true else X.find cindex cexpr2' in
-        (*!! Need to test this case *)
         if Flags.Arrays.smt () then
-          let v' = mk_store [] v cindex new_v in 
-          if map_flag then 
+          if map_flag then
+            let cond = mk_cond_indexes ([], 0) i cindex in 
+            let v' = E.mk_ite cond new_v old_v in
             if map_present_flag then X.add [X.TupleIndex 0] v' a else X.add [TupleIndex 1] v' a
           else 
+            let v' = mk_store [] v cindex new_v in 
             X.add [] v' a
         else (
-          Format.fprintf Format.std_formatter "i: %a, cindex: %a\n" 
-            (X.pp_print_index true) i
-            (X.pp_print_index true) cindex; 
           let cond = mk_cond_indexes ([], 0) i cindex in 
           let v' = E.mk_ite cond new_v old_v in
           if map_flag then 
