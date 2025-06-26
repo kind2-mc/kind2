@@ -504,12 +504,12 @@ definition inside a ``when``.
 
 .. code-block:: none
 
-   node example (in: int) returns (out: int) ;
-   var in_pos: bool ; x: int ;
+   node example (i: int) returns (out: int) ;
+   var i_pos: bool ; x: int ;
    let
      ...
-     in_pos = in >= 0 ;
-     x = in when in_pos ;
+     i_pos = i >= 0 ;
+     x = i when i_pos ;
      ...
    tel
 
@@ -517,7 +517,7 @@ Here, ``x`` is only defined when ``in_pos``\ , its clock, is ``true``.
 That is, a trace of execution of ``example`` sliced to ``x`` could be
 
 ==== === ====== ==
-step in  in_pos x
+step i   i_pos  x
 ==== === ====== ==
 0    3   true   3
 1    -2  false  //
@@ -539,10 +539,10 @@ For example, consider the following node:
 
 .. code-block:: none
 
-   node sum_ge_10 (in: int) returns (out: bool) ;
+   node sum_ge_10 (i: int) returns (out: bool) ;
    var sum: int ;
    let
-     sum = in + (0 -> pre sum) ;
+     sum = i + (0 -> pre sum) ;
      out = sum >= 10 ;
    tel
 
@@ -550,22 +550,22 @@ Say now we call this node as follows:
 
 .. code-block:: none
 
-   node example (in: int) returns (...) ;
-   var tmp, in_pos: bool ;
+   node example (i: int) returns (...) ;
+   var tmp, i_pos: bool ;
    let
      ...
-     in_pos = in >= 0 ;
-     tmp = (activate sum_ge_10 every in_pos)(in) ;
+     i_pos = i >= 0 ;
+     tmp = (activate sum_ge_10 every i_pos)(i) ;
      ...
    tel
 
-That is, we want ``sum_ge_10(in)`` to tick iff ``in`` is positive. Here is an
+That is, we want ``sum_ge_10(i)`` to tick iff ``i`` is positive. Here is an
 example trace of ``example`` sliced to ``tmp``; notice how the internal state of
 ``sum_ge_10`` (*i.e.* ``pre sum_ge_10.sum``) is maintained so that it does refer to the value
-of ``sum_ge_10.sum`` *at the last clock tick of the ``activate``*:
+of ``sum_ge_10.sum`` *at the last clock tick of the* ``activate``:
 
 ====  ==  ======  ======  ============  =================  =============
-step  in  in_pos  tmp     sum_ge_10.in  pre sum_ge_10.sum  sum_ge_10.sum
+step  i   i_pos   tmp     sum_ge_10.i   pre sum_ge_10.sum  sum_ge_10.sum
 ====  ==  ======  ======  ============  =================  =============
 0     3   true    false   3             nil                3
 1     2   true    false   2             3                  5
@@ -591,14 +591,14 @@ Building on the previous example, say add two new streams ``pre_tmp`` and
 
 .. code-block:: none
 
-   node example (in: int) returns (...) ;
-   var tmp, in_pos, pre_tmp, safe_tmp: bool ;
+   node example (i: int) returns (...) ;
+   var tmp, i_pos, pre_tmp, safe_tmp: bool ;
    let
      ...
-     in_pos = in >= 0 ;
-     tmp = (activate sum_ge_10 every in_pos)(in) ;
+     i_pos = i >= 0 ;
+     tmp = (activate sum_ge_10 every i_pos)(i) ;
      pre_tmp = false -> pre safe_tmp  ;
-     safe_tmp = merge( in_pos ; tmp ; pre_tmp when not in_pos ) ;
+     safe_tmp = merge( i_pos ; tmp ; pre_tmp when not i_pos ) ;
      ...
    tel
 
@@ -607,7 +607,7 @@ is the previous value of ``safe_tmp`` if any, and ``false`` otherwise.
 The execution trace given above becomes
 
 ====  ==  ======  ======  =======  ========
-step  in  in_pos  tmp     pre_tmp  safe_tmp
+step  i   i_pos   tmp     pre_tmp  safe_tmp
 ====  ==  ======  ======  =======  ========
 0     3   true    false   false    false 
 1     2   true    false   false    false
@@ -629,16 +629,16 @@ version of the last example:
 
 .. code-block:: none
 
-   node example (in: int) returns (...) ;
-   var in_pos, pre_tmp, safe_tmp: bool ;
+   node example (i: int) returns (...) ;
+   var i_pos, pre_tmp, safe_tmp: bool ;
    let
      ...
-     in_pos = in >= 0 ;
+     i_pos = i >= 0 ;
      pre_tmp = false -> pre safe_tmp  ;
      safe_tmp = merge(
-       in_pos ;
-       (activate sum_ge_10 every in_pos)(in) ;
-       pre_tmp when not in_pos
+       i_pos ;
+       (activate sum_ge_10 every i_pos)(i) ;
+       pre_tmp when not i_pos
      ) ;
      ...
    tel

@@ -345,15 +345,17 @@ To run the ounit tests, you can use the following dune command:
    dune test
 
 
-To run regression tests you need pytest to be available. The simplest way to do
-this is to install `uv <https://docs.astral.sh/uv/>`. The test running script
-will try to use uv to set up its own isolated python environment with pytest.
-The rest of your system will not be impacted. If it fails to find uv it will
-fallback to trying to use the systems pytest.
+To run regression tests, you need a Python interpreter and
+the `pytest <https://pypi.org/project/pytest/>`_ module. The simplest way to do
+this is to install `uv <https://docs.astral.sh/uv/>`_. The test-running script
+will try to use ``uv`` to set up its own isolated python environment with ``pytest``,
+so the rest of your system will not be impacted. If it fails to find ``uv``, it will
+fallback to trying to use ``pytest`` in your system's Python interpreter.
 
 .. code-block:: bash
 
    make test
+
 
 Documentation
 -------------
