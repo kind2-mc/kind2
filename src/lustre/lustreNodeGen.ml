@@ -976,20 +976,22 @@ and compile_ast_expr
       | A.MapIndex (_, index_expr) :: tl -> 
         let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
         let cexpr_sub = X.find_prefix accum cexpr1 in
-        let rec mk_map_indices cexpr_sub index = 
+        let rec mk_map_indices removed_tuple cexpr_sub index = 
+          Format.fprintf Format.std_formatter "cexpr_sub: %a, index: %a\n" 
+            (X.pp_print_index true) cexpr_sub 
+            (Lib.pp_print_list (E.pp_print_lustre_expr true) " ") index;
           (match cexpr_sub, index with
             | X.ArrayVarIndex _ :: tl , idx_hd :: idx_tl -> 
               let index' = idx_hd.E.expr_init in
-              mk_map_indices tl idx_tl @ [X.ArrayVarIndex index']
-            | X.TupleIndex i :: X.MapIndex _ :: tl, idx_hd :: idx_tl -> 
-              let index' = idx_hd.E.expr_init in
-              mk_map_indices tl idx_tl @ [X.MapIndex index';]
+              mk_map_indices removed_tuple tl idx_tl @ [X.ArrayVarIndex index']
+            | X.TupleIndex _ :: tl, idxs when not removed_tuple -> 
+              mk_map_indices true tl idxs
             | X.MapIndex _ :: tl, idx_hd :: idx_tl -> 
               let index' = idx_hd.E.expr_init in
-              mk_map_indices tl idx_tl @ [X.MapIndex index']
+              mk_map_indices removed_tuple tl idx_tl @ [X.MapIndex index']
             | [], [] -> []
             | _ -> assert false (* guaranteed by type checker *) ) in
-        let i = mk_map_indices (fst (X.choose cexpr_sub)) (index_cexpr |> X.values) in
+        let i = mk_map_indices false (fst (X.choose cexpr_sub)) (index_cexpr |> X.values) in
         aux (i @ accum) tl
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
@@ -1044,59 +1046,46 @@ and compile_ast_expr
       try let v' = X.find i cexpr2' in X.add i v' a
       with Not_found -> try
         (match i with
-          | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ 
-          | X.TupleIndex _ :: X.TupleIndex _ :: X.MapIndex _ :: _
-          | X.TupleIndex _ :: X.MapIndex _ :: _ 
-          | X.MapIndex _ :: _ -> () 
-          | _ -> raise Not_found);
-          (*| idxs -> 
-            if List.exists (function 
-            | X.MapIndex _ -> true
-            | _ -> false 
-            ) idxs then () else 
-              Format.fprintf Format.std_formatter "Raising Not_found on %a\n" 
-                (X.pp_print_index true) idxs; 
-              raise Not_found
-          );*)
-        (*!! NEED TO GENERALIZE *)
+          | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _| MapIndex _ :: _ -> () 
+          | idxs -> if List.exists (function 
+            | X.MapIndex _ -> true 
+            | _ -> false
+            ) idxs then () else raise Not_found);
         let map_flag, map_present_flag = match i with 
         | X.TupleIndex j :: X.MapIndex e :: tl -> true, j = 0
         | X.TupleIndex j :: X.TupleIndex _ :: X.MapIndex e :: tl -> true, j = 0
-        | i -> false, false 
+        | X.TupleIndex j :: idxs -> 
+          if List.exists (function 
+          | X.MapIndex _ -> true 
+          | _ -> false 
+          ) idxs then true, j = 0 
+          else false, false 
+        | _ -> false, false 
         in
-
-        Format.fprintf Format.std_formatter "Got here 1\n"; 
+        (*
         Format.fprintf Format.std_formatter "cindex: %a, cexpr2': %a\n"
           (X.pp_print_index true) cindex
-          (X.pp_print_trie_expr true) cexpr2';
-
+          (X.pp_print_trie_expr true) cexpr2';*)
         let old_v = List.fold_left (fun (acc, cpt) i -> match i with 
           | X.ArrayIntIndex _ | ArrayVarIndex _ | MapIndex _ -> 
             E.mk_select_and_push acc (E.mk_index_var cpt), cpt + 1
           | _ -> (acc, cpt)
         ) (v, 0) i |> fst in
-
-        Format.fprintf Format.std_formatter "Got here 2\n";
-
         let new_v = if map_present_flag then E.t_true else X.find cindex cexpr2' in
-
-        Format.fprintf Format.std_formatter "Got here 3\nold_v: %a, new_v: %a\n" 
+        (*Format.fprintf Format.std_formatter "old_v: %a, new_v: %a\n" 
           (E.pp_print_lustre_expr true) old_v
-          (E.pp_print_lustre_expr true) new_v;
-
+          (E.pp_print_lustre_expr true) new_v;*)
         let i = List.filter (function 
         | X.ArrayIntIndex _ | ArrayVarIndex _ | MapIndex _ -> true 
-        | _ -> false
+        | ListIndex _ | AbstractTypeIndex _ | RecordIndex _ | TupleIndex _ -> false
         ) i in 
-        Format.fprintf Format.std_formatter "Tuple indices: %a\n" 
-          (X.pp_print_index true) tuple_indices;
-
+        (*Format.fprintf Format.std_formatter "Tuple indices: %a\n" 
+          (X.pp_print_index true) tuple_indices;*)
         if Flags.Arrays.smt () then
           if map_flag then (
             let cond = mk_cond_indexes ([], 0) i cindex in 
             let v' = E.mk_ite cond new_v old_v in
-            if map_present_flag then X.add [X.TupleIndex 0] v' a else X.add [TupleIndex 1] v' a
-            (*X.add tuple_indices v' a *)
+            X.add tuple_indices v' a 
           ) else ( 
             let v' = mk_store [] v cindex new_v in 
             X.add [] v' a
@@ -1105,16 +1094,14 @@ and compile_ast_expr
           let cond = mk_cond_indexes ([], 0) i cindex in 
           let v' = E.mk_ite cond new_v old_v in
           if map_flag then 
-            (*!! Extra tuple indices are getting dropped *)
-            (*if map_present_flag then X.add [X.TupleIndex 0] v' a else X.add [TupleIndex 1] v' a*)
             X.add tuple_indices v' a
           else X.add [] v' a
         ) 
         with Not_found -> X.add i v a
     in
     let r = X.fold over_indices cexpr1 X.empty in 
-    Format.fprintf Format.std_formatter "CompileStructUpdate result: %a\n" 
-      (X.pp_print_trie_expr true) r ;
+    (*Format.fprintf Format.std_formatter "CompileStructUpdate result: %a\n" 
+      (X.pp_print_trie_expr true) r ;*)
     r
 
   and compile_array_ctor bounds expr size_expr =
