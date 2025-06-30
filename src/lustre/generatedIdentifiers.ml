@@ -64,6 +64,7 @@ type t = {
     * LustreAst.expr) 
   list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
+  map_element_updates: (HString.t * LustreAst.expr * LustreAst.lustre_type * LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
@@ -113,6 +114,7 @@ let union ids1 ids2 = {
     subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
     refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
+    map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
@@ -138,6 +140,7 @@ let empty () = {
   subrange_constraints = [];
   refinement_type_constraints = [];
   empty_maps = [];
+  map_element_updates = [];
   expanded_variables = StringSet.empty;
   equations = [];
   nonvacuity_props = StringSet.empty;
