@@ -719,26 +719,25 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.Arrow (pos, e1, e2))
   | AnyOp _ -> assert false (* Polymorphism is handled after any ops are desugared *)
 
-
-let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
-  let rec_call = expand_type_syn_reftype_history ~expand_subrange ctx in
+let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
+  let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
   match ty with
   | LA.IntRange (pos, _, _) ->
     if expand_subrange then R.ok (LA.Int pos) else R.ok ty
-  | LA.History (pos, i) -> (
+  | LA.History (pos, i) -> if expand_history then (
     match lookup_ty ctx i with
     | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> rec_call ty
-  )
+  ) else R.ok ty
   | Map (p, ty1, ty2) -> 
     let* ty1 = rec_call ty1 in
     let* ty2 = rec_call ty2 in
     R.ok (LA.Map (p, ty1, ty2))
-  | LA.RefinementType (_, (_, _, ty), _) -> rec_call ty
+  | RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
     | None -> R.ok ty
-    | Some ty' -> R.ok ty')
+    | Some ty' -> rec_call ty')
   | TupleType (p, tys) ->
     let* tys = R.seq (List.map rec_call tys) in
     R.ok (LA.TupleType (p, tys))
@@ -760,13 +759,18 @@ let rec expand_type_syn_reftype_history ?(expand_subrange = false) ctx ty =
     R.ok (LA.TArr (p, ty1, ty2))
   | ty -> R.ok ty
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
-    Also simplifies refinement types and history types to their base types.
-    In addition, chases int ranges to their base types (int)
-    if [expand_subrange] is true.
+    Also simplifies refinement types to their base types. 
+    Expands subranges and history types to their base types if the corresponding 
+    args are set to true.
 *)
 
+let expand_type_syn_reftype_history ctx = 
+  expand_type_syn_reftype ~expand_history:true ctx
+(** Chases the type (and nested types) to its base form to resolve type synonyms. 
+    Also simplifies refinement types and history types to their base types. *)
+
 let expand_type_syn_reftype_history_subrange ctx =
-  expand_type_syn_reftype_history ~expand_subrange:true ctx
+  expand_type_syn_reftype ~expand_subrange:true ~expand_history:true ctx
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
@@ -2180,10 +2184,10 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
   | LA.Map (pos, ty1, ty2) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
-    let base_ty1 = expand_type_syn ctx ty1 in 
+    let* base_ty1 = expand_type_syn_reftype ctx ty1 in 
     (match base_ty1 with 
-    | GroupType _ | ArrayType _ | EnumType _ | Map _
-    | History _ | TArr _ | IntRange _ | RefinementType _ | AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
+    | GroupType _ | ArrayType _ | EnumType _ | Map _ | RefinementType _ 
+    | History _ | TArr _ | IntRange _ |  AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
       R.ok (warnings1 @ warnings2))
   | LA.TArr (_, arg_ty, res_ty) ->
