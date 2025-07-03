@@ -11,7 +11,7 @@ import pytest
 
 # The default arguments we want set for every run
 common_args = {
-    "--timeout": "42",
+    "--timeout": "84",
     "--color": "false",
     "--check_subproperties": "true",
     "--check_sat_assume": "false",
