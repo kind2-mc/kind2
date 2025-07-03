@@ -646,7 +646,6 @@ let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> A.lustre_type -> A.expr li
     ) exprs2 in 
     exprs1 @ exprs2
 
-
   | _ -> []
 
 let mk_enum_subrange_reftype_constraints node_id info vars =

@@ -2186,7 +2186,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     let* base_ty1 = expand_type_syn_reftype ctx ty1 in 
     (match base_ty1 with 
-    | GroupType _ | ArrayType _ | EnumType _ | Map _ | RefinementType _ 
+    | GroupType _ | ArrayType _ | EnumType _ | Map _  
     | History _ | TArr _ | IntRange _ |  AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
     | _ -> 
       R.ok (warnings1 @ warnings2))
