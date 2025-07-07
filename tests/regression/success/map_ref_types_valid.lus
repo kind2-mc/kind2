@@ -6,13 +6,19 @@ type NatPair = [Nat, Nat];
 
 type R2 = struct { x: Pos; y: Pos }; 
 type R = struct { x: Pos; y: R2 };
+
+type T2 = [map<NatPair, NatPair>, map<NatPair, NatPair>];
+type T = [map<PosPair, PosPair>, map<NatPair, NatPair>];
   
-node N(inp1:   map<Pos, int>; inp2: map<int, Pos>; inp3: map<Pos, Pos>; inp4: map<PosPair, PosPair>) 
-returns (out1: map<Nat, int>; out2: map<int, Nat>; out3: map<Pos, Pos>; out4: map<PosPair, NatPair>; out5: R) 
+node N  (inp1: map<Pos, int>; inp2: map<int, Pos>; inp3: map<Pos, Pos>; inp4: map<PosPair, PosPair>;
+         inp5: map<R, R>; inp6: T)
+returns (out1: map<Nat, int>; out2: map<int, Nat>; out3: map<Pos, Pos>; out4: map<PosPair, NatPair>; 
+         out5: map<R, R>; out6: T2)
 let
     out1 = inp1;
     out2 = inp2;
     out3 = inp3;
     out4 = inp4;
-    out5 = R { x = 1; y = R2 { x = 2; y = 3; }; };
+    out5 = inp5;
+    out6 = inp6;
 tel

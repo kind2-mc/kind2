@@ -214,7 +214,7 @@ let error_message kind = match kind with
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
-  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, and tuples are supported"
+  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, tuples, and refinement types are supported"
   | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
@@ -2178,18 +2178,29 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
+and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
+| LA.Map _ | GroupType _ | ArrayType _ | EnumType _ | History _ 
+| TArr _ | IntRange _ | AbstractType _ -> type_error pos (UnsupportedMapType ty) 
+| RecordType (_, _, tis) -> 
+  Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
+| RefinementType (_, (_, _, ty), _) -> 
+  r ty 
+| TupleType (_, tys) -> 
+  Res.seq_ (List.map r tys)
+| UserType _ -> 
+  let* ty = expand_type_syn_reftype ctx ty in 
+  r ty 
+| Bool _ | Int _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
   function
   | LA.Map (pos, ty1, ty2) ->
+    let* _ = check_map_type pos ctx ty1 in 
+    let* _ = check_map_type pos ctx ty2 in
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
-    let* base_ty1 = expand_type_syn_reftype ctx ty1 in 
-    (match base_ty1 with 
-    | GroupType _ | ArrayType _ | EnumType _ | Map _  
-    | History _ | TArr _ | IntRange _ |  AbstractType _ -> type_error pos (UnsupportedMapType base_ty1)
-    | _ -> 
-      R.ok (warnings1 @ warnings2))
+    R.ok (warnings1 @ warnings2)
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
     let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
