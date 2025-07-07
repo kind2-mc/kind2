@@ -1591,6 +1591,18 @@ module Certif = struct
     )
   let mininvs () = !mininvs
 
+  (* Certify slicing *)
+  let certif_slicing_default = false
+  let certif_slicing = ref certif_slicing_default
+  let _ = add_spec
+    "--certif_slicing"
+    (Arg.Bool (fun b -> certif_slicing := b))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>Produce certificates that slicing is behaviorally equivalent.@ Default: %a@]"
+      fmt_bool certif_slicing_default
+    )
+  let certif_slicing () = !certif_slicing
 
   (* JKIND binary. *)
   let jkind_bin_default = "jkind"
