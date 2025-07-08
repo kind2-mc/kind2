@@ -1251,6 +1251,24 @@ let mk_index_var i =
     expr_step = v;
     expr_type = Type.t_int } 
 
+(* map index variable *)
+let mk_map_index_var i kt = 
+
+  let v =
+    Var.mk_free_var
+      (String.concat "."
+         (((I.push_index I.index_ident i) |> I.string_of_ident true)
+          :: I.reserved_scope)
+       |> HString.mk_hstring)
+     kt 
+    |> Term.mk_var
+  in
+
+  (* create lustre expression for free variable*)
+  { expr_init = v;
+    expr_step = v;
+    expr_type = kt; } 
+
 let int_of_index_var { expr_init = t } =
   if not (Term.is_free_var t) then raise (Invalid_argument "int_of_index_var");
   let v = Term.free_var_of_term t in

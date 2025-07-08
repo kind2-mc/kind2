@@ -44,6 +44,7 @@ let mk_span start_pos end_pos =
 %token LPAREN 
 %token RPAREN 
 %token DOTPERCENT
+%token ASSIGN
 
 (* Tokens for enumerated types *)
 %token ENUM
@@ -931,6 +932,9 @@ pexpr(Q):
   {
     A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))
   }
+
+  | e1 = pexpr(Q); LSQBRACKET; e2 = expr; ASSIGN; e3 = expr; RSQBRACKET;
+    { A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3) }
 
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
