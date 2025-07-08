@@ -629,7 +629,23 @@ let rec mk_ref_type_expr: Ctx.tc_context -> A.expr -> A.lustre_type -> A.expr li
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
-  | Map _ -> failwith("TODO")
+  | Map (_, kt, vt) -> 
+    let pos = AH.pos_of_expr id in
+    let dummy_index = mk_fresh_dummy_index () in
+    let exprs1 = mk_ref_type_expr ctx (A.IndexAccess(pos, id, Ident(pos, dummy_index), Map)) vt in
+    let exprs1 = List.map (fun expr ->
+      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
+      let expr = A.BinaryOp(pos, Impl, membership_constraint, expr) in
+      A.Quantifier(pos, Forall, [pos, dummy_index, kt], expr)
+    ) exprs1 in 
+    let exprs2 = mk_ref_type_expr ctx (Ident(pos, dummy_index)) kt in
+    let exprs2 = List.map (fun expr ->
+      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
+      let expr = A.BinaryOp(pos, Impl, membership_constraint, expr) in
+      A.Quantifier(pos, Forall, [pos, dummy_index, kt], expr)
+    ) exprs2 in 
+    exprs1 @ exprs2
+
   | _ -> []
 
 let mk_enum_subrange_reftype_constraints node_id info vars =

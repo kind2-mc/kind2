@@ -1,0 +1,23 @@
+type Nat = subtype { x: int | x >= 0 };
+type Pos = subtype { x: int | x >= 1 };
+
+type PosPair = [Pos, Pos]; 
+type NatPair = [Nat, Nat]; 
+
+type R2 = struct { x: Pos; y: Pos }; 
+type R = struct { x: Pos; y: R2 };
+
+type T2 = [map<NatPair, NatPair>, map<NatPair, NatPair>];
+type T = [map<PosPair, PosPair>, map<PosPair, PosPair>];
+ 
+node N  (inp1: map<Nat, int>; inp2: map<int, Nat>; inp3: map<Nat, Nat>; inp4: map<NatPair, NatPair>; 
+         inp6: T2) 
+returns (out1: map<Pos, int>; out2: map<int, Pos>; out3: map<Pos, Pos>; out4: map<PosPair, PosPair>; 
+         out5: map<R, R>; out6: T) 
+let
+    out1 = inp1;
+    out2 = inp2;
+    out3 = inp3;
+    out4 = inp4;
+    out6 = inp6;
+tel
