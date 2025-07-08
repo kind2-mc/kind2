@@ -4031,7 +4031,10 @@ let solver_dependent_actions solver =
             "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.1.0. Found \
              version: %d.%d.%d"
             major minor patch;
-          raise UnsupportedSolver)
+          raise UnsupportedSolver) ;
+        if (major > 1) ||
+           (major = 1 && (minor > 3 || (minor = 3 && patch >= 0)))
+        then support_new_bv_cast_operators' := true;
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
