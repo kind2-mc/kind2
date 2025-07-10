@@ -855,9 +855,6 @@ and compile_ast_expr
     let (mk_binary, mk_seq, const_expr) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true)
       | false -> (E.mk_neq, E.mk_or, E.t_false) in
-    (*Format.fprintf Format.std_formatter "expr1: %a, expr2: %a\n"
-      _ expr1 
-      _ expr2 ;*)
     let expr = compile_binary bounds mk_binary expr1 expr2 in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
@@ -2019,6 +2016,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* TODO: Old code checks that result must have at least one element *)
       (* TODO: Old code suggets that shadowing can occur here *)
       let indexes = List.length l in
+      (* This code works for two different cases -- 
+          1. Compilation of with a list of array index variables from list l, each of type kt = int 
+          2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
       List.iteri (fun i v -> 
         let ident = mk_ident v in
         let kt = compile_ast_type cstate ctx map kt in
@@ -2027,8 +2027,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
           i + 1, X.add j expr a 
         in
         let index = X.fold over_indices kt (i, X.empty) |> snd in
-        Format.fprintf Format.std_formatter "index: %a\n" 
-          (X.pp_print_trie_expr true) index;
         H.add !map.array_index ident index;)
         l;
       result, indexes
@@ -2146,16 +2144,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
       let nexpr = A.TernaryOp (dummy_pos, Ite, cond_expr, then_expr, else_expr) in
-      Format.fprintf Format.std_formatter "nexpr: %a\nkt: %a\n"
-        A.pp_print_expr nexpr
-        A.pp_print_lustre_type kt;
       let lhs_bounds = gen_lhs_bounds true eq_lhs nexpr indexes in
-      Format.fprintf Format.std_formatter "lhs_bounds: %a\n" 
-        (pp_print_list E.pp_print_bound_or_fixed ", ") lhs_bounds ;
       let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map nexpr in
-      Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n" 
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n" 
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
       let map_element_update_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       map_element_update_eqs @ acc
     in 
