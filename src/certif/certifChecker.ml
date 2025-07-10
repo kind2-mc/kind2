@@ -2611,6 +2611,125 @@ let merge_jkind_system lustre_vars kind2_sys jkind_sys =
   (* Return the observer system *)
   obs_sys
 
+(* Create a system that calls the Kind2 system [kind2_sys] and the unsliced system
+   in parallel synchronous composition and observes the values of
+   their state variables. All variables are put under a new scope. *)
+let merge_unsliced_system kind2_sys unsliced_sys =
+
+  let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
+  let unsliced_bounds = TransSys.get_state_var_bounds unsliced_sys in
+  let bounds = SVH.copy kind2_bounds in
+  SVH.iter (SVH.add bounds) unsliced_bounds;
+
+  (* Remember the original state variables*)
+  let orig_kind2_vars = TS.state_vars kind2_sys in
+  let orig_unsliced_vars = TS.state_vars unsliced_sys in
+
+  let init_flag = TS.init_flag_state_var kind2_sys
+                  |> add_scope_state_var [obs_name] in
+
+  (* Create versions of variables with the new scope *)
+  let kind2_vars =
+    List.map (add_scope_and_register_bounds [obs_name] kind2_bounds bounds)
+      orig_kind2_vars in
+  let unsliced_vars =
+    List.map (add_scope_and_register_bounds [obs_name] unsliced_bounds bounds)
+      orig_unsliced_vars in
+
+  let state_vars =
+    (* init_flag :: *)
+    kind2_vars @ unsliced_vars |>
+    List.filter (fun sv ->
+        not (StateVar.equal_state_vars
+               sv (TransSys.init_flag_state_var kind2_sys)))
+  in
+  let vars_types = List.map StateVar.type_of_state_var state_vars in
+
+  let state_vars0 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.zero)
+      state_vars in
+
+  let state_vars1 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.one)
+      state_vars in
+
+  let unconstrained_inputs =
+     StateVar.StateVarSet.union
+       (TS.unconstrained_inputs kind2_sys)
+       (TS.unconstrained_inputs unsliced_sys)
+  in
+
+  (* Symbol for initial predicate of new system *)
+  let init_uf =
+    UfSymbol.mk_uf_symbol
+      (Ids.init_uf_string ^"_"^ obs_name)
+      vars_types
+      Type.t_bool
+  in
+
+  (* Symbol for transition relation of new system *)
+  let trans_uf =
+    UfSymbol.mk_uf_symbol
+      (Ids.trans_uf_string ^"_"^ obs_name)
+      (vars_types @ vars_types)
+      Type.t_bool
+  in
+
+  (* Term describing the initial states: [inputs1 = inputs2 /\ I1(X1) /\
+     I2(X2)]. Here [inputs1] is the subset of [X1] which are input
+     varaibles. *)
+  let init_term =
+    Term.mk_and [
+      (* init flag *)
+      Var.mk_state_var_instance init_flag TransSys.init_base |> Term.mk_var;
+      same_inputs_unsliced orig_unsliced_vars;
+      mk_init_term init_flag [obs_name] kind2_sys;
+      mk_init_term init_flag [obs_name] unsliced_sys] in
+
+  (* Term describing the transition relation: [inputs1' = inputs2' /\
+     T1(X1,X1') /\ T2(X2,X2')]. Here [inputs1'] is the subset of [X1'] which
+     are input varaibles. *)
+  let trans_term =
+    Term.mk_and [
+      (* init flag *)
+      Var.mk_state_var_instance init_flag TransSys.trans_base
+      |> Term.mk_var |> Term.mk_not;
+      same_inputs_unsliced ~prime:true orig_unsliced_vars;
+      mk_trans_term init_flag [obs_name] kind2_sys;
+      mk_trans_term init_flag [obs_name] unsliced_sys] in
+
+  let init_args = state_vars0 in
+  let trans_args = state_vars1 @ state_vars0 in
+
+  (* Create properties *)
+  let props = mk_multiprop_obs_unsliced unsliced_sys in
+
+  let kind2_subsys_inst = mk_inst init_flag kind2_sys orig_kind2_vars in
+  let unsliced_subsys_inst = mk_inst init_flag unsliced_sys orig_unsliced_vars in
+
+  (* Create observer system *)
+  let obs_sys, _ =
+    TS.mk_trans_sys
+      [obs_name]
+      None
+      init_flag
+      state_vars
+      unconstrained_inputs
+      bounds
+      [] (* Global consts *)
+      [] (* Global constraints *)
+      [] (* Ufs *)
+      init_uf
+      init_args
+      init_term
+      trans_uf
+      trans_args
+      trans_term
+      [kind2_subsys_inst; unsliced_subsys_inst]
+      props
+      (None, []) (Invs.empty ()) in
+
+  obs_sys
 
 
 let export_obs_system ~trace_lfsc_defs
