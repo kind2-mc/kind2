@@ -2253,9 +2253,7 @@ let term_state_var1 scope sv =
   |> Term.mk_var
 
 
-
-
-let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
+let mk_obs_eqs_jkind kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
   let term_state_var =
     if prime then term_state_var1 [obs_name]
@@ -2314,7 +2312,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
     if only_out then
       List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
     else orig_kind2_vars in      
-  let eqs = mk_obs_eqs kind2_sys ~prime:false lustre_vars vars in
+  let eqs = mk_obs_eqs_jkind kind2_sys ~prime:false lustre_vars vars in
   
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
@@ -2322,7 +2320,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
    Term.mk_and eqs]*)
 
 
-let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
+let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
  
   let orig_kind2_vars = TS.state_vars kind2_sys in
   
@@ -2340,9 +2338,9 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
   let prop_vars = SVS.elements prop_vs in
   
   let props_eqs =
-    mk_obs_eqs kind2_sys ~prime:false ~prop:true lustre_vars prop_vars in
+    mk_obs_eqs_jkind kind2_sys ~prime:false ~prop:true lustre_vars prop_vars in
   let others_eqs =
-    mk_obs_eqs kind2_sys  ~prime:false ~prop:false lustre_vars other_vars in
+    mk_obs_eqs_jkind kind2_sys  ~prime:false ~prop:false lustre_vars other_vars in
 
   let cpt = ref 0 in
   let props_obs =
@@ -2380,8 +2378,8 @@ let is_nondet sv =
 
 (* Create additional constraints that force the input state varaibles to be the
    same in Kind2 and jKind. *)
-let same_inputs kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
-  mk_obs_eqs kind2_sys ~prime
+let same_inputs_jkind kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
+  mk_obs_eqs_jkind kind2_sys ~prime
     lustre_vars
     (List.filter (fun sv -> StateVar.is_input sv || is_nondet sv)
        orig_kind2_vars)
@@ -2422,7 +2420,7 @@ let add_scope_and_register_bounds scope orig_tbl dest_tbl sv =
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
    [jkind_sys] in parallel synchronous composition and observes the values of
    their state variables. All variables are put under a new scope. *)
-let merge_systems lustre_vars kind2_sys jkind_sys =
+let merge_jkind_system lustre_vars kind2_sys jkind_sys =
 
   let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
   let jkind_bounds = TransSys.get_state_var_bounds jkind_sys in
@@ -2490,7 +2488,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
     Term.mk_and [
       (* init flag *)
       Var.mk_state_var_instance init_flag TransSys.init_base |> Term.mk_var;
-      same_inputs kind2_sys lustre_vars orig_kind2_vars;
+      same_inputs_jkind kind2_sys lustre_vars orig_kind2_vars;
       mk_init_term init_flag [obs_name] kind2_sys;
       mk_init_term init_flag [obs_name] jkind_sys] in
 
@@ -2502,7 +2500,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       (* init flag *)
       Var.mk_state_var_instance init_flag TransSys.trans_base
       |> Term.mk_var |> Term.mk_not;
-      same_inputs ~prime:true kind2_sys lustre_vars orig_kind2_vars;
+      same_inputs_jkind ~prime:true kind2_sys lustre_vars orig_kind2_vars;
       mk_trans_term init_flag [obs_name] kind2_sys;
       mk_trans_term init_flag [obs_name] jkind_sys] in
 
@@ -2512,7 +2510,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   global_jkind_vars := orig_jkind_vars; 
   
   (* Create properties *)
-  let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
+  let props = mk_multiprop_obs_jkind ~only_out:false lustre_vars kind2_sys in
 
   Debug.fec 
      "@[<hv 4>Unmatched JKind vars:@,%a@]@."
@@ -2687,7 +2685,7 @@ let generate_frontend_obs node kind2_sys dirname =
 
   (* Create the observer system with the property of observational
      equivalence. *)
-  let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
+  let obs_sys = merge_jkind_system lustre_vars kind2_sys jkind_sys in
 
   let filename = Filename.concat dirname "FEC.kind2" in
 
@@ -2714,7 +2712,7 @@ let generate_frontend_obs node kind2_sys dirname =
   let observer_deps = [kind2_defs_path; jkind_defs_path] in
 
   let same_inputs_term =
-    same_inputs kind2_sys lustre_vars (TS.state_vars kind2_sys) in
+    same_inputs_jkind kind2_sys lustre_vars (TS.state_vars kind2_sys) in
   
   (* Export Observer system in SMT-LIB2 format for use in proof *)
   export_obs_system ~trace_lfsc_defs:false
