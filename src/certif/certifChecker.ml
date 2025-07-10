@@ -90,6 +90,9 @@ let kind2_phi_lfsc_f = "kind2_phi_lfsc_trace.smt2"
 let jkind_defs_f = "jkind_sys.smt2"
 let jkind_defs_lfsc_f = "jkind_sys_lfsc_trace.smt2"
 
+let unsliced_defs_f = "unsliced_sys.smt2"
+let unsliced_defs_lfsc_f = "unsliced_sys_lfsc_trace.smt2"
+
 let base_f = "base.smt2"
 let induction_f = "induction.smt2"
 let implication_f = "implication.smt2"
@@ -2791,6 +2794,103 @@ let export_obs_system ~trace_lfsc_defs
   close_out oc
 
 
+(* Generate a certificate for the slicing phase as a system in native input. To
+   be verified, this certificate is expected to be fed back to Kind 2. *)
+let generate_slice_obs node kind2_sys param dirname =
+
+  Stat.start_timer Stat.certif_slice_time;
+
+  KEvent.log L_note "Generating slicing eq-observer...";
+
+  let node = InputSystem.prefix_system node unsliced_prefix in
+
+  (*
+    Rename the top system in the info to match the new name
+    Set uid = 0 to match the uid of the previous analysis
+    It is possible that the previous analysis did not have uid 0, I can see no
+    great way to extract that information here so we assume it is 0.
+  *)
+  let info = Analysis.info_of_param param in
+  let info = { info with
+  uid = 0;
+  top = match info.top with
+  | x :: xs -> (unsliced_prefix ^ x) :: xs
+  | [] -> []
+  ;
+  } in
+
+  let param = match param with
+  | Analysis.Interpreter _ -> Analysis.Interpreter info
+  | Analysis.ContractCheck _ -> Analysis.ContractCheck info
+  | Analysis.First _ -> Analysis.First info
+  | Analysis.Refinement (_, res) -> Analysis.Refinement (info, res)
+  in
+
+  let unsliced_sys, _ =
+    InputSystem.trans_sys_of_analysis
+          ~slice_nodes:`Off node param
+  in
+
+  let obs_system = merge_unsliced_system kind2_sys unsliced_sys in
+  let filename = Filename.concat dirname "slice_certificate.kind2" in
+
+  NativeInput.dump_native_to obs_system filename;
+
+  let names_sliced = names_kind2 [] in
+  let names_unsliced = names_kind2 [] in
+
+  (* Export unsliced system in SMT-LIB2 format *)
+  export_system ~trace_lfsc_defs:false
+    dirname unsliced_defs_f names_unsliced unsliced_sys "unsliced";
+
+  export_system ~trace_lfsc_defs:true
+    (* tracing info for cvc5/LFSC *)
+    dirname unsliced_defs_lfsc_f names_unsliced unsliced_sys "unsliced";
+
+  let unsliced_defs_path = Filename.concat dirname unsliced_defs_f in
+  let unsliced_defs_lfsc_path = Filename.concat dirname unsliced_defs_lfsc_f in
+
+  let kind2_defs_path = Filename.concat dirname kind2_defs_f in
+
+  let observer_deps = [kind2_defs_path; unsliced_defs_path] in
+
+  let same_inputs_term =
+    TS.state_vars unsliced_sys |> same_inputs_unsliced
+  in
+
+  (* Export Observer system in SMT-LIB2 format for use in proof *)
+  export_obs_system ~trace_lfsc_defs:false
+    dirname obs_defs_f observer_deps
+    names_obs names_sliced names_unsliced kind2_sys same_inputs_term;
+
+  export_obs_system ~trace_lfsc_defs:true
+    dirname obs_defs_lfsc_f observer_deps
+    names_obs names_sliced names_unsliced kind2_sys same_inputs_term;
+
+  let obs_defs_path = Filename.concat dirname obs_defs_f in
+  let obs_defs_lfsc_path = Filename.concat dirname obs_defs_lfsc_f in
+
+  let unsliced_cert_sys = {
+    names = names_unsliced;
+    smt2_file = unsliced_defs_path;
+    smt2_lfsc_trace_file = unsliced_defs_lfsc_path;
+  } in
+
+  let obs_cert_sys = {
+    names = names_obs;
+    smt2_file = obs_defs_path;
+    smt2_lfsc_trace_file = obs_defs_lfsc_path;
+  } in
+
+  (* Time statistics *)
+  Stat.record_time Stat.certif_slice_time;
+
+  (* Show which file contains the certificate *)
+    Debug.fec
+      "Slicing eq-observer was written in %s, \
+       run Kind 2 on it" filename;
+
+  unsliced_cert_sys, obs_cert_sys
 
 (* Generate a certificate for the frontend translation / simplification phases
    as a system in native input. To be verified, this certificate is expected to
