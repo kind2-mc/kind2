@@ -171,6 +171,8 @@ val get_node_id : _ t -> Scope.t -> NodeId.t
 
 val current_state_props : _ t -> Scope.t -> string list
 
+val prefix_system : 'a t -> string -> 'a t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

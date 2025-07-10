@@ -24,6 +24,9 @@ module R = LustreReporting
 module E = LustreErrors
 module A = Analysis
 module NI = NodeId
+module I = LustreIdent
+module D = LustreIndex
+module Expr = LustreExpr
 
 module SVar = StateVar
 
@@ -1053,6 +1056,127 @@ fun sys -> fun top ->
   | Lustre _ -> []
   | Native _ -> []
   | Horn _ -> []
+
+let prefix_system (type s) (input_system : s t) prefix : s t = match input_system with
+  | Lustre (main_subs, globals, ast) ->
+
+    let h_prefix = HString.mk_hstring prefix in
+
+    let rename_node_id (node_id: NI.t) : NI.t =
+      NI.mk_node_id
+        ~node_type:(NI.get_node_type node_id)
+        ~monomorphization: (NI.get_monomorphization node_id)
+        ~user_name: (NI.get_user_name node_id |> HString.concat2 h_prefix)
+        (NI.get_name node_id |> HString.concat2 h_prefix)
+    in
+
+    let rename_scope scope = match scope with
+              | x :: xs -> (prefix ^ x) :: xs
+              | [] -> assert false
+    in
+
+    let rename_state_var (sv: StateVar.t) : StateVar.t =
+      StateVar.mk_state_var
+        ~is_input:(StateVar.is_input sv)
+        ~is_const:(StateVar.is_const sv)
+        ~for_inv_gen:(StateVar.for_inv_gen sv)
+        (StateVar.name_of_state_var sv)
+        (StateVar.scope_of_state_var sv |> rename_scope)
+        (StateVar.type_of_state_var sv)
+    in
+
+    let rename_svar (svar: LustreContract.svar) : LustreContract.svar =
+      { svar with
+      svar = rename_state_var svar.svar
+      }
+    in
+
+    let rename_mode (mode: LustreContract.mode) : LustreContract.mode =
+      { mode with
+      requires = List.map rename_svar mode.requires;
+      ensures = List.map rename_svar mode.ensures;
+      }
+    in
+
+    let rename_contract (contract : LustreContract.t) : LustreContract.t =
+      {
+        assumes = List.map rename_svar contract.assumes;
+        sofar_assump = rename_state_var contract.sofar_assump;
+        guarantees = List.map (fun (sv, candidate) -> (rename_svar sv, candidate)) contract.guarantees;
+        modes = List.map rename_mode contract.modes;
+      }
+    in
+
+    let rename_node_call (call: N.node_call) : N.node_call =
+      { call with
+        call_node_id = rename_node_id call.call_node_id;
+        call_cond = List.map ( function
+        | N.CActivate sv -> N.CActivate (rename_state_var sv)
+        | N.CRestart sv -> N.CRestart (rename_state_var sv)
+        ) call.call_cond
+        ;
+        call_inputs = D.map rename_state_var call.call_inputs;
+        call_oracles = List.map rename_state_var call.call_oracles;
+        call_outputs = D.map rename_state_var call.call_outputs;
+      }
+    in
+
+    let rename_var = Var.map_state_var rename_state_var in
+
+    let rename_expr = LustreExpr.map_vars rename_var in
+
+    let rename_equation (eq : N.equation) : N.equation =
+      let (lhs, expr) = eq in
+      let (sv, wtf) = lhs in
+      let new_wtf = List.map (function
+      | Expr.Bound expr -> Expr.Bound (LustreExpr.map_vars_expr rename_var expr)
+      | Expr.Fixed expr -> Expr.Fixed (LustreExpr.map_vars_expr rename_var expr)
+      | Expr.Unbound expr -> Expr.Unbound (Option.map (LustreExpr.map_vars_expr rename_var) expr)
+      ) wtf
+      in
+      ((rename_state_var sv, new_wtf), rename_expr expr)
+    in
+
+    let rename_node (node: N.t) : N.t =
+      let result = { node with
+        node_id = rename_node_id node.node_id;
+        instance = rename_state_var node.instance;
+        init_flag = rename_state_var node.init_flag;
+        inputs = D.map rename_state_var node.inputs;
+        oracles = List.map rename_state_var node.oracles;
+        outputs = D.map rename_state_var node.outputs;
+        locals = List.map (D.map rename_state_var) node.locals ;
+        equations = List.map rename_equation node.equations;
+        calls = List.map rename_node_call node.calls;
+        asserts = List.map (fun (pos, sv) -> (pos, rename_state_var sv)) node.asserts;
+        props = List.map (fun (sv, str, source, kind) -> (rename_state_var sv, str, source, kind)) node.props;
+        contract = Option.map rename_contract node.contract;
+        state_var_source_map = SVM.fold
+          (fun sv source acc -> SVM.add (rename_state_var sv) source acc )
+          node.state_var_source_map SVM.empty;
+        (* oracle state var map *)
+        state_var_expr_map = node.state_var_expr_map
+          |> StateVar.StateVarHashtbl.to_seq
+          |> Seq.map (fun (sv, expr) -> (rename_state_var sv, rename_expr expr))
+          |> StateVar.StateVarHashtbl.of_seq;
+        assumption_svars = SVS.map rename_state_var node.assumption_svars;
+        (* history_svars *)
+      } in
+      result
+    in
+
+    let rec rename (subsystem: N.t SubSystem.t) =
+      { subsystem with
+        source = rename_node subsystem.source;
+        scope = rename_scope subsystem.scope;
+        subsystems = List.map rename subsystem.subsystems
+      }
+    in
+
+    let main_subs = List.map rename main_subs in
+    Lustre (main_subs, globals, ast)
+  | _ -> input_system
+
 
 (* 
    Local Variables:
