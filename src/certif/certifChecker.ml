@@ -98,6 +98,7 @@ let frontend_base_f = "frontend_base.smt2"
 let frontend_induction_f = "frontend_induction.smt2"
 let frontend_implication_f = "frontend_implication.smt2"
 
+let unsliced_prefix = "unsliced_"
 
 let kind2_cert_sys vars dirname = {
   names = names_kind2 vars;
@@ -2252,6 +2253,36 @@ let term_state_var1 scope sv =
   Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.one
   |> Term.mk_var
 
+let unprefix str =
+  if String.starts_with ~prefix:unsliced_prefix str
+  then
+    let plen = String.length unsliced_prefix in
+    String.sub str plen (String.length str - plen)
+  else (assert false)
+
+let unprefix_scope scope = match scope with
+    | x :: xs -> (unprefix x) :: xs
+    | [] -> assert false
+
+let unprefix_statevar (sv: StateVar.t) : StateVar.t =
+  StateVar.mk_state_var
+    ~is_input:(StateVar.is_input sv)
+    ~is_const:(StateVar.is_const sv)
+    ~for_inv_gen:(StateVar.for_inv_gen sv)
+    (StateVar.name_of_state_var sv)
+    (StateVar.scope_of_state_var sv |> unprefix_scope)
+    (StateVar.type_of_state_var sv)
+
+let mk_obs_eqs_unsliced ?(prime=false) sv =
+  let term_state =
+    if prime
+    then term_state_var1 [obs_name]
+    else term_state_var0 [obs_name]
+  in
+  Term.mk_eq [
+    term_state  sv;
+    term_state (unprefix_statevar sv);
+  ]
 
 let mk_obs_eqs_jkind kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
