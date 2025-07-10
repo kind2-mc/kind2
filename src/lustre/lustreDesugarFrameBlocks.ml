@@ -80,7 +80,7 @@ let warn_unguarded_pres nis pos =
   List.map (fun ni -> match ni with
     | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> 
       if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
-    | A.Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) -> 
+    | A.Body (Equation (_, StructDef(_, [ArrayDef(_, id, _, _)]), expr)) -> 
       if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
     | _ -> []
   ) nis
@@ -165,7 +165,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
     (* Find the corresponding node item in frame block body. *)
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id = i -> true
-      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id = i -> true
+      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _, _)]), _)) when id = i -> true
       | _ -> false
     ) nis in 
     let pos2 = AH.pos_of_expr init in (
@@ -185,10 +185,10 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
 
         R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id)))))]
     )
-  | A.Equation (pos, (StructDef(_, [ArrayDef(_, id1, id2)]) as lhs), init) -> 
+  | A.Equation (pos, (StructDef(_, [ArrayDef(_, id1, id2, _)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
     let res = List.find_opt (fun ni -> match ni with
-      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id1 = i -> true
+      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _, _)]), _)) when id1 = i -> true
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id1 = i -> true
       | _ -> false
     ) nis in 
@@ -228,7 +228,7 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
     (* Find var's corresponding node item in frame block body *)
     match (List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
-      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
+      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _, _)]), _)) when i = var -> true
       | _ -> false) nis)
     with
       (* Already defined in frame block body *)
@@ -237,7 +237,7 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
     (* If not found, find var's corresponding initialization *)
     match (List.find_opt (fun ne -> match ne with
         | (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
-        | (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
+        | (A.Equation (_, StructDef(_, [ArrayDef(_, i, _, _)]), _)) when i = var -> true
         | _ -> false
     ) nes)
     with
@@ -266,10 +266,10 @@ match ni with
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> Some (lhs, init_expr, rhs_expr)
       (* In this case, the initialization is a recursive array definition, but 
          the body equation is not. So, we have to make the whole desugared equation recursive. *)
-      | A.Equation (_, StructDef(p1, [ArrayDef(p2, id, inds1)]), init_expr) when id = i  -> 
+      | A.Equation (_, StructDef(p1, [ArrayDef(p2, id, inds1, kt)]), init_expr) when id = i  -> 
         (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
         let fresh = mk_fresh_indices inds1 in
-        let lhs = A.StructDef(p1, [ArrayDef(p2, id, fresh)]) in
+        let lhs = A.StructDef(p1, [ArrayDef(p2, id, fresh, kt)]) in
         let init_expr = AH.replace_idents inds1 fresh init_expr in
         let pos = AH.pos_of_expr init_expr in
         let rhs_expr = List.fold_left (fun acc ind -> 
@@ -288,10 +288,10 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i
                                 (A.Pre (pos2, Ident(pos2, i)))
                                 rhs_expr))))
-  | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1)]), rhs_expr)) ->
+  | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1, kt)]), rhs_expr)) ->
     (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
     let fresh = mk_fresh_indices inds1 in
-    let lhs = A.StructDef (p1, [ArrayDef(p2, i1, fresh)]) in
+    let lhs = A.StructDef (p1, [ArrayDef(p2, i1, fresh, kt)]) in
     let rhs_expr = AH.replace_idents inds1 fresh rhs_expr in
     let pos2 = AH.pos_of_expr rhs_expr in 
     (* Find initialization value *)
@@ -299,7 +299,7 @@ match ni with
       A.IndexAccess(pos2, expr, A.Ident(pos2, j), Array)) (A.Ident(pos2, i1)) fresh
     in
     let init = List.find_map (fun ne -> match ne with 
-      | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> 
+      | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2, _)]), expr) when id = i1  -> 
         Some (AH.replace_idents inds2 fresh expr)
       (* In this case, the body equation is a recursive array definition, but 
          the initialization is not. So, we have to make the whole desugared equation recursive. *)

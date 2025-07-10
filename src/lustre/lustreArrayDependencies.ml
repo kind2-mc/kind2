@@ -124,7 +124,7 @@ and process_equation ctx ns = function
   | _ -> R.ok (G.empty, StringMap.empty, 0, 0)
 
 and process_lhs ctx ns proj expr = function
-  | (A.ArrayDef (pos, id, indices) :: tail) ->
+  | (A.ArrayDef (pos, id, indices, _) :: tail) ->
     let zero_list = List.map (fun _ -> Val 0) indices in
     let* expr_graph = process_expr (Some (List.rev indices)) ctx ns proj [] expr in
     let expr_graph = G.connect expr_graph (id, zero_list) in

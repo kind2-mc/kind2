@@ -199,7 +199,7 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
-  | ArrayDef of position * ident * ident list
+  | ArrayDef of position * ident * ident list * lustre_type (* key type *)
 
 
 (* The left-hand side of an equation *)
@@ -867,14 +867,13 @@ let rec pp_print_struct_item ppf = function
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
                             
-  | ArrayDef (_, i, l) ->
+  | ArrayDef (_, i, l, _) ->
 
     Format.fprintf ppf
       "%a%a"
       pp_print_ident i
       (pp_print_list pp_print_array_def_index "") l
-
-
+  
 let pp_print_eq_lhs ppf = function
   | StructDef (_, [l]) ->
     pp_print_struct_item ppf l

@@ -817,7 +817,7 @@ struct_item:
           
   (* Recursive array definition *)
   | s = ident; l = nonempty_list(index_var)
-     { A.ArrayDef (mk_pos $startpos, s, l)}
+     { A.ArrayDef (mk_pos $startpos, s, l, A.Int (mk_pos $startpos)) }
 
 (*
   (* Filter array values *)

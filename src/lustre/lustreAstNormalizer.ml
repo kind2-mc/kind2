@@ -271,6 +271,16 @@ let pp_print_generated_identifiers ppf gids =
       A.pp_print_lustre_type kt 
       A.pp_print_lustre_type vt
   in
+  let pp_print_map_element_update ppf (id, expr1, expr2, expr3, idx, kt, vt) = 
+    Format.fprintf ppf "(%a, %a, %a, %a, %a, %a, %a)" 
+      HString.pp_print_hstring id 
+      A.pp_print_expr expr1 
+      A.pp_print_expr expr2 
+      A.pp_print_expr expr3 
+      HString.pp_print_hstring idx
+      A.pp_print_lustre_type kt 
+      A.pp_print_lustre_type vt 
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -281,7 +291,7 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -290,6 +300,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
+    (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -353,7 +364,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
     | [] ->
       A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
     | ind_vars ->
-      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
+      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars, A.Int dpos)]),
       List.fold_left (fun acc ind_var -> 
         A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)  
       ) nexpr ind_vars 
@@ -845,7 +856,7 @@ let add_history_var_and_equation info id h_id =
   let locals = StringMap.singleton h_id ty in
   let equations =
     let index = HString.mk_hstring "i" in
-    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
+    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index], A.Int dpos)]) in
     let eq_rhs =
       let cond =
         A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
@@ -1766,7 +1777,7 @@ and normalize_equation info node_id map = function
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
     let info = List.fold_left (fun info item -> match item with
-      | A.ArrayDef (pos, v, is) ->
+      | A.ArrayDef (pos, v, is, _) ->
         let info = List.fold_left (fun info i -> { info with
           context = Ctx.add_ty info.context i (A.Int pos); })
           info
@@ -1836,7 +1847,7 @@ and normalize_equation info node_id map = function
     let gids2 = if expanded then
       let items = match lhs with | StructDef (_, items) -> items in
       let ids = List.map (function
-        | A.SingleIdent (_, i) | ArrayDef (_, i, _) -> i
+        | A.SingleIdent (_, i) | ArrayDef (_, i, _, _) -> i
         | _ -> assert false)
         items
       in
@@ -2134,7 +2145,7 @@ and normalize_expr ?guard info node_id map =
         StringMap.singleton name expr_type
       in
       let index = HString.mk_hstring "i" in
-      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index])]) in
+      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index], A.Int dpos)]) in
       let equations =
         [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
       in
@@ -2169,23 +2180,23 @@ and normalize_expr ?guard info node_id map =
     } in
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
-  | StructUpdate (pos, expr1, [A.MapIndex (pos2, expr2)], expr3) as expr ->
+  | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
-    let nexpr = A.StructUpdate (pos, nexpr1, [A.MapIndex (pos2, nexpr2)], nexpr3) in 
+    let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
+    let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
     let kt, vt = match Chk.infer_type_expr info.context (Some node_id) expr with 
     | Ok (A.Map (_, kt, vt), _) -> kt, vt 
     | _ -> assert false 
     in 
-    let gids4 = { (empty ()) with 
-      map_element_updates = [ name, nexpr, kt, vt ]; 
-      locals = StringMap.singleton name (A.Map (pos, kt, vt));
+    let gids4 = { (empty ()) with   
+      map_element_updates = [ name1, nexpr1, nexpr2, nexpr3, name2, kt, vt ]; 
+      locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
     } in 
-    let nexpr = A.Ident (pos, name) in 
+    let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
     nexpr, gids, warnings1 @ warnings2 @ warnings3
   | RecordProject (pos, expr, i) ->
