@@ -2351,6 +2351,26 @@ let mk_obs_eqs_jkind kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kin
    Term.mk_and eqs]*)
 
 
+let mk_multiprop_obs_unsliced unsliced_sys =
+
+    unsliced_sys
+      |> TransSys.get_real_properties
+      |> List.to_seq
+      |> Seq.map Property.get_prop_term
+      |> Seq.map Term.state_vars_of_term
+      |> Seq.fold_left SVS.union SVS.empty
+      |> SVS.to_seq
+      |> Seq.map (mk_obs_eqs_unsliced ~prime:false)
+      |> Seq.mapi (fun i eq ->
+        { Property.prop_name =
+            "PROPERTY_Observational_Equivalence_" ^(string_of_int i);
+          prop_source = Property.Generated (None, []);
+          prop_term = eq;
+          prop_status = Property.PropUnknown;
+          prop_kind = Invariant;
+        })
+      |> List.of_seq
+
 let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
  
   let orig_kind2_vars = TS.state_vars kind2_sys in
