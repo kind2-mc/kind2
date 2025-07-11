@@ -1777,9 +1777,9 @@ and normalize_equation info node_id map = function
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
     let info = List.fold_left (fun info item -> match item with
-      | A.ArrayDef (pos, v, is, _) ->
+      | A.ArrayDef (_, v, is, kt) ->
         let info = List.fold_left (fun info i -> { info with
-          context = Ctx.add_ty info.context i (A.Int pos); })
+          context = Ctx.add_ty info.context i kt; })
           info
           is
         in

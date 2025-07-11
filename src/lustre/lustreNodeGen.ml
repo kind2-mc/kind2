@@ -184,7 +184,7 @@ let mk_state_var_name ident index = Format.asprintf "%a%a"
 let bounds_of_index index =
   List.fold_left (fun acc -> function
       | X.ArrayVarIndex b -> E.Bound b :: acc
-      | X.MapIndex _ -> E.Unbound None :: acc
+      | X.MapIndex b -> E.Unbound (Some b) :: acc
       | X.ArrayIntIndex i ->
         E.Fixed (E.mk_int_expr (Numeral.of_int (i + 1))) :: acc
       | _ -> acc
@@ -378,9 +378,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
-  | (X.MapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
+  | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
-    expand_tuple' pos accum (E.Unbound None :: bounds)
+    expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
   | (X.ArrayIntIndex idx :: lhs_index_tl, state_var) :: lhs_tl,
@@ -456,7 +456,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Map index on right and left side *)
-  | (X.MapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
+  | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (X.MapIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
@@ -465,7 +465,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
     let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
-    expand_tuple' pos accum (E.Unbound None :: bounds)
+    expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Tuple index on left-hand and right-hand side *)
@@ -2038,7 +2038,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
 
   in let rm_array_var_index lst =
       List.filter (function
-      | X.ArrayVarIndex _ -> false
+      | X.ArrayVarIndex _ -> false 
       | _ -> true
       ) lst
 

@@ -430,7 +430,8 @@ let add_constraints_of_type init terms state_var =
 
     let indices =
       Type.all_index_types_of_array state_var_type
-      |> List.map (fun ty -> ty, Var.mk_fresh_var Type.t_int)
+      |> List.map (fun ty -> 
+          ty, Var.mk_fresh_var ty)
     in
 
     let array_var =
@@ -1858,16 +1859,21 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
 let constraints_of_arrays init terms eq_bounds =
-
     (* Return the i-th index variable *)
-  let index_var_of_int i = E.var_of_expr (E.mk_index_var i) in
+  let index_var_of_int_and_ty i kt = 
+    let kt = if Type.is_int_range kt then Type.t_int else kt in
+    E.var_of_expr (E.mk_map_index_var i kt) in
 
     (* Add quantifier or let binding for indexes of variable *)
   let add_bounds term bounds =
     let term, quant_v, _ =
-      List.fold_left (fun (term, quant_v, i) ->
-          let v = index_var_of_int i in
-          function
+      List.fold_left (fun (term, quant_v, i) bound -> 
+          let v = match bound with 
+          | E.Unbound None -> index_var_of_int_and_ty i Type.t_int
+          | E.Bound e 
+          | E.Fixed e 
+          | E.Unbound (Some e) -> index_var_of_int_and_ty i (E.type_of_expr e) in
+          match bound with 
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
 
@@ -1921,8 +1927,14 @@ let constraints_of_arrays init terms eq_bounds =
               (* Select array *)
               let select_term, _ =
                 List.fold_left
-                  (fun (st, i) _ ->
-                     Term.mk_select st (Term.mk_var (index_var_of_int i)),
+                  (fun (st, i) bound ->
+                     let kt = match bound with 
+                     | E.Bound b 
+                     | E.Unbound (Some b) 
+                     | E.Fixed b -> E.type_of_expr b 
+                     | E.Unbound None -> Type.t_int 
+                     in
+                     Term.mk_select st (Term.mk_var (index_var_of_int_and_ty i kt)),
                      succ i)
                   (sv_term, 0)
              bounds 
