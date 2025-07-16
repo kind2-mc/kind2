@@ -901,49 +901,6 @@ let extract uf_defs env term =
 
   (literals_bool, literals_int)
 
-(*
-
-let main () = 
-
-  let print_term = Format.printf "%a@." Term.pp_print_term in
-  let v_x = StateVar.mk_state_var "X" (Type.mk_int ()) in
-  let v_y = StateVar.mk_state_var "Y" (Type.mk_bool ()) in
-  let v_x_0 = Var.mk_state_var_instance v_x (numeral_of_int 0) in
-  let v_y_1 = Var.mk_state_var_instance v_y (numeral_of_int 1) in
-  let v_y_2 = Var.mk_state_var_instance v_y (numeral_of_int 2) in
-  let v_y_3 = Var.mk_state_var_instance v_y (numeral_of_int 3) in
-  let v_y_4 = Var.mk_state_var_instance v_y (numeral_of_int 4) in
-
-  let t = 
-    Term.mk_ite 
-      (Term.mk_implies [Term.mk_var v_y_3; Term.mk_var v_y_4]) 
-      (Term.mk_ite 
-         (Term.mk_leq [Term.mk_var v_x_0; Term.mk_num_of_int 2]) 
-         (Term.mk_var v_y_1) 
-         (Term.mk_var v_y_2)) 
-      (Term.mk_var v_y_3) 
-  in
-
-  let b, i = 
-    extract 
-      [(v_x_0, Term.mk_num_of_int 3);
-       (v_y_1, Term.mk_true ());
-       (v_y_2, Term.mk_true ());
-       (v_y_3, Term.mk_true ()); 
-       (v_y_4, Term.mk_false ())]
-      t in
-
-  print_term t; 
-  print_term b; 
-  print_term i
-
-
-;;
-
-main ()
-
-*)
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
