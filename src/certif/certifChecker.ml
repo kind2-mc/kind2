@@ -1255,13 +1255,17 @@ let echo fmt s = fprintf fmt "(echo \"%s\")@." (String.escaped s)
 (* Information about certificate are reflected in the header of the SMT2 file *)
 (******************************************************************************)
 
+(* Name of the system observing the jKind and Kind2 systems and comparing
+   values of their states *)
+let obs_name = "_OBS"
 
 (* Returns true if the system is an observer of equivalence, i.e. an FEC *)
 let is_fec sys =
-  match TransSys.scope_of_trans_sys sys with
-  | "OBS" :: _ -> true
-  | _ -> false
-    
+  try
+    TransSys.scope_of_trans_sys sys
+      |> List.hd
+      |> Ident.equal obs_name
+  with Failure _ -> false
 
 (* Add a set-info header *)
 let set_info fmt tag str =
@@ -2146,9 +2150,6 @@ let generate_certificate sys dirname =
 (* Certificates for frontend translation *)
 (*****************************************)
 
-(* Name of the system observing the jKind and Kind2 systems and comparing
-   values of their states *)
-let obs_name = "OBS"
 
 (* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
