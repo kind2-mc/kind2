@@ -2153,23 +2153,11 @@ let generate_certificate sys dirname =
 
 (* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
-    StateVar.mk_state_var
-      ~is_input:(StateVar.is_input sv)
-      ~is_const:(StateVar.is_const sv)
-      ~for_inv_gen:(StateVar.for_inv_gen sv)
-      (StateVar.name_of_state_var sv)
-      (scope @ StateVar.scope_of_state_var sv)
-      (StateVar.type_of_state_var sv)
+  StateVar.modify_state_var ~state_var_scope:(scope @ StateVar.scope_of_state_var sv) sv
 
 (* Remove top scope of a state variable *)
 let unscope_state_var sv =
-    StateVar.mk_state_var
-      ~is_input:(StateVar.is_input sv)
-      ~is_const:(StateVar.is_const sv)
-      ~for_inv_gen:(StateVar.for_inv_gen sv)
-      (StateVar.name_of_state_var sv)
-      (StateVar.scope_of_state_var sv |> List.tl)
-      (StateVar.type_of_state_var sv)
+  StateVar.modify_state_var ~state_var_scope:(StateVar.scope_of_state_var sv |> List.tl) sv
 
 (* Add an additional scope to a variable *)
 let add_scope_var scope v =
@@ -2263,13 +2251,9 @@ let unprefix_scope scope = match scope with
     | [] -> assert false
 
 let unprefix_statevar (sv: StateVar.t) : StateVar.t =
-  StateVar.mk_state_var
-    ~is_input:(StateVar.is_input sv)
-    ~is_const:(StateVar.is_const sv)
-    ~for_inv_gen:(StateVar.for_inv_gen sv)
-    (StateVar.name_of_state_var sv)
-    (StateVar.scope_of_state_var sv |> unprefix_scope)
-    (StateVar.type_of_state_var sv)
+  StateVar.modify_state_var
+    ~state_var_scope:(StateVar.scope_of_state_var sv |> unprefix_scope)
+    sv
 
 let mk_obs_eqs_unsliced ?(prime=false) sv =
   let term_state =

@@ -365,6 +365,22 @@ let mk_state_var
        (* Return state variable *)
        state_var
 
+let modify_state_var
+    ?is_input:is_input'
+    ?is_const:is_const'
+    ?for_inv_gen:for_inv_gen'
+    ?state_var_name:state_var_name
+    ?state_var_scope:state_var_scope
+    ?state_var_type:state_var_type
+    prev_sv =
+    mk_state_var
+      ~is_input:(Option.value ~default:(is_input prev_sv) is_input')
+      ~is_const:(Option.value ~default:(is_const prev_sv) is_const')
+      ~for_inv_gen:(Option.value ~default:(for_inv_gen prev_sv) for_inv_gen')
+      (Option.value ~default:(name_of_state_var prev_sv) state_var_name)
+      (Option.value ~default:(scope_of_state_var prev_sv) state_var_scope)
+      (Option.value ~default:(type_of_state_var prev_sv) state_var_type)
+
 (* Returns a scoped init flag. *)
 let mk_init_flag scope =
   mk_state_var
