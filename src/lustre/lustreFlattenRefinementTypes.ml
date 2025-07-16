@@ -80,7 +80,9 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | IntRange _
+    | Int _ | Bool _ 
+    | Real _ | AbstractType _ | EnumType _ 
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     in
     let constraints = chase_refinements ty in 
@@ -90,6 +92,31 @@ let rec flatten_ref_type ctx ty = match ty with
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
       | Ok ty -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
+  | IntRange (pos, Some lb, None) -> ( 
+    match LustreAstInlineConstants.eval_int_expr ctx lb with 
+    | Ok _ -> ty
+    | Error _ -> 
+      let id = HString.mk_hstring "x" in 
+      let bound_var = A.Ident (pos, id) in  
+      RefinementType (pos, (pos, id, A.Int pos), A.CompOp (pos, A.Lte, lb, bound_var))
+    )
+  | IntRange (pos, None, Some ub) -> ( 
+    match LustreAstInlineConstants.eval_int_expr ctx ub with 
+    | Ok _ -> ty
+    | Error _ -> 
+      let id = HString.mk_hstring "x" in 
+      let bound_var = A.Ident (pos, id) in  
+      RefinementType (pos, (pos, id, A.Int pos), A.CompOp (pos, A.Lte, bound_var, ub))
+    )
+  | IntRange (pos, Some lb, Some ub) -> ( 
+    match LustreAstInlineConstants.eval_int_expr ctx lb,
+          LustreAstInlineConstants.eval_int_expr ctx ub with  
+    | Ok _, Ok _ -> ty
+    | Error _, _ | _, Error _ -> 
+      let id = HString.mk_hstring "x" in 
+      let bound_var = A.Ident (pos, id) in  
+      RefinementType (pos, (pos, id, A.Int pos), 
+        A.BinaryOp (pos, A.And, A.CompOp (pos, A.Lte, lb, bound_var), A.CompOp (pos, A.Lte, bound_var, ub))))
   | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
 

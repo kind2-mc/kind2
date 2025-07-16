@@ -618,9 +618,9 @@ let expr_opt_lte e1 e2 =
         | None -> false
         | Some (LA.Const (_, Num l2)) -> 
           int_of_string (HString.string_of_hstring l1) <= int_of_string (HString.string_of_hstring l2)
-        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+        | _ -> true 
       )
-    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+    | _ -> true 
 
 let expr_opt_gte e1 e2 =
   match e1 with 
@@ -630,9 +630,9 @@ let expr_opt_gte e1 e2 =
         | None -> false
         | Some (LA.Const (_, Num l2)) -> 
           int_of_string (HString.string_of_hstring l1) >= int_of_string (HString.string_of_hstring l2)
-        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+        | _ -> true 
       )
-    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+    | _ -> true 
 
 (* Compare a constant's actual range to its inferred range to see if assignment is legal *)
 let rec compare_ranges id pos_map actual_ty inferred_range =
