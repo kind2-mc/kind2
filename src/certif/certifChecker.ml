@@ -2153,9 +2153,6 @@ let generate_certificate sys dirname =
 
 (* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
-  (* if StateVar.equal_state_vars (TransSys.init_flag_state_var sys) sv then sv *)
-  (* else *)
-  (* TODO we use to not scope init_flags, still the case? *)
     StateVar.mk_state_var
       ~is_input:(StateVar.is_input sv)
       ~is_const:(StateVar.is_const sv)
@@ -2166,9 +2163,6 @@ let add_scope_state_var scope sv =
 
 (* Remove top scope of a state variable *)
 let unscope_state_var sv =
-  (* if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv *)
-  (* else *)
-  (* TODO we use to not scope init_flags, still the case? *)
     StateVar.mk_state_var
       ~is_input:(StateVar.is_input sv)
       ~is_const:(StateVar.is_const sv)
