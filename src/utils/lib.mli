@@ -51,6 +51,9 @@ val false_of_any : 'a -> bool
 (** Creates a directory if it does not already exist. *)
 val mk_dir : string -> unit
 
+(** Creates a directory and all of its parents if it does not already exist. *)
+val mk_dir_p : string -> unit
+
 (** Flips the expected argument of the function *)
 val flip: ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)
 

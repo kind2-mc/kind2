@@ -235,11 +235,7 @@ let roll sigma t =
 
 
 (* Create a directory if it does not already exists. *)
-let create_dir dir =
-  try
-    if not (Sys.is_directory dir) then failwith (dir^" is not a directory");
-    (* TODO remove directory *)
-  with Sys_error _ -> Unix.mkdir dir 0o755
+let create_dir = mk_dir_p
 
 
 (*************************************************************************)
@@ -3157,13 +3153,7 @@ let generate_smt2_certificates input sys =
   
   Hashtbl.clear solver_actlits;
 
-  let dirname =
-    (* Create directories if they don't exist. *)
-    Flags.output_dir () |> mk_dir;
-    let dir = Filename.concat (Flags.output_dir ()) "certif" in
-    mk_dir dir ;
-    dir
-  in
+  let dirname = Filename.concat (Flags.output_dir ()) "certif" in
   create_dir dirname;
 
   (try generate_certificate sys dirname
