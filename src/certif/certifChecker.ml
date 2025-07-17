@@ -3156,7 +3156,9 @@ let certify_observer filename name =
   Debug.certif "Second run with: %s" cmd;
 
   match Sys.command cmd with
-  | 0 | 20 -> ()
+  | 0 | 20 as c ->
+    KEvent.log L_note
+      "Success generating %s certificate (return code %d)" name c
   | c ->
     KEvent.log L_warn
       "Failed to generate %s certificate (return code %d)" name c
