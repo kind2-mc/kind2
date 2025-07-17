@@ -35,6 +35,9 @@ val generate_certificate : TransSys.t -> string -> unit
     {!Flags.output_dir}. *)
 val generate_smt2_certificates : 'a InputSystem.t -> TransSys.t -> unit
 
+(** Generate intermediate slicing certificates in the directory given by
+    {!Flags.output_dir}. *)
+val generate_slicing_certificates : 'a InputSystem.t -> TransSys.t -> Analysis.param -> unit
 
 (** Generate LFSC proofs in the directory given by {!Flags.output_dir}. *)
 val generate_all_proofs : int -> 'a InputSystem.t -> TransSys.t -> unit

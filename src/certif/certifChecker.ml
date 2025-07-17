@@ -3141,10 +3141,29 @@ let fecc_checker_script =
   "cat FECC_prelude.smt2 observer_sys.smt2 FECC.smt2 | $solver"
 
 
+let certify_observer filename name =
+  KEvent.log L_note "@{<b>Generating %s certificate@}" name;
+  let cmd_l =
+    Array.to_list Sys.argv
+    |> List.filter (fun s -> s <> (Flags.input_file ()))
+  in
+
+  let cmd =
+    asprintf "%a %s"
+      (pp_print_list pp_print_string " ") cmd_l
+      filename
+  in
+  Debug.certif "Second run with: %s" cmd;
+
+  match Sys.command cmd with
+  | 0 | 20 -> ()
+  | c ->
+    KEvent.log L_warn
+      "Failed to generate %s certificate (return code %d)" name c
+
 (*****************************************)
 (* Creation of intermediate certificates *)
 (*****************************************)
-
 
 (* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_smt2_certificates input sys =
@@ -3176,7 +3195,7 @@ let generate_smt2_certificates input sys =
       false
     end
   in
-  
+
   let open Unix in
 
   let certif_script_name =
@@ -3194,27 +3213,42 @@ let generate_smt2_certificates input sys =
 
   (* Recursive call *)
   if not (is_fec sys) && call_frontend && gen_frontend then begin
+    certify_observer (Filename.concat dirname "FEC.kind2") "frontend"
+  end
 
-    KEvent.log L_note "@{<b>Generating frontend certificate@}";
-    let cmd_l =
-      Array.to_list Sys.argv
-      |> List.filter (fun s -> s <> (Flags.input_file ()))
-    in
+(* Generate all certificates in the directory given by {!Flags.output_dir}. *)
+let generate_slicing_certificates input sys param =
 
-    let cmd =
-      asprintf "%a %s"
-        (pp_print_list pp_print_string " ") cmd_l
-        (Filename.concat dirname "FEC.kind2")
-    in
-    (* Format.printf "cmd: %s@.@." cmd ; *)
-    Debug.certif "Second run with: %s" cmd;
+  Proof.set_proof_logic (TS.get_logic sys);
+  Hashtbl.clear solver_actlits;
 
-    match Sys.command cmd with
-    | 0 | 20 -> ()
-    | c ->
-      KEvent.log L_warn
-        "Failed to generate frontend certificate (return code %d)" c
-  end  
+  let dirname = Filename.concat (Flags.output_dir ()) "certif" in
+  create_dir dirname;
+
+  if (is_fec sys |> not) then generate_split_certificates sys dirname |> ignore ;
+
+  let gen_slice =
+    if InputSystem.is_lustre_input input then
+      try
+        generate_slice_obs input sys param dirname |> ignore;
+        true
+      with Failure s ->
+        KEvent.log L_warn "%s@.(No slice observer)" s;
+        false
+    else begin
+      KEvent.log L_warn "No certificate for slicing";
+      false
+    end
+  in
+
+  let open Unix in
+
+  (* Send statistics *)
+  KEvent.stat Stat.[certif_stats_title, certif_stats];
+
+  if not (is_fec sys) && call_frontend && gen_slice then begin
+      certify_observer (Filename.concat dirname "slice_certificate.kind2") "slice"
+  end
 
 
 (********************************)
@@ -3240,7 +3274,7 @@ let generate_all_proofs uid input sys =
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
-  
+
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else begin

@@ -53,6 +53,7 @@ module RunContractGen: PostAnalysis
 module RunRustGen: PostAnalysis
 module RunInvPrint: PostAnalysis
 module RunCertif: PostAnalysis
+module RunSliceCertif: PostAnalysis
 module RunIVC: PostAnalysis
 module RunMCS: PostAnalysis
 
