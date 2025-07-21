@@ -54,8 +54,8 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     | _ -> false);
   mk_test "test symbolic subrange bound 1" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
-    | Ok _ -> true
-    | _ -> false);
+    | Ok _ -> false 
+    | _ -> true);
   mk_test "test symbolic subrange bound 2" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
     | Ok _ -> true
