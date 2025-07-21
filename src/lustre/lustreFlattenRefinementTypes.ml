@@ -80,9 +80,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | IntRange _
-    | Int _ | Bool _ 
-    | Real _ | AbstractType _ | EnumType _ 
+    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     in
     let constraints = chase_refinements ty in 
@@ -92,6 +90,7 @@ let rec flatten_ref_type ctx ty = match ty with
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with 
       | Ok ty -> RefinementType (pos, (pos2, id, ty), expr)
       | _ -> assert false)
+  (* Desugar subranges with symbolic bounds to refinement types *)
   | IntRange (pos, Some lb, None) -> ( 
     match LustreAstInlineConstants.eval_int_expr ctx lb with 
     | Ok _ -> ty
