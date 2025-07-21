@@ -436,7 +436,7 @@ module Make (Ord: OrderedType) = struct
   let to_vertex_list: vertices -> vertex list = VSet.elements
   (** returns a list of vertex *)
 
-  let to_edge_list = fun edge -> List.map (fun element -> (fst element, snd element))  (ESet.elements edge)
+  let to_edge_list = ESet.elements
   (** returns a list of vertex *)
 
 end
