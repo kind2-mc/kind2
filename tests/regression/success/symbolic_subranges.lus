@@ -1,0 +1,12 @@
+const N: subtype { x: int | x >= 3 } ; 
+
+node N(x: subrange [0, N] of int; x2: subrange [0, 3] of int) returns (n: int; y: subrange [0, n] of int; y2: subrange [0, 3] of int) 
+var l: subrange [0, n] of int;
+var l2: subrange [0, 3] of int;
+let
+  n = N;
+  l = x;
+  y = l;
+  l2 = x2; 
+  y2 = l2;
+tel
