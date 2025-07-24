@@ -1,0 +1,4 @@
+node N() returns (m1, m2: map<int, int>)
+let
+  check m1 = m2;
+tel 

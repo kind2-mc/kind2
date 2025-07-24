@@ -1,0 +1,4 @@
+node N() returns ()
+let
+  check forall (x: int^3) x[0] < 0;
+tel 

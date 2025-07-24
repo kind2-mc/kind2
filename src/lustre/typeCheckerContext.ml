@@ -782,6 +782,28 @@ let rec type_contains_abstract ctx = function
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
+let rec type_contains_map ctx = function
+  | LA.Map _ -> true
+  | ArrayType (_, (ty, _)) -> type_contains_map ctx ty 
+  | RefinementType (_, (_, _, ty), _) -> type_contains_map ctx ty
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_map ctx ty) false tys
+  | RecordType (_, _, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_map ctx ty)
+      false tys
+  | TArr (_, ty1, ty2) -> type_contains_map ctx ty1 || type_contains_map ctx ty2
+  | History (_, id) ->
+    (match lookup_ty ctx id with
+    | Some ty -> type_contains_map ctx ty
+    | _ -> assert false)
+  | UserType (_, ty_args, id) -> (
+    match lookup_ty_syn ctx id ty_args with
+    | Some ty -> type_contains_map ctx ty
+    | None -> assert false
+  )
+  | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
+  | AbstractType _ | SBitVector _ | UBitVector _ -> false
+
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
   | RefinementType (_, (_, _, ty), _) -> type_contains_array ctx ty

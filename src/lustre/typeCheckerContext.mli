@@ -292,6 +292,9 @@ val type_contains_abstract : tc_context -> tc_type -> bool
 val type_contains_array: tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an array *)
 
+val type_contains_map: tc_context -> tc_type -> bool
+(** Returns true if the lustre type expression contains a map *)
+
 val ty_vars_of_expr: tc_context -> NI.t -> LA.expr -> SI.t
 (** [ty_vars_of_type ctx node_id e] returns all type variable identifiers that appear in the expression [e] *)
 

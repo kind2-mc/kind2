@@ -101,7 +101,7 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
   | QuantifiedAbstractType of HString.t
-  | UnsupportedQuantifiedArray of HString.t
+  | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
@@ -209,7 +209,7 @@ let error_message kind = match kind with
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
-  | UnsupportedQuantifiedArray id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array, which is not currently supported"
+  | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
@@ -1317,8 +1317,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
       if type_contains_abstract ctx ty then 
         type_error pos (QuantifiedAbstractType id) 
-      else if type_contains_array ctx ty then
-        type_error pos (UnsupportedQuantifiedArray id)
+      else if type_contains_array ctx ty || type_contains_map ctx ty then
+        type_error pos (UnsupportedQuantifiedVariable id)
       else
         R.ok ()
     ) qs) in
@@ -1532,9 +1532,11 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if LH.type_contains_array ty1 then
+      (if type_contains_array ctx ty1  then
          type_error pos (Unsupported "Extensional array equality is not supported")
-       else
+       else if type_contains_map ctx ty1 then 
+         type_error pos (Unsupported "Extensional map equality is not supported") 
+       else 
          R.ok (LA.Bool pos, warnings1 @ warnings2)
       )
       (type_error pos (UnificationFailed (ty1, ty2)))
