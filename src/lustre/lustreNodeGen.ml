@@ -2463,7 +2463,7 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
           let ctx = Ctx.add_ty ctx i ty in
           let range_exprs =
             if has_subrange then
-              AN.mk_enum_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
+              AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
             else []
           in
           let ref_type_exprs =
