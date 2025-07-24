@@ -496,12 +496,12 @@ let mk_range_expr ctx node_id expr_type expr =
       @ 
       List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr2
       in 
-      (Format.fprintf Format.std_formatter "Generated constraints: %a\n" 
+      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
         (Lib.pp_print_list (fun ppf (expr, b) -> 
           Format.fprintf ppf "<%a, %b>" 
             A.pp_print_expr expr b
-        ) ", ") res; 
-      res)
+        ) ", ") res;*)
+      res
     | _ -> []
   in
   mk ctx 0 expr_type expr
@@ -604,12 +604,12 @@ let mk_enum_range_expr ctx node_id expr_type expr =
       @ 
       List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr2
       in 
-      (Format.fprintf Format.std_formatter "Generated constraints: %a\n" 
+      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
         (Lib.pp_print_list (fun ppf (expr, b) -> 
           Format.fprintf ppf "<%a, %b>" 
             A.pp_print_expr expr b
-        ) ", ") res; 
-      res)
+        ) ", ") res; *)
+      res
     | _ -> []
   in
   mk ctx 0 expr_type expr
