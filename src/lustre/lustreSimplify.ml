@@ -801,6 +801,8 @@ let rec eval_ast_expr bounds ctx =
       (* All indexes consumed return in original order *)
       | [] -> List.rev accum
 
+      | A.MapIndex (pos, _) :: _ -> fail_at_position pos "Map types are not supported in old front end" 
+
       (* First index is a record field label *)
       | A.Label (pos, index) :: tl -> 
 
@@ -841,7 +843,7 @@ let rec eval_ast_expr bounds ctx =
           (* All indexes are of the same type *)
           (match D.choose expr1'_sub with
 
-            | D.MapIndex :: _, _ -> fail_at_position pos "Map types are not supported in old front end" 
+            | D.MapIndex _ :: _, _ -> fail_at_position pos "Map types are not supported in old front end" 
 
             (* Expression is indexed with a variable *)
             | D.ArrayVarIndex _ :: _, _ -> 
@@ -1173,7 +1175,7 @@ let rec eval_ast_expr bounds ctx =
     (* Every index starts with ArrayVarIndex or none does *)
       match D.choose expr' with 
 
-      | D.MapIndex :: _, _ -> fail_at_position pos "Map types are not supported in old front end"
+      | D.MapIndex _ :: _, _ -> fail_at_position pos "Map types are not supported in old front end"
 
       (* Projection from an array indexed by variable *)
       | D.ArrayVarIndex _ (* s *) :: _ (* tl *), v -> 
@@ -1574,7 +1576,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 (* Return the trie starting at the given index *)
 and eval_ast_projection bounds ctx pos expr = function
 
-  | D.MapIndex -> fail_at_position pos "Map types are not supported in old front end"
+  | D.MapIndex _ -> fail_at_position pos "Map types are not supported in old front end"
 
   (* Record or tuple field *)
   | D.RecordIndex _ 

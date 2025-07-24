@@ -54,11 +54,11 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     | _ -> false);
   mk_test "test symbolic subrange bound 1" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
-    | Error (`LustreAstInlineConstantsError (_, FreeIntIdentifier _)) -> true
-    | _ -> false);
+    | Ok _ -> false 
+    | _ -> true);
   mk_test "test symbolic subrange bound 2" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
-    | Error (`LustreAstInlineConstantsError (_, FreeIntIdentifier _)) -> true
+    | Ok _ -> true
     | _ -> false);
 ])
 
@@ -701,7 +701,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test illegal node call in subrange bound" (fun () ->
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnboundNodeName _)) -> true
     | _ -> false);
   mk_test "test illegal array definition without enough indices" (fun () ->
     match load_file "./lustreTypeChecker/array_frame.lus" with

@@ -157,6 +157,7 @@ and typed_ident = position * ident * lustre_type
 and label_or_index = 
   | Label of position * index
   | Index of position * expr
+  | MapIndex of position * expr (* expr not restricted to integers *)
 
 (* A declaration of a type *)
 type type_decl = 
@@ -712,6 +713,7 @@ and pp_print_const_clocked_typed_ident ppf (_, s, t, c, o) =
 and pp_print_label_or_index ppf = function 
 
   | Label (_, i) -> pp_print_index ppf i
+  | MapIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)

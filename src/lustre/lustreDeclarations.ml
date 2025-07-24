@@ -607,8 +607,8 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       lhs_tl
       rhs_tl
 
-  | (D.MapIndex :: _, _) :: _, _ 
-  | _, (D.MapIndex::_, _) :: _ -> failwith "Map types not supported in old frontend"
+  | (D.MapIndex _ :: _, _) :: _, _ 
+  | _, (D.MapIndex _ ::_, _) :: _ -> failwith "Map types not supported in old frontend"
 
   (* Only array indexes may be left at head of indexes *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,

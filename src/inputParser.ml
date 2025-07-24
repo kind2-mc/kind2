@@ -224,7 +224,7 @@ let rec read_val scope name indexes arr_indexes json =
         (function 
           | LustreIndex.ArrayVarIndex _ 
           | LustreIndex.ArrayIntIndex _
-          | LustreIndex.MapIndex -> false
+          | LustreIndex.MapIndex _ -> false
           | LustreIndex.RecordIndex _
           | LustreIndex.TupleIndex _
           | LustreIndex.ListIndex _

@@ -140,7 +140,7 @@ let error_message kind = match kind with
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedUpdateWithLabel ty -> "Expected a record type but found " ^ string_of_tc_type ty
-  | IlltypedUpdateWithIndex ty -> "Expected a tuple type or an array type but found " ^ string_of_tc_type ty
+  | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, or map type type but found " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
   | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
@@ -976,6 +976,20 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
+      | LA.MapIndex (_, idx_e) -> 
+        let* ue_ty, warnings1 = infer_type_expr ctx nname ue in
+         (match ue_ty with 
+         | Map (_, kt, vt) -> (
+            let* index_type, warnings2 = infer_type_expr ctx nname idx_e in
+            let* index_type = expand_type_syn_reftype_history ctx index_type in
+            R.ifM (eq_lustre_type ctx index_type kt)
+              (let* e_ty, warnings3 = infer_type_expr ctx nname e in
+                R.ifM (eq_lustre_type ctx e_ty vt)
+                  (R.ok (ue_ty, warnings1 @ warnings2 @ warnings3))
+                  (type_error pos (ExpectedType (e_ty, vt))))
+              (type_error pos (ExpectedType (index_type, kt)))
+          )
+         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
       )
   | LA.IndexAccess (pos, e, i, _) -> (
     let* index_type, warnings1 = infer_type_expr ctx nname i in
@@ -1259,7 +1273,13 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
-        ))
+        )
+      | LA.MapIndex _ -> 
+        let* inf_ty, warnings = infer_type_expr ctx nname (StructUpdate (pos, ue, i_or_ls, e)) in 
+        (R.ifM (eq_lustre_type ctx exp_ty inf_ty)
+                (R.ok warnings)
+                (type_error pos (ExpectedType (exp_ty, inf_ty))))
+      )
 
   (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
@@ -2143,9 +2163,6 @@ and check_const_integer_expr: tc_context -> NI.t option -> string -> LA.expr -> 
 and check_array_size_expr ctx nname e =
   check_const_integer_expr ctx nname "array size expression" e
 
-and check_range_bound ctx nname e =
-  check_const_integer_expr ctx nname "subrange bound" e
-
 (* Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
    context of a node (e.g., a global type declaration). *)
@@ -2254,16 +2271,32 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | None, None -> 
           type_error pos (UndeclaredType i)
     )
+  (* Allow subranges with symbolic bounds; they will be desugared in lustreFlattenRefinementTypes *) 
   | LA.IntRange (pos, e1, e2) -> (
     match e1, e2 with
     | None, None -> type_error pos IntervalMustHaveBound
-    | Some e, None | None, Some e -> 
-      check_range_bound ctx nname e >> IC.eval_int_expr ctx e >> Ok ([])
+    | Some e, None | None, Some e -> (
+      let* inf_ty, warnings = infer_type_expr ctx nname e in
+      let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
+      match inf_ty with 
+      | LA.Int _ -> R.ok warnings 
+      | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
+    )
     | Some e1, Some e2 ->
-      check_range_bound ctx nname e1 >> check_range_bound ctx nname e2 >>
-      let* v1 = IC.eval_int_expr ctx e1 in
-      let* v2 = IC.eval_int_expr ctx e2 in
-      if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok ([])
+      let* inf_ty1, warnings1 = infer_type_expr ctx nname e1 in 
+      let* inf_ty2, warnings2 = infer_type_expr ctx nname e2 in 
+      let* inf_ty1 = expand_type_syn_reftype_history_subrange ctx inf_ty1 in
+      let* inf_ty2 = expand_type_syn_reftype_history_subrange ctx inf_ty2 in
+      match inf_ty1, inf_ty2 with 
+      | LA.Int _, Int _ -> (
+        match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with 
+        | Ok v1, Ok v2 -> if v1 > v2 then type_error pos (EmptySubrange (v1, v2)) else Ok (warnings1 @ warnings2)
+        | _ -> R.ok (warnings1 @ warnings2)
+      )
+      | LA.Int _, inf_ty -> 
+        type_error (LH.pos_of_expr e2) (ExpectedIntegerExpression inf_ty)
+      | inf_ty, _ -> 
+        type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
     )
   | Bool _ | Int _ | Real _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok ([])

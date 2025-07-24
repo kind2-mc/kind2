@@ -490,6 +490,7 @@ rule token = parse
   | "lsh" { LSH } 
   | "rsh" { RSH }
   | "++" { CONCAT }
+  | ":=" { ASSIGN }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }

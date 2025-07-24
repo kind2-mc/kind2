@@ -2209,6 +2209,25 @@ and normalize_expr ?guard info node_id map =
     } in
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
+  | StructUpdate (pos, expr1, [A.MapIndex (pos2, expr2)], expr3) as expr ->
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in 
+    i := !i + 1; 
+    let prefix = HString.mk_hstring (string_of_int !i) in 
+    let name = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
+    let nexpr = A.StructUpdate (pos, nexpr1, [A.MapIndex (pos2, nexpr2)], nexpr3) in 
+    let kt, vt = match Chk.infer_type_expr info.context (Some node_id) expr with 
+    | Ok (A.Map (_, kt, vt), _) -> kt, vt 
+    | _ -> assert false 
+    in 
+    let gids4 = { (empty ()) with 
+      map_element_updates = [ name, nexpr, kt, vt ]; 
+      locals = StringMap.singleton name (A.Map (pos, kt, vt));
+    } in 
+    let nexpr = A.Ident (pos, name) in 
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
+    nexpr, gids, warnings1 @ warnings2 @ warnings3
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings

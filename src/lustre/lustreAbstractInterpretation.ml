@@ -37,7 +37,7 @@ type error = [
 let error_message kind = match kind with
   | Unknown s -> s
   | ConstantOutOfSubrange i -> "Constant " ^ (HString.string_of_hstring i) ^ 
-  " is assigned a value outside of its subrange type"
+  " is assigned a value possibly outside of its subrange type"
 
 let inline_error pos kind = Error (`LustreAbstractInterpretationError (pos, kind))
 
@@ -610,29 +610,23 @@ and interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2 =
   in
   l, r
 
+(* Returns None if comparing symbolic bounds *)
 let expr_opt_lte e1 e2 =
-  match e1 with 
-    | None -> true
-    | Some (LA.Const (_, Num l1)) -> (
-      match e2 with 
-        | None -> false
-        | Some (LA.Const (_, Num l2)) -> 
-          int_of_string (HString.string_of_hstring l1) <= int_of_string (HString.string_of_hstring l2)
-        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
-      )
-    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+  match e1, e2 with 
+  | None, _ -> Some true 
+  | _, None -> Some false 
+  | Some (LA.Const (_, Num l1)), Some (LA.Const (_, Num l2)) -> 
+    Some (int_of_string (HString.string_of_hstring l1) <= int_of_string (HString.string_of_hstring l2))
+  | _ -> None
 
+(* Returns None if comparing symbolic bounds *)
 let expr_opt_gte e1 e2 =
-  match e1 with 
-    | None -> true
-    | Some (LA.Const (_, Num l1)) -> (
-      match e2 with 
-        | None -> false
-        | Some (LA.Const (_, Num l2)) -> 
-          int_of_string (HString.string_of_hstring l1) >= int_of_string (HString.string_of_hstring l2)
-        | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
-      )
-    | _ -> assert false (* Not possible as we require subranges to have concrete bounds *)
+  match e1, e2 with 
+  | None, _ -> Some true 
+  | _, None -> Some false 
+  | Some (LA.Const (_, Num l1)), Some (LA.Const (_, Num l2)) -> 
+    Some (int_of_string (HString.string_of_hstring l1) >= int_of_string (HString.string_of_hstring l2))
+  | _ -> None 
 
 (* Compare a constant's actual range to its inferred range to see if assignment is legal *)
 let rec compare_ranges id pos_map actual_ty inferred_range =
@@ -643,10 +637,11 @@ let rec compare_ranges id pos_map actual_ty inferred_range =
   match inferred_range with 
   | LA.IntRange (_, e1, e2) ->
     (match actual_ty with 
-      | LA.IntRange (_, e3, e4) -> 
-        if expr_opt_lte e3 e1 && expr_opt_gte e4 e2 && expr_opt_lte e1 e2
-        then R.ok () 
-        else error ()
+      | LA.IntRange (_, e3, e4) -> (
+        match expr_opt_lte e3 e1, expr_opt_gte e4 e2, expr_opt_lte e1 e2 with 
+        | Some true, Some true, Some true -> R.ok () 
+        | _ -> error () 
+      )
       | _ -> R.ok ())
   | Int _ ->
     (match actual_ty with 

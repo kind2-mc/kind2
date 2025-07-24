@@ -594,7 +594,7 @@ let mk_state_var
            | D.TupleIndex _
            | D.ListIndex _
            | D.AbstractTypeIndex _ -> true
-           | D.MapIndex -> failwith "Map types not supported in old frontend")
+           | D.MapIndex _ -> failwith "Map types not supported in old frontend")
          index)
   in
 

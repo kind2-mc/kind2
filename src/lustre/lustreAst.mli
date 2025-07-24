@@ -173,6 +173,7 @@ and typed_ident = position * ident * lustre_type
 and label_or_index = 
   | Label of position * index
   | Index of position * expr
+  | MapIndex of position * expr (* expr not restricted to integers *)
 
 (** {1 Declarations} *)
 

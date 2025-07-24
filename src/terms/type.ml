@@ -544,6 +544,11 @@ let elem_type_of_array = function
   | { Hashcons.node = Array (e, _) } -> e
   | _ -> raise (Invalid_argument "elem_type_of_array")
 
+(* Return type of array indices *)
+let idx_type_of_array = function 
+  | { Hashcons.node = Array (_, i) } -> i
+  | _ -> raise (Invalid_argument "idx_type_of_array")
+
 
 (* Return element of nested array type *)
 let rec last_elem_type_of_array = function 
