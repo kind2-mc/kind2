@@ -481,7 +481,26 @@ let mk_range_expr ctx node_id expr_type expr =
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | A.Map _ -> failwith("TODO")
+    | A.Map (_, kt, vt) -> 
+      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
+      let id = A.Ident (dpos, id_str) in
+      let ctx = Ctx.add_ty ctx id_str kt in
+      let rexpr1 = mk ctx (succ n) kt (A.IndexAccess (dpos, expr, id, Map)) in
+      let rexpr2 = mk ctx (succ n) vt id in
+      let assumption = A.BinaryOp (dpos, A.In, id, expr) in
+      let var = dpos, id_str, kt in
+      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
+      let res = 
+      List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr1 
+      @ 
+      List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr2
+      in 
+      (Format.fprintf Format.std_formatter "Generated constraints: %a\n" 
+        (Lib.pp_print_list (fun ppf (expr, b) -> 
+          Format.fprintf ppf "<%a, %b>" 
+            A.pp_print_expr expr b
+        ) ", ") res; 
+      res)
     | _ -> []
   in
   mk ctx 0 expr_type expr
@@ -569,7 +588,26 @@ let mk_enum_range_expr ctx node_id expr_type expr =
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | A.Map _ -> failwith("TODO")
+    | A.Map (_, kt, vt) -> 
+      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
+      let id = A.Ident (dpos, id_str) in
+      let ctx = Ctx.add_ty ctx id_str kt in
+      let rexpr1 = mk ctx (succ n) kt (A.IndexAccess (dpos, expr, id, Map)) in
+      let rexpr2 = mk ctx (succ n) vt id in
+      let assumption = A.BinaryOp (dpos, A.In, id, expr) in
+      let var = dpos, id_str, kt in
+      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
+      let res = 
+      List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr1 
+      @ 
+      List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr2
+      in 
+      (Format.fprintf Format.std_formatter "Generated constraints: %a\n" 
+        (Lib.pp_print_list (fun ppf (expr, b) -> 
+          Format.fprintf ppf "<%a, %b>" 
+            A.pp_print_expr expr b
+        ) ", ") res; 
+      res)
     | _ -> []
   in
   mk ctx 0 expr_type expr
