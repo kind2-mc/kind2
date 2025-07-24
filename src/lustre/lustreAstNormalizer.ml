@@ -488,7 +488,8 @@ let mk_range_expr ctx node_id expr_type expr =
       let rexpr1 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
       let rexpr2 = mk ctx (succ n) kt id in
       let assumption = A.BinaryOp (dpos, A.In, id, expr) in
-      let var = dpos, id_str, kt in
+      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
+      let var = dpos, id_str, base_kt in
       let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
       let res = 
       List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr1 
@@ -595,7 +596,8 @@ let mk_enum_range_expr ctx node_id expr_type expr =
       let rexpr1 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
       let rexpr2 = mk ctx (succ n) kt id in
       let assumption = A.BinaryOp (dpos, A.In, id, expr) in
-      let var = dpos, id_str, kt in
+      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
+      let var = dpos, id_str, base_kt in
       let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
       let res = 
       List.map (fun (e, _) -> A.Quantifier (dpos, A.Forall, [var], body e), true) rexpr1 
