@@ -2041,7 +2041,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
 
   in let rm_array_var_index lst =
       List.filter (function
-      | X.ArrayVarIndex _ -> false 
+      | X.ArrayVarIndex _ -> false
       | _ -> true
       ) lst
 
@@ -2149,7 +2149,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let nexpr = A.TernaryOp (dummy_pos, Ite, cond_expr, then_expr, else_expr) in
       let lhs_bounds = gen_lhs_bounds true eq_lhs nexpr indexes in
       let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map nexpr in
-      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n" 
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       let map_element_update_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
