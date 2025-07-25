@@ -799,7 +799,7 @@ let rec type_contains_map ctx = function
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
     | Some ty -> type_contains_map ctx ty
-    | None -> assert false
+    | None -> false
   )
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -821,7 +821,7 @@ let rec type_contains_array ctx = function
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
     | Some ty -> type_contains_array ctx ty
-    | None -> assert false
+    | None -> false
   )
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
