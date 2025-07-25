@@ -110,7 +110,11 @@ class LustreItem(pytest.Item):
 
     def repr_failure(self, excinfo, style=None):
         if isinstance(excinfo.value, LustreException):
-            actual = code_to_expected[self.res.returncode]
+            return_code = self.res.returncode
+            actual = code_to_expected.get(
+                return_code,
+                f"Unknown return code: {return_code}",
+            )
             return "\n".join(
                 [
                     f"Expected: {self.expected}, got {actual}",
