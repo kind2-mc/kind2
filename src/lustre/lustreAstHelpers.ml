@@ -937,7 +937,7 @@ let rec vars_of_struct_item_with_pos = function
   | TupleSelection (p, i, _)
   | FieldSelection (p, i, _)
   | ArraySliceStructItem (p, i, _)
-  | ArrayDef (p, i, _, _) -> [(p, i)]
+  | ArrayDef (p, i, _) -> [(p, i)]
 
 let rec vars_of_struct_item = function
   | SingleIdent (_, i) -> SI.singleton i
@@ -945,7 +945,7 @@ let rec vars_of_struct_item = function
   | TupleSelection (_, i, _)
   | FieldSelection (_, i, _)
   | ArraySliceStructItem (_, i, _)
-  | ArrayDef (_, i, _, _) -> SI.singleton i
+  | ArrayDef (_, i, _) -> SI.singleton i
 
 let rec vars_of_type = function 
   | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)

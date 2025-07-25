@@ -284,7 +284,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
         if is_restricted then
           add_type acc node_id id ty
         else acc
-      | LA.ArrayDef (_, array, indices, _) ->
+      | LA.ArrayDef (_, array, indices) ->
         let array_type = Ctx.lookup_ty ty_ctx array |> get in
         let array_type = TC.expand_type_syn_reftype_history ty_ctx array_type |> unwrap in
         let ty_ctx, ty1, sizes = List.fold_left (fun (acc, ty, sizes) idx ->

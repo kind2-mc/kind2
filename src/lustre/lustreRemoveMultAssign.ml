@@ -70,7 +70,7 @@ let create_new_eqs ctx lhs expr =
     y = t1;
     A = t2;
     *)
-    | ArrayDef (p, i, js, kt) as si -> 
+    | ArrayDef (p, i, js) as si -> 
       
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
@@ -82,7 +82,7 @@ let create_new_eqs ctx lhs expr =
       in
       (
         [gids],
-        [A.ArrayDef(p, temp, js, kt)],
+        [A.ArrayDef(p, temp, js)],
         [(A.Equation(p, StructDef(p, [si]), array_index))]
       )
     | _ ->
@@ -96,7 +96,7 @@ let create_new_eqs ctx lhs expr =
       
       let get_array_ids =
         List.filter_map (function
-          | A.ArrayDef (_, id, _, _) -> Some id
+          | A.ArrayDef (_, id, _) -> Some id
           | _ -> None)
       in
       let arrayids_original = get_array_ids ss in

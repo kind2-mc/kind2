@@ -378,7 +378,7 @@ let unwrap = function
 let build_equation_ctx ctx tc_ctx = function
   | LA.StructDef (_, items) ->
     let over_items ctx = function
-      | LA.ArrayDef (_, i, indices, _) ->
+      | LA.ArrayDef (_, i, indices) ->
         let output_type_opt = StringMap.find_opt i ctx.locals |> Lib.join in
         let is_symbolic = match output_type_opt with
           | Some ty -> 
@@ -413,7 +413,7 @@ let rec find_var_def_count_lhs id = function
   | TupleSelection (pos, id', _)
   | FieldSelection (pos, id', _)
   | ArraySliceStructItem (pos, id', _)
-  | ArrayDef (pos, id', _, _)
+  | ArrayDef (pos, id', _)
     -> if id = id' then [pos] else []
   | TupleStructItem (_, items) ->
     List.map (find_var_def_count_lhs id) items |> List.flatten
@@ -859,11 +859,11 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | LA.ArrayDef (pos, _, _, _) :: _ :: _ 
-  | _ :: ArrayDef (pos, _, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
+  | LA.ArrayDef (pos, _, _) :: _ :: _ 
+  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
   | (SingleIdent (pos, id)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
-  | (ArrayDef (pos, id, _, _)) :: tail ->
+  | (ArrayDef (pos, id, _)) :: tail ->
     no_a_dangling_identifier ctx pos id >> r tail
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _

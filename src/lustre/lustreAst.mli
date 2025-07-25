@@ -207,7 +207,7 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
-  | ArrayDef of position * ident * ident list * lustre_type (* key type *)
+  | ArrayDef of position * ident * ident list 
 
 (** The left-hand side of an equation *)
 type eq_lhs = 

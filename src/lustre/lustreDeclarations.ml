@@ -402,7 +402,7 @@ let [@ocaml.warning "-27"] eval_struct_item ctx pos = function
     (res, 0, ctx)
 
   (* Recursive array definition *)
-  | A.ArrayDef (pos, i, l, _) -> 
+  | A.ArrayDef (pos, i, l) -> 
     
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident (HString.string_of_hstring i) in
@@ -506,7 +506,7 @@ let [@ocaml.warning "-27"] eval_struct_item ctx pos = function
 let uneval_struct_item ctx = function
 
   (* Remove index variables in recursive array definitions *)
-  | A.ArrayDef (_, _, l, _) -> 
+  | A.ArrayDef (_, _, l) -> 
 
     (* Remove bindings for the running variables from the context in
        reverse order *)

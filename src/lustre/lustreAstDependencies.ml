@@ -1252,7 +1252,7 @@ let mk_graph_eqn: node_summary
     = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
-    | LA.ArrayDef (p, arr, is, _) ->
+    | LA.ArrayDef (p, arr, is) ->
       let hs_dollar = HString.mk_hstring "$" in
       let arr' = HString.concat hs_dollar
         [arr;(List.fold_left

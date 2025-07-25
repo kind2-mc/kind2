@@ -428,7 +428,7 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
        However, we currently do not support mixing inductive array definitions with 
        multiple assignment, so this is not actually (currently) a problem. *)
     let ind_vars = List.fold_left (fun acc si -> match si with
-      | LA.ArrayDef (_, _, vars, _) -> acc @ vars 
+      | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc
     ) [] sis in
     (LA.Equation (pos, lhs, simplify_expr ~ind_vars ctx e))

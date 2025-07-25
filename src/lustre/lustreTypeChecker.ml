@@ -1698,8 +1698,8 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> ([> warning] list, [>
        as short hands for assigning values to arrays aka recursive technique *)
     let get_array_def_context: LA.struct_item -> tc_context = 
       function
-      | ArrayDef (_, _, is, kt) ->
-        List.fold_left (fun c i -> add_ty c i kt) empty_tc_context is 
+      | ArrayDef (_, _, is) ->
+        List.fold_left (fun c i -> add_ty c i (LA.Int Lib.dummy_pos)) empty_tc_context is 
       | _ -> empty_tc_context
     in
     let ctx_from_lhs ctx (LA.StructDef (_, items)) =
@@ -1779,7 +1779,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         ^ " cannot be re-defined"))
       else R.ok ())
       (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
-  | ArrayDef (pos, base_e, idxs, _) ->
+  | ArrayDef (pos, base_e, idxs) ->
     check_array_dimensions pos ctx base_e idxs >>
     let array_idx_expr =
       List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))

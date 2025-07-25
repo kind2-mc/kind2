@@ -141,15 +141,15 @@ let rec add_eq_to_tree conds rhs node =
     to use the local "i" rather than "j".   *)
 let update_recursive_array_locals map lhs expr = 
   match lhs with
-    | A.StructDef (_, [ArrayDef (_, var1, inds1, _)]) -> (
+    | A.StructDef (_, [ArrayDef (_, var1, inds1)]) -> (
       let matching_lhs = LhsMap.bindings map |> List.map fst |> List.map fst
       |> List.find_opt 
         (fun x -> (match x with 
-          | A.StructDef (_, [ArrayDef (_, var2, _, _)]) when var1 = var2 -> true 
+          | A.StructDef (_, [ArrayDef (_, var2, _)]) when var1 = var2 -> true 
           | _ -> false)
         ) in 
       match matching_lhs with
-        | Some (A.StructDef (_, [ArrayDef (_, _, inds2, _)]) as lhs2) -> 
+        | Some (A.StructDef (_, [ArrayDef (_, _, inds2)]) as lhs2) -> 
         (* Replace instances with "inds1" with "inds2" *)
         lhs2, AH.replace_idents inds1 inds2 expr
         | _ -> lhs, expr
@@ -233,7 +233,7 @@ let rec tree_to_ite pos node =
 let get_tree_type ctx lhs = 
   match lhs with
     | A.StructDef(_, [SingleIdent(_, i)]) -> (Ctx.lookup_ty ctx i) 
-    | A.StructDef(_, [ArrayDef(_, i, _, _)]) -> (
+    | A.StructDef(_, [ArrayDef(_, i, _)]) -> (
       match (Ctx.lookup_ty ctx i) with
         (* Assignment in the form of A[i] = f(i), so the RHS type is no
            longer an array *)

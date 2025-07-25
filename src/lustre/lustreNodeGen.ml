@@ -2002,34 +2002,37 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
+  in let compile_array_or_map_def i l kt = 
+    let ident = mk_ident i in
+    let expr = H.find !map.expr ident in
+    let result = X.map (fun e -> state_var_of_expr e) expr in
+    (* TODO: Old code checks that array lengths between l and result match *)
+    (* TODO: Old code checks that result must have at least one element *)
+    (* TODO: Old code suggets that shadowing can occur here *)
+    let indexes = List.length l in
+    (* This code works for two different cases -- 
+        1. Compilation of with a list of array index variables from list l, each of type kt = int 
+        2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
+    List.iteri (fun i v -> 
+      let ident = mk_ident v in
+      let kt = compile_ast_type cstate ctx map kt in
+      let over_indices j t (i, a) = 
+        let expr = E.mk_map_index_var i t in 
+        i + 1, X.add j expr a 
+      in
+      let index = X.fold over_indices kt (i, X.empty) |> snd in
+      H.add !map.array_index ident index;)
+      l;
+    result, indexes
+
   in let compile_struct_item struct_item = match struct_item with
     | A.SingleIdent (_, i) ->
       let ident = mk_ident i in
       let expr = H.find !map.expr ident in
       let result = X.map (fun e -> state_var_of_expr e) expr in
       result, 0
-    | A.ArrayDef (_, i, l, kt) -> 
-      let ident = mk_ident i in
-      let expr = H.find !map.expr ident in
-      let result = X.map (fun e -> state_var_of_expr e) expr in
-      (* TODO: Old code checks that array lengths between l and result match *)
-      (* TODO: Old code checks that result must have at least one element *)
-      (* TODO: Old code suggets that shadowing can occur here *)
-      let indexes = List.length l in
-      (* This code works for two different cases -- 
-          1. Compilation of with a list of array index variables from list l, each of type kt = int 
-          2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
-      List.iteri (fun i v -> 
-        let ident = mk_ident v in
-        let kt = compile_ast_type cstate ctx map kt in
-        let over_indices j t (i, a) = 
-          let expr = E.mk_map_index_var i t in 
-          i + 1, X.add j expr a 
-        in
-        let index = X.fold over_indices kt (i, X.empty) |> snd in
-        H.add !map.array_index ident index;)
-        l;
-      result, indexes
+    | A.ArrayDef (_, i, l) -> 
+      compile_array_or_map_def i l (A.Int Lib.dummy_pos)
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2136,7 +2139,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, kt, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_struct_item (A.ArrayDef (Lib.dummy_pos, id, [fresh_idx_name], kt)) in 
+      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] kt in 
       let cond_expr = A.CompOp (dummy_pos, Eq, nexpr2, fresh_idx) in 
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 

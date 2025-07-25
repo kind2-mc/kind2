@@ -364,7 +364,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
     | [] ->
       A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
     | ind_vars ->
-      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars, A.Int dpos)]),
+      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
       List.fold_left (fun acc ind_var -> 
         A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)  
       ) nexpr ind_vars 
@@ -856,7 +856,7 @@ let add_history_var_and_equation info id h_id =
   let locals = StringMap.singleton h_id ty in
   let equations =
     let index = HString.mk_hstring "i" in
-    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index], A.Int dpos)]) in
+    let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
       let cond =
         A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
@@ -1777,9 +1777,9 @@ and normalize_equation info node_id map = function
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
     let info = List.fold_left (fun info item -> match item with
-      | A.ArrayDef (_, v, is, kt) ->
+      | A.ArrayDef (_, v, is) ->
         let info = List.fold_left (fun info i -> { info with
-          context = Ctx.add_ty info.context i kt; })
+          context = Ctx.add_ty info.context i (A.Int dpos); })
           info
           is
         in
@@ -1847,7 +1847,7 @@ and normalize_equation info node_id map = function
     let gids2 = if expanded then
       let items = match lhs with | StructDef (_, items) -> items in
       let ids = List.map (function
-        | A.SingleIdent (_, i) | ArrayDef (_, i, _, _) -> i
+        | A.SingleIdent (_, i) | ArrayDef (_, i, _) -> i
         | _ -> assert false)
         items
       in
@@ -2145,7 +2145,7 @@ and normalize_expr ?guard info node_id map =
         StringMap.singleton name expr_type
       in
       let index = HString.mk_hstring "i" in
-      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index], A.Int dpos)]) in
+      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index])]) in
       let equations =
         [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
       in
