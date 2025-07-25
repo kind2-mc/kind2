@@ -1698,8 +1698,8 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> ([> warning] list, [>
        as short hands for assigning values to arrays aka recursive technique *)
     let get_array_def_context: LA.struct_item -> tc_context = 
       function
-      | ArrayDef (_, _, is) ->
-        List.fold_left (fun c i -> add_ty c i (LA.Int Lib.dummy_pos)) empty_tc_context is 
+      | ArrayDef (pos, _, is) ->
+        List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
       | _ -> empty_tc_context
     in
     let ctx_from_lhs ctx (LA.StructDef (_, items)) =

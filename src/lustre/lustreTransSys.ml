@@ -430,8 +430,7 @@ let add_constraints_of_type init terms state_var =
 
     let indices =
       Type.all_index_types_of_array state_var_type
-      |> List.map (fun ty -> 
-          ty, Var.mk_fresh_var ty)
+      |> List.map (fun ty -> ty, Var.mk_fresh_var ty)
     in
 
     let array_var =

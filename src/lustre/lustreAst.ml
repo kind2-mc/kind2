@@ -873,7 +873,8 @@ let rec pp_print_struct_item ppf = function
       "%a%a"
       pp_print_ident i
       (pp_print_list pp_print_array_def_index "") l
-  
+ 
+
 let pp_print_eq_lhs ppf = function
   | StructDef (_, [l]) ->
     pp_print_struct_item ppf l
