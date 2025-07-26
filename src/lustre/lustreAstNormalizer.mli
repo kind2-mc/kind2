@@ -91,6 +91,7 @@ val mk_range_expr : TypeCheckerContext.tc_context ->
   (LustreAst.expr * bool) list
 
 val mk_ref_type_expr : TypeCheckerContext.tc_context ->
+  NodeId.t option ->
   LustreAst.expr ->
   LustreAst.lustre_type ->
   LustreAst.expr list
