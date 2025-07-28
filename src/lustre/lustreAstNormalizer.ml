@@ -271,6 +271,16 @@ let pp_print_generated_identifiers ppf gids =
       A.pp_print_lustre_type kt 
       A.pp_print_lustre_type vt
   in
+  let pp_print_map_element_update ppf (id, expr1, expr2, expr3, idx, kt, vt) = 
+    Format.fprintf ppf "(%a, %a, %a, %a, %a, %a, %a)" 
+      HString.pp_print_hstring id 
+      A.pp_print_expr expr1 
+      A.pp_print_expr expr2 
+      A.pp_print_expr expr3 
+      HString.pp_print_hstring idx
+      A.pp_print_lustre_type kt 
+      A.pp_print_lustre_type vt 
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
@@ -281,7 +291,7 @@ let pp_print_generated_identifiers ppf gids =
   A.pp_print_eq_lhs lhs
   A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -290,6 +300,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
+    (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
 
@@ -2250,23 +2261,23 @@ and normalize_expr ?guard info node_id map =
     } in
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
-  | StructUpdate (pos, expr1, [A.MapIndex (pos2, expr2)], expr3) as expr ->
+  | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
-    let nexpr = A.StructUpdate (pos, nexpr1, [A.MapIndex (pos2, nexpr2)], nexpr3) in 
+    let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
+    let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
     let kt, vt = match Chk.infer_type_expr info.context (Some node_id) expr with 
     | Ok (A.Map (_, kt, vt), _) -> kt, vt 
     | _ -> assert false 
     in 
-    let gids4 = { (empty ()) with 
-      map_element_updates = [ name, nexpr, kt, vt ]; 
-      locals = StringMap.singleton name (A.Map (pos, kt, vt));
+    let gids4 = { (empty ()) with   
+      map_element_updates = [ name1, nexpr1, nexpr2, nexpr3, name2, kt, vt ]; 
+      locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
     } in 
-    let nexpr = A.Ident (pos, name) in 
+    let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
     nexpr, gids, warnings1 @ warnings2 @ warnings3
   | RecordProject (pos, expr, i) ->
