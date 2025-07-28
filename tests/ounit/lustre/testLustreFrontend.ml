@@ -643,6 +643,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/extensional_array_equality.lus" with
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
     | _ -> false);
+  mk_test "test extensional map equality" (fun () ->
+    match load_file "./lustreTypeChecker/map_equality.lus" with
+    | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
+    | _ -> false);
   mk_test "test extensional array equality 2" (fun () ->
     match load_file "./lustreTypeChecker/extensional_array_equality2.lus" with
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
@@ -709,7 +713,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test unsupported quantified array variable" (fun () ->
     match load_file "./lustreSyntaxChecks/array_quantified_var.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedArray _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedVariable _)) -> true
+    | _ -> false);
+  mk_test "test unsupported quantified array variable" (fun () ->
+    match load_file "./lustreTypeChecker/quantified_map.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedVariable _)) -> true
     | _ -> false);
   mk_test "test map with unsupported array key type" (fun () ->
     match load_file "./lustreTypeChecker/map_array_key_type.lus" with
