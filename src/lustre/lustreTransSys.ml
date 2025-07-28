@@ -1935,20 +1935,20 @@ let constraints_of_arrays init terms eq_bounds =
                      Term.mk_select st (Term.mk_var (index_var_of_int_and_ty i kt)),
                      succ i)
                   (sv_term, 0)
-             bounds 
-    in
-    (* Assign value to array position *)
-              (Term.mk_eq 
-                 [select_term;
-                  if init then 
-                    (* Expression at base instant *)
-                    E.base_term_of_expr TransSys.init_base expr_init
-                  else
-                    (* Expression at current instant *)
-                    E.cur_term_of_expr TransSys.trans_base expr_step]
-                 (* Convert select operators to uninterpreted functions *)
-              ) |> Term.convert_select
-          ) eqs
+                  bounds
+              in
+              (* Assign value to array position *)
+                  (Term.mk_eq
+                    [select_term;
+                      if init then
+                        (* Expression at base instant *)
+                        E.base_term_of_expr TransSys.init_base expr_init
+                      else
+                        (* Expression at current instant *)
+                        E.cur_term_of_expr TransSys.trans_base expr_step]
+                    (* Convert select operators to uninterpreted functions *)
+                  ) |> Term.convert_select
+              ) eqs
       in
 
       (* group constraints under same quantifier when not using recursive
