@@ -419,8 +419,7 @@ let one_mode_active scope { C.modes } =
 (* ********************************************************************** *)
 
 (* Add constraint for subrange/enumeration *)
-let add_constraints_of_type init terms state_var = 
-
+let add_constraints_of_type init terms state_var =
   (* Get type of state variable *)
   let state_var_type = StateVar.type_of_state_var state_var in
 
@@ -430,7 +429,7 @@ let add_constraints_of_type init terms state_var =
 
     let indices =
       Type.all_index_types_of_array state_var_type
-      |> List.map (fun ty -> ty, Var.mk_fresh_var Type.t_int)
+      |> List.map (fun ty -> ty, Var.mk_fresh_var ty)
     in
 
     let array_var =
@@ -462,14 +461,14 @@ let add_constraints_of_type init terms state_var =
       List.fold_left
         (fun acc (ty, iv) ->
            match Type.node_of_type ty with
-           | Type.IntRange (Some i, Some j) when Flags.Arrays.inline () -> (
-              let cj = ref [] in
-              for x = (Numeral.to_int j) downto (Numeral.to_int i) do
-                cj := Term.mk_let [iv, Term.mk_num_of_int x] acc :: !cj
-              done;
-              Term.mk_and !cj
+           | (Type.IntRange (Some i, Some j) | Type.Enum (i, j)) when Flags.Arrays.inline () -> (
+             let cj = ref [] in
+             for x = (Numeral.to_int j) downto (Numeral.to_int i) do
+               cj := Term.mk_let [iv, Term.mk_num_of_int x] acc :: !cj
+             done;
+             Term.mk_and !cj
            )
-           | Type.IntRange (Some i, Some j) -> (
+           | (Type.IntRange (Some i, Some j) | Type.Enum (i, j)) -> (
              let bounds =
                Term.mk_leq
                  [ Term.mk_num i; Term.mk_var iv; Term.mk_num Numeral.(j - one)]
@@ -532,7 +531,7 @@ let add_constraints_of_type init terms state_var =
       :: terms 
     | None, None -> Term.mk_bool true :: terms
   )
-                  
+                 
 
 
 (* ********************************************************************** *)
