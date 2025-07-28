@@ -1253,6 +1253,7 @@ let mk_index_var i =
 
 (* map index variable *)
 let mk_map_index_var i kt = 
+  let kt = if Type.is_int_range kt || Type.is_enum kt then Type.t_int else kt in
 
   let v =
     Var.mk_free_var
