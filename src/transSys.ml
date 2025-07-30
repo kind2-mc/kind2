@@ -2124,8 +2124,11 @@ let slice_term (cone_of_influence : SVS.t) (term : Term.t) =
     |> Seq.find (fun x -> StateVar.StateVarSet.mem x cone_of_influence)
     |> is_some
   in
-  try Term.node_args_of_term term |> List.filter keep_term |> Term.mk_and
-  with _ -> Term.mk_true ()
+  try
+    assert ((Term.node_symbol_of_term term |> Symbol.node_of_symbol) == `AND);
+    Term.node_args_of_term term |> List.filter keep_term |> Term.mk_and
+  with _ ->
+    if keep_term term then term else Term.mk_true ()
 
 let rec slice_system sys cone_of_influence =
 
