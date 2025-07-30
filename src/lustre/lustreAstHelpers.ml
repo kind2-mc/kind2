@@ -56,7 +56,7 @@ let pos_of_expr = function
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _, _) | Call (pos, _, _, _)
-  | AnyOp (pos, _, _, _) | Extract (pos, _, _, _)
+  | AnyOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
   -> pos
 
@@ -88,7 +88,7 @@ let rec expr_contains_call = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _, _)
+  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _)
     -> true
 
 let rec expr_contains_id id = function
@@ -110,9 +110,7 @@ let rec expr_contains_id id = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_id id e1 || expr_contains_id id e2
     || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | AnyOp (_, (_, id2, _), e, None) -> if id != id2 then expr_contains_id id e else false
-  | AnyOp (_, (_, id2, _), e1, Some e2) -> 
-    if id != id2 then expr_contains_id id e1 || expr_contains_id id e2 else false
+  | AnyOp (_, (_, id2, _), e) -> if id != id2 then expr_contains_id id e else false
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
@@ -356,7 +354,7 @@ let rec has_unguarded_pre ung = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
-  | AnyOp (pos, _, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
+  | AnyOp (pos, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -522,11 +520,8 @@ let rec has_pre_or_arrow = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
-  | AnyOp (_, _, e, None) | Extract (_, e, _, _) -> 
+  | AnyOp (_, _, e) | Extract (_, e, _, _) -> 
     has_pre_or_arrow e
-
-  | AnyOp (_, _, e1, Some e2) -> 
-    has_pre_or_arrow e1 |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
   | IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  -> (
@@ -771,8 +766,7 @@ let rec vars_of_node_calls_h obs =
   | TernaryOp (_,_, e1, e2, e3) -> vars obs e1 |> SI.union (vars obs e2) |> SI.union (vars obs e3) 
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
-  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars true e) (SI.singleton i)
-  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars true e1) (vars true e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e) -> SI.diff (vars true e) (SI.singleton i)
   (* Structured expressions *)
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
@@ -831,8 +825,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
-  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
-  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
@@ -874,8 +867,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
   | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NI.Set.flatten
-  | AnyOp (_, (_, i, _), e, None) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
-  | AnyOp (_, (_, i, _), e1, Some e2) -> NI.Set.diff (NI.Set.union (calls_of_expr e1) (calls_of_expr e2)) (NI.Set.singleton (NI.mk_node_id i))
+  | AnyOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
   | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
 
@@ -913,8 +905,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
-  | AnyOp (_, (_, i, _), e, None) -> SI.diff (vars e) (SI.singleton i)
-  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (vars e1) (vars e2)) (SI.singleton i)
+  | AnyOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   (* Temporal operators *)
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
@@ -1616,13 +1607,9 @@ let hash depth_limit expr =
       | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, NI.hash id, l_hash)
-      | AnyOp (_, (_, i, _), e, None) ->
+      | AnyOp (_, (_, i, _), e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (25, HString.hash i, e_hash)
-      | AnyOp (_, (_, i, _), e1, Some e2) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        Hashtbl.hash (25, HString.hash i, e1_hash, e2_hash)
       | Extract (_, e, idx1, idx2) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (26, e_hash, idx1, idx2)

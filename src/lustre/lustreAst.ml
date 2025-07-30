@@ -106,7 +106,7 @@ type expr =
   | TernaryOp of position * ternary_operator * expr * expr * expr
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
-  | AnyOp of position * typed_ident * expr * expr option
+  | AnyOp of position * typed_ident * expr
   | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
@@ -575,16 +575,7 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") l
     
-    | AnyOp (p, id, e1, Some e2) ->
-
-      Format.fprintf ppf
-      "%aany { %a | %a } assuming %a"
-      ppos p
-      pp_print_typed_ident id
-      pp_print_expr e1
-      pp_print_expr e2
-
-    | AnyOp (p, id, e, None) ->
+    | AnyOp (p, id, e) ->
 
       Format.fprintf ppf
       "%aany { %a | %a }"

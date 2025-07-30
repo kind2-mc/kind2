@@ -141,7 +141,6 @@ let mk_span start_pos end_pos =
 %token CHECK
 %token REACHABLE
 %token PROVIDED
-%token ASSUMING
 %token INVARIANT
 %token FROM
 %token AT
@@ -499,7 +498,7 @@ node_def:
   { (List.flatten l, e) }
 
 contract_ghost_vars:
-  | VAR; l = typed_idents_list; EQUALS; e = aexpr(nonquantified); SEMICOLON
+  | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
@@ -792,7 +791,7 @@ node_equation:
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)
-  | l = left_side; EQUALS; e = aexpr(nonquantified); SEMICOLON
+  | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
 
@@ -855,29 +854,25 @@ index_var:
 %inline nonquantified:
   | { false }
 
-aexpr(Q):
-  | e = pexpr(Q) { e }
-  | e = any_expr { e }
-
 any_expr:
   (* 'Any' operation *)
-  | ANY; r = refinement_type_base
-    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e, None) }
-  | ANY; r = refinement_type_base ASSUMING; e2 = qexpr
-    { let (id, e1) = r in A.AnyOp (mk_pos $startpos, id, e1, Some e2) }
-  | ANY; ty = lustre_type;
+  | ANY; r = refinement_type_base;
+    { let (id, e) = r in A.AnyOp (mk_pos $startpos, id, e) }
+  | ANY; ATSIGN; LT; ty = lustre_type; GT
     {
       match ty with
         | A.RefinementType (_, id, e) ->
-          A.AnyOp(mk_pos $startpos, id, e, None)
+          A.AnyOp(mk_pos $startpos, id, e)
         | _ ->
           A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty),
-                      Const(mk_pos $startpos, True), None)
+                      Const(mk_pos $startpos, True))
     }
 
 (* An possibly quantified expression *)
 pexpr(Q): 
   
+  | e = any_expr { e }
+
   (* An identifier *)
   | s = ident { A.Ident (mk_pos $startpos, s) } 
 
@@ -919,10 +914,10 @@ pexpr(Q):
 
   (* A tuple expression (not quantified) *)
   (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = aexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
+  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
 
   (* An array expression (not quantified) *)
-  | LSQBRACKET; l = aexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
+  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
 
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
@@ -971,7 +966,7 @@ pexpr(Q):
     WITH; 
     i = nonempty_list(label_or_index); 
     EQUALS; 
-    e2 = aexpr(Q); 
+    e2 = pexpr(Q); 
     RPAREN
 
     { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
@@ -1202,8 +1197,6 @@ pexpr(Q):
 
 (* A list of expressions *)
 pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
-
-aexpr_list(Q): l = separated_nonempty_list(COMMA, aexpr(Q)) { l }
       
 (* A node or function call *)
 node_call:
@@ -1223,7 +1216,7 @@ array_slice:
 
 
 (* An assignment to a record field *)
-record_field_assign: s = ident; EQUALS; e = aexpr(nonquantified) { (s, e) } 
+record_field_assign: s = ident; EQUALS; e = expr { (s, e) } 
 
 
 (* ********************************************************************** *)

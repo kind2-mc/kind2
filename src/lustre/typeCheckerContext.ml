@@ -834,7 +834,7 @@ let rec ty_vars_of_expr ctx node_name expr =
               (SI.flatten (List.map call es))
   | LA.EmptyMap (_, (kt, vt)) ->
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
-  | AnyOp (_, (_, _, ty), e, None) -> 
+  | AnyOp (_, (_, _, ty), e) -> 
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
@@ -870,7 +870,6 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Activate (_, _, e1, e2, es) -> SI.flatten (call e1 :: call e2 :: List.map call es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map call |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
-  | AnyOp (_, (_, i, _), e1, Some e2) -> SI.diff (SI.union (call e1) (call e2)) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> call e
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)

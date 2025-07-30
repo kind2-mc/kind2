@@ -632,8 +632,7 @@ let rec expr_only_supported_in_merge observer expr =
   | Pre (_, e)
   | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) -> r observer e
-  | AnyOp (_, _, e, None) -> r false e
-  | AnyOp (_, _, e1, Some e2) -> r false e1 >> r false e2
+  | AnyOp (_, _, e) -> r false e
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)
@@ -1014,7 +1013,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        in
        let* warnings3 = check_expr_list ctx f l in 
        Ok (warnings1 @ warnings2 @ warnings3)
-    | AnyOp (pos, (_, i, ty), e, None) -> 
+    | AnyOp (pos, (_, i, ty), e) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
@@ -1025,18 +1024,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       in
       let* warnings2 = (check_expr extn_ctx f e) in
       Ok (warnings1 @ warnings2)
-    | AnyOp (pos, (_, i, ty), e1, Some e2) -> 
-      let extn_ctx = ctx_add_local ctx i (Some ty) in
-      let warnings1 = 
-        (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
-           generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e1' *)
-        if not (LAH.expr_contains_id i e1) && not (i = HString.mk_hstring "_")
-        then [mk_warning pos (UnusedBoundVariableWarning i)] 
-        else []
-      in
-      let* warnings2 = (check_expr extn_ctx f e1) in 
-      let* warnings3 = (check_expr extn_ctx f e2)  in 
-      Ok (warnings1 @ warnings2 @ warnings3)
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ -> Ok ([])
   in
   let* warnings1 = res in 

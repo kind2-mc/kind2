@@ -1266,7 +1266,7 @@ let rec eval_ast_expr bounds ctx =
       pos
       "Activate operator only supported in merge"
 
-  | A.AnyOp (pos, _, _, _) -> 
+  | A.AnyOp (pos, _, _) -> 
     
     fail_at_position pos "'Any' operation not supported in old front end"
 

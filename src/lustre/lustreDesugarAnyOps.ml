@@ -33,22 +33,16 @@ let rec desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * 
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
-  | A.AnyOp (pos, (_, id, ty), expr1, expr2_opt) -> 
+  | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let span = { A.start_pos = pos; A.end_pos = pos } in
-    let contract = match expr2_opt with 
-      | None -> [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)]
-      | Some expr2 -> [A.Assume (AH.pos_of_expr expr2, None, false, expr2);
-                      A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)] 
+    let contract = 
+      [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)] 
     in
     let inputs =
       let vars_of_expr1 = AH.vars_without_node_call_ids expr1 in
-      let vars_of_exprs = match expr2_opt with
-      | None -> (Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id))
-      | Some expr2 ->
-        let vars_of_expr1_and_expr2 =
-          Ctx.SI.union vars_of_expr1 (AH.vars_without_node_call_ids expr2)
-        in
-        (Ctx.SI.diff vars_of_expr1_and_expr2 (Ctx.SI.singleton id)) in 
+      let vars_of_exprs =
+        Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id)
+      in 
       Ctx.SI.union vars_of_exprs (AH.vars_of_type ty) |> Ctx.SI.elements
     in
     (* Global constants don't need to be passed as arguments to generated nodes *)
@@ -69,13 +63,7 @@ fun ctx node_name fun_ids expr ->
     let name = mk_fresh_fn_name pos node_name in
     (* If the any op expressions are temporal or call a node, we generate an imported node. 
     Otherwise, we generate an imported function. *)
-    let has_pre_arrow_or_node_call = match expr2_opt with 
-    | Some expr2 -> 
-      let node_calls1 = AH.calls_of_expr expr1 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
-      let node_calls2 = AH.calls_of_expr expr2 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
-      (AH.has_pre_or_arrow expr1 != None) || node_calls1 != [] || 
-      (AH.has_pre_or_arrow expr2 != None) || node_calls2 != []
-    | None -> 
+    let has_pre_arrow_or_node_call =
       let node_calls1 = AH.calls_of_expr expr1 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
       (AH.has_pre_or_arrow expr1 != None) || (node_calls1 != []) 
     in
@@ -85,10 +73,6 @@ fun ctx node_name fun_ids expr ->
                    (Ctx.ty_vars_of_expr ctx node_name expr1)
       |> Ctx.SI.elements
     in 
-    let ty_params = match expr2_opt with 
-    | Some expr2 -> ty_params @ Ctx.SI.elements (Ctx.ty_vars_of_expr ctx node_name expr2)
-    | None -> ty_params 
-    in
     let ty_vars = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let generated_node = 
       if has_pre_arrow_or_node_call then
