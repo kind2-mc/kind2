@@ -319,8 +319,8 @@ let no_mismatched_clock is_bool e =
     | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e, None) -> check_clocks clock e
-    | AnyOp (_, _, e1, Some e2) | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+    | AnyOp (_, _, e) -> check_clocks clock e
+    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
     | TernaryOp (_, _, e1, e2, e3) -> 
@@ -356,8 +356,8 @@ let no_mismatched_clock is_bool e =
     | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e, None) | When (_, e, _) -> check_merge e
-    | AnyOp (_, _, e1, Some e2) | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+    | AnyOp (_, _, e) | When (_, e, _) -> check_merge e
+    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
     | TernaryOp (_, _, e1, e2, e3) -> 

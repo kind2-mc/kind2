@@ -301,7 +301,6 @@ let keyword_table = mk_hashtbl [
 
   (* 'Any' operator *)
   "any", ANY ;
-  "assuming", ASSUMING ;
   
   (* Clock operators *)
   "when", WHEN ;

@@ -142,7 +142,7 @@ and expr =
   | TernaryOp of position * ternary_operator * expr * expr * expr
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
-  | AnyOp of position * typed_ident * expr * expr option
+  | AnyOp of position * typed_ident * expr
   | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list

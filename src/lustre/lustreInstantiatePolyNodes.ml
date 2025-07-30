@@ -384,15 +384,10 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
     let ctx, gids, expr3, decls3, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr3 in
     ctx, gids, TernaryOp (p, op, expr1, expr2, expr3), decls1 @ decls2 @ decls3, node_decls_map
-  | AnyOp (p, (p2, id, ty), expr1, Some expr2) -> 
-    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
-    let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
-    let ctx, gids, ty, decls3, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
-    ctx, gids, AnyOp (p, (p2, id, ty), expr1, Some expr2), decls1 @ decls2 @ decls3, node_decls_map
-  | AnyOp (p, (p2, id, ty), expr, None) ->
+  | AnyOp (p, (p2, id, ty), expr) ->
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
-    ctx, gids, AnyOp (p, (p2, id, ty), expr, None), decls1 @ decls2, node_decls_map
+    ctx, gids, AnyOp (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
   | EmptyMap (p, (kt, vt)) ->
     let ctx, gids, kt, decls1, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map kt in 
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 

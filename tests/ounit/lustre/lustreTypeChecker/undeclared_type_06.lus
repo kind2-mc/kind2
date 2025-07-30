@@ -1,4 +1,4 @@
 node N() returns (y: int);
 let
-  y = any Foo;
+  y = any@<Foo>;
 tel
