@@ -2226,17 +2226,11 @@ let mk_trans_term init_flag scope sys =
         (TS.trans_formals sys))
 
 
-(* Helper function for creating terms of state variables at offset 0 with an
-   extra scope *)
-let term_state_var0 scope sv =
-  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.zero
-  |> Term.mk_var
-
-
-(* Helper function for creating terms of state variables at offset 1 with an
-   extra scope *)
-let term_state_var1 scope sv =
-  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.one
+(* Helper function for creating terms of state variables with observer scope *)
+let term_state_var ?(prime=false) sv =
+  Var.mk_state_var_instance
+    (add_scope_state_var [obs_name] sv)
+    (if prime then Numeral.one else Numeral.zero)
   |> Term.mk_var
 
 let unprefix str =
@@ -2256,21 +2250,14 @@ let unprefix_statevar (sv: StateVar.t) : StateVar.t =
     sv
 
 let mk_obs_eqs_unsliced ?(prime=false) sv =
-  let term_state =
-    if prime
-    then term_state_var1 [obs_name]
-    else term_state_var0 [obs_name]
-  in
   Term.mk_eq [
-    term_state  sv;
-    term_state (unprefix_statevar sv);
+    term_state_var ~prime sv;
+    term_state_var ~prime (unprefix_statevar sv);
   ]
 
 let mk_obs_eqs_jkind kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
-  let term_state_var =
-    if prime then term_state_var1 [obs_name]
-    else term_state_var0 [obs_name] in
+  let term_state_var = term_state_var ~prime in
 
   List.fold_left (fun acc sv ->
 
