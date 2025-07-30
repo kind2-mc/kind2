@@ -315,41 +315,10 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
        "@ ")
     arg_vars
     (SMT.string_of_sort res_sort)
-    SMT.pp_print_expr (preproc defn);
+    SMT.pp_print_expr (preproc defn)
 
-  if trace_lfsc_defs then begin
-
-    (* fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
-    
-    let fs = UfSymbol.string_of_uf_symbol fun_symbol in
-    let fun_def_sy = fs ^ "%def" in
-    fprintf fmt "(declare-fun %s %s %s)\n"
-      fun_def_sy
-      (paren_string_of_string_list
-         (List.map (fun v -> SMT.string_of_sort (Var.type_of_var v)) arg_vars))
-      (SMT.string_of_sort res_sort);
-
-    let cpt = ref 0 in
-    let fun_def_args = List.map (fun v ->
-        incr cpt;
-        let ty_v = Var.type_of_var v in
-        let vfs = fs ^ "%" ^ string_of_int !cpt in
-        fprintf fmt "(declare-fun %s () %s)\n"
-          vfs (SMT.string_of_sort ty_v);
-        vfs
-      ) arg_vars in
-
-    fprintf fmt "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
-      fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
-      fs (pp_print_list pp_print_string "@ ") fun_def_args *)
-    
-  end
-  
-
-  
 
 (* Solver stack for certificate checker *)
-  
 let push fmt = fprintf fmt "\n(push 1)@." 
 
 let pop fmt = fprintf fmt "(pop 1)\n@." 
