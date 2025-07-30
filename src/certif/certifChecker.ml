@@ -302,7 +302,7 @@ let declare_selects fmt =
 
 
 (* Define a new function symbol as an abbreviation for an expression *)
-let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn = 
+let define_fun fmt fun_symbol arg_vars res_sort defn =
 
   fprintf fmt
     "@[<hov 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %s@ %a)@]\n@." 
@@ -1428,7 +1428,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
 
 
 let export_system_defs
-    fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix consts sys =
+    fmt ?(recursive=true) prefix consts sys =
   
   (* add headers for info *)
   add_system_header fmt prefix ;
@@ -1455,7 +1455,7 @@ let export_system_defs
       | _ -> assert false
   in
   List.iter (fun (f, (a, d)) ->
-      define_fun ~trace_lfsc_defs fmt f a Type.t_bool d) defs
+      define_fun fmt f a Type.t_bool d) defs
 
 
 (**********************************************)
@@ -1498,12 +1498,12 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
   
 
 
-let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
+let mononames_system fmt sys name_sys prop names =
 
   let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
     
   (* Do not export the definitions with tracing information for LFSC *)
-  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys consts sys;
+  export_system_defs fmt ~recursive:true name_sys consts sys;
 
   (* Declaring state variables upto k *)
   add_section fmt "State variables";
@@ -1526,7 +1526,7 @@ let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
   let init_s = UfSymbol.mk_uf_symbol names.init [(ty_index ())] Type.t_bool in
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
-  define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
+  define_fun fmt init_s [fvi] Type.t_bool init_def;
   
   (* Declaring transition relation (T i j) *)
   add_section fmt "Transition_relation";  
@@ -1534,13 +1534,13 @@ let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
       [(ty_index ()); (ty_index ())] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
-  define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def;
+  define_fun fmt trans_s [fvi; fvj] Type.t_bool trans_def;
   
   (* Declaring property (P i) *)
   add_section fmt "Original property";
   let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
   let prop_def = roll sigma_0i prop in
-  define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def
+  define_fun fmt prop_s [fvi] Type.t_bool prop_def
 
 
 let export_system ~trace_lfsc_defs
@@ -1560,7 +1560,7 @@ let export_system ~trace_lfsc_defs
   end;
   
   (* declare state variables, write I, T and P *)
-  mononames_system fmt ~trace_lfsc_defs sys name_sys prop names;  
+  mononames_system fmt sys name_sys prop names;
 
   (* dummy goal if we only want to do tracing *)
   if trace_lfsc_defs then begin
@@ -1597,7 +1597,7 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
   add_section fmt "k-Inductive invariant";
   let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
   let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
-  define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
+  define_fun fmt phi_s [fvi] Type.t_bool phi_def;
 
   (* dummy goal if we only want to do tracing *)
   if trace_lfsc_defs then begin
@@ -2697,7 +2697,7 @@ let export_obs_system ~trace_lfsc_defs
     UfSymbol.mk_uf_symbol same_inputs_pred
       [(ty_index ())] Type.t_bool in
   let sip_def = roll sigma_0i (unscope_term same_inputs_term) in
-  define_fun ~trace_lfsc_defs fmt sip_s [fvi] Type.t_bool sip_def;
+  define_fun fmt sip_s [fvi] Type.t_bool sip_def;
 
   add_section fmt "Initial states for observer";
 
