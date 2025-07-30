@@ -24,7 +24,6 @@ module R = LustreReporting
 module E = LustreErrors
 module A = Analysis
 module NI = NodeId
-module I = LustreIdent
 module D = LustreIndex
 module Expr = LustreExpr
 
