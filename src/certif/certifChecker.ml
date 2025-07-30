@@ -3212,8 +3212,6 @@ let generate_slicing_certificates input sys param =
     end
   in
 
-  let open Unix in
-
   (* Send statistics *)
   KEvent.stat Stat.[certif_stats_title, certif_stats];
 
