@@ -699,6 +699,20 @@ val enforce_constantness_via_equations : t -> (t * StateVar.t list)
 (** Return the global constant state variables of the transition system *)
 val global_const_state_vars : t -> StateVar.t list
 
+(** [slice_system sys vars] returns a new system obtained by restricting
+    [sys] to only the state variables in [vars]. Technically the state
+    variables not in [vars] are retained in the system but terms referencing
+    them are removed. That is if `x` and `y` are both not in [vars] then the
+    declaration of `x` and `y` remain in the system however a term of the form
+    `x and y` will be removed.
+
+    @param sys The original system.
+    @param vars The set of state variables to retain in the sliced system.
+    @return A new system where terms wich do not refer to variables in the sliced system are removed.
+*)
+val slice_system : t -> StateVar.StateVarSet.t -> t
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -3397,20 +3397,34 @@ module Global = struct
     )
   let modular () = !modular
 
-
-  let slice_nodes_default = true
+  type slice_nodes = [`On | `Off | `Experimental]
+  let slice_nodes_of_string = function
+    | "on" -> `On
+    | "off" -> `Off
+    | "experimental" -> `Experimental
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --slice_nodes" unexpected
+    ) |> raise
+  let string_of_slice_nodes = function
+    | `On -> "on"
+    | `Off -> "off"
+    | `Experimental -> "experimental"
+  let slice_nodes_default = `On
   let slice_nodes = ref slice_nodes_default
   let _ = add_spec
     "--slice_nodes"
-    (bool_arg slice_nodes)
+    (Arg.String
+      (fun str -> slice_nodes := slice_nodes_of_string str)
+    )
     (fun fmt ->
       Format.fprintf fmt
         "\
+          where <string> can be on, off, or experimental@ \
           Only equations that are relevant for checking the contract and@ \
           properties of a node are considered during the analysis@ \
-          Default: %a\
+          Default: %s\
         "
-        fmt_bool slice_nodes_default
+        (string_of_slice_nodes slice_nodes_default)
     )
   let slice_nodes () = !slice_nodes
 
@@ -3687,6 +3701,7 @@ type enable = Global.enable
 type input_format = Global.input_format
 type real_precision = Global.real_precision
 type exit_code_convention = Global.exit_code_convention
+type slice_nodes = Global.slice_nodes
 
 
 (* ********************************************************************** *)

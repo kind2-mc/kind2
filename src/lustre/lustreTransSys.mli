@@ -18,7 +18,7 @@
 
 type settings = {
   preserve_sig: bool;
-  slice_nodes: bool;
+  slice_nodes: Flags.slice_nodes;
   add_functional_constraints: bool;
   slice_to_prop: Property.t option;
 }

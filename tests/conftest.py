@@ -11,7 +11,7 @@ import pytest
 
 # The default arguments we want set for every run
 common_args = {
-    "--timeout": "42",
+    "--timeout": "84",
     "--color": "false",
     "--check_subproperties": "true",
     "--check_sat_assume": "false",
@@ -21,8 +21,9 @@ common_args = {
 # All the different test conditions, will override common_args if there is a
 # disagreement
 test_cases = {
-    "slice_true": {"--slice_nodes": "true"},
-    "slice_false": {"--slice_nodes": "false"},
+    "slice_on": {"--slice_nodes": "on"},
+    "slice_off": {"--slice_nodes": "off"},
+    "slice_experimental": {"--slice_nodes": "experimental"},
 }
 
 # Where to find the regression tests

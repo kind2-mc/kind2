@@ -229,7 +229,8 @@ val disable : Lib.kind_module -> unit
 val modular : unit -> bool
 
 (** Node slicing *)
-val slice_nodes : unit -> bool
+type slice_nodes = [`On | `Off | `Experimental ]
+val slice_nodes : unit -> slice_nodes
 
 (** Check reachability properties *)
 val check_reach : unit -> bool
