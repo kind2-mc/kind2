@@ -40,7 +40,7 @@ val cone_of_influence :
 
     @param dependency_graph The dependency graph for the system
     @param roots Where the cone of influence starts
-    @return The set of variables upon which [properties] depend *)
+    @return The set of variables upon which [properties] depend according to [dependency_graph]*)
 
 val pp_print_dot :
   ?cone_of_influence:StateVar.StateVarSet.t ->
