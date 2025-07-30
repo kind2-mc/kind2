@@ -35,7 +35,7 @@ val dependency_graph_of_system : Term.TermSet.t -> TransSys.t -> VarGraph.t
 
 val cone_of_influence :
   VarGraph.t -> StateVar.StateVarSet.t -> StateVar.StateVarSet.t
-(** [cone_of_influence properties dependency_graph] constructs the set of state
+(** [cone_of_influence dependency_graph properties] constructs the set of state
     variables which are depended upon by [properties]
 
     @param dependency_graph The dependency graph for the system
