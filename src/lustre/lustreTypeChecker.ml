@@ -831,7 +831,8 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     let* ty, warnings = infer_type_binary_op ctx nname pos bop e1 e2 in 
     R.ok (ty, warnings)
   | LA.Extract (pos, e, ub, lb) ->
-    let* inf_ty, warnings = infer_type_expr ctx nname e in 
+    let* inf_ty, warnings = infer_type_expr ctx nname e in
+    let* inf_ty = expand_type_syn_reftype_history ctx inf_ty in
     (match inf_ty with 
     | LA.UBitVector (_, size) -> 
       if size > ub && ub >= lb then
@@ -844,15 +845,16 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
     | Ite -> 
-        infer_type_expr ctx nname con
-        >>= (function
-            | Bool _, warnings1 ->
-                let* e1_ty, warnings2 = infer_type_expr ctx nname e1 in
-                let* e2_ty, warnings3 = infer_type_expr ctx nname e2 in
-                eq_lustre_type ctx e1_ty e2_ty >>= fun eq_test ->
-                    if eq_test then R.ok (e1_ty, warnings1 @ warnings2 @ warnings3)
-                    else type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty))
-            | c_ty, _  ->  type_error pos  (ExpectedBooleanExpression c_ty))
+      let* inf_ty, warnings1 = infer_type_expr ctx nname con in
+      let* inf_ty = expand_type_syn_reftype_history ctx inf_ty in
+      (match inf_ty with
+      | Bool _ ->
+        let* e1_ty, warnings2 = infer_type_expr ctx nname e1 in
+        let* e2_ty, warnings3 = infer_type_expr ctx nname e2 in
+        eq_lustre_type ctx e1_ty e2_ty >>= fun eq_test ->
+          if eq_test then R.ok (e1_ty, warnings1 @ warnings2 @ warnings3)
+          else type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty))
+      | c_ty  ->  type_error pos  (ExpectedBooleanExpression c_ty))
     )
   | LA.ConvOp (pos, cop, e) ->
     let* ty, warnings = infer_type_conv_op ctx nname pos e cop in 
