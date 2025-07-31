@@ -1,0 +1,10 @@
+
+type AB = enum { A, B };
+
+const G_AB: AB;
+
+node N(c:bool | G_AB = A => c) returns (z: int);
+let
+  z = if c then 0 else 1;
+  check z >= 0;
+tel
