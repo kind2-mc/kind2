@@ -714,6 +714,9 @@ let certif_min_time =
 let certif_frontend_time = 
   empty_item "frontend time" 0.
 
+let certif_slice_time =
+  empty_item "slicing time" 0.
+
 let certif_cvc5_time = 
   empty_item "cvc5 proof-gen time" 0.
 

@@ -76,6 +76,24 @@ val mk_state_var :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
   string -> string list -> Type.t -> t
 
+(** [modify_state_var s] creates a copy of the state variable [s], with the
+    specified changes applied. The optional labeled arguments [?is_input],
+    [?is_const], [?for_inv_gen], [?state_var_name], [?state_var_scope], and
+    [?state_var_type] specify the changes to be made. If left un-specified the
+    previous value will be copied.
+
+    Re-declaring a state variable with a different signature will raise an
+    [Invalid_argument] exception. *)
+val modify_state_var :
+  ?is_input:bool ->
+  ?is_const:bool ->
+  ?for_inv_gen:bool ->
+  ?state_var_name:string ->
+  ?state_var_scope:string list ->
+  ?state_var_type:Type.t ->
+  t ->
+  t
+
 (** Creates a scoped init flag. *)
 val mk_init_flag : string list -> t
 

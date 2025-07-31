@@ -86,10 +86,10 @@ let eval_const_decl ?(ghost = false) ctx = function
       D.fold 
         (fun i ty (vt, ctx) ->
            let state_var, ctx = 
-             C.mk_state_var 
-               ?is_input:(Some false)
-               ?is_const:(Some true)
-               ?for_inv_gen:(Some true)
+             C.mk_state_var
+               ~is_input:false
+               ~is_const:true
+               ~for_inv_gen:true
                ~shadow:ghost
                ctx
                (C.scope_of_context ctx @ I.user_scope)

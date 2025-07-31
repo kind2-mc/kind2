@@ -657,6 +657,20 @@ module RunCertif: PostAnalysis = struct
     )
 end
 
+(** Certifies the slicing algorithm *)
+module RunSliceCertif: PostAnalysis = struct
+  let name = "slicing_certificate"
+  let title = name
+  let is_active = Flags.Certif.certif_slicing
+  let run in_sys param _ results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+    last_result in_sys results top |> chain (
+      fun result ->
+        CertifChecker.generate_slicing_certificates in_sys result.Analysis.sys param;
+        Ok ()
+    )
+end
+
 (** Inductive validity core computation *)
 module RunIVC: PostAnalysis = struct
   let name = "ivc"
@@ -934,6 +948,7 @@ let post_analysis = [
   (module RunInvPrint: PostAnalysis) ;
   (module RunIVC: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
+  (module RunSliceCertif: PostAnalysis) ;
   (module RunContractGen: PostAnalysis) ;
   (module RunTestGen: PostAnalysis) ;
   (module RunRustGen: PostAnalysis) ;

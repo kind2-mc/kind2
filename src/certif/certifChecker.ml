@@ -90,6 +90,9 @@ let kind2_phi_lfsc_f = "kind2_phi_lfsc_trace.smt2"
 let jkind_defs_f = "jkind_sys.smt2"
 let jkind_defs_lfsc_f = "jkind_sys_lfsc_trace.smt2"
 
+let unsliced_defs_f = "unsliced_sys.smt2"
+let unsliced_defs_lfsc_f = "unsliced_sys_lfsc_trace.smt2"
+
 let base_f = "base.smt2"
 let induction_f = "induction.smt2"
 let implication_f = "implication.smt2"
@@ -98,6 +101,7 @@ let frontend_base_f = "frontend_base.smt2"
 let frontend_induction_f = "frontend_induction.smt2"
 let frontend_implication_f = "frontend_implication.smt2"
 
+let unsliced_prefix = "unsliced_"
 
 let kind2_cert_sys vars dirname = {
   names = names_kind2 vars;
@@ -231,11 +235,7 @@ let roll sigma t =
 
 
 (* Create a directory if it does not already exists. *)
-let create_dir dir =
-  try
-    if not (Sys.is_directory dir) then failwith (dir^" is not a directory");
-    (* TODO remove directory *)
-  with Sys_error _ -> Unix.mkdir dir 0o755
+let create_dir = mk_dir_p
 
 
 (*************************************************************************)
@@ -302,7 +302,7 @@ let declare_selects fmt =
 
 
 (* Define a new function symbol as an abbreviation for an expression *)
-let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn = 
+let define_fun fmt fun_symbol arg_vars res_sort defn =
 
   fprintf fmt
     "@[<hov 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %s@ %a)@]\n@." 
@@ -315,41 +315,10 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
        "@ ")
     arg_vars
     (SMT.string_of_sort res_sort)
-    SMT.pp_print_expr (preproc defn);
+    SMT.pp_print_expr (preproc defn)
 
-  if trace_lfsc_defs then begin
-
-    (* fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
-    
-    let fs = UfSymbol.string_of_uf_symbol fun_symbol in
-    let fun_def_sy = fs ^ "%def" in
-    fprintf fmt "(declare-fun %s %s %s)\n"
-      fun_def_sy
-      (paren_string_of_string_list
-         (List.map (fun v -> SMT.string_of_sort (Var.type_of_var v)) arg_vars))
-      (SMT.string_of_sort res_sort);
-
-    let cpt = ref 0 in
-    let fun_def_args = List.map (fun v ->
-        incr cpt;
-        let ty_v = Var.type_of_var v in
-        let vfs = fs ^ "%" ^ string_of_int !cpt in
-        fprintf fmt "(declare-fun %s () %s)\n"
-          vfs (SMT.string_of_sort ty_v);
-        vfs
-      ) arg_vars in
-
-    fprintf fmt "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
-      fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
-      fs (pp_print_list pp_print_string "@ ") fun_def_args *)
-    
-  end
-  
-
-  
 
 (* Solver stack for certificate checker *)
-  
 let push fmt = fprintf fmt "\n(push 1)@." 
 
 let pop fmt = fprintf fmt "(pop 1)\n@." 
@@ -1251,13 +1220,17 @@ let echo fmt s = fprintf fmt "(echo \"%s\")@." (String.escaped s)
 (* Information about certificate are reflected in the header of the SMT2 file *)
 (******************************************************************************)
 
+(* Name of the system observing the jKind and Kind2 systems and comparing
+   values of their states *)
+let obs_name = "_OBS"
 
 (* Returns true if the system is an observer of equivalence, i.e. an FEC *)
 let is_fec sys =
-  match TransSys.scope_of_trans_sys sys with
-  | "OBS" :: _ -> true
-  | _ -> false
-    
+  try
+    TransSys.scope_of_trans_sys sys
+      |> List.hd
+      |> Ident.equal obs_name
+  with Failure _ -> false
 
 (* Add a set-info header *)
 let set_info fmt tag str =
@@ -1455,7 +1428,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
 
 
 let export_system_defs
-    fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix consts sys =
+    fmt ?(recursive=true) prefix consts sys =
   
   (* add headers for info *)
   add_system_header fmt prefix ;
@@ -1482,7 +1455,7 @@ let export_system_defs
       | _ -> assert false
   in
   List.iter (fun (f, (a, d)) ->
-      define_fun ~trace_lfsc_defs fmt f a Type.t_bool d) defs
+      define_fun fmt f a Type.t_bool d) defs
 
 
 (**********************************************)
@@ -1525,12 +1498,12 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
   
 
 
-let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
+let mononames_system fmt sys name_sys prop names =
 
   let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
     
   (* Do not export the definitions with tracing information for LFSC *)
-  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys consts sys;
+  export_system_defs fmt ~recursive:true name_sys consts sys;
 
   (* Declaring state variables upto k *)
   add_section fmt "State variables";
@@ -1553,7 +1526,7 @@ let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
   let init_s = UfSymbol.mk_uf_symbol names.init [(ty_index ())] Type.t_bool in
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
-  define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
+  define_fun fmt init_s [fvi] Type.t_bool init_def;
   
   (* Declaring transition relation (T i j) *)
   add_section fmt "Transition_relation";  
@@ -1561,13 +1534,13 @@ let mononames_system fmt ~trace_lfsc_defs sys name_sys prop names =
       [(ty_index ()); (ty_index ())] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
-  define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def;
+  define_fun fmt trans_s [fvi; fvj] Type.t_bool trans_def;
   
   (* Declaring property (P i) *)
   add_section fmt "Original property";
   let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
   let prop_def = roll sigma_0i prop in
-  define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def
+  define_fun fmt prop_s [fvi] Type.t_bool prop_def
 
 
 let export_system ~trace_lfsc_defs
@@ -1587,7 +1560,7 @@ let export_system ~trace_lfsc_defs
   end;
   
   (* declare state variables, write I, T and P *)
-  mononames_system fmt ~trace_lfsc_defs sys name_sys prop names;  
+  mononames_system fmt sys name_sys prop names;
 
   (* dummy goal if we only want to do tracing *)
   if trace_lfsc_defs then begin
@@ -1624,7 +1597,7 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
   add_section fmt "k-Inductive invariant";
   let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
   let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
-  define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
+  define_fun fmt phi_s [fvi] Type.t_bool phi_def;
 
   (* dummy goal if we only want to do tracing *)
   if trace_lfsc_defs then begin
@@ -2142,35 +2115,14 @@ let generate_certificate sys dirname =
 (* Certificates for frontend translation *)
 (*****************************************)
 
-(* Name of the system observing the jKind and Kind2 systems and comparing
-   values of their states *)
-let obs_name = "OBS"
 
 (* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
-  (* if StateVar.equal_state_vars (TransSys.init_flag_state_var sys) sv then sv *)
-  (* else *)
-  (* TODO we use to not scope init_flags, still the case? *)
-    StateVar.mk_state_var
-      ~is_input:(StateVar.is_input sv)
-      ~is_const:(StateVar.is_const sv)
-      ~for_inv_gen:(StateVar.for_inv_gen sv)
-      (StateVar.name_of_state_var sv)
-      (scope @ StateVar.scope_of_state_var sv)
-      (StateVar.type_of_state_var sv)
+  StateVar.modify_state_var ~state_var_scope:(scope @ StateVar.scope_of_state_var sv) sv
 
 (* Remove top scope of a state variable *)
 let unscope_state_var sv =
-  (* if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv *)
-  (* else *)
-  (* TODO we use to not scope init_flags, still the case? *)
-    StateVar.mk_state_var
-      ~is_input:(StateVar.is_input sv)
-      ~is_const:(StateVar.is_const sv)
-      ~for_inv_gen:(StateVar.for_inv_gen sv)
-      (StateVar.name_of_state_var sv)
-      (StateVar.scope_of_state_var sv |> List.tl)
-      (StateVar.type_of_state_var sv)
+  StateVar.modify_state_var ~state_var_scope:(StateVar.scope_of_state_var sv |> List.tl) sv
 
 (* Add an additional scope to a variable *)
 let add_scope_var scope v =
@@ -2239,27 +2191,38 @@ let mk_trans_term init_flag scope sys =
         (TS.trans_formals sys))
 
 
-(* Helper function for creating terms of state variables at offset 0 with an
-   extra scope *)
-let term_state_var0 scope sv =
-  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.zero
+(* Helper function for creating terms of state variables with observer scope *)
+let term_state_var ?(prime=false) sv =
+  Var.mk_state_var_instance
+    (add_scope_state_var [obs_name] sv)
+    (if prime then Numeral.one else Numeral.zero)
   |> Term.mk_var
 
+let unprefix str =
+  if String.starts_with ~prefix:unsliced_prefix str
+  then
+    let plen = String.length unsliced_prefix in
+    String.sub str plen (String.length str - plen)
+  else (assert false)
 
-(* Helper function for creating terms of state variables at offset 1 with an
-   extra scope *)
-let term_state_var1 scope sv =
-  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.one
-  |> Term.mk_var
+let unprefix_scope scope = match scope with
+    | x :: xs -> (unprefix x) :: xs
+    | [] -> assert false
 
+let unprefix_statevar (sv: StateVar.t) : StateVar.t =
+  StateVar.modify_state_var
+    ~state_var_scope:(StateVar.scope_of_state_var sv |> unprefix_scope)
+    sv
 
+let mk_obs_eqs_unsliced ?(prime=false) sv =
+  Term.mk_eq [
+    term_state_var ~prime sv;
+    term_state_var ~prime (unprefix_statevar sv);
+  ]
 
+let mk_obs_eqs_jkind kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
-let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
-
-  let term_state_var =
-    if prime then term_state_var1 [obs_name]
-    else term_state_var0 [obs_name] in
+  let term_state_var = term_state_var ~prime in
 
   List.fold_left (fun acc sv ->
 
@@ -2314,7 +2277,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
     if only_out then
       List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
     else orig_kind2_vars in      
-  let eqs = mk_obs_eqs kind2_sys ~prime:false lustre_vars vars in
+  let eqs = mk_obs_eqs_jkind kind2_sys ~prime:false lustre_vars vars in
   
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
@@ -2322,7 +2285,27 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
    Term.mk_and eqs]*)
 
 
-let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
+let mk_multiprop_obs_unsliced unsliced_sys =
+
+    unsliced_sys
+      |> TransSys.get_real_properties
+      |> List.to_seq
+      |> Seq.map Property.get_prop_term
+      |> Seq.map Term.state_vars_of_term
+      |> Seq.fold_left SVS.union SVS.empty
+      |> SVS.to_seq
+      |> Seq.map (mk_obs_eqs_unsliced ~prime:false)
+      |> Seq.mapi (fun i eq ->
+        { Property.prop_name =
+            "PROPERTY_Observational_Equivalence_" ^(string_of_int i);
+          prop_source = Property.Generated (None, []);
+          prop_term = eq;
+          prop_status = Property.PropUnknown;
+          prop_kind = Invariant;
+        })
+      |> List.of_seq
+
+let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
  
   let orig_kind2_vars = TS.state_vars kind2_sys in
   
@@ -2340,9 +2323,9 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
   let prop_vars = SVS.elements prop_vs in
   
   let props_eqs =
-    mk_obs_eqs kind2_sys ~prime:false ~prop:true lustre_vars prop_vars in
+    mk_obs_eqs_jkind kind2_sys ~prime:false ~prop:true lustre_vars prop_vars in
   let others_eqs =
-    mk_obs_eqs kind2_sys  ~prime:false ~prop:false lustre_vars other_vars in
+    mk_obs_eqs_jkind kind2_sys  ~prime:false ~prop:false lustre_vars other_vars in
 
   let cpt = ref 0 in
   let props_obs =
@@ -2376,18 +2359,25 @@ let is_nondet sv =
   let name = StateVar.name_of_state_var sv in
   try Scanf.sscanf name "%s@_%s" (fun s _ -> s = nondetst)
   with Scanf.Scan_failure _ -> false
-  
+
+(* Create additional constraints that force the input state varaibles to be the
+   same in both the sliced and unsliced systems. *)
+let same_inputs_unsliced ?(prime=false) orig_unsliced_vars =
+  orig_unsliced_vars
+    |> List.to_seq
+    |> Seq.filter (fun sv -> StateVar.is_input sv || is_nondet sv)
+    |> Seq.map (mk_obs_eqs_unsliced ~prime)
+    |> List.of_seq
+    |> Term.mk_and
 
 (* Create additional constraints that force the input state varaibles to be the
    same in Kind2 and jKind. *)
-let same_inputs kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
-  mk_obs_eqs kind2_sys ~prime
+let same_inputs_jkind kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
+  mk_obs_eqs_jkind kind2_sys ~prime
     lustre_vars
     (List.filter (fun sv -> StateVar.is_input sv || is_nondet sv)
        orig_kind2_vars)
   |> Term.mk_and
-
-
 
 let mk_inst init_flag sys formal_vars =
   let map_down, map_up =
@@ -2422,7 +2412,7 @@ let add_scope_and_register_bounds scope orig_tbl dest_tbl sv =
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
    [jkind_sys] in parallel synchronous composition and observes the values of
    their state variables. All variables are put under a new scope. *)
-let merge_systems lustre_vars kind2_sys jkind_sys =
+let merge_jkind_system lustre_vars kind2_sys jkind_sys =
 
   let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
   let jkind_bounds = TransSys.get_state_var_bounds jkind_sys in
@@ -2490,7 +2480,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
     Term.mk_and [
       (* init flag *)
       Var.mk_state_var_instance init_flag TransSys.init_base |> Term.mk_var;
-      same_inputs kind2_sys lustre_vars orig_kind2_vars;
+      same_inputs_jkind kind2_sys lustre_vars orig_kind2_vars;
       mk_init_term init_flag [obs_name] kind2_sys;
       mk_init_term init_flag [obs_name] jkind_sys] in
 
@@ -2502,7 +2492,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       (* init flag *)
       Var.mk_state_var_instance init_flag TransSys.trans_base
       |> Term.mk_var |> Term.mk_not;
-      same_inputs ~prime:true kind2_sys lustre_vars orig_kind2_vars;
+      same_inputs_jkind ~prime:true kind2_sys lustre_vars orig_kind2_vars;
       mk_trans_term init_flag [obs_name] kind2_sys;
       mk_trans_term init_flag [obs_name] jkind_sys] in
 
@@ -2512,7 +2502,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   global_jkind_vars := orig_jkind_vars; 
   
   (* Create properties *)
-  let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
+  let props = mk_multiprop_obs_jkind ~only_out:false lustre_vars kind2_sys in
 
   Debug.fec 
      "@[<hv 4>Unmatched JKind vars:@,%a@]@."
@@ -2555,6 +2545,125 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   (* Return the observer system *)
   obs_sys
 
+(* Create a system that calls the Kind2 system [kind2_sys] and the unsliced system
+   in parallel synchronous composition and observes the values of
+   their state variables. All variables are put under a new scope. *)
+let merge_unsliced_system kind2_sys unsliced_sys =
+
+  let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
+  let unsliced_bounds = TransSys.get_state_var_bounds unsliced_sys in
+  let bounds = SVH.copy kind2_bounds in
+  SVH.iter (SVH.add bounds) unsliced_bounds;
+
+  (* Remember the original state variables*)
+  let orig_kind2_vars = TS.state_vars kind2_sys in
+  let orig_unsliced_vars = TS.state_vars unsliced_sys in
+
+  let init_flag = TS.init_flag_state_var kind2_sys
+                  |> add_scope_state_var [obs_name] in
+
+  (* Create versions of variables with the new scope *)
+  let kind2_vars =
+    List.map (add_scope_and_register_bounds [obs_name] kind2_bounds bounds)
+      orig_kind2_vars in
+  let unsliced_vars =
+    List.map (add_scope_and_register_bounds [obs_name] unsliced_bounds bounds)
+      orig_unsliced_vars in
+
+  let state_vars =
+    (* init_flag :: *)
+    kind2_vars @ unsliced_vars |>
+    List.filter (fun sv ->
+        not (StateVar.equal_state_vars
+               sv (TransSys.init_flag_state_var kind2_sys)))
+  in
+  let vars_types = List.map StateVar.type_of_state_var state_vars in
+
+  let state_vars0 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.zero)
+      state_vars in
+
+  let state_vars1 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.one)
+      state_vars in
+
+  let unconstrained_inputs =
+     StateVar.StateVarSet.union
+       (TS.unconstrained_inputs kind2_sys)
+       (TS.unconstrained_inputs unsliced_sys)
+  in
+
+  (* Symbol for initial predicate of new system *)
+  let init_uf =
+    UfSymbol.mk_uf_symbol
+      (Ids.init_uf_string ^"_"^ obs_name)
+      vars_types
+      Type.t_bool
+  in
+
+  (* Symbol for transition relation of new system *)
+  let trans_uf =
+    UfSymbol.mk_uf_symbol
+      (Ids.trans_uf_string ^"_"^ obs_name)
+      (vars_types @ vars_types)
+      Type.t_bool
+  in
+
+  (* Term describing the initial states: [inputs1 = inputs2 /\ I1(X1) /\
+     I2(X2)]. Here [inputs1] is the subset of [X1] which are input
+     varaibles. *)
+  let init_term =
+    Term.mk_and [
+      (* init flag *)
+      Var.mk_state_var_instance init_flag TransSys.init_base |> Term.mk_var;
+      same_inputs_unsliced orig_unsliced_vars;
+      mk_init_term init_flag [obs_name] kind2_sys;
+      mk_init_term init_flag [obs_name] unsliced_sys] in
+
+  (* Term describing the transition relation: [inputs1' = inputs2' /\
+     T1(X1,X1') /\ T2(X2,X2')]. Here [inputs1'] is the subset of [X1'] which
+     are input varaibles. *)
+  let trans_term =
+    Term.mk_and [
+      (* init flag *)
+      Var.mk_state_var_instance init_flag TransSys.trans_base
+      |> Term.mk_var |> Term.mk_not;
+      same_inputs_unsliced ~prime:true orig_unsliced_vars;
+      mk_trans_term init_flag [obs_name] kind2_sys;
+      mk_trans_term init_flag [obs_name] unsliced_sys] in
+
+  let init_args = state_vars0 in
+  let trans_args = state_vars1 @ state_vars0 in
+
+  (* Create properties *)
+  let props = mk_multiprop_obs_unsliced unsliced_sys in
+
+  let kind2_subsys_inst = mk_inst init_flag kind2_sys orig_kind2_vars in
+  let unsliced_subsys_inst = mk_inst init_flag unsliced_sys orig_unsliced_vars in
+
+  (* Create observer system *)
+  let obs_sys, _ =
+    TS.mk_trans_sys
+      [obs_name]
+      None
+      init_flag
+      state_vars
+      unconstrained_inputs
+      bounds
+      [] (* Global consts *)
+      [] (* Global constraints *)
+      [] (* Ufs *)
+      init_uf
+      init_args
+      init_term
+      trans_uf
+      trans_args
+      trans_term
+      [kind2_subsys_inst; unsliced_subsys_inst]
+      props
+      (None, []) (Invs.empty ()) in
+
+  obs_sys
 
 
 let export_obs_system ~trace_lfsc_defs
@@ -2588,7 +2697,7 @@ let export_obs_system ~trace_lfsc_defs
     UfSymbol.mk_uf_symbol same_inputs_pred
       [(ty_index ())] Type.t_bool in
   let sip_def = roll sigma_0i (unscope_term same_inputs_term) in
-  define_fun ~trace_lfsc_defs fmt sip_s [fvi] Type.t_bool sip_def;
+  define_fun fmt sip_s [fvi] Type.t_bool sip_def;
 
   add_section fmt "Initial states for observer";
 
@@ -2616,6 +2725,103 @@ let export_obs_system ~trace_lfsc_defs
   close_out oc
 
 
+(* Generate a certificate for the slicing phase as a system in native input. To
+   be verified, this certificate is expected to be fed back to Kind 2. *)
+let generate_slice_obs node kind2_sys param dirname =
+
+  Stat.start_timer Stat.certif_slice_time;
+
+  KEvent.log L_note "Generating slicing eq-observer...";
+
+  let node = InputSystem.prefix_system node unsliced_prefix in
+
+  (*
+    Rename the top system in the info to match the new name
+    Set uid = 0 to match the uid of the previous analysis
+    It is possible that the previous analysis did not have uid 0, I can see no
+    great way to extract that information here so we assume it is 0.
+  *)
+  let info = Analysis.info_of_param param in
+  let info = { info with
+  uid = 0;
+  top = match info.top with
+  | x :: xs -> (unsliced_prefix ^ x) :: xs
+  | [] -> []
+  ;
+  } in
+
+  let param = match param with
+  | Analysis.Interpreter _ -> Analysis.Interpreter info
+  | Analysis.ContractCheck _ -> Analysis.ContractCheck info
+  | Analysis.First _ -> Analysis.First info
+  | Analysis.Refinement (_, res) -> Analysis.Refinement (info, res)
+  in
+
+  let unsliced_sys, _ =
+    InputSystem.trans_sys_of_analysis
+          ~slice_nodes:`Off node param
+  in
+
+  let obs_system = merge_unsliced_system kind2_sys unsliced_sys in
+  let filename = Filename.concat dirname "slice_certificate.kind2" in
+
+  NativeInput.dump_native_to obs_system filename;
+
+  let names_sliced = names_kind2 [] in
+  let names_unsliced = names_kind2 [] in
+
+  (* Export unsliced system in SMT-LIB2 format *)
+  export_system ~trace_lfsc_defs:false
+    dirname unsliced_defs_f names_unsliced unsliced_sys "unsliced";
+
+  export_system ~trace_lfsc_defs:true
+    (* tracing info for cvc5/LFSC *)
+    dirname unsliced_defs_lfsc_f names_unsliced unsliced_sys "unsliced";
+
+  let unsliced_defs_path = Filename.concat dirname unsliced_defs_f in
+  let unsliced_defs_lfsc_path = Filename.concat dirname unsliced_defs_lfsc_f in
+
+  let kind2_defs_path = Filename.concat dirname kind2_defs_f in
+
+  let observer_deps = [kind2_defs_path; unsliced_defs_path] in
+
+  let same_inputs_term =
+    TS.state_vars unsliced_sys |> same_inputs_unsliced
+  in
+
+  (* Export Observer system in SMT-LIB2 format for use in proof *)
+  export_obs_system ~trace_lfsc_defs:false
+    dirname obs_defs_f observer_deps
+    names_obs names_sliced names_unsliced kind2_sys same_inputs_term;
+
+  export_obs_system ~trace_lfsc_defs:true
+    dirname obs_defs_lfsc_f observer_deps
+    names_obs names_sliced names_unsliced kind2_sys same_inputs_term;
+
+  let obs_defs_path = Filename.concat dirname obs_defs_f in
+  let obs_defs_lfsc_path = Filename.concat dirname obs_defs_lfsc_f in
+
+  let unsliced_cert_sys = {
+    names = names_unsliced;
+    smt2_file = unsliced_defs_path;
+    smt2_lfsc_trace_file = unsliced_defs_lfsc_path;
+  } in
+
+  let obs_cert_sys = {
+    names = names_obs;
+    smt2_file = obs_defs_path;
+    smt2_lfsc_trace_file = obs_defs_lfsc_path;
+  } in
+
+  (* Time statistics *)
+  Stat.record_time Stat.certif_slice_time;
+
+  (* Show which file contains the certificate *)
+    Debug.fec
+      "Slicing eq-observer was written in %s, \
+       run Kind 2 on it" filename;
+
+  unsliced_cert_sys, obs_cert_sys
 
 (* Generate a certificate for the frontend translation / simplification phases
    as a system in native input. To be verified, this certificate is expected to
@@ -2687,7 +2893,7 @@ let generate_frontend_obs node kind2_sys dirname =
 
   (* Create the observer system with the property of observational
      equivalence. *)
-  let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
+  let obs_sys = merge_jkind_system lustre_vars kind2_sys jkind_sys in
 
   let filename = Filename.concat dirname "FEC.kind2" in
 
@@ -2714,7 +2920,7 @@ let generate_frontend_obs node kind2_sys dirname =
   let observer_deps = [kind2_defs_path; jkind_defs_path] in
 
   let same_inputs_term =
-    same_inputs kind2_sys lustre_vars (TS.state_vars kind2_sys) in
+    same_inputs_jkind kind2_sys lustre_vars (TS.state_vars kind2_sys) in
   
   (* Export Observer system in SMT-LIB2 format for use in proof *)
   export_obs_system ~trace_lfsc_defs:false
@@ -2904,10 +3110,31 @@ let fecc_checker_script =
   "cat FECC_prelude.smt2 observer_sys.smt2 FECC.smt2 | $solver"
 
 
+let certify_observer filename name =
+  KEvent.log L_note "@{<b>Generating %s certificate@}" name;
+  let cmd_l =
+    Array.to_list Sys.argv
+    |> List.filter (fun s -> s <> (Flags.input_file ()))
+  in
+
+  let cmd =
+    asprintf "%a %s"
+      (pp_print_list pp_print_string " ") cmd_l
+      filename
+  in
+  Debug.certif "Second run with: %s" cmd;
+
+  match Sys.command cmd with
+  | 0 | 20 as c ->
+    KEvent.log L_note
+      "Success generating %s certificate (return code %d)" name c
+  | c ->
+    KEvent.log L_warn
+      "Failed to generate %s certificate (return code %d)" name c
+
 (*****************************************)
 (* Creation of intermediate certificates *)
 (*****************************************)
-
 
 (* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_smt2_certificates input sys =
@@ -2916,13 +3143,7 @@ let generate_smt2_certificates input sys =
   
   Hashtbl.clear solver_actlits;
 
-  let dirname =
-    (* Create directories if they don't exist. *)
-    Flags.output_dir () |> mk_dir;
-    let dir = Filename.concat (Flags.output_dir ()) "certif" in
-    mk_dir dir ;
-    dir
-  in
+  let dirname = Filename.concat (Flags.output_dir ()) "certif" in
   create_dir dirname;
 
   (try generate_certificate sys dirname
@@ -2945,7 +3166,7 @@ let generate_smt2_certificates input sys =
       false
     end
   in
-  
+
   let open Unix in
 
   let certif_script_name =
@@ -2963,27 +3184,40 @@ let generate_smt2_certificates input sys =
 
   (* Recursive call *)
   if not (is_fec sys) && call_frontend && gen_frontend then begin
+    certify_observer (Filename.concat dirname "FEC.kind2") "frontend"
+  end
 
-    KEvent.log L_note "@{<b>Generating frontend certificate@}";
-    let cmd_l =
-      Array.to_list Sys.argv
-      |> List.filter (fun s -> s <> (Flags.input_file ()))
-    in
+(* Generate all certificates in the directory given by {!Flags.output_dir}. *)
+let generate_slicing_certificates input sys param =
 
-    let cmd =
-      asprintf "%a %s"
-        (pp_print_list pp_print_string " ") cmd_l
-        (Filename.concat dirname "FEC.kind2")
-    in
-    (* Format.printf "cmd: %s@.@." cmd ; *)
-    Debug.certif "Second run with: %s" cmd;
+  Proof.set_proof_logic (TS.get_logic sys);
+  Hashtbl.clear solver_actlits;
 
-    match Sys.command cmd with
-    | 0 | 20 -> ()
-    | c ->
-      KEvent.log L_warn
-        "Failed to generate frontend certificate (return code %d)" c
-  end  
+  let dirname = Filename.concat (Flags.output_dir ()) "certif" in
+  create_dir dirname;
+
+  if (is_fec sys |> not) then generate_split_certificates sys dirname |> ignore ;
+
+  let gen_slice =
+    if InputSystem.is_lustre_input input then
+      try
+        generate_slice_obs input sys param dirname |> ignore;
+        true
+      with Failure s ->
+        KEvent.log L_warn "%s@.(No slice observer)" s;
+        false
+    else begin
+      KEvent.log L_warn "No certificate for slicing";
+      false
+    end
+  in
+
+  (* Send statistics *)
+  KEvent.stat Stat.[certif_stats_title, certif_stats];
+
+  if not (is_fec sys) && call_frontend && gen_slice then begin
+      certify_observer (Filename.concat dirname "slice_certificate.kind2") "slice"
+  end
 
 
 (********************************)
@@ -3009,7 +3243,7 @@ let generate_all_proofs uid input sys =
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
-  
+
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else begin

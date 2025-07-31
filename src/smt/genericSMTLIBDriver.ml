@@ -973,6 +973,7 @@ let s_bool = HString.mk_hstring "Bool"
 let s_array () =
   if Flags.Arrays.smt () then HString.mk_hstring "Array"
   else HString.mk_hstring "FArray"
+let s_bitvector = HString.mk_hstring "BitVec"
 
 
 (* Convert an S-expression to a sort *)
@@ -983,6 +984,7 @@ let rec type_of_smtlib_sexpr = function
   | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array () ->
     let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
     Type.mk_array te ti
+  | HStringSExpr.List [_; HStringSExpr.Atom si; HStringSExpr.Atom se] when si == s_bitvector -> Type.mk_bv (HString.string_of_hstring se |> int_of_string)
   | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 
     raise
       (Invalid_argument 

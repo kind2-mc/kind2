@@ -551,6 +551,9 @@ module Certif : sig
   (** Certification only. *)
   val certif : unit -> bool
 
+  (** Certification only. *)
+  val certif_slicing: unit -> bool
+
   (** Proof production. *)
   val proof : unit -> bool
 

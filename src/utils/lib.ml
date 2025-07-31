@@ -56,6 +56,15 @@ let false_of_any _ = false
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
+let rec mk_dir_p dir =
+  match mk_dir dir with
+  | () -> ()
+  | exception (Unix.Unix_error (Unix.ENOENT, _, _) as error) ->
+      let parent = Filename.dirname dir in
+      if parent = dir
+      then raise error
+      else (mk_dir_p parent; mk_dir dir)
+
 (* Flips the expected argument of the function *)
 let flip f = fun b a -> f a b 
 
