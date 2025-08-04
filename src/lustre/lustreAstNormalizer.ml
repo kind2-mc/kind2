@@ -2348,7 +2348,8 @@ and normalize_expr ?guard info node_id map =
         Chk.infer_type_expr ctx (Some node_id) expr1 |> unwrap |> fst
     in
     let expr1_ty =
-      Chk.expand_type_syn_reftype_history info.context expr1_ty |> unwrap
+      let expand_subtypes = false in
+      Chk.expand_type_syn_reftype_history ~expand_subtypes info.context expr1_ty |> unwrap
     in
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
@@ -2356,9 +2357,29 @@ and normalize_expr ?guard info node_id map =
       match expr1_ty with
       | ArrayType _ -> A.Array
       | Map _ -> Map
-      | _ -> assert false
+      | _ -> A.pp_print_lustre_type Format.std_formatter expr1_ty; assert false
     in
-    IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+    (* Add refinement type constraints for index accesses *)
+    let ref_ty_constraints = match expr1_ty with 
+    | ArrayType (p, (_, len)) -> 
+      let expr = A.BinaryOp (p, A.And, 
+         A.CompOp (p, A.Lte, A.Const (p, A.Num (HString.mk_hstring "0")), expr2), 
+         A.CompOp (p, A.Lt, expr2, len)) in 
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "_arraytype") in
+      (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
+      [Local, p, name, expr] 
+    | Map (p, kt, _) -> 
+      let exprs = mk_ref_type_expr info.context (Some node_id) expr2 kt in
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
+      (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
+      List.map (fun expr -> Local, p, name, expr) exprs
+    | _ -> assert false 
+    in
+    let gids3 = { (empty ()) with refinement_type_constraints = ref_ty_constraints } in 
+    let gids = union gids3 (union gids1 gids2) in 
+    IndexAccess (pos, nexpr1, nexpr2, kind'), gids, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)

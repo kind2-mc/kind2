@@ -842,6 +842,10 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Ident (_, id) -> (
     match lookup_ty ctx id with
     | None -> SI.empty (* e.g. any bound variable *)
+    | Some ((LA.RefinementType (_, (_, _, ty'), _)) as ty) -> 
+      (* Break infinite recursion *)
+      let ctx = add_ty ctx id ty' in 
+      ty_vars_of_type ctx node_name ty
     | Some ty -> ty_vars_of_type ctx node_name ty
   )
   | ModeRef _ -> SI.empty
