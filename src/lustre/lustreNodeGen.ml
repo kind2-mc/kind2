@@ -152,7 +152,9 @@ let array_select_of_bounds_term bounds e =
 *)
 
 let array_select_of_indexes_expr indexes e =
-  List.fold_left (fun e i -> E.mk_select_and_push e (E.mk_index_var i)) e indexes
+  List.fold_left (fun e i -> 
+    E.mk_select_and_push e (E.mk_array_index_var i Type.t_int)
+  ) e indexes
 
 (* Try to make the types of two expressions line up.
   * If one expression is an array but the other is not, then insert a 'select'
@@ -165,7 +167,7 @@ let coalesce_array2 e1 e2 =
   and i2 = List.length (Type.all_index_types_of_array t2) in
   if i1 > i2 then
     array_select_of_indexes_expr (List.init (i1 - i2) (fun x -> x)) e1, e2
-  else if i2 > i1 then
+  else if i2 > i1 then 
     e1, array_select_of_indexes_expr (List.init (i2 - i1) (fun x -> x)) e2
   else
     e1, e2
@@ -448,7 +450,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
     let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_index_var i), succ i
+      E.mk_select_and_push e (E.mk_array_index_var i (E.type_of_expr b)), succ i
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
     let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
@@ -461,7 +463,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
     let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_index_var i), succ i
+      E.mk_select_and_push e (E.mk_array_index_var i (E.type_of_expr b)), succ i
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
     let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
@@ -972,13 +974,13 @@ and compile_ast_expr
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
       match li, ri with
-      | X.ArrayVarIndex _ :: li', X.ArrayIntIndex vi :: ri' ->
+      | X.ArrayVarIndex b :: li', X.ArrayIntIndex vi :: ri' ->
         let rhs = (E.mk_int (Numeral.of_int vi)) in
-        let acc = E.mk_eq (E.mk_index_var cpt) rhs :: acc in
+        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
         mk_cond_indexes (acc, cpt+1) li' ri'
-      | X.ArrayVarIndex _ :: li', X.ArrayVarIndex vi :: ri' ->
+      | X.ArrayVarIndex b :: li', X.ArrayVarIndex vi :: ri' ->
         let rhs = (E.mk_of_expr vi) in
-        let acc = E.mk_eq (E.mk_index_var cpt) rhs :: acc in
+        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
         mk_cond_indexes (acc, cpt+1) li' ri'
       | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
       | [], _ | _, [] -> if acc = [] then raise Not_found;
@@ -1006,8 +1008,14 @@ and compile_ast_expr
         (match i with
           | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
           | _ -> raise Not_found);
-        let old_v = List.fold_left (fun (acc, cpt) _ ->
-          E.mk_select_and_push acc (E.mk_index_var cpt), cpt + 1) (v, 0) i |> fst
+        let old_v = List.fold_left (fun (acc, cpt) i ->
+          let kt = match i with 
+          | X.ArrayIntIndex _ -> Type.t_int 
+          | X.ArrayVarIndex b -> E.type_of_expr b 
+          | _ -> assert false 
+          in
+          E.mk_select_and_push acc (E.mk_array_index_var cpt kt), cpt + 1
+        ) (v, 0) i |> fst
         in let new_v = X.find cindex cexpr2' in
         if Flags.Arrays.smt () then
           let v' = mk_store [] v cindex new_v in X.add [] v' a
@@ -1053,7 +1061,8 @@ and compile_ast_expr
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index_e = compiled_i |> X.values |> List.hd in
-    let index = E.mk_of_expr index_e.E.expr_init in
+    let as_type = index_e.expr_type in 
+    let index = E.mk_of_expr ~as_type index_e.E.expr_init in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in
@@ -2017,7 +2026,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let ident = mk_ident v in
       let kt = compile_ast_type cstate ctx map kt in
       let over_indices j t (i, a) = 
-        let expr = E.mk_map_index_var i t in 
+        let expr = E.mk_array_index_var i t in 
         i + 1, X.add j expr a 
       in
       let index = X.fold over_indices kt (i, X.empty) |> snd in
@@ -2032,7 +2041,16 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let result = X.map (fun e -> state_var_of_expr e) expr in
       result, 0
     | A.ArrayDef (_, i, l) -> 
-      compile_array_or_map_def i l (A.Int Lib.dummy_pos)
+      let ty = match Ctx.lookup_ty ctx i with 
+      | Some (A.ArrayType (_, (_, e))) -> (
+        match LustreTypeChecker.infer_type_expr ctx (Some node_id) e with 
+        | Ok (ty, _) -> ty 
+        | Error _ -> A.Int dummy_pos
+      )
+      | Some _ -> assert false 
+      | None -> A.Int dummy_pos 
+      in
+      compile_array_or_map_def i l ty  
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2565,8 +2583,10 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let ctx = LustreTypeChecker.add_full_node_ctx ctx nname params inputs outputs locals in 
     compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let ctx = LustreTypeChecker.add_full_node_ctx ctx nname params inputs outputs locals in 
     compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 

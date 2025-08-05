@@ -1868,7 +1868,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 let constraints_of_arrays init terms eq_bounds =
     (* Return the i-th index variable *)
   let index_var_of_int_and_ty i kt = 
-    E.var_of_expr (E.mk_map_index_var i kt) in
+    E.var_of_expr (E.mk_array_index_var i kt) in
 
     (* Add quantifier or let binding for indexes of variable *)
   let add_bounds term bounds =

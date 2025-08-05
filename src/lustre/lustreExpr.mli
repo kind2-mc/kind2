@@ -335,11 +335,8 @@ val mk_var : StateVar.t -> t
 
 val mk_free_var : Var.t -> t
 
-(** Return an expression for the i-th index variable. *)
-val mk_index_var : int -> t
-
-(** Return an expression for the i-th map index variable. *)
-val mk_map_index_var : int -> Type.t -> t
+(** Return an expression for the i-th array index variable. *)
+val mk_array_index_var : int -> Type.t -> t
 
 (** Return the number/position of the index variable. *)
 val int_of_index_var : t -> int
