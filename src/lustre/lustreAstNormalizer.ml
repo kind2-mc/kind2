@@ -2366,15 +2366,15 @@ and normalize_expr ?guard info node_id map =
          A.CompOp (p, A.Lte, A.Const (p, A.Num (HString.mk_hstring "0")), expr2), 
          A.CompOp (p, A.Lt, expr2, len)) in 
       let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "_arraytype") in
+      let name = HString.concat2 prefix (HString.mk_hstring "_arrayindex") in
       (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
       [Local, p, name, expr] 
-    | Map (p, kt, _) -> 
-      let exprs = mk_ref_type_expr info.context (Some node_id) expr2 kt in
+    | Map (p, _, _) -> 
+      let expr = A.BinaryOp (p, A.In, expr2, expr1) in
       let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
+      let name = HString.concat2 prefix (HString.mk_hstring "_mapindex") in
       (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-      List.map (fun expr -> Local, p, name, expr) exprs
+      [Local, p, name, expr]
     | _ -> assert false 
     in
     let gids3 = { (empty ()) with refinement_type_constraints = ref_ty_constraints } in 
