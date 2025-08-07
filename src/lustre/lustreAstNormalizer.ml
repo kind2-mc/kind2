@@ -2357,10 +2357,10 @@ and normalize_expr ?guard info node_id map =
       match expr1_ty with
       | ArrayType _ -> A.Array
       | Map _ -> Map
-      | _ -> A.pp_print_lustre_type Format.std_formatter expr1_ty; assert false
+      | _ -> assert false
     in
     (* Add refinement type constraints for index accesses *)
-    let ref_ty_constraints = match expr1_ty with 
+    let index_access_constraints = match expr1_ty with 
     | ArrayType (p, (_, len)) -> 
       let expr = A.BinaryOp (p, A.And, 
          A.CompOp (p, A.Lte, A.Const (p, A.Num (HString.mk_hstring "0")), expr2), 
@@ -2377,7 +2377,7 @@ and normalize_expr ?guard info node_id map =
       [Local, p, name, expr]
     | _ -> assert false 
     in
-    let gids3 = { (empty ()) with refinement_type_constraints = ref_ty_constraints } in 
+    let gids3 = { (empty ()) with refinement_type_constraints = index_access_constraints } in 
     let gids = union gids3 (union gids1 gids2) in 
     IndexAccess (pos, nexpr1, nexpr2, kind'), gids, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->

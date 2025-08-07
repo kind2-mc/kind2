@@ -45,7 +45,6 @@ fun ctx node_name fun_ids expr ->
       in 
       Ctx.SI.union vars_of_exprs (AH.vars_of_type ty) |> Ctx.SI.elements
     in
-
     (* Global constants don't need to be passed as arguments to generated nodes *)
     let inputs = List.filter (fun i -> 
       match Ctx.lookup_const ctx i with 
@@ -62,7 +61,6 @@ fun ctx node_name fun_ids expr ->
       | None -> assert false
     ) inputs in
     let name = mk_fresh_fn_name pos node_name in
-
     (* If the any op expressions are temporal or call a node, we generate an imported node. 
     Otherwise, we generate an imported function. *)
     let has_pre_arrow_or_node_call =
@@ -75,7 +73,6 @@ fun ctx node_name fun_ids expr ->
                    (Ctx.ty_vars_of_expr ctx node_name expr1)
       |> Ctx.SI.elements
     in 
-
     let ty_vars = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let generated_node = 
       if has_pre_arrow_or_node_call then
