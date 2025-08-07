@@ -258,7 +258,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
-  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+  let pp_print_type_constraint ppf (source, pos, id, rexpr) =
     Format.fprintf ppf "(%a, %a, %a, %a)"
       pp_print_source source
       Lib.pp_print_position pos
@@ -298,7 +298,7 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
-    (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
+    (pp_print_list pp_print_type_constraint "\n") gids.type_constraints
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
     (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
@@ -829,7 +829,7 @@ let mk_fresh_frozen_local node_id info pos ind_vars expr_type =
   in
   nexpr, name, union (union gids1 gids2) gids3
 
-let mk_fresh_refinement_type_constraint source info pos node_id id expr_type =
+let mk_fresh_type_constraint source info pos node_id id expr_type =
   let ref_type_exprs = mk_ref_type_expr info.context (Some node_id) id expr_type in
   let gids = List.map (fun ref_type_expr ->
     i := !i + 1;
@@ -839,7 +839,7 @@ let mk_fresh_refinement_type_constraint source info pos node_id id expr_type =
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
     let gids = { (empty ()) with
-      refinement_type_constraints = [(source, pos, name, output_expr)];
+      type_constraints = [(source, pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_expr, None)]; }
     in
     gids)
@@ -921,7 +921,7 @@ let add_ref_type_constraints info kind node_id vars =
     Ctx.type_contains_ref info.context ty)
   |> List.fold_left (fun acc (p, id, ty) ->
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
-    union acc (mk_fresh_refinement_type_constraint kind info p node_id (A.Ident (p, id)) ty))
+    union acc (mk_fresh_type_constraint kind info p node_id (A.Ident (p, id)) ty))
     (empty ())
 
 let get_history_type ctx id =
@@ -1464,7 +1464,7 @@ and normalize_node info map
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
         let gids = union acc (mk_fresh_subrange_constraint Local info p (Some node_id) id ty)
-        in union gids (mk_fresh_refinement_type_constraint Local info p node_id (A.Ident (p, id)) ty)
+        in union gids (mk_fresh_type_constraint Local info p node_id (A.Ident (p, id)) ty)
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _)-> assert false)
       (empty ())
@@ -1817,7 +1817,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
                   (pos, i, ty),
                   union gids (
                   union (mk_fresh_subrange_constraint Ghost info pos (Some node_id) new_id ty)
-                        (mk_fresh_refinement_type_constraint Ghost info pos node_id (A.Ident (pos, new_id)) ty)), 
+                        (mk_fresh_type_constraint Ghost info pos node_id (A.Ident (pos, new_id)) ty)), 
                   warnings
                 else (pos, i, ty), gids, []
             )
@@ -2359,7 +2359,7 @@ and normalize_expr ?guard info node_id map =
       | Map _ -> Map
       | _ -> assert false
     in
-    (* Add refinement type constraints for index accesses *)
+    (* Add index access constraints *)
     let index_access_constraints = match expr1_ty with 
     | ArrayType (p, (_, len)) -> 
       let expr = A.BinaryOp (p, A.And, 
@@ -2377,7 +2377,7 @@ and normalize_expr ?guard info node_id map =
       [Local, p, name, expr]
     | _ -> assert false 
     in
-    let gids3 = { (empty ()) with refinement_type_constraints = index_access_constraints } in 
+    let gids3 = { (empty ()) with type_constraints = index_access_constraints } in 
     let gids = union gids3 (union gids1 gids2) in 
     IndexAccess (pos, nexpr1, nexpr2, kind'), gids, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->

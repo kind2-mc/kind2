@@ -58,9 +58,9 @@ type t = {
     * HString.t (* Generated name for Range Expression *)
     * LustreAst.expr) (* Computed ranged expr *)
     list;
-  refinement_type_constraints: (source
+  type_constraints: (source
     * Lib.position
-    * HString.t (* Generated name for refinement type constraint *)
+    * HString.t (* Generated name for type constraint *)
     * LustreAst.expr) 
   list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
@@ -118,7 +118,7 @@ let union ids1 ids2 = {
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
     subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
-    refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
+    type_constraints = ids1.type_constraints @ ids2.type_constraints;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
@@ -144,7 +144,7 @@ let empty () = {
   calls = [];
   contract_calls = StringMap.empty;
   subrange_constraints = [];
-  refinement_type_constraints = [];
+  type_constraints = [];
   empty_maps = [];
   map_element_updates = [];
   expanded_variables = StringSet.empty;

@@ -58,7 +58,7 @@ type t = {
     * HString.t (* Generated name for Range Expression *)
     * LustreAst.expr) (* Computed ranged expr *)
     list;
-  refinement_type_constraints: (source
+  type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
     * LustreAst.expr) 

@@ -1725,7 +1725,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       result :: glocals
     in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Refinement Type Constraints        *)
+  (* (State Variables for) Generated Refinement (and other) Type Constraints        *)
   (* ****************************************************************** *)
   in let glocals =
     let over_generated_locals glocals (_, _, id, _) =
@@ -1745,7 +1745,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | None -> accum
       in let result = X.fold over_indices index_types X.empty in
       result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.refinement_type_constraints
+    in List.fold_left over_generated_locals glocals gids.GI.type_constraints
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -2334,7 +2334,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let (assumes, _, guarantees, _, props) = 
     List.fold_left over_ref_type_constraints
     (assumes, List.length assumes, guarantees, List.length guarantees, props)
-    gids.GI.refinement_type_constraints
+    gids.GI.type_constraints
   in
   assumes, guarantees, props
   (* ****************************************************************** *)
