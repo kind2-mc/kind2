@@ -2011,7 +2011,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_array_or_map_def i l kt = 
+  in let compile_array_or_map_def i l = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map (fun e -> state_var_of_expr e) expr in
@@ -2024,12 +2024,25 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
     List.iteri (fun i v -> 
       let ident = mk_ident v in
-      let kt = compile_ast_type cstate ctx map kt in
-      let over_indices j t (i, a) = 
-        let expr = E.mk_array_index_var i t in 
+      let over_indices j _ (i, a) = 
+        let idx = List.nth j i in 
+        let t = match idx with  
+        | X.ArrayIntIndex _ -> Type.t_int 
+        | X.ArrayVarIndex b -> Format.printf "got here!\n"; E.type_of_expr b 
+        | MapIndex b -> E.type_of_expr b 
+        | _ -> assert false
+        in 
+        Format.printf "v: %a, t: %a\n" 
+          HString.pp_print_hstring v
+          Type.pp_print_type t;
+        let expr = E.mk_array_index_var i t in  
         i + 1, X.add j expr a 
       in
-      let index = X.fold over_indices kt (i, X.empty) |> snd in
+      (*let over_indices j _ (i, a) = 
+        let expr = E.mk_array_index_var i Type.t_int in
+        i + 1, X.add j expr a 
+      in*)
+      let index = X.fold over_indices expr (i, X.empty) |> snd in
       H.add !map.array_index ident index;)
       l;
     result, indexes
@@ -2038,19 +2051,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     | A.SingleIdent (_, i) ->
       let ident = mk_ident i in
       let expr = H.find !map.expr ident in
-      let result = X.map (fun e -> state_var_of_expr e) expr in
+      let result = X.map state_var_of_expr expr in
       result, 0
     | A.ArrayDef (_, i, l) -> 
-      let ty = match Ctx.lookup_ty ctx i with 
-      | Some (A.ArrayType (_, (_, e))) -> (
-        match LustreTypeChecker.infer_type_expr ctx (Some node_id) e with 
-        | Ok (ty, _) -> ty 
-        | Error _ -> A.Int dummy_pos
-      )
-      | Some _ -> assert false 
-      | None -> A.Int dummy_pos 
-      in
-      compile_array_or_map_def i l ty  
+      compile_array_or_map_def i l
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2157,7 +2161,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, kt, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] kt in 
+      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] in 
       let cond_expr = A.CompOp (dummy_pos, Eq, nexpr2, fresh_idx) in 
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
