@@ -1,4 +1,4 @@
-node N <T5> (x: sint<22>; m: map<sint<22>; real>) returns (y: real)
+node N <T5> (x: sint<22> | x in m; m: map<sint<22>; real>) returns (y: real)
 let    
     y = m[x];
     check y = m[x];

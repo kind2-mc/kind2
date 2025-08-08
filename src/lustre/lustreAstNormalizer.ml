@@ -2364,20 +2364,14 @@ and normalize_expr ?guard info node_id map =
     (* Add index access constraints *)
     let gids3 = match expr1_ty with 
     | ArrayType (p, (_, len)) -> 
-      Format.printf "ctx: %a\n" 
-        TypeCheckerContext.pp_print_tc_context info.context;
-      (* Check if expr2 contains an inductive variable. 
+      (* Check if expr2 contains inductive or quantified variables. 
          If so, generate universally quantified property. *) 
       let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
-      Format.printf "vars: %a\n" 
-        (Lib.pp_print_list HString.pp_print_hstring ", ") vars;
-      let ind_vars = List.filter (fun var -> 
-        StringMap.mem var info.inductive_variables
+      let ind_quant_vars = List.filter (fun var -> 
+        StringMap.mem var info.inductive_variables || 
+        List.exists (fun (_, id, _) -> HString.equal id var) info.quantified_variables
       ) vars in  
-      Format.printf "ind_vars: %a\n" 
-        (Lib.pp_print_list HString.pp_print_hstring ", ") ind_vars;
-      if ind_vars = [] then (
-        print_endline "got hereeeeee!";
+      if ind_quant_vars = [] then (
         let ty = A.IntRange (p, 
                   Some (A.Const (p, A.Num (HString.mk_hstring "0"))), 
                   Some len
@@ -2387,7 +2381,6 @@ and normalize_expr ?guard info node_id map =
         mk_fresh_subrange_constraint ~is_original Local info p (Some node_id) expr2 ty 
       ) else empty ()
     | Map (p, _, _) -> 
-      print_endline "got hereeeeee!";
       let expr = A.BinaryOp (p, A.In, expr2, expr1) in
       let prefix = HString.mk_hstring (string_of_int !i) in
       let name = HString.concat2 prefix (HString.mk_hstring "_mapindex") in
