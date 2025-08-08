@@ -721,10 +721,9 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
 
   | _ -> []
 
-let mk_fresh_subrange_constraint source info pos node_id constrained_name expr_type =
-  let expr = A.Ident(pos, constrained_name) in
+let mk_fresh_subrange_constraint ?(is_original = false) source info pos node_id expr expr_type =
   let range_exprs = mk_range_expr info.context node_id expr_type expr in
-  let gids = List.map (fun (range_expr, is_original) ->
+  let gids = List.map (fun (range_expr, is_original') ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars range_expr in
     let prefix = HString.mk_hstring (string_of_int !i) in
@@ -732,7 +731,7 @@ let mk_fresh_subrange_constraint source info pos node_id constrained_name expr_t
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
-      subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
+      subrange_constraints = [(source, info.contract_scope, is_original || is_original', pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr, None)]; }
     in
     gids)
@@ -912,7 +911,8 @@ let add_subrange_constraints info node_id kind vars =
   |> List.fold_left (fun acc (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
-    union acc (mk_fresh_subrange_constraint kind info p (Some node_id) id ty))
+    let expr = A.Ident (p, id) in 
+    union acc (mk_fresh_subrange_constraint kind info p (Some node_id) expr ty))
     (empty ())
 
 let add_ref_type_constraints info kind node_id vars =
@@ -1463,7 +1463,8 @@ and normalize_node info map
       | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        let gids = union acc (mk_fresh_subrange_constraint Local info p (Some node_id) id ty)
+        let expr = A.Ident (p, id) in
+        let gids = union acc (mk_fresh_subrange_constraint Local info p (Some node_id) expr ty)
         in union gids (mk_fresh_type_constraint Local info p node_id (A.Ident (p, id)) ty)
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _)-> assert false)
@@ -1813,10 +1814,11 @@ and normalize_contract info node_id map ivars ovars (p, items) =
               fun (pos, i, ty) -> 
                 let ty, gids, warnings = normalize_ty info node_id map i ty in
                 let new_id = StringMap.find i info.interpretation in
+                let expr = A.Ident (p, new_id) in
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   (pos, i, ty),
                   union gids (
-                  union (mk_fresh_subrange_constraint Ghost info pos (Some node_id) new_id ty)
+                  union (mk_fresh_subrange_constraint Ghost info pos (Some node_id) expr ty)
                         (mk_fresh_type_constraint Ghost info pos node_id (A.Ident (pos, new_id)) ty)), 
                   warnings
                 else (pos, i, ty), gids, []
@@ -2360,24 +2362,44 @@ and normalize_expr ?guard info node_id map =
       | _ -> assert false
     in
     (* Add index access constraints *)
-    let index_access_constraints = match expr1_ty with 
+    let gids3 = match expr1_ty with 
     | ArrayType (p, (_, len)) -> 
-      let expr = A.BinaryOp (p, A.And, 
-         A.CompOp (p, A.Lte, A.Const (p, A.Num (HString.mk_hstring "0")), expr2), 
-         A.CompOp (p, A.Lt, expr2, len)) in 
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "_arrayindex") in
-      (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-      [Local, p, name, expr] 
+      Format.printf "ctx: %a\n" 
+        TypeCheckerContext.pp_print_tc_context info.context;
+      (* Check if expr2 contains an inductive variable. 
+         If so, generate universally quantified property. *) 
+      let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
+      Format.printf "vars: %a\n" 
+        (Lib.pp_print_list HString.pp_print_hstring ", ") vars;
+      let ind_vars = List.filter (fun var -> 
+        StringMap.mem var info.inductive_variables
+      ) vars in  
+      Format.printf "ind_vars: %a\n" 
+        (Lib.pp_print_list HString.pp_print_hstring ", ") ind_vars;
+      if ind_vars = [] then (
+        print_endline "got hereeeeee!";
+        let ty = A.IntRange (p, 
+                  Some (A.Const (p, A.Num (HString.mk_hstring "0"))), 
+                  Some len
+                 ) in
+        let is_original = true in 
+        (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
+        mk_fresh_subrange_constraint ~is_original Local info p (Some node_id) expr2 ty 
+      ) else empty ()
     | Map (p, _, _) -> 
+      print_endline "got hereeeeee!";
       let expr = A.BinaryOp (p, A.In, expr2, expr1) in
       let prefix = HString.mk_hstring (string_of_int !i) in
       let name = HString.concat2 prefix (HString.mk_hstring "_mapindex") in
+      let output_expr = AH.rename_contract_vars expr in
+      let nexpr = A.Ident (pos, name) in
+      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty expr nexpr in
       (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-      [Local, p, name, expr]
+      { (empty ()) with
+        type_constraints = [(Local, pos, name, output_expr)];
+        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
     | _ -> assert false 
     in
-    let gids3 = { (empty ()) with type_constraints = index_access_constraints } in 
     let gids = union gids3 (union gids1 gids2) in 
     IndexAccess (pos, nexpr1, nexpr2, kind'), gids, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
