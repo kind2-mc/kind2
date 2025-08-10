@@ -721,9 +721,9 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
 
   | _ -> []
 
-let mk_fresh_subrange_constraint ?(is_original = false) source info pos node_id expr expr_type =
+let mk_fresh_subrange_constraint source info pos node_id expr expr_type =
   let range_exprs = mk_range_expr info.context node_id expr_type expr in
-  let gids = List.map (fun (range_expr, is_original') ->
+  let gids = List.map (fun (range_expr, is_original) ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars range_expr in
     let prefix = HString.mk_hstring (string_of_int !i) in
@@ -731,7 +731,7 @@ let mk_fresh_subrange_constraint ?(is_original = false) source info pos node_id 
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
-      subrange_constraints = [(source, info.contract_scope, is_original || is_original', pos, name, output_expr)];
+      subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr, None)]; }
     in
     gids)
@@ -2367,30 +2367,85 @@ and normalize_expr ?guard info node_id map =
       (* Check if expr2 contains inductive or quantified variables. 
          If so, generate universally quantified property. *) 
       let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
-      let ind_quant_vars = List.filter (fun var -> 
-        StringMap.mem var info.inductive_variables || 
-        List.exists (fun (_, id, _) -> HString.equal id var) info.quantified_variables
+      let extract_array_len_ty ty = match ty with 
+      | A.ArrayType (_, (_, len)) -> 
+        let id = A.Ident (p, HString.mk_hstring "_") in
+        let lb = A.Const (p, A.Num (HString.mk_hstring "0")) in 
+        A.RefinementType (p, (p, HString.mk_hstring "_", A.Int p), 
+          A.BinaryOp (p, A.And, (A.CompOp (p, A.Lte, lb, id)), 
+                                (A.CompOp (p, A.Lt, id, len)))
+        )
+      | _ -> A.Int (Lib.dummy_pos) 
+      in 
+      let quant_vars = List.filter_map (fun var -> 
+        if StringMap.mem var info.inductive_variables 
+        then
+          let ty = StringMap.find var info.inductive_variables in 
+          Some (p, var, extract_array_len_ty ty) 
+        else List.find_map (fun (p, id, ty) -> 
+          if HString.equal id var
+          then Some (p, id, ty) 
+          else None 
+        ) info.quantified_variables
       ) vars in  
-      if ind_quant_vars = [] then (
-        let ty = A.IntRange (p, 
-                  Some (A.Const (p, A.Num (HString.mk_hstring "0"))), 
-                  Some len
-                 ) in
-        let is_original = true in 
-        (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-        mk_fresh_subrange_constraint ~is_original Local info p (Some node_id) expr2 ty 
-      ) else empty ()
+      let range_expr = 
+        A.BinaryOp (p, A.And, 
+          A.CompOp (p, A.Lte, A.Const (p, A.Num (HString.mk_hstring "0")), expr2), 
+          A.CompOp (p, A.Lt, expr2, len) 
+        )
+      in  
+      i := !i + 1;
+      let range_expr = 
+        if quant_vars = [] then range_expr 
+        else A.Quantifier (pos, A.Forall, quant_vars, range_expr)
+      in
+      let range_nexpr, gids3, _ = normalize_expr info node_id map range_expr in 
+      let output_expr = AH.rename_contract_vars range_nexpr in
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
+      let nexpr = A.Ident (pos, name) in
+      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_nexpr nexpr in
+      (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
+      let gids4 = { (empty ()) with
+        subrange_constraints = [(Local, info.contract_scope, true, pos, name, output_expr)];
+        equations = 
+          [(info.quantified_variables, info.contract_scope, eq_lhs, range_nexpr, None)]; 
+      } in 
+      union gids3 gids4
     | Map (p, _, _) -> 
+      (*let extract_array_len_ty ty = match ty with 
+      | A.ArrayType (_, (_, len)) -> 
+        let id = A.Ident (p, HString.mk_hstring "_") in
+        let lb = A.Const (p, A.Num (HString.mk_hstring "0")) in 
+        A.RefinementType (p, (p, HString.mk_hstring "_", A.Int p), 
+          A.BinaryOp (p, A.And, (A.CompOp (p, A.Lte, lb, id)), 
+                                (A.CompOp (p, A.Lt, id, len)))
+        )
+      | _ -> A.Int (Lib.dummy_pos) 
+      in*) 
       let expr = A.BinaryOp (p, A.In, expr2, expr1) in
+      let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
+      let quant_vars = List.filter_map (fun var -> 
+        List.find_map (fun (p, id, ty) -> 
+          if HString.equal id var
+          then Some (p, id, ty) 
+          else None 
+        ) info.quantified_variables
+      ) vars in  
+      let expr = 
+        if quant_vars = [] then expr 
+        else A.Quantifier (pos, A.Forall, quant_vars, expr)
+      in
+      let nexpr, gids, _ = normalize_expr info node_id map expr in 
       let prefix = HString.mk_hstring (string_of_int !i) in
       let name = HString.concat2 prefix (HString.mk_hstring "_mapindex") in
-      let output_expr = AH.rename_contract_vars expr in
-      let nexpr = A.Ident (pos, name) in
-      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty expr nexpr in
+      let output_nexpr = AH.rename_contract_vars nexpr in
+      let nexpr' = A.Ident (pos, name) in
+      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty nexpr nexpr' in
       (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-      { (empty ()) with
-        type_constraints = [(Local, pos, name, output_expr)];
-        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
+      union gids { (empty ()) with
+        type_constraints = [(Local, pos, name, output_nexpr)];
+        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, nexpr, None)]; }
     | _ -> assert false 
     in
     let gids = union gids3 (union gids1 gids2) in 
