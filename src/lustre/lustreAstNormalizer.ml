@@ -2413,16 +2413,6 @@ and normalize_expr ?guard info node_id map =
       } in 
       union gids3 gids4
     | Map (p, _, _) -> 
-      (*let extract_array_len_ty ty = match ty with 
-      | A.ArrayType (_, (_, len)) -> 
-        let id = A.Ident (p, HString.mk_hstring "_") in
-        let lb = A.Const (p, A.Num (HString.mk_hstring "0")) in 
-        A.RefinementType (p, (p, HString.mk_hstring "_", A.Int p), 
-          A.BinaryOp (p, A.And, (A.CompOp (p, A.Lte, lb, id)), 
-                                (A.CompOp (p, A.Lt, id, len)))
-        )
-      | _ -> A.Int (Lib.dummy_pos) 
-      in*) 
       let expr = A.BinaryOp (p, A.In, expr2, expr1) in
       let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
       let quant_vars = List.filter_map (fun var -> 
