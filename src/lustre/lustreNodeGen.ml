@@ -696,12 +696,16 @@ and compile_ast_type
     let base_map_type =
       X.fold (over_element_type last_type) element_type X.empty
     in
-    List.fold_left
+    let r = List.fold_left
       (fun acc ty ->
          X.fold (over_element_type ty) acc X.empty
       )
       base_map_type
       (List.tl types)
+    in  
+    Format.printf "Compiled map type: %a\n" 
+      (X.pp_print_trie_ty true) r; 
+    r
   | A.ArrayType (_, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
@@ -951,7 +955,7 @@ and compile_ast_expr
     let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let rec aux accum = function
       | [] -> List.rev accum
-      | A.MapIndex _ :: _ -> assert false (* use 'compile_map_element_update' *)
+      | A.MapIndex _ :: _ -> assert false 
       | A.Label (_, index) :: tl ->
         let index = HString.string_of_hstring index in
         let accum' = X.RecordIndex index :: accum in
@@ -2014,7 +2018,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_array_or_map_def i l = 
+  in let compile_array_or_map_def i l map_def = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     Format.printf "expr: %a\n" 
@@ -2032,102 +2036,40 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
     List.iteri (fun i v -> 
       let ident = mk_ident v in
-    (*let over_indices j _ (i, a) = 
-        Format.printf "j: %a\n" 
-          (X.pp_print_index true) j;
-        let idx = List.nth j i in 
-        match idx with  
-        | X.ArrayIntIndex _ -> 
-          let t = Type.t_int in
-          let expr = E.mk_array_index_var i t in  
-          i + 1, X.add [] expr a 
-        | X.ArrayVarIndex b -> 
-          Format.printf "got here!\n"; 
-          let t = E.type_of_expr b in 
-          let expr = E.mk_array_index_var i t in  
-          i + 1, X.add [] expr a 
-        | MapIndex b -> 
-          let t = E.type_of_expr b  in 
-          let expr = E.mk_array_index_var i t in  
-          i + 1, X.add (List.tl j) expr a 
-        | _ -> 
-          i, a
-        (* First element of j is an array index we don't need for the index variable *)
-      in*)
 
-      (* Need to do work to extract the __key type__ from the type of the expr. 
-         The expr has a map type, so we only need to extract the key aspect, 
-         not including the 'present' flag. *)
-      (* Extract key type *)
-      (*let kt = X.map (fun e -> 
-        Format.printf "e: %a, ty: %a\n" 
-          (E.pp_print_lustre_expr true) e 
-          Type.pp_print_type (E.type_of_lustre_expr e);
-        let ty = match E.type_of_lustre_expr e |> Type.node_of_type with 
-        | Type.Array (_, k) -> k 
-        | _ -> assert false in 
-        ty
-      ) expr in
-      Format.printf "Initial kt: %a\n" 
-        (X.pp_print_trie_ty true) kt;
-      (* Remove present flag *)
-      let kt = X.filter (fun k _ -> match k with 
-      | X.TupleIndex i :: _ -> i <> 0
-      |  _ -> true
-      ) kt in 
-      let kt = X.fold (fun k v acc -> 
-        (* Remove present flag index *) 
-        let k = match k with 
-        | X.TupleIndex _ :: tl -> tl 
-        | _ -> k 
-        in
-        (* Remove map indices from key type *) 
-        let k = List.filter (fun idx -> match idx with 
-        | X.MapIndex _ -> false
-        | _ -> true
-        ) k in 
-        (* Remove an array var index from key type *)
-        let k = match k with 
-        | X.ArrayVarIndex _ :: tl -> tl 
-        | _ -> k in
-        X.add k v acc 
-      ) kt X.empty in 
-      Format.printf "kt: %a\n" 
-        (X.pp_print_trie_ty true) kt;*)
-
+      (* Add index types to kt trie *)
       let kt = X.fold (fun k _ acc -> 
-        match List.find_opt (fun idx -> match idx with 
-        | X.ArrayVarIndex _ 
-        | MapIndex _ -> true
-        | _ -> false
-        ) k
-        with 
-        | Some (X.ArrayVarIndex b) -> X.add k (E.type_of_expr b) acc
-        | Some (X.MapIndex b) -> X.add k (E.type_of_expr b) acc
-        | _ -> assert false 
+        Format.printf "idx: %a\n" 
+          (X.pp_print_index true) k;
+        List.fold_left (fun (acc, acc_is) idx -> 
+        match idx with 
+        | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is
+        | X.MapIndex b -> 
+          Format.printf "Adding %a -> %a\n" 
+            (X.pp_print_index true) acc_is 
+            Type.pp_print_type (E.type_of_expr b);
+          X.add acc_is (E.type_of_expr b) acc, acc_is
+        | X.TupleIndex _ -> acc, acc_is @ [idx]
+        | _ -> acc, acc_is 
+        ) (acc, []) k |> fst
       ) expr X.empty in
 
-      let kt = X.filter (fun idx _ -> match idx with 
+      Format.printf "initial kt: %a\n" 
+        (X.pp_print_trie_ty true) kt;
+
+      (* Only for maps: Remove boolean flag from kt trie *)
+      let kt = if map_def then X.filter (fun idx _ -> match idx with 
       | X.TupleIndex b :: _ -> b <> 0 
       | _ -> true 
-      ) kt in
-
-      let kt = X.fold (fun k v acc -> match k with 
+      ) kt else kt in
+      let kt = if map_def then X.fold (fun k v acc -> match k with 
       | X.TupleIndex _ :: tl -> X.add tl v acc 
       | _ -> X.add k v acc 
-      ) kt X.empty in 
-
-      let kt = X.fold (fun k v acc -> 
-        let k = List.filter (fun idx -> match idx with 
-        | X.MapIndex _ -> false 
-        | X.ArrayVarIndex _ -> false
-        | _ -> true 
-        ) k in 
-        X.add k v acc 
-      ) kt X.empty in 
+      ) kt X.empty else kt in 
 
       Format.printf "kt: %a\n" 
         (X.pp_print_trie_ty true) kt;
+
       let over_indices j t (i, a) = 
         let expr = E.mk_array_index_var i t in
         i + 1, X.add j expr a 
@@ -2144,7 +2086,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let result = X.map state_var_of_expr expr in
       result, 0
     | A.ArrayDef (_, i, l) -> 
-      compile_array_or_map_def i l
+      compile_array_or_map_def i l false
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2251,7 +2193,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] in 
+      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] true in 
       let cond_expr = A.CompOp (dummy_pos, Eq, nexpr2, fresh_idx) in 
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
