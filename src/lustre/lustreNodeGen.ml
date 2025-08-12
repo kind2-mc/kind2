@@ -767,6 +767,7 @@ and vars_of_quant cstate ctx map avars =
   List.fold_left var_of_quant [] avars, quant_vars
 
 and compile_ast_expr
+  ?(flatten = false)
   (cstate:compiler_state)
   (ctx:Ctx.tc_context)
   (bounds:E.expr E.bound_or_fixed list)
@@ -793,7 +794,7 @@ and compile_ast_expr
     with Not_found ->
     try
       let expr = StringMap.find id_str cstate.other_constants in
-      compile_ast_expr cstate ctx bounds map expr
+      compile_ast_expr ~flatten cstate ctx bounds map expr
     with Not_found ->
     try 
       let id_str = HString.string_of_hstring id_str in
@@ -834,20 +835,30 @@ and compile_ast_expr
 
   and compile_unary bounds mk expr =
     (* TODO: Old code does a type check here *)
-    X.map mk (compile_ast_expr cstate ctx bounds map expr)
+    X.map mk (compile_ast_expr ~flatten cstate ctx bounds map expr)
 
-  and compile_binary bounds mk expr1 expr2 =
-    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
-    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
-    Format.printf "expr1: %a\nexpr2: %a\n" 
-      (X.pp_print_trie_expr true) expr1 
-      (X.pp_print_trie_expr true) expr2;
+  and compile_binary ?(flatten = false) bounds mk expr1 expr2 =
+    let expr1 = compile_ast_expr ~flatten cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr ~flatten cstate ctx bounds map expr2 in
+      (* Only do so if there are nested types *)
+      (*let expr1 =
+        if flatten then (
+          if List.length (X.values expr1) = 1 then expr1 else 
+          let expr1 = X.values expr1 in 
+          List.fold_left (fun (acc, acc_i) e -> 
+            X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          ) (X.empty, 0) expr1 |> fst 
+        ) else expr1
+      in*)
     (* TODO: Old code does three error checks here doublecheck *)
+    Format.printf "expr1: %a, expr2: %a\n" 
+     (X.pp_print_trie_expr true) expr1 
+     (X.pp_print_trie_expr true) expr2;
     X.map2 (fun _ -> mk) expr1 expr2
 
   and compile_bvextract bounds mk expr ub lb =
     (* TODO: Old code does a type check here *)
-    X.map (mk ub lb) (compile_ast_expr cstate ctx bounds map expr)
+    X.map (mk ub lb) (compile_ast_expr ~flatten cstate ctx bounds map expr)
 
   and compile_quantifier bounds mk avars expr =
     let vars, quant_var_map = vars_of_quant cstate ctx map avars in
@@ -860,16 +871,16 @@ and compile_ast_expr
     Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
     result
 
-  and compile_equality bounds polarity expr1 expr2 =
+  and compile_equality ?(flatten = false) bounds polarity expr1 expr2 =
     let (mk_binary, mk_seq, const_expr) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true)
       | false -> (E.mk_neq, E.mk_or, E.t_false) in
-    let expr = compile_binary bounds mk_binary expr1 expr2 in
+    let expr = compile_binary ~flatten bounds mk_binary expr1 expr2 in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
   and compile_ite bounds expr1 expr2 expr3 =
     (* TODO: Old code checks that expr1 is a non-indexed boolean *)
-    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr1 = compile_ast_expr ~flatten cstate ctx bounds map expr1 in
     let expr1 = match X.bindings expr1 with
       | [_, expr] -> expr
       | _ -> assert false
@@ -881,7 +892,7 @@ and compile_ast_expr
     compile_binary bounds mk expr2 expr3
 
   and compile_pre bounds expr =
-    let cexpr = compile_ast_expr cstate ctx bounds map expr in
+    let cexpr = compile_ast_expr ~flatten cstate ctx bounds map expr in
     let ident = extract_normalized expr in
     let sv_opt = H.find_opt !map.state_var ident in
     let over_indices index expr' accum =
@@ -907,8 +918,8 @@ and compile_ast_expr
     in
     let compile_merge_case = function
       | A.When (_, expr, _) ->
-        compile_ast_expr cstate ctx bounds map expr
-      | expr -> compile_ast_expr cstate ctx bounds map expr
+        compile_ast_expr ~flatten cstate ctx bounds map expr
+      | expr -> compile_ast_expr ~flatten cstate ctx bounds map expr
     in
     let merge_cases_r =
       let over_cases = fun acc (case_value, e) ->
@@ -929,13 +940,13 @@ and compile_ast_expr
     | X.RecordIndex _
     | X.TupleIndex _
     | X.ArrayIntIndex _ as index ->
-      let expr = compile_ast_expr cstate ctx bounds map expr in
+      let expr = compile_ast_expr ~flatten cstate ctx bounds map expr in
       X.find_prefix [index] expr
     | _ -> assert false
   
   and compile_group_expr bounds mk expr_list =
     let over_exprs = fun (i, accum) expr ->
-      let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+      let compiled_expr = compile_ast_expr ~flatten cstate ctx bounds map expr in
       let over_expr = fun j e a -> X.add (mk j i) e a in
       (succ i, X.fold over_expr compiled_expr accum)
     in
@@ -944,15 +955,15 @@ and compile_ast_expr
   and compile_record_expr bounds expr_list =
     let expr_list = List.map (fun (s, e) -> HString.string_of_hstring s, e) expr_list in
     let over_exprs = fun accum (i, expr) ->
-      let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+      let compiled_expr = compile_ast_expr ~flatten cstate ctx bounds map expr in
       let over_expr = fun j e t -> X.add (X.RecordIndex i :: j) e t in
       X.fold over_expr compiled_expr accum
     in
     List.fold_left over_exprs X.empty expr_list
 
   and compile_struct_update expr1 index expr2 =
-    let cexpr1 = compile_ast_expr cstate ctx bounds map expr1 in
-    let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    let cexpr1 = compile_ast_expr ~flatten cstate ctx bounds map expr1 in
+    let cexpr2 = compile_ast_expr ~flatten cstate ctx bounds map expr2 in
     let rec aux accum = function
       | [] -> List.rev accum
       | A.MapIndex _ :: _ -> assert false 
@@ -963,7 +974,7 @@ and compile_ast_expr
           aux accum' tl
         else assert false (* guaranteed by type checker *)
       | A.Index (_, index_expr) :: tl ->
-        let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
+        let index_cexpr = compile_ast_expr ~flatten cstate ctx bounds map index_expr in
         let index = (index_cexpr |> X.values |> List.hd).expr_init in
         let cexpr_sub = X.find_prefix accum cexpr1 in
         let index_term = (index : E.expr :> Term.t ) in
@@ -1034,9 +1045,9 @@ and compile_ast_expr
     X.fold over_indices cexpr1 X.empty
 
   and compile_array_ctor bounds expr size_expr =
-    let array_size' = compile_ast_expr cstate ctx bounds map size_expr in
+    let array_size' = compile_ast_expr ~flatten cstate ctx bounds map size_expr in
     let array_size = (array_size' |> X.values |> List.hd).expr_init in
-    let cexpr = compile_ast_expr cstate ctx bounds map expr in
+    let cexpr = compile_ast_expr ~flatten cstate ctx bounds map expr in
 (*     let size_is_numeral = Term.is_numeral (E.unsafe_term_of_expr array_size) in
     if size_is_numeral then
       let l_expr = array_size
@@ -1055,9 +1066,9 @@ and compile_ast_expr
       result
 
   and compile_map_index bounds expr k =
-    let compiled_k = compile_ast_expr cstate ctx bounds map k in
+    let compiled_k = compile_ast_expr ~flatten cstate ctx bounds map k in
     let index_exprs = X.values compiled_k in
-    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    let compiled_expr = compile_ast_expr ~flatten cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
         compile_array_index' acc index
@@ -1066,7 +1077,7 @@ and compile_ast_expr
       index_exprs
 
   and compile_array_index bounds expr i =
-    let compiled_i = compile_ast_expr cstate ctx bounds map i in
+    let compiled_i = compile_ast_expr ~flatten cstate ctx bounds map i in
     let index_e = compiled_i |> X.values |> List.hd in
     let as_type = index_e.expr_type in 
     let index = E.mk_of_expr ~as_type index_e.E.expr_init in
@@ -1077,7 +1088,7 @@ and compile_ast_expr
         bounds
       with Invalid_argument _ | Failure _ -> bounds
     in
-    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    let compiled_expr = compile_ast_expr ~flatten cstate ctx bounds map expr in
     compile_array_index' compiled_expr index
 
   and compile_array_index' compiled_expr index =
@@ -1209,9 +1220,9 @@ and compile_ast_expr
   (* Other Operators                                                    *)
   (* ****************************************************************** *)
   | A.CompOp (_, A.Eq, expr1, expr2) ->
-    compile_equality bounds true expr1 expr2
+    compile_equality ~flatten bounds true expr1 expr2
   | A.CompOp (_, A.Neq, expr1, expr2) ->
-    compile_equality bounds false expr1 expr2
+    compile_equality ~flatten bounds false expr1 expr2
   | A.TernaryOp (_, A.Ite, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
@@ -1302,7 +1313,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
   in
   let node_inputs_of_exprs inputs ast =
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
-    let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
+    let cexpr = compile_ast_expr ~flatten:false cstate ctx [] map ast_group_expr in
     let cexpr = flatten_list_indexes cexpr in
     let over_indices i input_sv expr accum =
       let sv = state_var_of_expr expr in
@@ -1326,8 +1337,8 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
     else
       let state_var = cond |> extract_normalized |> H.find !map.state_var in
       let defaults' = match defaults with
-        | Some [d] -> Some (compile_ast_expr cstate ctx [] map d)
-        | Some d -> Some (compile_ast_expr cstate ctx [] map
+        | Some [d] -> Some (compile_ast_expr ~flatten:false cstate ctx [] map d)
+        | Some d -> Some (compile_ast_expr ~flatten:false cstate ctx [] map
           (A.GroupExpr (dummy_pos, A.ExprList, d)))
         | None -> None
       in Some state_var, defaults'
@@ -2041,23 +2052,31 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let kt = X.fold (fun k _ acc -> 
         Format.printf "idx: %a\n" 
           (X.pp_print_index true) k;
-        List.fold_left (fun (acc, acc_is) idx -> 
+        let contains_multiple_map_indices = 
+          List.filter (fun i -> match i with | X.MapIndex _ -> true | _ -> false) k
+          |> (fun x -> List.length x > 1) 
+        in
+        List.fold_left (fun (acc, acc_is, acc_i) idx -> 
         match idx with 
-        | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is
+        | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i
         | X.MapIndex b -> 
           Format.printf "Adding %a -> %a\n" 
             (X.pp_print_index true) acc_is 
             Type.pp_print_type (E.type_of_expr b);
-          X.add acc_is (E.type_of_expr b) acc, acc_is
-        | X.TupleIndex _ -> acc, acc_is @ [idx]
-        | _ -> acc, acc_is 
-        ) (acc, []) k |> fst
+          (*!! Don't know if this is part of a structured key or not -- may or may not need indices *)
+          if contains_multiple_map_indices then 
+            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
+          else 
+            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
+      (*  | X.TupleIndex _ -> acc, acc_is @ [idx], acc_i*)
+        | _ -> acc, acc_is, acc_i
+        ) (acc, [], 0) k |> (fun (x, _, _) -> x) 
       ) expr X.empty in
 
       Format.printf "initial kt: %a\n" 
         (X.pp_print_trie_ty true) kt;
 
-      (* Only for maps: Remove boolean flag from kt trie *)
+      (* Only for maps: Remove boolean flag from kt trie *) (*
       let kt = if map_def then X.filter (fun idx _ -> match idx with 
       | X.TupleIndex b :: _ -> b <> 0 
       | _ -> true 
@@ -2065,7 +2084,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let kt = if map_def then X.fold (fun k v acc -> match k with 
       | X.TupleIndex _ :: tl -> X.add tl v acc 
       | _ -> X.add k v acc 
-      ) kt X.empty else kt in 
+      ) kt X.empty else kt in *)
 
       Format.printf "kt: %a\n" 
         (X.pp_print_trie_ty true) kt;
@@ -2153,7 +2172,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
           vars in
       H.add_seq !map.quant_vars (H.to_seq quant_var_map);
-      let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
+      let eq_rhs = compile_ast_expr ~flatten:false cstate ctx bounds map ast_expr in
       let eq_lhs = flatten_list_indexes eq_lhs in
       let eq_rhs = flatten_list_indexes eq_rhs in
       (* Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
@@ -2191,9 +2210,21 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let gequations = gequations @ empty_map_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
+     
+      (*
+      let nexpr2 = compile_ast_expr nexpr2 in 
+      let fresh_idx = compile_ast_expr fresh_idx in 
+      let nexpr2 = flatten nexpr2 in 
+      let cond_expr = mk_eq nexpr2 fresh_idx in 
+      let then_expr = compile_ast_expr then_expr in 
+      let else_expr = compile_ast_expr else_expr in 
+      let expr = mk_ite cond_expr then_expr else_expr ... 
+      *)
+
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] true in 
+      (*!! Want to localize flattening to the cond_expr *)
       let cond_expr = A.CompOp (dummy_pos, Eq, nexpr2, fresh_idx) in 
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
@@ -2202,7 +2233,13 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       in 
       let nexpr = A.TernaryOp (dummy_pos, Ite, cond_expr, then_expr, else_expr) in
       let lhs_bounds = gen_lhs_bounds true eq_lhs nexpr indexes in
-      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map nexpr in
+      (* 'flatten' is an arg to compile_ast_expr to denote that the expression indices 
+         should be flattened to align with the compilation of the map type LHS variables, 
+         which are also flattened (see the case in compile_ast_type for Map. 
+         !!We want to remove this optional arg and promote functions to the global scope to 
+         call them directly. Then flattening logic can go here directly (localized) *)
+      let flatten = true in
+      let eq_rhs = compile_ast_expr ~flatten cstate ctx lhs_bounds map nexpr in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
@@ -2246,7 +2283,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
             in (res, 0), false
         in
         let lhs_bounds = gen_lhs_bounds is_generated eq_lhs ast_expr indexes in
-        let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+        let eq_rhs = compile_ast_expr ~flatten:false cstate ctx lhs_bounds map ast_expr in
         let eq_lhs = flatten_list_indexes eq_lhs in
         let eq_rhs = flatten_list_indexes eq_rhs in
         (*Format.eprintf "lhs: %a@.rhs: %a@.@."
@@ -2569,7 +2606,7 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
             else []
           in
           List.map (fun expr ->
-            let c_expr = compile_ast_expr cstate ctx [] map expr in
+            let c_expr = compile_ast_expr ~flatten:false cstate ctx [] map expr in
             X.max_binding c_expr |> snd
           ) (range_exprs @ ref_type_exprs) @ cstate.global_constraints
         )
