@@ -935,7 +935,7 @@ and compile_ast_expr
       let expr = compile_ast_expr cstate ctx bounds map expr in
       X.find_prefix [index] expr
     | _ -> assert false
-
+  
   and compile_group_expr bounds mk expr_list =
     let over_exprs = fun (i, accum) expr ->
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
@@ -943,7 +943,7 @@ and compile_ast_expr
       (succ i, X.fold over_expr compiled_expr accum)
     in
     List.fold_left over_exprs (0, X.empty) expr_list |> snd
-
+  
   and compile_record_expr bounds expr_list =
     let expr_list = List.map (fun (s, e) -> HString.string_of_hstring s, e) expr_list in
     let over_exprs = fun accum (i, expr) ->
@@ -1097,7 +1097,7 @@ and compile_ast_expr
         if E.type_of_lustre_expr v |> Type.is_array then
           X.map (fun e -> E.mk_select_and_push e index) expr
         else expr
-  (*       | X.ArrayIntIndex _ :: _, _ ->
+(*       | X.ArrayIntIndex _ :: _, _ ->
         let over_expr = fun j v vals -> match j with
           | X.ArrayIntIndex i :: [] -> (i, v) :: vals
           | _ -> assert false
