@@ -2024,15 +2024,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in let compile_array_or_map_def i l = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
-    Format.printf "expr: %a\n" 
-      (X.pp_print_trie_expr true) expr;
     let result = X.map (fun e -> state_var_of_expr e) expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggets that shadowing can occur here *)
     let indexes = List.length l in
-    Format.printf "l: %a\n" 
-      (Lib.pp_print_list HString.pp_print_hstring ", ") l;
     let _ = compile_ast_type in 
     (* This code works for two different cases -- 
         1. Compilation with a list of array index variables from list l 
@@ -2042,8 +2038,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
 
       (* Add index types to kt trie *)
       let kt = X.fold (fun k _ acc -> 
-        Format.printf "idx: %a\n" 
-          (X.pp_print_index true) k;
         let contains_multiple_map_indices = 
           List.filter (fun i -> match i with | X.MapIndex _ -> true | _ -> false) k
           |> (fun x -> List.length x > 1) 
@@ -2052,9 +2046,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         match idx with 
         | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i
         | X.MapIndex b -> 
-          Format.printf "Adding %a -> %a\n" 
-            (X.pp_print_index true) acc_is 
-            Type.pp_print_type (E.type_of_expr b);
           if contains_multiple_map_indices then 
             X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
           else 
@@ -2063,8 +2054,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         ) (acc, [], 0) k |> (fun (x, _, _) -> x) 
       ) expr X.empty in
 
-      Format.printf "kt: %a\n" 
-        (X.pp_print_trie_ty true) kt;
 
       let over_indices j t (i, a) = 
         let expr = E.mk_array_index_var i t in
