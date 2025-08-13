@@ -167,7 +167,7 @@ let coalesce_array2 e1 e2 =
   and i2 = List.length (Type.all_index_types_of_array t2) in
   if i1 > i2 then
     array_select_of_indexes_expr (List.init (i1 - i2) (fun x -> x)) e1, e2
-  else if i2 > i1 then 
+  else if i2 > i1 then
     e1, array_select_of_indexes_expr (List.init (i2 - i1) (fun x -> x)) e2
   else
     e1, e2
@@ -776,6 +776,7 @@ and compile_ast_expr
   map
   expr
   : LustreExpr.t LustreIndex.t = 
+
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
@@ -934,6 +935,7 @@ and compile_ast_expr
       let expr = compile_ast_expr cstate ctx bounds map expr in
       X.find_prefix [index] expr
     | _ -> assert false
+
   and compile_group_expr bounds mk expr_list =
     let over_exprs = fun (i, accum) expr ->
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
@@ -941,6 +943,7 @@ and compile_ast_expr
       (succ i, X.fold over_expr compiled_expr accum)
     in
     List.fold_left over_exprs (0, X.empty) expr_list |> snd
+
   and compile_record_expr bounds expr_list =
     let expr_list = List.map (fun (s, e) -> HString.string_of_hstring s, e) expr_list in
     let over_exprs = fun accum (i, expr) ->
@@ -2060,16 +2063,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         ) (acc, [], 0) k |> (fun (x, _, _) -> x) 
       ) expr X.empty in
 
-      (* Only for maps: Remove boolean flag from kt trie *) (*
-      let kt = if map_def then X.filter (fun idx _ -> match idx with 
-      | X.TupleIndex b :: _ -> b <> 0 
-      | _ -> true 
-      ) kt else kt in
-      let kt = if map_def then X.fold (fun k v acc -> match k with 
-      | X.TupleIndex _ :: tl -> X.add tl v acc 
-      | _ -> X.add k v acc 
-      ) kt X.empty else kt in *)
-
       Format.printf "kt: %a\n" 
         (X.pp_print_trie_ty true) kt;
 
@@ -2644,10 +2637,8 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let ctx = LustreTypeChecker.add_full_node_ctx ctx nname params inputs outputs locals in 
     compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let ctx = LustreTypeChecker.add_full_node_ctx ctx nname params inputs outputs locals in 
     compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
