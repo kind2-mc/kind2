@@ -2029,7 +2029,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggets that shadowing can occur here *)
     let indexes = List.length l in
-    let _ = compile_ast_type in 
     (* This code works for two different cases -- 
         1. Compilation with a list of array index variables from list l 
         2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
@@ -2182,7 +2181,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
-      (* Flatten nexpr2 to make the indices align *)
+      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
+         compile_ast_type flattens indices, so we need to do a corresponding flattening 
+         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
       let nexpr2 =
         if List.length (X.values nexpr2) = 1 then nexpr2 else 
         let nexpr2 = X.values nexpr2 in 
