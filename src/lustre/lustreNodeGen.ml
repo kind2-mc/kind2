@@ -2050,9 +2050,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
           else 
             X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
         | _ -> acc, acc_is, acc_i
-        ) (acc, [], 0) k |> (fun (x, _, _) -> x) 
+        ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
       ) expr X.empty in
-
 
       let over_indices j t (i, a) = 
         let expr = E.mk_array_index_var i t in
@@ -2185,11 +2184,15 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
          compile_ast_type flattens indices, so we need to do a corresponding flattening 
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
       let nexpr2 =
-        if List.length (X.values nexpr2) = 1 then nexpr2 else 
         let nexpr2 = X.values nexpr2 in 
-        List.fold_left (fun (acc, acc_i) e -> 
-          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
-        ) (X.empty, 0) nexpr2 |> fst 
+        if List.length nexpr2 = 1 then
+          List.fold_left (fun acc e -> 
+            X.add [] e acc 
+          ) X.empty nexpr2 
+        else 
+          List.fold_left (fun (acc, acc_i) e -> 
+            X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          ) (X.empty, 0) nexpr2 |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
