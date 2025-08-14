@@ -165,9 +165,9 @@ let coalesce_array2 e1 e2 =
   and t2 = E.type_of_lustre_expr e2 in
   let i1 = List.length (Type.all_index_types_of_array t1)
   and i2 = List.length (Type.all_index_types_of_array t2) in
-  if i1 > i2 then
+  if i1 > i2 then 
     array_select_of_indexes_expr (List.init (i1 - i2) (fun x -> x)) e1, e2
-  else if i2 > i1 then
+  else if i2 > i1 then 
     e1, array_select_of_indexes_expr (List.init (i2 - i1) (fun x -> x)) e2
   else
     e1, e2
@@ -2158,14 +2158,19 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_empty_maps acc (id, kt, _) =
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
-      let idx, sv = X.choose eq_lhs in
-      let eq_lhs = X.singleton idx sv in
-      let kt = compile_ast_type cstate ctx map kt |> X.values |> List.hd in  
-      let dummy = (E.mk_free_var (Var.mk_fresh_var kt)).E.expr_init in 
-      let eq_rhs = X.singleton [X.TupleIndex 0; X.MapIndex dummy] E.t_false in
-      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+      (* extract index for boolean flag denoting presence or absence of map item *)
+      let eq_lhs = X.fold (fun k sv acc -> match k with 
+      | X.TupleIndex 0 :: _ -> X.add k sv acc 
+      | _ -> acc 
+      ) eq_lhs X.empty 
+      in
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;
       let empty_map_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       empty_map_eqs @ acc
     in 
