@@ -1366,9 +1366,14 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* ****************************************************************** *)
   (* Ghost Constants and Variables                                      *)
   (* ****************************************************************** *)
-  List.iter
-    (fun g -> g |> compile_const_decl ~ghost:true cstate ctx map [] |> ignore)
-    gconsts;
+  let cstate =
+    List.fold_left
+      (fun cstate g ->
+        compile_const_decl cstate ctx map (node_scope @ ["contract"]) g
+      )
+      cstate
+      gconsts
+  in
 
   let ghost_locals, ghost_equations =
     let extract_namespace name =
@@ -2472,8 +2477,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   }
 
 
-and compile_const_decl ?(ghost = false) cstate ctx map scope = function
-  | A.FreeConst (p, i, ty) ->
+and compile_const_decl cstate ctx map scope = function
+  | A.FreeConst (p, i, ty) -> (
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
     let over_index = fun i ty vt ->
@@ -2496,45 +2501,39 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
     let vt = X.fold over_index cty X.empty in
     let var_bounds = SVT.fold (fun k v a -> (k, v) :: a) !map.bounds [] in
     List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
-    if ghost then cstate
-    else (
-      let global_constraints =
-        let ty = Ctx.expand_type_syn ctx ty in
-        let has_subrange = Ctx.type_contains_subrange ctx ty in
-        let has_ref_type = Ctx.type_contains_ref ctx ty in
-        if has_subrange || has_ref_type then (
-          let ctx = Ctx.add_ty ctx i ty in
-          let range_exprs =
-            if has_subrange then
-              AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
-            else []
-          in
-          let ref_type_exprs =
-            if has_ref_type then
-              AN.mk_ref_type_expr ctx None (A.Ident(p, i)) ty
-            else []
-          in
-          List.map (fun expr ->
-            let c_expr = compile_ast_expr cstate ctx [] map expr in
-            X.max_binding c_expr |> snd
-          ) (range_exprs @ ref_type_exprs) @ cstate.global_constraints
-        )
-        else cstate.global_constraints
-      in
-      { cstate with
-        free_constants = (!map.node_name, i, vt) :: cstate.free_constants;
-        global_constraints
-      }
-    )
+    let global_constraints =
+      let ty = Ctx.expand_type_syn ctx ty in
+      let has_subrange = Ctx.type_contains_subrange ctx ty in
+      let has_ref_type = Ctx.type_contains_ref ctx ty in
+      if has_subrange || has_ref_type then (
+        let ctx = Ctx.add_ty ctx i ty in
+        let range_exprs =
+          if has_subrange then
+            AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
+          else []
+        in
+        let ref_type_exprs =
+          if has_ref_type then
+            AN.mk_ref_type_expr ctx None (A.Ident(p, i)) ty
+          else []
+        in
+        List.map (fun expr ->
+          let c_expr = compile_ast_expr cstate ctx [] map expr in
+          X.max_binding c_expr |> snd
+        ) (range_exprs @ ref_type_exprs) @ cstate.global_constraints
+      )
+      else cstate.global_constraints
+    in
+    { cstate with
+      free_constants = (!map.node_name, i, vt) :: cstate.free_constants;
+      global_constraints
+    }
+  )
   (* TODO: Old code does some subtyping checks for Typed constants
     Otherwise these other constants are used only for constant propagation *)
   | A.UntypedConst (_, id, expr)
   | A.TypedConst (_, id, expr, _) ->
-    if ghost then
-      let nexpr = compile_ast_expr cstate ctx [] map expr in
-      H.replace !map.expr (mk_ident id) nexpr;
-      cstate
-    else { cstate with 
+    { cstate with
       other_constants = StringMap.add id expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
