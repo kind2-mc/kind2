@@ -502,6 +502,8 @@ contract_ghost_vars:
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
+  | CONST; i = ident; COLON; t = lustre_type; SEMICOLON
+    { A.GhostConst (A.FreeConst (mk_pos $startpos, i, t)) }
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
   | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
