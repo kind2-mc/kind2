@@ -795,39 +795,15 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
   LocalCache.add local_cache expr nexpr;
   nexpr, gids
 
-let mk_fresh_frozen_local node_id info pos ind_vars expr_type =
+let mk_fresh_constant pos name expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_flocal") in
+  let name = HString.concat2 prefix (HString.mk_hstring name) in
   let nexpr = A.Ident (pos, name) in
-  let init, oracle_id, gids1 = mk_fresh_oracle expr_type nexpr in
-  let expr = A.Arrow (pos, init, Pre (pos, nexpr)) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let constraints =
-    let typed_var = (pos, oracle_id, expr_type) in
-    let info = { info with
-      context = Ctx.add_ty info.context oracle_id expr_type
-    } in
-    (* Assume constraints are constant expressions, and thus, 
-       no normalization is required *)
-    mk_enum_subrange_reftype_constraints (Some node_id) info [typed_var]
+  let gids = { (empty ()) with
+    free_constants = [(name, expr_type)] }
   in
-  let asserts, gids3 =
-    match constraints with
-    | Some c -> (
-      let c_expr, gids3 =
-        mk_fresh_local false info pos ind_vars (A.Bool (dummy_pos)) c
-      in
-      [(pos, c_expr)], gids3
-    )
-    | None -> [], empty ()
-  in
-  let gids2 = { (empty ()) with
-    locals = StringMap.singleton name expr_type;
-    asserts;
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
-  in
-  nexpr, name, union (union gids1 gids2) gids3
+  nexpr, name, gids
 
 let mk_fresh_refinement_type_constraint source info pos node_id id expr_type =
   let ref_type_exprs = mk_ref_type_expr info.context (Some node_id) id expr_type in
@@ -2042,7 +2018,6 @@ and normalize_expr ?guard info node_id map =
             A.SI.empty
             args
         in
-        let ivars = info.inductive_variables in
         let ind_vars = List.map 
           (fun (v, _) -> (Lib.dummy_pos, v, A.Int Lib.dummy_pos))
           (StringMap.bindings info.inductive_variables)
@@ -2051,7 +2026,7 @@ and normalize_expr ?guard info node_id map =
           (fun (info, vmap, gids) (pos_v, v, ty) ->
             if A.SI.mem v args_vars then
               let nexpr, id, gids' =
-                mk_fresh_frozen_local node_id info pos_v ivars ty
+                mk_fresh_constant pos_v "_quant_arg" ty
               in
               let info =
                 let ctx = Ctx.add_ty info.context id ty in
