@@ -1,0 +1,19 @@
+type Key = subtype { i : int | i < 2 };
+
+function f(key: Key) returns (b: bool);
+let
+  b = key = 0;
+tel
+
+function imported g() returns (b: bool)
+(*@contract
+  guarantee "G1" b = exists (k : Key) f(k);
+*)
+
+node M() returns (b: bool);
+(*@contract
+  guarantee "P1" b;
+*)
+let
+  b = g();
+tel

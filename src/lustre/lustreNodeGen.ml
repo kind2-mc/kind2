@@ -1671,6 +1671,17 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     in
     List.fold_left over_locals ([], cstate) locals
   (* ****************************************************************** *)
+  (* Generated Free Constants                                           *)
+  (* ****************************************************************** *)
+  in let cstate =
+    List.fold_left
+      (fun cstate (id, ty) ->
+        let g = A.FreeConst (dummy_pos, id, ty) in
+        compile_const_decl cstate ctx map (node_scope @ ["res"]) g
+      )
+      cstate
+      gids.GI.free_constants
+  (* ****************************************************************** *)
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
   in let glocals =
@@ -1993,17 +2004,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
-
-  (* ****************************************************************** *)
-  (* Generated assertions                                               *)
-  (* ****************************************************************** *)
-  in let asserts =
-    let op (pos, expr) =
-      let id = extract_normalized expr in
-      let sv = H.find !map.state_var id in
-      (* N.add_state_var_def sv (N.Assertion pos); *)
-      (pos, sv)
-    in asserts @ List.map op gids.GI.asserts
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
