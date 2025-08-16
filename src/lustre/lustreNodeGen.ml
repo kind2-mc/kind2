@@ -464,6 +464,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let array_index_types = Type.all_index_types_of_array expr_type in
     let over_index_types (e, i) _ =
       let ty = List.nth array_index_types i in
+      let ty = if Type.is_int_range ty then E.type_of_expr b else ty in
       Format.printf "0. %a: %a\n" 
         (E.pp_print_lustre_expr true) (E.mk_array_index_var i ty) 
         Type.pp_print_type (E.type_of_lustre_expr (E.mk_array_index_var i ty));
@@ -2159,7 +2160,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Maps                                                               *)
   (* ****************************************************************** *)
   let empty_map_eqs = 
-    let over_empty_maps acc (id, kt, _) =
+    let over_empty_maps acc (id, _, _) =
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
       (* extract index for boolean flag denoting presence or absence of map item *)
