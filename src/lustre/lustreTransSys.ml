@@ -1891,7 +1891,7 @@ let constraints_of_arrays init terms eq_bounds =
           in
           match bound with 
           | E.Fixed e ->
-            Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, succ i
+            Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
 
           | E.Bound e when Flags.Arrays.inline () && E.is_numeral e ->
             (* inline if static bound and option given *)
@@ -1900,7 +1900,7 @@ let constraints_of_arrays init terms eq_bounds =
             for x = (b - 1) downto 0 do
               cj := Term.mk_let [v, Term.mk_num_of_int x] term :: !cj
             done;
-            Term.mk_and !cj, quant_v, succ i
+            Term.mk_and !cj, quant_v, pred i
 
           | E.Bound e ->
             let term =
@@ -1915,13 +1915,13 @@ let constraints_of_arrays init terms eq_bounds =
                             mk_minus [te; mk_num Numeral.one]];
                     term])
             in
-            term, quant_v @ [v], succ i
+            term, quant_v @ [v], pred i
 
           | E.Unbound _ ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
-            term, v :: quant_v, succ i
+            term, v :: quant_v, pred i
                              
-        ) (term, [], 0) bounds
+        ) (term, [], List.length bounds - 1) bounds
     in
 
 
@@ -1958,8 +1958,8 @@ let constraints_of_arrays init terms eq_bounds =
                       Var.pp_print_var v 
                       Type.pp_print_type (Var.type_of_var v);
                      Term.mk_select st (Term.mk_var v),
-                     pred i)
-                  (sv_term, List.length bounds - 1)
+                     succ i)
+                  (sv_term, 0)
                   (List.rev bounds)
               in
               (*Format.printf "select_term: %a\n"
