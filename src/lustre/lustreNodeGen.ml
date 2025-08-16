@@ -465,9 +465,6 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let over_index_types (e, i) _ =
       let ty = List.nth array_index_types i in
       let ty = if Type.is_int_range ty then E.type_of_expr b else ty in
-      Format.printf "0. %a: %a\n" 
-        (E.pp_print_lustre_expr true) (E.mk_array_index_var i ty) 
-        Type.pp_print_type (E.type_of_lustre_expr (E.mk_array_index_var i ty));
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in

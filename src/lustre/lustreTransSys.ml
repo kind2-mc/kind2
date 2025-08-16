@@ -1879,12 +1879,7 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Bound e 
           | E.Fixed e 
           | E.Unbound (Some e) -> 
-              let v = index_var_of_int_and_ty i (E.type_of_expr e) in 
-              Format.printf "1. %a: %a\n" 
-                Var.pp_print_var v 
-                Type.pp_print_type (Var.type_of_var v);
-              v 
-          in
+            index_var_of_int_and_ty i (E.type_of_expr e) in
           match bound with 
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
@@ -1948,9 +1943,6 @@ let constraints_of_arrays init terms eq_bounds =
                      | E.Unbound None -> Type.t_int 
                      in
                      let v = (index_var_of_int_and_ty i kt) in 
-                     Format.printf "3. %a: %a\n"
-                      Var.pp_print_var v 
-                      Type.pp_print_type (Var.type_of_var v);
                      Term.mk_select st (Term.mk_var v),
                      succ i)
                   (sv_term, 0)
