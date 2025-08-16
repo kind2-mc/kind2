@@ -1869,13 +1869,9 @@ let constraints_of_arrays init terms eq_bounds =
     (* Return the i-th index variable *)
   let index_var_of_int_and_ty i kt = 
     E.var_of_expr (E.mk_array_index_var i kt) in
-    Format.printf "terms: %a\n" 
-      (Lib.pp_print_list Term.pp_print_term ", ") (fst terms);
 
     (* Add quantifier or let binding for indexes of variable *)
   let add_bounds term bounds =
-    Format.printf "term at start: %a\n" 
-      Term.pp_print_term term;
     let term, quant_v, _ =
       List.fold_left (fun (term, quant_v, i) bound -> 
           let v = match bound with 
@@ -1929,8 +1925,6 @@ let constraints_of_arrays init terms eq_bounds =
     | [] -> term
     | _ -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
     in 
-    Format.printf "term at end: %a\n" 
-      Term.pp_print_term r;
     r
 
     in
@@ -1975,8 +1969,6 @@ let constraints_of_arrays init terms eq_bounds =
                         E.cur_term_of_expr TransSys.trans_base expr_step]
                     (* Convert select operators to uninterpreted functions *)
                   ) |> Term.convert_select in 
-                  Format.printf "r: %a\n" 
-                    Term.pp_print_term r;
                   r
               ) eqs
       in
@@ -1996,9 +1988,6 @@ let constraints_of_arrays init terms eq_bounds =
         ) terms cstrs, definition_set)
 
     ) eq_bounds terms in 
-
-  Format.printf "terms: %a\n" 
-    (Lib.pp_print_list Term.pp_print_term ", ") (fst r);
   r
 
 let constraints_of_equations node init stateful_vars terms equations definition_set =

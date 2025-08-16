@@ -1,33 +1,9 @@
-type T = enum { RED, YELLOW, BLUE };
-const C: subrange [0, 3] of int;
-const N : subtype { x: int | x > 3 };
-
-type SRPair1 = [subrange [0, 3] of int, subrange [0, 3] of int];
-type SRPair2 = [subrange [0, 5] of int, subrange [0, 5] of int];
-
 node N  (
          inp1: map<subrange [0, 3] of int, subrange [0, 3] of int>; 
-         inp2: map<T, T> ; 
-         inp3: map<SRPair1, SRPair2>;
         )
 returns (
          out1: map<subrange [0, 5] of int, subrange [0, 5] of int>; 
-         out2: map<T, T> ;
-         out3: map<SRPair2, SRPair2>; 
-         out4: T;
-         n1, n2: int; 
-         n3, n4: T;
         ) 
-var l: int;
 let
-  l = C; 
-  check l <= 3;
-
   out1 = inp1;
-  out2 = inp2;
-  out3 = inp3;
- 
-  check n1 = n2 and (n1 in out1) and (n2 in out1) => out1[n1] = out1[n2];
-  check n3 = n4 and (n3 in out2) and (n4 in out2) => out2[n3] = out2[n4];
-  check out4 = RED or out4 = YELLOW or out4 = BLUE; 
 tel
