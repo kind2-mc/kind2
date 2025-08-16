@@ -1916,14 +1916,12 @@ let constraints_of_arrays init terms eq_bounds =
     in
 
 
-    let r = match quant_v with
+    match quant_v with
     | [] -> term
     | _ -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
-    in 
-    r
-
+     
     in
-  let r = MBounds.fold (fun bounds eqs (terms, definition_set) ->
+  MBounds.fold (fun bounds eqs (terms, definition_set) ->
       let cstrs_eqs =
         List.map (function
             | (state_var, bounds), { E.expr_init; E.expr_step } ->
@@ -1951,7 +1949,7 @@ let constraints_of_arrays init terms eq_bounds =
               (*Format.printf "select_term: %a\n"
                 Term.pp_print_term select_term;*)
               (* Assign value to array position *)
-                  let r = (Term.mk_eq
+                  (Term.mk_eq
                     [select_term;
                       if init then
                         (* Expression at base instant *)
@@ -1960,8 +1958,7 @@ let constraints_of_arrays init terms eq_bounds =
                         (* Expression at current instant *)
                         E.cur_term_of_expr TransSys.trans_base expr_step]
                     (* Convert select operators to uninterpreted functions *)
-                  ) |> Term.convert_select in 
-                  r
+                  ) |> Term.convert_select 
               ) eqs
       in
 
@@ -1979,8 +1976,7 @@ let constraints_of_arrays init terms eq_bounds =
             add_bounds cstr bounds :: terms
         ) terms cstrs, definition_set)
 
-    ) eq_bounds terms in 
-  r
+    ) eq_bounds terms 
 
 let constraints_of_equations node init stateful_vars terms equations definition_set =
 
