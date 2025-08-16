@@ -461,9 +461,10 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (X.MapIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
     let expr_type = expr.E.expr_type in
-    let array_index_types = Type.all_index_types_of_array expr_type in
+    let array_index_types = Type.all_index_types_of_array expr_type |> List.rev in
     let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_array_index_var i (E.type_of_expr b)), succ i
+      let ty = List.nth array_index_types i in
+      E.mk_select_and_push e (E.mk_array_index_var i ty), succ i
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
     let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
