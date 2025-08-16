@@ -1883,8 +1883,12 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Bound e 
           | E.Fixed e 
           | E.Unbound (Some e) -> 
-
-              index_var_of_int_and_ty i (E.type_of_expr e) in
+              let v = index_var_of_int_and_ty i (E.type_of_expr e) in 
+              Format.printf "1. %a: %a\n" 
+                Var.pp_print_var v 
+                Type.pp_print_type (Var.type_of_var v);
+              v 
+          in
           match bound with 
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, succ i
@@ -1911,13 +1915,11 @@ let constraints_of_arrays init terms eq_bounds =
                             mk_minus [te; mk_num Numeral.one]];
                     term])
             in
-            term, v :: quant_v, succ i
+            term, quant_v @ [v], succ i
 
           | E.Unbound _ ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
-            Format.printf "v: %a\n"
-              Var.pp_print_var v;
-            term, quant_v @ [v], succ i
+            term, v :: quant_v, succ i
                              
         ) (term, [], 0) bounds
     in
@@ -1951,13 +1953,17 @@ let constraints_of_arrays init terms eq_bounds =
                      | E.Fixed b -> E.type_of_expr b 
                      | E.Unbound None -> Type.t_int 
                      in
-                     Term.mk_select st (Term.mk_var (index_var_of_int_and_ty i kt)),
-                     succ i)
-                  (sv_term, 0)
-                  bounds
+                     let v = (index_var_of_int_and_ty i kt) in 
+                     Format.printf "3. %a: %a\n"
+                      Var.pp_print_var v 
+                      Type.pp_print_type (Var.type_of_var v);
+                     Term.mk_select st (Term.mk_var v),
+                     pred i)
+                  (sv_term, List.length bounds - 1)
+                  (List.rev bounds)
               in
-              Format.printf "select_term: %a\n"
-                Term.pp_print_term select_term;
+              (*Format.printf "select_term: %a\n"
+                Term.pp_print_term select_term;*)
               (* Assign value to array position *)
                   let r = (Term.mk_eq
                     [select_term;
