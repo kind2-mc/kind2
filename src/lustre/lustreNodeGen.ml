@@ -458,17 +458,22 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Map index on right and left side *)
-  | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
-    (X.MapIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
+  | (X.MapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.MapIndex b :: rhs_index_tl, expr) :: rhs_tl -> 
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
-    let over_index_types (e, i) _ =
-      let ty = List.nth array_index_types i in
-      let ty = if Type.is_int_range ty then E.type_of_expr b else ty in
-      E.mk_select_and_push e (E.mk_array_index_var i ty), succ i
+    let over_index_types (e, i, j) _ =
+      let ty = 
+        let idx = List.nth (List.rev (X.MapIndex b :: rhs_index_tl)) j in 
+        match idx with 
+        | X.MapIndex b -> 
+          E.type_of_expr b 
+        | _ -> assert false 
+      in
+      E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
-    let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
+    let expr, _, _ = List.fold_left over_index_types (expr, start, 0) array_index_types in
     expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
@@ -2170,9 +2175,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let eq_rhs = X.fold (fun k _ acc -> 
         X.add k E.t_false acc
       ) eq_lhs X.empty in
-      Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
       let empty_map_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       empty_map_eqs @ acc
     in 
