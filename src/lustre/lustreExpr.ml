@@ -1232,29 +1232,8 @@ let mk_free_var v =
     expr_step = t;
     expr_type = Var.type_of_var v } 
   
-
-(* i-th index variable *)
-let mk_index_var i = 
-
-  let v =
-    Var.mk_free_var
-      (String.concat "."
-         (((I.push_index I.index_ident i) |> I.string_of_ident true)
-          :: I.reserved_scope)
-       |> HString.mk_hstring)
-      Type.t_int
-    |> Term.mk_var
-  in
-
-  (* create lustre expression for free variable*)
-  { expr_init = v;
-    expr_step = v;
-    expr_type = Type.t_int } 
-
-(* map index variable *)
-let mk_map_index_var i kt = 
-  let kt = if Type.is_int_range kt || Type.is_enum kt then Type.t_int else kt in
-
+(* array/map index variable *)
+let mk_array_index_var i kt = 
   let v =
     Var.mk_free_var
       (String.concat "."

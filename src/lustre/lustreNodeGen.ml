@@ -152,7 +152,9 @@ let array_select_of_bounds_term bounds e =
 *)
 
 let array_select_of_indexes_expr indexes e =
-  List.fold_left (fun e i -> E.mk_select_and_push e (E.mk_index_var i)) e indexes
+  List.fold_left (fun e i -> 
+    E.mk_select_and_push e (E.mk_array_index_var i Type.t_int)
+  ) e indexes
 
 (* Try to make the types of two expressions line up.
   * If one expression is an array but the other is not, then insert a 'select'
@@ -163,9 +165,9 @@ let coalesce_array2 e1 e2 =
   and t2 = E.type_of_lustre_expr e2 in
   let i1 = List.length (Type.all_index_types_of_array t1)
   and i2 = List.length (Type.all_index_types_of_array t2) in
-  if i1 > i2 then
+  if i1 > i2 then 
     array_select_of_indexes_expr (List.init (i1 - i2) (fun x -> x)) e1, e2
-  else if i2 > i1 then
+  else if i2 > i1 then 
     e1, array_select_of_indexes_expr (List.init (i2 - i1) (fun x -> x)) e2
   else
     e1, e2
@@ -448,7 +450,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
     let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_index_var i), succ i
+      E.mk_select_and_push e (E.mk_array_index_var i (E.type_of_expr b)), succ i
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
     let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
@@ -456,15 +458,22 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Map index on right and left side *)
-  | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
-    (X.MapIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
+  | (X.MapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.MapIndex b :: rhs_index_tl, expr) :: rhs_tl -> 
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
-    let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_index_var i), succ i
+    let over_index_types (e, i, j) _ =
+      let ty = 
+        let idx = List.nth (List.rev (X.MapIndex b :: rhs_index_tl)) j in 
+        match idx with 
+        | X.MapIndex b -> 
+          E.type_of_expr b 
+        | _ -> assert false 
+      in
+      E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
-    let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
+    let expr, _, _ = List.fold_left over_index_types (expr, start, 0) array_index_types in
     expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
@@ -760,6 +769,13 @@ and vars_of_quant cstate ctx map avars =
   in
   List.fold_left var_of_quant [] avars, quant_vars
 
+and compile_binary' mk expr1 expr2 =
+  (*Format.printf "expr1: %a, expr2: %a\n" 
+    (X.pp_print_trie_expr true) expr1 
+    (X.pp_print_trie_expr true) expr2;*)
+  (* TODO: Old code does three error checks here doublecheck *)
+  X.map2 (fun _ -> mk) expr1 expr2
+
 and compile_ast_expr
   (cstate:compiler_state)
   (ctx:Ctx.tc_context)
@@ -833,6 +849,9 @@ and compile_ast_expr
   and compile_binary bounds mk expr1 expr2 =
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    (*Format.printf "expr1: %a, expr2: %a\n" 
+      (X.pp_print_trie_expr true) expr1 
+      (X.pp_print_trie_expr true) expr2;*)
     (* TODO: Old code does three error checks here doublecheck *)
     X.map2 (fun _ -> mk) expr1 expr2
 
@@ -946,7 +965,7 @@ and compile_ast_expr
     let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let rec aux accum = function
       | [] -> List.rev accum
-      | A.MapIndex _ :: _ -> assert false (* use 'compile_map_element_update' *)
+      | A.MapIndex _ :: _ -> assert false 
       | A.Label (_, index) :: tl ->
         let index = HString.string_of_hstring index in
         let accum' = X.RecordIndex index :: accum in
@@ -972,13 +991,13 @@ and compile_ast_expr
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
       match li, ri with
-      | X.ArrayVarIndex _ :: li', X.ArrayIntIndex vi :: ri' ->
+      | X.ArrayVarIndex b :: li', X.ArrayIntIndex vi :: ri' ->
         let rhs = (E.mk_int (Numeral.of_int vi)) in
-        let acc = E.mk_eq (E.mk_index_var cpt) rhs :: acc in
+        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
         mk_cond_indexes (acc, cpt+1) li' ri'
-      | X.ArrayVarIndex _ :: li', X.ArrayVarIndex vi :: ri' ->
+      | X.ArrayVarIndex b :: li', X.ArrayVarIndex vi :: ri' ->
         let rhs = (E.mk_of_expr vi) in
-        let acc = E.mk_eq (E.mk_index_var cpt) rhs :: acc in
+        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
         mk_cond_indexes (acc, cpt+1) li' ri'
       | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
       | [], _ | _, [] -> if acc = [] then raise Not_found;
@@ -1006,8 +1025,14 @@ and compile_ast_expr
         (match i with
           | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
           | _ -> raise Not_found);
-        let old_v = List.fold_left (fun (acc, cpt) _ ->
-          E.mk_select_and_push acc (E.mk_index_var cpt), cpt + 1) (v, 0) i |> fst
+        let old_v = List.fold_left (fun (acc, cpt) i ->
+          let kt = match i with 
+          | X.ArrayIntIndex _ -> Type.t_int 
+          | X.ArrayVarIndex b -> E.type_of_expr b 
+          | _ -> assert false 
+          in
+          E.mk_select_and_push acc (E.mk_array_index_var cpt kt), cpt + 1
+        ) (v, 0) i |> fst
         in let new_v = X.find cindex cexpr2' in
         if Flags.Arrays.smt () then
           let v' = mk_store [] v cindex new_v in X.add [] v' a
@@ -1053,7 +1078,8 @@ and compile_ast_expr
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index_e = compiled_i |> X.values |> List.hd in
-    let index = E.mk_of_expr index_e.E.expr_init in
+    let as_type = index_e.expr_type in 
+    let index = E.mk_of_expr ~as_type index_e.E.expr_init in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in
@@ -2007,7 +2033,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_array_or_map_def i l kt = 
+  in let compile_array_or_map_def i l = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map (fun e -> state_var_of_expr e) expr in
@@ -2016,13 +2042,31 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (* TODO: Old code suggets that shadowing can occur here *)
     let indexes = List.length l in
     (* This code works for two different cases -- 
-        1. Compilation of with a list of array index variables from list l, each of type kt = int 
+        1. Compilation with a list of array index variables from list l 
         2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
     List.iteri (fun i v -> 
       let ident = mk_ident v in
-      let kt = compile_ast_type cstate ctx map kt in
+
+      (* Add index types to kt trie *)
+      let kt = X.fold (fun k _ acc -> 
+        let contains_multiple_map_indices = 
+          List.filter (fun i -> match i with | X.MapIndex _ -> true | _ -> false) k
+          |> (fun x -> List.length x > 1) 
+        in
+        List.fold_left (fun (acc, acc_is, acc_i) idx -> 
+        match idx with 
+        | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i
+        | X.MapIndex b -> 
+          if contains_multiple_map_indices then 
+            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
+          else 
+            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
+        | _ -> acc, acc_is, acc_i
+        ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
+      ) expr X.empty in
+
       let over_indices j t (i, a) = 
-        let expr = E.mk_map_index_var i t in 
+        let expr = E.mk_array_index_var i t in
         i + 1, X.add j expr a 
       in
       let index = X.fold over_indices kt (i, X.empty) |> snd in
@@ -2034,10 +2078,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     | A.SingleIdent (_, i) ->
       let ident = mk_ident i in
       let expr = H.find !map.expr ident in
-      let result = X.map (fun e -> state_var_of_expr e) expr in
+      let result = X.map state_var_of_expr expr in
       result, 0
     | A.ArrayDef (_, i, l) -> 
-      compile_array_or_map_def i l (A.Int Lib.dummy_pos)
+      compile_array_or_map_def i l 
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2050,7 +2094,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | _ -> true
       ) lst
 
-  in let gen_lhs_bounds is_generated eq_lhs expr indexes =
+  in let gen_lhs_bounds pos is_generated eq_lhs indexes =
     List.fold_left (fun acc (i, sv) ->
       let result = List.fold_left (fun (acc, cpt) -> function
         | X.ArrayVarIndex b -> if cpt < indexes
@@ -2067,7 +2111,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       in
       if not is_generated then
         N.add_state_var_def sv ~is_dep:false
-          (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
+          (N.ProperEq (pos, rm_array_var_index i));
       result
     ) [] (X.bindings eq_lhs)
   (* ****************************************************************** *)
@@ -2098,7 +2142,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
           let _, res = List.fold_left over_items (0, X.empty) l
           in res, 0
       in
-      let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes in
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr ast_expr) true eq_lhs indexes in
       let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
       let bounds = lhs_bounds @
         List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
@@ -2123,17 +2167,22 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Maps                                                               *)
   (* ****************************************************************** *)
   let empty_map_eqs = 
-    let over_empty_maps acc (id, kt, _) =
+    let over_empty_maps acc (id, _, _) =
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
-      let idx, sv = X.choose eq_lhs in
-      let eq_lhs = X.singleton idx sv in
-      let kt = compile_ast_type cstate ctx map kt |> X.values |> List.hd in  
-      let dummy = (E.mk_free_var (Var.mk_fresh_var kt)).E.expr_init in 
-      let eq_rhs = X.singleton [X.TupleIndex 0; X.MapIndex dummy] E.t_false in
-      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+      (* extract index for boolean flag denoting presence or absence of map item *)
+      let eq_lhs = X.fold (fun k sv acc -> match k with 
+      | X.TupleIndex 0 :: _ -> X.add k sv acc 
+      | _ -> acc 
+      ) eq_lhs X.empty 
+      in
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
       let empty_map_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       empty_map_eqs @ acc
     in 
@@ -2141,19 +2190,47 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in 
   let gequations = gequations @ empty_map_eqs in
   let map_element_update_eqs = 
-    let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, kt, _) =
+    let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] kt in 
-      let cond_expr = A.CompOp (dummy_pos, Eq, nexpr2, fresh_idx) in 
+      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
+      let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
+      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
+         compile_ast_type flattens indices, so we need to do a corresponding flattening 
+         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
+      let nexpr2 =
+        let nexpr2 = X.values nexpr2 in 
+        if List.length nexpr2 = 1 then
+          List.fold_left (fun acc e -> 
+            X.add [] e acc 
+          ) X.empty nexpr2 
+        else 
+          List.fold_left (fun (acc, acc_i) e -> 
+            X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          ) (X.empty, 0) nexpr2 |> fst 
+      in
+      let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
+      let cond_expr = 
+        X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
+      in
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
         A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
-      let nexpr = A.TernaryOp (dummy_pos, Ite, cond_expr, then_expr, else_expr) in
-      let lhs_bounds = gen_lhs_bounds true eq_lhs nexpr indexes in
-      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map nexpr in
+      let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
+      let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
+      let cond_expr = match X.bindings cond_expr with
+      | [_, expr] -> expr
+      | _ -> assert false
+      in
+      let mk e1 e2 =
+        let e1', e2' = coalesce_array2 e1 e2 in
+        E.mk_ite cond_expr e1' e2'
+      in
+      let eq_rhs = compile_binary' mk then_expr else_expr in 
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
@@ -2196,7 +2273,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
             let _, res = List.fold_left over_items (0, X.empty) l
             in (res, 0), false
         in
-        let lhs_bounds = gen_lhs_bounds is_generated eq_lhs ast_expr indexes in
+        let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr ast_expr) is_generated eq_lhs indexes in
         let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
         let eq_lhs = flatten_list_indexes eq_lhs in
         let eq_rhs = flatten_list_indexes eq_rhs in

@@ -474,7 +474,7 @@ let [@ocaml.warning "-27"] eval_struct_item ctx pos = function
       List.fold_left 
         (fun (i, ctx) v -> 
            (* Get an expression for the i-th index variable *)
-           let expr = E.mk_index_var i in
+           let expr = E.mk_array_index_var i Type.t_int in
 
            (* Bind identifier to the index variable, shadow previous
               bindings *)

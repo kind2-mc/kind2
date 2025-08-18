@@ -431,7 +431,7 @@ let add_constraints_of_type init terms state_var =
     let base_type = Type.last_elem_type_of_array state_var_type in
 
     let indices =
-      Type.all_index_types_of_array state_var_type
+      Type.all_index_types_of_array state_var_type 
       |> List.map (fun ty -> ty, Var.mk_fresh_var ty)
     in
 
@@ -1868,7 +1868,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 let constraints_of_arrays init terms eq_bounds =
     (* Return the i-th index variable *)
   let index_var_of_int_and_ty i kt = 
-    E.var_of_expr (E.mk_map_index_var i kt) in
+    E.var_of_expr (E.mk_array_index_var i kt) in
 
     (* Add quantifier or let binding for indexes of variable *)
   let add_bounds term bounds =
@@ -1878,7 +1878,8 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Unbound None -> index_var_of_int_and_ty i Type.t_int
           | E.Bound e 
           | E.Fixed e 
-          | E.Unbound (Some e) -> index_var_of_int_and_ty i (E.type_of_expr e) in
+          | E.Unbound (Some e) -> 
+            index_var_of_int_and_ty i (E.type_of_expr e) in
           match bound with 
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
@@ -1905,7 +1906,7 @@ let constraints_of_arrays init terms eq_bounds =
                             mk_minus [te; mk_num Numeral.one]];
                     term])
             in
-            term, v :: quant_v, pred i
+            term, quant_v @ [v], pred i
 
           | E.Unbound _ ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
@@ -1914,10 +1915,11 @@ let constraints_of_arrays init terms eq_bounds =
         ) (term, [], List.length bounds - 1) bounds
     in
 
-    match List.rev quant_v with
+
+    match quant_v with
     | [] -> term
     | _ -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
-
+     
     in
   MBounds.fold (fun bounds eqs (terms, definition_set) ->
       let cstrs_eqs =
@@ -1938,11 +1940,14 @@ let constraints_of_arrays init terms eq_bounds =
                      | E.Fixed b -> E.type_of_expr b 
                      | E.Unbound None -> Type.t_int 
                      in
-                     Term.mk_select st (Term.mk_var (index_var_of_int_and_ty i kt)),
+                     let v = (index_var_of_int_and_ty i kt) in 
+                     Term.mk_select st (Term.mk_var v),
                      succ i)
                   (sv_term, 0)
-                  bounds
+                  (List.rev bounds)
               in
+              (*Format.printf "select_term: %a\n"
+                Term.pp_print_term select_term;*)
               (* Assign value to array position *)
                   (Term.mk_eq
                     [select_term;
@@ -1953,7 +1958,7 @@ let constraints_of_arrays init terms eq_bounds =
                         (* Expression at current instant *)
                         E.cur_term_of_expr TransSys.trans_base expr_step]
                     (* Convert select operators to uninterpreted functions *)
-                  ) |> Term.convert_select
+                  ) |> Term.convert_select 
               ) eqs
       in
 
@@ -1971,7 +1976,7 @@ let constraints_of_arrays init terms eq_bounds =
             add_bounds cstr bounds :: terms
         ) terms cstrs, definition_set)
 
-    ) eq_bounds terms
+    ) eq_bounds terms 
 
 let constraints_of_equations node init stateful_vars terms equations definition_set =
 

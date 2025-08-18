@@ -1,0 +1,10 @@
+type M = struct {
+  f: bool;
+};
+
+type Set = map<M,bool>;
+
+node N(m: M) returns (s: Set);
+let
+  s = map[]@<M,bool>[m := true];
+tel

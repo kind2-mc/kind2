@@ -940,12 +940,12 @@ let rec eval_ast_expr bounds ctx =
         match li, ri with
         | D.ArrayVarIndex _ :: li', D.ArrayIntIndex vi :: ri' ->
           let acc =
-            E.mk_eq (E.mk_index_var cpt) (E.mk_int (Numeral.of_int vi)) :: acc
+            E.mk_eq (E.mk_array_index_var cpt Type.t_int) (E.mk_int (Numeral.of_int vi)) :: acc
           in
           mk_cond_indexes (acc, cpt+1) li' ri'
         | D.ArrayVarIndex _ :: li', D.ArrayVarIndex vi :: ri' ->
           let acc =
-            E.mk_eq (E.mk_index_var cpt) (E.mk_of_expr vi) :: acc in
+            E.mk_eq (E.mk_array_index_var cpt Type.t_int) (E.mk_of_expr vi) :: acc in
           mk_cond_indexes (acc, cpt+1) li' ri'
         | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
         | [], _ | _, [] ->
@@ -990,7 +990,7 @@ let rec eval_ast_expr bounds ctx =
                 mention the values of the array. *)
              (* the value if the index condition is false *)
              let old_v = List.fold_left (fun (acc, cpt) _ ->
-                 E.mk_select acc (E.mk_index_var cpt), cpt + 1
+                 E.mk_select acc (E.mk_array_index_var cpt Type.t_int), cpt + 1
                ) (v, 0) i |> fst in
              (* the new value if the condition matches *)
              let new_v = D.find index' expr2'' in
@@ -1642,7 +1642,7 @@ and try_eval_node_call bounds ctx pos ident cond restart args defaults =
             let array_size = E.unsafe_term_of_expr b
                           |> Term.numeral_of_term
                           |> Numeral.to_int in
-            let index_varE = E.mk_index_var index_var in
+            let index_varE = E.mk_array_index_var index_var Type.t_int in
             let index_varV = E.var_of_expr  index_varE in
             let rec unroll_indices i ctx =
               let i'     = Numeral.of_int i in
@@ -1975,7 +1975,7 @@ and eval_node_call
 and array_select_of_bounds_term bounds e =
   let (_, e) = List.fold_left (fun (i, t) -> function
     | E.Bound _ ->
-        succ i, Term.mk_select t (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
+        succ i, Term.mk_select t (Term.mk_var @@ E.var_of_expr @@ E.mk_array_index_var i Type.t_int)
     | E.Unbound (Some v) ->
         i, Term.mk_select t (E.unsafe_term_of_expr v)
     | _ -> assert false)
@@ -1984,7 +1984,7 @@ and array_select_of_bounds_term bounds e =
 
 and array_select_of_indexes_expr indexes e =
   let e = List.fold_left
-    (fun e i -> E.mk_select e (E.mk_index_var i)) e indexes
+    (fun e i -> E.mk_select e (E.mk_array_index_var i Type.t_int)) e indexes
   in e
 
 (* Try to make the types of two expressions line up.

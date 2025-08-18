@@ -1010,7 +1010,7 @@ let bounds_of_expr bounds ctx expr =
       | E.Bound _ | E.Fixed _ | E.Unbound _ ->
         let vi = match bnd with
           | E.Unbound (Some e) -> E.mk_of_expr e |> E.var_of_expr
-          | _ -> E.mk_index_var !i |> E.var_of_expr
+          | _ -> E.mk_array_index_var !i Type.t_int |> E.var_of_expr
         in
         try
           let t = Term.TermSet.filter (has_var_index_t vi) sel_terms
@@ -1113,7 +1113,7 @@ let mk_abs_for_expr
   (* new array if there are bound variables *)
   let expr_type, expr, present_bounds, present_bounds', _ =
     List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
-        let vi = E.mk_index_var i |> E.var_of_expr in
+        let vi = E.mk_array_index_var i Type.t_int |> E.var_of_expr in
         fun b1 bp -> match b1 with
           | _, E.Unbound None -> failwith "Map types not supported in old frontend"
           | ev, ((E.Bound b | E.Fixed b) as bnd)
@@ -1901,7 +1901,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           let elty = Type.last_elem_type_of_array expr_type in
           let eitys = Type.all_index_types_of_array expr_type in
           let expr, _ = List.fold_left (fun (e, i) _ ->
-              E.mk_select e (E.mk_index_var i), succ i
+              E.mk_select e (E.mk_array_index_var i Type.t_int), succ i
             ) (expr, indexes) eitys in
 
           expr, elty, bounds, indexes
