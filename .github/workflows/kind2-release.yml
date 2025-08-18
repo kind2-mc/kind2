@@ -131,7 +131,7 @@ jobs:
       run: |
         LIBSODIUM_BOTTLE=libsodium-${{ matrix.libsodium-version }}.${{ matrix.bottle-suffix }}.bottle.tar.gz
         curl -L -H "Authorization: Bearer QQ==" -o $LIBSODIUM_BOTTLE https://ghcr.io/v2/homebrew/core/libsodium/blobs/sha256:${{ matrix.libsodium-sha256 }}
-        brew reinstall -f $LIBSODIUM_BOTTLE
+        brew reinstall -f "$LIBSODIUM_BOTTLE" || brew install -f "$LIBSODIUM_BOTTLE"
 
         ZEROMQ_BOTTLE=zeromq-${{ matrix.zeromq-version }}.${{ matrix.bottle-suffix }}.bottle.tar.gz
         curl -L -H "Authorization: Bearer QQ==" -o $ZEROMQ_BOTTLE https://ghcr.io/v2/homebrew/core/zeromq/blobs/sha256:${{ matrix.zeromq-sha256 }}
