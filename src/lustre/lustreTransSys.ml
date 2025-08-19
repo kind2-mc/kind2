@@ -1906,7 +1906,7 @@ let constraints_of_arrays init terms eq_bounds =
                             mk_minus [te; mk_num Numeral.one]];
                     term])
             in
-            term, quant_v @ [v], pred i
+            term, v :: quant_v, pred i
 
           | E.Unbound _ ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)

@@ -1,0 +1,46 @@
+type Nat = subrange [0,*] of int;
+type Pos = subrange [1,*] of int;
+
+type Vote = enum {Yes, No};
+
+const N: Pos; -- Number of participants
+
+type HostId = subtype { i: Nat | i < N };
+
+type Message = struct {
+  sender: HostId;
+  vote: Vote;
+};
+
+type MsgSet = bool^2^N;
+
+const EmptySet: MsgSet = false^2^N;
+
+function AddMsgToSet(svm_in: bool^2^N; vote_msg: Message) returns (svm_out: bool^2^N);
+let
+  svm_out[i][j] =
+    if i=vote_msg.sender then
+      if j=0 and vote_msg.vote=No then true
+      else if j=1 and vote_msg.vote=Yes then true
+      else svm_in[i][j]
+    else svm_in[i][j];
+tel
+
+function IsMsgInSet(m: Message; s_in: MsgSet) returns (r: bool);
+let
+  if m.vote=No then
+    r = s_in[m.sender][0];
+  else
+    r = s_in[m.sender][1];
+  fi
+tel
+
+node Network(m: Message) returns
+  (sentMsgs: MsgSet);
+var prevSentMsgs: MsgSet;
+let
+  prevSentMsgs = EmptySet -> pre sentMsgs;
+  sentMsgs = AddMsgToSet(prevSentMsgs, m);
+  check IsMsgInSet(m, sentMsgs);
+tel
+
