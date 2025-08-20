@@ -870,6 +870,9 @@ any_expr:
                       Const(mk_pos $startpos, True))
     }
 
+assign:
+  | e2 = expr; ASSIGN; e3 = expr { e2, e3 }
+
 (* An possibly quantified expression *)
 pexpr(Q): 
   
@@ -930,8 +933,19 @@ pexpr(Q):
     A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))
   }
 
-  | e1 = pexpr(Q); LSQBRACKET; e2 = expr; ASSIGN; e3 = expr; RSQBRACKET;
-    { A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3) }
+  | e1 = pexpr(Q); 
+    LSQBRACKET; 
+    updates = separated_nonempty_list(SEMICOLON, assign); 
+    RSQBRACKET;
+    { 
+      match updates with 
+      | [] -> assert false 
+      | (e2, e3) :: tl -> 
+        List.fold_left (fun acc (e2, e3) -> 
+          A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], e3) 
+        ) (A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3)) 
+          tl 
+    }
 
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
