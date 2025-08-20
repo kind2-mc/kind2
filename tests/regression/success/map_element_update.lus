@@ -9,11 +9,11 @@ var l4: [int, int]; var l9: [int, int];
 var l5: [int, int]; var l10: [int, int];
 var l11: int;
 let
-    o = map[]@<int, int>[3 := 5][4 := 6];
-    o2 = map[]@<[int, int], int>[{3, 4} := 5][{6, 7} := 8];
-    o3 = map[]@<[[int, int], int], int>[{{3, 4}, 5} := 5][{{6, 7}, 8} := 9];
-    o4 = map[]@<[int, int], [int, int]>[{3, 4} := {5, 6}][{7, 8} := {9, 10}];
-    o5 = map[]@<int, [int, int]>[3:= {5, 6}][4:= {7, 8}];
+    o = map[]@<int, int>[3 := 5; 4 := 6];
+    o2 = map[]@<[int, int], int>[{3, 4} := 5; {6, 7} := 8];
+    o3 = map[]@<[[int, int], int], int>[{{3, 4}, 5} := 5; {{6, 7}, 8} := 9];
+    o4 = map[]@<[int, int], [int, int]>[{3, 4} := {5, 6}; {7, 8} := {9, 10}];
+    o5 = map[]@<int, [int, int]>[3:= {5, 6}; 4:= {7, 8}];
     o6 = map[]@<R, int>[R {x = 3; y = 4} := 5];
 
     l = o[3]; l6 = o[4];
