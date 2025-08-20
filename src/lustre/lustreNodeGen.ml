@@ -449,11 +449,18 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     in
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
-    let over_index_types (e, i) _ =
-      E.mk_select_and_push e (E.mk_array_index_var i (E.type_of_expr b)), succ i
+    let over_index_types (e, i, j) _ =
+      let ty = 
+        let idx = List.nth (List.rev (X.ArrayVarIndex b :: rhs_index_tl)) j in 
+        match idx with 
+        | X.ArrayVarIndex b -> 
+          E.type_of_expr b 
+        | _ -> assert false 
+      in
+      E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
     in
     let start = (List.length lhs_index_tl + 1) - List.length array_index_types in
-    let expr, _ = List.fold_left over_index_types (expr, start) array_index_types in
+    let expr, _, _ = List.fold_left over_index_types (expr, start, 0) array_index_types in
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
@@ -2033,34 +2040,24 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_array_or_map_def i l = 
+  in let compile_map_def i l = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
-    let result = X.map (fun e -> state_var_of_expr e) expr in
+    let result = X.map state_var_of_expr expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggets that shadowing can occur here *)
     let indexes = List.length l in
-    (* This code works for two different cases -- 
-        1. Compilation with a list of array index variables from list l 
-        2. Compilation of one map index variable of generic type kt. In this case, the length of l is always 1. *)
+
     List.iteri (fun i v -> 
       let ident = mk_ident v in
 
       (* Add index types to kt trie *)
       let kt = X.fold (fun k _ acc -> 
-        let contains_multiple_map_indices = 
-          List.filter (fun i -> match i with | X.MapIndex _ -> true | _ -> false) k
-          |> (fun x -> List.length x > 1) 
-        in
         List.fold_left (fun (acc, acc_is, acc_i) idx -> 
         match idx with 
-        | X.ArrayVarIndex b -> X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i
         | X.MapIndex b -> 
-          if contains_multiple_map_indices then 
             X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
-          else 
-            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
         | _ -> acc, acc_is, acc_i
         ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
       ) expr X.empty in
@@ -2074,6 +2071,30 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       l;
     result, indexes
 
+  in let compile_array_def i l =
+    let ident = mk_ident i in
+    let expr = H.find !map.expr ident in
+    let result = X.map state_var_of_expr expr in
+    (* TODO: Old code checks that array lengths between l and result match *)
+    (* TODO: Old code checks that result must have at least one element *)
+    (* TODO: Old code suggets that shadowing can occur here *)
+    let indexes = List.length l in
+
+    List.iteri (fun i v -> 
+      let ident = mk_ident v in
+      let indices = X.bindings expr |> List.hd |> fst |> List.rev  in
+      let index = List.nth indices i in 
+      let ty = match index with 
+      | ArrayVarIndex b -> E.type_of_expr b 
+      | _ -> assert false 
+      in
+      let expr = E.mk_array_index_var i ty in
+      let index = X.singleton X.empty_index expr in
+      H.add !map.array_index ident index
+    ) l;
+
+    result, indexes
+
   in let compile_struct_item struct_item = match struct_item with
     | A.SingleIdent (_, i) ->
       let ident = mk_ident i in
@@ -2081,7 +2102,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let result = X.map state_var_of_expr expr in
       result, 0
     | A.ArrayDef (_, i, l) -> 
-      compile_array_or_map_def i l 
+      compile_array_def i l 
     | A.TupleStructItem _
     | A.TupleSelection _
     | A.FieldSelection _
@@ -2193,7 +2214,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_array_or_map_def id [fresh_idx_name] in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
@@ -2202,14 +2223,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
       let nexpr2 =
         let nexpr2 = X.values nexpr2 in 
-        if List.length nexpr2 = 1 then
-          List.fold_left (fun acc e -> 
-            X.add [] e acc 
-          ) X.empty nexpr2 
-        else 
-          List.fold_left (fun (acc, acc_i) e -> 
-            X.add [X.TupleIndex acc_i] e acc, acc_i + 1
-          ) (X.empty, 0) nexpr2 |> fst 
+        List.fold_left (fun (acc, acc_i) e -> 
+          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+        ) (X.empty, 0) nexpr2 |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
