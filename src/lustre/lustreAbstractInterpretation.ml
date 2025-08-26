@@ -465,6 +465,8 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
+    Format.printf "e: %a\n" 
+      LustreAst.pp_print_expr e;
     let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
     in
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 

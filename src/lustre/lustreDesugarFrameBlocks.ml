@@ -88,7 +88,9 @@ let warn_unguarded_pres nis pos =
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
 *)
-let rec fill_ite_helper frame_pos node_id lhs id fill = function
+let rec fill_ite_helper init ung frame_pos node_id lhs id fill e = 
+  let r = fill_ite_helper init ung frame_pos node_id lhs id fill in 
+  match e with
   (* Replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
@@ -108,55 +110,70 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (p, e) -> Pre (p, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | Pre (a, e) -> (
+    match init with
+    | Some init -> (
+      if ung
+      then 
+        let e = A.Pre (a, (fill_ite_helper (Some init) true frame_pos node_id lhs id fill) e) in
+        Format.printf "got here2: %a\n"
+          A.pp_print_expr (Arrow (a, init, e));
+        Arrow (a, init, e)  
+      else Pre (a, (fill_ite_helper (Some init) true frame_pos node_id lhs id fill) e)
+      ) 
+      | None -> Pre (a, (fill_ite_helper init true frame_pos node_id lhs id fill) e)
+    )
+  | Arrow (a, e1, e2) -> Arrow (a, r e1, fill_ite_helper init false frame_pos node_id lhs id fill e2)
+
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | EmptyMap _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Extract (a, e, b, c) -> Extract (a, fill_ite_helper frame_pos node_id lhs id fill e, b, c)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | When (a, e, b) -> When (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper frame_pos node_id lhs id fill e)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | RecordProject (a, e, b) -> RecordProject (a, r e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, r e)
+  | Extract (a, e, b, c) -> Extract (a, r e, b, c)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, r e)
+  | When (a, e, b) -> When (a, r e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, r e, b)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, r e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, k)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
+  (*!! We are recursing "in", but we need to "pull out" the index access to not include the 
+       initialization value *)
+  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, r e1, r e2, k)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, r e1, r e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, r e1, r e2, r e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Call (a, b, c, l) -> Call (a, b, c, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
+  | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
 
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
   | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Activate (a, b, e, r, l) ->
-    Activate (a, b, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, b, 
-             List.map (fill_ite_helper frame_pos node_id lhs id fill) l1, List.map (fill_ite_helper frame_pos node_id lhs id fill) l2)
+    RestartEvery (a, b, List.map r l, r e)
+  | Activate (a, b, e1, e2, l) ->
+    Activate (a, b, r e1, r e2, List.map r l)
+  | Condact (a, e1, e2, b, l1, l2) ->
+    Condact (a, r e1, r e2, b, 
+             List.map r l1, List.map r l2)
 
   | StructUpdate (a, e1, li, e2) -> 
-    A.StructUpdate (a, fill_ite_helper frame_pos node_id lhs id fill e1, 
+    A.StructUpdate (a, r e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
-              | MapIndex (a, e) -> MapIndex (a, fill_ite_helper frame_pos node_id lhs id fill e)
-              | Index (a, e) -> Index (a, fill_ite_helper frame_pos node_id lhs id fill e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | Index (a, e) -> Index (a, r e)
              ) li, 
-    fill_ite_helper frame_pos node_id lhs id fill e2)
+    r e2)
 
 (** Helper function to generate node equations when an initialized variable in the 
     frame block is left undefined in the frame block body. *)
@@ -281,13 +298,21 @@ match ni with
     (match lhs_init_e with
       | Some (lhs, init, rhs_expr) ->     
         let pos2 = AH.pos_of_expr rhs_expr in 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i (A.Pre (pos2, Ident(pos2, i))) rhs_expr)))))
+        let rhs = 
+          fill_ite_helper (Some init) true f_pos node_id lhs i 
+            (A.Arrow (pos2, init, (A.Pre (pos2, Ident(pos2, i))))) rhs_expr
+        in
+        Format.printf "rhs: %a\nrhs_expr: %a\n"
+          A.pp_print_expr rhs 
+          A.pp_print_expr rhs_expr;
+        R.ok (A.Body (Equation (pos, lhs, rhs))) 
       | None -> 
         let pos2 = AH.pos_of_expr rhs_expr in 
-        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i
-                                (A.Pre (pos2, Ident(pos2, i)))
-                                rhs_expr))))
+        let rhs = 
+          fill_ite_helper None true f_pos node_id lhs i
+            (A.Pre (pos2, Ident(pos2, i))) rhs_expr
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs))))
   | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1)]), rhs_expr)) ->
     (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
     let fresh = mk_fresh_indices inds1 in
@@ -308,17 +333,22 @@ match ni with
         let expr = List.fold_left (fun acc ind -> 
           A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
         ) expr fresh in
-        Some (expr)
+        Some expr
       | _ -> None
     ) nes in 
     (match init with
       | Some init -> 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i1 (A.Pre (pos2, array_index)) rhs_expr)))))
+        let rhs = 
+          fill_ite_helper (Some init) true f_pos node_id lhs i1
+            (A.Arrow (pos2, init, (A.Pre (pos2, array_index)))) rhs_expr
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs)))
       | None -> 
-        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i1
-                          (A.Pre (pos2, array_index))
-                          rhs_expr))))
+        let rhs = 
+          fill_ite_helper None true f_pos node_id lhs i1
+            (A.Pre (pos2, array_index)) rhs_expr 
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 

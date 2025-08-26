@@ -205,6 +205,8 @@ let type_check declarations =
     (* Step 12. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in
 
+    List.iter (Format.printf "%a\n" LA.pp_print_declaration) sorted_node_contract_decls;
+
     (* Step 13. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
