@@ -1100,7 +1100,11 @@ let prefix_system (type s) (input_system : s t) prefix : s t = match input_syste
     let rename_contract (contract : LustreContract.t) : LustreContract.t =
       {
         assumes = List.map rename_svar contract.assumes;
-        sofar_assump = rename_state_var contract.sofar_assump;
+        sofar_assump = (
+          match contract.sofar_assump with
+          | None -> None
+          | Some v -> Some (rename_state_var v)
+        );
         guarantees = List.map (fun (sv, candidate) -> (rename_svar sv, candidate)) contract.guarantees;
         modes = List.map rename_mode contract.modes;
       }

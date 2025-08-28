@@ -1622,6 +1622,12 @@ let trace_svars_of ctx expr = match ctx with
   )
 )
 
+let mk_sofar_svar ctx is_function =
+  if is_function then
+    let svar, ctx = mk_fresh_local ctx Type.t_bool in
+    Some svar, ctx
+  else
+    None, ctx
 
 (* Add node assumes to context *)
 let add_node_ass ctx assumes = 
@@ -1630,10 +1636,10 @@ let add_node_ass ctx assumes =
 
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
-    | { node = Some ({ N.contract } as node) } ->
+    | { node = Some ({ N.is_function; N.contract } as node) } ->
       let contract, ctx = match contract with
         | None -> (
-          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          let svar, ctx = mk_sofar_svar ctx is_function in
           C.mk assumes svar [] [], ctx
         )
         | Some contract -> C.add_ass contract assumes, ctx
@@ -1648,10 +1654,10 @@ let add_node_gua ctx guarantees =
 
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
-    | { node = Some ({ N.contract } as node) } ->
+    | { node = Some ({ N.is_function; N.contract } as node) } ->
       let contract, ctx = match contract with
         | None -> (
-          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          let svar, ctx = mk_sofar_svar ctx is_function in
           C.mk [] svar guarantees [], ctx
         )
         | Some contract -> C.add_gua contract guarantees, ctx
@@ -1667,10 +1673,10 @@ let add_node_mode ctx mode =
 
     | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
-    | { node = Some ({ N.contract } as node) } ->
+    | { node = Some ({ N.is_function; N.contract } as node) } ->
       let contract, ctx = match contract with
         | None -> (
-          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          let svar, ctx = mk_sofar_svar ctx is_function in
           C.mk [] svar [] [ mode ], ctx
         )
         | Some contract -> C.add_modes contract [ mode ], ctx
@@ -1699,7 +1705,7 @@ let add_node_sofar_assumption ctx =
 
     | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
 
-    | { node = Some ({ N.locals ; N.equations; N.contract } as n) } ->
+    | { node = Some ({ N.is_function; N.locals ; N.equations; N.contract } as n) } ->
 
       match contract with
 
@@ -1707,33 +1713,37 @@ let add_node_sofar_assumption ctx =
 
        | Some contract -> (
 
-         let sofar_svar = contract.C.sofar_assump in
+        let sofar_svar = contract.C.sofar_assump in
 
-         let conj_of_assumes = contract.C.assumes |>
-           List.map (fun { C.svar } -> E.mk_var svar) |> E.mk_and_n
-         in
+        match sofar_svar with
+        | None -> ctx
+        | Some sofar_svar ->
 
-         let pre_sofar, _ = (* Context should not be modified *)
-           assert (not (guard_flag ctx));
-           E.mk_pre_with_context
-             (* No abstraction should be necessary, see [mk_pre] *)
-             (fun _ _ -> assert false) (fun _ -> assert false)
-             ctx false (E.mk_var sofar_svar)
-         in
+          let conj_of_assumes = contract.C.assumes |>
+            List.map (fun { C.svar } -> E.mk_var svar) |> E.mk_and_n
+          in
 
-         let expr =
-           E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar)
-         in
+          let pre_sofar, _ = (* Context should not be modified *)
+            assert (not (guard_flag ctx));
+            E.mk_pre_with_context
+              (* No abstraction should be necessary, see [mk_pre] *)
+              (fun _ _ -> assert false) (fun _ -> assert false)
+              ctx false (E.mk_var sofar_svar)
+          in
 
-         let equations' = ((sofar_svar, []), expr) :: equations in
+          let expr =
+            E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar)
+          in
 
-         (* Return node with equation and local variable added *)
-         { ctx with
-             node = Some { n with
-               N.equations = equations' ;
-               N.locals = D.singleton D.empty_index sofar_svar :: locals
-             }
-         }
+          let equations' = ((sofar_svar, []), expr) :: equations in
+
+          (* Return node with equation and local variable added *)
+          { ctx with
+              node = Some { n with
+                N.equations = equations' ;
+                N.locals = D.singleton D.empty_index sofar_svar :: locals
+              }
+          }
 
        )
 
