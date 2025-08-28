@@ -1705,7 +1705,7 @@ let add_node_sofar_assumption ctx =
 
     | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
 
-    | { node = Some ({ N.is_function; N.locals ; N.equations; N.contract } as n) } ->
+    | { node = Some ({ N.locals ; N.equations; N.contract } as n) } ->
 
       match contract with
 
