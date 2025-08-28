@@ -2440,37 +2440,41 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   in let (contract, sofar_local, sofar_equation) =
     if assumes != [] || guarantees != [] || modes != [] then
-      let sofar_assumption = get (mk_state_var
-        ~is_input:false
-        map
-        (node_scope @ I.reserved_scope)
-        (mk_ident (HString.mk_hstring "sofar"))
-        X.empty_index
-        Type.t_bool
-        None)
-      in
       let assumes = List.sort
-        (fun a b -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
-        assumes
+          (fun a b -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
+          assumes
+        in
+        let guarantees = List.sort
+          (fun (a, _) (b, _) -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
+          guarantees
+        in
+        let modes = List.sort
+          (fun {C.pos = a} {C.pos = b} -> compare_pos a b)
+          modes
       in
-      let guarantees = List.sort
-        (fun (a, _) (b, _) -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
-        guarantees
-      in
-      let modes = List.sort
-        (fun {C.pos = a} {C.pos = b} -> compare_pos a b)
-        modes
-      in
-      let sofar_local = X.singleton X.empty_index sofar_assumption in
-      let conj_of_assumes = assumes
-        |> List.map (fun { C.svar } -> E.mk_var svar)
-        |> E.mk_and_n
-      in
-      let pre_sofar = E.mk_pre (E.mk_var sofar_assumption) in
-      let expr = E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar) in
-      let equation = (sofar_assumption, []), expr in
-      let contract = C.mk assumes sofar_assumption guarantees modes in
-      Some (contract), [sofar_local], [equation]
+      if is_function then
+        let contract = C.mk assumes None guarantees modes in
+        Some (contract), [], []
+      else
+        let sofar_assumption = get (mk_state_var
+          ~is_input:false
+          map
+          (node_scope @ I.reserved_scope)
+          (mk_ident (HString.mk_hstring "sofar"))
+          X.empty_index
+          Type.t_bool
+          None)
+        in
+        let sofar_local = X.singleton X.empty_index sofar_assumption in
+        let conj_of_assumes = assumes
+          |> List.map (fun { C.svar } -> E.mk_var svar)
+          |> E.mk_and_n
+        in
+        let pre_sofar = E.mk_pre (E.mk_var sofar_assumption) in
+        let expr = E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar) in
+        let equation = (sofar_assumption, []), expr in
+        let contract = C.mk assumes (Some sofar_assumption) guarantees modes in
+        Some (contract), [sofar_local], [equation]
     else None, [], []
   in
   (* ****************************************************************** *)
