@@ -794,30 +794,20 @@ Functions
 
 Kind 2 supports the ``function`` keyword which is used just like the ``node`` one
 but has slightly different semantics. Like the name suggests, the output(s) of
-a ``function`` should be a *non-temporal* combination of its inputs. That is, a
+a ``function`` must be a *non-temporal* combination of its inputs. That is, a
 function cannot depend on the ``->``\ , ``pre``\ , ``merge``\ , ``when``\ ,
 ``condact``\ , or ``activate`` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
-In Kind 2, these restrictions extend to the contract attached to the function,
-if any. Note that besides the ones mentioned above, no additional restrictions
-are enforced on functions compared to nodes.
-In particular, functional congruence is not enforced on
-partially defined functions, imported functions, and
-functions abstracted by their contracts. That is,
-Kind 2 might return a counterexample where two calls to an abstract function
-with the same input values provide different output values.
-To prevent this kind of counterexamples from happening, Kind 2 offers an option
-called ``--enforce_func_congruence`` which enforces
-abstract functions to behave as mathematical functions.
-The downside of using this option is that the IC3QE engine and
-IC3IA engine with the Z3qe or cvc5qe options are forced to
-shut down because its current implementation cannot reason about
-the resulting system.
+In Kind 2, these restrictions also apply to the contract attached to a function,
+if any. Moreover, Kind 2 enforces that partially defined functions,
+imported functions, and functions abstracted by their contracts
+behave as mathematical functions. That is, given the same inputs,
+the functions always produce the same outputs.
 
-Benefits
-^^^^^^^^
+Benefits and limitations
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Functions are interesting in the model-checking context of Kind 2 mainly as
 a mean to make an abstraction more precise. A realistic use-case is when one
@@ -846,6 +836,11 @@ a linear one.
 Using a function instead of a node simply results in a better abstraction. Kind
 2 will encode, at SMT-level, that the outputs of this component depend on the
 *current* version of its inputs only, not on its previous values.
+
+The downside of using functions in your model is that the IC3QE engine and
+the IC3IA engine with the Z3qe or cvc5qe options must shut down,
+since their current implementation cannot reason about the resulting system.
+
 
 If statements and frame conditions
 ----------------------------------
