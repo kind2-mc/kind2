@@ -70,6 +70,7 @@ type error_kind = Unknown of string
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
+  | InductiveVarsWithArrayConstr of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -123,6 +124,7 @@ let error_message kind = match kind with
   | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
+  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -972,12 +974,26 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Res.ok (warnings @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
-    | ArrayConstr (_, e1, e2)
     | IndexAccess (_, e1, e2, _)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 
       Ok (warnings1 @ warnings2)
+    | ArrayConstr (p, e1, e2) as e -> 
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in 
+      let ivars = 
+        StringMap.bindings ctx.array_indices @ StringMap.bindings ctx.symbolic_array_indices 
+        |> List.map fst |> LA.SI.of_list
+      in
+      let num_ivars = LA.SI.cardinal ivars in
+      let evars = LustreAstHelpers.vars_without_node_call_ids e1 in 
+      let ie_vars = LA.SI.inter ivars evars in 
+      let num_ie_vars = LA.SI.cardinal ie_vars in
+      (* Disallow inductive variables in ArrayConstrs if the array is multidimensional *)
+      if num_ivars >= 2 && num_ie_vars >= 1 
+      then syntax_error p (InductiveVarsWithArrayConstr e) 
+      else Ok (warnings1 @ warnings2)
     | TernaryOp (_, _, e1, e2, e3) -> 
       let* warnings1 = (check_expr ctx f e1) in
       let* warnings2 = (check_expr ctx f e2) in 
