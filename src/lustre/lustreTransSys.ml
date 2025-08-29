@@ -47,7 +47,7 @@ type settings = {
 let default_settings = {
   preserve_sig = false ;
   slice_nodes = Flags.slice_nodes () ;
-  add_functional_constraints = Flags.Contracts.enforce_func_congruence () ;
+  add_functional_constraints = true ;
   slice_to_prop = None
 }
 
