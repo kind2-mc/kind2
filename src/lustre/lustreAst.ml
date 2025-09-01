@@ -68,7 +68,7 @@ type binary_operator =
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
-  | Ite
+  | Ite of bool (* Boolean is true iff the Ite was generated from an if block *)
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -502,7 +502,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
     | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
-    | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+    | TernaryOp (p, Ite _, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2

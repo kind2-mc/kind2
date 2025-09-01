@@ -421,7 +421,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
         TC.expand_type_syn_reftype_history ty_ctx id_ty |> unwrap)
     | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
-    | TernaryOp (_, Ite, _, e1, e2) ->
+    | TernaryOp (_, Ite _, _, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
       merge_types t1 t2
@@ -465,8 +465,6 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    Format.printf "e: %a\n" 
-      LustreAst.pp_print_expr e;
     let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
     in
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 
@@ -513,7 +511,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_unary_expr node_id ctx ty_ctx op proj e
   | BinaryOp (_, op, e1, e2) ->
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
-  | TernaryOp (_, Ite, _, e1, e2) ->
+  | TernaryOp (_, Ite _, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false

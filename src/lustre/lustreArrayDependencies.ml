@@ -160,7 +160,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> union_ (r e1) (r e2)
-  | TernaryOp (_, Ite, e1, e2, e3) ->
+  | TernaryOp (_, Ite _, e1, e2, e3) ->
     let r_e1 = process_expr ind_vars ctx ns 0 indices e1 in
     union_ (union_ (r_e1) (r e2)) (r e3)
   | ConvOp (_, _, e) -> r e

@@ -187,14 +187,14 @@ and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
   match top with
-  | LA.Ite -> if c then R.ok v1 else R.ok v2
+  | LA.Ite _ -> if c then R.ok v1 else R.ok v2
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx _ top b1 e1 e2 ->
   match top with
-  | LA.Ite ->
+  | LA.Ite _ ->
      eval_bool_expr ctx b1 >>= fun c ->
      if c
      then eval_int_expr ctx e1
@@ -256,7 +256,7 @@ and push_pre is_guarded pos =
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
-  | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
+  | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, e1, r e2, r e3)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
@@ -325,7 +325,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
       | Error _ -> e')
   | LA.TernaryOp (pos, top, cond, e1, e2) ->
      (match top with
-     | Ite -> 
+     | Ite _ -> 
         (match eval_bool_expr ctx cond with
         | Ok v -> if v then simplify_expr ~ind_vars ~is_guarded ctx e1
           else simplify_expr ~ind_vars ~is_guarded ctx e2 

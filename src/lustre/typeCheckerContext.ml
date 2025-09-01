@@ -528,7 +528,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
 let rec arity_of_expr ty_ctx = function
   | LA.GroupExpr (_, ExprList, es) ->
     List.fold_left (+) 0 (List.map (arity_of_expr ty_ctx) es)
-  | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
+  | TernaryOp (_, Ite _, _, e, _) -> arity_of_expr ty_ctx e
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) 

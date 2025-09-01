@@ -1043,7 +1043,7 @@ pexpr(Q):
 
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
-    { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
+    { A.TernaryOp (mk_pos $startpos, A.Ite false, e1, e2, e3) }
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
