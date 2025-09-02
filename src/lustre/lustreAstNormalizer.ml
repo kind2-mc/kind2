@@ -924,7 +924,7 @@ let add_history_var_and_equation info id h_id =
           A.IndexAccess (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index), Array)
         )
       in
-      A.TernaryOp (dpos, A.Ite false, cond, A.Ident(dpos, id), prev_hist)
+      A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
     in
     [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)]
   in
@@ -1945,7 +1945,7 @@ and expand_node_call info node_id expr var count =
       let pos = Lib.dummy_pos in
       let i = HString.mk_hstring (Int.to_string i) in
       let cond = A.CompOp (pos, A.Eq, A.Ident (pos, var), A.Const (pos, A.Num i)) in
-      A.TernaryOp (pos, A.Ite false, cond, e, acc))
+      A.TernaryOp (pos, A.Ite, cond, e, acc))
     (List.nth expr_array 0)
     (List.tl (List.init count (fun i -> i, List.nth expr_array i)))
 

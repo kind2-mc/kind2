@@ -1229,7 +1229,7 @@ and compile_ast_expr
     compile_equality bounds true expr1 expr2
   | A.CompOp (_, A.Neq, expr1, expr2) ->
     compile_equality bounds false expr1 expr2
-  | A.TernaryOp (_, A.Ite _, expr1, expr2, expr3) ->
+  | A.TernaryOp (_, A.Ite, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->

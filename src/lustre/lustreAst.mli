@@ -84,7 +84,7 @@ type binary_operator =
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
-  | Ite of bool (* Boolean is true iff the Ite was generated from an if block *)
+  | Ite 
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt

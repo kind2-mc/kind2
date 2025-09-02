@@ -227,7 +227,7 @@ let rec tree_to_ite pos node =
       let left = tree_to_ite pos left in
       let right = tree_to_ite pos right in
       let pos = AH.pos_of_expr left in
-      TernaryOp (pos, Ite true, cond, left, right)
+      TernaryOp (pos, Ite, cond, left, right)
 
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 

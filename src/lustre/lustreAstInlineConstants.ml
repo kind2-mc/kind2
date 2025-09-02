@@ -187,14 +187,14 @@ and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
   match top with
-  | LA.Ite _ -> if c then R.ok v1 else R.ok v2
+  | LA.Ite -> if c then R.ok v1 else R.ok v2
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx _ top b1 e1 e2 ->
   match top with
-  | LA.Ite _ ->
+  | LA.Ite ->
      eval_bool_expr ctx b1 >>= fun c ->
      if c
      then eval_int_expr ctx e1
@@ -325,7 +325,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
       | Error _ -> e')
   | LA.TernaryOp (pos, top, cond, e1, e2) ->
      (match top with
-     | Ite _ -> 
+     | Ite -> 
         (match eval_bool_expr ctx cond with
         | Ok v -> if v then simplify_expr ~ind_vars ~is_guarded ctx e1
           else simplify_expr ~ind_vars ~is_guarded ctx e2 

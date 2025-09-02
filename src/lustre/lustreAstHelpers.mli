@@ -72,10 +72,6 @@ val has_unguarded_pre : expr -> bool
 val has_unguarded_pre_no_warn : expr -> bool
 (** Returns true if the expression has unguareded pre's. Does not print warning. *)
 
-val expr_is_uninitialized : expr -> bool
-(** Returns true if the expression is uninitialized. Similar to has_unguarded_pre_no_warn, but 
-    chases definitions and calls for unguarded pres and undefined outputs. *)
-
 val has_pre_or_arrow : expr -> Lib.position option
 (** Returns true if the expression has a `pre` or a `->`. *)
 

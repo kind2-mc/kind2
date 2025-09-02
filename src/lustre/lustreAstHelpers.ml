@@ -501,86 +501,6 @@ let rec has_unguarded_pre_no_warn ung = function
 let has_unguarded_pre_no_warn e =
   has_unguarded_pre_no_warn true e 
 
-(* Returns true if the expression is uninitialized. Similar to has_unguarded_pre_no_warn, but 
-    chases definitions and calls for unguarded pres and undefined outputs. *)
-(*!! TODO: generalize to match above comment ^^^ 
-     * pass 'decl' for current declaration, 'decls' for all declarations 
-     * on identifiers, look up their definitions (if output or local) and chase 
-     * on calls, see if all outputs of the node are initialized  
-     * Q: What about identifiers representing input variables? whether it's initialized
-          depends on the caller?
-*)
-let rec expr_is_uninitialized ung decl decls e = 
-  let r = expr_is_uninitialized ung decl decls in
-  match e with
-  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
-    
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
-  | CompOp (_, _, e1, e2) ->
-    let u1 = r e1 in
-    let u2 = r e2 in
-    u1 || u2
-
-  | TernaryOp (_, _, e1, e2, e3) ->
-    let u1 = r e1 in
-    let u2 = r e2 in
-    let u3 = r e3 in
-    u1 || u2 || u3
-
-  | IndexAccess (_, e1, e2, _) ->
-    let u1 = r e1 in
-    let u2 = r e2 in
-    u1 || u2
- 
-  | GroupExpr (_, _, l) | Call (_, _, _, l) ->
-    let us = List.map r l in
-    List.exists Lib.identity us
-
-  | Merge (_, _, l) ->
-    let us = List.map r (List.map snd l) in
-    List.exists Lib.identity us
-
-  | RestartEvery (_, _, l, e) ->
-    let us = List.map r (e :: l) in
-    List.exists Lib.identity us
-
-  | Activate (_, _, e1, e2, l)  ->
-    let us = List.map r (e1 :: e2 :: l) in
-    List.exists Lib.identity us
-
-  | Condact (_, e1, e2, _, l1, l2) ->
-    let us = List.map r (e1 :: e2 :: l1 @ l2) in
-    List.exists Lib.identity us
-
-  | RecordExpr (_, _, _, ie) ->
-    let us = List.map (fun (_, e) -> r e) ie in
-    List.exists Lib.identity us
-
-  | StructUpdate (_, e1, li, e2) ->
-    let u1 = r e1 in
-    let us = List.map (function
-        | Label _ -> false
-        | MapIndex (_, e)
-        | Index (_, e) -> r e
-      ) li in
-    let u2 = r e2 in
-    u1 || u2 || List.exists Lib.identity us
-
-  | Pre (_, e)->
-    let u = expr_is_uninitialized true decl decls e in
-    ung || u
-
-  | Arrow (_, e1, e2) ->
-    let u1 = r e1 in
-    let u2 = expr_is_uninitialized false decl decls e2 in
-    u1 || u2
-
-let expr_is_uninitialized decl decls e = expr_is_uninitialized true decl decls e
-
 (** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
 let unwrap_or f = function
 | None -> f ()
@@ -1041,7 +961,7 @@ let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
 (** Return an ast that adds two expressions*)
 
 let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
-  TernaryOp (pos, Ite false,
+  TernaryOp (pos, Ite,
              CompOp (pos, Gte, e1, e2)
              , BinaryOp (pos, Minus, e1, e2)
              , BinaryOp (pos, Minus, e2, e1))
