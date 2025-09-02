@@ -84,7 +84,7 @@ type binary_operator =
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
-  | Ite 
+  | Ite
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt

@@ -109,16 +109,6 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     )
     else A.Ident(pos, i)
 
-  (*(*!! Special case -- maybe not needed if we "pull the pre outside" in push_indices *)
-  | ArrayConstr (pos, _, _)  -> 
-    if AH.has_unguarded_pre e then 
-      match init with 
-      | Some init ->
-        Arrow (pos, init, e)  
-      | None -> e 
-    else   
-      e *)
-
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e) 
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
@@ -267,80 +257,6 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
         NI.Hashtbl.add pos_list_map node_id frame_info;
 
         R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
-
-(* Helper function to "push indices" further inside an expression, e.g. 
-   (if c then arr1 else arr2)[i][j] --> if c then arr1[i][j] else arr2[i][j]. 
-   This is a necessary normalization step for fill_ite_helper, 
-   as unguarded pres need to be detectable outside the scope of array indices. 
-   For example, consider the array equation 
-     A[i] = (pre B)[i], with frame block initialization 
-     A[i] = i. 
-   Without this step, fill_ite_helper will generate the malformed equation
-     A[i] = (i -> pre B)[i].
-   But, if we push indices first, we convert equation 
-     A[i] = (pre B)[i] to 
-     A[i] = pre (B[i]), and fill_ite_helper results in 
-     A[i] = i -> pre (B[i]), which is well-formed. 
-*)
-(*let rec push_indices indices e =
-  let r = push_indices indices in
-  match e with
-  | (A.Ident (pos, id) as e) -> 
-    if GI.var_is_iboracle id then e else 
-      List.fold_left (fun acc ind -> 
-        A.IndexAccess (pos, acc, Ident (pos, ind), Array)
-      ) e indices 
-  | (ModeRef (pos, _) as e)
-  | (EmptyMap (pos, _) as e)
-  | (When (pos, _, _) as e)
-  | (Condact (pos, _, _, _, _, _) as e) 
-  | (Activate (pos, _, _, _, _) as e) 
-  | (Merge (pos, _, _) as e) 
-  | (RestartEvery (pos, _, _, _) as e)
-  | (Arrow (pos, _, _) as e)
-  | (Call (pos, _, _, _) as e)
-  | (Const (pos, _) as e) -> 
-    List.fold_left (fun acc ind -> 
-      A.IndexAccess (pos, acc, Ident (pos, ind), Array)
-    ) e indices 
-  (* Special case -- we can't push indices inside an ArrayConstr, or else the expression 
-     becomes malformed. 
-
-     (?)Alternatively, we 'normalize' by pulling any unguarded pre 
-     outside the ArrayConstr *)
-  (*| ArrayConstr (pos, e1, e2) as e -> 
-    if AH.has_unguarded_pre e1 then 
-      let e = List.fold_left (fun acc ind -> 
-        A.IndexAccess (pos, acc, Ident (pos, ind), Array)
-      ) (remove_pre (A.ArrayConstr (pos, e1, e2))) indices in 
-      A.Pre (pos, e)
-    else 
-    List.fold_left (fun acc ind -> 
-      A.IndexAccess (pos, acc, Ident (pos, ind), Array)
-    ) e indices *)
-  | ArrayConstr (pos, _, _) as e -> 
-    List.fold_left (fun acc ind -> 
-      A.IndexAccess (pos, acc, Ident (pos, ind), Array)
-    ) e indices 
-  | Pre (p, e) -> Pre (p, r e) 
-  | RecordProject (p, e, i) -> RecordProject (p, r e, i)
-  | TupleProject (p, e, i) -> TupleProject (p, r e, i)
-  | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
-  | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
-  | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
-  | ConvOp (p, op, e) -> ConvOp (p, op, r e)
-  | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
-  | Extract (pos, e, idx1, idx2) -> Extract (pos, r e, idx1, idx2)
-  | RecordExpr (p, i, ps, es) ->
-    let es' = List.map (fun (i, e) -> (i, r e)) es in
-    RecordExpr (p, i, ps, es')
-  | GroupExpr (p, op, es) ->
-    let es' = List.map (fun e -> r e) es in
-    GroupExpr (p, op, es')
-  | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
-  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
-  | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)*)
 
 (** Helper function to fill in ITE oracles and guard equations with specified
     initialization values (if present). *)
