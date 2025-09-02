@@ -246,10 +246,10 @@ let get_tree_type ctx lhs =
 (** Fills empty spots in an ITE with oracles. *)
 let rec fill_ite_with_oracles ctx expr ty =
   match expr with
-    | A.TernaryOp (pos, op, cond, e1, e2) -> 
+    | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
       let e1, gids1, decls1 = fill_ite_with_oracles ctx e1 ty in
       let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
-      A.TernaryOp (pos, op, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
+      A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
       (* We convert ty to its base type, including mapping subrange types to ints,
          because oracles should not fulfill type-related proof obligations *)

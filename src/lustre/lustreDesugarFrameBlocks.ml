@@ -229,10 +229,11 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
    For example, consider the array equation 
      A[i] = (if c then ib_oracle else arr2)[i], with initialization 
      A[i] = i. 
-   Without this step, fill_ib_oracles will generate the malformed equation
+   Without this step, fill_ite_helper will generate the malformed equation
      A[i] = (if c then i -> pre A[i] else arr2)[i].
    But, if we push indices first, we convert equation 
      A[i] = (if c then ib_oracle else arr2)[i] to  
+     A[i] = if c then ib_oracle else arr2[i], and then to  
      A[i] = if c then i -> pre A[i] else arr2[i], which is well-formed. 
 *)
 let rec push_indices indices e =
