@@ -126,7 +126,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | BinaryOp (p, b, e1, e2) -> BinaryOp (p, b, r e1, r e2)
   | CompOp (p, b, e1, e2) -> CompOp (p, b, r e1, r e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | IndexAccess (pos, e1, e2, k) -> IndexAccess (pos, r e1, r e2, k)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, b, e1, e2, e3) -> TernaryOp (p, b, r e1, r e2, r e3)
   
@@ -222,6 +222,33 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
      case is not possible *)
   | A.Equation _ -> assert false
 
+(* Helper function to "push indices" further inside ITEs, e.g. 
+   (if c then arr1 else arr2)[i][j] --> if c then arr1[i][j] else arr2[i][j]. 
+   This is a necessary normalization step for fill_ite_helper, 
+   as the initialization itself may contain indices.
+   For example, consider the array equation 
+     A[i] = (if c then ib_oracle else arr2)[i], with initialization 
+     A[i] = i. 
+   Without this step, fill_ib_oracles will generate the malformed equation
+     A[i] = (if c then i -> pre A[i] else arr2)[i].
+   But, if we push indices first, we convert equation 
+     A[i] = (if c then ib_oracle else arr2)[i] to  
+     A[i] = if c then i -> pre A[i] else arr2[i], which is well-formed. 
+*)
+let rec push_indices indices e =
+  let r = push_indices indices in
+  match e with
+  | (A.Ident (pos, id) as e) -> 
+    if GI.var_is_iboracle id then e else 
+      List.fold_left (fun acc ind -> 
+        A.IndexAccess (pos, acc, Ident (pos, ind), Array)
+      ) e indices 
+  | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
+  | e ->  
+    let p = AH.pos_of_expr e in
+    List.fold_left (fun acc ind -> 
+      A.IndexAccess (p, acc, Ident (p, ind), Array)
+    ) e indices 
 
 (** Helper function to generate node equations when a variable in the 
     frame block var list is left undefined in the frame block body AND has 
@@ -276,10 +303,7 @@ match ni with
         let lhs = A.StructDef(p1, [ArrayDef(p2, id, fresh)]) in
         let init_expr = AH.replace_idents inds1 fresh init_expr in
         let pos = AH.pos_of_expr init_expr in
-        let rhs_expr = List.fold_left (fun acc ind -> 
-          A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
-        ) rhs_expr fresh in
-        (*let rhs_expr = push_indices fresh rhs_expr in*)
+        let rhs_expr = push_indices fresh rhs_expr in
         let pre_expr = List.fold_left (fun expr j -> 
           A.IndexAccess (pos, expr, A.Ident(pos, j), Array)
         ) (A.Pre (pos, Ident (pos, i))) fresh 

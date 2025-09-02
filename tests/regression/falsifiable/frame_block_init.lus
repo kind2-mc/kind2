@@ -1,0 +1,17 @@
+node N(c1, c2: bool; x: int; A: int^5) returns (y1, y2, y3: int^5) 
+let
+  frame (y1, y2, y3)
+  y1[i] = 0; 
+  y2 = 0^5;
+  let
+    if c1 then 
+      if c2 then 
+        y1 = pre A;
+        y2[i] = pre A[i];
+      fi
+    fi
+  tel
+
+  check y1[0] = y2[0];
+  check y1[0] = y3[0];
+tel
