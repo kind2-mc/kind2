@@ -207,6 +207,9 @@ val expand_type_syn_reftype_history_subrange :
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
+val desugar_generic_index: tc_context -> NI.t option -> LA.expr -> LA.label_or_index -> (LA.label_or_index, [> error]) result
+(** Convert the GenericIndex to one of the other indices based on type information *)
+
 val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
 (** Check if two lustre types are equal *)
 

@@ -5,7 +5,7 @@ var y: rat;
 var a: real;
 let
   a = r.n * 2.1;
-  y = ((r with .d = a) with .n = a / 2.1);
+  y = r[d := a; n := a / 2.1];
   ok = y.n = r.n;
   --%PROPERTY ok;
 tel

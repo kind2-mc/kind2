@@ -275,6 +275,7 @@ function
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
+      | GenericIndex (_, e) 
       | MapIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
       )
@@ -1009,7 +1010,15 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr ctx f e2) in
       let l =
          List.filter_map
-          (function | LA.Label _ -> None | Index (_, e) | MapIndex (_, e) -> Some e) l
+          (function | LA.Label _ -> None | Index (_, e) 
+                    | GenericIndex (_, e) | MapIndex (_, e) -> 
+          (* Procrastinate on dangling identifier checks for lone Ident expressions 
+             until type checking. This is necessary because we don't have the 
+             right context to distinguish a dangling identifier from one referencing 
+             a record type field *)
+          match e with 
+          | LA.Ident (_, _) -> None 
+          | _ -> Some e) l
        in
        let* warnings3 = check_expr_list ctx f l in 
        Ok (warnings1 @ warnings2 @ warnings3)

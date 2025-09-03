@@ -942,8 +942,8 @@ pexpr(Q):
       | [] -> assert false 
       | (e2, e3) :: tl -> 
         List.fold_left (fun acc (e2, e3) -> 
-          A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], e3) 
-        ) (A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3)) 
+          A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+        ) (A.StructUpdate (mk_pos $startpos, e1, [A.GenericIndex (mk_pos $startpos, e2)], e3)) 
           tl 
     }
 
