@@ -2200,12 +2200,25 @@ and normalize_expr ?guard info node_id map =
         in
         StringMap.singleton name expr_type
       in
-      let index = HString.mk_hstring "i" in
-      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index])]) in
-      let equations =
-        [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-      in
-      { (empty ()) with locals; equations }
+      let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
+      match List.length indices with 
+      | 1 ->
+        let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, indices)]) in
+        let equations =
+          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+        in
+        { (empty ()) with locals; equations }
+      (* Array constructors containing inductive variables in definitions of multi-dimensional 
+         arrays are rejected in lustreSyntaxChecks. So if there is not exactly one index 
+         variable, then the generated name does not matter. *)
+      | _ -> 
+        let eq_lhs = 
+            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "i"])]) 
+        in
+        let equations =
+          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+        in
+        { (empty ()) with locals; equations }
     in
     let nexpr = A.Ident (pos, name) in
     nexpr, union gids1 gids2, warnings
