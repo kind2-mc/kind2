@@ -6,7 +6,7 @@ let
   y = x;
 tel
 
-node imported f(x:int) returns (y:int);
+function imported f(x:int) returns (y:int);
 (*@contract
   guarantee y>0;
 *)
