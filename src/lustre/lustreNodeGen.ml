@@ -995,7 +995,7 @@ and compile_ast_expr
             | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
             | _ -> assert false (* guaranteed by type checker *) )
         in aux (i :: accum) tl
-      | A.GenericIndex _ :: _ -> assert false (* converted to another index in the type checker *)
+      | A.GenericIndex _ :: _ -> assert false (* converted to another index in the normalizer *)
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
       match li, ri with

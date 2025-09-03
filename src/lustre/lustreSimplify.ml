@@ -801,7 +801,7 @@ let rec eval_ast_expr bounds ctx =
       (* All indexes consumed return in original order *)
       | [] -> List.rev accum
 
-      | A.GenericIndex (pos, _) :: _ -> fail_at_position pos "New element update syntax for records, tuples, and arrays is not supported in the old frontend"
+      | A.GenericIndex (pos, _) :: _ -> fail_at_position pos "Map types, as well as the new element update syntax for records, tuples, and arrays, are not supported in the old frontend"
 
       | A.MapIndex (pos, _) :: _ -> fail_at_position pos "Map types are not supported in old front end" 
 
