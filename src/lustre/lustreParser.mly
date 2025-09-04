@@ -976,17 +976,6 @@ pexpr(Q):
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: array concatenation" } 
 
-  (* with operator for updating fields of a structure (not quantified) *)
-  | LPAREN; 
-    e1 = pexpr(Q); 
-    WITH; 
-    i = nonempty_list(label_or_index); 
-    EQUALS; 
-    e2 = pexpr(Q); 
-    RPAREN
-
-    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
-
   (* An arithmetic operation *)
   | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
   | MINUS; e = expr { A.UnaryOp (mk_pos $startpos, A.Uminus, e) } 
