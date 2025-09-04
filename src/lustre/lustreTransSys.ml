@@ -1913,9 +1913,22 @@ let constraints_of_arrays init terms eq_bounds =
             in
             term, v :: quant_v, pred i
 
-          | E.Unbound _ ->
+          | E.Unbound None ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
             term, v :: quant_v, pred i
+
+          | E.Unbound (Some e) -> (
+            match Type.node_of_type (E.type_of_expr e) with
+            | Enum (l, u) ->
+              let l' = Numeral.to_int l in
+              let u' = Numeral.to_int u in
+              let cj = ref [] in
+              for x = u' downto l' do
+                cj := Term.mk_let [v, Term.mk_num_of_int x] term :: !cj
+              done;
+              Term.mk_and !cj, quant_v, pred i
+            | _ -> term, v :: quant_v, pred i
+          )
                              
         ) (term, [], List.length bounds - 1) bounds
     in

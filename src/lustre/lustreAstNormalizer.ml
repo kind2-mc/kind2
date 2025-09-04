@@ -381,123 +381,11 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-let rec mk_range_expr ctx node_id expr_type expr =
-  let rec mk ctx n expr_type expr =
-    let expr_type = Ctx.expand_type_syn ctx expr_type in 
-    match expr_type with
-    | A.IntRange (_, l, u) ->
-      let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
-      let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
-      let user_prop, is_original = match original_ty with
-        | A.IntRange (_, l', u') ->
-          let eval_int_expr_opt expr = match expr with
-            | Some expr -> Some (AIC.eval_int_expr ctx expr)
-            | None -> None
-          in
-          let is_original =
-            let (l, u) = eval_int_expr_opt l, eval_int_expr_opt u in
-            let (l', u') = eval_int_expr_opt l', eval_int_expr_opt u' in
-            (match (l, u, l', u') with
-            | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
-            | Some (Ok l), None, Some (Ok l'), None -> l = l'
-            | None, Some (Ok u), None, Some (Ok u') -> u = u'
-            | None, None, None, None -> true
-            | _ -> false)
-          in
-          let user_prop = if is_original then []
-            else
-              match l', u' with
-                | Some l', Some u' ->
-                  let l' = A.CompOp (dpos, A.Lte, l', expr) in
-                  let u' = A.CompOp (dpos, A.Lte, expr, u') in
-                  [A.BinaryOp (dpos, A.And, l', u'), true]
-                | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
-                | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
-                | None, None -> [(A.Const (dpos, A.True)), true]
-          in
-          user_prop, is_original
-        | A.Int _ -> [], false
-        | _ -> assert false
-      in (match l, u with
-        | Some l, Some u ->
-          let l = A.CompOp (dpos, A.Lte, l, expr) in
-          let u = A.CompOp (dpos, A.Lte, expr, u) in
-          [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
-        | Some l, None ->
-          [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
-        | None, Some u ->
-          [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
-        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
-      )
-    | RefinementType (_, (_, _, ty), _) -> mk ctx n ty expr
-    | History (_, id) -> 
-      let ty = Ctx.lookup_ty ctx id |> Option.get in 
-      mk ctx n ty expr 
-    | A.ArrayType (_, (ty, upper_bound)) ->
-      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
-      let expr = A.IndexAccess (dpos, expr, id, Array) in
-      let rexpr = mk ctx (succ n) ty expr in
-      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
-      let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
-      let assumption = A.BinaryOp (dpos, A.And, l, u) in
-      let var = dpos, id_str, (A.Int dpos) in
-      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
-      List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
-    | TupleType (_, tys) ->
-      let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
-      let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
-    | RecordType (_, _, tys) ->
-      let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
-      let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
-    | A.Map (_, kt, vt) -> 
-      let id_str = HString.concat2 (HString.mk_hstring "x") 
-                                   (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str kt in
-      let rexpr1 = mk ctx (succ n) kt id in
-      (* To express value type constraints, we need all key type constraints 
-         (both subrange and refinement type) 
-         for the antecedent to the implication *)
-      let kt_exprs = (List.map fst rexpr1) @
-        mk_ref_type_expr ctx node_id id kt 
-      in
-      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
-      let assumption1 = A.BinaryOp (dpos, A.In, id, expr) in
-      let assumption2 = List.fold_left (fun acc e  -> 
-        A.BinaryOp (dpos, A.And, acc, e)
-      ) assumption1 kt_exprs in
-      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-      let var = dpos, id_str, base_kt in
-      let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
-      let res = 
-      List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption1), true
-      ) rexpr1 
-      @ 
-      List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption2), true
-      ) rexpr2 in 
-      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
-        (Lib.pp_print_list (fun ppf (expr, b) -> 
-          Format.fprintf ppf "<%a, %b>" 
-            A.pp_print_expr expr b
-        ) ", ") res;*)
-      res
-    | _ -> []
-  in
-  mk ctx 0 expr_type expr
-
-and mk_enum_range_expr ctx node_id expr_type expr =
+let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
-    | A.EnumType (_, _, values) -> (
+    | A.EnumType (_, _, values) when mk_enum -> (
       let eqs =
         List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
       in
@@ -510,7 +398,7 @@ and mk_enum_range_expr ctx node_id expr_type expr =
         in
         [disj, true]
     )
-    | A.IntRange (_, l, u) ->
+    | A.IntRange (_, l, u) when mk_range ->
       let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
       let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
@@ -577,24 +465,29 @@ and mk_enum_range_expr ctx node_id expr_type expr =
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | A.Map (_, kt, vt) -> 
-      let id_str = HString.concat2 (HString.mk_hstring "x") 
-                                   (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str kt in
-      let rexpr1 = mk ctx (succ n) kt id in
+      let idx_str = HString.concat2 (HString.mk_hstring "x") 
+                                    (HString.mk_hstring (string_of_int n)) in
+      let idx = A.Ident (dpos, idx_str) in
+      let ctx = Ctx.add_ty ctx idx_str kt in
+      let rexpr1 = mk ctx (succ n) kt idx in
       (* To express value type constraints, we need all key type constraints 
-         (both subrange and refinement type) 
+         (both enum/subrange and refinement type) 
          for the antecedent to the implication *)
-      let kt_exprs = (List.map fst rexpr1) @
-        mk_ref_type_expr ctx node_id (Ident (dpos, id_str)) kt 
+      let kt_exprs = List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx) @
+        mk_ref_type_expr ctx node_id (Ident (dpos, idx_str)) kt 
       in
-      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
-      let assumption1 = A.BinaryOp (dpos, A.In, id, expr) in
+      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
+      let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let assumption1 = List.fold_left (fun acc e ->
+          A.BinaryOp (dpos, A.And, acc, e)
+        ) key_in_map enum_exprs
+      in
       let assumption2 = List.fold_left (fun acc e  -> 
         A.BinaryOp (dpos, A.And, acc, e)
       ) assumption1 kt_exprs in
       let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-      let var = dpos, id_str, base_kt in
+      let var = dpos, idx_str, base_kt in
       let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
       let res = 
       List.map (fun (e, _) -> 
@@ -615,27 +508,27 @@ and mk_enum_range_expr ctx node_id expr_type expr =
   mk ctx 0 expr_type expr
 
 and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
- = fun ctx node_id id ty ->
-  let ty = Ctx.expand_type_syn ctx ty in
+ = fun ctx node_id expr expr_type ->
+  let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
-  | A.RefinementType (_, (_, id2, _), expr) -> 
+  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 id expr in
+    let expr = AH.substitute_naive id2 expr ref_expr in
     [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
-      mk_ref_type_expr ctx node_id (A.TupleProject(pos, id, i)) ty
+      mk_ref_type_expr ctx node_id (A.TupleProject(pos, expr, i)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
-      let expr = A.RecordProject(p, id, id2) in
+      let expr = A.RecordProject(p, expr, id2) in
       mk_ref_type_expr ctx node_id expr ty
     ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
-    let pos = AH.pos_of_expr id in
+    let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, id, Ident(pos, dummy_index), Array)) ty in
+    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
     List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
@@ -645,34 +538,45 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
   | Map (_, kt, vt) -> 
-    let pos = AH.pos_of_expr id in
+    let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
+    let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index kt in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx node_id (Ident(pos, dummy_index)) kt in
+    let exprs1 = mk_ref_type_expr ctx node_id idx kt in
     (* To express value type constraints, we need all key type constraints 
-       (both subrange and refinement type) 
+       (both enum/subrange and refinement type) 
        for the antecedent to the implication *)
     let kt_exprs = exprs1 @
-      (List.map fst (mk_range_expr ctx node_id kt (Ident (pos, dummy_index)))) 
+      (List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx)) 
     in
-    let exprs1 = List.map (fun expr ->
-      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
-      let expr = A.BinaryOp(pos, Impl, membership_constraint, expr) in
-      A.Quantifier(pos, Forall, [pos, dummy_index, base_kt], expr)
-    ) exprs1 in 
-    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, id, Ident(pos, dummy_index), Map)) vt in
-    let exprs2 = List.map (fun expr ->
-      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
-      let assumption = List.fold_left (fun acc e -> 
+    let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+    let assumption1 = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
-      ) membership_constraint kt_exprs in
-      let expr = A.BinaryOp(pos, Impl, assumption, expr) in
-      A.Quantifier(pos, Forall, [pos, dummy_index, base_kt], expr)
-    ) exprs2 in 
+      ) key_in_map enum_exprs
+    in
+    let var = dpos, dummy_index, base_kt in
+    let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+    let exprs1 =
+      List.map (fun e -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption1)
+      ) exprs1
+    in
+    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
+    let assumption2 = List.fold_left (fun acc e  -> 
+        A.BinaryOp (dpos, A.And, acc, e)
+      ) assumption1 kt_exprs in
+    let exprs2 =
+      List.map (fun (e) -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption2)
+      ) exprs2
+    in
     exprs1 @ exprs2
 
   | _ -> []
+
+let mk_range_expr = mk_enum_range_expr ~mk_enum:false ~mk_range:true
 
 let mk_fresh_subrange_constraint source info pos node_id constrained_name expr_type =
   let expr = A.Ident(pos, constrained_name) in
