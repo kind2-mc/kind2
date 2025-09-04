@@ -2192,9 +2192,9 @@ and normalize_expr ?guard info node_id map =
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
-    let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in 
+    let nexpr1, gids1, warnings1 = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, warnings2 = normalize_expr info node_id map expr2 in 
+    let nexpr3, gids3, warnings3 = normalize_expr info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
