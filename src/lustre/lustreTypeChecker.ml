@@ -58,6 +58,7 @@ type error_kind = Unknown of string
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedUpdateWithLabel of tc_type
   | IlltypedUpdateWithIndex of tc_type
+  | IlltypedUpdate of tc_type
   | ExpectedLabel of LA.expr
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
@@ -141,6 +142,7 @@ let error_message kind = match kind with
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedUpdateWithLabel ty -> "Expected a record type but found " ^ string_of_tc_type ty
   | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, or map type but found " ^ string_of_tc_type ty
+  | IlltypedUpdate ty -> "Expected a tuple, array, map, or record type but found " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
   | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
@@ -1412,7 +1414,7 @@ and desugar_generic_index ctx nname ue idx = match idx with
       | LA.Ident (pos, id) -> Ok (LA.Label (pos, id))
       | _ -> type_error pos (IlltypedUpdateWithIndex ty) 
       ) 
-    | _ -> type_error pos (IlltypedUpdateWithLabel ty) 
+    | _ -> type_error pos (IlltypedUpdate ty) 
     ) 
   | idx -> Ok idx 
   

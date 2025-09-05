@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedUpdateWithLabel of tc_type
   | IlltypedUpdateWithIndex of tc_type
+  | IlltypedUpdate of tc_type
   | ExpectedLabel of LA.expr
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
