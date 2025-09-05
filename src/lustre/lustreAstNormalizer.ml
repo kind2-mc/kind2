@@ -2192,9 +2192,17 @@ and normalize_expr ?guard info node_id map =
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
-    let nexpr1, gids1, warnings1 = normalize_expr info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr info node_id map expr2 in 
-    let nexpr3, gids3, warnings3 = normalize_expr info node_id map expr3 in 
+    (* Don't supply the guard when normalizing subexpressions, 
+       because we need to generate oracle variables in initial step 
+       if there are unguarded pres *)
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    let nexpr3, gids3, _ = normalize_expr info node_id map expr3 in 
+    (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
+       while supplying the guard, but ignore all other outputs *)
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings3 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
@@ -2209,7 +2217,7 @@ and normalize_expr ?guard info node_id map =
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
-    nexpr, gids, warnings1 @ warnings2 @ warnings3
+    nexpr, gids, warnings1 @ warnings2 @ warnings3 
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings
