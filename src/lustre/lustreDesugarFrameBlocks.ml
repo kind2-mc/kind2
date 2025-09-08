@@ -154,9 +154,10 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | StructUpdate (p, e1, li, e2) -> 
     A.StructUpdate (p, r e1, 
     List.map (function
-              | A.Label (p, b) -> A.Label (p, b)
-              | MapIndex (p, e) -> MapIndex (p, r e)
-              | Index (p, e) -> Index (p, r e)
+              | A.Label (a, b) -> A.Label (a, b)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | Index (a, e) -> Index (a, r e)
+              | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
     r e2)
 

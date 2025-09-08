@@ -66,6 +66,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test unsupported arraydef" (fun () ->
+    match load_file "./lustreSyntaxChecks/arraydef_bug_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, InductiveVarsWithArrayConstr _)) -> true
+    | _ -> false);
   mk_test "test undefined local" (fun () ->
     match load_file "./lustreSyntaxChecks/undefined_local.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedLocal _)) -> true

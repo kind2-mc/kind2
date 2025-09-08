@@ -47,7 +47,7 @@ type settings = {
 let default_settings = {
   preserve_sig = false ;
   slice_nodes = Flags.slice_nodes () ;
-  add_functional_constraints = Flags.Contracts.enforce_func_congruence () ;
+  add_functional_constraints = true ;
   slice_to_prop = None
 }
 
@@ -374,7 +374,9 @@ let abstraction_of_contract assumption_assumed
   (* LHS of the implication. *)
   let lhs =
     if (assumes <> [] && not assumption_assumed) then
-      E.mk_var sofar_assump
+      match sofar_assump with
+      | None -> conj_of assumes
+      | Some v -> E.mk_var v
     else
       E.t_true
   in
@@ -834,19 +836,22 @@ let call_terms_of_node_call mk_fresh_state_var globals
   let node_assumes =
     if node_assume_props = [] then None
     else (
-      let assume_terms =
-        List.map (fun { P.prop_term } -> prop_term) node_assume_props
-      in
-      let sofar_term =
-        match contract with
-        | None -> assert false
-        | Some {C.sofar_assump} -> (
-          Var.mk_state_var_instance sofar_assump TransSys.prop_base
-          |> Term.mk_var
-          |> lift_term state_var_map_up
-        )
-      in
-      Some (assume_terms, sofar_term)
+      match contract with
+      | None -> assert false
+      | Some {C.sofar_assump} -> (
+        match sofar_assump with
+        | None -> None
+        | Some sofar_assump ->
+          let assume_terms =
+            List.map (fun { P.prop_term } -> prop_term) node_assume_props
+          in
+          let sofar_term =
+            Var.mk_state_var_instance sofar_assump TransSys.prop_base
+            |> Term.mk_var
+            |> lift_term state_var_map_up
+          in
+          Some (assume_terms, sofar_term)
+      )
     )
   in
 
@@ -2579,7 +2584,10 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               |> fun roots' -> (
                 match contract with
                 | None -> roots'
-                | Some { C.sofar_assump } -> SVS.add sofar_assump roots'
+                | Some { C.assumes; C.sofar_assump } ->
+                  match sofar_assump with
+                  | None -> SVS.of_list (List.map (fun { C.svar } -> svar) assumes)
+                  | Some sofar_assump -> SVS.add sofar_assump roots'
               )
             in
             List.rev_append svar_dep_init svar_dep_trans |>
@@ -2663,11 +2671,17 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             then
               match contract with
               | Some contract when contract.C.assumes <> [] -> (
-                let sofar_assump offset =
-                  Term.mk_var
-                    (Var.mk_state_var_instance contract.C.sofar_assump offset)
+                let mk_var v offset =
+                  Term.mk_var (Var.mk_state_var_instance v offset)
                 in
-                [sofar_assump TransSys.prop_base]
+                match contract.C.sofar_assump with
+                | None ->
+                  let conj =
+                    List.map (fun {C.svar} -> mk_var svar TransSys.prop_base) contract.C.assumes
+                  in
+                  [Term.mk_and conj]
+                | Some v ->
+                  [mk_var v TransSys.prop_base]
               )
               | _ -> []
             else []

@@ -1,0 +1,6 @@
+node N() returns (m: map<int,real>);
+let
+  m = map[]@<int,real> -> (pre m)[0 := 0.0];
+  check not (0 in m) -> m[0] = 0.0;
+tel
+
