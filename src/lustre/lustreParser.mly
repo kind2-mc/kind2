@@ -1417,25 +1417,6 @@ tlist(opening, separator, closing, X):
   | opening; l = tlist_tail(separator, closing, X) { l }
   | opening; closing { [ ] }
 
-(* ********************************************************************** *)
-
-
-(* An index *)
-label_or_index: 
-
-  (* An index into a record *)
-  | DOT; i = ident
-     { A.Label (mk_pos $startpos, i) } 
-
-  (* An index into an array with a variable or constant *)
-  | LSQBRACKET; e = expr; RSQBRACKET
-     { A.Index (mk_pos $startpos, e) }
-
-  (* An index into a tuple with a variable or constant *)
-  | DOTPERCENT; e = expr; 
-     { A.Index (mk_pos $startpos, e) }
-
-
 
 (* 
    Local Variables:
