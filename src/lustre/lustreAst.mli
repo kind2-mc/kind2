@@ -21,7 +21,7 @@
     The types in this module closely represent the abstract syntax of
     Lustre. No type checking or simplification is performed when
     constructing the abstract syntax tree, this is done when producing
-    the intermediate Lustre representation in {!LustreDeclarations}. 
+    the intermediate Lustre representation in {!LustreNodeGen}. 
 
     Some values are reserved for future use and will cause the
     translation to intermediate Lustre to fail.

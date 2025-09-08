@@ -213,9 +213,6 @@ type enable = Lib.kind_module list
 (** Only parse the Lustre program. No analysis is performed. *)
 val only_parse : unit -> bool
 
-(** Use the old Lustre front-end. *)
-val old_frontend : unit -> bool
-
 (** The modules enabled. *)
 val enabled : unit -> enable
 

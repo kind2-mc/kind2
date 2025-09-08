@@ -2369,8 +2369,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           let subrange_and_enum_state_vars =
             let enum_state_vars = filter_enum_svars all_state_vars in
-            (* Inputs, defined outputs, and locals require a check.
-               This is currently done in lustreDeclarations and lustreContext.
+            (* Inputs, defined outputs, and locals require a proof obligation.
+               This is currently done in lustreAstNormalizer.
             *)
             let subrange_state_vars =
               let svars =

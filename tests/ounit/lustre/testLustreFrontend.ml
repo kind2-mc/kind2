@@ -22,7 +22,7 @@
 
 open OUnit2
 
-let load_file file = LustreInput.of_file ?old_frontend:(Some false) true file
+let load_file file = LustreInput.of_file true file
 
 let mk_test label fn = label >:: (fun _ -> assert_bool "expected error" (fn ()))
 
