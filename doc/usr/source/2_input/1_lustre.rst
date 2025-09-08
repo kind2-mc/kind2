@@ -889,16 +889,28 @@ Kind 2 also has support for code blocks with frame conditions. At the beginning 
 define within the frame block. All variables defined within the frame block must be present in
 this list. Then, initial values are optionally specified for these variables. 
 Variables are defined within the frame block body (denoted by the ``let`` and ``tel`` keywords).
-It is possible to leave variables (partially or fully) undefined: On the first timestep, each variable
-is set equal to its initialization value, if one exists. On other timesteps, each undefined variable stutters 
-(it is set equal to its value on the previous timestep). 
+It is possible to leave variables (partially or fully) undefined. 
+A variable is considered *fully undefined* if it is declared in the list of frame block variables, 
+but there is no definition given in the frame block body. 
+A variable is considered *partially defined* if it is defined within an ``if`` block, 
+but a definition is not supplied in all cases (e.g., ``if c then y = x; fi`` 
+defines ``y`` within the ``then`` case but not the ``else`` case).
+
+If a variable is fully undefined, 
+then it is set to its initialization value (if one exists) in the first timestep, 
+and it stutters (is set equal to its value on the previous timestep) on other timesteps. 
+If a variable is partially undefined, 
+then the same assignment is performed, but only for branches of the ``if`` block 
+where the variable is left undefined.
 
 The following example involves three variables ``y1``, ``y2``, and ``y3``. Since ``y1`` is left
-undefined within the frame block body, it will always be equal to 0 (its initialization
-value). ``y2`` will have value ``100, 0, 1, 2, 3, ...`` because it is set equal to its initialization value (100)
-on the first timestep, but on other timesteps it is set equal to ``counter()``. Even though ``y3`` is fully 
-defined within the frame block (with no unguarded ``pre`` expressions), its initialization value is still used, so it is equal
-to ``5, 1, 2, 3, ...``.
+fully undefined within the frame block body, it will always be equal to 0 (its initialization
+value). 
+``y2`` will have value ``0, 1, 2, 3, ...`` since it is not fully or partially undefined 
+(notice that the initialization value is not used in this case).
+Finally, 
+``y3`` will have value ``//, 0, 1, 2, 3, ...`` since it is also not fully or partially undefined, 
+regardless of the presence of an unguarded ``pre``.
 
 .. code-block:: none
 
@@ -910,8 +922,8 @@ to ``5, 1, 2, 3, ...``.
 
       (* Body *)
       let
-         y2 = pre counter();
-         y3 = counter();
+         y2 = counter();
+         y3 = pre counter();
       tel
    tel
    
@@ -931,7 +943,7 @@ subsection, as variables can be left undefined in some branches of the ``if`` st
    let
       frame ( y1, y2 )
       (* Initializations *)
-      y1 = 0; 
+      y1 = 10; 
       y2 = 100;
 
       (* Body *)
@@ -952,22 +964,30 @@ subsection, as variables can be left undefined in some branches of the ``if`` st
    tel
 
 In the above example, ``y1`` is left undefined in the ``else`` branch of the ``if`` statement,
-and ``y2`` is left undefined in the ``then`` branch. ``y1`` is initialized on the first timestep,
-set to be equal to ``counter()`` on the second through tenth timesteps, and then stutters (staying at 9) for the 
-remaining timesteps. On the other hand, ``y2`` starts at its initialization value (100) and 
-stutters there for the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
+and ``y2`` is left undefined in the ``then`` branch. 
+Since the condition ``counter() < 10`` holds in the initial timestep, 
+``y1`` will be initialized to ``0`` according to its definition in the ``then`` branch.
+Then, ``y1`` will continue to be equal to ``counter()`` on the second through tenth timesteps, 
+and then stutter (staying at 9) for the remaining timesteps.
+
+On the other hand, ``y2`` starts at its supplied initialization value at the top of the frame block (``100``) 
+since it is left undefined in the ``then`` branch of the ``if`` block.
+It stutters there for the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
 
 Note that variables do not have to have initializations. When no initialization is given, 
 a variable's initial value is equal to the initial value of the expression defined in the frame block body.
-If the corresponding expression is undefined in the first timestep, then the variable is also
-undefined in the first timestep. For example, the following code is supported because even though ``y1`` and ``y2`` 
-do not have an initializations, they are present in the list of variables ``frame ( y1, y2 )``.
-The initial value of ``y1`` is 0 (the initial value assigned by ``counter()``), and the initial value
-of ``y2`` is undefined (due to the unguarded ``pre``).
+If the corresponding expression is undefined in the first timestep, 
+or if there is no equation defining the variable in the first timestep, 
+then the variable is undefined in the first timestep. 
+For example, the following code is supported because even though ``y1``, ``y2``, and ``y3``  
+do not have an initializations, they are present in the list of variables ``frame ( y1, y2, y3 )``.
+The initial value of ``y1`` is 0 (the initial value assigned by ``counter()``); the initial value
+of ``y2`` is undefined (due to the unguarded ``pre``); 
+and the initial value of ``y3`` is also undefined (due to the lack of an equation defining ``y3`` initially).
 
 .. code-block:: none
 
-   frame ( y1, y2 )
+   frame ( y1, y2, y3 )
    let
       y1 = counter();
       y2 = pre counter();
