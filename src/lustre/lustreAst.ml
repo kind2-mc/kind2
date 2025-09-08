@@ -158,6 +158,8 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  (* Constructor used at parse time before the index type is known *)
+  | GenericIndex of position * expr 
 
 (* A declaration of a type *)
 type type_decl = 
@@ -167,7 +169,6 @@ type type_decl =
 (* A declaration of a clocked type *)
 type clocked_typed_decl = 
   position * ident * lustre_type * clock_expr
-
 
 (* A declaration of a clocked type *)
 type const_clocked_typed_decl = 
@@ -406,7 +407,7 @@ let rec pp_print_expr ppf =
     | StructUpdate (_, e1, i, e2) -> 
 
       Format.fprintf ppf
-        "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
+        "%a[%a := %a]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
@@ -704,6 +705,7 @@ and pp_print_const_clocked_typed_ident ppf (_, s, t, c, o) =
 and pp_print_label_or_index ppf = function 
 
   | Label (_, i) -> pp_print_index ppf i
+  | GenericIndex (_, e)
   | MapIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 

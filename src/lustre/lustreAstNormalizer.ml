@@ -2257,9 +2257,17 @@ and normalize_expr ?guard info node_id map =
       expr_list in
     GroupExpr (pos, kind, nexpr_list), gids, warnings
   | StructUpdate (pos, expr1, i, expr2) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
+    let i = 
+      List.map (Chk.desugar_generic_index info.context (Some node_id) expr1) i 
+      |> List.map unwrap 
+    in
+    if List.exists (fun idx -> match idx with | A.MapIndex _ -> true | _ -> false) i 
+      (* The MapIndex case is handled specially *)
+      then normalize_expr ?guard info node_id map (StructUpdate (pos, expr1, i, expr2)) 
+    else 
+      let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
+      let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
+      StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty =
       let ivars = info.inductive_variables in

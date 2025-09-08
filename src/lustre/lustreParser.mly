@@ -942,8 +942,8 @@ pexpr(Q):
       | [] -> assert false 
       | (e2, e3) :: tl -> 
         List.fold_left (fun acc (e2, e3) -> 
-          A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], e3) 
-        ) (A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3)) 
+          A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+        ) (A.StructUpdate (mk_pos $startpos, e1, [A.GenericIndex (mk_pos $startpos, e2)], e3)) 
           tl 
     }
 
@@ -975,17 +975,6 @@ pexpr(Q):
   | pexpr(Q); BAR; pexpr(Q) { 
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: array concatenation" } 
-
-  (* with operator for updating fields of a structure (not quantified) *)
-  | LPAREN; 
-    e1 = pexpr(Q); 
-    WITH; 
-    i = nonempty_list(label_or_index); 
-    EQUALS; 
-    e2 = pexpr(Q); 
-    RPAREN
-
-    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
 
   (* An arithmetic operation *)
   | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
