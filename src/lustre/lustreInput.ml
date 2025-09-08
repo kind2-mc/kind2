@@ -33,7 +33,6 @@ module LNG = LustreNodeGen
 module LPI = LustreParser.Incremental
 module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
-module LPE = LustreParserErrors (* Auto-generated module at build time *)
 module TC = LustreTypeChecker
 module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
@@ -84,10 +83,7 @@ let build_parse_error_msg env =
   | lazy Nil -> None, "Syntax Error!"
   | lazy (Cons (LPMI.Element (state, _, _, p), _)) ->
     let pstate = LPMI.number state in
-    let error_msg =
-      try (LPE.message pstate)
-      with Not_found -> "Syntax Error!"
-    in
+    let error_msg = "Syntax Error!" in
     Log.log L_debug "(Parser Error State: %d)" pstate;
     Some p, error_msg
 
