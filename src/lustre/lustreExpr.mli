@@ -34,8 +34,8 @@
     fresh variable that is defined by this expression. There are no
     node calls in a Lustre expression. They have to be abstracted out
     and the results are captured in fresh variables. See
-    {!LustreSimplify} for details about how the input file is
-    translates
+    {!LustreAstNormalizer} for details about how the input file is
+    translated
 
     The offsets of state variable instances are zero for the initial
     state and zero for the current state, see the constants

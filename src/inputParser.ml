@@ -215,8 +215,6 @@ let rec read_val scope name indexes arr_indexes json =
     let indexes = List.rev indexes in
     let arr_indexes = List.rev arr_indexes in
     let full_scope = scope @ (LustreIndex.mk_scope_for_index indexes) in
-    (* See LustreContext.mk_state_var for more information
-       about how variable names are choosen *)
     let full_name =
       indexes
       |>

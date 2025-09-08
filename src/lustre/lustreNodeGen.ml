@@ -723,8 +723,6 @@ and compile_ast_type
     let element_type = compile_ast_type cstate ctx map type_expr in
     let array_size' = compile_ast_expr cstate ctx [] map size_expr in
     let array_size = (List.hd (X.values array_size')).expr_init in
-    (* Old code does flattening here, but that flattening is only ever used
-      once! And it is for a check, in lustreDeclarations line 423 *)
     if expand then
       let upper = Numeral.(max zero (E.numeral_of_expr array_size)) in
       let result = ref X.empty in
@@ -2181,8 +2179,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
       H.clear !map.array_index;
       H.clear !map.quant_vars;
-      (* TODO: Old code tries to infer a more strict type here
-        lustreContext 2040+ *)
       equations @ eqns
     in List.fold_left over_equations [] gids.GI.equations in
   (* ****************************************************************** *)
@@ -2314,8 +2310,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
           
           equations; *)
         H.clear !map.array_index;
-        (* TODO: Old code tries to infer a more strict type here
-          lustreContext 2040+ *)
         equations @ eqns
       )
     in 

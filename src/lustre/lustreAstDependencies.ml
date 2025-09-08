@@ -26,9 +26,7 @@
     graph dependency analysis and sorting done here.
     1. Top level constants and type declarations and functions (starts at [mk_graph_decls]) 
     2. Nodes and contracts (starts at [mk_graph_decls])
-    3. Sorting equations of contracts and circular analysis of node equations
-
-   TODO: This should module should supercede LustreDependencies when it hardens.     
+    3. Sorting equations of contracts and circular analysis of node equations   
 
    @author Apoorv Ingle *)
 

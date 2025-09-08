@@ -3213,22 +3213,6 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
-  (* Use the old frontend *)
-  let old_frontend_default = false
-  let old_frontend = ref old_frontend_default
-  let _ = add_spec
-    "--old_frontend"
-    (bool_arg old_frontend)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Use the old Lustre front-end.@ \
-          Default: %a\
-        "
-        fmt_bool old_frontend_default
-    )
-  let old_frontend () = !old_frontend
-
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
@@ -3714,7 +3698,6 @@ let dump_cex = Global.dump_cex
 let set_dump_cex = Global.set_dump_cex
 let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
-let old_frontend = Global.old_frontend
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
