@@ -287,8 +287,9 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
 
         R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
 
-(** Helper function to fill in ITE oracles and guard equations with specified
-    initialization values (if present). *)
+(** Helper function to fill in ITE oracles. 
+    For variable v, fill each ITE oracle with `init_v -> pre v` if an initialization exists, 
+    and `pre v` otherwise. *) 
 let fill_ite_oracles f_pos node_id nes ni = 
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), rhs_expr)) -> 
@@ -377,8 +378,8 @@ match ni with
 
 (**
   For each node item in frame block body:
-    Fill in ITE oracles and initialize equations (RHS) when an initialization
-    value is specified.
+    Fill in ITE oracles (for variable v, fill with `init_v -> pre v` if an initialization 
+    exists, and `pre v` otherwise).  
   For each initialization:
     Fill in an equation if one doesn't exist.
   For each variable that is neither initialized nor defined:
@@ -409,10 +410,9 @@ let desugar_node_item (node_id: NI.t) ni = match ni with
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
 
-(** Desugars a declaration list to remove frame blocks. Node equations
-    in the body are initialized with the provided initializations. If a frame block 
-    node equation has if statements with undefined branches, it fills the branches in by setting
-    the variable equal to its value in the previous timestep. *)
+(** Desugars a declaration list to remove frame blocks. 
+    If a frame block node equation has if statements with undefined branches, it fills the branches in by setting
+    the variable v equal to `init_v -> pre v` (or, if no initialization is provided, just `pre v`) *)
 let desugar_frame_blocks sorted_node_contract_decls = 
   NI.Hashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with
