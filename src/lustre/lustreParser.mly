@@ -927,10 +927,14 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  | MAP LSQBRACKET RSQBRACKET ATSIGN
+  | MAP LSQBRACKET 
+    updates = separated_list(SEMICOLON, assign); 
+    RSQBRACKET ATSIGN
     LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
   {
-    A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))
+    List.fold_left (fun acc (e2, e3) -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+    )  (A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))) updates 
   }
 
   | e1 = pexpr(Q); 
@@ -938,13 +942,9 @@ pexpr(Q):
     updates = separated_nonempty_list(SEMICOLON, assign); 
     RSQBRACKET;
     { 
-      match updates with 
-      | [] -> assert false 
-      | (e2, e3) :: tl -> 
-        List.fold_left (fun acc (e2, e3) -> 
-          A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
-        ) (A.StructUpdate (mk_pos $startpos, e1, [A.GenericIndex (mk_pos $startpos, e2)], e3)) 
-          tl 
+      List.fold_left (fun acc (e2, e3) -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+      ) e1 updates 
     }
 
   (* Tuple projection (not quantified) *)
