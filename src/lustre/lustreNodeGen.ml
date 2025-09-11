@@ -1228,7 +1228,8 @@ and compile_ast_expr
     compile_equality bounds true expr1 expr2
   | A.CompOp (_, A.Neq, expr1, expr2) ->
     compile_equality bounds false expr1 expr2
-  | A.TernaryOp (_, A.Ite, expr1, expr2, expr3) ->
+  | A.TernaryOp (_, A.Ite, expr1, expr2, expr3)
+  | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
@@ -1290,7 +1291,7 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
 
-and compile_node node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined =
+and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in
   let ident = NI.get_internal_name node_id |> I.of_hstring in
   let po_ct = !map.poracle_count in
@@ -1365,6 +1366,11 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
     | None, Some r -> [N.CRestart r]
     | Some c, Some r -> [N.CActivate c; N.CRestart r]
   in
+  let call_ctx =
+    match call_ctx with
+    | Some id -> Some (mk_ident id |> H.find !map.state_var)
+    | None -> None
+  in
   let call_id = !map.call_count in
   map := {!map with call_count = call_id + 1 };
   let node_call = {
@@ -1372,6 +1378,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
     N.call_pos = pos;
     N.call_node_id = called_node.node_id;
     N.call_cond = cond_state_var;
+    N.call_context = call_ctx;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
     N.call_outputs = outputs;
@@ -1822,7 +1829,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, node_id, _, _, _)) ->
+    let over_calls = fun () ((_, var, _, _, _, node_id, _, _, _)) ->
       let called_node = N.node_of_node_id node_id cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
@@ -1921,7 +1928,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
-      fun (calls, glocals) (pos, var, cond, restart, node_id, args, defaults, inlined)
+      fun (calls, glocals) (pos, var, cond, restart, call_ctx, node_id, args, defaults, inlined)
     ->
       (* let internal_node_name_hstring = NI.get_internal_name node_id |> HString.mk_hstring in *)
       let internal_node_name = NI.get_internal_name node_id |> I.of_hstring in
@@ -1964,7 +1971,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined
+        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals

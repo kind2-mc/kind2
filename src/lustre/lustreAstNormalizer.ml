@@ -163,6 +163,7 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
+  call_context : LustreAst.expr list;
 }
 
 let pp_print_generated_identifiers ppf gids =
@@ -185,12 +186,17 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, node_id, args, defaults, inlined) ->
+  let pp_print_context ppf = function
+    | Some ctx -> Format.fprintf ppf "%a" HString.pp_print_hstring ctx
+    | None -> ()
+  in
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ctx, node_id, args, defaults, inlined) ->
     Format.fprintf ppf 
-      "%a: %a = call(%a,(restart %a every %a)(%a),%a)%s"
+      "%a: %a = call(%a,%a,(restart %a every %a)(%a),%a)%s"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
+      pp_print_context ctx
       NI.pp_print_node_id_user_name node_id
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
@@ -680,20 +686,6 @@ let mk_fresh_refinement_type_constraint source info pos node_id id expr_type =
   in
   List.fold_left union (empty ()) gids
 
-let mk_fresh_call ?(inlined=false) info id pos cond restart args defaults =
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
-  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
-    else HString.concat2
-      (HString.mk_hstring (string_of_int info.local_group_projection))
-      (HString.mk_hstring "proj_")
-  in
-  let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, args, defaults, inlined) in
-  let gids = { (empty ()) with calls = [call] } in
-  nexpr, gids
-
 let add_step_counter info =
   let dpos = Lib.dummy_pos in
   let eq_lhs = A.StructDef (dpos, [SingleIdent (dpos, ctr_id)]) in
@@ -1025,7 +1017,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1;
-    inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls }
+    inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
+    call_context = [] }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1780,6 +1773,35 @@ and abstract_expr ?guard force info node_id map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
+and mk_fresh_call ?(inlined=false) info id map pos cond restart args defaults =
+  let call_ctx, gids1 =
+    match info.call_context with
+    | [] -> None, empty ()
+    | c :: cs -> (
+      let conj =
+        List.fold_left
+          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+      in
+      let nexpr, gids, warnings = abstract_expr false info id map conj in
+      assert (warnings = []);
+      match AH.id_of_expr nexpr with
+      | None -> assert false
+      | Some id -> Some id, gids
+    )
+  in
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
+  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
+    else HString.concat2
+      (HString.mk_hstring (string_of_int info.local_group_projection))
+      (HString.mk_hstring "proj_")
+  in
+  let nexpr = A.Ident (pos, HString.concat2 proj name) in
+  let call = (pos, name, cond, restart, call_ctx, id, args, defaults, inlined) in
+  let gids2 = { (empty ()) with calls = [call] } in
+  nexpr, union gids1 gids2
+
 and expand_node_call info node_id expr var count =
   let ty = Chk.infer_type_expr info.context (Some node_id) expr |> unwrap |> fst in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
@@ -1896,7 +1918,7 @@ and normalize_expr ?guard info node_id map =
         (combine_args_with_const info args flags)
       in
       let nexpr, gids2 =
-        mk_fresh_call ~inlined info id pos cond restart nargs None
+        mk_fresh_call ~inlined info id map pos cond restart nargs None
       in
       nexpr, union gids1 gids2, warnings
     in
@@ -1931,7 +1953,7 @@ and normalize_expr ?guard info node_id map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, gids5 = mk_fresh_call info id pos ncond nrestart nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
@@ -1944,7 +1966,7 @@ and normalize_expr ?guard info node_id map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info id pos cond nrestart nargs None in
+    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
@@ -1959,7 +1981,7 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info id pos ncond nrestart nargs None in
+        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
@@ -1975,7 +1997,7 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids3 = mk_fresh_call info id pos ncond restart nargs None in
+        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         let warnings = warnings1 @ warnings2 in
         (clock_value, nexpr), gids, warnings
@@ -2139,13 +2161,24 @@ and normalize_expr ?guard info node_id map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | TernaryOp (pos, op, expr1, expr2, expr3) ->
+  | TernaryOp (pos, Ite, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
-    TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids, warnings
+    TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings
+  | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
+    let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
+    let info2 = { info with call_context = nexpr1 :: info.call_context } in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info2 node_id map expr2 in
+    let info3 = { info with call_context =
+      A.UnaryOp (AH.pos_of_expr expr1, Not, nexpr1) :: info.call_context }
+    in
+    let nexpr3, gids3, warnings3 = normalize_expr ?guard info3 node_id map expr3 in
+    let gids = union (union gids1 gids2) gids3 in
+    let warnings = warnings1 @ warnings2 @ warnings3 in
+    TernaryOp (pos, LazyIte, nexpr1, nexpr2, nexpr3), gids, warnings
   | ConvOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     ConvOp (pos, op, nexpr), gids, warnings

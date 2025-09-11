@@ -451,7 +451,8 @@ let rec infer_const_attr ctx exp =
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> combine (r e1) (r e2)
-  | TernaryOp (_, Ite, e1, e2, e3) -> (
+  | TernaryOp (_, Ite, e1, e2, e3)
+  | TernaryOp (_, LazyIte, e1, e2, e3) -> (
     let r_e2 = r e2 in
     match r e1 with
     | [Ok _] -> combine r_e2 (r e3)
@@ -846,7 +847,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     | _ -> type_error pos (ExpectedMachineIntegerType inf_ty)) 
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
-    | Ite -> 
+    | Ite | LazyIte -> 
       let* inf_ty, warnings1 = infer_type_expr ctx nname con in
       let* inf_ty = expand_type_syn_reftype_history ctx inf_ty in
       (match inf_ty with
@@ -1167,7 +1168,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx inf_ty exp_ty) 
       (R.ok warnings)
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-  | LA.TernaryOp (pos, _, con, e1, e2) ->
+  | LA.TernaryOp (pos, Ite, con, e1, e2)
+  | LA.TernaryOp (pos, LazyIte, con, e1, e2) ->
     infer_type_expr ctx nname con
     >>= (function 
         | Bool _, warnings1 ->

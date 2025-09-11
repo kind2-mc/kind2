@@ -163,6 +163,7 @@ let mk_span start_pos end_pos =
 %token THEN
 %token ELSE
 %token ELSIF
+%token OTHERWISE
 %token FI
 %token FRAME
 
@@ -216,7 +217,7 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
-%nonassoc ELSE
+%nonassoc ELSE OTHERWISE
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL
@@ -1033,6 +1034,9 @@ pexpr(Q):
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
+
+  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); OTHERWISE; e3 = pexpr(Q)
+    { A.TernaryOp (mk_pos $startpos, A.LazyIte, e1, e2, e3) }
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 

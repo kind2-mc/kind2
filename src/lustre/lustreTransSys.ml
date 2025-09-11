@@ -646,6 +646,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
+      N.call_context   ;
       N.call_inputs    ;
       N.call_oracles   ;
       N.call_outputs   ;}
@@ -833,6 +834,18 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
   let node_props = node_assume_props @ node_props in
 
+  let node_props =
+    match call_context with
+    | None -> node_props
+    | Some sv -> (
+      let v = Var.mk_state_var_instance sv TransSys.prop_base in
+      node_props |> List.map (fun p ->
+        let prop_term = Term.mk_implies [Term.mk_var v; p.P.prop_term] in
+        { p with prop_term }
+      )
+    )
+  in
+
   let node_assumes =
     if node_assume_props = [] then None
     else (
@@ -942,6 +955,16 @@ let call_terms_of_node_call mk_fresh_state_var globals
   trans_call_term
   
 
+let add_call_context call_context init_term trans_term =
+  match call_context with
+  | None -> init_term, trans_term
+  | Some sv -> (
+    let v_i = Var.mk_state_var_instance sv TransSys.init_base in
+    let v_t = Var.mk_state_var_instance sv TransSys.trans_base in
+    Term.mk_implies [Term.mk_var v_i; init_term],
+    Term.mk_implies [Term.mk_var v_t; trans_term]
+  )
+
 (* Add constraints from node calls to initial state constraint and
    transition relation *)
 let rec constraints_of_node_calls 
@@ -971,7 +994,7 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [] }
+  | { N.call_id; N.call_pos; N.call_context; N.call_node_id; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -1022,6 +1045,10 @@ let rec constraints_of_node_calls
         subsystems
     in
 
+    let init_term, trans_term =
+      add_call_context call_context init_term trans_term
+    in
+
     (* Continue with next node calls *)
     constraints_of_node_calls 
       mk_fresh_state_var
@@ -1038,8 +1065,10 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [N.CRestart restart] }
-    as node_call :: tl ->
+  | { N.call_id; N.call_pos; N.call_context; N.call_node_id;
+      N.call_cond = [N.CRestart restart] } as node_call :: tl ->
+
+    assert (call_context = None);
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
@@ -1114,11 +1143,14 @@ let rec constraints_of_node_calls
   (* Node call with activation condition *)
   | { N.call_id;
       N.call_pos;
+      N.call_context;
       N.call_node_id; 
       N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
       N.call_outputs; 
       N.call_defaults } as node_call :: tl -> 
+
+    assert (call_context = None);
 
     (* Get generated transition system of callee *)
     let { node = { N.inputs; }; trans_sys; init_flags } as node_def =

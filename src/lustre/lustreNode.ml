@@ -108,6 +108,9 @@ type node_call = {
   (* Boolean activation and/or restart conditions if any *)
   call_cond : call_cond list;
  
+  (* Boolean variable representing the condition of a function call if any *)
+  call_context : StateVar.t option;
+
   (* Variables for input parameters *)
   call_inputs : StateVar.t D.t;
 
@@ -1459,6 +1462,7 @@ let stateful_vars_of_node
           (fun
             accum
             { call_cond;
+              call_context;
               call_inputs;
               call_oracles;
               call_outputs;
@@ -1469,6 +1473,9 @@ let stateful_vars_of_node
              call_oracles @
              (D.values call_outputs))
             |> SVS.of_list
+
+            |> SVS.union (match call_context with | None -> SVS.empty | Some sv -> SVS.singleton sv)
+
             (* Add stateful variables from initial defaults *)
             |> SVS.union
                (match call_defaults with
