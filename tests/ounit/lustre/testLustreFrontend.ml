@@ -108,7 +108,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "test function with node call in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_node_call.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "test function with pre in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
@@ -140,7 +140,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);  
   mk_test "test node call in function contract" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract_2.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "test defining a variable more than once 1" (fun () ->
     match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
@@ -184,7 +184,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "node call in any op in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "pre in any op in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with

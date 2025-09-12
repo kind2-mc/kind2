@@ -511,7 +511,8 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_unary_expr node_id ctx ty_ctx op proj e
   | BinaryOp (_, op, e1, e2) ->
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
-  | TernaryOp (_, Ite, _, e1, e2) ->
+  | TernaryOp (_, Ite, _, e1, e2)
+  | TernaryOp (_, LazyIte, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false

@@ -69,6 +69,7 @@ type binary_operator =
 
 type ternary_operator =
   | Ite
+  | LazyIte
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -504,6 +505,8 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2

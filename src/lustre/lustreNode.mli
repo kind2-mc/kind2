@@ -75,6 +75,9 @@ type node_call = {
   call_cond : call_cond list;
   (** Boolean activation and/or restart conditions if any *)
 
+  call_context : StateVar.t option;
+  (** Boolean variable representing the condition of a function call if any *)
+
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 
 

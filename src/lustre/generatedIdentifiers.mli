@@ -46,6 +46,7 @@ type t = {
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
+    * HString.t option (* boolean variable representing call context *)
     * NodeId.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option) (* node argument defaults *)
