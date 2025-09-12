@@ -150,10 +150,10 @@ let mk_span start_pos end_pos =
 %token TRUE
 %token FALSE
 %token NOT
-%token AND
+%token AND AND_THEN
 %token XOR
-%token OR
-%token IMPL
+%token OR OR_ELSE
+%token IMPL LAZY_IMPL
 %token FORALL
 %token EXISTS
 %token IN
@@ -220,9 +220,9 @@ let mk_span start_pos end_pos =
 %nonassoc ELSE OTHERWISE
 %right ARROW
 %nonassoc prec_forall prec_exists
-%right IMPL
-%left OR XOR
-%left AND
+%right IMPL LAZY_IMPL
+%left OR OR_ELSE XOR
+%left AND AND_THEN
 %left IN
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
@@ -990,9 +990,12 @@ pexpr(Q):
   (* A Boolean operation *)
   | NOT; e = pexpr(Q) { A.UnaryOp (mk_pos $startpos, A.Not, e) } 
   | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.And, e1, e2) }
+  | e1 = pexpr(Q); AND_THEN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.AndThen, e1, e2) }
   | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Or, e1, e2) }
+  | e1 = pexpr(Q); OR_ELSE; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.OrElse, e1, e2) }
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
+  | e1 = pexpr(Q); LAZY_IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.LazyImpl, e1, e2) }
   | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In, e1, e2) }
   | HASH; LPAREN; pexpr_list(Q); RPAREN { 
     let pos = mk_pos $startpos in

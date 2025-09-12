@@ -2157,6 +2157,23 @@ and normalize_expr ?guard info node_id map =
   | Extract (pos, expr, ub, lb) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     Extract (pos, nexpr, ub, lb), gids, warnings
+  | BinaryOp (pos, AndThen, expr1, expr2) ->
+    let e =
+      let not_e1 = A.UnaryOp (pos, Not, expr1) in
+      A.TernaryOp (pos, LazyIte, not_e1, A.Const (pos, A.False), expr2)
+    in
+    normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, OrElse, expr1, expr2) ->
+    let e =
+      A.TernaryOp (pos, LazyIte, expr1, A.Const (pos, A.True), expr2)
+    in
+    normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, LazyImpl, expr1, expr2) ->
+    let e =
+      let not_e1 = A.UnaryOp (pos, Not, expr1) in
+      A.BinaryOp (pos, OrElse, not_e1, expr2)
+    in
+    normalize_expr ?guard info node_id map e
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in

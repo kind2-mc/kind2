@@ -1,0 +1,15 @@
+
+function F(x:int) returns (y:int);
+(*@contract
+  assume "A" x >=0;
+  guarantee "G" y>0;
+*)
+let
+  y = x + 1;
+tel
+
+node N(x:int) returns (y:bool);
+let
+  y = x>=0 ==> F(x)>0;
+  check "P" y;
+tel

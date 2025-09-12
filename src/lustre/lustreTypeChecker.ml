@@ -1465,7 +1465,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
   let* ty1, warnings1 = infer_type_expr ctx nname e1 in
   let* ty2, warnings2 = infer_type_expr ctx nname e2 in
   match op with
-  | LA.And | LA.Or | LA.Xor | LA.Impl ->
+  | LA.And | LA.AndThen | LA.Or | LA.OrElse | LA.Xor | LA.Impl | LA.LazyImpl ->
     R.ifM (eq_lustre_type ctx ty1 (Bool pos))
       (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
