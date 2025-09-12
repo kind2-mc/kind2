@@ -130,6 +130,17 @@ end
 
 module NodeArgCache = Hashtbl.Make(NodeArgHash)
 
+module DefaultValueHash = struct
+  type t = A.lustre_type
+  let equal x y = (match AH.syn_type_equal (Some 6) x y with
+    | Ok true -> true
+    | _ -> false)
+  
+  let hash = AH.hash_ty (Some 6)  (*!! Soundness relies on cache hits! So need unbounded? *)
+end
+
+module DefaultValueCache = Hashtbl.Make(DefaultValueHash)
+
 let force_fresh = true
   (*
   As of today, this flag should be true when the condition below holds
@@ -146,6 +157,7 @@ let force_fresh = true
 
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
+let default_value_cache = DefaultValueCache.create 20
 
 let clear_cache () =
   LocalCache.clear local_cache;
@@ -166,7 +178,7 @@ type info = {
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = StringMap.bindings gids.locals in
+  let locals_list = StringMap.bindings gids.locals @ List.map (fun (x, y) -> y, x) gids.array_default_values in
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
@@ -374,6 +386,41 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
   in
   NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
+
+let mk_fresh_default_value value_type =
+  match DefaultValueCache.find_opt default_value_cache value_type with
+  | Some name ->
+      Format.printf "[Cache HIT] key: %a -> value: %s\n"
+        A.pp_print_lustre_type value_type
+        (HString.string_of_hstring name);
+      name, empty ()
+  | None ->
+      i := !i + 1;
+      Format.printf "[Cache MISS] key: %a\n"
+        A.pp_print_lustre_type value_type;
+      Format.printf "Generating new default value!\n";
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name =
+        HString.concat2 prefix (HString.mk_hstring "_array_default_value")
+      in
+      DefaultValueCache.add default_value_cache value_type name;
+      Format.printf "[Cache ADD] key: %a -> value: %s\n"
+        A.pp_print_lustre_type value_type
+        (HString.string_of_hstring name);
+      name,
+      { (empty ()) with array_default_values = [value_type, name] }
+
+(*let mk_fresh_default_value value_type = 
+  match DefaultValueCache.find_opt default_value_cache value_type with 
+  | Some name -> name, empty () 
+  |  None ->
+  i := !i + 1;
+  Format.printf "Generating new default value!\n";
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
+  DefaultValueCache.add default_value_cache value_type name;
+  name, 
+  { (empty ()) with array_default_values = [value_type, name]; } *)
 
 let mk_fresh_dummy_index _ =
   i := !i + 1;
@@ -2180,7 +2227,7 @@ and normalize_expr ?guard info node_id map =
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | IndexAccess (pos, expr1, expr2, _) ->
+  | IndexAccess (pos, expr1, expr2, _) as e ->
     let expr1_ty =
       let ivars = info.inductive_variables in
       if expr_has_inductive_var ivars expr1 then
@@ -2209,6 +2256,10 @@ and normalize_expr ?guard info node_id map =
       | _ -> assert false
     in
     let index_access = A.IndexAccess (pos, nexpr1, nexpr2, kind') in
+    (match kind' with 
+    | Map -> index_access, union gids1 gids2, warnings1 @ warnings2 
+    | Unknown -> assert false
+    | Array -> 
     (* Wrap the index access a[i] inside an ite `if index_in_bounds then a[i] else default_value`. 
        We need default values for out of bounds array accesses -- otherwise we can have 
        arr1 = arr2 (by assignment of arr2 to arr1), 
@@ -2226,18 +2277,11 @@ and normalize_expr ?guard info node_id map =
         A.CompOp (pos, A.Lt, nexpr2, nbound)
       )
     in 
-    let gids = union (union gids1 gids2) gids3 in
-    let default_value_id, gids = match List.assoc_opt value_type gids.array_default_values with 
-    | Some id -> id, gids
-    | None -> 
-      i := !i + 1;
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
-      name, { gids with array_default_values = (value_type, name) :: gids.array_default_values; } 
-    in
+    let default_value_id, gids4 = mk_fresh_default_value value_type in
     let default_value = A.Ident (pos, default_value_id) in 
     let ite = A.TernaryOp (pos, A.Ite, index_in_bounds, index_access, default_value) in 
-    ite, gids, warnings1 @ warnings2 @ warnings3
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in
+    ite, gids, warnings1 @ warnings2 @ warnings3)
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)

@@ -1622,6 +1622,66 @@ let hash depth_limit expr =
   in
   r 0 expr
 
+let hash_ty depth_limit ty =
+  let rec r depth ty =
+    if Lib.is_some depth_limit && depth > Lib.get depth_limit then
+      Hashtbl.hash (0, Lib.get depth_limit)
+    else match ty with
+      | Bool _ -> Hashtbl.hash 1
+      | Int _ -> Hashtbl.hash 2
+      | SBitVector (_, n) -> Hashtbl.hash (3, n)
+      | UBitVector (_, n) -> Hashtbl.hash (4, n)
+      | IntRange (_, lo, hi) ->
+        let lo_hash = match lo with
+          | None -> 0
+          | Some e -> hash depth_limit e
+        in
+        let hi_hash = match hi with
+          | None -> 0
+          | Some e -> hash depth_limit e
+        in
+        Hashtbl.hash (5, lo_hash, hi_hash)
+      | Real _ -> Hashtbl.hash 6
+      | UserType (_, tys, id) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (7, tys_hash, HString.hash id)
+      | AbstractType (_, id) ->
+        Hashtbl.hash (8, HString.hash id)
+      | TupleType (_, tys) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (9, tys_hash)
+      | GroupType (_, tys) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (10, tys_hash)
+      | RecordType (_, id, fields) ->
+        let fields_hash =
+          List.map (fun (_, i, t) -> HString.hash i, r (depth + 1) t) fields
+        in
+        Hashtbl.hash (11, HString.hash id, fields_hash)
+      | ArrayType (_, (t, e)) ->
+        let t_hash = r (depth + 1) t in
+        let e_hash = hash depth_limit e in
+        Hashtbl.hash (12, t_hash, e_hash)
+      | EnumType (_, id, ids) ->
+        let ids_hash = List.map HString.hash ids in
+        Hashtbl.hash (13, HString.hash id, ids_hash)
+      | History (_, id) ->
+        Hashtbl.hash (14, HString.hash id)
+      | TArr (_, t1, t2) ->
+        let t1_hash = r (depth + 1) t1 in
+        let t2_hash = r (depth + 1) t2 in
+        Hashtbl.hash (15, t1_hash, t2_hash)
+      | RefinementType (_, (_, i, t), e) ->
+        let t_hash = r (depth + 1) t in
+        let e_hash = hash depth_limit e in
+        Hashtbl.hash (16, HString.hash i, t_hash, e_hash)
+      | Map (_, t1, t2) ->
+        let t1_hash = r (depth + 1) t1 in
+        let t2_hash = r (depth + 1) t2 in
+        Hashtbl.hash (17, t1_hash, t2_hash)
+  in
+  r 0 ty
+
 let rec rename_contract_vars = function
   | Ident (p, i) as e ->
     let components = String.split_on_char '_' (HString.string_of_hstring i) in
