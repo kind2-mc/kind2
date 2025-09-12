@@ -34,6 +34,8 @@ type t = {
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
+  array_default_values : 
+    (LustreAst.lustre_type * HString.t) list;
   free_constants: (HString.t * LustreAst.lustre_type) list;
   contract_calls :
     (Lib.position

@@ -2208,7 +2208,36 @@ and normalize_expr ?guard info node_id map =
       | Map _ -> Map
       | _ -> assert false
     in
-    IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+    let index_access = A.IndexAccess (pos, nexpr1, nexpr2, kind') in
+    (* Wrap the index access a[i] inside an ite `if index_in_bounds then a[i] else default_value`. 
+       We need default values for out of bounds array accesses -- otherwise we can have 
+       arr1 = arr2 (by assignment of arr2 to arr1), 
+       but arr1[i] <> arr2[i] for some i (e.g. -1), violating Lustre semantics. *)
+    let array_type, _ = Chk.infer_type_expr info.context (Some node_id) expr1 |> unwrap in
+    let array_type = Chk.expand_type_syn_reftype_history_subrange info.context array_type |> unwrap in
+    let value_type, bound = match array_type with 
+    | ArrayType (_, (value_type, bound)) -> value_type, bound 
+    | _ -> assert false 
+    in
+    let nbound, gids3, warnings3 = normalize_expr ?guard info node_id map bound in
+    let index_in_bounds = 
+      A.BinaryOp (pos, A.And, 
+        A.CompOp (pos, A.Lte, A.Const (pos, A.Num (HString.mk_hstring "0")), nexpr2), 
+        A.CompOp (pos, A.Lt, nexpr2, nbound)
+      )
+    in 
+    let gids = union (union gids1 gids2) gids3 in
+    let default_value_id, gids = match List.assoc_opt value_type gids.array_default_values with 
+    | Some id -> id, gids
+    | None -> 
+      i := !i + 1;
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
+      name, { gids with array_default_values = (value_type, name) :: gids.array_default_values; } 
+    in
+    let default_value = A.Ident (pos, default_value_id) in 
+    let ite = A.TernaryOp (pos, A.Ite, index_in_bounds, index_access, default_value) in 
+    ite, gids, warnings1 @ warnings2 @ warnings3
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)

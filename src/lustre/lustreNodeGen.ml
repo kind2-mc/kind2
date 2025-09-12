@@ -1717,7 +1717,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
   in let glocals =
-    let locals_list = GI.StringMap.bindings gids.GI.locals in
+    let locals_list = 
+      GI.StringMap.bindings gids.GI.locals 
+      @ List.map (fun (fst, snd) -> snd, fst) gids.GI.array_default_values 
+    in
     let over_generated_locals glocals (id, expr_type) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
