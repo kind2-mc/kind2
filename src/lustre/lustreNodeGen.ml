@@ -1172,12 +1172,15 @@ and compile_ast_expr
   (* ****************************************************************** *)
   | A.BinaryOp (_, A.And, expr1, expr2) ->
     compile_binary bounds E.mk_and expr1 expr2
+  | A.BinaryOp (_, A.AndThen, _, _) -> assert false
   | A.BinaryOp (_, A.Or, expr1, expr2) ->
     compile_binary bounds E.mk_or expr1 expr2 
+  | A.BinaryOp (_, A.OrElse, _, _) -> assert false
   | A.BinaryOp (_, A.Xor, expr1, expr2) ->
     compile_binary bounds E.mk_xor expr1 expr2 
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
+  | A.BinaryOp (_, A.LazyImpl, _, _) -> assert false
   | A.BinaryOp (_, A.In, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr

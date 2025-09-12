@@ -961,6 +961,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     >> (no_temporal_operator "branches of an if-then-otherwise" e)
     >> (f ctx e)
   in
+  let lazy_bool_op op ctx e =
+    (no_calls_to_node ("the argument of " ^ op)  ctx e)
+    >> (no_temporal_operator ("arguments of " ^ op) e)
+    >> (f ctx e)
+  in
   let res = f ctx expr in
   let check = function
     | LA.RecordProject (_, e, _)
@@ -979,6 +984,18 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
+    | BinaryOp (_, AndThen, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "'and then'") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "'and then'") e2) in 
+      Ok (warnings1 @ warnings2)
+    | BinaryOp (_, OrElse, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "'or else'") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "'or else'") e2) in 
+      Ok (warnings1 @ warnings2)
+    | BinaryOp (_, LazyImpl, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "==>") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "==>") e2) in 
+      Ok (warnings1 @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | IndexAccess (_, e1, e2, _)

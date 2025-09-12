@@ -63,8 +63,8 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl | In
-  | Mod | Minus | Plus | Div | Times | IntDiv
+  | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
+  | In | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
@@ -475,9 +475,12 @@ let rec pp_print_expr ppf =
 
     | UnaryOp (p, Not, e) -> p1 p "not" e
     | BinaryOp (p, And, e1, e2) -> p2 p "and" e1 e2
+    | BinaryOp (p, AndThen, e1, e2) -> p2 p "and then" e1 e2
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
+    | BinaryOp (p, OrElse, e1, e2) -> p2 p "or else" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
+    | BinaryOp (p, LazyImpl, e1, e2) -> p2 p "==>" e1 e2
     | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
