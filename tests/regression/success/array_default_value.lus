@@ -1,6 +1,5 @@
 node N () returns (a1: [int, int]^5; a2: [int, int]^5)
 let
-  --!! make sure maps aren't getting default values
   a2 = a1; 
   check a2[-1] = a1[-1];
 tel
