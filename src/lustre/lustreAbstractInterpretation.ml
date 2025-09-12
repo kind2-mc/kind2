@@ -594,7 +594,15 @@ and interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2 =
         let lmax = Numeral.max l1 l2 in
         let rmax = Numeral.max r1 r2 in
         let rmin = Numeral.min r1 r2 in
-        Some (Numeral.(/) lmin rmax), Some (Numeral.(/) lmax rmin)
+        let lb =
+          if Numeral.(equal rmax zero) then None
+          else Some (Numeral.(/) lmin rmax)
+        in
+        let ub =
+          if Numeral.(equal rmin zero) then None
+          else Some (Numeral.(/) lmax rmin)
+        in
+        lb, ub
       | _ -> None, None)
   | _ -> assert false)
 

@@ -1668,7 +1668,19 @@ let integer_division args =
       | [_] -> assert false
 
       (* Divide first argument by remaining arguments *)
-      | h :: tl -> Num ((List.fold_left Numeral.(/) h tl), [])
+      | h :: tl ->
+
+        Num
+          ((List.fold_left
+              (fun a e ->
+                 if Numeral.(e = zero) then (
+                   division_by_zero := true ;
+                   Numeral.zero (* TODO: Compute a value consistent with the model *)
+                 )
+                 else Numeral.(a / e))
+           h
+           tl),
+           [])
 
   else
 

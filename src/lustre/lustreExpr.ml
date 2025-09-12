@@ -1413,7 +1413,7 @@ let best_int_range is_div op t t' =
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
-  ) -> raise Division_by_zero
+  ) -> Type.t_int
   
   | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
@@ -2324,17 +2324,25 @@ let eval_div expr1 expr2 =
 
     if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
-      Term.mk_dec
-        Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2)
+      let divisor = Symbol.decimal_of_symbol c2 in
+
+      if Decimal.(equal divisor zero) then
+        Term.mk_div [expr1; expr2]
+      else
+        Term.mk_dec
+          Decimal.(Symbol.decimal_of_symbol c1 / divisor)
 
     else (
 
       assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
 
-      Term.mk_num
-        Numeral.(Symbol.numeral_of_symbol c1 /
-                 Symbol.numeral_of_symbol c2)
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_intdiv [expr1; expr2]
+      else
+        Term.mk_num
+          Numeral.(Symbol.numeral_of_symbol c1 / divisor)
     )
 
   | _ ->
