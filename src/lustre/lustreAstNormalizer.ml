@@ -162,6 +162,7 @@ let default_value_cache = DefaultValueCache.create 20
 let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
+  DefaultValueCache.clear default_value_cache;
 
 type info = {
   context : Ctx.tc_context;
@@ -390,37 +391,14 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
 let mk_fresh_default_value value_type =
   match DefaultValueCache.find_opt default_value_cache value_type with
   | Some name ->
-      Format.printf "[Cache HIT] key: %a -> value: %s\n"
-        A.pp_print_lustre_type value_type
-        (HString.string_of_hstring name);
-      name, empty ()
+    name, empty ()
   | None ->
-      i := !i + 1;
-      Format.printf "[Cache MISS] key: %a\n"
-        A.pp_print_lustre_type value_type;
-      Format.printf "Generating new default value!\n";
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      let name =
-        HString.concat2 prefix (HString.mk_hstring "_array_default_value")
-      in
-      DefaultValueCache.add default_value_cache value_type name;
-      Format.printf "[Cache ADD] key: %a -> value: %s\n"
-        A.pp_print_lustre_type value_type
-        (HString.string_of_hstring name);
-      name,
-      { (empty ()) with array_default_values = [value_type, name] }
-
-(*let mk_fresh_default_value value_type = 
-  match DefaultValueCache.find_opt default_value_cache value_type with 
-  | Some name -> name, empty () 
-  |  None ->
-  i := !i + 1;
-  Format.printf "Generating new default value!\n";
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
-  DefaultValueCache.add default_value_cache value_type name;
-  name, 
-  { (empty ()) with array_default_values = [value_type, name]; } *)
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
+    DefaultValueCache.add default_value_cache value_type name;
+    name,
+    { (empty ()) with array_default_values = [value_type, name] }
 
 let mk_fresh_dummy_index _ =
   i := !i + 1;
@@ -2227,7 +2205,7 @@ and normalize_expr ?guard info node_id map =
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | IndexAccess (pos, expr1, expr2, _) as e ->
+  | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty =
       let ivars = info.inductive_variables in
       if expr_has_inductive_var ivars expr1 then
