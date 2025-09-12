@@ -817,6 +817,7 @@ type kind_module =
   | `INVGENREALOS
   | `C2I
   | `Interpreter
+  | `CMonitor
   | `Supervisor
   | `Parser
   | `Certif
@@ -847,6 +848,7 @@ let pp_print_kind_module ppf = function
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
   | `Interpreter -> fprintf ppf "interpreter"
+  | `CMonitor -> fprintf ppf "contract monitor"
   | `Supervisor -> fprintf ppf "invariant manager"
   | `Parser -> fprintf ppf "parser"
   | `Certif -> Format.fprintf ppf "certificate"
@@ -880,6 +882,7 @@ let short_name_of_kind_module = function
  | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
  | `Interpreter -> "interp"
+ | `CMonitor -> "cmonitor"
  | `Supervisor -> "super"
  | `Parser -> "parse"
  | `Certif -> "certif"
@@ -936,6 +939,7 @@ let int_of_kind_module = function
   | `Certif -> -4
   | `Parser -> -3
   | `Interpreter -> -2
+  | `CMonitor -> -10
   | `Supervisor -> -1
   | `BMC -> 1
   | `BMCSKIP -> 30

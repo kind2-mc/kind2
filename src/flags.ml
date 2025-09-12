@@ -2628,6 +2628,53 @@ module Interpreter = struct
 end
 
 
+
+module ContractMonitor = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "contract-monitor"
+  (* Short description of the module. *)
+  let desc = "contract monitor flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      The contract monitor is a special mode where Kind 2 reads a @ \ 
+      model trace (inputs and outputs) from a file and prints the @\ 
+      truth values of the modes and guaruntees of the system at each step.\
+    @]"
+
+  let input_file_default = ""
+  let input_file = ref input_file_default
+  let _ = add_spec
+    "--monitor_trace_file"
+    (Arg.Set_string input_file)
+    (fun fmt ->
+      Format.fprintf fmt "@[<v>Read trace from file@]"
+    )
+  let input_file () = !input_file
+
+  (* let steps_default = 0
+  let steps = ref steps_default
+  let _ = add_spec
+    "--interpreter_steps"
+    (Arg.Set_int steps)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Run number of steps, override the number of steps given in the@ \
+          input file@ \
+          Default: %d\
+        @]"
+        steps_default
+    ) 
+  let steps () = !steps *)
+
+end
+
+
+
 module Lsp = struct
 
   include Make_Spec (struct end)
@@ -2707,6 +2754,9 @@ let module_map = [
   ) ;
   (Interpreter.id,
     (module Interpreter: FlagModule)
+  ) ;
+  (ContractMonitor.id,
+    (module ContractMonitor: FlagModule)
   ) ;
   (QE.id,
     (module QE: FlagModule)
@@ -3267,6 +3317,7 @@ module Global = struct
     | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
+    | "contract-monitor" -> `CMonitor
     | "MCS" -> `MCS
     | "CONTRACTCK" -> `CONTRACTCK
     | unexpected -> Arg.Bad (
@@ -3291,6 +3342,7 @@ module Global = struct
     | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
+    | `CMonitor -> "contract-monitor"
     | `MCS -> "MCS"
     | `CONTRACTCK -> "CONTRACTCK"
   let string_of_enable = function
@@ -3307,7 +3359,7 @@ module Global = struct
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
     `INVGENREAL ; `INVGENREALOS ;
-    `C2I ; `Interpreter ; `MCS ; `CONTRACTCK
+    `C2I ; `Interpreter ; `CMonitor ; `MCS ; `CONTRACTCK
   ] |> List.map string_of_kind_module
 
   let enable_default_init = []

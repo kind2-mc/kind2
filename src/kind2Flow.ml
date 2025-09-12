@@ -93,6 +93,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
+    | `CMonitor -> Flags.Interpreter.input_file () |> Interpreter.main
     | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
@@ -123,6 +124,7 @@ let on_exit_of_process mdl =
     | `INVGENREALOS -> InvGen.exit None
     | `C2I -> C2I.on_exit None
     | `Interpreter -> Interpreter.on_exit None
+    | `CMonitor -> Interpreter.on_exit None
     | `Supervisor -> InvarManager.on_exit None
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ()
