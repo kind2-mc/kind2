@@ -2641,8 +2641,8 @@ module ContractMonitor = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       The contract monitor is a special mode where Kind 2 reads a @ \ 
-      model trace (inputs and outputs) from a file and prints the @\ 
-      truth values of the modes and guaruntees of the system at each step.\
+model trace (inputs and outputs) from a file and prints the @\ 
+truth values of the modes and guaruntees of the system at each step.\
     @]"
 
   let input_file_default = ""
