@@ -21,7 +21,7 @@
     The types in this module closely represent the abstract syntax of
     Lustre. No type checking or simplification is performed when
     constructing the abstract syntax tree, this is done when producing
-    the intermediate Lustre representation in {!LustreDeclarations}. 
+    the intermediate Lustre representation in {!LustreNodeGen}. 
 
     Some values are reserved for future use and will cause the
     translation to intermediate Lustre to fail.
@@ -79,12 +79,13 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl | In
-  | Mod | Minus | Plus | Div | Times | IntDiv
+  | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
+  | In | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
   | Ite
+  | LazyIte
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -174,6 +175,8 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  (* Constructor used at parse time before the index type is known *)
+  | GenericIndex of position * expr 
 
 (** {1 Declarations} *)
 

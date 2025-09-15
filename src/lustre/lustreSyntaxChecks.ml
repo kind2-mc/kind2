@@ -51,7 +51,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | NodeCallInFunction of HString.t
+  | IllegalNodeCall of (HString.t * string)
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
@@ -70,6 +70,7 @@ type error_kind = Unknown of string
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
+  | InductiveVarsWithArrayConstr of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -101,12 +102,11 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
-  | NodeCallInFunction node -> "Illegal call to node '"
-    ^ HString.string_of_hstring node ^ "', functions and function contracts can only call other functions, not nodes"
+  | IllegalNodeCall (node, variant) -> "Illegal call to node '"
+    ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
-  | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
-    ^ variant ^ "s cannot have state"
+  | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
     ^ HString.string_of_hstring contract ^ "'. Functions can only be specified by stateless contracts"
   | UnsupportedClockedInputOrOutput -> "Clocked inputs or outputs are not supported"
@@ -123,6 +123,7 @@ let error_message kind = match kind with
   | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
+  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -275,6 +276,7 @@ function
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
+      | GenericIndex (_, e) 
       | MapIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
       )
@@ -555,13 +557,15 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     List.fold_left (>>) (Ok ()) check
   | _ -> Ok ()
 
-let no_calls_to_node ctx = function
+let no_calls_to_node scope ctx = function
   | LA.Condact (pos, _, _, node_id, _, _)
   | Activate (pos, node_id, _, _, _)
   | RestartEvery (pos, node_id, _, _) 
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
-    if check_nodes then syntax_error pos (NodeCallInFunction (NI.get_user_name node_id))
+    if check_nodes then
+      syntax_error pos 
+        (IllegalNodeCall (NI.get_user_name node_id, scope))
     else Ok ()
   | _ -> Ok ()
 
@@ -772,14 +776,14 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
-    (no_calls_to_node ctx e)
-    >> (no_temporal_operator "function" e)
+    (no_calls_to_node "functions" ctx e)
+    >> (no_temporal_operator "functions" e)
     >> (common_node_equations_checks ctx e)
   in
   let function_contract_checks ctx e =
-    (no_calls_to_node ctx e) >> 
+    (no_calls_to_node "function contracts" ctx e) >> 
     let* warnings1 =  (common_contract_checks ctx e) in
-    let* warnings2 = (no_temporal_operator "function contract" e) in 
+    let* warnings2 = (no_temporal_operator "function contracts" e) in 
     Ok (warnings1 @ warnings2)
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
@@ -841,7 +845,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
-      let* warnings1 = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes in
+      let* warnings1 = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes in
       let* warnings2 = check_items ctx ~tc_ctx f nes in 
       let* warnings3 = (check_items ctx ~tc_ctx f nis) in
       Ok (warnings1 @ warnings2 @ warnings3)
@@ -952,6 +956,16 @@ and check_ty_quantified_var ctx f = function
 
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
+  let lazy_ite ctx e =
+    (no_calls_to_node "a branch of an if-then-otherwise" ctx e)
+    >> (no_temporal_operator "branches of an if-then-otherwise" e)
+    >> (f ctx e)
+  in
+  let lazy_bool_op op ctx e =
+    (no_calls_to_node ("the argument of " ^ op)  ctx e)
+    >> (no_temporal_operator ("arguments of " ^ op) e)
+    >> (f ctx e)
+  in
   let res = f ctx expr in
   let check = function
     | LA.RecordProject (_, e, _)
@@ -970,18 +984,49 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
+    | BinaryOp (_, AndThen, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "'and then'") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "'and then'") e2) in 
+      Ok (warnings1 @ warnings2)
+    | BinaryOp (_, OrElse, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "'or else'") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "'or else'") e2) in 
+      Ok (warnings1 @ warnings2)
+    | BinaryOp (_, LazyImpl, e1, e2) ->
+      let* warnings1 = (check_expr ctx (lazy_bool_op "==>") e1) in 
+      let* warnings2 = (check_expr ctx (lazy_bool_op "==>") e2) in 
+      Ok (warnings1 @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
-    | ArrayConstr (_, e1, e2)
     | IndexAccess (_, e1, e2, _)
     | Arrow (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 
       Ok (warnings1 @ warnings2)
-    | TernaryOp (_, _, e1, e2, e3) -> 
+    | ArrayConstr (p, e1, e2) as e -> 
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx f e2) in 
+      let ivars = 
+        StringMap.bindings ctx.array_indices @ StringMap.bindings ctx.symbolic_array_indices 
+        |> List.map fst |> LA.SI.of_list
+      in
+      let num_ivars = LA.SI.cardinal ivars in
+      let evars = LustreAstHelpers.vars_without_node_call_ids e1 in 
+      let ie_vars = LA.SI.inter ivars evars in 
+      let num_ie_vars = LA.SI.cardinal ie_vars in
+      (* Disallow inductive variables in ArrayConstrs if the array is multidimensional *)
+      if num_ivars >= 2 && num_ie_vars >= 1 
+      then syntax_error p (InductiveVarsWithArrayConstr e) 
+      else Ok (warnings1 @ warnings2)
+    | TernaryOp (_, Ite, e1, e2, e3) -> 
       let* warnings1 = (check_expr ctx f e1) in
       let* warnings2 = (check_expr ctx f e2) in 
       let* warnings3 = (check_expr ctx f e3) in 
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | TernaryOp (_, LazyIte, e1, e2, e3) -> 
+      let* warnings1 = (check_expr ctx f e1) in
+      let* warnings2 = (check_expr ctx lazy_ite e2) in
+      let* warnings3 = (check_expr ctx lazy_ite e3) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | GroupExpr (_, _, e)
     | Call (_, _, _, e)
@@ -1009,7 +1054,15 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr ctx f e2) in
       let l =
          List.filter_map
-          (function | LA.Label _ -> None | Index (_, e) | MapIndex (_, e) -> Some e) l
+          (function | LA.Label _ -> None | Index (_, e) 
+                    | GenericIndex (_, e) | MapIndex (_, e) -> 
+          (* Procrastinate on dangling identifier checks for lone Ident expressions 
+             until type checking. This is necessary because we don't have the 
+             right context to distinguish a dangling identifier from one referencing 
+             a record type field *)
+          match e with 
+          | LA.Ident (_, _) -> None 
+          | _ -> Some e) l
        in
        let* warnings3 = check_expr_list ctx f l in 
        Ok (warnings1 @ warnings2 @ warnings3)

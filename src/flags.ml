@@ -1352,24 +1352,6 @@ module Contracts = struct
     )
   let refinement () = !refinement
 
-  let enforce_func_congruence_default = false
-  let enforce_func_congruence = ref enforce_func_congruence_default
-  let _ = add_spec
-    "--enforce_func_congruence"
-    (bool_arg enforce_func_congruence)
-    (fun fmt ->
-      Format.fprintf fmt
-      "@[<v>\
-        Add constraints to ensure imported functions,@ \
-        partially defined functions, and functions abstracted by@ \
-        their contracts behave as mathematical functions:@ \
-        given the same inputs the functions provide the same outputs@ \
-        Default: %a\
-      @]"
-      fmt_bool enforce_func_congruence_default
-    )
-  let enforce_func_congruence () = !enforce_func_congruence
-
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
   let _ = add_spec
@@ -3231,22 +3213,6 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
-  (* Use the old frontend *)
-  let old_frontend_default = false
-  let old_frontend = ref old_frontend_default
-  let _ = add_spec
-    "--old_frontend"
-    (bool_arg old_frontend)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Use the old Lustre front-end.@ \
-          Default: %a\
-        "
-        fmt_bool old_frontend_default
-    )
-  let old_frontend () = !old_frontend
-
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
@@ -3732,7 +3698,6 @@ let dump_cex = Global.dump_cex
 let set_dump_cex = Global.set_dump_cex
 let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
-let old_frontend = Global.old_frontend
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable

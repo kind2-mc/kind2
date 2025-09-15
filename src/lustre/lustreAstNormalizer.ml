@@ -101,57 +101,12 @@ type warning = [
 
 let mk_warning pos kind = `LustreAstNormalizerWarning (pos, kind)
 
-let (>>=) = Res.(>>=)
-
 let unwrap result = match result with
   | Ok r -> r
   | Error e ->
     let msg = LustreErrors.error_message e in
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
-
-
-module AstCallHash = struct
-  type t = NI.t (* node name *)
-    * A.expr (* cond *)
-    * A.expr (* restart *)
-    * A.expr list (* arguments (which are already abstracted) *)
-    * A.expr list option (* defaults *)
-  let equal (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
-    let compare_list x y = if List.length x = List.length y then
-        List.map2 (AH.syn_expr_equal None) x y
-      else [Ok false]
-    in
-    let join l = List.fold_left
-      (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
-      (Ok (true))
-      l
-    in
-    let i = xi = yi in
-    let c = AH.syn_expr_equal None xc yc in
-    let r = AH.syn_expr_equal None xr yr in
-    let a = compare_list xa ya |> join in
-    let d = match xd, yd with
-      | Some xd, Some yd -> compare_list xd yd |> join
-      | None, None -> Ok true
-      | _ -> Ok false
-    in
-    match i, c, r, a, d with
-    | true, Ok true, Ok true, Ok true, Ok true -> true
-    | _ -> false
-
-  let hash (i, c, r, a, d) =
-    let c_hash = AH.hash (Some 6) c in
-    let r_hash = AH.hash (Some 6) r in
-    let a_hash = List.map (AH.hash (Some 6)) a in
-    let d_hash = match d with
-      | Some l -> List.map (AH.hash (Some 6)) l
-      | None -> [0]
-    in
-    Hashtbl.hash (Hashtbl.hash i, c_hash, r_hash, a_hash, d_hash)
-end
-
-module CallCache = Hashtbl.Make(AstCallHash)
 
 module LocalHash = struct
   type t = A.expr
@@ -189,12 +144,10 @@ let force_fresh = true
   | _ -> false
   )*)
 
-let call_cache = CallCache.create 20
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
 
 let clear_cache () =
-  CallCache.clear call_cache;
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
 
@@ -210,6 +163,7 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
+  call_context : LustreAst.expr list;
 }
 
 let pp_print_generated_identifiers ppf gids =
@@ -232,12 +186,17 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, output, cond, restart, node_id, args, defaults, inlined) ->
+  let pp_print_context ppf = function
+    | Some ctx -> Format.fprintf ppf "%a" HString.pp_print_hstring ctx
+    | None -> ()
+  in
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ctx, node_id, args, defaults, inlined) ->
     Format.fprintf ppf 
-      "%a: %a = call(%a,(restart %a every %a)(%a),%a)%s"
+      "%a: %a = call(%a,%a,(restart %a every %a)(%a),%a)%s"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
+      pp_print_context ctx
       NI.pp_print_node_id_user_name node_id
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
@@ -428,123 +387,11 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-let rec mk_range_expr ctx node_id expr_type expr =
-  let rec mk ctx n expr_type expr =
-    let expr_type = Ctx.expand_type_syn ctx expr_type in 
-    match expr_type with
-    | A.IntRange (_, l, u) ->
-      let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
-      let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
-      let user_prop, is_original = match original_ty with
-        | A.IntRange (_, l', u') ->
-          let eval_int_expr_opt expr = match expr with
-            | Some expr -> Some (AIC.eval_int_expr ctx expr)
-            | None -> None
-          in
-          let is_original =
-            let (l, u) = eval_int_expr_opt l, eval_int_expr_opt u in
-            let (l', u') = eval_int_expr_opt l', eval_int_expr_opt u' in
-            (match (l, u, l', u') with
-            | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
-            | Some (Ok l), None, Some (Ok l'), None -> l = l'
-            | None, Some (Ok u), None, Some (Ok u') -> u = u'
-            | None, None, None, None -> true
-            | _ -> false)
-          in
-          let user_prop = if is_original then []
-            else
-              match l', u' with
-                | Some l', Some u' ->
-                  let l' = A.CompOp (dpos, A.Lte, l', expr) in
-                  let u' = A.CompOp (dpos, A.Lte, expr, u') in
-                  [A.BinaryOp (dpos, A.And, l', u'), true]
-                | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
-                | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
-                | None, None -> [(A.Const (dpos, A.True)), true]
-          in
-          user_prop, is_original
-        | A.Int _ -> [], false
-        | _ -> assert false
-      in (match l, u with
-        | Some l, Some u ->
-          let l = A.CompOp (dpos, A.Lte, l, expr) in
-          let u = A.CompOp (dpos, A.Lte, expr, u) in
-          [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
-        | Some l, None ->
-          [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
-        | None, Some u ->
-          [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
-        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
-      )
-    | RefinementType (_, (_, _, ty), _) -> mk ctx n ty expr
-    | History (_, id) -> 
-      let ty = Ctx.lookup_ty ctx id |> Option.get in 
-      mk ctx n ty expr 
-    | A.ArrayType (_, (ty, upper_bound)) ->
-      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
-      let expr = A.IndexAccess (dpos, expr, id, Array) in
-      let rexpr = mk ctx (succ n) ty expr in
-      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
-      let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
-      let assumption = A.BinaryOp (dpos, A.And, l, u) in
-      let var = dpos, id_str, (A.Int dpos) in
-      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
-      List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
-    | TupleType (_, tys) ->
-      let mk_proj i = A.TupleProject (dpos, expr, i) in
-      let tys = List.filter (fun ty -> Ctx.type_contains_subrange ctx ty) tys in
-      let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
-    | RecordType (_, _, tys) ->
-      let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_subrange ctx ty) tys in
-      let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
-    | A.Map (_, kt, vt) -> 
-      let id_str = HString.concat2 (HString.mk_hstring "x") 
-                                   (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str kt in
-      let rexpr1 = mk ctx (succ n) kt id in
-      (* To express value type constraints, we need all key type constraints 
-         (both subrange and refinement type) 
-         for the antecedent to the implication *)
-      let kt_exprs = (List.map fst rexpr1) @
-        mk_ref_type_expr ctx node_id id kt 
-      in
-      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
-      let assumption1 = A.BinaryOp (dpos, A.In, id, expr) in
-      let assumption2 = List.fold_left (fun acc e  -> 
-        A.BinaryOp (dpos, A.And, acc, e)
-      ) assumption1 kt_exprs in
-      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-      let var = dpos, id_str, base_kt in
-      let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
-      let res = 
-      List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption1), true
-      ) rexpr1 
-      @ 
-      List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption2), true
-      ) rexpr2 in 
-      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
-        (Lib.pp_print_list (fun ppf (expr, b) -> 
-          Format.fprintf ppf "<%a, %b>" 
-            A.pp_print_expr expr b
-        ) ", ") res;*)
-      res
-    | _ -> []
-  in
-  mk ctx 0 expr_type expr
-
-and mk_enum_range_expr ctx node_id expr_type expr =
+let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
-    | A.EnumType (_, _, values) -> (
+    | A.EnumType (_, _, values) when mk_enum -> (
       let eqs =
         List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
       in
@@ -557,7 +404,7 @@ and mk_enum_range_expr ctx node_id expr_type expr =
         in
         [disj, true]
     )
-    | A.IntRange (_, l, u) ->
+    | A.IntRange (_, l, u) when mk_range ->
       let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
       let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
       let user_prop, is_original = match original_ty with
@@ -624,24 +471,29 @@ and mk_enum_range_expr ctx node_id expr_type expr =
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
     | A.Map (_, kt, vt) -> 
-      let id_str = HString.concat2 (HString.mk_hstring "x") 
-                                   (HString.mk_hstring (string_of_int n)) in
-      let id = A.Ident (dpos, id_str) in
-      let ctx = Ctx.add_ty ctx id_str kt in
-      let rexpr1 = mk ctx (succ n) kt id in
+      let idx_str = HString.concat2 (HString.mk_hstring "x") 
+                                    (HString.mk_hstring (string_of_int n)) in
+      let idx = A.Ident (dpos, idx_str) in
+      let ctx = Ctx.add_ty ctx idx_str kt in
+      let rexpr1 = mk ctx (succ n) kt idx in
       (* To express value type constraints, we need all key type constraints 
-         (both subrange and refinement type) 
+         (both enum/subrange and refinement type) 
          for the antecedent to the implication *)
-      let kt_exprs = (List.map fst rexpr1) @
-        mk_ref_type_expr ctx node_id (Ident (dpos, id_str)) kt 
+      let kt_exprs = List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx) @
+        mk_ref_type_expr ctx node_id (Ident (dpos, idx_str)) kt 
       in
-      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, id, Map)) in
-      let assumption1 = A.BinaryOp (dpos, A.In, id, expr) in
+      let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
+      let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let assumption1 = List.fold_left (fun acc e ->
+          A.BinaryOp (dpos, A.And, acc, e)
+        ) key_in_map enum_exprs
+      in
       let assumption2 = List.fold_left (fun acc e  -> 
         A.BinaryOp (dpos, A.And, acc, e)
       ) assumption1 kt_exprs in
       let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-      let var = dpos, id_str, base_kt in
+      let var = dpos, idx_str, base_kt in
       let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
       let res = 
       List.map (fun (e, _) -> 
@@ -662,27 +514,27 @@ and mk_enum_range_expr ctx node_id expr_type expr =
   mk ctx 0 expr_type expr
 
 and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
- = fun ctx node_id id ty ->
-  let ty = Ctx.expand_type_syn ctx ty in
+ = fun ctx node_id expr expr_type ->
+  let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
-  | A.RefinementType (_, (_, id2, _), expr) -> 
+  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 id expr in
+    let expr = AH.substitute_naive id2 expr ref_expr in
     [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
-      mk_ref_type_expr ctx node_id (A.TupleProject(pos, id, i)) ty
+      mk_ref_type_expr ctx node_id (A.TupleProject(pos, expr, i)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
-      let expr = A.RecordProject(p, id, id2) in
+      let expr = A.RecordProject(p, expr, id2) in
       mk_ref_type_expr ctx node_id expr ty
     ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
-    let pos = AH.pos_of_expr id in
+    let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, id, Ident(pos, dummy_index), Array)) ty in
+    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
     List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
@@ -692,34 +544,45 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
   | Map (_, kt, vt) -> 
-    let pos = AH.pos_of_expr id in
+    let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
+    let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index kt in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx node_id (Ident(pos, dummy_index)) kt in
+    let exprs1 = mk_ref_type_expr ctx node_id idx kt in
     (* To express value type constraints, we need all key type constraints 
-       (both subrange and refinement type) 
+       (both enum/subrange and refinement type) 
        for the antecedent to the implication *)
     let kt_exprs = exprs1 @
-      (List.map fst (mk_range_expr ctx node_id kt (Ident (pos, dummy_index)))) 
+      (List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx)) 
     in
-    let exprs1 = List.map (fun expr ->
-      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
-      let expr = A.BinaryOp(pos, Impl, membership_constraint, expr) in
-      A.Quantifier(pos, Forall, [pos, dummy_index, base_kt], expr)
-    ) exprs1 in 
-    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, id, Ident(pos, dummy_index), Map)) vt in
-    let exprs2 = List.map (fun expr ->
-      let membership_constraint = A.BinaryOp (pos, In, A.Ident(pos, dummy_index), id) in
-      let assumption = List.fold_left (fun acc e -> 
+    let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+    let assumption1 = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
-      ) membership_constraint kt_exprs in
-      let expr = A.BinaryOp(pos, Impl, assumption, expr) in
-      A.Quantifier(pos, Forall, [pos, dummy_index, base_kt], expr)
-    ) exprs2 in 
+      ) key_in_map enum_exprs
+    in
+    let var = dpos, dummy_index, base_kt in
+    let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+    let exprs1 =
+      List.map (fun e -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption1)
+      ) exprs1
+    in
+    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
+    let assumption2 = List.fold_left (fun acc e  -> 
+        A.BinaryOp (dpos, A.And, acc, e)
+      ) assumption1 kt_exprs in
+    let exprs2 =
+      List.map (fun (e) -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption2)
+      ) exprs2
+    in
     exprs1 @ exprs2
 
   | _ -> []
+
+let mk_range_expr = mk_enum_range_expr ~mk_enum:false ~mk_range:true
 
 let mk_fresh_subrange_constraint source info pos node_id expr expr_type =
   let range_exprs = mk_range_expr info.context node_id expr_type expr in
@@ -794,39 +657,15 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
   LocalCache.add local_cache expr nexpr;
   nexpr, gids
 
-let mk_fresh_frozen_local node_id info pos ind_vars expr_type =
+let mk_fresh_constant pos name expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_flocal") in
+  let name = HString.concat2 prefix (HString.mk_hstring name) in
   let nexpr = A.Ident (pos, name) in
-  let init, oracle_id, gids1 = mk_fresh_oracle expr_type nexpr in
-  let expr = A.Arrow (pos, init, Pre (pos, nexpr)) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let constraints =
-    let typed_var = (pos, oracle_id, expr_type) in
-    let info = { info with
-      context = Ctx.add_ty info.context oracle_id expr_type
-    } in
-    (* Assume constraints are constant expressions, and thus, 
-       no normalization is required *)
-    mk_enum_subrange_reftype_constraints (Some node_id) info [typed_var]
+  let gids = { (empty ()) with
+    free_constants = [(name, expr_type)] }
   in
-  let asserts, gids3 =
-    match constraints with
-    | Some c -> (
-      let c_expr, gids3 =
-        mk_fresh_local false info pos ind_vars (A.Bool (dummy_pos)) c
-      in
-      [(pos, c_expr)], gids3
-    )
-    | None -> [], empty ()
-  in
-  let gids2 = { (empty ()) with
-    locals = StringMap.singleton name expr_type;
-    asserts;
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
-  in
-  nexpr, name, union (union gids1 gids2) gids3
+  nexpr, name, gids
 
 let mk_fresh_type_constraint source info pos node_id id expr_type =
   let ref_type_exprs = mk_ref_type_expr info.context (Some node_id) id expr_type in
@@ -845,31 +684,6 @@ let mk_fresh_type_constraint source info pos node_id id expr_type =
     ref_type_exprs
   in
   List.fold_left union (empty ()) gids
-
-let mk_fresh_call ?(inlined=false) info id map pos cond restart ty_args args defaults =
-  let called_node = NI.Map.find id map in 
-  let has_oracles = List.length called_node.oracles > 0 in
-  let has_ty_args = List.length ty_args > 0 in
-  let check_cache = CallCache.find_opt
-    call_cache
-    (id, cond, restart, args, defaults)
-  in
-  match check_cache, has_oracles, has_ty_args with
-  | Some nexpr, false, false -> nexpr, empty ()
-  | _ ->
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
-  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
-    else HString.concat2
-      (HString.mk_hstring (string_of_int info.local_group_projection))
-      (HString.mk_hstring "proj_")
-  in
-  let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let call = (pos, name, cond, restart, id, args, defaults, inlined) in
-  let gids = { (empty ()) with calls = [call] } in
-  if not has_ty_args then CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
-  nexpr, gids
 
 let add_step_counter info =
   let dpos = Lib.dummy_pos in
@@ -1203,7 +1017,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1;
-    inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls }
+    inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
+    call_context = [] }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1960,6 +1775,35 @@ and abstract_expr ?guard force info node_id map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
+and mk_fresh_call ?(inlined=false) info id map pos cond restart args defaults =
+  let call_ctx, gids1 =
+    match info.call_context with
+    | [] -> None, empty ()
+    | c :: cs -> (
+      let conj =
+        List.fold_left
+          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+      in
+      let nexpr, gids, warnings = abstract_expr false info id map conj in
+      assert (warnings = []);
+      match AH.id_of_expr nexpr with
+      | None -> assert false
+      | Some id -> Some id, gids
+    )
+  in
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
+  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
+    else HString.concat2
+      (HString.mk_hstring (string_of_int info.local_group_projection))
+      (HString.mk_hstring "proj_")
+  in
+  let nexpr = A.Ident (pos, HString.concat2 proj name) in
+  let call = (pos, name, cond, restart, call_ctx, id, args, defaults, inlined) in
+  let gids2 = { (empty ()) with calls = [call] } in
+  nexpr, union gids1 gids2
+
 and expand_node_call info node_id expr var count =
   let ty = Chk.infer_type_expr info.context (Some node_id) expr |> unwrap |> fst in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
@@ -2034,7 +1878,7 @@ and normalize_expr ?guard info node_id map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, ty_args, id, args) ->
+  | Call (pos, _, id, args) ->
     let is_inlinable = NI.Map.mem id info.inlinable_funcs in
     let info, vmap, gids0 =
       if is_inlinable then (* Only generate variables if inlinable *)
@@ -2044,7 +1888,6 @@ and normalize_expr ?guard info node_id map =
             A.SI.empty
             args
         in
-        let ivars = info.inductive_variables in
         let ind_vars = List.map 
           (fun (v, _) -> (Lib.dummy_pos, v, A.Int Lib.dummy_pos))
           (StringMap.bindings info.inductive_variables)
@@ -2053,7 +1896,7 @@ and normalize_expr ?guard info node_id map =
           (fun (info, vmap, gids) (pos_v, v, ty) ->
             if A.SI.mem v args_vars then
               let nexpr, id, gids' =
-                mk_fresh_frozen_local node_id info pos_v ivars ty
+                mk_fresh_constant pos_v "_quant_arg" ty
               in
               let info =
                 let ctx = Ctx.add_ty info.context id ty in
@@ -2077,7 +1920,7 @@ and normalize_expr ?guard info node_id map =
         (combine_args_with_const info args flags)
       in
       let nexpr, gids2 =
-        mk_fresh_call ~inlined info id map pos cond restart ty_args nargs None
+        mk_fresh_call ~inlined info id map pos cond restart nargs None
       in
       nexpr, union gids1 gids2, warnings
     in
@@ -2112,7 +1955,7 @@ and normalize_expr ?guard info node_id map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart [] nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
@@ -2125,7 +1968,7 @@ and normalize_expr ?guard info node_id map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart [] nargs None in
+    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
@@ -2140,7 +1983,7 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart [] nargs None in
+        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
@@ -2156,7 +1999,7 @@ and normalize_expr ?guard info node_id map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart [] nargs None in
+        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         let warnings = warnings1 @ warnings2 in
         (clock_value, nexpr), gids, warnings
@@ -2227,12 +2070,25 @@ and normalize_expr ?guard info node_id map =
         in
         StringMap.singleton name expr_type
       in
-      let index = HString.mk_hstring "i" in
-      let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, [index])]) in
-      let equations =
-        [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-      in
-      { (empty ()) with locals; equations }
+      let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
+      match List.length indices with 
+      | 1 ->
+        let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, indices)]) in
+        let equations =
+          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+        in
+        { (empty ()) with locals; equations }
+      (* Array constructors containing inductive variables in definitions of multi-dimensional 
+         arrays are rejected in lustreSyntaxChecks. So if there is not exactly one index 
+         variable, then the generated name does not matter. *)
+      | _ -> 
+        let eq_lhs = 
+            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "i"])]) 
+        in
+        let equations =
+          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+        in
+        { (empty ()) with locals; equations }
     in
     let nexpr = A.Ident (pos, name) in
     nexpr, union gids1 gids2, warnings
@@ -2264,9 +2120,17 @@ and normalize_expr ?guard info node_id map =
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
-    let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in 
+    (* Don't supply the guard when normalizing subexpressions, 
+       because we need to generate oracle variables in initial step 
+       if there are unguarded pres *)
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    let nexpr3, gids3, _ = normalize_expr info node_id map expr3 in 
+    (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
+       while supplying the guard, but ignore all other outputs *)
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings3 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
@@ -2281,7 +2145,7 @@ and normalize_expr ?guard info node_id map =
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
-    nexpr, gids, warnings1 @ warnings2 @ warnings3
+    nexpr, gids, warnings1 @ warnings2 @ warnings3 
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings
@@ -2295,17 +2159,45 @@ and normalize_expr ?guard info node_id map =
   | Extract (pos, expr, ub, lb) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     Extract (pos, nexpr, ub, lb), gids, warnings
+  | BinaryOp (pos, AndThen, expr1, expr2) ->
+    let e =
+      let not_e1 = A.UnaryOp (pos, Not, expr1) in
+      A.TernaryOp (pos, LazyIte, not_e1, A.Const (pos, A.False), expr2)
+    in
+    normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, OrElse, expr1, expr2) ->
+    let e =
+      A.TernaryOp (pos, LazyIte, expr1, A.Const (pos, A.True), expr2)
+    in
+    normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, LazyImpl, expr1, expr2) ->
+    let e =
+      let not_e1 = A.UnaryOp (pos, Not, expr1) in
+      A.BinaryOp (pos, OrElse, not_e1, expr2)
+    in
+    normalize_expr ?guard info node_id map e
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | TernaryOp (pos, op, expr1, expr2, expr3) ->
+  | TernaryOp (pos, Ite, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
-    TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids, warnings
+    TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings
+  | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
+    let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
+    let info2 = { info with call_context = nexpr1 :: info.call_context } in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info2 node_id map expr2 in
+    let info3 = { info with call_context =
+      A.UnaryOp (AH.pos_of_expr expr1, Not, nexpr1) :: info.call_context }
+    in
+    let nexpr3, gids3, warnings3 = normalize_expr ?guard info3 node_id map expr3 in
+    let gids = union (union gids1 gids2) gids3 in
+    let warnings = warnings1 @ warnings2 @ warnings3 in
+    TernaryOp (pos, LazyIte, nexpr1, nexpr2, nexpr3), gids, warnings
   | ConvOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     ConvOp (pos, op, nexpr), gids, warnings
@@ -2329,9 +2221,17 @@ and normalize_expr ?guard info node_id map =
       expr_list in
     GroupExpr (pos, kind, nexpr_list), gids, warnings
   | StructUpdate (pos, expr1, i, expr2) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
+    let i = 
+      List.map (Chk.desugar_generic_index info.context (Some node_id) expr1) i 
+      |> List.map unwrap 
+    in
+    if List.exists (fun idx -> match idx with | A.MapIndex _ -> true | _ -> false) i 
+      (* The MapIndex case is handled specially *)
+      then normalize_expr ?guard info node_id map (StructUpdate (pos, expr1, i, expr2)) 
+    else 
+      let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
+      let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
+      StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty =
       let ivars = info.inductive_variables in

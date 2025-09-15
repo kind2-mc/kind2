@@ -34,7 +34,7 @@ type t = {
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
-  asserts : (Lib.position * LustreAst.expr) list;
+  free_constants: (HString.t * LustreAst.lustre_type) list;
   contract_calls :
     (Lib.position
     * (Lib.position * NodeId.t) list (* contract scope *)
@@ -46,6 +46,7 @@ type t = {
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
+    * HString.t option (* boolean variable representing call context *)
     * NodeId.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option) (* node argument defaults *)

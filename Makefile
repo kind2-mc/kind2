@@ -48,18 +48,3 @@ test: build
 uninstall:
 	@opam remove -y kind2
 	@opam unpin kind2
-
-.PHONY: lustre-update lustre-complete
-
-# How to use the following commands is documented in
-# ./src/lustre/Makefile.messages.maintenance
-# Quick tip: run `make lustre-complete` after changing
-# Lustre grammar to repair lustreParser.messages
-lustre-update:
-	@ make -f Makefile.messages.maintenance -C $(CURDIR)/src/lustre/ update
-
-lustre-strip:
-	@ make -f Makefile.messages.maintenance -C $(CURDIR)/src/lustre/ strip
-
-lustre-complete:
-	@ make -f Makefile.messages.maintenance -C $(CURDIR)/src/lustre/ complete

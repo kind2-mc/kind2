@@ -47,7 +47,7 @@ type settings = {
 let default_settings = {
   preserve_sig = false ;
   slice_nodes = Flags.slice_nodes () ;
-  add_functional_constraints = Flags.Contracts.enforce_func_congruence () ;
+  add_functional_constraints = true ;
   slice_to_prop = None
 }
 
@@ -374,7 +374,9 @@ let abstraction_of_contract assumption_assumed
   (* LHS of the implication. *)
   let lhs =
     if (assumes <> [] && not assumption_assumed) then
-      E.mk_var sofar_assump
+      match sofar_assump with
+      | None -> conj_of assumes
+      | Some v -> E.mk_var v
     else
       E.t_true
   in
@@ -431,7 +433,7 @@ let add_constraints_of_type init terms state_var =
     let base_type = Type.last_elem_type_of_array state_var_type in
 
     let indices =
-      Type.all_index_types_of_array state_var_type
+      Type.all_index_types_of_array state_var_type 
       |> List.map (fun ty -> ty, Var.mk_fresh_var ty)
     in
 
@@ -644,6 +646,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
+      N.call_context   ;
       N.call_inputs    ;
       N.call_oracles   ;
       N.call_outputs   ;}
@@ -831,22 +834,37 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
   let node_props = node_assume_props @ node_props in
 
+  let node_props =
+    match call_context with
+    | None -> node_props
+    | Some sv -> (
+      let v = Var.mk_state_var_instance sv TransSys.prop_base in
+      node_props |> List.map (fun p ->
+        let prop_term = Term.mk_implies [Term.mk_var v; p.P.prop_term] in
+        { p with prop_term }
+      )
+    )
+  in
+
   let node_assumes =
     if node_assume_props = [] then None
     else (
-      let assume_terms =
-        List.map (fun { P.prop_term } -> prop_term) node_assume_props
-      in
-      let sofar_term =
-        match contract with
-        | None -> assert false
-        | Some {C.sofar_assump} -> (
-          Var.mk_state_var_instance sofar_assump TransSys.prop_base
-          |> Term.mk_var
-          |> lift_term state_var_map_up
-        )
-      in
-      Some (assume_terms, sofar_term)
+      match contract with
+      | None -> assert false
+      | Some {C.sofar_assump} -> (
+        match sofar_assump with
+        | None -> None
+        | Some sofar_assump ->
+          let assume_terms =
+            List.map (fun { P.prop_term } -> prop_term) node_assume_props
+          in
+          let sofar_term =
+            Var.mk_state_var_instance sofar_assump TransSys.prop_base
+            |> Term.mk_var
+            |> lift_term state_var_map_up
+          in
+          Some (assume_terms, sofar_term)
+      )
     )
   in
 
@@ -937,6 +955,16 @@ let call_terms_of_node_call mk_fresh_state_var globals
   trans_call_term
   
 
+let add_call_context call_context init_term trans_term =
+  match call_context with
+  | None -> init_term, trans_term
+  | Some sv -> (
+    let v_i = Var.mk_state_var_instance sv TransSys.init_base in
+    let v_t = Var.mk_state_var_instance sv TransSys.trans_base in
+    Term.mk_implies [Term.mk_var v_i; init_term],
+    Term.mk_implies [Term.mk_var v_t; trans_term]
+  )
+
 (* Add constraints from node calls to initial state constraint and
    transition relation *)
 let rec constraints_of_node_calls 
@@ -966,7 +994,7 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [] }
+  | { N.call_id; N.call_pos; N.call_context; N.call_node_id; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -1017,6 +1045,10 @@ let rec constraints_of_node_calls
         subsystems
     in
 
+    let init_term, trans_term =
+      add_call_context call_context init_term trans_term
+    in
+
     (* Continue with next node calls *)
     constraints_of_node_calls 
       mk_fresh_state_var
@@ -1033,8 +1065,10 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_id; N.call_pos; N.call_node_id; N.call_cond = [N.CRestart restart] }
-    as node_call :: tl ->
+  | { N.call_id; N.call_pos; N.call_context; N.call_node_id;
+      N.call_cond = [N.CRestart restart] } as node_call :: tl ->
+
+    assert (call_context = None);
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
@@ -1109,11 +1143,14 @@ let rec constraints_of_node_calls
   (* Node call with activation condition *)
   | { N.call_id;
       N.call_pos;
+      N.call_context;
       N.call_node_id; 
       N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
       N.call_outputs; 
       N.call_defaults } as node_call :: tl -> 
+
+    assert (call_context = None);
 
     (* Get generated transition system of callee *)
     let { node = { N.inputs; }; trans_sys; init_flags } as node_def =
@@ -1868,7 +1905,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 let constraints_of_arrays init terms eq_bounds =
     (* Return the i-th index variable *)
   let index_var_of_int_and_ty i kt = 
-    E.var_of_expr (E.mk_map_index_var i kt) in
+    E.var_of_expr (E.mk_array_index_var i kt) in
 
     (* Add quantifier or let binding for indexes of variable *)
   let add_bounds term bounds =
@@ -1878,7 +1915,8 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Unbound None -> index_var_of_int_and_ty i Type.t_int
           | E.Bound e 
           | E.Fixed e 
-          | E.Unbound (Some e) -> index_var_of_int_and_ty i (E.type_of_expr e) in
+          | E.Unbound (Some e) -> 
+            index_var_of_int_and_ty i (E.type_of_expr e) in
           match bound with 
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
@@ -1907,17 +1945,31 @@ let constraints_of_arrays init terms eq_bounds =
             in
             term, v :: quant_v, pred i
 
-          | E.Unbound _ ->
+          | E.Unbound None ->
             (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
             term, v :: quant_v, pred i
+
+          | E.Unbound (Some e) -> (
+            match Type.node_of_type (E.type_of_expr e) with
+            | Enum (l, u) ->
+              let l' = Numeral.to_int l in
+              let u' = Numeral.to_int u in
+              let cj = ref [] in
+              for x = u' downto l' do
+                cj := Term.mk_let [v, Term.mk_num_of_int x] term :: !cj
+              done;
+              Term.mk_and !cj, quant_v, pred i
+            | _ -> term, v :: quant_v, pred i
+          )
                              
         ) (term, [], List.length bounds - 1) bounds
     in
 
-    match List.rev quant_v with
+
+    match quant_v with
     | [] -> term
     | _ -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
-
+     
     in
   MBounds.fold (fun bounds eqs (terms, definition_set) ->
       let cstrs_eqs =
@@ -1938,11 +1990,14 @@ let constraints_of_arrays init terms eq_bounds =
                      | E.Fixed b -> E.type_of_expr b 
                      | E.Unbound None -> Type.t_int 
                      in
-                     Term.mk_select st (Term.mk_var (index_var_of_int_and_ty i kt)),
+                     let v = (index_var_of_int_and_ty i kt) in 
+                     Term.mk_select st (Term.mk_var v),
                      succ i)
                   (sv_term, 0)
-                  bounds
+                  (List.rev bounds)
               in
+              (*Format.printf "select_term: %a\n"
+                Term.pp_print_term select_term;*)
               (* Assign value to array position *)
                   (Term.mk_eq
                     [select_term;
@@ -1953,7 +2008,7 @@ let constraints_of_arrays init terms eq_bounds =
                         (* Expression at current instant *)
                         E.cur_term_of_expr TransSys.trans_base expr_step]
                     (* Convert select operators to uninterpreted functions *)
-                  ) |> Term.convert_select
+                  ) |> Term.convert_select 
               ) eqs
       in
 
@@ -1971,7 +2026,7 @@ let constraints_of_arrays init terms eq_bounds =
             add_bounds cstr bounds :: terms
         ) terms cstrs, definition_set)
 
-    ) eq_bounds terms
+    ) eq_bounds terms 
 
 let constraints_of_equations node init stateful_vars terms equations definition_set =
 
@@ -2346,8 +2401,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           let subrange_and_enum_state_vars =
             let enum_state_vars = filter_enum_svars all_state_vars in
-            (* Inputs, defined outputs, and locals require a check.
-               This is currently done in lustreDeclarations and lustreContext.
+            (* Inputs, defined outputs, and locals require a proof obligation.
+               This is currently done in lustreAstNormalizer.
             *)
             let subrange_state_vars =
               let svars =
@@ -2574,7 +2629,10 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               |> fun roots' -> (
                 match contract with
                 | None -> roots'
-                | Some { C.sofar_assump } -> SVS.add sofar_assump roots'
+                | Some { C.assumes; C.sofar_assump } ->
+                  match sofar_assump with
+                  | None -> SVS.of_list (List.map (fun { C.svar } -> svar) assumes)
+                  | Some sofar_assump -> SVS.add sofar_assump roots'
               )
             in
             List.rev_append svar_dep_init svar_dep_trans |>
@@ -2658,11 +2716,17 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             then
               match contract with
               | Some contract when contract.C.assumes <> [] -> (
-                let sofar_assump offset =
-                  Term.mk_var
-                    (Var.mk_state_var_instance contract.C.sofar_assump offset)
+                let mk_var v offset =
+                  Term.mk_var (Var.mk_state_var_instance v offset)
                 in
-                [sofar_assump TransSys.prop_base]
+                match contract.C.sofar_assump with
+                | None ->
+                  let conj =
+                    List.map (fun {C.svar} -> mk_var svar TransSys.prop_base) contract.C.assumes
+                  in
+                  [Term.mk_and conj]
+                | Some v ->
+                  [mk_var v TransSys.prop_base]
               )
               | _ -> []
             else []

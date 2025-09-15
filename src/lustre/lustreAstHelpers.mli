@@ -37,6 +37,9 @@ val expr_is_false : expr -> bool
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 
+val id_of_expr : expr -> HString.t option
+(** Return a lustre id if the expression is an Ident variant or None otherwise *)
+
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 

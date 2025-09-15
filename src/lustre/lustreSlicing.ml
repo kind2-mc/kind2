@@ -16,9 +16,6 @@
 
 *)
 
-open Lib
-open LustreReporting 
-
 (* Abbreviations *)
 module D = LustreIndex
 module E = LustreExpr
@@ -63,113 +60,6 @@ let offset_of_index expr =
   (* The simplification is disabled until it supports bitvector variables *)
   (* Simplify.simplify_term [] offset *)
   offset
-
-(*
-(* Take array indexes on an apparent cycle and checks if the sum of their
-   offests is negative, i.e. for A[k-1], B[i], C[j-2] this checks that
-   k-1-k + i-i + j-2-j < 0 *)
-let sum_indexes_negative indexes =
-  let offsets = List.map offset_of_index indexes in
-  let neg_offset_test =
-    Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
-  (* The simplification is disabled until it supports bitvector variables *)
-  (* let neg_offset_test = Simplify.simplify_term [] neg_offset_test in *)
-  Term.equal neg_offset_test Term.t_true
-*)
-
-(* Just sum the offsets (terms) and checks with a cheap operation if they can
-   be deemed negative right away. *)
-let sum_offsets_negative offsets =
-  let neg_offset_test =
-    Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
-  (* The simplification is disabled until it supports bitvector variables *)
-  (*let neg_offset_test = Simplify.simplify_term [] neg_offset_test in*)
-  Term.equal neg_offset_test Term.t_true
-
-
-(* For variable v and parents [a,b,c,v,d,v,v,e,f], returns
-   [[a,b,c,v],[a,b,c,d,v],[a,b,c,d,v]] *)
-let gather_offsets_on_cycles state_var parents =
-  let rec gather_up_to big_acc small_acc sv parents =
-    match parents with
-    | ((sv', Some _) as x) :: r when StateVar.equal_state_vars sv' sv ->
-      let big_acc = List.rev (x :: small_acc) :: big_acc in
-      gather_up_to big_acc [] sv (List.rev_append small_acc r)
-
-    | (sv', None) :: _ when StateVar.equal_state_vars sv' sv ->
-      raise Exit
-
-    | ((_, Some _) as x) :: r -> gather_up_to big_acc (x :: small_acc) sv r
-    | _ :: r -> gather_up_to big_acc small_acc sv r
-    | [] -> big_acc
-  in
-  gather_up_to [] [] state_var parents
-  |> List.map (List.map (function | (_, Some off) -> off | _ -> assert false))
-
-
-(* Checks if a variable contains a cycle in its dependencies. For apparent
-   cycles between arrays, this checks that all apparent cycles have a sum of
-   indexes offsets negative. This ensures that arrays defined this way are well
-   founded. *)
-let has_cycle_path state_var path =
-  try
-    List.exists (fun offsets_cycle ->
-      not (sum_offsets_negative offsets_cycle)
-      ) (gather_offsets_on_cycles state_var path)
-  with Exit -> true
-
-let has_cycle state_var parents =
-  try Some (List.find (has_cycle_path state_var) parents)
-  with Not_found -> None
-
-(* Return a chain of variable names and node names that describe the
-   cycle, in reverse order *)
-let rec describe_cycle node accum = function
-
-  | (state_var, _) :: tl ->
-
-    (* Output state variable if visible, or node call *)
-    (match N.get_state_var_source node state_var with
-
-     (* Output state variable if visible *)
-     | N.Input | N.Output | N.Local | N.Ghost ->
-
-       describe_cycle node
-         ((Format.asprintf "%a" (E.pp_print_lustre_var false) state_var) :: 
-          accum)
-         tl
-
-     (* Skip oracles and calls *)
-     | N.Generated
-     | N.Call
-     (*| N.Alias (_,_)*)
-     | N.Oracle -> describe_cycle node accum tl
-
-        (* State variable from abstraction *)
-     | exception Not_found -> 
-
-       try 
-         (* Find node call with state variable as output *)
-         let { N.call_node_id } =
-           List.find
-             (fun { N.call_outputs } -> 
-                D.exists (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                  call_outputs)
-             node.N.calls 
-         in
-
-         (* Output name of called node *)
-         describe_cycle node
-           ((Format.asprintf "<call to %a>"
-               NI.pp_print_node_id_user_name call_node_id)
-            :: accum)
-           tl
-
-       (* Skip abstracted state variable *)
-       with Not_found -> describe_cycle node accum tl)
-
-  (* Return in reverse order at end of cycle *)
-  | [] -> accum
 
 
 (* Checks if the state variable appears in some accumulator [accum] or if there
@@ -260,25 +150,6 @@ let rec node_state_var_dependencies' init output_input_deps
   (* Calculate dependency of variable [state_var], which all
      variables in [parents] depend on *)
   | (state_var, parents) :: tl ->
-
-    if Flags.old_frontend () then (
-      (* is there a strong dependency cycle with the state
-        variable? *)
-      match has_cycle state_var parents with
-      | Some path ->
-        (* Output variables in circular dependency, drop variables
-          that are not visible in the origial source *)
-        let str_path = describe_cycle node [] ((state_var, None) :: path) in
-
-        fail_no_position
-          (Format.asprintf
-            "Circular dependency for %a in %a: @[<hov>%a@]@."
-            (E.pp_print_lustre_var false) state_var
-            NI.pp_print_node_id_user_name node.N.node_id
-            (pp_print_list Format.pp_print_string " ->@ ") str_path)
-
-      | _ -> ()
-    ) ;
 
     (* All state variables at the current instant in the equation
         defining the state variable *)
@@ -719,6 +590,7 @@ let slice_all_of_node
 let add_roots_of_node_call 
     roots
     { N.call_cond;
+      N.call_context;
       N.call_inputs; 
       N.call_oracles; 
       N.call_defaults } =
@@ -734,6 +606,12 @@ let add_roots_of_node_call
              (E.state_vars_of_expr e |> SVS.elements) @ a) 
           d
           roots
+  in
+
+  let roots' =
+    match call_context with
+    | None -> roots'
+    | Some sv -> sv :: roots'
   in
 
   (* Add inputs, oracles and clock as roots *)

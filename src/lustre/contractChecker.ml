@@ -40,15 +40,22 @@ let get_assumption_vars in_sys sys =
   match ISys.get_lustre_node in_sys scope with
   | Some { LN.contract } -> (
     match contract with
-    | Some { LC.sofar_assump } -> (
+    | Some { LC.assumes; LC.sofar_assump } -> (
       let svar_deps =
         match Scope.Map.find_opt scope (ISys.state_var_dependencies in_sys) with
         | Some deps -> deps
         | None -> assert false
       in
       try (
-        SVM.find sofar_assump svar_deps
-        |> SVS.add sofar_assump
+        match sofar_assump with
+        | Some v -> SVM.find v svar_deps |> SVS.add v
+        | None -> (
+          let vars = List.map (fun {LC.svar} -> svar) assumes in
+          List.fold_left
+            (fun acc v -> SVS.union acc (SVM.find v svar_deps))
+            (SVS.of_list vars)
+            vars
+        )
       ) with Not_found -> assert false
     )
     | None -> SVS.empty

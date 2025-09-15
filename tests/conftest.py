@@ -15,7 +15,6 @@ common_args = {
     "--color": "false",
     "--check_subproperties": "true",
     "--check_sat_assume": "false",
-    "--enforce_func_congruence": "true",
 }
 
 # All the different test conditions, will override common_args if there is a

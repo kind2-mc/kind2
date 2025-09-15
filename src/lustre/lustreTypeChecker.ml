@@ -58,6 +58,7 @@ type error_kind = Unknown of string
   | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
   | IlltypedUpdateWithLabel of tc_type
   | IlltypedUpdateWithIndex of tc_type
+  | IlltypedUpdate of tc_type
   | ExpectedLabel of LA.expr
   | ExpectedIntegerLiteral of LA.expr
   | IlltypedArraySlice of tc_type
@@ -140,7 +141,8 @@ let error_message kind = match kind with
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedUpdateWithLabel ty -> "Expected a record type but found " ^ string_of_tc_type ty
-  | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, or map type type but found " ^ string_of_tc_type ty
+  | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, or map type but found " ^ string_of_tc_type ty
+  | IlltypedUpdate ty -> "Expected a tuple, array, map, or record type but found " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
   | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
@@ -449,7 +451,8 @@ let rec infer_const_attr ctx exp =
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> combine (r e1) (r e2)
-  | TernaryOp (_, Ite, e1, e2, e3) -> (
+  | TernaryOp (_, Ite, e1, e2, e3)
+  | TernaryOp (_, LazyIte, e1, e2, e3) -> (
     let r_e2 = r e2 in
     match r e1 with
     | [Ok _] -> combine r_e2 (r e3)
@@ -856,7 +859,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     | _ -> type_error pos (ExpectedMachineIntegerType inf_ty)) 
   | LA.TernaryOp (pos, top, con, e1, e2) ->
     (match top with
-    | Ite -> 
+    | Ite | LazyIte -> 
       let* inf_ty, warnings1 = infer_type_expr ctx nname con in
       let* inf_ty = expand_type_syn_reftype_history ctx inf_ty in
       (match inf_ty with
@@ -950,7 +953,9 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
+      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in 
       (match List.hd i_or_ls with
+      | LA.GenericIndex _ -> assert false (* handled by desugar_generic_index *)
       | LA.Label (pos, l) ->  
           infer_type_expr ctx nname ue
           >>= (function 
@@ -1175,7 +1180,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx inf_ty exp_ty) 
       (R.ok warnings)
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-  | LA.TernaryOp (pos, _, con, e1, e2) ->
+  | LA.TernaryOp (pos, Ite, con, e1, e2)
+  | LA.TernaryOp (pos, LazyIte, con, e1, e2) ->
     infer_type_expr ctx nname con
     >>= (function 
         | Bool _, warnings1 ->
@@ -1252,7 +1258,9 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
+      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in 
       (match List.hd i_or_ls with
+      | LA.GenericIndex _ -> assert false (* handled by desugar_generic_index *)
       | LA.Label (pos, l) ->
         let* r_ty, warnings1 = infer_type_expr ctx nname ue in (
           match r_ty with
@@ -1406,6 +1414,24 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
+(* Convert the GenericIndex to one of the other indices based on the inferred type of ue *)
+and desugar_generic_index ctx nname ue idx = match idx with 
+  | LA.GenericIndex (pos, e2) ->
+    let* ty, _ = infer_type_expr ctx nname ue in 
+    let* ty = expand_type_syn_reftype_history_subrange ctx ty in (
+    match ty with 
+    | LA.TupleType _ 
+    | LA.ArrayType _ -> Ok (LA.Index (pos, e2))
+    | LA.Map _ -> Ok (LA.MapIndex (pos, e2))
+    | LA.RecordType _ -> (
+      match e2 with 
+      | LA.Ident (pos, id) -> Ok (LA.Label (pos, id))
+      | _ -> type_error pos (IlltypedUpdateWithIndex ty) 
+      ) 
+    | _ -> type_error pos (IlltypedUpdate ty) 
+    ) 
+  | idx -> Ok idx 
+  
 and infer_type_unary_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> LA.unary_operator -> (tc_type * [> warning] list, [> error]) result
   = fun ctx nname pos e op ->
   let* ty, warnings = infer_type_expr ctx nname e in
@@ -1451,7 +1477,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
   let* ty1, warnings1 = infer_type_expr ctx nname e1 in
   let* ty2, warnings2 = infer_type_expr ctx nname e2 in
   match op with
-  | LA.And | LA.Or | LA.Xor | LA.Impl ->
+  | LA.And | LA.AndThen | LA.Or | LA.OrElse | LA.Xor | LA.Impl | LA.LazyImpl ->
     R.ifM (eq_lustre_type ctx ty1 (Bool pos))
       (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
         (R.ok (LA.Bool pos, warnings1 @ warnings2))

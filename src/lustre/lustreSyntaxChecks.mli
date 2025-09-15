@@ -32,7 +32,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | NodeCallInFunction of HString.t
+  | IllegalNodeCall of (HString.t * string)
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | OpaqueWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
+  | InductiveVarsWithArrayConstr of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

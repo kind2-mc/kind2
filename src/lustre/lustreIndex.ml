@@ -332,6 +332,10 @@ let pp_print_trie_expr safe ppf expr =
     (E.pp_print_lustre_expr safe) ppf expr
 
 
+let pp_print_trie_ty safe ppf ty =
+  pp_print_index_trie safe
+    Type.pp_print_type ppf ty  
+
 let mk_scope_for_index index =
   List.rev_map
     (fun i ->

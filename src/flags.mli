@@ -213,9 +213,6 @@ type enable = Lib.kind_module list
 (** Only parse the Lustre program. No analysis is performed. *)
 val only_parse : unit -> bool
 
-(** Use the old Lustre front-end. *)
-val old_frontend : unit -> bool
-
 (** The modules enabled. *)
 val enabled : unit -> enable
 
@@ -521,9 +518,6 @@ module Contracts : sig
 
   (** Activate refinement. *)
   val refinement : unit -> bool
-
-  (** Enforce functional congruence on abstract functions *)
-  val enforce_func_congruence : unit -> bool
 
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool

@@ -63,12 +63,13 @@ type unary_operator =
   | BVNot
 
 type binary_operator =
-  | And | Or | Xor | Impl | In
-  | Mod | Minus | Plus | Div | Times | IntDiv
+  | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
+  | In | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
   | Ite
+  | LazyIte
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -158,6 +159,8 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  (* Constructor used at parse time before the index type is known *)
+  | GenericIndex of position * expr 
 
 (* A declaration of a type *)
 type type_decl = 
@@ -167,7 +170,6 @@ type type_decl =
 (* A declaration of a clocked type *)
 type clocked_typed_decl = 
   position * ident * lustre_type * clock_expr
-
 
 (* A declaration of a clocked type *)
 type const_clocked_typed_decl = 
@@ -406,7 +408,7 @@ let rec pp_print_expr ppf =
     | StructUpdate (_, e1, i, e2) -> 
 
       Format.fprintf ppf
-        "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
+        "%a[%a := %a]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
@@ -473,9 +475,12 @@ let rec pp_print_expr ppf =
 
     | UnaryOp (p, Not, e) -> p1 p "not" e
     | BinaryOp (p, And, e1, e2) -> p2 p "and" e1 e2
+    | BinaryOp (p, AndThen, e1, e2) -> p2 p "and then" e1 e2
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
+    | BinaryOp (p, OrElse, e1, e2) -> p2 p "or else" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
+    | BinaryOp (p, LazyImpl, e1, e2) -> p2 p "==>" e1 e2
     | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
@@ -503,6 +508,8 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -704,6 +711,7 @@ and pp_print_const_clocked_typed_ident ppf (_, s, t, c, o) =
 and pp_print_label_or_index ppf = function 
 
   | Label (_, i) -> pp_print_index ppf i
+  | GenericIndex (_, e)
   | MapIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 

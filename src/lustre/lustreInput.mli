@@ -24,7 +24,7 @@
     AST.
 
     This AST is then translated into a simplified Lustre, see
-    {!LustreNode}, and {!LustreDeclarations} for the translation.
+    {!LustreNode}, and {!LustreNodeGen} for the translation.
 
     The main function {!of_file} of this module returns a system for
     the analysis strategies that can be turned into an internal
@@ -63,7 +63,7 @@
     expression to a variable, an assertion, a property annotation, or
     flag to mark the node as the top node.
 
-    The function {!LustreSimplify.declarations_to_nodes} is called
+    The function {!LustreNodeGen.compile} is called
     with this list of declarations as input and produces a list of
     {!LustreNode.t} that contains each node with expressions in a
     normalized form, with structured fields unfolded, constants
@@ -134,7 +134,7 @@ type error = [
     enabled, it triggers a {!MainTypeWithoutRealizability} exception.
 *)
 val of_file :
-  ?old_frontend:bool -> bool -> string ->
+  bool -> string ->
   ((LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t) option, [> error]) result
 
 (** Parse from the file, return the AST. *)

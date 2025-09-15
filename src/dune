@@ -23,8 +23,7 @@
  (name kind2dev)
  (libraries dune-build-info num str threads yojson zmq menhirLib)
  (modules
-  (:standard \ C2Icnf horn kind2 moxi lustreChecker nusmv oldParser testgen testgenLib
-    testgenStrategies threadtest polltest))
+  (:standard \ C2Icnf kind2 moxi))
  (modules_without_implementation solverSig)
  (wrapped false))
 

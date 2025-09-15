@@ -1232,29 +1232,8 @@ let mk_free_var v =
     expr_step = t;
     expr_type = Var.type_of_var v } 
   
-
-(* i-th index variable *)
-let mk_index_var i = 
-
-  let v =
-    Var.mk_free_var
-      (String.concat "."
-         (((I.push_index I.index_ident i) |> I.string_of_ident true)
-          :: I.reserved_scope)
-       |> HString.mk_hstring)
-      Type.t_int
-    |> Term.mk_var
-  in
-
-  (* create lustre expression for free variable*)
-  { expr_init = v;
-    expr_step = v;
-    expr_type = Type.t_int } 
-
-(* map index variable *)
-let mk_map_index_var i kt = 
-  let kt = if Type.is_int_range kt || Type.is_enum kt then Type.t_int else kt in
-
+(* array/map index variable *)
+let mk_array_index_var i kt = 
   let v =
     Var.mk_free_var
       (String.concat "."
@@ -1434,7 +1413,7 @@ let best_int_range is_div op t t' =
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
-  ) -> raise Division_by_zero
+  ) -> Type.t_int
   
   | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
@@ -2345,17 +2324,25 @@ let eval_div expr1 expr2 =
 
     if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
-      Term.mk_dec
-        Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2)
+      let divisor = Symbol.decimal_of_symbol c2 in
+
+      if Decimal.(equal divisor zero) then
+        Term.mk_div [expr1; expr2]
+      else
+        Term.mk_dec
+          Decimal.(Symbol.decimal_of_symbol c1 / divisor)
 
     else (
 
       assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
 
-      Term.mk_num
-        Numeral.(Symbol.numeral_of_symbol c1 /
-                 Symbol.numeral_of_symbol c2)
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_intdiv [expr1; expr2]
+      else
+        Term.mk_num
+          Numeral.(Symbol.numeral_of_symbol c1 / divisor)
     )
 
   | _ ->
