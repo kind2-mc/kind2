@@ -108,9 +108,6 @@ let unwrap result = match result with
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
-(*!! Just use a map for everything? *)
-(*!! preferred: Could also extend lustre AST to allow the encoding of abstract type 
-     concrete constants *)
 module LocalHash = struct
   type t = A.expr
   let equal x y = (match AH.syn_expr_equal (Some 6) x y with
