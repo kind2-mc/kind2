@@ -34,8 +34,6 @@ type t = {
   locals : 
   (LustreAst.lustre_type)
     StringMap.t;
-  array_default_values : 
-    (LustreAst.lustre_type * HString.t) list;
   free_constants: (HString.t * LustreAst.lustre_type) list;
   contract_calls :
     (Lib.position
@@ -112,7 +110,6 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
-    array_default_values = ids1.array_default_values @ ids2.array_default_values;
     free_constants = ids1.free_constants @ ids2.free_constants;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
@@ -140,7 +137,6 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
   
 let empty () = {
   locals = StringMap.empty;
-  array_default_values = [];
   free_constants = [];
   node_args = [];
   oracles = [];

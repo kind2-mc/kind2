@@ -108,6 +108,9 @@ let unwrap result = match result with
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
+(*!! Just use a map for everything? *)
+(*!! preferred: Could also extend lustre AST to allow the encoding of abstract type 
+     concrete constants *)
 module LocalHash = struct
   type t = A.expr
   let equal x y = (match AH.syn_expr_equal (Some 6) x y with
@@ -130,17 +133,6 @@ end
 
 module NodeArgCache = Hashtbl.Make(NodeArgHash)
 
-module DefaultValueHash = struct
-  type t = A.lustre_type
-  let equal x y = (match AH.syn_type_equal (Some 6) x y with
-    | Ok true -> true
-    | _ -> false)
-  
-  let hash = AH.hash_ty (Some 6)  (*!! Soundness relies on cache hits! So need unbounded? *)
-end
-
-module DefaultValueCache = Hashtbl.Make(DefaultValueHash)
-
 let force_fresh = true
   (*
   As of today, this flag should be true when the condition below holds
@@ -157,12 +149,10 @@ let force_fresh = true
 
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
-let default_value_cache = DefaultValueCache.create 20
 
 let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
-  DefaultValueCache.clear default_value_cache;
 
 type info = {
   context : Ctx.tc_context;
@@ -179,7 +169,7 @@ type info = {
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = StringMap.bindings gids.locals @ List.map (fun (x, y) -> y, x) gids.array_default_values in
+  let locals_list = StringMap.bindings gids.locals in 
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
@@ -387,18 +377,6 @@ let mk_fresh_node_arg_local info pos is_const expr_type expr =
   in
   NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
-
-let mk_fresh_default_value value_type =
-  match DefaultValueCache.find_opt default_value_cache value_type with
-  | Some name ->
-    name, empty ()
-  | None ->
-    i := !i + 1;
-    let prefix = HString.mk_hstring (string_of_int !i) in
-    let name = HString.concat2 prefix (HString.mk_hstring "_array_default_value") in
-    DefaultValueCache.add default_value_cache value_type name;
-    name,
-    { (empty ()) with array_default_values = [value_type, name] }
 
 let mk_fresh_dummy_index _ =
   i := !i + 1;
@@ -2255,11 +2233,11 @@ and normalize_expr ?guard info node_id map =
         A.CompOp (pos, A.Lt, nexpr2, nbound)
       )
     in 
-    let default_value_id, gids4 = mk_fresh_default_value value_type in
-    let default_value = A.Ident (pos, default_value_id) in 
-    let ite = A.TernaryOp (pos, A.Ite, index_in_bounds, index_access, default_value) in 
+    let default_value = AH.default_value_of_type pos value_type in
+    let ndefault_value, gids4, warnings4 = normalize_expr ?guard info node_id map default_value in
+    let ite = A.TernaryOp (pos, A.Ite, index_in_bounds, index_access, ndefault_value) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in
-    ite, gids, warnings1 @ warnings2 @ warnings3)
+    ite, gids, warnings1 @ warnings2 @ warnings3 @ warnings4)
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)

@@ -93,6 +93,7 @@ type constant =
   | True | False
   | Num of HString.t
   | Dec of HString.t
+  | AbstractTypeConst of HString.t * int
 
 type quantifier =
   | Forall | Exists

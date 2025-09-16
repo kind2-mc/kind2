@@ -502,7 +502,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     | Map (_, _, t) -> extract_bounds_from_type t
     | _ -> assert false)
   | Const (_, const) -> (match const with
-    | True | False -> assert false
+    | True | False | AbstractTypeConst _ -> assert false
     | Num x -> 
       let v = Numeral.of_string (HString.string_of_hstring x) in
       Some v, Some v

@@ -175,7 +175,8 @@ let coalesce_array2 e1 e2 =
 (* For some reason this works, but E.state_var_of_expr does not,
   but one would expect them to be equivalent when an expression contains
   only one state variable *)
-let state_var_of_expr expr = expr |> E.state_vars_of_expr |> SVS.choose
+let state_var_of_expr expr = 
+  expr |> E.state_vars_of_expr |> SVS.choose
 
 let mk_state_var_name ident index = Format.asprintf "%a%a"
   (I.pp_print_ident true) ident
@@ -1154,6 +1155,8 @@ and compile_ast_expr
   | A.Const (_, A.Num d) ->
     let d = HString.string_of_hstring d in
     X.singleton X.empty_index (E.mk_int (Numeral.of_string d))
+  | A.Const (_, A.AbstractTypeConst (id, d)) -> 
+    X.singleton [AbstractTypeIndex (HString.string_of_hstring id)] (E.mk_int (Numeral.of_int d))
   | A.Const (_, A.Dec f) ->
     let f = HString.string_of_hstring f in
     X.singleton X.empty_index (E.mk_real (Decimal.of_string f))
@@ -1717,10 +1720,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
   in let glocals =
-    let locals_list = 
-      GI.StringMap.bindings gids.GI.locals 
-      @ List.map (fun (fst, snd) -> snd, fst) gids.GI.array_default_values 
-    in
+    let locals_list = GI.StringMap.bindings gids.GI.locals in
     let over_generated_locals glocals (id, expr_type) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in

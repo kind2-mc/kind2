@@ -195,3 +195,5 @@ val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HS
 (** Get the name associated with a property *)
 
 val get_const_num_value : expr -> int option
+
+val default_value_of_type: Lib.position -> lustre_type -> expr 
