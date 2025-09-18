@@ -446,10 +446,7 @@ let rec infer_const_attr ctx exp =
         (List.map r2 tys)
     | LA.RecordType (_, _, tis) -> 
       let tys = List.map (fun (_, _, ty) -> ty) tis in 
-      List.fold_left
-        (fun l1 l2 -> combine l1 l2)
-        [R.ok ()]
-        (List.map r2 tys)
+      List.fold_left combine [R.ok ()] (List.map r2 tys)
     | LA.Map (_, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
