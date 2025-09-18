@@ -456,7 +456,7 @@ let rec infer_const_attr ctx exp =
      )
     | LA.AbstractType _ | LA.EnumType _  
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
-    | LA.UserType _ -> assert false 
+    | LA.UserType _ -> [R.ok ()]
   in 
   match exp with
   | LA.Ident (_, i) ->
