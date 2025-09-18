@@ -342,6 +342,10 @@ and mk_graph_expr ?(only_modes = false)
       (mk_graph_type kt)
       (mk_graph_type vt)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
+  | LA.Quantifier (_, _, tis, e) -> 
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+     List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
+       (List.map (mk_graph_type) tys)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
