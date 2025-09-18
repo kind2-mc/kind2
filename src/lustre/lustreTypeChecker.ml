@@ -440,10 +440,7 @@ let rec infer_const_attr ctx exp =
     )
     | LA.TupleType (_, tys)  
     | LA.GroupType (_, tys) -> 
-      List.fold_left
-        (fun l1 l2 -> combine l1 l2)
-        [R.ok ()]
-        (List.map r2 tys)
+      List.fold_left combine [R.ok ()] (List.map r2 tys)
     | LA.RecordType (_, _, tis) -> 
       let tys = List.map (fun (_, _, ty) -> ty) tis in 
       List.fold_left combine [R.ok ()] (List.map r2 tys)
