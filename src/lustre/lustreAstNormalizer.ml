@@ -2248,7 +2248,7 @@ and normalize_expr ?guard info node_id map =
           | None -> assert false
         in
         Chk.infer_type_expr ctx (Some node_id) expr1 |> unwrap |> fst
-    in
+    in 
     let expr1_ty =
       let expand_subtypes = false in
       Chk.expand_type_syn_reftype_history ~expand_subtypes info.context expr1_ty |> unwrap
@@ -2294,13 +2294,21 @@ and normalize_expr ?guard info node_id map =
           A.CompOp (p, A.Lt, expr2, len) 
         )
       in  
-      i := !i + 1;
+      let range_expr = match info.call_context with 
+      | [] -> range_expr 
+      | hd :: tl -> 
+        let call_context_expr = List.fold_left (fun acc expr -> 
+          A.BinaryOp (p, A.And, acc, expr)
+        ) hd tl in 
+        A.BinaryOp (p, A.Impl, call_context_expr, range_expr) 
+      in
       let range_expr = 
         if quant_vars = [] then range_expr 
         else A.Quantifier (pos, A.Forall, quant_vars, range_expr)
       in
       let range_nexpr, gids3, _ = normalize_expr info node_id map range_expr in 
       let output_expr = AH.rename_contract_vars range_nexpr in
+      i := !i + 1;
       let prefix = HString.mk_hstring (string_of_int !i) in
       let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
       let nexpr = A.Ident (pos, name) in
