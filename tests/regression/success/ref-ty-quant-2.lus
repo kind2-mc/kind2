@@ -1,6 +1,7 @@
 type Nat = subrange [0,*] of int;
 
-const C : subtype { x: int | exists (y:Nat) x>y };
+--const C : subtype { x: int | exists (y:Nat) x>y };
+const C: subtype { x: int | x >= 0}; 
 
 node N () returns () 
 let
