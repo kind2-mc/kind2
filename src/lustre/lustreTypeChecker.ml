@@ -447,9 +447,15 @@ let rec infer_const_attr ctx exp =
     | LA.Map (_, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
+    | LA.IntRange (_, e1_opt, e2_opt) -> (
+      match e1_opt, e2_opt with 
+      | None, None -> [R.ok ()]
+      | None, Some e 
+      | Some e, None -> r e 
+      | Some e1, Some e2 -> combine (r e1) (r e2)
+     )
     | LA.AbstractType _ | LA.EnumType _  
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
-    | LA.IntRange _ -> [R.ok ()]
     | LA.UserType _ -> assert false 
   in 
   match exp with
