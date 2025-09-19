@@ -18,11 +18,11 @@ jobs:
             pkg_update: sudo apt-get update -y
             ocaml-version: 4.14.2
           - name: macos-x86_64
-            os: macos-13
+            os: macos-15-intel
             pkg_update: brew update
             ocaml-version: 4.14.2
           - name: macos-arm64
-            os: macos-14
+            os: macos-latest
             pkg_update: brew update
             ocaml-version: 4.14.2
 

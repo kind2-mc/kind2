@@ -77,14 +77,14 @@ jobs:
           - name: linux-arm64
             os: ubuntu-24.04-arm
           - name: macos-x86_64
-            os: macos-13
+            os: macos-15-intel
             bottle-suffix: monterey
             libsodium-version: 1.0.20
             libsodium-sha256: 0556f27feb8d4b5f31edf42e392eb4901daa5b9dbb8510499aa196c9e77134c6
             zeromq-version: 4.3.5
             zeromq-sha256: c8c1cafdffdc020cf504bc59888d61a016df6cdfc12650d89a43a846edb77ef2
           - name: macos-arm64
-            os: macos-14
+            os: macos-latest
             bottle-suffix: arm64_monterey
             libsodium-version: 1.0.20
             libsodium-sha256: 25377f9e16747b9af732be608a966b580287d0854c2d530f23eea1235bca1ff7
