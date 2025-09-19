@@ -162,6 +162,14 @@ let testcase_csv (type s) : s t -> string * string * Unix.file_descr
   let path = Format.sprintf "%s/%s.csv" dir name in
   name, path, openfile path
 
+
+  (* Descriptor for a testcase file. *)
+let testcase_json (type s) : s t -> string * string * Unix.file_descr
+= fun {uid ; dir} ->
+  let name = Format.sprintf "testcase_%d" uid in
+  let path = Format.sprintf "%s/%s.json" dir name in
+  name, path, openfile path
+
 (* Descriptor for an error file. *)
 let error_csv (type s) : s t -> string * string * Unix.file_descr
 = fun ({euid ; edir} as t) ->
@@ -173,7 +181,7 @@ let error_csv (type s) : s t -> string * string * Unix.file_descr
 (* Converts a model to the system's input values in csv. *)
 let cex_to_inputs_csv fmt in_sys sys cex k =
   Format.fprintf fmt "%a"
-    (InputSystem.pp_print_path_in_csv in_sys sys true)
+    (InputSystem.pp_print_path_json in_sys sys true)
     (Model.path_from_model (TransSys.state_vars sys) cex k)
 
 (* Pretty printer for a testcase in xml. *)
@@ -241,7 +249,8 @@ let log_testcase (type s)
   if Flags.Testgen.graph_only () |> not then (
     (* |===| Logging testcase. *)
     (* Format.printf "    logging testcase@." ; *)
-    let name, _, tc_file = testcase_csv t in
+    (* let name, _, tc_file = testcase_csv t in *)
+    let name, _, tc_file = testcase_json t in
     let tc_fmt = fmt_of_file tc_file in
     (* Logging test case. *)
     cex_to_inputs_csv tc_fmt t.input_sys t.sys model k ;
