@@ -48,10 +48,10 @@ jobs:
     - name: Install Z3 (Ubuntu)
       if: runner.os == 'Linux'
       run: |
-        Z3_VERSION=4.13.4
+        Z3_VERSION=4.15.3
         ARCH=$(uname -m)
         if [[ "$ARCH" == "x86_64" ]]; then
-          Z3_OS_VERSION=x64-glibc-2.35
+          Z3_OS_VERSION=x64-glibc-2.39
         else
           Z3_OS_VERSION=arm64-glibc-2.34
         fi
