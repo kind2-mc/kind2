@@ -33,17 +33,6 @@ runs:
       fi
       echo "::endgroup::"
 
-  - name: Install ocaml/setup-ocaml dependencies on macOS 13
-    if: matrix.os == 'macos-13'
-    env:
-      HOMEBREW_DEVELOPER: 1 # Required by Brew >= 4.6.4. See https://github.com/Homebrew/brew/pull/20414
-    shell: bash
-    run: |
-      MERCURIAL_BOTTLE=mercurial-7.1.ventura.bottle.tar.gz
-      curl -L -H "Authorization: Bearer QQ==" -o $MERCURIAL_BOTTLE https://ghcr.io/v2/homebrew/core/mercurial/blobs/sha256:5c3d3a26313081fc4a25994e6b111f0f079eabf5c7b227dc56cf355aa1741c86
-      brew install -f "$MERCURIAL_BOTTLE"
-      brew pin mercurial
-
   - name: Set up OCaml ${{ steps.ocaml-variant.outputs.tag }}
     uses: ocaml/setup-ocaml@v3
     with:
