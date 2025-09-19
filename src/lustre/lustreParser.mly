@@ -455,7 +455,7 @@ array_type:
   | t = lustre_type; CARET; s = expr { t, s }
 
 refinement_type_base:
-  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  | LCURLYBRACKET; id = typed_ident; BAR; e = qexpr; RCURLYBRACKET
   { id, e }
 
 (* Refinement type *)

@@ -1,0 +1,6 @@
+const C: subtype {x: int | exists (i: int) i + x = 0 and i > 0 };
+
+node N() returns () 
+let
+  check C < 0;
+tel
