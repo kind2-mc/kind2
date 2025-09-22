@@ -421,6 +421,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
         TC.expand_type_syn_reftype_history ty_ctx id_ty |> unwrap)
     | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
+    | TernaryOp (_, LazyIte, _, e1, e2)
     | TernaryOp (_, Ite, _, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
@@ -461,7 +462,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       Ctx.traverse_group_expr_list g ty_ctx proj es
     )
     | StructUpdate (_, e, _, _) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
-    | _ -> assert false)
+    | e -> Format.printf "e: %a\n" LA.pp_print_expr e; assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =

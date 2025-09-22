@@ -18,31 +18,31 @@ let
 
   
   frame ( y1, y2 )
-  y1 = 4; y2[i] = if i = 0 then 0 else y2[i-1] + 1;
+  y1 = 4; y2[i] = if i = 0 then 0 otherwise y2[i-1] + 1;
   let
     if (oscillate())
     then
       y1 = 5;
-      y2[i] = if i = 0 then 0 else y2[i-1] + 2;
+      y2[i] = if i = 0 then 0 otherwise y2[i-1] + 2;
     fi
   tel
   
   frame ( y3, y4 )
   y3 = 4; 
-  y4[i] = if i = 0 then 0 else y4[i-1] + 1;
+  y4[i] = if i = 0 then 0 otherwise y4[i-1] + 1;
   let
     y3 = 4;
-    y4[i] = if i = 0 then 0 else y4[i-1] + 1;
+    y4[i] = if i = 0 then 0 otherwise y4[i-1] + 1;
   tel
 
   frame ( y5, y6 )
   y5 = 4;
-  y6[i] = if i = 0 then 0 else y6[i-1] + 1;
+  y6[i] = if i = 0 then 0 otherwise y6[i-1] + 1;
   let
     if (oscillate())
     then
       y5 = 4;
-      y6[i] = if i = 0 then 0 else y6[i-1] + 1;
+      y6[i] = if i = 0 then 0 otherwise y6[i-1] + 1;
     fi
   tel
   

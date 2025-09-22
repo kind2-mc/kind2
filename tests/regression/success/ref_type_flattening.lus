@@ -8,6 +8,7 @@ type R1 = subtype { rec: T1 | true };
 -- Refining array with refinements
 type T3 = Nat^3;
 type R2 = subtype { rec: T3 | true };
+--type R2 = T3; 
 
 -- Refining tuple type with refinements
 type T4 = [Nat, Nat];

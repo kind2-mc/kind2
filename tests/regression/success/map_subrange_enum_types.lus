@@ -27,7 +27,7 @@ let
   out2 = inp2;
   out3 = inp3;
  
-  check n1 = n2 and (n1 in out1) and (n2 in out1) => out1[n1] = out1[n2];
-  check n3 = n4 and (n3 in out2) and (n4 in out2) => out2[n3] = out2[n4];
+  check n1 = n2 and (n1 in out1) and (n2 in out1) ==> out1[n1] = out1[n2];
+  check n3 = n4 and (n3 in out2) and (n4 in out2) ==> out2[n3] = out2[n4];
   check out4 = RED or out4 = YELLOW or out4 = BLUE; 
 tel
