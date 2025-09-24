@@ -1724,6 +1724,10 @@ and normalize_equation info node_id map = function
           expr
           (StringMap.bindings info.inductive_variables)
         in
+        Format.printf "expr: %a\n" 
+          A.pp_print_expr expr;
+        Format.printf "expanded_expr: %a\n" 
+          A.pp_print_expr expanded_expr;
         normalize_expr info node_id map expanded_expr, true
       else normalize_expr info node_id map expr, false)
     in
@@ -1776,7 +1780,17 @@ and mk_fresh_call ?(inlined=false) info id map pos cond restart args defaults =
       let nexpr, gids, warnings = abstract_expr false info id map conj in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
-      | None -> assert false
+      | None -> (
+        (*!! Check with Daniel about this piece of code. Here we are expecting an id, 
+             but we get an index access for `success/inductive_array2.lus` *)
+        match nexpr with 
+        | A.IndexAccess (_, nexpr, _, _) -> (
+          match AH.id_of_expr nexpr with 
+          | None -> Format.printf "bad nexpr: %a\n" A.pp_print_expr nexpr; assert false
+          | Some id -> Some id, gids
+          )
+        | _ -> Format.printf "bad nexpr: %a\n" A.pp_print_expr nexpr; assert false
+        )
       | Some id -> Some id, gids
     )
   in
@@ -1804,7 +1818,7 @@ and expand_node_call info node_id expr var count =
       let pos = Lib.dummy_pos in
       let i = HString.mk_hstring (Int.to_string i) in
       let cond = A.CompOp (pos, A.Eq, A.Ident (pos, var), A.Const (pos, A.Num i)) in
-      A.TernaryOp (pos, A.Ite, cond, e, acc))
+      A.TernaryOp (pos, A.LazyIte, cond, e, acc))
     (List.nth expr_array 0)
     (List.tl (List.init count (fun i -> i, List.nth expr_array i)))
 
@@ -2325,14 +2339,11 @@ and normalize_expr ?guard info node_id map =
         if quant_vars = [] then range_expr 
         else A.Quantifier (pos, A.Forall, quant_vars, range_expr)
       in
-      (*!! Need to update quantified variables? *)
       let info = { info with quantified_variables = info.quantified_variables @ quant_vars } in
       let range_nexpr, gids3, _ = normalize_expr info node_id map range_expr in 
       let output_expr = AH.rename_contract_vars range_nexpr in
       i := !i + 1;
       let prefix = HString.mk_hstring (string_of_int !i) in
-      (*!! Spurious constraint for ref_type_flattening.lus, from generated index access *)
-      (*!! Generated property from ref type either needs (i) to skip normalization, or (ii) use a lazy implication *)
       let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
       let nexpr = A.Ident (pos, name) in
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_nexpr nexpr in
@@ -2391,7 +2402,6 @@ and normalize_expr ?guard info node_id map =
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     List.fold_left (fun acc var ->
-      (*!! Need to normalize now that we have LazyImpl *)
       let c = mk_enum_subrange_reftype_constraints (Some node_id) info [var] in 
       match c, kind with
       | None, _ -> 
