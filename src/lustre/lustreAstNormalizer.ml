@@ -1724,10 +1724,6 @@ and normalize_equation info node_id map = function
           expr
           (StringMap.bindings info.inductive_variables)
         in
-        Format.printf "expr: %a\n" 
-          A.pp_print_expr expr;
-        Format.printf "expanded_expr: %a\n" 
-          A.pp_print_expr expanded_expr;
         normalize_expr info node_id map expanded_expr, true
       else normalize_expr info node_id map expr, false)
     in
@@ -1766,8 +1762,6 @@ and abstract_expr ?guard force info node_id map expr =
 
 and mk_fresh_call ?(inlined=false) info id map pos cond restart args defaults =
   let call_ctx, gids1 =
-    Format.printf "call_context: %a\n" 
-      (Lib.pp_print_list A.pp_print_expr ", ") info.call_context;
     match info.call_context with
     | [] -> None, empty ()
     | c :: cs -> (
@@ -1775,22 +1769,12 @@ and mk_fresh_call ?(inlined=false) info id map pos cond restart args defaults =
         List.fold_left
           (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
       in
-      Format.printf "conj: %a\n"
-        A.pp_print_expr conj;
       let nexpr, gids, warnings = abstract_expr false info id map conj in
       assert (warnings = []);
-      match AH.id_of_expr nexpr with
-      | None -> (
         (*!! Check with Daniel about this piece of code. Here we are expecting an id, 
              but we get an index access for `success/inductive_array2.lus` *)
-        match nexpr with 
-        | A.IndexAccess (_, nexpr, _, _) -> (
-          match AH.id_of_expr nexpr with 
-          | None -> Format.printf "bad nexpr: %a\n" A.pp_print_expr nexpr; assert false
-          | Some id -> Some id, gids
-          )
-        | _ -> Format.printf "bad nexpr: %a\n" A.pp_print_expr nexpr; assert false
-        )
+      match AH.id_of_expr nexpr with
+      | None -> assert false
       | Some id -> Some id, gids
     )
   in
