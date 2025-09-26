@@ -1,0 +1,10 @@
+type Nat = subtype {x: int | x >= 0};
+type Pos = subtype {x: int | x > 0};
+type R = subtype {m: map<Nat, Pos> | 0 in m};
+
+node N (m: R) returns () 
+let
+  check 0 in m;
+  check not (-1 in m);
+  check forall (i: int) (i in m => m[i] > 0);
+tel
