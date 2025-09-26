@@ -127,6 +127,7 @@ type lustre_type =
    *  values  *)
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
+  | Set of position * lustre_type
   
 (** A Lustre expression *)
 and expr =

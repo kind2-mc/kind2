@@ -682,6 +682,7 @@ and check_ty_node_calls i ty =
         else Ok ()
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
+    | Set (_, ty) -> check_ty_node_calls i ty
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 
@@ -941,6 +942,8 @@ and check_ty_quantified_var ctx f = function
 | TArr (_, ty1, ty2) -> 
   let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) [ty1; ty2]) in 
   Res.ok (List.flatten warnings)
+| Set (_, ty) -> 
+  check_ty_quantified_var ctx f ty
 | ArrayType (_, (ty, expr)) -> 
   let* warnings1 = check_ty_quantified_var ctx f ty in 
   let* warnings2 = check_expr ctx f expr in 
