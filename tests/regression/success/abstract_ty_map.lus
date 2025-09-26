@@ -1,0 +1,11 @@
+type T;
+
+node N (x1, x2: T) returns (m: map<T, int>;) 
+var counter: int;
+let
+  counter = 0 -> pre counter + 1;
+  m = map[]@<T, int>[x1 := counter; x2 := counter+1] -> (pre m)[x1 := counter; x2 := counter+1];
+
+  check m[x1] >= 0;
+  check m[x2] > 0;
+tel
