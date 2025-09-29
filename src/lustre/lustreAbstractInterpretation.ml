@@ -540,6 +540,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     in
     extract_bounds_from_type output_ty
   | EmptyMap _
+  | EmptySet _
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2

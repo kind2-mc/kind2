@@ -29,6 +29,9 @@ let rec flatten_ref_type ctx ty = match ty with
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis) 
+  | Set (pos, ty) -> 
+    let ty = flatten_ref_type ctx ty in 
+    Set (pos, ty)
   | Map (pos, ty1, ty2) -> 
     let ty1 = flatten_ref_type ctx ty1 in 
     let ty2 = flatten_ref_type ctx ty2 in 

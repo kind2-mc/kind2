@@ -313,6 +313,7 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | Set(pos, ty) -> Set(pos, apply_type_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -341,6 +342,7 @@ let rec apply_subst_in_type sigma = function
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_subst_in_type sigma) tys)
+  | Set (pos, ty) -> Set (pos, apply_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -946,6 +948,7 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | Set (_, ty) -> vars_of_type ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 

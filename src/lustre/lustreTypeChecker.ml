@@ -444,6 +444,7 @@ let rec infer_const_attr ctx exp =
     | LA.RecordType (_, _, tis) -> 
       let tys = List.map (fun (_, _, ty) -> ty) tis in 
       List.fold_left combine [R.ok ()] (List.map r2 tys)
+    | LA.Set (_, ty) -> r2 ty
     | LA.Map (_, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
@@ -1365,7 +1366,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
       if type_contains_abstract ctx ty then 
         type_error pos (QuantifiedAbstractType id) 
-      else if type_contains_array ctx ty || type_contains_map ctx ty then
+      else if type_contains_array ctx ty || type_contains_map_or_set ctx ty then
         type_error pos (UnsupportedQuantifiedVariable id)
       else
         R.ok ()
@@ -1600,8 +1601,8 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (if type_contains_array ctx ty1  then
          type_error pos (Unsupported "Extensional array equality is not supported")
-       else if type_contains_map ctx ty1 then 
-         type_error pos (Unsupported "Extensional map equality is not supported") 
+       else if type_contains_map_or_set ctx ty1 then 
+         type_error pos (Unsupported "Extensional map and set equality are not supported") 
        else 
          R.ok (LA.Bool pos, warnings1 @ warnings2)
       )
@@ -2264,7 +2265,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   | Output | Local | Ghost | Global -> R.ok ()
 
 and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
-| LA.Map _ | GroupType _ | ArrayType _ | History _ 
+| LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
 | TArr _ | AbstractType _ -> type_error pos (UnsupportedMapType ty) 
 | RecordType (_, _, tis) -> 
   Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
@@ -2286,6 +2287,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     R.ok (warnings1 @ warnings2)
+  | LA.Set (pos, ty) -> 
+    check_type_well_formed ctx src nname is_const ty 
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
     let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
@@ -2453,7 +2456,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
-           
+  | Set (_, ty1), Set (_, ty2) ->
+    eq_lustre_type ctx ty1 ty2
   (* map type *)
   | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2

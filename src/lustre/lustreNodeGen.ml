@@ -692,6 +692,28 @@ and compile_ast_type
       succ i, X.fold over_indices compiled_type a
     in 
     List.fold_left over_types (0, X.empty) types |> snd
+  | A.Set (_, ty1) -> 
+    let index_type = compile_ast_type cstate ctx map ty1 in
+    let types = List.rev (X.values index_type) in
+    let last_type = List.hd types in
+    let ty2' = A.Bool Lib.dummy_pos in
+    let element_type = compile_ast_type cstate ctx map ty2' in
+    let over_element_type ty j t a = 
+      let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
+      X.add
+      (j @ [X.MapIndex dummy])
+      (Type.mk_array t ty)
+      a
+    in
+    let base_map_type =
+      X.fold (over_element_type last_type) element_type X.empty
+    in
+    List.fold_left
+      (fun acc ty ->
+         X.fold (over_element_type ty) acc X.empty
+      )
+      base_map_type
+      (List.tl types)
   | A.Map (_, ty1, ty2) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in

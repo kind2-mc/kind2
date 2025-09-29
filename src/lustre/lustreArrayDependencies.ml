@@ -151,6 +151,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | A.Ident (_, id) ->
     R.ok (G.singleton (id, indices))
   | ModeRef _ -> empty_
+  | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
   | RecordProject (_, e, _) -> r e
   | TupleProject (_, e, _) -> r e
