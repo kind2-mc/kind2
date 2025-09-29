@@ -852,9 +852,12 @@ and compile_ast_expr
     X.map mk (compile_ast_expr cstate ctx bounds map expr)
 
   and compile_binary bounds mk expr1 expr2 =
+    (*Format.printf "1. expr1: %a, expr2: %a\n" 
+      A.pp_print_expr expr1 
+      A.pp_print_expr expr2;*)
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
-    (*Format.printf "expr1: %a, expr2: %a\n" 
+    (*Format.printf "2. expr1: %a, expr2: %a\n" 
       (X.pp_print_trie_expr true) expr1 
       (X.pp_print_trie_expr true) expr2;*)
     (* TODO: Old code does three error checks here doublecheck *)
@@ -1178,9 +1181,9 @@ and compile_ast_expr
   | A.BinaryOp (_, A.OrElse, _, _) -> assert false
   | A.BinaryOp (_, A.Xor, expr1, expr2) ->
     compile_binary bounds E.mk_xor expr1 expr2 
+  | A.BinaryOp (_, A.LazyImpl, expr1, expr2) 
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
-  | A.BinaryOp (_, A.LazyImpl, _, _) -> assert false
   | A.BinaryOp (_, A.In, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
@@ -1783,7 +1786,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       result :: glocals
     in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Refinement Type Constraints        *)
+  (* (State Variables for) Generated Refinement (and other) Type Constraints        *)
   (* ****************************************************************** *)
   in let glocals =
     let over_generated_locals glocals (_, _, id, _) =
@@ -1803,7 +1806,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | None -> accum
       in let result = X.fold over_indices index_types X.empty in
       result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.refinement_type_constraints
+    in List.fold_left over_generated_locals glocals gids.GI.type_constraints
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -2437,7 +2440,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let (assumes, _, guarantees, _, props) = 
     List.fold_left over_ref_type_constraints
     (assumes, List.length assumes, guarantees, List.length guarantees, props)
-    gids.GI.refinement_type_constraints
+    gids.GI.type_constraints
   in
   assumes, guarantees, props
   (* ****************************************************************** *)
@@ -2611,6 +2614,7 @@ and compile_const_decl cstate ctx map scope = function
         let ctx = Ctx.add_ty ctx i ty in
         let range_exprs =
           if has_subrange then
+            (*!! This is the problem... unnormalized... *)
             AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
           else []
         in

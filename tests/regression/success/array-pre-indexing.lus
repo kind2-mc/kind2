@@ -7,12 +7,18 @@ node array_pre(
 )
 var
   zeros : real^len;
+  pre_prevs1 : real^len;
+  pre_prevs2 : real^len;
 let
   -- Workaround for typechecker bug: (0.0^len -> pre prevs1)[i] fails.
   zeros = 0.0^len;
+
+  pre_prevs1 = zeros -> pre prevs1;
+  pre_prevs2[i] = 0.0 -> pre prevs2[i];
+
   -- These two definitions should be equivalent:
-  prevs1[i] = if i = 0 then ins else (zeros -> pre prevs1)[i - 1];
-  prevs2[i] = if i = 0 then ins else (0.0 -> pre (prevs2[i - 1]));
+  prevs1[i] = if i = 0 then ins otherwise pre_prevs1[i - 1];
+  prevs2[i] = if i = 0 then ins otherwise pre_prevs2[i - 1];
   --%PROPERTY prevs1[0] = prevs2[0];
   --%PROPERTY prevs1[1] = prevs2[1];
   --%PROPERTY prevs1[2] = prevs2[2];

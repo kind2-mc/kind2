@@ -1,0 +1,10 @@
+type Nat = subtype { x: int | x >= 0 } ; 
+
+node N(x: map<Nat, Nat>; x2: Nat^3^4) returns (y, y2: Nat) 
+var l: int;
+let
+  y = x[-1]; 
+  y2 = x2[-2][-4];
+  l = x[-3]; 
+  check l > 0 ;
+tel

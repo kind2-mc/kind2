@@ -24,54 +24,54 @@ let
 
    frame ( y1, y2, x1 )
    y1 = 7;
-   y2[i][j] = if i=0 or j=0 then 0 else y2[i-1][j-1] + 1;
+   y2[i][j] = if i=0 or j=0 then 0 otherwise y2[i-1][j-1] + 1;
    let
       if oscillate()
       then
          x1 = 0;
       else
          y1 = 8;
-         y2[i][j] = if i=0 or j=0 then 0 else y2[i-1][j-1] + 2;
+         y2[i][j] = if i=0 or j=0 then 0 otherwise y2[i-1][j-1] + 2;
       fi
    tel
 
 
    frame ( y3, y4, x2 )
-   y3 = 7; y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 1;
+   y3 = 7; y4[i][j] = if (i=0 or j=0) then 0 otherwise y4[i-1][j-1] + 1;
    let
       if oscillate()
       then
          x2 = 0;
       else
          y3 = 8;
-         y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 2;
+         y4[i][j] = if (i=0 or j=0) then 0 otherwise y4[i-1][j-1] + 2;
       fi
    tel
    
 
    frame ( y5, y6, x3 )
    y5 = 7;
-   y6[i][j] = if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1;
+   y6[i][j] = if (i=0 or j=0) then 0 otherwise y6[i-1][j-1] + 1;
    let
       if oscillate()
       then
          x3 = 0;
       else
          y5 = 8; 
-         y6[i][j] = if (i=0 or j=0) then 0 else y6[i-1][j-1] + 2;
+         y6[i][j] = if (i=0 or j=0) then 0 otherwise y6[i-1][j-1] + 2;
       fi
    tel   
       
    
    frame ( y7, y8, x4 )
-   y7 = 7; y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 1;
+   y7 = 7; y8[i][j] = if i=0 or j=0 then 0 otherwise y8[i-1][j-1] + 1;
    let
       if oscillate()
       then
          x4 = 0;
       else
          y7 = 8;
-         y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 2;
+         y8[i][j] = if i=0 or j=0 then 0 otherwise y8[i-1][j-1] + 2;
       fi
    tel
 tel;

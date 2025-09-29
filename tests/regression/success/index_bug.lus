@@ -1,0 +1,8 @@
+type AB = enum {A, B};
+
+function F(x: AB) returns (m: map<AB,bool>);
+let
+  m = map[]@<AB,bool>[x := true];
+  check x in m;
+tel
+
