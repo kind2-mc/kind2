@@ -6,7 +6,7 @@ let
   s = cumul[n-1];
 tel
 
-node slice (const n: int; A: int ^ n; const low: int; const up: int)
+node slice (const n: subrange [up, *] of int; A: int ^ n; const low: subrange [0, *] of int; const up: subrange [low+1, *] of int)
 returns (B : int ^ (up-low));
 let
   B[i] = A[low + i];

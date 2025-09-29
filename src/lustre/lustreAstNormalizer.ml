@@ -2339,39 +2339,6 @@ and normalize_expr ?guard info node_id map =
       } in 
       union gids3 gids4
     | Map _ -> empty ()
-    (*| Map (p, _, _) -> 
-      let expr = A.BinaryOp (p, A.In, expr2, expr1) in
-      let vars = AH.vars_without_node_call_ids expr2 |> Ctx.SI.elements in 
-      let quant_vars = List.filter_map (fun var -> 
-        List.find_map (fun (p, id, ty) -> 
-          if HString.equal id var
-          then Some (p, id, ty) 
-          else None 
-        ) info.quantified_variables
-      ) vars in  
-      let expr = match info.call_context with 
-      | [] -> expr 
-      | hd :: tl -> 
-        let call_context_expr = List.fold_left (fun acc expr -> 
-          A.BinaryOp (p, A.And, acc, expr)
-        ) hd tl in 
-        A.BinaryOp (p, A.Impl, call_context_expr, expr) 
-      in
-      let expr = 
-        if quant_vars = [] then expr 
-        else A.Quantifier (pos, A.Forall, quant_vars, expr)
-      in
-      let info = { info with quantified_variables = info.quantified_variables @ quant_vars } in
-      let nexpr, gids, _ = normalize_expr info node_id map expr in 
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      let name = HString.concat2 prefix (HString.mk_hstring "_mapindex") in
-      let output_nexpr = AH.rename_contract_vars nexpr in
-      let nexpr' = A.Ident (pos, name) in
-      let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty nexpr nexpr' in
-      (* We mark the source as Local to denote that this should become a generated property, not a guarantee *)
-      union gids { (empty ()) with
-        type_constraints = [(Local, pos, name, output_nexpr)];
-        equations = [(info.quantified_variables, info.contract_scope, eq_lhs, nexpr, None)]; }*)
     | _ -> assert false 
     in
     let gids = union gids3 (union gids1 gids2) in 
