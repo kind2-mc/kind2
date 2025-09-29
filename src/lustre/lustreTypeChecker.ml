@@ -2265,7 +2265,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 
 and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
 | LA.Map _ | GroupType _ | ArrayType _ | History _ 
-| TArr _ | AbstractType _ -> type_error pos (UnsupportedMapType ty) 
+| TArr _ -> type_error pos (UnsupportedMapType ty) 
 | RecordType (_, _, tis) -> 
   Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
 | RefinementType (_, (_, _, ty), _) -> 
@@ -2275,7 +2275,7 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
 | UserType _ -> 
   let* ty = expand_type_syn_reftype ctx ty in 
   r ty 
-| Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| AbstractType _ | Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
