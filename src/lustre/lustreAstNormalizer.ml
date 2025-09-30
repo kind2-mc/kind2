@@ -942,7 +942,8 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | Call(pos, ty_args, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, ty_args, id, expr_list')
-  | EmptyMap _ -> StringSet.empty, expr
+  | EmptyMap (_, (kt, vt)) -> StringSet.empty, expr
+  | EmptySet (_, ty) -> StringSet.empty, expr (*!! Can history appear here? *)
   | Merge (pos, ident, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, Merge (pos, ident, expr_list')
@@ -2107,6 +2108,16 @@ and normalize_expr ?guard info node_id map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
+  | EmptySet (pos, ty) -> 
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_empty_set") in
+    let gids = { (empty ()) with 
+      empty_sets = [ name, ty ]; 
+      locals = StringMap.singleton name (A.Set (pos, ty));
+    } in
+    let nexpr = A.Ident (pos, name) in 
+    nexpr, gids, []
   | EmptyMap (pos, (kt, vt)) -> 
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in

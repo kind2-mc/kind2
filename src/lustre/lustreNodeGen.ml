@@ -1311,6 +1311,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
+  | A.EmptySet _ -> assert false
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
@@ -2239,6 +2240,33 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_maps [] gids.GI.empty_maps 
   in 
   let gequations = gequations @ empty_map_eqs in
+  (* ****************************************************************** *)
+  (* Sets                                                               *)
+  (* ****************************************************************** *)
+  let empty_set_eqs = 
+    let over_empty_sets acc (id, _) =
+      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
+      let eq_lhs = flatten_list_indexes eq_lhs in
+      (* extract index for boolean flag denoting presence or absence of map item *)
+      (*!! No longer necessary? *)
+      (*let eq_lhs = X.fold (fun k sv acc -> match k with 
+      | X.TupleIndex 0 :: _ -> X.add k sv acc 
+      | _ -> acc 
+      ) eq_lhs X.empty 
+      in*)
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
+      let empty_set_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      empty_set_eqs @ acc
+    in 
+    List.fold_left over_empty_sets [] gids.GI.empty_sets 
+  in 
+  let gequations = gequations @ empty_set_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)

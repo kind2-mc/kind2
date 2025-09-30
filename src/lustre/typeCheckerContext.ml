@@ -844,6 +844,8 @@ let rec ty_vars_of_expr ctx node_name expr =
               (SI.flatten (List.map call es))
   | LA.EmptyMap (_, (kt, vt)) ->
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
+  | LA.EmptySet (_, ty) ->
+    ty_vars_of_type ctx node_name ty 
   | AnyOp (_, (_, _, ty), e) -> 
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Quantified expressions *)

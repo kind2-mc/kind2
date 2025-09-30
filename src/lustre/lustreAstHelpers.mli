@@ -193,3 +193,7 @@ val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HS
 (** Get the name associated with a property *)
 
 val get_const_num_value : expr -> int option
+
+val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
+
+val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type

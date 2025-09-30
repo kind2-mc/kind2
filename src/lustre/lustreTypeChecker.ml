@@ -318,7 +318,9 @@ let no_mismatched_clock is_bool e =
         | _ -> type_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | EmptyMap (_, (kt, vt)) -> assert false
+    | EmptySet (_, ty) -> assert false 
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) -> check_clocks clock e
@@ -355,7 +357,9 @@ let no_mismatched_clock is_bool e =
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
-    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | EmptyMap (_, (kt, vt)) -> assert false  
+    | EmptySet (_, ty) -> assert false
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | When (_, e, _) -> check_merge e
@@ -480,7 +484,8 @@ let rec infer_const_attr ctx exp =
   | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> [R.ok ()]
-  | EmptyMap _ -> [R.ok ()]
+  | EmptyMap (_, (kt, vt)) -> assert false
+  | EmptySet (_, ty) -> assert false 
   (* Operators *)
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
@@ -666,6 +671,9 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* kt = instantiate_type_variables ctx pos nname kt ty_args in
     let* vt = instantiate_type_variables ctx pos nname vt ty_args in
     Ok (LA.EmptyMap (pos, (kt, vt)))
+  | EmptySet (pos, ty) -> 
+    let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
+    Ok (LA.EmptySet (pos, ty))
   | Quantifier (pos, q, tis, e) -> 
     let* tis = R.seq (List.map (fun (p, id, ty) -> 
       let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
@@ -835,6 +843,8 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     R.ok (ty, [])
   | LA.EmptyMap (pos, (kt, vt)) ->
     R.ok (LA.Map (pos, kt, vt), [])
+  | LA.EmptySet (pos, ty) -> 
+    R.ok (LA.Set (pos, ty), [])
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1178,6 +1188,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
               | [] -> failwith ("empty mode name")
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx nname (LA.Ident (pos, id)) exp_ty
+  | EmptySet (pos, _)
   | EmptyMap (pos, _) as e ->
     let* inf_ty, warnings = infer_type_expr ctx nname e in 
     R.ifM    
