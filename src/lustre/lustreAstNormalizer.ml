@@ -2268,14 +2268,18 @@ and normalize_expr ?guard info node_id map =
         quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    List.fold_left (fun acc var ->
+    List.fold_left (fun acc ((p, id, ty) as var) ->
       (* Assume constraints are constant expressions, and thus,
            no normalization is required *)
       let c = mk_enum_subrange_reftype_constraints (Some node_id) info [var] in 
       match c, kind with
       | None, _ -> A.Quantifier (pos, kind, [var], acc)
-      | Some c, A.Exists -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.And, c, acc))
-      | Some c, A.Forall -> A.Quantifier (pos, kind, [var], A.BinaryOp (pos, A.Impl, c, acc))
+      | Some c, A.Exists -> 
+        let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+        A.Quantifier (pos, kind, [p, id, ty], A.BinaryOp (pos, A.And, c, acc))
+      | Some c, A.Forall -> 
+        let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+        A.Quantifier (pos, kind, [p, id, ty], A.BinaryOp (pos, A.Impl, c, acc))
     ) nexpr (List.rev vars), gids, warnings
   | When (pos, expr, clock_expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
