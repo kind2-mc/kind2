@@ -9,16 +9,16 @@ let
   Y = EDGE(not X);
 tel
 
-node SWITCH1 (set, reset, init: bool) returns (level: bool);
+node SWITCH1 (trigger, reset, init: bool) returns (level: bool);
 let
-  level = init -> if set then true else if reset then false else pre(level);
-  assert not (set and reset);
+  level = init -> if trigger then true else if reset then false else pre(level);
+  assert not (trigger and reset);
 tel
 
 
-node SWITCH (set, reset, init: bool) returns (level: bool);
+node SWITCH (trigger, reset, init: bool) returns (level: bool);
 let
-  level = init -> if set and not pre(level) then true else if reset then false else pre(level);
+  level = init -> if trigger and not pre(level) then true else if reset then false else pre(level);
 tel
 
 node x1 (X: bool; N: int) returns ();
@@ -60,20 +60,20 @@ let
   (min, max) = if s > c then (s, c) else (c, s);
 tel
 */
-node STABLE (set: bool; delay: int) returns (level: bool);
+node STABLE (trigger: bool; delay: int) returns (level: bool);
 var count: int;
 let 
   level = (count > 0);
-  count = if set then delay 
+  count = if trigger then delay 
           else if false -> pre(level) then pre(count) -1
                else 0;
 tel
 
-node TIME_STABLE (set, second: bool; delay: int) returns (level: bool);
+node TIME_STABLE (trigger, second: bool; delay: int) returns (level: bool);
 var count: int;
 let
   level = (count > 0);
-  count = if set then delay
+  count = if trigger then delay
           else if second then 
                  if false -> pre(level) then pre(count) - 1 
                  else 0

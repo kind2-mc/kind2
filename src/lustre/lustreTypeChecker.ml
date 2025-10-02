@@ -319,8 +319,11 @@ let no_mismatched_clock is_bool e =
       in
       clocks_match_result pos clk_exp clock
     | Ident _ | Const _ | ModeRef _ -> Ok ()
-    | EmptyMap (_, (kt, vt)) -> assert false
-    | EmptySet (_, ty) -> assert false 
+    | EmptyMap (_, (kt, vt)) ->
+      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) kt) >>
+      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
+    | EmptySet (_, ty) -> 
+      LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) -> check_clocks clock e
@@ -358,8 +361,11 @@ let no_mismatched_clock is_bool e =
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
     | Ident _ | Const _ | ModeRef _ -> Ok ()
-    | EmptyMap (_, (kt, vt)) -> assert false  
-    | EmptySet (_, ty) -> assert false
+    | EmptyMap (_, (kt, vt)) -> 
+      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >> 
+      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
+    | EmptySet (_, ty) -> 
+      LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | When (_, e, _) -> check_merge e
@@ -484,8 +490,11 @@ let rec infer_const_attr ctx exp =
   | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> [R.ok ()]
-  | EmptyMap (_, (kt, vt)) -> assert false
-  | EmptySet (_, ty) -> assert false 
+  | EmptyMap (_, (kt, vt)) -> 
+    combine (LH.fold_lustre_ty r [R.ok ()] combine kt)
+            (LH.fold_lustre_ty r [R.ok ()] combine vt)
+  | EmptySet (_, ty) ->
+    LH.fold_lustre_ty r [R.ok ()] combine ty
   (* Operators *)
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
@@ -2277,7 +2286,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
 
 and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
 | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
-| TArr _ | AbstractType _ -> type_error pos (UnsupportedMapType ty) 
+| TArr _ -> type_error pos (UnsupportedMapType ty) 
 | RecordType (_, _, tis) -> 
   Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
 | RefinementType (_, (_, _, ty), _) -> 
@@ -2287,7 +2296,7 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
 | UserType _ -> 
   let* ty = expand_type_syn_reftype ctx ty in 
   r ty 
-| Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| AbstractType _ | Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
@@ -2298,7 +2307,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     R.ok (warnings1 @ warnings2)
-  | LA.Set (pos, ty) -> 
+  | LA.Set (_, ty) -> 
     check_type_well_formed ctx src nname is_const ty 
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
