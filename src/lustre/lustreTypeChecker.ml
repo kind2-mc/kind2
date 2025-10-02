@@ -1531,6 +1531,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
   | LA.In -> (
+    let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
     match ty2 with
     | LA.Map (_, given_index_type, _) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
