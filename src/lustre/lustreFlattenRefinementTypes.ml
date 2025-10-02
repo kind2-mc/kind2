@@ -58,6 +58,18 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
+    | Set (pos, ty) ->
+      let dummy_index = AN.mk_fresh_dummy_index () in
+      let exprs = chase_refinements ty in
+      List.map (fun expr ->
+        let idx = A.Ident(pos, dummy_index) in
+        let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Set, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
+        let ty = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty], expr)
+      ) exprs
     | Map (pos, ty1, ty2) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs1 = chase_refinements ty1 in
@@ -65,7 +77,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let idx = A.Ident(pos, dummy_index) in
         let expr = AH.substitute_naive id idx expr in
         let expr = 
-          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
         in
         let ty1 = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty1 |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
@@ -77,7 +89,7 @@ let rec flatten_ref_type ctx ty = match ty with
         in
         let expr = AH.substitute_naive id idx expr in
         let expr = 
-          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
         in
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
       ) exprs2 in 
@@ -150,10 +162,14 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   fun ctx e -> 
   let rec_call = flatten_ref_types_expr ctx in  
   match e with
-  (* Quantified expressions *)
+  (* Expressions with types *)
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)
+  | EmptySet (p, ty) -> 
+    EmptySet (p, flatten_ref_type ctx ty)
+  | EmptyMap (p, (kt, vt)) ->
+    EmptyMap (p, (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
   (* Everything else *)
   | Ident _ 
   | ModeRef _ as e -> e 
@@ -193,7 +209,6 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | Pre (p, e) -> Pre(p, rec_call e)
   | Arrow (p, e1, e2) ->  Arrow (p, rec_call e1, rec_call e2)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | EmptyMap _ as e -> e
 
 let flatten_ref_types_item ctx item = 
   match item with 

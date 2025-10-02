@@ -483,7 +483,7 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
         mk_ref_type_expr ctx node_id (Ident (dpos, idx_str)) kt 
       in
       let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
-      let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+      let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
       let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
       let assumption1 = List.fold_left (fun acc e ->
           A.BinaryOp (dpos, A.And, acc, e)
@@ -556,7 +556,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     let kt_exprs = exprs1 @
       (List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx)) 
     in
-    let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+    let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
     let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
     let assumption1 = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
@@ -767,6 +767,24 @@ let add_history_var_and_equation info id h_id =
     [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)]
   in
   { (empty ()) with locals; equations }
+
+let get_expr_ty info map node_id expr =
+  let ty =
+  let ivars = info.inductive_variables in
+  if expr_has_inductive_var ivars expr then
+    (StringMap.choose_opt info.inductive_variables) |> get |> snd
+  else
+    let ctx =
+      (* Add generated local variables to context *)
+      match NI.Map.find_opt node_id map with
+      | Some { locals } ->
+        StringMap.fold
+          (fun id ty acc -> Ctx.add_ty acc id ty)
+          locals info.context
+      | None -> assert false
+    in
+    Chk.infer_type_expr ctx (Some node_id) expr |> unwrap |> fst in
+  Chk.expand_type_syn_reftype_history info.context ty |> unwrap
 
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
@@ -2185,6 +2203,15 @@ and normalize_expr ?guard info node_id map =
       A.BinaryOp (pos, OrElse, not_e1, expr2)
     in
     normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, In Unknown, expr1, expr2) -> 
+    let ty = get_expr_ty info map node_id expr2 in  
+    let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> unwrap in 
+    let expr = match ty with 
+    | A.Map _ -> A.BinaryOp (pos, In Map, expr1, expr2) 
+    | A.Set _ -> A.BinaryOp (pos, In Set, expr1, expr2) 
+    | _ -> assert false
+    in 
+    normalize_expr ?guard info node_id map expr
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
@@ -2242,25 +2269,7 @@ and normalize_expr ?guard info node_id map =
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | IndexAccess (pos, expr1, expr2, _) ->
-    let expr1_ty =
-      let ivars = info.inductive_variables in
-      if expr_has_inductive_var ivars expr1 then
-        (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else
-        let ctx =
-          (* Add generated local variables to context *)
-          match NI.Map.find_opt node_id map with
-          | Some { locals } ->
-            StringMap.fold
-              (fun id ty acc -> Ctx.add_ty acc id ty)
-              locals info.context
-          | None -> assert false
-        in
-        Chk.infer_type_expr ctx (Some node_id) expr1 |> unwrap |> fst
-    in
-    let expr1_ty =
-      Chk.expand_type_syn_reftype_history info.context expr1_ty |> unwrap
-    in
+    let expr1_ty = get_expr_ty info map node_id expr1 in 
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     let kind' =

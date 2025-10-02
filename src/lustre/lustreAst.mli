@@ -78,9 +78,14 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
-  | In | Mod | Minus | Plus | Div | Times | IntDiv
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =

@@ -1203,9 +1203,12 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
   | A.BinaryOp (_, A.LazyImpl, _, _) -> assert false
-  | A.BinaryOp (_, A.In, k, map_expr) ->
+  | A.BinaryOp (_, A.In Set, k, map_expr) ->
+    compile_map_index bounds map_expr k
+  | A.BinaryOp (_, A.In Map, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
+  | A.BinaryOp (_, A.In Unknown, k, map_expr) -> assert false
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
@@ -2290,7 +2293,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       in
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
-        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In, fresh_idx, nexpr1); 
+        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 

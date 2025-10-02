@@ -62,9 +62,14 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
-  | In | Mod | Minus | Plus | Div | Times | IntDiv
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
@@ -489,7 +494,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
     | BinaryOp (p, LazyImpl, e1, e2) -> p2 p "==>" e1 e2
-    | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
+    | BinaryOp (p, In _, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 

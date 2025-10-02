@@ -94,7 +94,7 @@ type error_kind = Unknown of string
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
-  | ExpectedMapType of tc_type
+  | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
 

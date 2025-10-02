@@ -108,7 +108,7 @@ type error_kind = Unknown of string
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
-  | ExpectedMapType of tc_type
+  | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
 
@@ -217,7 +217,7 @@ let error_message kind = match kind with
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, tuples, and refinement types are supported"
-  | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
+  | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
 
@@ -1530,15 +1530,20 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
-  | LA.In -> (
+  | LA.In _ -> (
     let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
     match ty2 with
+    | LA.Set (_, given_index_type) -> (
+      R.ifM (eq_lustre_type ctx ty1 given_index_type)
+        (R.ok (LA.Bool pos, warnings1 @ warnings2))
+        (type_error pos (ExpectedType (given_index_type, ty1)))
+    )
     | LA.Map (_, given_index_type, _) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
         (type_error pos (ExpectedType (given_index_type, ty1)))
     )
-    | _ -> (type_error pos (ExpectedMapType ty2))
+    | _ -> (type_error pos (ExpectedMapSetType ty2))
   )
   | LA.Mod ->
     (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
