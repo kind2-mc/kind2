@@ -10,5 +10,5 @@ var h, i, j, k: int;
 let
    e = [e1, e2, e3];
    h,i,j, k = (n(e1, [e1, e2]), n(e1, [e1, e2]));
-   f = {e1, f2, e2};
+   f = '(e1, f2, e2);
 tel

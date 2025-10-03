@@ -492,6 +492,8 @@ rule token = parse
   | "rsh" { RSH }
   | "++" { CONCAT }
   | ":=" { ASSIGN }
+  | "'" { TICK }
+      
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }
@@ -527,7 +529,7 @@ rule token = parse
 
   (* String *)
   | "\"" { Buffer.clear string_buf; string lexbuf }
-      
+
   (* End of file *)
   | eof {
     (* Pop previous lexing buffer form stack if at end of included file *)
