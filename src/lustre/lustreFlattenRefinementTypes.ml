@@ -57,14 +57,28 @@ let rec flatten_ref_type ctx ty = match ty with
       ) tys |> List.flatten
     | Map (pos, ty1, ty2) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
-      let exprs = chase_refinements ty2 in
-      List.map (fun expr ->
+      let exprs1 = chase_refinements ty1 in
+      let exprs1 = List.map (fun expr ->
+        let idx = A.Ident(pos, dummy_index) in
+        let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
+        let ty1 = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty1 |> Result.get_ok in 
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
+      ) exprs1 in 
+      let exprs2 = chase_refinements ty2 in
+      let exprs2 = List.map (fun expr ->
         let idx =
           A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Map)
         in
         let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
-      ) exprs
+      ) exprs2 in 
+      exprs1 @ exprs2
     | ArrayType (pos, (ty, len)) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in
