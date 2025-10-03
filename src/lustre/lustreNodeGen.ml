@@ -1208,7 +1208,7 @@ and compile_ast_expr
   | A.BinaryOp (_, A.In Map, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
-  | A.BinaryOp (_, A.In Unknown, k, map_expr) -> assert false
+  | A.BinaryOp (_, A.In Unknown, _, _) -> assert false
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
