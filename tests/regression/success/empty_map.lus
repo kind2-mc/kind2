@@ -6,6 +6,6 @@ let
     l1 = map[]@<[int, int], int>;
     l2 = map[]@<[int, int], [real, real]>;
     check not (3 in o);
-    check not ({3, 4} in l1);
-    check not ({3, 4} in l2);
+    check not ('(3, 4) in l1);
+    check not ('(3, 4) in l2);
 tel
