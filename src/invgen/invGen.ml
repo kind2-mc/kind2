@@ -310,7 +310,7 @@ module Make (Graph : GraphSig) : Out = struct
   pruning solver map [sys_map].
 
   Returns the new invariants for the system [sys]. *)
-  let recv_and_update two_state input_sys aparam top_sys sys_map sys =
+  let recv_and_update input_sys aparam top_sys sys_map sys =
 
     let update_pruning_checkers map =
       Scope.Map.fold (
@@ -322,8 +322,7 @@ module Make (Graph : GraphSig) : Out = struct
             try (
               let pruning_checker = SysMap.find sys_map this_sys in
               Lsd.pruning_add_invariants pruning_checker false os ;
-              if two_state then
-                Lsd.pruning_add_invariants pruning_checker true ts
+              Lsd.pruning_add_invariants pruning_checker true ts
             ) with Not_found -> (
               (* System is abstract or was discarded, skipping it. *)
             )
@@ -357,7 +356,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "  pruning@.@." ; *)
     let (non_trivial, trivial) =
       if Flags.Invgen.prune_trivial () then
-        Lsd.query_pruning in_sys pruner two_state invs
+        Lsd.query_pruning in_sys pruner invs
       else (invs, [])
     in
 
@@ -440,7 +439,7 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Receiving messages, don't care about new invariants for now as we
     haven't create the base/step checker yet. *)
-    let _ = recv_and_update two_state input_sys param top_sys sys_map sys in
+    let _ = recv_and_update input_sys param top_sys sys_map sys in
 
     (* Retrieving pruning checker for this system. *)
     let pruning_checker =
@@ -512,7 +511,7 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Receiving messages. *)
     let new_os, new_ts =
-      recv_and_update two_state input_sys param top_sys sys_map sys
+      recv_and_update input_sys param top_sys sys_map sys
     in
     Lsd.step_add_invariants lsd false new_os ;
     Lsd.step_add_invariants lsd true new_ts ;
@@ -695,7 +694,7 @@ module Make (Graph : GraphSig) : Out = struct
       invariants. *)
       Graph.mine top_only two_state aparam sys (
         fun sys ->
-          let pruning_checker = Lsd.mk_pruning_checker input_sys sys two_state in
+          let pruning_checker = Lsd.mk_pruning_checker input_sys sys in
           prune_ref := pruning_checker :: (! prune_ref) ;
           SysMap.replace sys_map sys pruning_checker
       )
