@@ -993,6 +993,7 @@ and compile_ast_expr
     let rec aux accum = function
       | [] -> List.rev accum
       | A.MapIndex _ :: _ -> assert false 
+      | A.SetIndex _ :: _ -> assert false
       | A.Label (_, index) :: tl ->
         let index = HString.string_of_hstring index in
         let accum' = X.RecordIndex index :: accum in
@@ -1285,9 +1286,10 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> X.TupleIndex i :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
     compile_record_expr bounds expr_list
+  | A.StructUpdate (_, _, _, None)  (* SetIndex case *)
   | A.StructUpdate (_, _, [A.MapIndex _], _) -> 
     assert false (* handled during normalization *)
-  | A.StructUpdate (_, expr1, index, expr2) ->
+  | A.StructUpdate (_, expr1, index, Some expr2) ->
     compile_struct_update expr1 index expr2
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
@@ -2243,33 +2245,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_maps [] gids.GI.empty_maps 
   in 
   let gequations = gequations @ empty_map_eqs in
-  (* ****************************************************************** *)
-  (* Sets                                                               *)
-  (* ****************************************************************** *)
-  let empty_set_eqs = 
-    let over_empty_sets acc (id, _) =
-      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
-      let eq_lhs = flatten_list_indexes eq_lhs in
-      (* extract index for boolean flag denoting presence or absence of map item *)
-      (*!! No longer necessary? *)
-      (*let eq_lhs = X.fold (fun k sv acc -> match k with 
-      | X.TupleIndex 0 :: _ -> X.add k sv acc 
-      | _ -> acc 
-      ) eq_lhs X.empty 
-      in*)
-      (* Set boolean flag to false *)
-      let eq_rhs = X.fold (fun k _ acc -> 
-        X.add k E.t_false acc
-      ) eq_lhs X.empty in
-      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
-        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
-      let empty_set_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      empty_set_eqs @ acc
-    in 
-    List.fold_left over_empty_sets [] gids.GI.empty_sets 
-  in 
-  let gequations = gequations @ empty_set_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
@@ -2314,8 +2289,81 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       map_element_update_eqs @ acc
     in 
     List.fold_left over_map_element_updates [] gids.GI.map_element_updates
-  in 
+  in
   let gequations = gequations @ map_element_update_eqs in
+  (* ****************************************************************** *)
+  (* Sets                                                               *)
+  (* ****************************************************************** *)
+  let empty_set_eqs = 
+    let over_empty_sets acc (id, _) =
+      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
+      let eq_lhs = flatten_list_indexes eq_lhs in
+      (* extract index for boolean flag denoting presence or absence of map item *)
+      (*!! No longer necessary? *)
+      (*let eq_lhs = X.fold (fun k sv acc -> match k with 
+      | X.TupleIndex 0 :: _ -> X.add k sv acc 
+      | _ -> acc 
+      ) eq_lhs X.empty 
+      in*)
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
+      let empty_set_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      empty_set_eqs @ acc
+    in 
+    List.fold_left over_empty_sets [] gids.GI.empty_sets 
+  in 
+  let gequations = gequations @ empty_set_eqs in
+  let set_element_update_eqs = 
+    let over_set_element_updates acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+      (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
+      let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
+      let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
+      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
+         compile_ast_type flattens indices, so we need to do a corresponding flattening 
+         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
+      let nexpr2 =
+        let nexpr2 = X.values nexpr2 in 
+        List.fold_left (fun (acc, acc_i) e -> 
+          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+        ) (X.empty, 0) nexpr2 |> fst 
+      in
+      let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
+      let cond_expr = 
+        X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
+      in
+      let then_expr = A.Const (dummy_pos, True) in 
+      let else_expr = 
+        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
+                                            A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
+      in 
+      let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
+      let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
+      let cond_expr = match X.bindings cond_expr with
+      | [_, expr] -> expr
+      | _ -> assert false
+      in
+      let mk e1 e2 =
+        let e1', e2' = coalesce_array2 e1 e2 in
+        E.mk_ite cond_expr e1' e2'
+      in
+      let eq_rhs = compile_binary' mk then_expr else_expr in 
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let set_element_update_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_element_update_eqs @ acc
+    in 
+    List.fold_left over_set_element_updates [] gids.GI.set_element_updates
+  in
+  let gequations = gequations @ set_element_update_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)

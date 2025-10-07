@@ -931,11 +931,15 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | GroupExpr (pos, kind, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, GroupExpr (pos, kind, expr_list')
-  | StructUpdate (pos, e1, idx_list, e2) ->
+  | StructUpdate (pos, e1, idx_list, Some e2) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
-    StructUpdate (pos, e1', idx_list, e2')
+    StructUpdate (pos, e1', idx_list, Some e2')
+  | StructUpdate (pos, e, idx_list, None) ->
+    let vars, e' = r map e in
+    vars,
+    StructUpdate (pos, e', idx_list, None)
   | ArrayConstr (pos, e1, e2) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
@@ -2146,7 +2150,7 @@ and normalize_expr ?guard info node_id map =
     } in
     let nexpr = A.Ident (pos, name) in
     nexpr, gids, []
-  | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], expr3) as expr ->
+  | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], Some expr3) as expr ->
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)
@@ -2173,6 +2177,32 @@ and normalize_expr ?guard info node_id map =
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
     nexpr, gids, warnings1 @ warnings2 @ warnings3 
+    | StructUpdate (pos, expr1, [A.SetIndex (_, expr2)], None) as expr ->
+    (* Don't supply the guard when normalizing subexpressions, 
+       because we need to generate oracle variables in initial step 
+       if there are unguarded pres *)
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
+       while supplying the guard, but ignore all other outputs *)
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    i := !i + 1; 
+    let prefix = HString.mk_hstring (string_of_int !i) in 
+    let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
+    let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
+    let ty = match Chk.infer_type_expr info.context (Some node_id) expr with 
+    | Ok (A.Set (_, ty), _) -> ty
+    | _ -> assert false 
+    in 
+    let gids3 = { (empty ()) with   
+      set_element_updates = [ name1, nexpr1, nexpr2, name2, ty ]; 
+      locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
+    } in 
+    let nexpr = A.Ident (pos, name1) in 
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
+    nexpr, gids, warnings1 @ warnings2 
+
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings
@@ -2266,7 +2296,12 @@ and normalize_expr ?guard info node_id map =
       then normalize_expr ?guard info node_id map (StructUpdate (pos, expr1, i, expr2)) 
     else 
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-      let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
+      let nexpr2, gids2, warnings2 = match expr2 with 
+      | Some expr2 -> 
+        let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+        Some nexpr2, gids2, warnings2
+      | None -> None, empty (), [] 
+      in
       StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty = get_expr_ty info map node_id expr1 in 
@@ -2326,7 +2361,8 @@ and expand_node_calls_in_place info node_id var count expr =
   | Pre (p, e) -> A.Pre (p, r e)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
-  | StructUpdate (p, e1, u, e2) -> A.StructUpdate (p, r e1, u, r e2)
+  | StructUpdate (p, e1, u, Some e2) -> A.StructUpdate (p, r e1, u, Some (r e2))
+  | StructUpdate (p, e1, u, None) -> A.StructUpdate (p, r e1, u, None)
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)

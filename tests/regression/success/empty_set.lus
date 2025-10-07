@@ -9,6 +9,6 @@ let
     check forall (i: [int, int]) not (i in l1);
     check forall (i: [real, real]) not (i in l2);
     check not (3 in o);
-    check not ({3, 4} in l1);
-    check not ({3.0, 4.0} in l2);
+    check not ('(3, 4) in l1);
+    check not ('(3.0, 4.0) in l2);
 tel

@@ -124,9 +124,9 @@ let rec expr_contains_call = function
     fold_lustre_ty expr_contains_call false (||) vt
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) | Extract (_, e, _, _)
+  | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
@@ -151,9 +151,9 @@ let rec expr_contains_id id = function
   | EmptySet (_, ty) -> fold_lustre_ty expr_is_id false (||) ty
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
-  | Extract (_, e, _, _)
+  | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_id id e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
@@ -205,8 +205,10 @@ let rec substitute_naive (var:HString.t) t = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> substitute_naive var t e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, substitute_naive var t e1, idx, substitute_naive var t e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, substitute_naive var t e1, idx, Some (substitute_naive var t e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, substitute_naive var t e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -261,8 +263,10 @@ let rec apply_subst_in_expr sigma = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, apply_subst_in_expr sigma e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, Some (apply_subst_in_expr sigma e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -327,8 +331,10 @@ let rec apply_type_subst_in_expr
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, Some (apply_type_subst_in_expr sigma e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -467,7 +473,7 @@ let rec has_unguarded_pre ung = function
     let us = List.map (fun (_, e) -> has_unguarded_pre ung e) ie in
     List.exists Lib.identity us
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, Some e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let us = List.map (function
         | Label _ -> false
@@ -478,6 +484,17 @@ let rec has_unguarded_pre ung = function
       ) li in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2 || List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, None) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | MapIndex (_, e)
+        | SetIndex (_, e)
+        | GenericIndex (_, e)
+        | Index (_, e) -> has_unguarded_pre ung e
+      ) li in
+    u1 || List.exists Lib.identity us
 
   | Pre (pos, e) as p ->
     if ung then begin
@@ -557,7 +574,18 @@ let rec has_unguarded_pre_no_warn ung = function
     let us = List.map (fun (_, e) -> has_unguarded_pre_no_warn ung e) ie in
     List.exists Lib.identity us
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, None) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | MapIndex (_, e)
+        | SetIndex (_, e)
+        | GenericIndex (_, e)
+        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+      ) li in
+    u1 || List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, Some e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let us = List.map (function
         | Label _ -> false
@@ -653,7 +681,21 @@ let rec has_pre_or_arrow = function
     List.map (fun (_, e) -> has_pre_or_arrow e) ie
     |> some_of_list
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, None) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+          fun _ ->
+            List.map (function
+              | Label _ -> None
+              | MapIndex (_, e)
+              | SetIndex (_, e)
+              | GenericIndex (_, e)
+              | Index (_, e) -> has_pre_or_arrow e
+            ) li
+            |> some_of_list
+    )
+
+  | StructUpdate (_, e1, li, Some e2) ->
     has_pre_or_arrow e1
     |> unwrap_or (
       fun _ ->
@@ -864,7 +906,8 @@ let rec vars_of_node_calls_h obs =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars obs e1) (vars obs e2)
+  | StructUpdate (_, e1, _, None) -> vars obs e1
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
@@ -910,7 +953,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, None) -> vars e1 
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
@@ -957,7 +1001,8 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> NI.Set.union (calls_of_expr e2)
   | RecordExpr (_, _, _, flds) -> NI.Set.flatten (List.map calls_of_expr (snd (List.split flds)))
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
-  | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | StructUpdate (_, e1, _, Some e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | StructUpdate (_, e1, _, None) -> calls_of_expr e1
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | EmptyMap (_, (kt, vt)) -> 
     NI.Set.union (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union kt)
@@ -998,7 +1043,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, None) -> vars e1
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
@@ -1149,10 +1195,14 @@ let rec replace_with_constants: expr -> expr =
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map replace_with_constants es)
 
   (* Update of structured expressions *)
-  | StructUpdate (p, e1, i, e2) ->
+  | StructUpdate (p, e1, i, Some e2) ->
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
-     StructUpdate (p, e1', i, e2') 
+     StructUpdate (p, e1', i, Some e2') 
+
+  | StructUpdate (p, e1, i, None) ->
+     let e1' = replace_with_constants e1 in
+     StructUpdate (p, e1', i, None) 
 
   | ArrayConstr (p, e1, e2) ->
      let e1' = replace_with_constants e1 in
@@ -1233,10 +1283,14 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map abstract_pre_subexpressions es)
 
   (* Update of structured expressions *)
-  | StructUpdate (p, e1, i, e2) ->
+  | StructUpdate (p, e1, i, Some e2) ->
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
-     StructUpdate (p, e1', i, e2') 
+     StructUpdate (p, e1', i, Some e2') 
+
+  | StructUpdate (p, e1, i, None) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     StructUpdate (p, e1', i, None) 
 
   | ArrayConstr (p, e1, e2) ->
      let e1' = abstract_pre_subexpressions e1 in
@@ -1338,7 +1392,7 @@ let rec replace_idents locals1 locals2 expr =
     Condact (a, r e1, r e2, b, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (a, e1, li, e2) -> 
+  | StructUpdate (a, e1, li, Some e2) -> 
     StructUpdate (a, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
@@ -1347,7 +1401,17 @@ let rec replace_idents locals1 locals2 expr =
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
-    r e2)
+    Some (r e2))
+  | StructUpdate (a, e1, li, None) -> 
+    StructUpdate (a, r e1, 
+    List.map (function
+              | Label (a, b) -> Label (a, b)
+              | Index (a, e) -> Index (a, r e)
+              | GenericIndex (a, e) -> GenericIndex (a, r e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
+             ) li, 
+    None)
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1464,7 +1528,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (p && e && t && HString.equal xi yi)
     | GroupExpr (_, xop, x), GroupExpr(_, yop, y) ->
       rlist x y |> join >>= fun e -> Ok (e && xop = yop)
-    | StructUpdate (_, xe1, xl, xe2), StructUpdate (_, ye1, yl, ye2) ->
+    | StructUpdate (_, xe1, xl, Some xe2), StructUpdate (_, ye1, yl, Some ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       let l = if List.length xl = List.length yl then
@@ -1477,6 +1541,20 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun e3 ->
       Ok (e1 && e2 && e3)
+
+    | StructUpdate (_, xe1, xl, None), StructUpdate (_, ye1, yl, None) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      let l = if List.length xl = List.length yl then
+          List.map2 (fun x y -> match x, y with
+            | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
+            | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
+            | _ -> Ok (false))
+          xl yl
+        else [Ok (false)]
+      in
+      l |> join >>= fun e2 ->
+      Ok (e1 && e2)
+    | StructUpdate _, StructUpdate _ -> Ok false
     | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1661,7 +1739,10 @@ let hash depth_limit expr =
         Hashtbl.hash (12, op, es_hash)
       | StructUpdate (_, e1, l, e2) ->
         let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
+        let e2_hash = match e2 with 
+        | Some e2 -> r (depth + 1) e2 
+        | None -> Hashtbl.hash 1
+        in
         let l_hash = List.map (function
           | Label (_, i) -> Hashtbl.hash (0, HString.hash i)
           | MapIndex (_, e) -> Hashtbl.hash (1, r (depth + 1) e)
@@ -1773,8 +1854,10 @@ let rec rename_contract_vars = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> rename_contract_vars e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, rename_contract_vars e1, idx, Some (rename_contract_vars e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, rename_contract_vars e1, idx, None)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
   | IndexAccess (pos, e1, e2, kind) ->

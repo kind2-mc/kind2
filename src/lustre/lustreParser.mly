@@ -937,7 +937,7 @@ pexpr(Q):
     LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
   {
     List.fold_left (fun acc (e2, e3) -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
     )  (A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))) updates 
   }
 
@@ -946,10 +946,8 @@ pexpr(Q):
     RCURLYBRACKET ATSIGN
     LT value_ty=lustre_type GT
   {
-    (*!! Use an option type *)
-    let dummy_expr = A.Ident (mk_pos $startpos, HString.mk_hstring "dummy") in 
     List.fold_left (fun acc e -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], dummy_expr) 
+      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
     ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
   }
 
@@ -959,7 +957,7 @@ pexpr(Q):
     RSQBRACKET;
     { 
       List.fold_left (fun acc (e2, e3) -> 
-        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
       ) e1 updates 
     }
 

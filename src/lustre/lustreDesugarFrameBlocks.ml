@@ -152,6 +152,10 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
              List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, e2) -> 
+    let e2 = match e2 with 
+    | Some e2 -> Some (r e2)
+    | None -> None 
+    in
     A.StructUpdate (p, r e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
@@ -160,7 +164,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
-    r e2)
+    e2)
 
 (** Helper function to generate node equations when an initialized variable in the 
     frame block is left undefined in the frame block body. *)

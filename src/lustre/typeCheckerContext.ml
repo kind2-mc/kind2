@@ -872,7 +872,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (call e1) (call e2)
+  | StructUpdate (_, e1, _, None) -> call e1
   | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
   | IndexAccess (_, e1, e2,_) -> SI.union (call e1) (call e2)
   (* Clock operators *)

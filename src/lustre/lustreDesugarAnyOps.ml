@@ -128,10 +128,13 @@ fun ctx node_name fun_ids expr ->
   | GroupExpr (pos, kind, expr_list) ->
     let expr_list, gen_nodes = List.map (rec_call) expr_list |> List.split in
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
-  | StructUpdate (pos, e1, idx, e2) ->
+  | StructUpdate (pos, e1, idx, Some e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    StructUpdate (pos, e1, idx, e2), gen_nodes1 @ gen_nodes2
+    StructUpdate (pos, e1, idx, Some e2), gen_nodes1 @ gen_nodes2
+  | StructUpdate (pos, e, idx, None) ->
+    let e, gen_nodes = rec_call e in
+    StructUpdate (pos, e, idx, None), gen_nodes 
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in

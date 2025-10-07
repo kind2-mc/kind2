@@ -326,8 +326,8 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) -> check_clocks clock e
-    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+    | AnyOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
+    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
     | TernaryOp (_, _, e1, e2, e3) -> 
@@ -368,8 +368,8 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | When (_, e, _) -> check_merge e
-    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+    | AnyOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
+    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
     | TernaryOp (_, _, e1, e2, e3) -> 
@@ -522,7 +522,8 @@ let rec infer_const_attr ctx exp =
       (List.map r es)
   | GroupExpr (_, ExprList, es) -> List.flatten (List.map r es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> combine (r e1) (r e2)
+  | StructUpdate (_, e1, _, Some e2) -> combine (r e1) (r e2)
+  | StructUpdate (_, e1, _, None) -> r e1
   | ArrayConstr (_, e1, e2) -> combine (r e1) (r e2)
   | IndexAccess (_, e1, e2, _) -> combine (r e1) (r e2)
   (* Quantified expressions *)
@@ -733,10 +734,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
   | GroupExpr (pos, kind, expr_list) ->
     let* expr_list = R.seq (List.map call expr_list) in
     R.ok (LA.GroupExpr (pos, kind, expr_list))
-  | StructUpdate (pos, e1, idx, e2) ->
+  | StructUpdate (pos, e1, idx, Some e2) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
-    R.ok (LA.StructUpdate (pos, e1, idx, e2))
+    R.ok (LA.StructUpdate (pos, e1, idx, Some e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    let* e1 = call e1 in 
+    R.ok (LA.StructUpdate (pos, e1, idx, None))
   | ArrayConstr (pos, e1, e2) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
@@ -1009,7 +1013,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                     | Some f_ty ->
-                      let* e_ty, warnings2 = infer_type_expr ctx nname e in
+                      let* e_ty, warnings2 = infer_type_expr ctx nname (Option.get e) in
                       R.ifM (eq_lustre_type ctx f_ty e_ty)
                         (R.ok (r_ty, warnings1 @ warnings2))
                         (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty)))
@@ -1024,7 +1028,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
             | Some n -> Ok n
             | None -> type_error pos (ExpectedIntegerLiteral i)
           in
-          let* e_ty, warnings2 = infer_type_expr ctx nname e in
+          let* e_ty, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
           R.ok (ue_ty, warnings1 @ warnings2 @ warnings3)
         )
@@ -1032,7 +1036,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
           let* index_type, warnings1 = infer_type_expr ctx nname i in
           let* index_type = expand_type_syn_reftype_history ctx index_type in
           if is_expr_int_type ctx nname i then
-            let* e_ty, warnings2 = infer_type_expr ctx nname e in
+            let* e_ty, warnings2 = infer_type_expr ctx nname (Option.get e) in
             R.ifM (eq_lustre_type ctx b_ty e_ty)
               (R.ok (ue_ty, warnings1 @ warnings2))
               (type_error pos (ExpectedType (e_ty, b_ty)))
@@ -1048,7 +1052,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
             let* index_type, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
-              (let* e_ty, warnings3 = infer_type_expr ctx nname e in
+              (let* e_ty, warnings3 = infer_type_expr ctx nname (Option.get e) in
                 R.ifM (eq_lustre_type ctx e_ty vt)
                   (R.ok (ue_ty, warnings1 @ warnings2 @ warnings3))
                   (type_error pos (ExpectedType (e_ty, vt))))
@@ -1062,8 +1066,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
             let* index_type, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
-              (let* e_ty, warnings3 = infer_type_expr ctx nname e in
-              (R.ok (ue_ty, warnings1 @ warnings2 @ warnings3)))
+              (R.ok (ue_ty, warnings1 @ warnings2))
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
@@ -1328,7 +1331,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
             (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
               (match (List.assoc_opt l typed_fields) with
               | Some ty ->
-                let* warnings2 = check_type_expr ctx nname e ty in
+                let* warnings2 = check_type_expr ctx nname (Option.get e) ty in
                 R.ok (warnings1 @ warnings2)
               | None -> type_error pos (NotAFieldOfRecord l)))
           | _ -> type_error pos (IlltypedUpdateWithLabel r_ty))
@@ -1341,7 +1344,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
             | Some n -> Ok n
             | None -> type_error pos (ExpectedIntegerLiteral i)
           in
-          let* e_ty, warnings2 = infer_type_expr ctx nname e in
+          let* e_ty, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
           R.ok (warnings1 @ warnings2 @ warnings3)
         )
@@ -1349,7 +1352,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
           let* index_type, warnings1 = infer_type_expr ctx nname i in
           let* index_type = expand_type_syn_reftype_history ctx index_type in
           if is_expr_int_type ctx nname i then
-            let* warnings2 = check_type_expr ctx nname e b_ty in
+            let* warnings2 = check_type_expr ctx nname (Option.get e) b_ty in
             R.ok (warnings1 @ warnings2)
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)

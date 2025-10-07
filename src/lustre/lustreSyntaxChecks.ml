@@ -271,7 +271,10 @@ function
 
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
-  has_stateful_op ctx e2 ||
+  match e2 with 
+  | Some e2 -> has_stateful_op ctx e2 
+  | None -> false 
+  ||
   List.fold_left
     (fun acc l_or_i -> acc ||
       (match l_or_i with
@@ -636,10 +639,11 @@ let rec expr_only_supported_in_merge observer expr =
   | ConvOp (_, _, e)
   | Pre (_, e)
   | Extract (_, e, _, _)
-  | Quantifier (_, _, _, e) -> r observer e
+  | Quantifier (_, _, _, e) 
+  | StructUpdate (_, e, _, None) -> r observer e
   | AnyOp (_, _, e) -> r false e
   | BinaryOp (_, _, e1, e2) 
-  | StructUpdate (_, e1, _, e2)
+  | StructUpdate (_, e1, _, Some e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
   | IndexAccess (_, e1, e2, _)
@@ -1055,7 +1059,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Ok (warnings1 @ warnings2)
     | StructUpdate (_, e1, l, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
-      let* warnings2 = (check_expr ctx f e2) in
+      let* warnings2 = match e2 with 
+      | Some e2 -> check_expr ctx f e2 
+      | None -> Res.ok [] 
+      in
       let l =
          List.filter_map
           (function | LA.Label _ -> None | Index (_, e) 

@@ -176,7 +176,8 @@ and process_expr ind_vars ctx ns proj indices expr =
   | GroupExpr (_, _, es) ->
     es |> (List.map r) |> (List.fold_left union_ empty_)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> union_ (r e1) (r e2)
+  | StructUpdate (_, e1, _, Some e2) -> union_ (r e1) (r e2)
+  | StructUpdate (_, e1, _, _) -> r e1
   | ArrayConstr (_, e1, e2) -> union_ (r e1) (r e2)
   | IndexAccess (p, e, idx, _) ->
     let n = match ind_vars with

@@ -268,7 +268,8 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
-  | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
+  | StructUpdate (p, e1, l, Some e2) -> StructUpdate (p, r e1, l, Some (r e2))
+  | StructUpdate (p, e1, l, None) -> StructUpdate (p, r e1, l, None)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
