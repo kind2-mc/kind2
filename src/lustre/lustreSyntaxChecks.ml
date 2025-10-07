@@ -278,6 +278,7 @@ function
       | LA.Label _ -> false
       | GenericIndex (_, e) 
       | MapIndex (_, e)
+      | SetIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
       )
     )
@@ -1058,7 +1059,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let l =
          List.filter_map
           (function | LA.Label _ -> None | Index (_, e) 
-                    | GenericIndex (_, e) | MapIndex (_, e) -> 
+                    | GenericIndex (_, e) | MapIndex (_, e) | SetIndex (_, e) -> 
           (* Procrastinate on dangling identifier checks for lone Ident expressions 
              until type checking. This is necessary because we don't have the 
              right context to distinguish a dangling identifier from one referencing 

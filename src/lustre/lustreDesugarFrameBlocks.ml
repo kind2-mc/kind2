@@ -156,6 +156,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
               | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 

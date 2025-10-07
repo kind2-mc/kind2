@@ -942,11 +942,15 @@ pexpr(Q):
   }
 
   | LCURLYBRACKET 
-    (* TODO: Support elements here *)
+    elements = separated_list(COMMA, pexpr(Q));
     RCURLYBRACKET ATSIGN
     LT value_ty=lustre_type GT
   {
-    A.EmptySet (mk_pos $startpos, value_ty)
+    (*!! Use an option type *)
+    let dummy_expr = A.Ident (mk_pos $startpos, HString.mk_hstring "dummy") in 
+    List.fold_left (fun acc e -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], dummy_expr) 
+    ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
   }
 
   | e1 = pexpr(Q); 

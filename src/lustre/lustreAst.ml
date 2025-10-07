@@ -166,6 +166,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 
@@ -729,6 +730,7 @@ and pp_print_label_or_index ppf = function
   | Label (_, i) -> pp_print_index ppf i
   | GenericIndex (_, e)
   | MapIndex (_, e)
+  | SetIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)

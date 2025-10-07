@@ -2261,8 +2261,8 @@ and normalize_expr ?guard info node_id map =
       List.map (Chk.desugar_generic_index info.context (Some node_id) expr1) i 
       |> List.map unwrap 
     in
-    if List.exists (fun idx -> match idx with | A.MapIndex _ -> true | _ -> false) i 
-      (* The MapIndex case is handled specially *)
+    if List.exists (fun idx -> match idx with | A.MapIndex _ | A.SetIndex _ -> true | _ -> false) i 
+      (* The MapIndex and SetIndex cases are handled specially *)
       then normalize_expr ?guard info node_id map (StructUpdate (pos, expr1, i, expr2)) 
     else 
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in

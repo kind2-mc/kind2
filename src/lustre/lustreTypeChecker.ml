@@ -141,7 +141,7 @@ let error_message kind = match kind with
   | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
     ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedUpdateWithLabel ty -> "Expected a record type but found " ^ string_of_tc_type ty
-  | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, or map type but found " ^ string_of_tc_type ty
+  | IlltypedUpdateWithIndex ty -> "Expected a tuple, array, map, or set type but found " ^ string_of_tc_type ty
   | IlltypedUpdate ty -> "Expected a tuple, array, map, or record type but found " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
   | ExpectedIntegerLiteral e -> "Expected an integer literal but found " ^ LA.string_of_expr e
@@ -1055,6 +1055,19 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
+      | LA.SetIndex (_, idx_e) -> 
+        let* ue_ty, warnings1 = infer_type_expr ctx nname ue in
+         (match ue_ty with 
+         | Set (_, kt) -> (
+            let* index_type, warnings2 = infer_type_expr ctx nname idx_e in
+            let* index_type = expand_type_syn_reftype_history ctx index_type in
+            R.ifM (eq_lustre_type ctx index_type kt)
+              (let* e_ty, warnings3 = infer_type_expr ctx nname e in
+              (R.ok (ue_ty, warnings1 @ warnings2 @ warnings3)))
+              (type_error pos (ExpectedType (index_type, kt)))
+          )
+         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
+
       )
   | LA.IndexAccess (pos, e, i, _) -> (
     let* index_type, warnings1 = infer_type_expr ctx nname i in
@@ -1343,7 +1356,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
-      | LA.MapIndex _ -> 
+      | LA.MapIndex _  
+      | LA.SetIndex _ -> 
         let* inf_ty, warnings = infer_type_expr ctx nname (StructUpdate (pos, ue, i_or_ls, e)) in 
         (R.ifM (eq_lustre_type ctx exp_ty inf_ty)
                 (R.ok warnings)

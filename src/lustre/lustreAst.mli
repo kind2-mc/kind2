@@ -182,6 +182,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 
