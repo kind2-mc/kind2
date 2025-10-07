@@ -5,9 +5,9 @@ const simple_array_constr : int^3
 const nested_array : int^2^2
   = [0^2, 1^2];
 const tuple_of_ints : [int,int]
-  = {1,2};
+  = '(1,2);
 const tuple_of_array : [int^2,int]
-  = {[0,1], 1};
+  = '([0,1], 1);
 
 function look_up_table(i : int) returns (v : int);
 let

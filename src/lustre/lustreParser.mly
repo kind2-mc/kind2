@@ -34,6 +34,7 @@ let mk_span start_pos end_pos =
 
 (* Special characters *)
 %token ATSIGN
+%token TICK
 %token SEMICOLON 
 %token EQUALS 
 %token COLON
@@ -922,8 +923,7 @@ pexpr(Q):
     { A.GroupExpr (mk_pos $startpos, A.ExprList, h :: l) } 
 
   (* A tuple expression (not quantified) *)
-  (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
+  | TICK; LPAREN; l = pexpr_list(Q); RPAREN { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
 
   (* An array expression (not quantified) *)
   | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }

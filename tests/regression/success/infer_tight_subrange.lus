@@ -55,7 +55,7 @@ type tt = [tr2,int];
 
 node N6(e: tr2) returns (z: tt);
 let
-  z = {e, e.x};
+  z = '(e, e.x);
    --%MAIN ;
 tel
 
