@@ -2189,7 +2189,7 @@ and normalize_expr ?guard info node_id map =
     let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
+    let name1 = HString.concat2 prefix (HString.mk_hstring "_set_update") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
     let ty = match Chk.infer_type_expr info.context (Some node_id) expr with 
     | Ok (A.Set (_, ty), _) -> ty

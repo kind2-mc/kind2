@@ -2077,7 +2077,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_map_def i l = 
+  in let compile_map_def i l is_set = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
@@ -2094,6 +2094,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         List.fold_left (fun (acc, acc_is, acc_i) idx -> 
         match idx with 
         | X.MapIndex b -> 
+          if is_set then 
+            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
+          else 
             X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
         | _ -> acc, acc_is, acc_i
         ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
@@ -2249,7 +2252,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
@@ -2320,19 +2323,20 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let gequations = gequations @ empty_set_eqs in
   let set_element_update_eqs = 
     let over_set_element_updates acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
-      (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
+      (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] true in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
          compile_ast_type flattens indices, so we need to do a corresponding flattening 
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
+      (*!! Does this do anything now? *)
       let nexpr2 =
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
-          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          X.add [] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2 |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
@@ -2340,10 +2344,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
       in
       let then_expr = A.Const (dummy_pos, True) in 
-      let else_expr = 
-        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
-                                            A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
-      in 
+      let else_expr = A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1) in 
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
       let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
       let cond_expr = match X.bindings cond_expr with
