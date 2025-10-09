@@ -1216,6 +1216,8 @@ and compile_ast_expr
     compile_binary bounds E.mk_minus expr1 expr2
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
+  | A.BinaryOp (p, A.Union, expr1, expr2) ->
+    fail_at_position p "Set union not yet supported"
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
   | A.BinaryOp (_, A.Times, expr1, expr2) ->

@@ -82,7 +82,7 @@ type error_kind = Unknown of string
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
   | ExpectedIntegerTypes of tc_type * tc_type
-  | ExpectedNumberTypes of tc_type * tc_type
+  | ExpectedNumberOrSetTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
   | ExpectedUnsignedMachineIntegerTypes of tc_type * tc_type
   | ExpectedMachineIntegerType of tc_type
@@ -177,7 +177,7 @@ let error_message kind = match kind with
   | IlltypedUnaryMinus ty -> "Unary minus cannot be applied to non number expression of type " ^ string_of_tc_type ty
   | ExpectedIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
-  | ExpectedNumberTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type (or type real) but found "
+  | ExpectedNumberOrSetTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer, real, or set types but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
@@ -1570,11 +1570,22 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
           (type_error pos (UnificationFailed (ty1, ty2))))
       | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
-  | LA.Plus | LA.Minus | LA.Times | LA.Div ->
+  | LA.Plus -> 
+    let* b1 = are_args_num ctx pos ty1 ty2 in 
+    let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in 
+    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty1 in 
+    let* b2 = match ty1', ty2' with 
+    | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4 
+    | _ -> Ok false 
+    in
+    if b1 || b2 
+    then R.ok (ty2, warnings1 @ warnings2)
+    else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) (*!! ExpectedSetTypes? *)
+  | LA.Minus | LA.Times | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok (ty2, warnings1 @ warnings2)
-    else type_error pos (ExpectedNumberTypes (ty1, ty2))
+    else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
   | LA.IntDiv ->
     (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
       | Ok(true), Ok(true) -> 
@@ -1606,6 +1617,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
           | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
       | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
+  | LA.Union -> assert false (* Parsed as Plus and changed to Union during normalization *)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
