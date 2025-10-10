@@ -1901,3 +1901,36 @@ let get_const_num_value = function
   | Const (_, Num x) ->
     int_of_string_opt (HString.string_of_hstring x)
   | _ -> None
+
+(* `expr1` is any variable with set type, and `expr2` is any 
+   concrete set with a set type matching `expr1`. 
+   
+   This function desugars a set union between `expr1` and `expr2` 
+   into a single base set `expr1` with successive StructUpdates 
+   adding the elements from `expr2`*)
+let rec desugar_to_adding_elements expr1 expr2 = match expr2 with 
+  | StructUpdate (p, e1, [SetIndex (p2, e2)], None) ->  
+    let expr1 = StructUpdate (p, expr1, [SetIndex (p2, e2)], None) in 
+    let expr2 = e1 in 
+    desugar_to_adding_elements expr1 expr2
+  | EmptySet _ -> expr1
+  | _ -> assert false
+
+(* Evaluates `expr` to a concrete set if possible  
+   (ie, an empty set with StructUpdates adding individual elements, 
+   without other set operators).
+*)
+let rec eval_to_concrete_set expr = match expr with 
+  | EmptySet _ -> Some expr 
+  | StructUpdate (p, e1, [SetIndex (p2, e2)], None) -> (
+    match eval_to_concrete_set e1 with 
+    | None -> None 
+    | Some e1 -> Some (StructUpdate (p, e1, [SetIndex (p2, e2)], None))
+    ) 
+  | BinaryOp (_, Union, expr1, expr2) -> (
+    match eval_to_concrete_set expr1, eval_to_concrete_set expr2 with 
+    | Some expr1, Some expr2 -> 
+      Some (desugar_to_adding_elements expr1 expr2)
+    | _ -> None
+    )
+  | _ -> None 

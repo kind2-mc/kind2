@@ -1216,8 +1216,8 @@ and compile_ast_expr
     compile_binary bounds E.mk_minus expr1 expr2
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
-  | A.BinaryOp (p, A.Union, expr1, expr2) ->
-    fail_at_position p "Set union not yet supported"
+  | A.BinaryOp (p, A.Union, _, _) ->
+    fail_at_position p "Set unions that between two non-concrete sets are not yet supported"
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
   | A.BinaryOp (_, A.Times, expr1, expr2) ->
@@ -2252,7 +2252,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let gequations = gequations @ empty_map_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
-      (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
@@ -2323,22 +2322,21 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_sets [] gids.GI.empty_sets 
   in 
   let gequations = gequations @ empty_set_eqs in
-  let set_element_update_eqs = 
-    let over_set_element_updates acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+  let set_add_elements_eqs = 
+    let over_set_add_elements acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] true in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
          compile_ast_type flattens indices, so we need to do a corresponding flattening 
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
-      (*!! Does this do anything now? *)
       let nexpr2 =
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
-          X.add [] e acc, acc_i + 1
+          X.add [X.TupleIndex acc_i]  e acc, acc_i + 1
         ) (X.empty, 0) nexpr2 |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
@@ -2361,12 +2359,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let set_element_update_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      set_element_update_eqs @ acc
+      let set_add_elements_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_add_elements_eqs @ acc
     in 
-    List.fold_left over_set_element_updates [] gids.GI.set_element_updates
+    List.fold_left over_set_add_elements [] gids.GI.set_add_elements
   in
-  let gequations = gequations @ set_element_update_eqs in
+  let gequations = gequations @ set_add_elements_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)

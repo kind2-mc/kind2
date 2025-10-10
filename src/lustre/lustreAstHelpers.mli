@@ -197,3 +197,17 @@ val get_const_num_value : expr -> int option
 val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 
 val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
+
+val desugar_to_adding_elements : expr -> expr -> expr
+(** `expr1` is any variable with set type, and `expr2` is any 
+   concrete set with a set type matching `expr1`. 
+   
+   This function desugars a set union between `expr1` and `expr2` 
+   into a single base set `expr1` with successive StructUpdates 
+   adding the elements from `expr2`*)
+
+val eval_to_concrete_set : expr -> expr option
+(** Evaluates `expr` to a concrete set if possible  
+   (ie, an empty set with StructUpdates adding individual elements, 
+   without other set operators).
+*)
