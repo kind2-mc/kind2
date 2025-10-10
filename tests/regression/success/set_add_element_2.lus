@@ -1,0 +1,8 @@
+const N: subtype { x: int | x > 5 };
+type R = struct { x: int; y: int }; 
+
+node N() returns (o1, o2: set<[int, int]>)
+let
+    o1 = o2 + { '(3, 4) }@<[int, int]>;
+    check '(3, 4) in o1;
+tel
