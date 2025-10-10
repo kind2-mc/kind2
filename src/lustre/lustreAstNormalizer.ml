@@ -2253,19 +2253,7 @@ and normalize_expr ?guard info node_id map =
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       BinaryOp (pos, Plus, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
-  | BinaryOp (pos, Union, expr1, expr2) -> (
-    match AH.eval_to_concrete_set expr1, AH.eval_to_concrete_set expr2 with 
-    | None, None -> 
-      let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-      let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-      BinaryOp (pos, Union, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-    | Some concrete_set, _ -> 
-      let expr = AH.desugar_to_adding_elements expr2 concrete_set in 
-      normalize_expr ?guard info node_id map expr 
-    | _, Some concrete_set ->
-      let expr = AH.desugar_to_adding_elements expr1 concrete_set in 
-      normalize_expr ?guard info node_id map expr 
-    )
+  | BinaryOp (pos, Union, expr1, expr2) -> failwith "Set union not yet supported"
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in

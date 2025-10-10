@@ -1217,7 +1217,7 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
   | A.BinaryOp (p, A.Union, _, _) ->
-    fail_at_position p "Set unions that between two non-concrete sets are not yet supported"
+    fail_at_position p "Set unions not yet supported"
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
   | A.BinaryOp (_, A.Times, expr1, expr2) ->
