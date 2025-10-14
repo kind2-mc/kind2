@@ -2253,7 +2253,7 @@ and normalize_expr ?guard info node_id map =
     | _ ->  
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-      BinaryOp (pos, Plus, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
+      BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
   | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
     let nexpr1, gids1, warnings1 = normalize_expr info node_id map expr1 in 
