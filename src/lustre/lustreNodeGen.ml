@@ -2250,13 +2250,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_empty_sets acc (id, _) =
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
-      (* extract index for boolean flag denoting presence or absence of map item *)
-      (*!! No longer necessary? *)
-      (*let eq_lhs = X.fold (fun k sv acc -> match k with 
-      | X.TupleIndex 0 :: _ -> X.add k sv acc 
-      | _ -> acc 
-      ) eq_lhs X.empty 
-      in*)
       (* Set boolean flag to false *)
       let eq_rhs = X.fold (fun k _ acc -> 
         X.add k E.t_false acc
