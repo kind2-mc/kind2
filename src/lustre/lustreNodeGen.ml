@@ -1216,10 +1216,9 @@ and compile_ast_expr
     compile_binary bounds E.mk_minus expr1 expr2
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
-  | A.BinaryOp (p, A.Union, _, _) ->
-    fail_at_position p "Set unions not yet supported"
-  | A.BinaryOp (p, A.Intersection, _, _) ->
-    fail_at_position p "Set unions not yet supported"
+  | A.BinaryOp (_, A.Union, _, _) 
+  | A.BinaryOp (_, A.Intersection, _, _) -> 
+    assert false (* abstracted during normalization *)
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
   | A.BinaryOp (_, A.Times, expr1, expr2) ->
@@ -2368,14 +2367,19 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in
   let gequations = gequations @ set_add_elements_eqs in
   let set_union_eqs = 
-    let over_set_unions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+    let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       (* Desugar to lhs[i] = i in nexpr1 or i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let op' = match op with 
+      | A.Union -> A.Or 
+      | A.Intersection -> And 
+      | _ -> assert false
+      in
       let expr = 
-        A.BinaryOp (dummy_pos, Or, 
+        A.BinaryOp (dummy_pos, op', 
           A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1), 
           A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2))
       in 
@@ -2386,7 +2390,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let set_union_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
       set_union_eqs @ acc
     in 
-    List.fold_left over_set_unions [] gids.GI.set_unions
+    List.fold_left over_set_binops [] gids.GI.set_binops
   in
   let gequations = gequations @ set_union_eqs in
   (* ****************************************************************** *)

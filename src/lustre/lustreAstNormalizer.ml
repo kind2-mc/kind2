@@ -2242,18 +2242,20 @@ and normalize_expr ?guard info node_id map =
     | _ -> assert false
     in 
     normalize_expr ?guard info node_id map expr
-  | BinaryOp (pos, Plus, expr1, expr2) ->
+  | BinaryOp (pos, ((Plus | Times) as op), expr1, expr2) ->
     let ty, _ = Chk.infer_type_expr info.context (Some node_id) expr1 |> unwrap in 
     let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> unwrap in (
-    match ty with 
-    | Set _ -> 
+    match ty, op with 
+    | Set _, Plus -> 
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Union, expr1, expr2))
+    | Set _, Times -> 
+      normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Intersection, expr1, expr2))
     | _ ->  
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       BinaryOp (pos, Plus, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
-  | BinaryOp (pos, Union, expr1, expr2) -> 
+  | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
     let nexpr1, gids1, warnings1 = normalize_expr info node_id map expr1 in 
     let nexpr2, gids2, warnings2 = normalize_expr info node_id map expr2 in 
     i := !i + 1; 
@@ -2266,7 +2268,7 @@ and normalize_expr ?guard info node_id map =
     | _ -> assert false 
     in 
     let gids3 = { (empty ()) with   
-      set_unions = [ name1, nexpr1, nexpr2, name2, ty ]; 
+      set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ]; 
       locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
     } in 
     let nexpr = A.Ident (pos, name1) in 
