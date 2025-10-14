@@ -78,6 +78,11 @@ type t = {
     LustreAst.expr * 
     HString.t * 
     LustreAst.lustre_type) list;
+  set_unions: (HString.t * 
+    LustreAst.expr * 
+    LustreAst.expr * 
+    HString.t *
+    LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)

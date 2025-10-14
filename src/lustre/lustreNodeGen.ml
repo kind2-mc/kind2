@@ -2365,6 +2365,28 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_set_add_elements [] gids.GI.set_add_elements
   in
   let gequations = gequations @ set_add_elements_eqs in
+  let set_union_eqs = 
+    let over_set_unions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+      (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
+      (* Desugar to lhs[i] = i in nexpr1 or i in nexpr2 *)
+      let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let expr = 
+        A.BinaryOp (dummy_pos, Or, 
+          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1), 
+          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2))
+      in 
+      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map expr in
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let set_union_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_union_eqs @ acc
+    in 
+    List.fold_left over_set_unions [] gids.GI.set_unions
+  in
+  let gequations = gequations @ set_union_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
