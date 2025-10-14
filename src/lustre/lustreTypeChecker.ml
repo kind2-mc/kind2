@@ -1618,6 +1618,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
       | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Union -> assert false (* Parsed as Plus and changed to Union during normalization *)
+  | LA.Intersection -> assert false (* Parsed as Times and changed to Intersection during normalization *)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
