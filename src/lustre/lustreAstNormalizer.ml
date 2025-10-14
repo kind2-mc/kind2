@@ -470,6 +470,32 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
+   | A.Set (_, kt) -> 
+      let idx_str = HString.concat2 (HString.mk_hstring "x") 
+                                    (HString.mk_hstring (string_of_int n)) in
+      let idx = A.Ident (dpos, idx_str) in
+      let ctx = Ctx.add_ty ctx idx_str kt in
+      let rexpr1 = mk ctx (succ n) kt idx in
+      let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let assumption1 = List.fold_left (fun acc e ->
+          A.BinaryOp (dpos, A.And, acc, e)
+        ) key_in_map enum_exprs
+      in
+      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
+      let var = dpos, idx_str, base_kt in
+      let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+      let res = 
+      List.map (fun (e, _) -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption1), true
+      ) rexpr1 
+      in
+      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
+        (Lib.pp_print_list (fun ppf (expr, b) -> 
+          Format.fprintf ppf "<%a, %b>" 
+            A.pp_print_expr expr b
+        ) ", ") res;*)
+      res
     | A.Map (_, kt, vt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
@@ -543,6 +569,24 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
+  | Set (_, ty) -> 
+    let pos = AH.pos_of_expr expr in
+    let dummy_index = mk_fresh_dummy_index () in
+    let idx = A.Ident (pos, dummy_index) in
+    let ctx = Ctx.add_ty ctx dummy_index ty in 
+    let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
+    let exprs1 = mk_ref_type_expr ctx node_id idx ty in
+    let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id ty idx) in
+    let assumption1 = List.fold_left (fun acc e ->
+        A.BinaryOp (dpos, A.And, acc, e)
+      ) key_in_map enum_exprs
+    in
+    let var = dpos, dummy_index, base_kt in
+    let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+    List.map (fun e -> 
+      A.Quantifier (dpos, A.Forall, [var], body e assumption1)
+    ) exprs1
   | Map (_, kt, vt) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
