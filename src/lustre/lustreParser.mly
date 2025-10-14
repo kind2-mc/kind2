@@ -85,6 +85,7 @@ let mk_span start_pos end_pos =
 %token SUBTYPE
 %token HISTORY
 %token MAP
+%token SET
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -414,6 +415,8 @@ lustre_type:
     OF
     INT 
     { A.IntRange (mk_pos $startpos, l, u) }
+  | SET; LT; ty = lustre_type; GT; 
+    { A.Set (mk_pos $startpos, ty) }
   | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
     { A.Map (mk_pos $startpos, ty1, ty2) }
 
@@ -938,6 +941,14 @@ pexpr(Q):
     )  (A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))) updates 
   }
 
+  | LCURLYBRACKET 
+    (* TODO: Support elements here *)
+    RCURLYBRACKET ATSIGN
+    LT value_ty=lustre_type GT
+  {
+    A.EmptySet (mk_pos $startpos, value_ty)
+  }
+
   | e1 = pexpr(Q); 
     LSQBRACKET; 
     updates = separated_nonempty_list(SEMICOLON, assign); 
@@ -996,7 +1007,7 @@ pexpr(Q):
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
   | e1 = pexpr(Q); LAZY_IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.LazyImpl, e1, e2) }
-  | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In, e1, e2) }
+  | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In Unknown, e1, e2) }
   | HASH; LPAREN; pexpr_list(Q); RPAREN { 
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: #" }

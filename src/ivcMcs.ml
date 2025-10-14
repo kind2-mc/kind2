@@ -154,6 +154,7 @@ let rec unannot_pos = function
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
   | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
+  | A.Set (_, ty) -> Set (dpos, ty)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -237,7 +238,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
@@ -273,7 +274,7 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args

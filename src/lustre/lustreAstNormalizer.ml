@@ -470,6 +470,32 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
+   | A.Set (_, kt) -> 
+      let idx_str = HString.concat2 (HString.mk_hstring "x") 
+                                    (HString.mk_hstring (string_of_int n)) in
+      let idx = A.Ident (dpos, idx_str) in
+      let ctx = Ctx.add_ty ctx idx_str kt in
+      let rexpr1 = mk ctx (succ n) kt idx in
+      let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let assumption1 = List.fold_left (fun acc e ->
+          A.BinaryOp (dpos, A.And, acc, e)
+        ) key_in_map enum_exprs
+      in
+      let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
+      let var = dpos, idx_str, base_kt in
+      let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+      let res = 
+      List.map (fun (e, _) -> 
+        A.Quantifier (dpos, A.Forall, [var], body e assumption1), true
+      ) rexpr1 
+      in
+      (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
+        (Lib.pp_print_list (fun ppf (expr, b) -> 
+          Format.fprintf ppf "<%a, %b>" 
+            A.pp_print_expr expr b
+        ) ", ") res;*)
+      res
     | A.Map (_, kt, vt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
@@ -483,7 +509,7 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
         mk_ref_type_expr ctx node_id (Ident (dpos, idx_str)) kt 
       in
       let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
-      let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+      let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
       let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
       let assumption1 = List.fold_left (fun acc e ->
           A.BinaryOp (dpos, A.And, acc, e)
@@ -543,6 +569,24 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
+  | Set (_, ty) -> 
+    let pos = AH.pos_of_expr expr in
+    let dummy_index = mk_fresh_dummy_index () in
+    let idx = A.Ident (pos, dummy_index) in
+    let ctx = Ctx.add_ty ctx dummy_index ty in 
+    let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
+    let exprs1 = mk_ref_type_expr ctx node_id idx ty in
+    let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id ty idx) in
+    let assumption1 = List.fold_left (fun acc e ->
+        A.BinaryOp (dpos, A.And, acc, e)
+      ) key_in_map enum_exprs
+    in
+    let var = dpos, dummy_index, base_kt in
+    let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
+    List.map (fun e -> 
+      A.Quantifier (dpos, A.Forall, [var], body e assumption1)
+    ) exprs1
   | Map (_, kt, vt) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
@@ -556,7 +600,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     let kt_exprs = exprs1 @
       (List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx)) 
     in
-    let key_in_map = A.BinaryOp (dpos, A.In, idx, expr) in
+    let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
     let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
     let assumption1 = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
@@ -768,6 +812,24 @@ let add_history_var_and_equation info id h_id =
   in
   { (empty ()) with locals; equations }
 
+let get_expr_ty info map node_id expr =
+  let ty =
+  let ivars = info.inductive_variables in
+  if expr_has_inductive_var ivars expr then
+    (StringMap.choose_opt info.inductive_variables) |> get |> snd
+  else
+    let ctx =
+      (* Add generated local variables to context *)
+      match NI.Map.find_opt node_id map with
+      | Some { locals } ->
+        StringMap.fold
+          (fun id ty acc -> Ctx.add_ty acc id ty)
+          locals info.context
+      | None -> assert false
+    in
+    Chk.infer_type_expr ctx (Some node_id) expr |> unwrap |> fst in
+  Chk.expand_type_syn_reftype_history info.context ty |> unwrap
+
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
     let (normal_item, ids, warnings2) = f item in
@@ -942,7 +1004,8 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | Call(pos, ty_args, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, ty_args, id, expr_list')
-  | EmptyMap _ -> StringSet.empty, expr
+  | EmptyMap _ 
+  | EmptySet _ -> StringSet.empty, expr
   | Merge (pos, ident, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, Merge (pos, ident, expr_list')
@@ -2107,6 +2170,16 @@ and normalize_expr ?guard info node_id map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
+  | EmptySet (pos, ty) -> 
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_empty_set") in
+    let gids = { (empty ()) with 
+      empty_sets = [ name, ty ]; 
+      locals = StringMap.singleton name (A.Set (pos, ty));
+    } in
+    let nexpr = A.Ident (pos, name) in 
+    nexpr, gids, []
   | EmptyMap (pos, (kt, vt)) -> 
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in
@@ -2174,6 +2247,15 @@ and normalize_expr ?guard info node_id map =
       A.BinaryOp (pos, OrElse, not_e1, expr2)
     in
     normalize_expr ?guard info node_id map e
+  | BinaryOp (pos, In Unknown, expr1, expr2) -> 
+    let ty = get_expr_ty info map node_id expr2 in  
+    let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> unwrap in 
+    let expr = match ty with 
+    | A.Map _ -> A.BinaryOp (pos, In Map, expr1, expr2) 
+    | A.Set _ -> A.BinaryOp (pos, In Set, expr1, expr2) 
+    | _ -> assert false
+    in 
+    normalize_expr ?guard info node_id map expr
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
@@ -2231,25 +2313,7 @@ and normalize_expr ?guard info node_id map =
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | IndexAccess (pos, expr1, expr2, _) ->
-    let expr1_ty =
-      let ivars = info.inductive_variables in
-      if expr_has_inductive_var ivars expr1 then
-        (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else
-        let ctx =
-          (* Add generated local variables to context *)
-          match NI.Map.find_opt node_id map with
-          | Some { locals } ->
-            StringMap.fold
-              (fun id ty acc -> Ctx.add_ty acc id ty)
-              locals info.context
-          | None -> assert false
-        in
-        Chk.infer_type_expr ctx (Some node_id) expr1 |> unwrap |> fst
-    in
-    let expr1_ty =
-      Chk.expand_type_syn_reftype_history info.context expr1_ty |> unwrap
-    in
+    let expr1_ty = get_expr_ty info map node_id expr1 in 
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     let kind' =
@@ -2351,4 +2415,4 @@ and normalize_ty info node_id map id ty =
     
   | Int _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ | Map _ | SBitVector _ | UBitVector _ -> ty, empty (), []
+  | ArrayType _ | EnumType _ | TArr _ | Map _ | Set _ | SBitVector _ | UBitVector _ -> ty, empty (), []

@@ -1,0 +1,14 @@
+node N() returns (o: set<int>) 
+var l1: set<[int, int]>;
+var l2: set<[real, real]>;
+let
+    o = {}@<int>;
+    l1 = {}@<[int, int]>;
+    l2 = {}@<[real, real]>;
+    check forall (i: int) not (i in o);
+    check forall (i: [int, int]) not (i in l1);
+    check forall (i: [real, real]) not (i in l2);
+    check not (3 in o);
+    check not ('(3, 4) in l1);
+    check not ('(3.0, 4.0) in l2);
+tel

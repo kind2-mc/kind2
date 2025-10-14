@@ -78,9 +78,14 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
-  | In | Mod | Minus | Plus | Div | Times | IntDiv
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
 
 type ternary_operator =
@@ -127,6 +132,7 @@ type lustre_type =
    *  values  *)
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
+  | Set of position * lustre_type
   
 (** A Lustre expression *)
 and expr =
@@ -151,6 +157,7 @@ and expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | EmptyMap of position * (lustre_type * lustre_type)
+  | EmptySet of position * lustre_type
   | ArrayConstr of position * expr * expr 
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)

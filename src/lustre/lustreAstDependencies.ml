@@ -294,6 +294,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
+  | Set (_, ty) -> mk_graph_type ty
   | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
   (* Circular dependencies in refinement type predicates are allowed *)
@@ -341,6 +342,7 @@ and mk_graph_expr ?(only_modes = false)
     union_dependency_analysis_data
       (mk_graph_type kt)
       (mk_graph_type vt)
+  | LA.EmptySet (_, ty) -> mk_graph_type ty
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
   | LA.Quantifier (_, _, tis, e) -> 
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
@@ -379,7 +381,8 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
   | Ident _ -> []
-  | EmptyMap _ -> []
+  | EmptyMap (_, (kt, vt)) -> extract_node_calls_type kt @ extract_node_calls_type vt
+  | EmptySet (_, ty) -> extract_node_calls_type ty
   | ModeRef (pos, ids) ->
     if List.length ids = 1 then []
     else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
@@ -428,12 +431,13 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
 
-let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
+and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
 = function 
   | RefinementType (_, (_, _, ty), e) -> extract_node_calls_type ty @ get_node_call_from_expr e
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | Set (_, ty) -> extract_node_calls_type ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
@@ -646,7 +650,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   match expr with
   | Ident (_ , i) -> SI.singleton i
   | ModeRef _ -> SI.empty
-  | EmptyMap _ -> SI.empty
+  | EmptySet (_, ty) -> LH.vars_of_type ty
+  | EmptyMap (_, (kt, vt)) -> SI.union (LH.vars_of_type kt) (LH.vars_of_type vt) 
   | RecordProject (_, e, _) -> r e 
   | TupleProject (_, e, _) -> r e
   (* Values *)
@@ -779,7 +784,9 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data empty_hs i pos]
   | LA.ModeRef (pos, ids) ->
      R.ok [singleton_dependency_analysis_data mode_prefix (List.nth ids (List.length ids - 1) ) pos] 
-  | LA.EmptyMap _ 
+  | LA.EmptySet (_, ty) -> R.ok [mk_graph_type ty]
+  | LA.EmptyMap (_, (kt, vt)) -> 
+    R.ok [union_dependency_analysis_data (mk_graph_type kt) (mk_graph_type vt)]
   | LA.Const _ ->
      R.ok [empty_dependency_analysis_data]
 

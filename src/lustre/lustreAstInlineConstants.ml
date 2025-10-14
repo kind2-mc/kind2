@@ -250,6 +250,7 @@ and push_pre is_guarded pos =
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
+  | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> TupleProject (p, r e, i)
@@ -370,6 +371,8 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     Quantifier (pos, q, tis, e')
+  | EmptySet (pos, ty) -> 
+    EmptySet (pos, inline_constants_of_lustre_type ~ind_vars ctx ty)
   | EmptyMap (pos, (kt, vt)) -> 
     EmptyMap (pos, (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
@@ -399,6 +402,9 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     let ty' = inline_constants_of_lustre_type ctx ty in
     let expr' = simplify_expr ~ind_vars ctx expr in
     ArrayType (pos, (ty', expr'))
+  | Set (pos, ty) -> 
+    let ty = inline_constants_of_lustre_type ctx ty in 
+    Set (pos, ty)
   | Map (pos, ty1, ty2) ->
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in

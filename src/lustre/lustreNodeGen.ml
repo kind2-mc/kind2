@@ -692,6 +692,28 @@ and compile_ast_type
       succ i, X.fold over_indices compiled_type a
     in 
     List.fold_left over_types (0, X.empty) types |> snd
+  | A.Set (_, ty1) -> 
+    let index_type = compile_ast_type cstate ctx map ty1 in
+    let types = List.rev (X.values index_type) in
+    let last_type = List.hd types in
+    let ty2' = A.Bool Lib.dummy_pos in
+    let element_type = compile_ast_type cstate ctx map ty2' in
+    let over_element_type ty j t a = 
+      let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
+      X.add
+      (j @ [X.MapIndex dummy])
+      (Type.mk_array t ty)
+      a
+    in
+    let base_map_type =
+      X.fold (over_element_type last_type) element_type X.empty
+    in
+    List.fold_left
+      (fun acc ty ->
+         X.fold (over_element_type ty) acc X.empty
+      )
+      base_map_type
+      (List.tl types)
   | A.Map (_, ty1, ty2) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
@@ -1181,9 +1203,12 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
   | A.BinaryOp (_, A.LazyImpl, _, _) -> assert false
-  | A.BinaryOp (_, A.In, k, map_expr) ->
+  | A.BinaryOp (_, A.In Set, k, map_expr) ->
+    compile_map_index bounds map_expr k
+  | A.BinaryOp (_, A.In Map, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
+  | A.BinaryOp (_, A.In Unknown, _, _) -> assert false
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
@@ -1289,6 +1314,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
+  | A.EmptySet _ -> assert false
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
@@ -2217,6 +2243,26 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_maps [] gids.GI.empty_maps 
   in 
   let gequations = gequations @ empty_map_eqs in
+  (* ****************************************************************** *)
+  (* Sets                                                               *)
+  (* ****************************************************************** *)
+  let empty_set_eqs = 
+    let over_empty_sets acc (id, _) =
+      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
+      let eq_lhs = flatten_list_indexes eq_lhs in
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
+      let empty_set_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      empty_set_eqs @ acc
+    in 
+    List.fold_left over_empty_sets [] gids.GI.empty_sets 
+  in 
+  let gequations = gequations @ empty_set_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
@@ -2240,7 +2286,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       in
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
-        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In, fresh_idx, nexpr1); 
+        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 

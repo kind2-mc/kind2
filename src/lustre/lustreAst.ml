@@ -62,9 +62,14 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
-  | In | Mod | Minus | Plus | Div | Times | IntDiv
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
 
 type ternary_operator =
@@ -115,6 +120,7 @@ type expr =
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
   | EmptyMap of position * (lustre_type * lustre_type)
+  | EmptySet of position * lustre_type 
   | ArrayConstr of position * expr * expr  
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
@@ -150,6 +156,7 @@ and lustre_type =
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
+  | Set of position * lustre_type
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -413,6 +420,12 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
 
+    | EmptySet (_, ty) ->
+
+      Format.fprintf ppf
+        "set[]@<%a>"
+        pp_print_lustre_type ty
+
     | EmptyMap (_, (key_ty, value_ty)) ->
 
       Format.fprintf ppf
@@ -481,7 +494,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
     | BinaryOp (p, LazyImpl, e1, e2) -> p2 p "==>" e1 e2
-    | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
+    | BinaryOp (p, In _, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
@@ -637,6 +650,9 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf "map<%a; %a>" 
       pp_print_lustre_type ty1
       pp_print_lustre_type ty2
+  | Set (_, ty) -> 
+    Format.fprintf ppf "set<%a>" 
+      pp_print_lustre_type ty
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 

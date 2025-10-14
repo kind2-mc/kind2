@@ -115,7 +115,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | EmptyMap _ as e -> e
-    
+  | EmptySet _ as e -> e
   | RecordProject (p, e, id) -> RecordProject (p, r e, id)
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)

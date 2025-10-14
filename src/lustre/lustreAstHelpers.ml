@@ -62,7 +62,53 @@ let pos_of_expr = function
   | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
+  | EmptySet (pos, _)
   -> pos
+
+(* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
+   combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
+   with `f` *)
+let rec fold_lustre_ty f init op ty = 
+  let r = fold_lustre_ty f init op in 
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ -> init
+  | UserType _ | History _ -> init 
+  | GroupType (_, tys) 
+  | TupleType (_, tys) -> 
+    List.fold_left (fun acc ty -> 
+      op acc (r ty) 
+    ) init tys
+  | RecordType (_, _, tis) -> 
+    List.fold_left (fun acc (_, _, ty) -> 
+      op acc (r ty) 
+    ) init tis
+  | Map (_, kt, vt) -> op (r kt) (r vt)
+  | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
+  | Set (_, ty) -> r ty
+  | ArrayType (_, (ty, e)) 
+  | RefinementType (_, (_, _, ty), e) -> 
+    op (r ty) (f e)
+
+(* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
+let rec map_lustre_ty f ty = 
+  let r = map_lustre_ty f in
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ -> ty
+  | UserType _ | History _ -> ty 
+  | Map (p, kt, vt) -> Map (p, r kt, r vt)
+  | Set (p, ty) -> Set (p, r ty)
+  | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, f len))
+  | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
+  | GroupType (p, tys) -> 
+    GroupType (p, List.map r tys)
+  | TupleType (p, tys) -> 
+    TupleType (p, List.map r tys)
+  | RecordType (p, id, tis) -> 
+    RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
+  | RefinementType (p1, (p2, id, ty), e) -> 
+    RefinementType (p1, (p2, id, r ty), f e)
 
 let type_arity ty =
   let inner_types = function
@@ -74,7 +120,12 @@ let type_arity ty =
   | _ -> (0, 0)
 
 let rec expr_contains_call = function
-  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty expr_contains_call false (||) ty
+  | EmptyMap (_, (kt, vt)) ->
+    fold_lustre_ty expr_contains_call false (||) kt || 
+    fold_lustre_ty expr_contains_call false (||) vt
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _)
@@ -97,7 +148,11 @@ let rec expr_contains_call = function
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
-  | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
+  | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptyMap (_, (kt, vt)) -> 
+    fold_lustre_ty expr_is_id false (||) kt || 
+    fold_lustre_ty expr_is_id false (||) vt 
+  | EmptySet (_, ty) -> fold_lustre_ty expr_is_id false (||) ty
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _)
@@ -127,7 +182,10 @@ let rec expr_contains_id id = function
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, (kt, vt)) ->
+    EmptyMap (p, (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
+  | EmptySet (p, ty) -> 
+    EmptySet (p, map_lustre_ty (substitute_naive var t) ty)
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
@@ -185,7 +243,10 @@ let rec apply_subst_in_expr sigma = function
       | None -> Ident (pos, i)
   )
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, (kt, vt)) -> 
+    EmptyMap (p, (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
+  | EmptySet (p, ty) -> 
+    EmptySet (p, map_lustre_ty (apply_subst_in_expr sigma) ty)
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
@@ -242,6 +303,9 @@ let rec apply_type_subst_in_expr
     let kt = apply_type_subst_in_type sigma kt in
     let vt = apply_type_subst_in_type sigma vt in
     EmptyMap (pos, (kt, vt))
+  | EmptySet (pos, ty) ->
+    let ty = apply_type_subst_in_type sigma ty in
+    EmptySet (pos, ty)
   | Quantifier (pos, q, tis, expr) -> 
     let tis = List.map (fun (p, id, ty) -> 
       p, id, apply_type_subst_in_type sigma ty
@@ -313,6 +377,7 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | Set(pos, ty) -> Set(pos, apply_type_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -341,6 +406,7 @@ let rec apply_subst_in_type sigma = function
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_subst_in_type sigma) tys)
+  | Set (pos, ty) -> Set (pos, apply_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -353,8 +419,13 @@ let rec apply_subst_in_type sigma = function
   | ty -> ty
     
 let rec has_unguarded_pre ung = function
-  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
+  | Const _ | Ident _ | ModeRef _  -> false 
 
+  | EmptyMap (_, (kt, vt)) ->  
+    fold_lustre_ty (has_unguarded_pre ung) false (||) kt || 
+    fold_lustre_ty (has_unguarded_pre ung) false (||) vt
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
@@ -437,8 +508,13 @@ let has_unguarded_pre e =
   then raise Parser_error; u
 
 let rec has_unguarded_pre_no_warn ung = function
-  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
-    
+  | Const _ | Ident _ | ModeRef _  -> false 
+
+  | EmptyMap (_, (kt, vt)) -> 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) kt || 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) vt
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
@@ -521,8 +597,15 @@ let some_of_list = List.fold_left (
 
 (** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | Const _ | Ident _ | ModeRef _ | EmptyMap _ -> None
-    
+  | Const _ | Ident _ | ModeRef _ -> None 
+
+  | EmptyMap (_, (kt, vt)) -> (
+    match (fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) kt) with 
+    | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) vt 
+    | res -> res
+    )
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
@@ -763,7 +846,11 @@ let rec vars_of_node_calls_h obs =
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, (kt, vt)) -> 
+    SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
+             (fold_lustre_ty (vars obs) SI.empty SI.union vt)
+  | EmptySet (_, ty) ->
+    fold_lustre_ty (vars obs) SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -806,7 +893,11 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, (kt, vt)) -> 
+    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
+             (fold_lustre_ty vars SI.empty SI.union vt)
+  | EmptySet (_, ty) ->
+    fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -869,7 +960,11 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
   | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | EmptyMap _ -> NI.Set.empty
+  | EmptyMap (_, (kt, vt)) -> 
+    NI.Set.union (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union kt)
+                 (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union vt)
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
@@ -886,7 +981,11 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, (kt, vt)) -> 
+    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
+             (fold_lustre_ty vars SI.empty SI.union vt)
+  | EmptySet (_, ty) -> 
+    fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -946,6 +1045,7 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | Set (_, ty) -> vars_of_type ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
@@ -1019,7 +1119,10 @@ let rec replace_with_constants: expr -> expr =
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, (kt, vt)) -> 
+    EmptyMap (p, (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
+  | EmptySet (p, ty) -> 
+    EmptySet (p, map_lustre_ty replace_with_constants ty)
   (* Values *)
   | Const _ as e -> e
 
@@ -1097,8 +1200,11 @@ and is used inside abstract_pre_subexpressions *)
   
 let rec abstract_pre_subexpressions: expr -> expr = function
   | Ident _ 
-  | ModeRef _ 
-  | EmptyMap _ as e -> e 
+  | ModeRef _ as e -> e 
+  | EmptyMap (p, (kt, vt)) -> 
+    EmptyMap (p, (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
+  | EmptySet (p, ty) -> 
+    EmptySet (p, map_lustre_ty abstract_pre_subexpressions ty)
   | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
   (* Values *)
@@ -1201,7 +1307,11 @@ let rec replace_idents locals1 locals2 expr =
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
   | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
-  | EmptyMap (p, t) -> EmptyMap (p, t)
+
+  | EmptyMap (p, (kt, vt)) ->
+    EmptyMap (p, (map_lustre_ty r kt, map_lustre_ty r vt))
+  | EmptySet (p, t) ->
+    EmptySet (p, map_lustre_ty r t)
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1622,7 +1732,8 @@ let hash depth_limit expr =
       | Extract (_, e, idx1, idx2) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (26, e_hash, idx1, idx2)
-      | EmptyMap (_, _) -> Hashtbl.hash 27
+      | EmptyMap _ -> Hashtbl.hash 27
+      | EmptySet _ -> Hashtbl.hash 28
   in
   r 0 expr
 
@@ -1640,7 +1751,10 @@ let rec rename_contract_vars = function
       else e
     with _ -> e)
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, (kt, vt)) ->
+    EmptyMap (p, (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
+  | EmptySet (p, ty) ->
+    EmptySet (p, map_lustre_ty rename_contract_vars ty)
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e

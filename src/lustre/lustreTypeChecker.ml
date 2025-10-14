@@ -108,7 +108,7 @@ type error_kind = Unknown of string
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
-  | ExpectedMapType of tc_type
+  | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
 
@@ -217,7 +217,7 @@ let error_message kind = match kind with
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, tuples, and refinement types are supported"
-  | ExpectedMapType ty -> "Expected map type but found " ^ string_of_tc_type ty
+  | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
 
@@ -318,7 +318,12 @@ let no_mismatched_clock is_bool e =
         | _ -> type_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | EmptyMap (_, (kt, vt)) ->
+      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) kt) >>
+      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
+    | EmptySet (_, ty) -> 
+      LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) -> check_clocks clock e
@@ -355,7 +360,12 @@ let no_mismatched_clock is_bool e =
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
-    | Ident _ | Const _ | ModeRef _ | EmptyMap _ -> Ok ()
+    | Ident _ | Const _ | ModeRef _ -> Ok ()
+    | EmptyMap (_, (kt, vt)) -> 
+      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >> 
+      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
+    | EmptySet (_, ty) -> 
+      LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | When (_, e, _) -> check_merge e
@@ -444,6 +454,7 @@ let rec infer_const_attr ctx exp =
     | LA.RecordType (_, _, tis) -> 
       let tys = List.map (fun (_, _, ty) -> ty) tis in 
       List.fold_left combine [R.ok ()] (List.map r2 tys)
+    | LA.Set (_, ty) -> r2 ty
     | LA.Map (_, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
@@ -479,7 +490,11 @@ let rec infer_const_attr ctx exp =
   | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> [R.ok ()]
-  | EmptyMap _ -> [R.ok ()]
+  | EmptyMap (_, (kt, vt)) -> 
+    combine (LH.fold_lustre_ty r [R.ok ()] combine kt)
+            (LH.fold_lustre_ty r [R.ok ()] combine vt)
+  | EmptySet (_, ty) ->
+    LH.fold_lustre_ty r [R.ok ()] combine ty
   (* Operators *)
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
@@ -665,6 +680,9 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* kt = instantiate_type_variables ctx pos nname kt ty_args in
     let* vt = instantiate_type_variables ctx pos nname vt ty_args in
     Ok (LA.EmptyMap (pos, (kt, vt)))
+  | EmptySet (pos, ty) -> 
+    let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
+    Ok (LA.EmptySet (pos, ty))
   | Quantifier (pos, q, tis, e) -> 
     let* tis = R.seq (List.map (fun (p, id, ty) -> 
       let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
@@ -834,6 +852,8 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     R.ok (ty, [])
   | LA.EmptyMap (pos, (kt, vt)) ->
     R.ok (LA.Map (pos, kt, vt), [])
+  | LA.EmptySet (pos, ty) -> 
+    R.ok (LA.Set (pos, ty), [])
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1177,6 +1197,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
               | [] -> failwith ("empty mode name")
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx nname (LA.Ident (pos, id)) exp_ty
+  | EmptySet (pos, _)
   | EmptyMap (pos, _) as e ->
     let* inf_ty, warnings = infer_type_expr ctx nname e in 
     R.ifM    
@@ -1365,7 +1386,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
       if type_contains_abstract ctx ty then 
         type_error pos (QuantifiedAbstractType id) 
-      else if type_contains_array ctx ty || type_contains_map ctx ty then
+      else if type_contains_array ctx ty || type_contains_map_or_set ctx ty then
         type_error pos (UnsupportedQuantifiedVariable id)
       else
         R.ok ()
@@ -1509,15 +1530,20 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
-  | LA.In -> (
+  | LA.In _ -> (
     let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
     match ty2 with
+    | LA.Set (_, given_index_type) -> (
+      R.ifM (eq_lustre_type ctx ty1 given_index_type)
+        (R.ok (LA.Bool pos, warnings1 @ warnings2))
+        (type_error pos (ExpectedType (given_index_type, ty1)))
+    )
     | LA.Map (_, given_index_type, _) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
         (R.ok (LA.Bool pos, warnings1 @ warnings2))
         (type_error pos (ExpectedType (given_index_type, ty1)))
     )
-    | _ -> (type_error pos (ExpectedMapType ty2))
+    | _ -> (type_error pos (ExpectedMapSetType ty2))
   )
   | LA.Mod ->
     (match is_type_int_or_machine_int ctx ty1, is_type_int_or_machine_int ctx ty2 with
@@ -1601,8 +1627,8 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (if type_contains_array ctx ty1  then
          type_error pos (Unsupported "Extensional array equality is not supported")
-       else if type_contains_map ctx ty1 then 
-         type_error pos (Unsupported "Extensional map equality is not supported") 
+       else if type_contains_map_or_set ctx ty1 then 
+         type_error pos (Unsupported "Extensional map and set equality are not supported") 
        else 
          R.ok (LA.Bool pos, warnings1 @ warnings2)
       )
@@ -2265,7 +2291,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   | Output | Local | Ghost | Global -> R.ok ()
 
 and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
-| LA.Map _ | GroupType _ | ArrayType _ | History _ 
+| LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
 | TArr _ -> type_error pos (UnsupportedMapType ty) 
 | RecordType (_, _, tis) -> 
   Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
@@ -2287,6 +2313,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* warnings1 = check_type_well_formed ctx src nname is_const ty1 in
     let* warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
     R.ok (warnings1 @ warnings2)
+  | LA.Set (_, ty) -> 
+    check_type_well_formed ctx src nname is_const ty 
   | LA.TArr (_, arg_ty, res_ty) ->
     let* warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
     let* warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
@@ -2454,7 +2482,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
                     ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
-           
+  | Set (_, ty1), Set (_, ty2) ->
+    eq_lustre_type ctx ty1 ty2
   (* map type *)
   | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2
