@@ -195,6 +195,9 @@ val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HS
 val get_const_num_value : expr -> int option
 
 val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
+(** `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
+    combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
+    with `f` *)
 
 val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
-
+(** `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
