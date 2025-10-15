@@ -1580,7 +1580,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     in
     if b1 || b2 
     then R.ok (ty2, warnings1 @ warnings2)
-    else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) (*!! ExpectedSetTypes? *)
+    else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
   | LA.Minus | LA.Times | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
