@@ -2315,8 +2315,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_sets [] gids.GI.empty_sets 
   in 
   let gequations = gequations @ empty_set_eqs in
-  let set_add_elements_eqs = 
-    let over_set_add_elements acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+  let set_insertions_eqs = 
+    let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
@@ -2352,12 +2352,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let set_add_elements_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      set_add_elements_eqs @ acc
+      let set_insertions_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_insertions_eqs @ acc
     in 
-    List.fold_left over_set_add_elements [] gids.GI.set_add_elements
+    List.fold_left over_set_insertions [] gids.GI.set_insertions
   in
-  let gequations = gequations @ set_add_elements_eqs in
+  let gequations = gequations @ set_insertions_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)

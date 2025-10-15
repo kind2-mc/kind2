@@ -2240,7 +2240,7 @@ and normalize_expr ?guard info node_id map =
     | _ -> assert false 
     in 
     let gids3 = { (empty ()) with   
-      set_add_elements = [ name1, nexpr1, nexpr2, name2, ty ]; 
+      set_insertions = [ name1, nexpr1, nexpr2, name2, ty ]; 
       locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
     } in 
     let nexpr = A.Ident (pos, name1) in 

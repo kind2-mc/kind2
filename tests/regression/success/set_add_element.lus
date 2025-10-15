@@ -1,7 +1,10 @@
+type T = int;
+type S = set<T>;
+
 const N: subtype { x: int | x > 5 };
 type R = struct { x: int; y: int }; 
 
-node N() returns (o: set<int>; o2: set<[int, int]>; o3: set<[[int, int], int]>; o4: set<[int, int]>; o6: set<R>) 
+node N() returns (o: S; o2: set<[int, int]>; o3: set<[[int, int], int]>; o4: set<[int, int]>; o6: set<R>) 
 let
     o = { 3, 4 }@<int>;
     o2 ={ '(3, 4), '(6, 7) }@<[int, int]>;
