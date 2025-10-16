@@ -666,6 +666,7 @@ module IntRules = struct
         ) then Set.add term set, constants else set, constants
       | Term.T.Const sym -> (
         match Symbol.node_of_symbol sym with
+        | `UF _ (* E.g. __function_of_inputs for imported function without arguments **)
         | `NUMERAL _ -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type int is not a numeral."
       )
