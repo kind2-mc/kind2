@@ -937,16 +937,18 @@ pexpr(Q):
     LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
   {
     List.fold_left (fun acc (e2, e3) -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
     )  (A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))) updates 
   }
 
   | LCURLYBRACKET 
-    (* TODO: Support elements here *)
+    elements = separated_list(COMMA, pexpr(Q));
     RCURLYBRACKET ATSIGN
     LT value_ty=lustre_type GT
   {
-    A.EmptySet (mk_pos $startpos, value_ty)
+    List.fold_left (fun acc e -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
+    ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
   }
 
   | e1 = pexpr(Q); 
@@ -955,7 +957,7 @@ pexpr(Q):
     RSQBRACKET;
     { 
       List.fold_left (fun acc (e2, e3) -> 
-        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], e3) 
+        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
       ) e1 updates 
     }
 

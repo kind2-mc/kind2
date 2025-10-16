@@ -405,7 +405,8 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
   (* Update of structured expressions *)
-  | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
+  | LA.StructUpdate (_, e1, _, Some e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
+  | LA.StructUpdate (_, e, _, _) -> get_node_call_from_expr e 
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
@@ -674,7 +675,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     | None -> SI.empty)
 
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (r e1) (r e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (r e1) (r e2)
+  | StructUpdate (_, e1, _, None) -> r e1
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
@@ -796,8 +798,11 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              (singleton_dependency_analysis_data empty_hs i pos)
              (List.concat gs)]
   | LA.StructUpdate (_, e1, _, e2) ->
-     mk_graph_expr2 m e1 >>= fun g1 ->
-     mk_graph_expr2 m e2 >>= fun g2 ->
+     let* g1 = mk_graph_expr2 m e1 in 
+     let* g2 = match e2 with 
+     | Some e2 -> mk_graph_expr2 m e2 
+     | None -> R.ok [empty_dependency_analysis_data]
+     in
      R.ok [List.fold_left union_dependency_analysis_data
              empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)

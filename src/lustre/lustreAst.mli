@@ -86,7 +86,7 @@ type in_kind =
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union
 
 type ternary_operator =
   | Ite
@@ -155,7 +155,7 @@ and expr =
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
-  | StructUpdate of position * expr * label_or_index list * expr
+  | StructUpdate of position * expr * label_or_index list * expr option
   | EmptyMap of position * (lustre_type * lustre_type)
   | EmptySet of position * lustre_type
   | ArrayConstr of position * expr * expr 
@@ -182,6 +182,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 

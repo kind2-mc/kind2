@@ -70,7 +70,7 @@ type in_kind =
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union
 
 type ternary_operator =
   | Ite
@@ -118,7 +118,7 @@ type expr =
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
-  | StructUpdate of position * expr * label_or_index list * expr
+  | StructUpdate of position * expr * label_or_index list * expr option
   | EmptyMap of position * (lustre_type * lustre_type)
   | EmptySet of position * lustre_type 
   | ArrayConstr of position * expr * expr  
@@ -166,6 +166,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 
@@ -412,13 +413,20 @@ let rec pp_print_expr ppf =
 
     | GroupExpr (p, ArrayExpr, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
 
-    | StructUpdate (_, e1, i, e2) -> 
+    | StructUpdate (_, e1, i, Some e2) -> 
 
       Format.fprintf ppf
         "%a[%a := %a]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
+
+    | StructUpdate (_, e1, i, None) -> 
+
+      Format.fprintf ppf
+        "%a + { %a }"
+        pp_print_expr e1
+        (pp_print_list pp_print_label_or_index "") i
 
     | EmptySet (_, ty) ->
 
@@ -509,6 +517,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Mod, e1, e2) -> p2 p "mod" e1 e2 
     | BinaryOp (p, Minus, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
+    | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
@@ -729,6 +738,7 @@ and pp_print_label_or_index ppf = function
   | Label (_, i) -> pp_print_index ppf i
   | GenericIndex (_, e)
   | MapIndex (_, e)
+  | SetIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)
