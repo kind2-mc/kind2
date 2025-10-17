@@ -1573,7 +1573,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
   | LA.Plus -> 
     let* b1 = are_args_num ctx pos ty1 ty2 in 
     let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in 
-    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty1 in 
+    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty2 in 
     let* b2 = match ty1', ty2' with 
     | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4 
     | _ -> Ok false 

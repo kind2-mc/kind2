@@ -65,12 +65,15 @@ let pos_of_expr = function
   | EmptySet (pos, _)
   -> pos
 
+(* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
+   combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
+   with `f` *)
 let rec fold_lustre_ty f init op ty = 
   let r = fold_lustre_ty f init op in 
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | IntRange _ | EnumType _ | AbstractType _ -> init
-  | UserType _ | History _ -> init (*!! Check these cases *)
+  | UserType _ | History _ -> init 
   | GroupType (_, tys) 
   | TupleType (_, tys) -> 
     List.fold_left (fun acc ty -> 
@@ -87,12 +90,13 @@ let rec fold_lustre_ty f init op ty =
   | RefinementType (_, (_, _, ty), e) -> 
     op (r ty) (f e)
 
+(* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
 let rec map_lustre_ty f ty = 
   let r = map_lustre_ty f in
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | IntRange _ | EnumType _ | AbstractType _ -> ty
-  | UserType _ | History _ -> ty (*!! Check these cases *)
+  | UserType _ | History _ -> ty 
   | Map (p, kt, vt) -> Map (p, r kt, r vt)
   | Set (p, ty) -> Set (p, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, f len))

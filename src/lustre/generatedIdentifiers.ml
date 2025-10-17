@@ -73,7 +73,7 @@ type t = {
     HString.t *
     LustreAst.lustre_type * 
     LustreAst.lustre_type) list;
-  set_add_elements: (HString.t * 
+  set_insertions: (HString.t * 
     LustreAst.expr * 
     LustreAst.expr * 
     HString.t *
@@ -135,7 +135,7 @@ let union ids1 ids2 = {
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
     set_unions = ids1.set_unions @ ids2.set_unions;
-    set_add_elements = ids1.set_add_elements @ ids2.set_add_elements;
+    set_insertions = ids1.set_insertions @ ids2.set_insertions;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
@@ -164,7 +164,7 @@ let empty () = {
   empty_sets = [];
   map_element_updates = [];
   set_unions = [];
-  set_add_elements = [];
+  set_insertions = [];
   expanded_variables = StringSet.empty;
   equations = [];
   nonvacuity_props = StringSet.empty;

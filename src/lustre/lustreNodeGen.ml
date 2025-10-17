@@ -2301,13 +2301,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_empty_sets acc (id, _) =
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
-      (* extract index for boolean flag denoting presence or absence of map item *)
-      (*!! No longer necessary? *)
-      (*let eq_lhs = X.fold (fun k sv acc -> match k with 
-      | X.TupleIndex 0 :: _ -> X.add k sv acc 
-      | _ -> acc 
-      ) eq_lhs X.empty 
-      in*)
       (* Set boolean flag to false *)
       let eq_rhs = X.fold (fun k _ acc -> 
         X.add k E.t_false acc
@@ -2321,8 +2314,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_sets [] gids.GI.empty_sets 
   in 
   let gequations = gequations @ empty_set_eqs in
-  let set_add_elements_eqs = 
-    let over_set_add_elements acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+  let set_insertions_eqs = 
+    let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
@@ -2358,12 +2351,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let set_add_elements_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      set_add_elements_eqs @ acc
+      let set_insertions_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_insertions_eqs @ acc
     in 
-    List.fold_left over_set_add_elements [] gids.GI.set_add_elements
+    List.fold_left over_set_insertions [] gids.GI.set_insertions
   in
-  let gequations = gequations @ set_add_elements_eqs in
+  let gequations = gequations @ set_insertions_eqs in
   let set_union_eqs = 
     let over_set_unions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
