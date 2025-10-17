@@ -119,8 +119,8 @@ type expr =
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr option
-  | EmptyMap of position * (lustre_type * lustre_type)
-  | EmptySet of position * lustre_type 
+  | EmptyMap of position * (lustre_type * lustre_type) option
+  | EmptySet of position * lustre_type option
   | ArrayConstr of position * expr * expr  
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
@@ -413,6 +413,19 @@ let rec pp_print_expr ppf =
 
     | GroupExpr (p, ArrayExpr, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
 
+    | StructUpdate (_, EmptySet _, i, None) -> 
+
+      Format.fprintf ppf
+        "{ %a }"
+        (pp_print_list pp_print_label_or_index "") i
+
+    | StructUpdate (_, EmptyMap _, i, Some e) -> 
+
+      Format.fprintf ppf
+        "map[%a := %a]"
+        (pp_print_list pp_print_label_or_index "") i
+        pp_print_expr e
+
     | StructUpdate (_, e1, i, Some e2) -> 
 
       Format.fprintf ppf
@@ -428,18 +441,22 @@ let rec pp_print_expr ppf =
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
 
-    | EmptySet (_, ty) ->
+    | EmptySet (_, Some ty) ->
 
       Format.fprintf ppf
         "set[]@<%a>"
         pp_print_lustre_type ty
 
-    | EmptyMap (_, (key_ty, value_ty)) ->
+    | EmptySet (_, None) -> assert false
+
+    | EmptyMap (_, Some (key_ty, value_ty)) ->
 
       Format.fprintf ppf
         "map[]@<%a,%a>"
         pp_print_lustre_type key_ty
         pp_print_lustre_type value_ty
+
+    | EmptyMap (_, None) -> assert false 
 
     | ArrayConstr (p, e1, e2) -> 
 

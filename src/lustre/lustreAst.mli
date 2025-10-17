@@ -156,8 +156,8 @@ and expr =
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr option
-  | EmptyMap of position * (lustre_type * lustre_type)
-  | EmptySet of position * lustre_type
+  | EmptyMap of position * (lustre_type * lustre_type) option
+  | EmptySet of position * lustre_type option
   | ArrayConstr of position * expr * expr 
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)

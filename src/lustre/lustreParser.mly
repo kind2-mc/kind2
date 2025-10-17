@@ -931,6 +931,7 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
+  (* Map literals *)
   | MAP LSQBRACKET 
     updates = separated_list(SEMICOLON, assign); 
     RSQBRACKET ATSIGN
@@ -938,9 +939,20 @@ pexpr(Q):
   {
     List.fold_left (fun acc (e2, e3) -> 
       A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
-    )  (A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))) updates 
+    )  (A.EmptyMap (mk_pos $startpos, Some (key_ty, value_ty))) updates 
   }
 
+  (* Type annotation can be omitted if there is at least one update *)
+  | MAP LSQBRACKET 
+    updates = separated_nonempty_list(SEMICOLON, assign); 
+    RSQBRACKET ATSIGN
+  {
+    List.fold_left (fun acc (e2, e3) -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
+    )  (A.EmptyMap (mk_pos $startpos, None)) updates 
+  }
+
+  (* Set literals *)
   | LCURLYBRACKET 
     elements = separated_list(COMMA, pexpr(Q));
     RCURLYBRACKET ATSIGN
@@ -950,6 +962,16 @@ pexpr(Q):
       A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
     ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
   }
+
+  (* Type annotation can be omitted if there is at least one element *)
+  (*| LCURLYBRACKET 
+    elements = separated_nonempty_list(COMMA, pexpr(Q));
+    RCURLYBRACKET ATSIGN
+  {
+    List.fold_left (fun acc e -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
+    ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
+  }*)
 
   | e1 = pexpr(Q); 
     LSQBRACKET; 

@@ -121,9 +121,11 @@ let type_arity ty =
 
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty expr_contains_call false (||) ty
-  | EmptyMap (_, (kt, vt)) ->
+  | EmptySet (_, None)
+  | EmptyMap (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) ->
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
@@ -148,11 +150,12 @@ let rec expr_contains_call = function
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, Some (kt, vt)) -> 
     fold_lustre_ty expr_is_id false (||) kt || 
     fold_lustre_ty expr_is_id false (||) vt 
-  | EmptySet (_, ty) -> fold_lustre_ty expr_is_id false (||) ty
+  | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
