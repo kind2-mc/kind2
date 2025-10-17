@@ -2328,10 +2328,15 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
   r ty 
 | TupleType (_, tys) -> 
   Res.seq_ (List.map r tys)
-| UserType _ -> 
-  let* ty = expand_type_syn_reftype ctx ty in 
-  r ty 
-| AbstractType _ | Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| UserType (_, ty_args, i) ->
+  if (member_ty_syn ctx i || member_u_types ctx i)
+  then 
+    let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
+    let ty = expand_type_syn ctx ty in
+      r ty 
+  else R.ok () 
+| AbstractType _ | Bool _ | Int _ | IntRange _ 
+| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->
