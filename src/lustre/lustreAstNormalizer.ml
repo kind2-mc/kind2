@@ -2304,7 +2304,6 @@ and normalize_expr ?guard info node_id map =
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_union") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    (*!! For this and maps, expand type aliases? *)
     let ty = match Chk.infer_type_expr info.context (Some node_id) expr1 with 
     | Ok (A.Set (_, ty), _) -> ty 
     | _ -> assert false 
