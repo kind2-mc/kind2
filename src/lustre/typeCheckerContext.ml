@@ -842,9 +842,9 @@ let rec ty_vars_of_expr ctx node_name expr =
   | LA.Call (_, tys, _, es) -> 
     SI.union (SI.flatten (List.map (ty_vars_of_type ctx node_name) tys))
               (SI.flatten (List.map call es))
-  | LA.EmptyMap (_, (kt, vt)) ->
+  | LA.EmptyMap (_, Some (kt, vt)) ->
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
-  | LA.EmptySet (_, ty) ->
+  | LA.EmptySet (_, Some ty) ->
     ty_vars_of_type ctx node_name ty 
   | AnyOp (_, (_, _, ty), e) -> 
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
@@ -856,6 +856,7 @@ let rec ty_vars_of_expr ctx node_name expr =
     | None -> SI.empty (* e.g. any bound variable *)
     | Some ty -> ty_vars_of_type ctx node_name ty
   )
+  | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
   | TupleProject (_, e, _) -> call e

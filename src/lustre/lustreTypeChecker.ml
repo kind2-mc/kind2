@@ -319,11 +319,11 @@ let no_mismatched_clock is_bool e =
         | _ -> type_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | Ident _ | Const _ | ModeRef _ -> Ok ()
-    | EmptyMap (_, (kt, vt)) ->
+    | Ident _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
+    | EmptyMap (_, Some (kt, vt)) ->
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) kt) >>
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
-    | EmptySet (_, ty) -> 
+    | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
@@ -361,11 +361,11 @@ let no_mismatched_clock is_bool e =
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
-    | Ident _ | Const _ | ModeRef _ -> Ok ()
-    | EmptyMap (_, (kt, vt)) -> 
+    | Ident _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
+    | EmptyMap (_, Some (kt, vt)) -> 
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >> 
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
-    | EmptySet (_, ty) -> 
+    | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
@@ -490,11 +490,11 @@ let rec infer_const_attr ctx exp =
   | RecordProject (_, e, _) -> r e
   | TupleProject (_, e, _) -> r e
   (* Values *)
-  | Const _ -> [R.ok ()]
-  | EmptyMap (_, (kt, vt)) -> 
+  | Const _ | EmptyMap (_, None) | EmptySet (_, None) -> [R.ok ()]
+  | EmptyMap (_, Some (kt, vt)) -> 
     combine (LH.fold_lustre_ty r [R.ok ()] combine kt)
             (LH.fold_lustre_ty r [R.ok ()] combine vt)
-  | EmptySet (_, ty) ->
+  | EmptySet (_, Some ty) ->
     LH.fold_lustre_ty r [R.ok ()] combine ty
   (* Operators *)
   | Extract (_, e, _, _)
@@ -678,13 +678,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) old_ty_args) in
     let* es = R.seq (List.map call es) in
     Ok (LA.Call (pos, ty_args, id, es))
-  | EmptyMap (pos, (kt, vt)) ->
+  | EmptyMap (pos, Some (kt, vt)) ->
     let* kt = instantiate_type_variables ctx pos nname kt ty_args in
     let* vt = instantiate_type_variables ctx pos nname vt ty_args in
-    Ok (LA.EmptyMap (pos, (kt, vt)))
-  | EmptySet (pos, ty) -> 
+    Ok (LA.EmptyMap (pos, Some (kt, vt)))
+  | EmptySet (pos, Some ty) -> 
     let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
-    Ok (LA.EmptySet (pos, ty))
+    Ok (LA.EmptySet (pos, Some ty))
   | Quantifier (pos, q, tis, e) -> 
     let* tis = R.seq (List.map (fun (p, id, ty) -> 
       let* ty = instantiate_type_variables ctx pos nname ty ty_args in 
@@ -692,7 +692,7 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) tis) in 
     let* e = call e in 
     R.ok (LA.Quantifier (pos, q, tis, e))
-  | Ident _ 
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> R.ok expr
   | RecordProject (pos, e, idx) -> 
     let* e = call e in 
@@ -855,9 +855,18 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
                 | Some ty -> R.ok ty in
     let* ty = lookup_mode_ty ctx ids in 
     R.ok (ty, [])
-  | LA.EmptyMap (pos, (kt, vt)) ->
+  | LA.StructUpdate (pos, EmptyMap _, [MapIndex (_, e1)], Some e2) ->
+    let* ty1, warnings1 = infer_type_expr ctx nname e1 in 
+    let* ty2, warnings2 = infer_type_expr ctx nname e2 in 
+    R.ok (LA.Map (pos, ty1, ty2), warnings1 @ warnings2)
+  | LA.StructUpdate (pos, EmptySet _, [SetIndex (_, e)], None) ->
+    let* ty, warnings = infer_type_expr ctx nname e in 
+    R.ok (LA.Set (pos, ty), warnings)
+  (* only reachable through previous 2 cases *)
+  | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
+  | LA.EmptyMap (pos, Some (kt, vt)) ->
     R.ok (LA.Map (pos, kt, vt), [])
-  | LA.EmptySet (pos, ty) -> 
+  | LA.EmptySet (pos, Some ty) -> 
     R.ok (LA.Set (pos, ty), [])
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, warnings = infer_type_expr ctx nname e in

@@ -960,18 +960,18 @@ pexpr(Q):
   {
     List.fold_left (fun acc e -> 
       A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
-    ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
+    ) (A.EmptySet (mk_pos $startpos, Some value_ty)) elements
   }
 
   (* Type annotation can be omitted if there is at least one element *)
-  (*| LCURLYBRACKET 
+  | LCURLYBRACKET 
     elements = separated_nonempty_list(COMMA, pexpr(Q));
-    RCURLYBRACKET ATSIGN
+    RCURLYBRACKET 
   {
     List.fold_left (fun acc e -> 
       A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
-    ) (A.EmptySet (mk_pos $startpos, value_ty)) elements
-  }*)
+    ) (A.EmptySet (mk_pos $startpos, None)) elements
+  }
 
   | e1 = pexpr(Q); 
     LSQBRACKET; 
