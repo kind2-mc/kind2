@@ -2359,7 +2359,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let gequations = gequations @ set_insertions_eqs in
   let set_union_eqs = 
     let over_set_unions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
-      (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       (* Desugar to lhs[i] = i in nexpr1 or i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
