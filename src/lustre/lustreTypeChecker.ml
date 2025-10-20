@@ -1158,7 +1158,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
       (type_error pos (IlltypedArrow (ty1, ty2)))
     
   (* Node calls *)
-  | LA.Call (pos, [], node_id, arg_exprs) -> (
+  (*| LA.Call (pos, [], node_id, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     let infer_type_node_args: tc_context -> LA.expr list -> (tc_type list * [> warning] list, [> error]) result =
     fun ctx args ->
@@ -1186,9 +1186,42 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     )
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
-  )
+  )*)
   (*!! Use old code here because ty_args are actually supplied *)
-  | LA.Call (pos, ty_args, node_id, arg_exprs) -> assert false
+  | LA.Call (pos, ty_args, node_id, arg_exprs) -> 
+    Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
+    (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
+       guesses in the case that ty_args contains refinement types. This rules out 
+       instantiated polymorphic nodes having ill-formed refinement types (with e.g., assumptions on 
+       current values of output variables).  *)
+    let* warnings1 = R.seq (List.map (check_type_well_formed ctx Input nname true) ty_args) in
+    let infer_type_node_args: tc_context -> LA.expr list -> (tc_type * [> warning] list, [> error]) result =
+    fun ctx args ->
+      let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx nname) args) in
+      let arg_tys, warnings = List.split arg_tys_warns in
+      if List.length arg_tys = 1 then R.ok ((List.hd arg_tys), List.flatten warnings)
+      else R.ok (LA.GroupType (pos, arg_tys), List.flatten warnings)
+    in
+    match (lookup_node_param_ids ctx node_id), (lookup_node_ty ctx node_id) with
+    | Some call_params, Some node_ty -> (
+      (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
+      let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
+      let* node_ty = instantiate_type_variables ctx pos node_id node_ty ty_args in
+      let exp_arg_tys, exp_ret_tys = match node_ty with 
+        | LA.TArr (_, exp_arg_tys, exp_ret_tys) ->
+          expand_type_syn ctx exp_arg_tys, expand_type_syn ctx exp_ret_tys
+        | _ -> assert false 
+      in
+      let* given_arg_tys, warnings2 = infer_type_node_args ctx arg_exprs in
+      let given_arg_tys = expand_type_syn ctx given_arg_tys in
+      let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
+      if are_equal then
+        (check_constant_args ctx node_id arg_exprs >> (R.ok (exp_ret_tys, List.flatten warnings1 @ warnings2)))
+      else
+        (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
+    )
+    | _, Some ty -> type_error pos (ExpectedFunctionType ty)
+    | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =

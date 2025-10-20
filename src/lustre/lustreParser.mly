@@ -878,6 +878,14 @@ any_expr:
 assign:
   | e2 = expr; ASSIGN; e3 = expr { e2, e3 }
 
+map_type_annotation: 
+  | ATSIGN; LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
+  { key_ty, value_ty } 
+
+type_annotation: 
+  | ATSIGN; LT ty=lustre_type; GT
+  { ty }
+
 (* An possibly quantified expression *)
 pexpr(Q): 
   
@@ -934,43 +942,33 @@ pexpr(Q):
   (* Map literals *)
   | MAP LSQBRACKET 
     updates = separated_list(SEMICOLON, assign); 
-    RSQBRACKET ATSIGN
-    LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
+    RSQBRACKET 
+    ta = option(map_type_annotation)
   {
-    List.fold_left (fun acc (e2, e3) -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
-    )  (A.EmptyMap (mk_pos $startpos, Some (key_ty, value_ty))) updates 
-  }
-
-  (* Type annotation can be omitted if there is at least one update *)
-  | MAP LSQBRACKET 
-    updates = separated_nonempty_list(SEMICOLON, assign); 
-    RSQBRACKET ATSIGN
-  {
-    List.fold_left (fun acc (e2, e3) -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
-    )  (A.EmptyMap (mk_pos $startpos, None)) updates 
+    match ta, updates with 
+    | None, [] -> 
+      let pos = mk_pos $startpos in 
+      fail_at_position pos "Empty map must have a type annotation"
+    | ta, updates -> 
+      List.fold_left (fun acc (e2, e3) -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], Some e3) 
+      )  (A.EmptyMap (mk_pos $startpos, ta)) updates 
   }
 
   (* Set literals *)
   | LCURLYBRACKET 
-    elements = separated_list(COMMA, pexpr(Q));
-    RCURLYBRACKET ATSIGN
-    LT value_ty=lustre_type GT
-  {
-    List.fold_left (fun acc e -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
-    ) (A.EmptySet (mk_pos $startpos, Some value_ty)) elements
-  }
-
-  (* Type annotation can be omitted if there is at least one element *)
-  | LCURLYBRACKET 
-    elements = separated_nonempty_list(COMMA, pexpr(Q));
+    elements = separated_list(COMMA, expr);
     RCURLYBRACKET 
+    ta = option(type_annotation); 
   {
-    List.fold_left (fun acc e -> 
-      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
-    ) (A.EmptySet (mk_pos $startpos, None)) elements
+    match ta, elements with 
+    | None, [] -> 
+      let pos = mk_pos $startpos in 
+      fail_at_position pos "Empty set must have a type annotation"
+    | ta, elements -> 
+      List.fold_left (fun acc e -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
+      ) (A.EmptySet (mk_pos $startpos, ta)) elements
   }
 
   | e1 = pexpr(Q); 
