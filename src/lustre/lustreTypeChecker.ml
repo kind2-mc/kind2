@@ -1158,36 +1158,6 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
       (type_error pos (IlltypedArrow (ty1, ty2)))
     
   (* Node calls *)
-  (*| LA.Call (pos, [], node_id, arg_exprs) -> (
-    Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
-    let infer_type_node_args: tc_context -> LA.expr list -> (tc_type list * [> warning] list, [> error]) result =
-    fun ctx args ->
-      let* r = R.seq (List.map (infer_type_expr ctx nname) args) in  
-      let arg_tys, warnings = List.split r in
-      R.ok (arg_tys, List.flatten warnings)
-    in
-    match (lookup_node_param_ids ctx node_id), (lookup_node_ty ctx node_id) with
-    | Some call_params, Some node_ty -> (
-      (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
-      let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
-      let* given_arg_tys, warnings = infer_type_node_args ctx arg_exprs in
-      let given_arg_tys = List.map (expand_type_syn ctx) given_arg_tys in
-      (*!! given_arg_tys will be types of the args, and not necessarily the type variables. 
-           E.g. for call param x:T^n called with type int^n, the given_arg_ty will be int^n 
-           but we really need just the T spot, here int *)
-      let* node_ty = instantiate_type_variables ctx pos node_id node_ty given_arg_tys in
-      let exp_ret_tys = match node_ty with 
-        | LA.TArr (_, _, exp_ret_tys) ->
-          (*!! Check for uninstantiated type variables in exp_ret_tys *)
-          expand_type_syn ctx exp_ret_tys
-        | _ -> assert false 
-      in
-      R.ok (exp_ret_tys, warnings)
-    )
-    | _, Some ty -> type_error pos (ExpectedFunctionType ty)
-    | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
-  )*)
-  (*!! Use old code here because ty_args are actually supplied *)
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> 
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
