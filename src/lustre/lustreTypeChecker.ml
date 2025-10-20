@@ -16,7 +16,6 @@
 
  *)
 
-(*!! Node calls, set literals, map literals, any operators(?) *) 
 
 (** Type checking the surface syntax of Lustre programs
   
@@ -1158,7 +1157,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
       (type_error pos (IlltypedArrow (ty1, ty2)))
     
   (* Node calls *)
-  | LA.Call (pos, ty_args, node_id, arg_exprs) -> 
+  | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
        guesses in the case that ty_args contains refinement types. This rules out 
@@ -1192,6 +1191,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
     )
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
+  )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1468,12 +1468,21 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ok (warnings1 @ warnings2)
 
   (* Node calls *)
-  | Call (pos, _, _, _) as e -> 
-    let* inf_ty, warnings = infer_type_expr ctx nname e in 
-    R.ifM (eq_lustre_type ctx exp_ty inf_ty)
-      (R.ok warnings)
-      (type_error pos (ExpectedType (exp_ty, inf_ty)))
-
+  | Call (pos, ty_args, node_id, args) ->
+    let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx nname) args) in
+    let arg_tys, warnings = List.split arg_tys_warns in
+    let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
+                else GroupType (pos, arg_tys) in
+    (match (lookup_node_ty ctx node_id), (lookup_node_param_ids ctx node_id) with
+    | None, _ 
+    | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
+    | Some ty, Some call_params -> 
+      (* Express ty in terms of the current context *)
+      let ty = update_ty_with_ctx ty call_params ctx args in
+      let* ty = instantiate_type_variables ctx pos node_id ty ty_args in
+      let* b = (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty))) in
+      if b then R.ok (List.flatten warnings)
+      else (type_error pos (MismatchedNodeType ((NI.get_user_name node_id), (TArr (pos, arg_ty, exp_ty)), ty))))
 
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
