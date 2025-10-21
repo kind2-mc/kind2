@@ -334,7 +334,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
-  | Ident _ 
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
   | RecordProject (p, expr, id) -> 
@@ -394,13 +394,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, AnyOp (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
-  | EmptySet (p, ty) ->
+  | EmptySet (p, Some ty) ->
     let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
-    ctx, gids, EmptySet (p, ty), decls, node_decls_map
-  | EmptyMap (p, (kt, vt)) ->
+    ctx, gids, EmptySet (p, Some ty), decls, node_decls_map
+  | EmptyMap (p, Some (kt, vt)) ->
     let ctx, gids, kt, decls1, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map kt in 
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 
-    ctx, gids, EmptyMap (p, (kt, vt)), decls1 @ decls2, node_decls_map
+    ctx, gids, EmptyMap (p, Some (kt, vt)), decls1 @ decls2, node_decls_map
   | Quantifier (p, q, tis, expr) -> 
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 

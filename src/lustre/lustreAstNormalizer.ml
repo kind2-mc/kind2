@@ -2174,7 +2174,17 @@ and normalize_expr ?guard info node_id map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
-  | EmptySet (pos, ty) -> 
+  | StructUpdate (p1, EmptyMap (p2, None), [A.MapIndex (p3, e1)], Some e2) -> 
+    let kt, _ = Chk.infer_type_expr info.context (Some node_id) e1 |> Result.get_ok in 
+    let vt, _ = Chk.infer_type_expr info.context (Some node_id) e2 |> Result.get_ok in 
+    let expr = A.StructUpdate (p1, EmptyMap (p2, Some (kt, vt)), [A.MapIndex (p3, e1)], Some e2) in 
+    normalize_expr info node_id map expr
+  | StructUpdate (p1, EmptySet (p2, None), [A.SetIndex (p3, e)], None) ->
+    let ty, _ = Chk.infer_type_expr info.context (Some node_id) e |> Result.get_ok in 
+    let expr = A.StructUpdate (p1, EmptySet (p2, Some ty), [A.SetIndex (p3, e)], None) in 
+    normalize_expr info node_id map expr
+  | EmptyMap (_, None) | EmptySet (_, None) -> assert false 
+  | EmptySet (pos, Some ty) -> 
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in
     let name = HString.concat2 prefix (HString.mk_hstring "_empty_set") in
@@ -2184,7 +2194,7 @@ and normalize_expr ?guard info node_id map =
     } in
     let nexpr = A.Ident (pos, name) in 
     nexpr, gids, []
-  | EmptyMap (pos, (kt, vt)) -> 
+  | EmptyMap (pos, Some (kt, vt)) -> 
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in
     let name = HString.concat2 prefix (HString.mk_hstring "_empty_map") in

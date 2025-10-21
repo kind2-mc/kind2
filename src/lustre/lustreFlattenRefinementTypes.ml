@@ -166,12 +166,12 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)
-  | EmptySet (p, ty) -> 
-    EmptySet (p, flatten_ref_type ctx ty)
-  | EmptyMap (p, (kt, vt)) ->
-    EmptyMap (p, (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (flatten_ref_type ctx ty))
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
   (* Everything else *)
-  | Ident _ 
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, rec_call e, i)

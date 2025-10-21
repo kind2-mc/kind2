@@ -121,9 +121,11 @@ let type_arity ty =
 
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty expr_contains_call false (||) ty
-  | EmptyMap (_, (kt, vt)) ->
+  | EmptySet (_, None)
+  | EmptyMap (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) ->
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
@@ -148,11 +150,12 @@ let rec expr_contains_call = function
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, Some (kt, vt)) -> 
     fold_lustre_ty expr_is_id false (||) kt || 
     fold_lustre_ty expr_is_id false (||) vt 
-  | EmptySet (_, ty) -> fold_lustre_ty expr_is_id false (||) ty
+  | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
@@ -181,11 +184,12 @@ let rec expr_contains_id id = function
 (* Substitute t for var. AnyOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap (p, (kt, vt)) ->
-    EmptyMap (p, (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
-  | EmptySet (p, ty) -> 
-    EmptySet (p, map_lustre_ty (substitute_naive var t) ty)
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
@@ -244,11 +248,12 @@ let rec apply_subst_in_expr sigma = function
       | Some expr -> expr
       | None -> Ident (pos, i)
   )
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap (p, (kt, vt)) -> 
-    EmptyMap (p, (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
-  | EmptySet (p, ty) -> 
-    EmptySet (p, map_lustre_ty (apply_subst_in_expr sigma) ty)
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
@@ -303,13 +308,14 @@ let rec apply_type_subst_in_expr
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
     Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list)
-  | EmptyMap (pos, (kt, vt)) ->
+  | EmptyMap (_, None) | EmptySet (_, None) -> expr
+  | EmptyMap (pos, Some (kt, vt)) ->
     let kt = apply_type_subst_in_type sigma kt in
     let vt = apply_type_subst_in_type sigma vt in
-    EmptyMap (pos, (kt, vt))
-  | EmptySet (pos, ty) ->
+    EmptyMap (pos, Some (kt, vt))
+  | EmptySet (pos, Some ty) ->
     let ty = apply_type_subst_in_type sigma ty in
-    EmptySet (pos, ty)
+    EmptySet (pos, Some ty)
   | Quantifier (pos, q, tis, expr) -> 
     let tis = List.map (fun (p, id, ty) -> 
       p, id, apply_type_subst_in_type sigma ty
@@ -425,12 +431,12 @@ let rec apply_subst_in_type sigma = function
   | ty -> ty
     
 let rec has_unguarded_pre ung = function
-  | Const _ | Ident _ | ModeRef _  -> false 
+  | Const _ | Ident _ | ModeRef _  | EmptyMap (_, None) | EmptySet (_, None) -> false 
 
-  | EmptyMap (_, (kt, vt)) ->  
+  | EmptyMap (_, Some (kt, vt)) ->  
     fold_lustre_ty (has_unguarded_pre ung) false (||) kt || 
     fold_lustre_ty (has_unguarded_pre ung) false (||) vt
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
@@ -526,12 +532,12 @@ let has_unguarded_pre e =
   then raise Parser_error; u
 
 let rec has_unguarded_pre_no_warn ung = function
-  | Const _ | Ident _ | ModeRef _  -> false 
+  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> false 
 
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, Some (kt, vt)) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) kt || 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) vt
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
@@ -627,14 +633,14 @@ let some_of_list = List.fold_left (
 
 (** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | Const _ | Ident _ | ModeRef _ -> None 
+  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> None 
 
-  | EmptyMap (_, (kt, vt)) -> (
+  | EmptyMap (_, Some (kt, vt)) -> (
     match (fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) kt) with 
     | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) vt 
     | res -> res
     )
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
@@ -891,10 +897,11 @@ let rec vars_of_node_calls_h obs =
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
+  | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
              (fold_lustre_ty (vars obs) SI.empty SI.union vt)
-  | EmptySet (_, ty) ->
+  | EmptySet (_, Some ty) ->
     fold_lustre_ty (vars obs) SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
@@ -939,10 +946,11 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
              (fold_lustre_ty vars SI.empty SI.union vt)
-  | EmptySet (_, ty) ->
+  | EmptySet (_, Some ty) ->
     fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
@@ -1008,10 +1016,11 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | StructUpdate (_, e1, _, Some e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | StructUpdate (_, e1, _, None) -> calls_of_expr e1
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, None) | EmptySet (_, None) -> NI.Set.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
     NI.Set.union (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union kt)
                  (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union vt)
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
@@ -1029,10 +1038,11 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap (_, (kt, vt)) -> 
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
              (fold_lustre_ty vars SI.empty SI.union vt)
-  | EmptySet (_, ty) -> 
+  | EmptySet (_, Some ty) -> 
     fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
@@ -1165,13 +1175,14 @@ let rec replace_with_constants: expr -> expr =
   let c p = Const(p, Num (HString.mk_hstring "42")) in
   function
   | Ident(p, _) -> c p 
+    | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
-  | EmptyMap (p, (kt, vt)) -> 
-    EmptyMap (p, (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
-  | EmptySet (p, ty) -> 
-    EmptySet (p, map_lustre_ty replace_with_constants ty)
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty replace_with_constants ty))
   (* Values *)
   | Const _ as e -> e
 
@@ -1253,11 +1264,12 @@ and is used inside abstract_pre_subexpressions *)
   
 let rec abstract_pre_subexpressions: expr -> expr = function
   | Ident _ 
+  | EmptySet (_, None) | EmptyMap (_, None)
   | ModeRef _ as e -> e 
-  | EmptyMap (p, (kt, vt)) -> 
-    EmptyMap (p, (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
-  | EmptySet (p, ty) -> 
-    EmptySet (p, map_lustre_ty abstract_pre_subexpressions ty)
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
   | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
   (* Values *)
@@ -1364,11 +1376,11 @@ let rec replace_idents locals1 locals2 expr =
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
   | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
-
-  | EmptyMap (p, (kt, vt)) ->
-    EmptyMap (p, (map_lustre_ty r kt, map_lustre_ty r vt))
-  | EmptySet (p, t) ->
-    EmptySet (p, map_lustre_ty r t)
+  | EmptyMap (_, None) | EmptySet (_, None) -> expr
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty r kt, map_lustre_ty r vt))
+  | EmptySet (p, Some t) ->
+    EmptySet (p, Some (map_lustre_ty r t))
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1836,11 +1848,12 @@ let rec rename_contract_vars = function
         Ident (p, id)
       else e
     with _ -> e)
+  | EmptySet (_, None) | EmptyMap (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap (p, (kt, vt)) ->
-    EmptyMap (p, (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
-  | EmptySet (p, ty) ->
-    EmptySet (p, map_lustre_ty rename_contract_vars ty)
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
+  | EmptySet (p, Some ty) ->
+    EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e
