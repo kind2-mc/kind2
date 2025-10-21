@@ -1,0 +1,6 @@
+type T = int;
+
+node N() returns (m: map<T,R>);
+let
+tel
+
