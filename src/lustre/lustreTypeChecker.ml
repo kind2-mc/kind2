@@ -2334,6 +2334,9 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
     let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
     let ty = expand_type_syn ctx ty in
       r ty 
+  (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because 
+     this will be caught by `check_type_well_formed`, which recursively checks 
+     the map key and value types for wellformedness. *)
   else R.ok () 
 | AbstractType _ | Bool _ | Int _ | IntRange _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
