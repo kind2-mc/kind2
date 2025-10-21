@@ -10,11 +10,26 @@ let unwrap res = match res with
 | Error _ -> assert false
 
 let infer_type_args pos ctx caller_nname node_id exprs = 
+  Format.printf "Exprs: %a\n"
+    (Lib.pp_print_list A.pp_print_expr "; ") exprs;
+  Format.printf "ctx: %a\n" 
+    Ctx.pp_print_tc_context ctx;
+  (*!! ctx needs information about inductive and quantified variables...... *)
   let arg_inf_tys, _ = Chk.infer_type_node_args pos ctx exprs caller_nname |> Result.get_ok in
-  match Ctx.lookup_node_param_ids ctx node_id, Ctx.lookup_node_ty ctx node_id with 
+  match Ctx.lookup_node_ty_vars ctx node_id, Ctx.lookup_node_ty ctx node_id with 
   | None, _ -> [] 
   | Some params, Some (A.TArr (_, ty, _)) -> 
+    Format.printf "ty: %a, arg_inf_tys: %a\n"
+      A.pp_print_lustre_type ty 
+      A.pp_print_lustre_type arg_inf_tys;
     let substitution = Chk.unify_types pos ctx ty arg_inf_tys |> Result.get_ok in 
+    Format.printf "subtitution: %a, params: %a\n" 
+      (Lib.pp_print_list (fun _ppf (id, ty) -> 
+        Format.printf "%a -> %a\n" 
+          HString.pp_print_hstring id 
+          A.pp_print_lustre_type ty;
+      ) "; ") (HString.HStringMap.to_list substitution)
+      (Lib.pp_print_list HString.pp_print_hstring ", ") params;
     List.map (fun key -> GI.StringMap.find key substitution) params
   | _ -> assert false
 
@@ -338,7 +353,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
         |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
-  | Call (pos, [], node_id, exprs) -> 
+  | Call (pos, [], node_id, exprs) as e -> 
+    Format.printf "Processing call %a\n"
+      A.pp_print_expr e;
     let ty_args = infer_type_args pos ctx caller_nname node_id exprs in (
     match ty_args with 
     | _ :: _ -> 
@@ -577,7 +594,7 @@ and gen_poly_decls_decls
 = fun ctx gids node_decls_map decls -> 
   let ctx, gids, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_decls, acc_node_decls_map) decl -> match decl with
   | A.FuncDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
-    let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx = Chk.add_full_node_ctx ctx node_id ps ips ops locs in
     let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
     | Some node_gids -> 
       let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
@@ -613,7 +630,7 @@ and gen_poly_decls_decls
       ctx, gids, decl :: decls, node_decls_map
     )
   | NodeDecl (p, (node_id, ext, opac, ps, ips, ops, locs, nis, c)) ->
-    let ctx = Chk.add_ty_params_node_ctx ctx node_id ps in
+    let ctx = Chk.add_full_node_ctx ctx node_id ps ips ops locs in
     let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt node_id gids with  
     | Some node_gids -> 
       let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids node_id acc_node_decls_map in 
@@ -649,7 +666,7 @@ and gen_poly_decls_decls
         ctx, gids, decl :: decls, node_decls_map
     )
   | ContractNodeDecl (p, (cname, ps, ips, ops, (p3, c))) ->
-    let ctx = Chk.add_ty_params_node_ctx ctx cname ps in
+    let ctx = Chk.add_io_node_ctx ctx cname ps ips ops in
     let ctx, gids, acc_decls, acc_node_decls_map = match NI.Map.find_opt cname gids with  
     | Some node_gids -> 
       let ctx, gids, decls, node_decls_map = gen_poly_decls_gids ctx node_gids gids cname acc_node_decls_map in 
