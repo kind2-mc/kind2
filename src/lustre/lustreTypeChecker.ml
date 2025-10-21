@@ -1382,18 +1382,13 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> ([> warn
     R.ifM (eq_lustre_type ctx exp_ty arr_ty)
       (R.ok (warnings1 @ warnings2))
       (type_error pos (ExpectedType (exp_ty, arr_ty)))
-  | IndexAccess (pos, e, idx, _) ->
-    let* index_type, warnings1 = infer_type_expr ctx nname idx in
-    if is_expr_int_type ctx nname idx
-    then 
-      let* inf_arr_ty, warnings2 = infer_type_expr ctx nname e in
-      (match inf_arr_ty with
-        | ArrayType (_, (arr_b_ty, _)) ->
-          R.ifM (eq_lustre_type ctx arr_b_ty exp_ty)
-            (R.ok (warnings1 @ warnings2))
-            (type_error pos (ExpectedType (exp_ty, arr_b_ty)))
-        | _ -> type_error pos (ExpectedArrayType inf_arr_ty))
-    else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
+
+  | IndexAccess (pos, _, _, _) as e ->
+    let* inf_ty, warnings = infer_type_expr ctx nname e in 
+    R.ifM    
+      (eq_lustre_type ctx inf_ty exp_ty) 
+      (R.ok warnings)
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> (
