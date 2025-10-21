@@ -1,0 +1,6 @@
+type T;
+
+node N() returns ()
+let
+  check forall (t: T) t = t;
+tel
