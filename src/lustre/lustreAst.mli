@@ -86,7 +86,7 @@ type in_kind =
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
 
 type ternary_operator =
   | Ite

@@ -1570,6 +1570,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
           (type_error pos (UnificationFailed (ty1, ty2))))
       | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
+  | LA.Times
   | LA.Plus -> 
     let* b1 = are_args_num ctx pos ty1 ty2 in 
     let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in 
@@ -1581,7 +1582,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     if b1 || b2 
     then R.ok (ty2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
-  | LA.Minus | LA.Times | LA.Div ->
+  | LA.Minus | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok (ty2, warnings1 @ warnings2)
@@ -1618,6 +1619,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
       | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Union -> assert false (* Parsed as Plus and changed to Union during normalization *)
+  | LA.Intersection -> assert false (* Parsed as Times and changed to Intersection during normalization *)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
