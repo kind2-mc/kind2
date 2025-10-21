@@ -854,11 +854,11 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> w
                 | Some ty -> R.ok ty in
     let* ty = lookup_mode_ty ctx ids in 
     R.ok (ty, [])
-  | LA.StructUpdate (pos, EmptyMap _, [MapIndex (_, e1)], Some e2) ->
+  | LA.StructUpdate (pos, EmptyMap (_, None), [MapIndex (_, e1)], Some e2) ->
     let* ty1, warnings1 = infer_type_expr ctx nname e1 in 
     let* ty2, warnings2 = infer_type_expr ctx nname e2 in 
     R.ok (LA.Map (pos, ty1, ty2), warnings1 @ warnings2)
-  | LA.StructUpdate (pos, EmptySet _, [SetIndex (_, e)], None) ->
+  | LA.StructUpdate (pos, EmptySet (_, None), [SetIndex (_, e)], None) ->
     let* ty, warnings = infer_type_expr ctx nname e in 
     R.ok (LA.Set (pos, ty), warnings)
   (* only reachable through previous 2 cases *)
