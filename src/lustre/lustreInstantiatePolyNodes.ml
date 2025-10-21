@@ -9,6 +9,15 @@ let unwrap res = match res with
 | Ok res -> res 
 | Error _ -> assert false
 
+let infer_type_args pos ctx caller_nname node_id exprs = 
+  let arg_inf_tys, _ = Chk.infer_type_node_args pos ctx exprs caller_nname |> Result.get_ok in
+  match Ctx.lookup_node_param_ids ctx node_id, Ctx.lookup_node_ty ctx node_id with 
+  | None, _ -> [] 
+  | Some params, Some (A.TArr (_, ty, _)) -> 
+    let substitution = Chk.unify_types pos ctx ty arg_inf_tys |> Result.get_ok in 
+    List.map (fun key -> GI.StringMap.find key substitution) params
+  | _ -> assert false
+
 let instantiate_type_variables_ni 
 = fun ctx node_id ty_args ni  -> match ni with 
 | A.Body (Equation (pos, lhs, expr)) ->
@@ -308,6 +317,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
 = fun ctx gids caller_nname node_decls_map expr -> 
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
+  (*!! Will need to infer the type arguments... *)
   | A.Call (pos, ty :: tys, node_id, exprs) ->
     (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
       HString.pp_print_hstring (NI.get_internal_name node_id)
@@ -329,11 +339,18 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
   | Call (pos, [], node_id, exprs) -> 
-    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-      ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], [], node_decls_map) exprs in 
-    ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
+    let ty_args = infer_type_args pos ctx caller_nname node_id exprs in (
+    match ty_args with 
+    | _ :: _ -> 
+      (* Infer type arguments if they weren't explicitly annotated *)
+      rec_call (Call (pos, ty_args, node_id, exprs)) 
+    | [] -> 
+      let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
+        let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
+        ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
+      ) (ctx, gids, [], [], node_decls_map) exprs in 
+      ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
+    )
   | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
