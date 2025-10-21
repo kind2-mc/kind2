@@ -441,7 +441,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
         | Bool _ | Int _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ 
+        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ | Set _
         | SBitVector _ | UBitVector _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
@@ -491,7 +491,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | Bool _ | Int _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _ 
-      | Map _ | SBitVector _ | UBitVector _ -> assert false) 
+      | Set _ | Map _ | SBitVector _ | UBitVector _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
@@ -511,7 +511,8 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_unary_expr node_id ctx ty_ctx op proj e
   | BinaryOp (_, op, e1, e2) ->
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
-  | TernaryOp (_, Ite, _, e1, e2) ->
+  | TernaryOp (_, Ite, _, e1, e2)
+  | TernaryOp (_, LazyIte, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
@@ -539,6 +540,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     in
     extract_bounds_from_type output_ty
   | EmptyMap _
+  | EmptySet _
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
@@ -593,7 +595,15 @@ and interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2 =
         let lmax = Numeral.max l1 l2 in
         let rmax = Numeral.max r1 r2 in
         let rmin = Numeral.min r1 r2 in
-        Some (Numeral.(/) lmin rmax), Some (Numeral.(/) lmax rmin)
+        let lb =
+          if Numeral.(equal rmax zero) then None
+          else Some (Numeral.(/) lmin rmax)
+        in
+        let ub =
+          if Numeral.(equal rmin zero) then None
+          else Some (Numeral.(/) lmax rmin)
+        in
+        lb, ub
       | _ -> None, None)
   | _ -> assert false)
 

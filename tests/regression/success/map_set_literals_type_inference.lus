@@ -1,0 +1,9 @@
+node N(x: int; m: map<int, int>) returns (y: set<int>; y2: map<int, int>; y3: map<int, int>);
+let
+  y = { x };
+  y2 = map[x := x];
+  y3 = m[x := x];
+  check x in y;
+  check x in y2;
+  check x in y3;
+tel

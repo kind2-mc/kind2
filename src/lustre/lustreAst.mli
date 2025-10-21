@@ -78,13 +78,19 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
-  | And | Or | Xor | Impl | In
-  | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat
+  | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
 
 type ternary_operator =
   | Ite
+  | LazyIte
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -127,6 +133,7 @@ type lustre_type =
    *  values  *)
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
+  | Set of position * lustre_type
   
 (** A Lustre expression *)
 and expr =
@@ -149,8 +156,9 @@ and expr =
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
-  | StructUpdate of position * expr * label_or_index list * expr
-  | EmptyMap of position * (lustre_type * lustre_type)
+  | StructUpdate of position * expr * label_or_index list * expr option
+  | EmptyMap of position * (lustre_type * lustre_type) option
+  | EmptySet of position * lustre_type option
   | ArrayConstr of position * expr * expr 
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
@@ -175,6 +183,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 

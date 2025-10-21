@@ -151,6 +151,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | A.Ident (_, id) ->
     R.ok (G.singleton (id, indices))
   | ModeRef _ -> empty_
+  | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
   | RecordProject (_, e, _) -> r e
   | TupleProject (_, e, _) -> r e
@@ -160,7 +161,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   | Extract (_, e, _, _)
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> union_ (r e1) (r e2)
-  | TernaryOp (_, Ite, e1, e2, e3) ->
+  | TernaryOp (_, _, e1, e2, e3) ->
     let r_e1 = process_expr ind_vars ctx ns 0 indices e1 in
     union_ (union_ (r_e1) (r e2)) (r e3)
   | ConvOp (_, _, e) -> r e
@@ -175,7 +176,8 @@ and process_expr ind_vars ctx ns proj indices expr =
   | GroupExpr (_, _, es) ->
     es |> (List.map r) |> (List.fold_left union_ empty_)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> union_ (r e1) (r e2)
+  | StructUpdate (_, e1, _, Some e2) -> union_ (r e1) (r e2)
+  | StructUpdate (_, e1, _, _) -> r e1
   | ArrayConstr (_, e1, e2) -> union_ (r e1) (r e2)
   | IndexAccess (p, e, idx, _) ->
     let n = match ind_vars with

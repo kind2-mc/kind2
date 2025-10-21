@@ -205,6 +205,9 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
     let ty1 = expand_type_syn ctx ty1 in 
     let ty2 = expand_type_syn ctx ty2 in 
     TArr (p, ty1, ty2)
+  | Set (p, ty) -> 
+    let ty = expand_type_syn ctx ty in 
+    Set (p, ty)
   | Map (p, ty1, ty2) -> 
     let ty1 = expand_type_syn ctx ty1 in 
     let ty2 = expand_type_syn ctx ty2 in 
@@ -673,6 +676,7 @@ let rec type_contains_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
+  | Set (_, ty) -> type_contains_subrange ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
   | History (_, id) -> 
@@ -697,6 +701,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ctx ty
+  | Set (_, ty) -> type_contains_subrange ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_or_subrange ctx ty1 || type_contains_enum_or_subrange ctx ty2
   | History (_, id) ->
@@ -719,6 +724,7 @@ let rec type_contains_enum_or_subrange ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
+  | Set (_, ty) -> type_contains_ref ctx ty
   | Map (_, ty1, ty2)
   | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
   | History (_, id) -> 
@@ -745,7 +751,8 @@ let rec type_contains_enum_subrange_reftype ctx = function
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
       false tys
-  | ArrayType (_, (ty, _)) -> type_contains_enum_subrange_reftype ctx ty
+  | ArrayType (_, (ty, _)) 
+  | Set (_, ty) -> type_contains_enum_subrange_reftype ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
   | History (_, id) -> 
@@ -772,6 +779,7 @@ let rec type_contains_abstract ctx = function
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_abstract ctx ty)
       false tys
+  | Set (_, ty)
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
@@ -782,23 +790,24 @@ let rec type_contains_abstract ctx = function
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
-let rec type_contains_map ctx = function
-  | LA.Map _ -> true
-  | ArrayType (_, (ty, _)) -> type_contains_map ctx ty 
-  | RefinementType (_, (_, _, ty), _) -> type_contains_map ctx ty
+let rec type_contains_map_or_set ctx = function
+  | LA.Map _ 
+  | Set _ -> true 
+  | ArrayType (_, (ty, _)) -> type_contains_map_or_set ctx ty 
+  | RefinementType (_, (_, _, ty), _) -> type_contains_map_or_set ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_map ctx ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_map_or_set ctx ty) false tys
   | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_map ctx ty)
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_map_or_set ctx ty)
       false tys
-  | TArr (_, ty1, ty2) -> type_contains_map ctx ty1 || type_contains_map ctx ty2
+  | TArr (_, ty1, ty2) -> type_contains_map_or_set ctx ty1 || type_contains_map_or_set ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
-    | Some ty -> type_contains_map ctx ty
+    | Some ty -> type_contains_map_or_set ctx ty
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
-    | Some ty -> type_contains_map ctx ty
+    | Some ty -> type_contains_map_or_set ctx ty
     | None -> false
   )
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
@@ -806,6 +815,7 @@ let rec type_contains_map ctx = function
 
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
+  | Set (_, ty) -> type_contains_array ctx ty
   | RefinementType (_, (_, _, ty), _) -> type_contains_array ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
     List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
@@ -832,8 +842,10 @@ let rec ty_vars_of_expr ctx node_name expr =
   | LA.Call (_, tys, _, es) -> 
     SI.union (SI.flatten (List.map (ty_vars_of_type ctx node_name) tys))
               (SI.flatten (List.map call es))
-  | LA.EmptyMap (_, (kt, vt)) ->
+  | LA.EmptyMap (_, Some (kt, vt)) ->
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
+  | LA.EmptySet (_, Some ty) ->
+    ty_vars_of_type ctx node_name ty 
   | AnyOp (_, (_, _, ty), e) -> 
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Quantified expressions *)
@@ -844,6 +856,7 @@ let rec ty_vars_of_expr ctx node_name expr =
     | None -> SI.empty (* e.g. any bound variable *)
     | Some ty -> ty_vars_of_type ctx node_name ty
   )
+  | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
   | TupleProject (_, e, _) -> call e
@@ -860,7 +873,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (call e1) (call e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (call e1) (call e2)
+  | StructUpdate (_, e1, _, None) -> call e1
   | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
   | IndexAccess (_, e1, e2,_) -> SI.union (call e1) (call e2)
   (* Clock operators *)
@@ -890,6 +904,7 @@ and ty_vars_of_type ctx node_name ty =
   | RecordType (_, _, tis) -> 
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
+  | Set (_, ty) -> call ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | AbstractType (_, id) -> (

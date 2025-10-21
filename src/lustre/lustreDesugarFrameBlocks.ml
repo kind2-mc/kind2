@@ -115,7 +115,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | EmptyMap _ as e -> e
-    
+  | EmptySet _ as e -> e
   | RecordProject (p, e, id) -> RecordProject (p, r e, id)
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)
@@ -152,14 +152,19 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
              List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, e2) -> 
+    let e2 = match e2 with 
+    | Some e2 -> Some (r e2)
+    | None -> None 
+    in
     A.StructUpdate (p, r e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
               | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
-    r e2)
+    e2)
 
 (** Helper function to generate node equations when an initialized variable in the 
     frame block is left undefined in the frame block body. *)

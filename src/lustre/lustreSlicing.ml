@@ -590,6 +590,7 @@ let slice_all_of_node
 let add_roots_of_node_call 
     roots
     { N.call_cond;
+      N.call_context;
       N.call_inputs; 
       N.call_oracles; 
       N.call_defaults } =
@@ -605,6 +606,12 @@ let add_roots_of_node_call
              (E.state_vars_of_expr e |> SVS.elements) @ a) 
           d
           roots
+  in
+
+  let roots' =
+    match call_context with
+    | None -> roots'
+    | Some sv -> sv :: roots'
   in
 
   (* Add inputs, oracles and clock as roots *)

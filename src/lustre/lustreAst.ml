@@ -62,13 +62,19 @@ type unary_operator =
   | Not | Uminus
   | BVNot
 
+type in_kind =
+  | Unknown 
+  | Map
+  | Set 
+
 type binary_operator =
-  | And | Or | Xor | Impl | In
-  | Mod | Minus | Plus | Div | Times | IntDiv
-  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat 
+  | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
+  | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
+  | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
 
 type ternary_operator =
   | Ite
+  | LazyIte
 
 type comparison_operator =
   | Eq | Neq  | Lte  | Lt  | Gte | Gt
@@ -113,8 +119,9 @@ type expr =
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
   (* Update of structured expressions *)
-  | StructUpdate of position * expr * label_or_index list * expr
-  | EmptyMap of position * (lustre_type * lustre_type)
+  | StructUpdate of position * expr * label_or_index list * expr option
+  | EmptyMap of position * (lustre_type * lustre_type) option
+  | EmptySet of position * lustre_type option
   | ArrayConstr of position * expr * expr  
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
@@ -150,6 +157,7 @@ and lustre_type =
   | TArr of position * lustre_type * lustre_type 
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
+  | Set of position * lustre_type
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -159,6 +167,7 @@ and label_or_index =
   | Label of position * index
   | Index of position * expr
   | MapIndex of position * expr (* expr not restricted to integers *)
+  | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
   | GenericIndex of position * expr 
 
@@ -405,7 +414,20 @@ let rec pp_print_expr ppf =
 
     | GroupExpr (p, ArrayExpr, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
 
-    | StructUpdate (_, e1, i, e2) -> 
+    | StructUpdate (_, EmptySet _, i, None) -> 
+
+      Format.fprintf ppf
+        "{ %a }"
+        (pp_print_list pp_print_label_or_index "") i
+
+    | StructUpdate (_, EmptyMap _, i, Some e) -> 
+
+      Format.fprintf ppf
+        "map[%a := %a]"
+        (pp_print_list pp_print_label_or_index "") i
+        pp_print_expr e
+
+    | StructUpdate (_, e1, i, Some e2) -> 
 
       Format.fprintf ppf
         "%a[%a := %a]"
@@ -413,12 +435,29 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_label_or_index "") i
         pp_print_expr e2
 
-    | EmptyMap (_, (key_ty, value_ty)) ->
+    | StructUpdate (_, e1, i, None) -> 
+
+      Format.fprintf ppf
+        "%a + { %a }"
+        pp_print_expr e1
+        (pp_print_list pp_print_label_or_index "") i
+
+    | EmptySet (_, Some ty) ->
+
+      Format.fprintf ppf
+        "set[]@<%a>"
+        pp_print_lustre_type ty
+
+    | EmptySet (_, None) -> assert false
+
+    | EmptyMap (_, Some (key_ty, value_ty)) ->
 
       Format.fprintf ppf
         "map[]@<%a,%a>"
         pp_print_lustre_type key_ty
         pp_print_lustre_type value_ty
+
+    | EmptyMap (_, None) -> assert false 
 
     | ArrayConstr (p, e1, e2) -> 
 
@@ -477,10 +516,13 @@ let rec pp_print_expr ppf =
 
     | UnaryOp (p, Not, e) -> p1 p "not" e
     | BinaryOp (p, And, e1, e2) -> p2 p "and" e1 e2
+    | BinaryOp (p, AndThen, e1, e2) -> p2 p "and then" e1 e2
     | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
+    | BinaryOp (p, OrElse, e1, e2) -> p2 p "or else" e1 e2
     | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
     | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
-    | BinaryOp (p, In, e1, e2) -> p2 p "in" e1 e2
+    | BinaryOp (p, LazyImpl, e1, e2) -> p2 p "==>" e1 e2
+    | BinaryOp (p, In _, e1, e2) -> p2 p "in" e1 e2
     
     | Quantifier (_, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
@@ -495,6 +537,8 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Mod, e1, e2) -> p2 p "mod" e1 e2 
     | BinaryOp (p, Minus, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
+    | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
+    | BinaryOp (p, Intersection, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
@@ -507,6 +551,8 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, BVConcat, e1, e2) -> p2 p "++" e1 e2
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -634,6 +680,9 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf "map<%a; %a>" 
       pp_print_lustre_type ty1
       pp_print_lustre_type ty2
+  | Set (_, ty) -> 
+    Format.fprintf ppf "set<%a>" 
+      pp_print_lustre_type ty
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s
   | TupleType (_, l) -> 
@@ -710,6 +759,7 @@ and pp_print_label_or_index ppf = function
   | Label (_, i) -> pp_print_index ppf i
   | GenericIndex (_, e)
   | MapIndex (_, e)
+  | SetIndex (_, e)
   | Index (_, e) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)

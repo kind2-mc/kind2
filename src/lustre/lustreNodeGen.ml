@@ -693,6 +693,28 @@ and compile_ast_type
       succ i, X.fold over_indices compiled_type a
     in 
     List.fold_left over_types (0, X.empty) types |> snd
+  | A.Set (_, ty1) -> 
+    let index_type = compile_ast_type cstate ctx map ty1 in
+    let types = List.rev (X.values index_type) in
+    let last_type = List.hd types in
+    let ty2' = A.Bool Lib.dummy_pos in
+    let element_type = compile_ast_type cstate ctx map ty2' in
+    let over_element_type ty j t a = 
+      let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
+      X.add
+      (j @ [X.MapIndex dummy])
+      (Type.mk_array t ty)
+      a
+    in
+    let base_map_type =
+      X.fold (over_element_type last_type) element_type X.empty
+    in
+    List.fold_left
+      (fun acc ty ->
+         X.fold (over_element_type ty) acc X.empty
+      )
+      base_map_type
+      (List.tl types)
   | A.Map (_, ty1, ty2) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
@@ -972,6 +994,7 @@ and compile_ast_expr
     let rec aux accum = function
       | [] -> List.rev accum
       | A.MapIndex _ :: _ -> assert false 
+      | A.SetIndex _ :: _ -> assert false
       | A.Label (_, index) :: tl ->
         let index = HString.string_of_hstring index in
         let accum' = X.RecordIndex index :: accum in
@@ -1175,21 +1198,30 @@ and compile_ast_expr
   (* ****************************************************************** *)
   | A.BinaryOp (_, A.And, expr1, expr2) ->
     compile_binary bounds E.mk_and expr1 expr2
+  | A.BinaryOp (_, A.AndThen, _, _) -> assert false
   | A.BinaryOp (_, A.Or, expr1, expr2) ->
     compile_binary bounds E.mk_or expr1 expr2 
+  | A.BinaryOp (_, A.OrElse, _, _) -> assert false
   | A.BinaryOp (_, A.Xor, expr1, expr2) ->
     compile_binary bounds E.mk_xor expr1 expr2 
   | A.BinaryOp (_, A.Impl, expr1, expr2) ->
     compile_binary bounds E.mk_impl expr1 expr2
-  | A.BinaryOp (_, A.In, k, map_expr) ->
+  | A.BinaryOp (_, A.LazyImpl, _, _) -> assert false
+  | A.BinaryOp (_, A.In Set, k, map_expr) ->
+    compile_map_index bounds map_expr k
+  | A.BinaryOp (_, A.In Map, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
     X.find_prefix [(X.TupleIndex 0)] map_expr
+  | A.BinaryOp (_, A.In Unknown, _, _) -> assert false
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
   | A.BinaryOp (_, A.Minus, expr1, expr2) ->
     compile_binary bounds E.mk_minus expr1 expr2
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
+  | A.BinaryOp (_, A.Union, _, _) 
+  | A.BinaryOp (_, A.Intersection, _, _) -> 
+    assert false (* abstracted during normalization *)
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
   | A.BinaryOp (_, A.Times, expr1, expr2) ->
@@ -1231,7 +1263,8 @@ and compile_ast_expr
     compile_equality bounds true expr1 expr2
   | A.CompOp (_, A.Neq, expr1, expr2) ->
     compile_equality bounds false expr1 expr2
-  | A.TernaryOp (_, A.Ite, expr1, expr2, expr3) ->
+  | A.TernaryOp (_, A.Ite, expr1, expr2, expr3)
+  | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
@@ -1259,9 +1292,10 @@ and compile_ast_expr
     compile_group_expr bounds (fun j i -> X.TupleIndex i :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
     compile_record_expr bounds expr_list
+  | A.StructUpdate (_, _, _, None)  (* SetIndex case *)
   | A.StructUpdate (_, _, [A.MapIndex _], _) -> 
     assert false (* handled during normalization *)
-  | A.StructUpdate (_, expr1, index, expr2) ->
+  | A.StructUpdate (_, expr1, index, Some expr2) ->
     compile_struct_update expr1 index expr2
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
@@ -1288,12 +1322,13 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
+  | A.EmptySet _ -> assert false
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
 
-and compile_node node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined =
+and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in
   let ident = NI.get_internal_name node_id |> I.of_hstring in
   let po_ct = !map.poracle_count in
@@ -1368,6 +1403,11 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
     | None, Some r -> [N.CRestart r]
     | Some c, Some r -> [N.CActivate c; N.CRestart r]
   in
+  let call_ctx =
+    match call_ctx with
+    | Some id -> Some (mk_ident id |> H.find !map.state_var)
+    | None -> None
+  in
   let call_id = !map.call_count in
   map := {!map with call_count = call_id + 1 };
   let node_call = {
@@ -1375,6 +1415,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart node_id args
     N.call_pos = pos;
     N.call_node_id = called_node.node_id;
     N.call_cond = cond_state_var;
+    N.call_context = call_ctx;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
     N.call_outputs = outputs;
@@ -1825,7 +1866,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () ((_, var, _, _, node_id, _, _, _)) ->
+    let over_calls = fun () ((_, var, _, _, _, node_id, _, _, _)) ->
       let called_node = N.node_of_node_id node_id cstate.nodes in
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
@@ -1924,7 +1965,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
-      fun (calls, glocals) (pos, var, cond, restart, node_id, args, defaults, inlined)
+      fun (calls, glocals) (pos, var, cond, restart, call_ctx, node_id, args, defaults, inlined)
     ->
       (* let internal_node_name_hstring = NI.get_internal_name node_id |> HString.mk_hstring in *)
       let internal_node_name = NI.get_internal_name node_id |> I.of_hstring in
@@ -1967,7 +2008,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        node_scope pos ctx cstate map outputs cond restart node_id args defaults inlined
+        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
@@ -2042,7 +2083,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_map_def i l = 
+  in let compile_map_def i l is_set = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
@@ -2059,6 +2100,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         List.fold_left (fun (acc, acc_is, acc_i) idx -> 
         match idx with 
         | X.MapIndex b -> 
+          if is_set then 
+            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
+          else 
             X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
         | _ -> acc, acc_is, acc_i
         ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
@@ -2212,9 +2256,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let gequations = gequations @ empty_map_eqs in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
-      (* Desugar to lhs[i] = if i = nexpr2 then {true, nexpr3} else nexpr1[i] *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
@@ -2233,7 +2276,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       in
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
-        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In, fresh_idx, nexpr1); 
+        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
@@ -2254,8 +2297,97 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       map_element_update_eqs @ acc
     in 
     List.fold_left over_map_element_updates [] gids.GI.map_element_updates
-  in 
+  in
   let gequations = gequations @ map_element_update_eqs in
+  (* ****************************************************************** *)
+  (* Sets                                                               *)
+  (* ****************************************************************** *)
+  let empty_set_eqs = 
+    let over_empty_sets acc (id, _) =
+      let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
+      let eq_lhs = flatten_list_indexes eq_lhs in
+      (* Set boolean flag to false *)
+      let eq_rhs = X.fold (fun k _ acc -> 
+        X.add k E.t_false acc
+      ) eq_lhs X.empty in
+      (*Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs;*)
+      let empty_set_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      empty_set_eqs @ acc
+    in 
+    List.fold_left over_empty_sets [] gids.GI.empty_sets 
+  in 
+  let gequations = gequations @ empty_set_eqs in
+  let set_insertions_eqs = 
+    let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
+      (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
+      let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
+      let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
+      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
+         compile_ast_type flattens indices, so we need to do a corresponding flattening 
+         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
+      let nexpr2 =
+        let nexpr2 = X.values nexpr2 in 
+        List.fold_left (fun (acc, acc_i) e -> 
+          X.add [X.TupleIndex acc_i]  e acc, acc_i + 1
+        ) (X.empty, 0) nexpr2 |> fst 
+      in
+      let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
+      let cond_expr = 
+        X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
+      in
+      let then_expr = A.Const (dummy_pos, True) in 
+      let else_expr = A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1) in 
+      let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
+      let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
+      let cond_expr = match X.bindings cond_expr with
+      | [_, expr] -> expr
+      | _ -> assert false
+      in
+      let mk e1 e2 =
+        let e1', e2' = coalesce_array2 e1 e2 in
+        E.mk_ite cond_expr e1' e2'
+      in
+      let eq_rhs = compile_binary' mk then_expr else_expr in 
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let set_insertions_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_insertions_eqs @ acc
+    in 
+    List.fold_left over_set_insertions [] gids.GI.set_insertions
+  in
+  let gequations = gequations @ set_insertions_eqs in
+  let set_union_eqs = 
+    let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
+      (* Desugar to lhs[i] = i in nexpr1 <op> i in nexpr2 *)
+      let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
+      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let op' = match op with 
+      | A.Union -> A.Or 
+      | A.Intersection -> And 
+      | _ -> assert false
+      in
+      let expr = 
+        A.BinaryOp (dummy_pos, op', 
+          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1), 
+          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2))
+      in 
+      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map expr in
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let set_union_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_union_eqs @ acc
+    in 
+    List.fold_left over_set_binops [] gids.GI.set_binops
+  in
+  let gequations = gequations @ set_union_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)

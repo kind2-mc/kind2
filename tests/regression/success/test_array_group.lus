@@ -3,6 +3,6 @@ type complex = [real, real];
 node x22 () returns ();
 var x, y: complex;
 let
-  x = {0.0, 1.0};
+  x = '(0.0, 1.0);
   y = x;
 tel;

@@ -46,6 +46,7 @@ type t = {
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
+    * HString.t option (* boolean variable representing call context *)
     * NodeId.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option) (* node argument defaults *)
@@ -64,12 +65,24 @@ type t = {
     * LustreAst.expr) 
     list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
+  empty_sets: (HString.t * LustreAst.lustre_type) list;
   map_element_updates: (HString.t * 
     LustreAst.expr * 
     LustreAst.expr * 
     LustreAst.expr * 
     HString.t * 
     LustreAst.lustre_type * 
+    LustreAst.lustre_type) list;
+  set_insertions: (HString.t * 
+    LustreAst.expr * 
+    LustreAst.expr * 
+    HString.t * 
+    LustreAst.lustre_type) list;
+  set_binops: (HString.t * 
+    LustreAst.expr * 
+    LustreAst.expr * 
+    HString.t *
+    LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
   equations :

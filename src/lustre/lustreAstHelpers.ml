@@ -44,6 +44,10 @@ let expr_is_false = function
   | Const (_, False) -> true
   | _ -> false
 
+let id_of_expr = function
+  | Ident (_, id) -> Some id
+  | _ -> None
+
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
   | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
@@ -58,7 +62,53 @@ let pos_of_expr = function
   | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
+  | EmptySet (pos, _)
   -> pos
+
+(* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
+   combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
+   with `f` *)
+let rec fold_lustre_ty f init op ty = 
+  let r = fold_lustre_ty f init op in 
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ -> init
+  | UserType _ | History _ -> init 
+  | GroupType (_, tys) 
+  | TupleType (_, tys) -> 
+    List.fold_left (fun acc ty -> 
+      op acc (r ty) 
+    ) init tys
+  | RecordType (_, _, tis) -> 
+    List.fold_left (fun acc (_, _, ty) -> 
+      op acc (r ty) 
+    ) init tis
+  | Map (_, kt, vt) -> op (r kt) (r vt)
+  | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
+  | Set (_, ty) -> r ty
+  | ArrayType (_, (ty, e)) 
+  | RefinementType (_, (_, _, ty), e) -> 
+    op (r ty) (f e)
+
+(* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
+let rec map_lustre_ty f ty = 
+  let r = map_lustre_ty f in
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ -> ty
+  | UserType _ | History _ -> ty 
+  | Map (p, kt, vt) -> Map (p, r kt, r vt)
+  | Set (p, ty) -> Set (p, r ty)
+  | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, f len))
+  | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
+  | GroupType (p, tys) -> 
+    GroupType (p, List.map r tys)
+  | TupleType (p, tys) -> 
+    TupleType (p, List.map r tys)
+  | RecordType (p, id, tis) -> 
+    RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
+  | RefinementType (p1, (p2, id, ty), e) -> 
+    RefinementType (p1, (p2, id, r ty), f e)
 
 let type_arity ty =
   let inner_types = function
@@ -70,12 +120,19 @@ let type_arity ty =
   | _ -> (0, 0)
 
 let rec expr_contains_call = function
-  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty expr_contains_call false (||) ty
+  | EmptySet (_, None)
+  | EmptyMap (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) ->
+    fold_lustre_ty expr_contains_call false (||) kt || 
+    fold_lustre_ty expr_contains_call false (||) vt
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) | Extract (_, e, _, _)
+  | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
@@ -93,12 +150,17 @@ let rec expr_contains_call = function
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
-  | ModeRef (_, _) | Const (_, _) | EmptyMap _ -> false
+  | EmptyMap (_, None) | EmptySet (_, None)
+  | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptyMap (_, Some (kt, vt)) -> 
+    fold_lustre_ty expr_is_id false (||) kt || 
+    fold_lustre_ty expr_is_id false (||) vt 
+  | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
-  | Extract (_, e, _, _)
+  | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_id id e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
@@ -122,8 +184,12 @@ let rec expr_contains_id id = function
 (* Substitute t for var. AnyOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
@@ -147,8 +213,10 @@ let rec substitute_naive (var:HString.t) t = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> substitute_naive var t e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, substitute_naive var t e1, idx, substitute_naive var t e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, substitute_naive var t e1, idx, Some (substitute_naive var t e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, substitute_naive var t e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -180,8 +248,12 @@ let rec apply_subst_in_expr sigma = function
       | Some expr -> expr
       | None -> Ident (pos, i)
   )
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
@@ -200,8 +272,10 @@ let rec apply_subst_in_expr sigma = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, apply_subst_in_expr sigma e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, Some (apply_subst_in_expr sigma e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -234,10 +308,14 @@ let rec apply_type_subst_in_expr
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
     Call (pos, ty_args, id, List.map (apply_type_subst_in_expr sigma) expr_list)
-  | EmptyMap (pos, (kt, vt)) ->
+  | EmptyMap (_, None) | EmptySet (_, None) -> expr
+  | EmptyMap (pos, Some (kt, vt)) ->
     let kt = apply_type_subst_in_type sigma kt in
     let vt = apply_type_subst_in_type sigma vt in
-    EmptyMap (pos, (kt, vt))
+    EmptyMap (pos, Some (kt, vt))
+  | EmptySet (pos, Some ty) ->
+    let ty = apply_type_subst_in_type sigma ty in
+    EmptySet (pos, Some ty)
   | Quantifier (pos, q, tis, expr) -> 
     let tis = List.map (fun (p, id, ty) -> 
       p, id, apply_type_subst_in_type sigma ty
@@ -263,8 +341,10 @@ let rec apply_type_subst_in_expr
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, apply_type_subst_in_expr sigma e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, Some (apply_type_subst_in_expr sigma e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, None) 
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -309,6 +389,7 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
+  | Set(pos, ty) -> Set(pos, apply_type_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -337,6 +418,7 @@ let rec apply_subst_in_type sigma = function
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_subst_in_type sigma) tys)
+  | Set (pos, ty) -> Set (pos, apply_subst_in_type sigma ty)
   | Map(pos, ty1, ty2) -> 
     Map(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
@@ -349,8 +431,13 @@ let rec apply_subst_in_type sigma = function
   | ty -> ty
     
 let rec has_unguarded_pre ung = function
-  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
+  | Const _ | Ident _ | ModeRef _  | EmptyMap (_, None) | EmptySet (_, None) -> false 
 
+  | EmptyMap (_, Some (kt, vt)) ->  
+    fold_lustre_ty (has_unguarded_pre ung) false (||) kt || 
+    fold_lustre_ty (has_unguarded_pre ung) false (||) vt
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
@@ -396,16 +483,28 @@ let rec has_unguarded_pre ung = function
     let us = List.map (fun (_, e) -> has_unguarded_pre ung e) ie in
     List.exists Lib.identity us
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, Some e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let us = List.map (function
         | Label _ -> false
         | MapIndex (_, e)
+        | SetIndex (_, e)
         | GenericIndex (_, e)
         | Index (_, e) -> has_unguarded_pre ung e
       ) li in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2 || List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, None) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | MapIndex (_, e)
+        | SetIndex (_, e)
+        | GenericIndex (_, e)
+        | Index (_, e) -> has_unguarded_pre ung e
+      ) li in
+    u1 || List.exists Lib.identity us
 
   | Pre (pos, e) as p ->
     if ung then begin
@@ -433,8 +532,13 @@ let has_unguarded_pre e =
   then raise Parser_error; u
 
 let rec has_unguarded_pre_no_warn ung = function
-  | Const _ | Ident _ | ModeRef _  | EmptyMap _ -> false
-    
+  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> false 
+
+  | EmptyMap (_, Some (kt, vt)) -> 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) kt || 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) vt
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
@@ -480,11 +584,23 @@ let rec has_unguarded_pre_no_warn ung = function
     let us = List.map (fun (_, e) -> has_unguarded_pre_no_warn ung e) ie in
     List.exists Lib.identity us
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, None) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let us = List.map (function
         | Label _ -> false
         | MapIndex (_, e)
+        | SetIndex (_, e)
+        | GenericIndex (_, e)
+        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+      ) li in
+    u1 || List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, Some e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | MapIndex (_, e)
+        | SetIndex (_, e)
         | GenericIndex (_, e)
         | Index (_, e) -> has_unguarded_pre_no_warn ung e
       ) li in
@@ -517,8 +633,15 @@ let some_of_list = List.fold_left (
 
 (** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | Const _ | Ident _ | ModeRef _ | EmptyMap _ -> None
-    
+  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> None 
+
+  | EmptyMap (_, Some (kt, vt)) -> (
+    match (fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) kt) with 
+    | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) vt 
+    | res -> res
+    )
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
@@ -568,7 +691,21 @@ let rec has_pre_or_arrow = function
     List.map (fun (_, e) -> has_pre_or_arrow e) ie
     |> some_of_list
 
-  | StructUpdate (_, e1, li, e2) ->
+  | StructUpdate (_, e1, li, None) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+          fun _ ->
+            List.map (function
+              | Label _ -> None
+              | MapIndex (_, e)
+              | SetIndex (_, e)
+              | GenericIndex (_, e)
+              | Index (_, e) -> has_pre_or_arrow e
+            ) li
+            |> some_of_list
+    )
+
+  | StructUpdate (_, e1, li, Some e2) ->
     has_pre_or_arrow e1
     |> unwrap_or (
       fun _ ->
@@ -578,6 +715,7 @@ let rec has_pre_or_arrow = function
             List.map (function
               | Label _ -> None
               | MapIndex (_, e)
+              | SetIndex (_, e)
               | GenericIndex (_, e)
               | Index (_, e) -> has_pre_or_arrow e
             ) li
@@ -759,7 +897,12 @@ let rec vars_of_node_calls_h obs =
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
   | TupleProject (_, e, _) -> vars obs e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
+  | EmptyMap (_, Some (kt, vt)) -> 
+    SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
+             (fold_lustre_ty (vars obs) SI.empty SI.union vt)
+  | EmptySet (_, Some ty) ->
+    fold_lustre_ty (vars obs) SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -774,7 +917,8 @@ let rec vars_of_node_calls_h obs =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars obs e1) (vars obs e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars obs e1) (vars obs e2)
+  | StructUpdate (_, e1, _, None) -> vars obs e1
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
@@ -802,7 +946,12 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
+    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
+             (fold_lustre_ty vars SI.empty SI.union vt)
+  | EmptySet (_, Some ty) ->
+    fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -816,7 +965,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, None) -> vars e1 
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
@@ -863,9 +1013,15 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> NI.Set.union (calls_of_expr e2)
   | RecordExpr (_, _, _, flds) -> NI.Set.flatten (List.map calls_of_expr (snd (List.split flds)))
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
-  | StructUpdate (_, e1, _, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | StructUpdate (_, e1, _, Some e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | StructUpdate (_, e1, _, None) -> calls_of_expr e1
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | EmptyMap _ -> NI.Set.empty
+  | EmptyMap (_, None) | EmptySet (_, None) -> NI.Set.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
+    NI.Set.union (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union kt)
+                 (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union vt)
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
   | When (_, e, _) -> calls_of_expr e
@@ -882,7 +1038,12 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
-  | EmptyMap _ -> SI.empty
+  | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
+  | EmptyMap (_, Some (kt, vt)) -> 
+    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
+             (fold_lustre_ty vars SI.empty SI.union vt)
+  | EmptySet (_, Some ty) -> 
+    fold_lustre_ty vars SI.empty SI.union ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -896,7 +1057,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
+  | StructUpdate (_, e1, _, None) -> vars e1
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
@@ -942,6 +1104,7 @@ let rec vars_of_type = function
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
+  | Set (_, ty) -> vars_of_type ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
@@ -1012,10 +1175,14 @@ let rec replace_with_constants: expr -> expr =
   let c p = Const(p, Num (HString.mk_hstring "42")) in
   function
   | Ident(p, _) -> c p 
+    | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty replace_with_constants ty))
   (* Values *)
   | Const _ as e -> e
 
@@ -1043,10 +1210,14 @@ let rec replace_with_constants: expr -> expr =
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map replace_with_constants es)
 
   (* Update of structured expressions *)
-  | StructUpdate (p, e1, i, e2) ->
+  | StructUpdate (p, e1, i, Some e2) ->
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
-     StructUpdate (p, e1', i, e2') 
+     StructUpdate (p, e1', i, Some e2') 
+
+  | StructUpdate (p, e1, i, None) ->
+     let e1' = replace_with_constants e1 in
+     StructUpdate (p, e1', i, None) 
 
   | ArrayConstr (p, e1, e2) ->
      let e1' = replace_with_constants e1 in
@@ -1093,8 +1264,12 @@ and is used inside abstract_pre_subexpressions *)
   
 let rec abstract_pre_subexpressions: expr -> expr = function
   | Ident _ 
-  | ModeRef _ 
-  | EmptyMap _ as e -> e 
+  | EmptySet (_, None) | EmptyMap (_, None)
+  | ModeRef _ as e -> e 
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
   | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
   (* Values *)
@@ -1124,10 +1299,14 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map abstract_pre_subexpressions es)
 
   (* Update of structured expressions *)
-  | StructUpdate (p, e1, i, e2) ->
+  | StructUpdate (p, e1, i, Some e2) ->
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
-     StructUpdate (p, e1', i, e2') 
+     StructUpdate (p, e1', i, Some e2') 
+
+  | StructUpdate (p, e1, i, None) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     StructUpdate (p, e1', i, None) 
 
   | ArrayConstr (p, e1, e2) ->
      let e1' = abstract_pre_subexpressions e1 in
@@ -1197,7 +1376,11 @@ let rec replace_idents locals1 locals2 expr =
   
   | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
   | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
-  | EmptyMap (p, t) -> EmptyMap (p, t)
+  | EmptyMap (_, None) | EmptySet (_, None) -> expr
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty r kt, map_lustre_ty r vt))
+  | EmptySet (p, Some t) ->
+    EmptySet (p, Some (map_lustre_ty r t))
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | Quantifier (a, b, tis, e) -> 
@@ -1225,15 +1408,26 @@ let rec replace_idents locals1 locals2 expr =
     Condact (a, r e1, r e2, b, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (a, e1, li, e2) -> 
+  | StructUpdate (a, e1, li, Some e2) -> 
     StructUpdate (a, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
               | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
-    r e2)
+    Some (r e2))
+  | StructUpdate (a, e1, li, None) -> 
+    StructUpdate (a, r e1, 
+    List.map (function
+              | Label (a, b) -> Label (a, b)
+              | Index (a, e) -> Index (a, r e)
+              | GenericIndex (a, e) -> GenericIndex (a, r e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
+             ) li, 
+    None)
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1350,7 +1544,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (p && e && t && HString.equal xi yi)
     | GroupExpr (_, xop, x), GroupExpr(_, yop, y) ->
       rlist x y |> join >>= fun e -> Ok (e && xop = yop)
-    | StructUpdate (_, xe1, xl, xe2), StructUpdate (_, ye1, yl, ye2) ->
+    | StructUpdate (_, xe1, xl, Some xe2), StructUpdate (_, ye1, yl, Some ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       let l = if List.length xl = List.length yl then
@@ -1363,6 +1557,20 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun e3 ->
       Ok (e1 && e2 && e3)
+
+    | StructUpdate (_, xe1, xl, None), StructUpdate (_, ye1, yl, None) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      let l = if List.length xl = List.length yl then
+          List.map2 (fun x y -> match x, y with
+            | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
+            | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
+            | _ -> Ok (false))
+          xl yl
+        else [Ok (false)]
+      in
+      l |> join >>= fun e2 ->
+      Ok (e1 && e2)
+    | StructUpdate _, StructUpdate _ -> Ok false
     | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1548,12 +1756,16 @@ let hash depth_limit expr =
         Hashtbl.hash (12, op, es_hash)
       | StructUpdate (_, e1, l, e2) ->
         let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
+        let e2_hash = match e2 with 
+        | Some e2 -> r (depth + 1) e2 
+        | None -> Hashtbl.hash 1
+        in
         let l_hash = List.map (function
           | Label (_, i) -> Hashtbl.hash (0, HString.hash i)
           | MapIndex (_, e) -> Hashtbl.hash (1, r (depth + 1) e)
           | Index (_, e) -> Hashtbl.hash (2, r (depth + 1) e)
-          | GenericIndex (_, e) -> Hashtbl.hash (3, r (depth + 1) e))
+          | GenericIndex (_, e) -> Hashtbl.hash (3, r (depth + 1) e)
+          | SetIndex (_, e) -> Hashtbl.hash (4, r (depth + 1) e))
           l
         in
         Hashtbl.hash (13, e1_hash, l_hash, e2_hash)
@@ -1619,7 +1831,8 @@ let hash depth_limit expr =
       | Extract (_, e, idx1, idx2) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (26, e_hash, idx1, idx2)
-      | EmptyMap (_, _) -> Hashtbl.hash 27
+      | EmptyMap _ -> Hashtbl.hash 27
+      | EmptySet _ -> Hashtbl.hash 28
   in
   r 0 expr
 
@@ -1680,6 +1893,9 @@ let hash_ty depth_limit ty =
         let t1_hash = r (depth + 1) t1 in
         let t2_hash = r (depth + 1) t2 in
         Hashtbl.hash (17, t1_hash, t2_hash)
+      | Set (_, t) -> 
+        let t_hash = r (depth + 1) t in 
+        Hashtbl.hash (18, t_hash)
   in
   r 0 ty
 
@@ -1696,8 +1912,12 @@ let rec rename_contract_vars = function
         Ident (p, id)
       else e
     with _ -> e)
+  | EmptySet (_, None) | EmptyMap (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap _ as e -> e
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
+  | EmptySet (p, Some ty) ->
+    EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e
@@ -1715,8 +1935,10 @@ let rec rename_contract_vars = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> rename_contract_vars e) expr_list)
-  | StructUpdate (pos, e1, idx, e2) ->
-    StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
+  | StructUpdate (pos, e1, idx, Some e2) ->
+    StructUpdate (pos, rename_contract_vars e1, idx, Some (rename_contract_vars e2))
+  | StructUpdate (pos, e1, idx, None) ->
+    StructUpdate (pos, rename_contract_vars e1, idx, None)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -1774,8 +1996,8 @@ let rec default_value_of_type p value_type =
     GroupExpr (p, TupleExpr, List.map r tys) 
   | GroupType (_, tys) -> 
     GroupExpr (p, ExprList, List.map r tys) 
-  | Map (_, ty1, ty2) -> 
-    EmptyMap (p, (ty1, ty2))
+  | Set (_, ty) -> EmptySet (p, Some ty)
+  | Map (_, kt, vt) -> EmptyMap (p, Some (kt, vt))
   | RecordType (_, id, tis) -> 
     let tys = List.map (fun (_, _, ty) -> ty) tis in
     let record_values = List.map (fun (_, id, ty) -> 

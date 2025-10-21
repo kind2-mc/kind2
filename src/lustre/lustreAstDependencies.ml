@@ -294,6 +294,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
+  | Set (_, ty) -> mk_graph_type ty
   | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
   (* Circular dependencies in refinement type predicates are allowed *)
@@ -337,11 +338,16 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
-  | LA.EmptyMap (_, (kt, vt)) -> 
+  | LA.EmptyMap (_, Some (kt, vt)) -> 
     union_dependency_analysis_data
       (mk_graph_type kt)
       (mk_graph_type vt)
+  | LA.EmptySet (_, Some ty) -> mk_graph_type ty
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyOps *)
+  | LA.Quantifier (_, _, tis, e) -> 
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+     List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
+       (List.map (mk_graph_type) tys)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
@@ -374,8 +380,9 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
                             
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
-  | Ident _ -> []
-  | EmptyMap _ -> []
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None) -> []
+  | EmptyMap (_, Some (kt, vt)) -> extract_node_calls_type kt @ extract_node_calls_type vt
+  | EmptySet (_, Some ty) -> extract_node_calls_type ty
   | ModeRef (pos, ids) ->
     if List.length ids = 1 then []
     else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
@@ -398,7 +405,8 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
   (* Update of structured expressions *)
-  | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
+  | LA.StructUpdate (_, e1, _, Some e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
+  | LA.StructUpdate (_, e, _, _) -> get_node_call_from_expr e 
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
@@ -424,12 +432,13 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
 
-let rec extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
+and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
 = function 
   | RefinementType (_, (_, _, ty), e) -> extract_node_calls_type ty @ get_node_call_from_expr e
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
+  | Set (_, ty) -> extract_node_calls_type ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
@@ -641,8 +650,10 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   let r = vars_with_flattened_nodes m proj in
   match expr with
   | Ident (_ , i) -> SI.singleton i
+  | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> SI.empty
-  | EmptyMap _ -> SI.empty
+  | EmptySet (_, Some ty) -> LH.vars_of_type ty
+  | EmptyMap (_, Some (kt, vt)) -> SI.union (LH.vars_of_type kt) (LH.vars_of_type vt) 
   | RecordProject (_, e, _) -> r e 
   | TupleProject (_, e, _) -> r e
   (* Values *)
@@ -665,7 +676,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     | None -> SI.empty)
 
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2) -> SI.union (r e1) (r e2)
+  | StructUpdate (_, e1, _, Some e2) -> SI.union (r e1) (r e2)
+  | StructUpdate (_, e1, _, None) -> r e1
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
@@ -775,8 +787,10 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data empty_hs i pos]
   | LA.ModeRef (pos, ids) ->
      R.ok [singleton_dependency_analysis_data mode_prefix (List.nth ids (List.length ids - 1) ) pos] 
-  | LA.EmptyMap _ 
-  | LA.Const _ ->
+  | LA.EmptySet (_, Some ty) -> R.ok [mk_graph_type ty]
+  | LA.EmptyMap (_, Some (kt, vt)) -> 
+    R.ok [union_dependency_analysis_data (mk_graph_type kt) (mk_graph_type vt)]
+  | LA.Const _ | EmptySet (_, None) | EmptyMap (_, None) ->
      R.ok [empty_dependency_analysis_data]
 
   | LA.RecordExpr (pos, i, _, ty_ids) ->
@@ -785,8 +799,11 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              (singleton_dependency_analysis_data empty_hs i pos)
              (List.concat gs)]
   | LA.StructUpdate (_, e1, _, e2) ->
-     mk_graph_expr2 m e1 >>= fun g1 ->
-     mk_graph_expr2 m e2 >>= fun g2 ->
+     let* g1 = mk_graph_expr2 m e1 in 
+     let* g2 = match e2 with 
+     | Some e2 -> mk_graph_expr2 m e2 
+     | None -> R.ok [empty_dependency_analysis_data]
+     in
      R.ok [List.fold_left union_dependency_analysis_data
              empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)

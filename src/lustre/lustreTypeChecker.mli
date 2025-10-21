@@ -68,7 +68,7 @@ type error_kind = Unknown of string
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
   | ExpectedIntegerTypes of tc_type * tc_type
-  | ExpectedNumberTypes of tc_type * tc_type
+  | ExpectedNumberOrSetTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
   | ExpectedUnsignedMachineIntegerTypes of tc_type * tc_type
   | ExpectedMachineIntegerType of tc_type
@@ -87,14 +87,13 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
-  | QuantifiedAbstractType of HString.t
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
-  | ExpectedMapType of tc_type
+  | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
 
