@@ -130,10 +130,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_merge.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedOutsideMerge _)) -> true
     | _ -> false);
-  (*mk_test "test symbolic array index in not call" (fun () ->
+  mk_test "test symbolic array index in not call" (fun () ->
     match load_file "./lustreSyntaxChecks/test_node_call_with_inductive_array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
-    | _ -> false);*)
+    | _ -> false);
   mk_test "test temporal operator in function contract" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
@@ -194,10 +194,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/mult_assign_array_def.lus" with
     | Error (`LustreSyntaxChecksError (_, MultAssignArrayDef)) -> true
     | _ -> false);
-  (*mk_test "symbolic array index passed to non-inlinable function" (fun () ->
+  mk_test "symbolic array index passed to non-inlinable function" (fun () ->
     match load_file "./lustreSyntaxChecks/array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
-    | _ -> false);*)
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -627,10 +627,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/undeclared_type_06.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
-  (*mk_test "test arity incorrect node call" (fun () ->
+  mk_test "test arity incorrect node call" (fun () ->
     match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
-    | _ -> false);*)
+    | _ -> false);
   mk_test "test nominal record type equality" (fun () ->
     match load_file "./lustreTypeChecker/record_type_nominal_eq.lus" with
     | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
