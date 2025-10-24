@@ -25,6 +25,12 @@ module SI = LA.SI
 module LH = LustreAstHelpers 
 module NI = NodeId         
 
+module PosMap = Map.Make(
+  struct
+    let compare = Lib.compare_pos
+    type t = Lib.position 
+  end)
+
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
@@ -65,6 +71,9 @@ type const_store = (LA.expr * tc_type option * source) IMap.t
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking. *)
 
+type ty_arg_store = tc_type list PosMap.t
+(** Map of calls (identified by positions) to their list of inferred type args *)
+
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
@@ -96,6 +105,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
                       ty_var_store  
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
+                  ; ty_args: ty_arg_store         (* stores the inferred type args associated with each call *)
                   }
 (** The type checker global context *)
 
@@ -114,7 +124,7 @@ let empty_tc_context: tc_context =
   ; ty_vars = NI.Map.empty
   ; contract_ty_vars = NI.Map.empty
   ; ty_ty_vars = IMap.empty
-  (* ; ty_args = IMap.empty *)
+  ; ty_args = PosMap.empty 
   }
 (** The empty context with no information *)
 
@@ -245,6 +255,10 @@ let lookup_ty_ty_vars: tc_context -> LA.ident -> HString.t list option
   = fun ctx i -> IMap.find_opt i (ctx.ty_ty_vars)
 (** Lookup a node's type variables *)
 
+let lookup_ty_args: tc_context -> Lib.position -> tc_type list option
+  = fun ctx i -> PosMap.find_opt i (ctx.ty_args)
+(** Lookup a call's type args *)
+
 let lookup_node_param_attr: tc_context -> NI.t -> (HString.t * bool) list option
   = fun ctx i -> NI.Map.find_opt i (ctx.node_param_attr)
 
@@ -270,6 +284,10 @@ let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
 (** Add type binding into the typing context *)
                   
+let add_ty_args: tc_context -> Lib.position -> tc_type list -> tc_context
+  = fun ctx p tys -> {ctx with ty_args = PosMap.add p tys (ctx.ty_args)}
+(** Add a call's inferred type args into the typing context *)
+
 let add_ty_contract: tc_context -> NI.t -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with contract_ctx = NI.Map.add i ty (ctx.contract_ctx)}
 (**  Add the type of the contract *)
@@ -366,6 +384,7 @@ let union: tc_context -> tc_context -> tc_context
                     ; ty_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_ty_vars)
                                    (ctx2.ty_ty_vars))
+                    ; ty_args = PosMap.union (fun _ _ v2 -> Some v2) ctx1.ty_args ctx2.ty_args
                      }
 (** Unions the two typing contexts *)
 

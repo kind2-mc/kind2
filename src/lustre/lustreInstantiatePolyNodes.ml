@@ -356,6 +356,8 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | Call (pos, [], node_id, exprs) as e -> 
     Format.printf "Processing call %a\n"
       A.pp_print_expr e;
+    (*!! Maybe, store a mapping of call position to type arg list in the context 
+         so I can look at it here ... *)
     let ty_args = infer_type_args pos ctx caller_nname node_id exprs in (
     match ty_args with 
     | _ :: _ -> 
@@ -436,7 +438,11 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 
     ctx, gids, EmptyMap (p, Some (kt, vt)), decls1 @ decls2, node_decls_map
   | Quantifier (p, q, tis, expr) -> 
-    let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
+    (*!! Remove other occurrences from ctx if shadowed? *)
+    let ctx = List.fold_left (fun acc_ctx (_, id, ty) ->  
+      Ctx.add_ty acc_ctx id ty 
+    ) ctx tis in 
+    let ctx, gids, expr, decls1, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr in 
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
       let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname acc_node_decls_map ty in 
       ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
@@ -491,6 +497,18 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 
   | A.Body (Equation (p, lhs, expr)) -> 
+    let rec collect_ind_vars lhs = match lhs with
+      | A.StructDef (p, A.ArrayDef (_, _, ind_vars) :: tl) -> 
+        ind_vars @ collect_ind_vars (A.StructDef (p, tl)) 
+      | A.StructDef (p, A.SingleIdent _ :: tl) -> 
+        collect_ind_vars (A.StructDef (p, tl)) 
+      | A.StructDef (_, []) -> []
+      | _ -> assert false 
+    in 
+    let ind_vars = collect_ind_vars lhs in 
+    let ctx = List.fold_left (fun acc_ctx id -> 
+      Ctx.add_ty acc_ctx id (A.Int Lib.dummy_pos) 
+    ) ctx ind_vars in
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, A.Body (Equation (p, lhs, expr)), decls, node_decls_map
   | Body (Assert (p, expr)) -> 

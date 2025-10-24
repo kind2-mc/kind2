@@ -851,6 +851,7 @@ let rec unify_types pos ctx ty1 ty2 =
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
   | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
   (*!! Need both these cases? ^^ *)
+  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) -> R.ok StringMap.empty 
   | LA.GroupType (_, tys1), LA.GroupType (_, tys2) 
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
