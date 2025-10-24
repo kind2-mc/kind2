@@ -840,6 +840,12 @@ let expand_type_syn_reftype_history_subrange ctx =
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
+let union_keys key id1 id2 = match key, id1, id2 with
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
+  | _, (Some v), (Some _) -> Some v
+
 (*!! Documentation *)
 (*!! What if user type has type args? *)
 let rec unify_types pos ctx ty1 ty2 = 
@@ -848,10 +854,6 @@ let rec unify_types pos ctx ty1 ty2 =
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
   match ty1, ty2 with 
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  (*!! Need both these cases? ^^ *)
-  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
-    R.ok StringMap.empty 
 
   (* Group types are weird... *)
   | GroupType (_, tys1), GroupType (_, tys2) ->
@@ -859,22 +861,30 @@ let rec unify_types pos ctx ty1 ty2 =
     if List.length ftys1 = List.length ftys2
     then 
       let* maps = R.seq (List.map2 r ftys1 ftys2) in 
-      R.ok (List.fold_left (StringMap.merge GeneratedIdentifiers.union_keys) StringMap.empty maps)
+      R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
     else type_error pos (IlltypedCall (ty1, ty2)) 
   | GroupType (_, tys), t
   | t, GroupType (_, tys) when List.length tys = 1 ->
     r t (List.hd tys)
 
+  | LA.AbstractType (_, id1), LA.AbstractType (_, id2) 
+  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
+    R.ok StringMap.empty 
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
-    R.ok (List.fold_left (StringMap.merge GeneratedIdentifiers.union_keys) StringMap.empty maps)
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
   | LA.ArrayType (_, (ty1, _)), LA.ArrayType (_, (ty2, _)) -> 
     r ty1 ty2
+  | LA.Set (_, ty1), LA.Set (_, ty2) -> r ty1 ty2
+  | LA.Map (_, kt1, vt1), LA.Map (_, kt2, vt2) -> 
+    let* m1 = r kt1 kt2 in 
+    let* m2 = r vt1 vt2 in 
+    R.ok (StringMap.merge union_keys m1 m2) 
   | LA.RecordType (_, id1, tis1), LA.RecordType (_, id2, tis2) when HString.equal id1 id2 -> 
     let tys1 = List.map (fun (_, _, ty) -> ty) tis1 in 
     let tys2 = List.map (fun (_, _, ty) -> ty) tis2 in 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
-    R.ok (List.fold_left (StringMap.merge GeneratedIdentifiers.union_keys) StringMap.empty maps)
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
   | LA.Int _, LA.Int _
   | LA.Real _, LA.Real _ 
   | LA.Bool _, LA.Bool _ 
