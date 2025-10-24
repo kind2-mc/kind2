@@ -288,6 +288,10 @@ let add_ty_args: tc_context -> Lib.position -> tc_type list -> tc_context
   = fun ctx p tys -> {ctx with ty_args = PosMap.add p tys (ctx.ty_args)}
 (** Add a call's inferred type args into the typing context *)
 
+let add_ty_args_map: tc_context -> tc_type list PosMap.t -> tc_context
+  = fun ctx pos_map -> {ctx with ty_args = pos_map}
+(** Add type arg map to typing context *) 
+
 let add_ty_contract: tc_context -> NI.t -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with contract_ctx = NI.Map.add i ty (ctx.contract_ctx)}
 (**  Add the type of the contract *)
