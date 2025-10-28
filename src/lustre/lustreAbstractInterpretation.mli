@@ -36,7 +36,7 @@ val error_message: error_kind -> string
 
 val empty_context: context
 
-val get_type: context -> NodeId.t -> LustreAst.ident -> LustreAst.lustre_type option
+val get_type: context -> NodeId.t option -> LustreAst.ident -> LustreAst.lustre_type option
 
 val union: context -> context -> context
 

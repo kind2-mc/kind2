@@ -63,10 +63,15 @@ let union a b = NodeId.Map.union
     n1 n2))
   a b
 
-let get_type ctx node_name id = match NodeId.Map.find_opt node_name ctx with
-  | Some node_ctx -> (match IMap.find_opt id node_ctx with
-    | Some ty -> Some ty
-    | None -> None)
+let get_type ctx node_id id = 
+  match node_id with 
+  | Some node_id -> ( 
+    match NodeId.Map.find_opt node_id ctx with
+    | Some node_ctx -> (match IMap.find_opt id node_ctx with
+      | Some ty -> Some ty
+      | None -> None)
+    | None -> None
+    ) 
   | None -> None
 
 let add_type ctx node_name id ty =
@@ -415,7 +420,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   | Some ty -> ty
   | None ->
     (match expr with
-    | LA.Ident (_, id) -> (match (get_type ctx node_id id) with
+    | LA.Ident (_, id) -> (match (get_type ctx (Some node_id) id) with
       | Some id_ty -> id_ty
       | None -> 
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
@@ -472,7 +477,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   in
   match expr with
   | LA.Ident (_, id) ->
-    (match get_type ctx node_id id with
+    (match get_type ctx (Some node_id) id with
     | Some ty ->
       extract_bounds_from_type ty
     | None ->
