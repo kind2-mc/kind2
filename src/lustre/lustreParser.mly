@@ -30,6 +30,8 @@ let mk_span start_pos end_pos =
   { A.start_pos = mk_pos start_pos;
     A.end_pos = mk_pos end_pos }
 
+let i = ref 0
+
 %}
 
 (* Special characters *)
@@ -289,6 +291,14 @@ decl:
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
+  | ASSUME; e = qexpr; SEMICOLON; {
+    (* A global assumption desugars to a global constant refinement type predicate *)
+    let pos = mk_pos $startpos in 
+    let id = HString.mk_hstring ((string_of_int !i) ^ "_gassume") in 
+    i := !i + 1;
+    let ty = A.RefinementType (pos, (pos, id, A.Bool pos), e) in
+    [A.ConstDecl (mk_span $startpos $endpos, FreeConst (pos, id, ty))] 
+  }
 
 
 (* ********************************************************************** *)
@@ -1289,7 +1299,7 @@ merge_case :
 ident:
   (* Contract tokens are not keywords. *)
   | MODE { HString.mk_hstring "mode" }
-  | ASSUME { HString.mk_hstring "assume" }
+  (*| ASSUME { HString.mk_hstring "assume" }*)
   | GUARANTEE { HString.mk_hstring "guarantee" }
   | REQUIRE { HString.mk_hstring "require" }
   | ENSURE { HString.mk_hstring "ensure" }
