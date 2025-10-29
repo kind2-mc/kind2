@@ -19,6 +19,8 @@
 module A = LustreAst
 module AH = LustreAstHelpers
 module AN = LustreAstNormalizer
+module GI = GeneratedIdentifiers
+module NI = NodeId
 
 let rec flatten_ref_type ctx ty = match ty with
   | A.UserType (pos, ty_args, str) -> 
@@ -268,8 +270,8 @@ let flatten_ref_types_contract_opt ctx = function
 | Some c -> Some (flatten_ref_types_contract ctx c)
 | None -> None
 
-let flatten_ref_types ctx sorted_node_contract_decls = 
-  List.map (fun decl -> match decl with
+let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls = 
+  let decls = List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
       A.TypeDecl (pos, AliasType (pos2, id, ps, flatten_ref_type ctx ty))
     | NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
@@ -321,4 +323,11 @@ let flatten_ref_types ctx sorted_node_contract_decls =
     | ConstDecl (pos, cd) -> ConstDecl (pos, flatten_ref_types_const_decl ctx cd)
     | A.TypeDecl (_, FreeType _) -> decl
     
-  ) sorted_node_contract_decls
+  ) decls in 
+  let gids = NI.Map.map (fun gids -> 
+    { gids with 
+      GI.ib_oracles = List.map (fun (id, ty) -> id, flatten_ref_type ctx ty) gids.GI.ib_oracles; 
+      GI.locals = GI.StringMap.map (fun ty -> flatten_ref_type ctx ty) gids.GI.locals;
+    } 
+  ) gids in 
+  decls, gids

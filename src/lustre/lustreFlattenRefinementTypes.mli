@@ -17,5 +17,8 @@
  *)
 
 (** @author Rob Lorch *)
-                    
-val flatten_ref_types: TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list
+module GI = GeneratedIdentifiers 
+module NI = NodeId
+module A = LustreAst 
+
+val flatten_ref_types: TypeCheckerContext.tc_context -> GI.t NI.Map.t -> A.declaration list -> A.declaration list * GI.t NI.Map.t
