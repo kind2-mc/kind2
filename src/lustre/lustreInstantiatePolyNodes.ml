@@ -308,9 +308,8 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
 = fun ctx gids caller_nname node_decls_map expr -> 
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
-  (*!! Will need to infer the type arguments... *)
   | A.Call (pos, ty :: tys, node_id, exprs) ->
-    (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
+    (*!! Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
       HString.pp_print_hstring (NI.get_internal_name node_id)
       (Lib.pp_print_list A.pp_print_lustre_type "; ") (ty :: tys); *)
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
@@ -329,19 +328,12 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
         |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
-  | Call (pos, [], node_id, exprs) as e -> (
-    Format.printf "Processing call %a\n"
-      A.pp_print_expr e;
-    match Ctx.lookup_ty_args ctx pos with 
-    | None -> 
+  | Call (pos, [], node_id, exprs) -> (
       let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
         let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
         ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
       ) (ctx, gids, [], [], node_decls_map) exprs in 
       ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
-    | Some ty_args -> 
-      (* Use inferred type args if they weren't explicitly annotated *) 
-      rec_call (Call (pos, ty_args, node_id, exprs)) 
   )
   | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _

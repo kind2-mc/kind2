@@ -40,12 +40,6 @@ module IMap : sig
 end
 (** Map for types with identifiers as keys *)
 
-module PosMap : sig
-  (* everything that [Stdlib.Map] gives us  *)
-  include (Map.S with type key = Lib.position)
-end
-(** Map from call position to list of inferred type args *)
-
 type enum_variants = LA.ident list IMap.t
 (** A store of the variants for defined enumeration types *)
 
@@ -108,9 +102,6 @@ val expand_type_syn: tc_context -> tc_type -> tc_type
 val lookup_ty: tc_context -> LA.ident -> tc_type option
 (** Picks out the type of the identifier to type context map *)
 
-val lookup_ty_args: tc_context -> Lib.position -> tc_type list option
-(** Lookup a call's type args *)
-
 val lookup_contract_ty: tc_context -> NI.t -> tc_type option
 (** Lookup a contract type  *)
                           
@@ -142,12 +133,6 @@ val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 
 val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add type binding into the typing context *)
-
-val add_ty_args: tc_context -> Lib.position -> tc_type list -> tc_context
-(** Add a call's inferred type args into the typing context *)
-
-val add_ty_args_map: tc_context -> tc_type list PosMap.t -> tc_context
-(** Add type arg map to typing context *) 
 
 val add_ty_node: tc_context -> NI.t -> tc_type -> tc_context
 (** Add node/function type binding into the typing context *)
