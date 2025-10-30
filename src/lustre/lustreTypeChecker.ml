@@ -858,6 +858,8 @@ let rec unify_types pos ctx ty1 ty2 =
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
   match ty1, ty2 with 
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
+  (*!! This node's poly type is an abstract type?? *)
+  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
 
   (* Group types are weird... *)
   | GroupType (_, tys1), GroupType (_, tys2) ->
@@ -871,7 +873,6 @@ let rec unify_types pos ctx ty1 ty2 =
   | t, GroupType (_, tys) when List.length tys = 1 ->
     r t (List.hd tys)
 
-  | LA.AbstractType (_, id1), LA.AbstractType (_, id2) 
   | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
     R.ok StringMap.empty 
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
