@@ -114,6 +114,7 @@ type error_kind = Unknown of string
   | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
+  | CallRequiresExplicitAnnotation of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -223,6 +224,9 @@ let error_message kind = match kind with
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
+  | CallRequiresExplicitAnnotation id -> 
+    Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
+      HString.pp_print_hstring id
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1249,7 +1253,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> warni
         | None -> [] 
         | Some ty_vars -> ty_vars 
         in
-        let inferred_type_args = List.map (fun ty_var -> List.assoc ty_var substitution) ty_vars in
+        let* inferred_type_args = R.seq (List.map (fun ty_var -> 
+          match List.assoc_opt ty_var substitution with 
+          | Some ty -> R.ok ty 
+          | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
+        ) ty_vars) in
         R.ok (node_ty, inferred_type_args, warnings2)
       | ty_args -> 
         (* Type arguments were provided with a type annotation *)

@@ -97,6 +97,7 @@ type error_kind = Unknown of string
   | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
+  | CallRequiresExplicitAnnotation of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
