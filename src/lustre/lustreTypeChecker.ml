@@ -1725,7 +1725,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
       >> if is_extern
       then R.ok ( Debug.parse "External Node, no body to type check."
                 ; Debug.parse "TC declaration node %a done }" NI.pp_print_node_id_user_name node_name ;
-                _, [])
+                d, [])
       else (
         (* Add local variable bindings to the context *)
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
@@ -1755,14 +1755,15 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         in
         Debug.parse "TC declaration node %a done }"
           NI.pp_print_node_id_user_name node_name;
-        check_lhs_eqns >> R.ok (_, List.flatten warnings1 @ List.flatten warnings2))
+        check_lhs_eqns >> R.ok (d, List.flatten warnings1 @ List.flatten warnings2))
 
-and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> ([> warning] list, [> error]) result = fun ctx nname ->
+and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [> warning] list, [> error]) result = fun ctx nname ->
   function
   | LA.Assert (pos, e) ->
     Debug.parse "Checking assertion: %a" LA.pp_print_expr e;
-    check_type_expr ctx (Some nname) e (Bool pos)
-  | LA.Equation (_, lhs, e)  as eqn ->
+    let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
+    R.ok (LA.Assert (pos, e), warnings)
+  | LA.Equation (p, lhs, e)  as eqn ->
     Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn;
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
@@ -1779,20 +1780,25 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> ([> warning] list, [>
     Debug.parse "Checking node equation lhs=%a; rhs=%a"
       LA.pp_print_eq_lhs lhs
       LA.pp_print_expr e;
-    let* ty, warnings1 = infer_type_expr new_ctx (Some nname) e in
+    let* ty, e, warnings1 = infer_type_expr new_ctx (Some nname) e in
     Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs;
     let* warnings2 = check_type_struct_def new_ctx nname lhs ty in 
-    R.ok (warnings1 @ warnings2)
+    R.ok (LA.Equation (p, lhs, e), warnings1 @ warnings2)
 
-and do_item: tc_context -> NI.t -> LA.node_item -> ([> warning] list, [> error]) result = fun ctx nname ->
+and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] list, [> error]) result = fun ctx nname ->
   function
-  | LA.Body eqn -> do_node_eqn ctx nname eqn >> R.ok []
+  | LA.Body eqn -> 
+    let* eqn, warnings = do_node_eqn ctx nname eqn in 
+    R.ok (LA.Body eqn, warnings)
   | LA.IfBlock (pos, e, l1, l2) ->
-    let* guard_type, warnings1 = infer_type_expr ctx (Some nname) e in
+    let* guard_type, e, warnings1 = infer_type_expr ctx (Some nname) e in
     (match guard_type with
       | Bool _ -> 
-        let* warnings2 = (R.seq ((List.map (do_item ctx nname) l1) @ (List.map (do_item ctx nname) l2))) in 
-        R.ok (warnings1 @ List.flatten warnings2)
+        let* l1_warnings2 = R.seq (List.map (do_item ctx nname) l1) in 
+        let* l2_warnings3 = R.seq (List.map (do_item ctx nname) l2) in 
+        let l1, warnings2 = List.split l1_warnings2 in 
+        let l2, warnings3 = List.split l2_warnings3 in
+        R.ok (LA.IfBlock (pos, e, l1, l2), warnings1 @ List.flatten warnings2 @ List.flatten warnings3)
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
@@ -1808,18 +1814,20 @@ and do_item: tc_context -> NI.t -> LA.node_item -> ([> warning] list, [> error])
     R.ok (List.flatten warnings)
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
-    ; R.ok []
-  | LA.AnnotProperty (_, _, e1, Provided e2) as ann ->
+    ; R.ok (ann, [])
+  | LA.AnnotProperty (p, id, e1, Provided e2) as ann ->
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e1
     ; 
-    let* warnings1 = check_type_expr ctx (Some nname) e1 (Bool (LH.pos_of_expr e1)) in 
-    let* warnings2 = check_type_expr ctx (Some nname) e2 (Bool (LH.pos_of_expr e2)) in 
-    R.ok (warnings1 @ warnings2)
-  | LA.AnnotProperty (_, _, e, _) as ann ->
+    let* e1, warnings1 = check_type_expr ctx (Some nname) e1 (Bool (LH.pos_of_expr e1)) in 
+    let* e2, warnings2 = check_type_expr ctx (Some nname) e2 (Bool (LH.pos_of_expr e2)) in 
+    R.ok (LA.AnnotProperty (p, id, e1, Provided e2), warnings1 @ warnings2)
+  | LA.AnnotProperty (p, id, e, k) as ann ->
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e
-    ; check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e))
+    ; 
+    let* e, warnings = check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e)) in 
+    R.ok (LA.AnnotProperty (p, id, e, k), warnings)
   
 and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx nname st exp_ty ->
@@ -2035,8 +2043,6 @@ and tc_ctx_contract_vars: tc_context -> NI.t -> LA.contract_ghost_vars -> (tc_co
       tis
 (** Adds the type of contract variables in the typing context  *)
 
-
-     
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) result
   = fun ctx ->
   function
