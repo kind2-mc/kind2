@@ -794,6 +794,9 @@ let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = fa
     let* ty1 = rec_call ty1 in
     let* ty2 = rec_call ty2 in
     R.ok (LA.Map (p, ty1, ty2))
+  | Set (p, ty) -> 
+    let* ty = rec_call ty in
+    R.ok (LA.Set (p, ty))
   | RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with

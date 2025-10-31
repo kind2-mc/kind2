@@ -1,0 +1,16 @@
+type Pos = subrange [1,*] of int;
+
+const N: Pos; -- Number of participants
+
+type R = subrange [0,N-1] of int;
+
+node N(c: bool; r: R) returns (s: set<R>);
+let
+  frame (s)
+    s = {}@<R>;
+  let
+    if c then
+      s = {r} + {r};
+    fi
+  tel
+tel
