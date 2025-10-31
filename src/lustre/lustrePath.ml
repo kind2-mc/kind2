@@ -995,14 +995,10 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let is_visible = N.state_var_is_visible node in
 
-  let is_state, node_name =
-    match N.node_is_state_handler node with
-    | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
-    | Some state -> true, state
-  in
+  let node_name = NI.get_user_name node_id |> HString.string_of_hstring in
+
   let title =
     if is_function then "Function"
-    else if is_state then "State"
     else match (NI.get_node_type node_id) with 
     | Environment -> "Environment of"
     | Contract -> "Contract of"
@@ -1383,15 +1379,10 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
 
     let is_visible = N.state_var_is_visible node in
   
-    let is_state, name =
-      match N.node_is_state_handler node with
-      | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
-      | Some state -> true, state
-    in
+    let name = NI.get_user_name node_id |> HString.string_of_hstring in
 
     let title =
       if is_function then "Function"
-      else if is_state then "State"
       else "Node"
     in
 
@@ -1798,15 +1789,10 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
     )
   ) :: tl when N.node_is_visible node ->
 
-    let is_state, name =
-      match N.node_is_state_handler node with
-      | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
-      | Some state -> true, state
-    in
+    let name = NI.get_user_name node_id |> HString.string_of_hstring in
 
     let title =
       if is_function then "function"
-      else if is_state then "state"
       else "node"
     in
 

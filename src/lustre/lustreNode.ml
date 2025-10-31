@@ -1563,8 +1563,6 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 (* Return true if the state variable should be visible to the user,
     false if it was created internally *)
 let state_var_is_visible node state_var =
-  let open Lib.ReservedIds in
-
   let visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
@@ -1586,31 +1584,8 @@ let state_var_is_visible node state_var =
    | src -> visible_of_src src
    (* Invisible if no source set *)
    | exception Not_found -> false)
-  &&
-  let s = StateVar.name_of_state_var state_var in
-  let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\|%s\\..*\\)$"
-      state_selected_string restart_selected_string
-      state_selected_next_string restart_selected_next_string "last"
-  in
-  let r = Str.regexp r in
-  not (Str.string_match r s 0)  
 
-let node_is_visible node =
-  let open Lib.ReservedIds in
-  let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in
-  let r = Str.regexp r in
-  not (Str.string_match r (NI.get_internal_name node.node_id |> HString.string_of_hstring) 0)
-
-
-let node_is_state_handler node =
-  let open Lib.ReservedIds in
-  let r = Format.sprintf ".*\\.\\(%s\\)\\.\\(.*\\)$" handler_string in
-  let r = Str.regexp r in
-  let s = NI.get_internal_name node.node_id |> HString.string_of_hstring in
-  if Str.string_match r s 0 then
-    try Some (Str.matched_group 2 s)
-    with Not_found -> None
-  else None
+let node_is_visible _ = true
   
 
 (* Return true if the state variable is an input *)
