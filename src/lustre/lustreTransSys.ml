@@ -2571,6 +2571,15 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             List.map Var.state_var_of_state_var_instance global_consts
           in
 
+          global_const_svars |> List.iter (fun state_var ->
+              let state_var_type = StateVar.type_of_state_var state_var in
+              if Type.is_array state_var_type then (
+                (* Enforce creation of 'select' functions. Globals are never sliced.*)
+                StateVar.encode_select state_var |> ignore
+              )
+            )
+          ;
+
           let global_constraints =
             List.map
               (E.base_term_of_t TransSys.init_base)
