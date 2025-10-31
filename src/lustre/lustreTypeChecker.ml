@@ -795,7 +795,7 @@ let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = fa
     let* ty2 = rec_call ty2 in
     R.ok (LA.Map (p, ty1, ty2))
   | Set (p, ty) -> 
-    let* ty= rec_call ty in
+    let* ty = rec_call ty in
     R.ok (LA.Set (p, ty))
   | RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
