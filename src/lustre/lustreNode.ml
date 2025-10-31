@@ -1561,8 +1561,30 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 
 
 (* Return true if the state variable should be visible to the user,
-    false if it was created internally *)
-let state_var_is_visible node state_var =
+    false if it was created internally or it is a map or set *)
+let state_var_is_visible node =
+  let set_or_map_vars =
+    let { inputs; outputs; locals } = node in
+    let inputs_and_outputs =
+      List.rev_append
+        (D.bindings inputs)
+        (D.bindings outputs)
+    in
+    List.fold_left
+      (fun acc l -> List.rev_append (D.bindings l) acc)
+      inputs_and_outputs
+      locals
+    |> List.filter (fun (idx, sv) ->
+      List.exists (function
+        | D.SetMapIndex _ -> true
+        | _ -> false
+        ) idx
+    )
+    |> List.map snd
+    |> SVS.of_list
+  in
+
+  (fun state_var ->
   let visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
@@ -1573,7 +1595,7 @@ let state_var_is_visible node state_var =
     | Input
     | Output
     | Ghost
-    | Local -> true
+    | Local -> not (SVS.mem state_var set_or_map_vars)
 
     (* (* Alias depends on source of alias. *)
     | Alias (_, None) -> false
@@ -1583,7 +1605,7 @@ let state_var_is_visible node state_var =
   (match get_state_var_source node state_var with
    | src -> visible_of_src src
    (* Invisible if no source set *)
-   | exception Not_found -> false)
+   | exception Not_found -> false))
 
 let node_is_visible _ = true
   
