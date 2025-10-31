@@ -1563,8 +1563,6 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 (* Return true if the state variable should be visible to the user,
     false if it was created internally *)
 let state_var_is_visible node state_var =
-  let open Lib.ReservedIds in
-
   let visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
