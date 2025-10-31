@@ -1574,7 +1574,7 @@ let state_var_is_visible node =
       (fun acc l -> List.rev_append (D.bindings l) acc)
       inputs_and_outputs
       locals
-    |> List.filter (fun (idx, sv) ->
+    |> List.filter (fun (idx, _) ->
       List.exists (function
         | D.SetMapIndex _ -> true
         | _ -> false
