@@ -1,0 +1,16 @@
+node N(m: map<int,int>; x: int; A:int^2) returns (y: int);
+var l: int;
+    r: bool;
+    s: set<int>;
+    k: int;
+let
+  s = {}@<int>;
+  l = m[0];
+  r = 0 in m;
+  y = x;
+  k = A[0];
+  check "P1" l>0;
+  check "P2" r => l>0;
+  check "P3" y in s;
+  check "P4" k>0;
+tel

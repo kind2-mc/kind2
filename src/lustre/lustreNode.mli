@@ -48,6 +48,7 @@
 open Lib
 
 module NI = NodeId
+module LG = LustreGlobals
 
 (** {1 Types} *)
 
@@ -334,7 +335,7 @@ val subsystem_of_nodes : NI.t -> t list -> t SubSystem.t
 val nodes_of_subsystem : t SubSystem.t -> t list
 
 (** Return all stateful variables from expressions in a node *)
-val stateful_vars_of_node : t -> StateVar.StateVarSet.t
+val stateful_vars_of_node : LG.state_var_bounds -> t -> StateVar.StateVarSet.t
 
 (** Return the name of the node *)
 val node_id_of_node : t -> NI.t
