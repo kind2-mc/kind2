@@ -50,6 +50,7 @@ module D = LustreIndex
 module E = LustreExpr
 module C = LustreContract
 module NI = NodeId
+module LG = LustreGlobals
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -1364,6 +1365,7 @@ let stateful_vars_of_expr { E.expr_step } =
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
+    (svar_bounds: LG.state_var_bounds)
     { inputs; 
       oracles; 
       outputs; 
@@ -1373,6 +1375,11 @@ let stateful_vars_of_node
       asserts; 
       props; 
       contract } =
+
+  let is_unbounded_array svar =
+    let bounds = SVT.find svar_bounds svar in
+    List.exists (function E.Unbound _ -> true | _ -> false) bounds
+  in
 
   (* Input, oracle, and output variables are always stateful
 
@@ -1435,10 +1442,26 @@ let stateful_vars_of_node
                   if
                     (* Arrays are global TODO maybe this is not necessary *)
                     not (Type.is_array (StateVar.type_of_state_var sv)) &&
-                    (* Local state variable is defined by an equation? *)
-                    List.exists
-                      (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
-                      equations 
+                    (* Local state variable is defined by an equation and
+                       the definition does not access an unbounded array *)
+                    let eq =
+                      List.find_opt
+                        (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
+                        equations
+                    in
+                    match eq with
+                    | Some (_, def) -> (
+                      let select_terms = E.select_terms def in
+                      Term.TermSet.for_all
+                        (fun t ->
+                          let svar =
+                            Var.state_var_of_state_var_instance (Term.var_of_select_store t)
+                          in
+                          not (is_unbounded_array svar)
+                        )
+                        select_terms
+                    )
+                    | None -> false
                   then a
                   else
                     (* State variable without equation must be stateful *)
