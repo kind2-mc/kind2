@@ -1666,7 +1666,7 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
 
 and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
   = fun pos ctx
-        (node_name, is_extern, _, params, input_vars, output_vars, ldecls, items, contract)
+        ((node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract) as decl)
         ->
   Debug.parse "TC declaration node: %a {" NI.pp_print_node_id_user_name node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -1725,26 +1725,30 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
       >> if is_extern
       then R.ok ( Debug.parse "External Node, no body to type check."
                 ; Debug.parse "TC declaration node %a done }" NI.pp_print_node_id_user_name node_name ;
-                d, [])
+                decl, [])
       else (
         (* Add local variable bindings to the context *)
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check locals' types and their well-formedness *)
-        let* warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
-          | LA.NodeConstDecl (_, (TypedConst (_, i, e, ty))) -> 
+        let* ldecls_warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
+          | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* warnings2 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* e, warnings2 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
             let* warnings3 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (warnings2 @ warnings3)
-          | LA.NodeVarDecl (_, (_, _, ty, _)) -> 
-            check_type_well_formed local_ctx Local (Some node_name) false ty 
-          | LA.NodeConstDecl (_, FreeConst (_, _, ty)) ->
-            check_type_well_formed local_ctx Local (Some node_name) true ty 
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings2 @ warnings3)
+          | LA.NodeVarDecl (_, (_, _, ty, _)) as ldecl -> 
+            let* warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
+            R.ok (ldecl, warnings)
+          | LA.NodeConstDecl (_, FreeConst (_, _, ty)) as ldecl ->
+            let* warnings = check_type_well_formed local_ctx Local (Some node_name) true ty in 
+            R.ok (ldecl, warnings)
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) in 
+        let ldecls, warnings1 = List.split ldecls_warnings1 in
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
-        let* warnings2 = R.seq (List.map (do_item local_ctx node_name) items) in
+        let* items_warnings2 = R.seq (List.map (do_item local_ctx node_name) items) in
+        let items, warnings2 = List.split items_warnings2 in
         (* check that the LHS of the equations are not args to node *)
         let check_lhs_eqns = List.map (fun (pos, v) ->
             if SI.mem v arg_ids then
@@ -1755,7 +1759,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         in
         Debug.parse "TC declaration node %a done }"
           NI.pp_print_node_id_user_name node_name;
-        check_lhs_eqns >> R.ok (d, List.flatten warnings1 @ List.flatten warnings2))
+        let decl = node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract in
+        check_lhs_eqns >> R.ok (decl, List.flatten warnings1 @ List.flatten warnings2))
 
 and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [> warning] list, [> error]) result = fun ctx nname ->
   function
@@ -1802,16 +1807,19 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
-    let vars = List.map snd vars in
-    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars)) in
-    let* warnings = R.seq (
-      (
-        if ((SI.cardinal reassigned_consts) = 0) 
-        then R.ok ([])
-        else type_error pos (DisallowedReassignment reassigned_consts)
-      ) :: (List.map (do_node_eqn ctx nname) nes) @ (List.map (do_item ctx nname) nis) 
-    ) in 
-    R.ok (List.flatten warnings)
+    let vars' = List.map snd vars in
+    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars')) in
+    let* nes_warnings1 = R.seq (List.map (do_node_eqn ctx nname) nes) in
+    let nes, warnings1 = List.split nes_warnings1 in 
+    let* nis_warnings2 = R.seq (List.map (do_item ctx nname) nis) in 
+    let nis, warnings2 = List.split nis_warnings2 in 
+    let* warnings3 =
+      if ((SI.cardinal reassigned_consts) = 0) 
+      then R.ok ([])
+      else type_error pos (DisallowedReassignment reassigned_consts)
+    in
+    let warnings = List.flatten warnings1 @ List.flatten warnings2 @ warnings3 in
+    R.ok (LA.FrameBlock (pos, vars, nes, nis), warnings)
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok (ann, [])
@@ -1845,7 +1853,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         type_error pos (Impossible ("Constant "
           ^ (HString.string_of_hstring i)
           ^ " cannot be re-defined"))
-        else R.ok ([])
+        else R.ok []
     else
       type_error pos (ExpectedType (exp_ty, inf_ty))
 
@@ -1864,7 +1872,8 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in
-    check_type_expr ctx (Some nname) array_idx_expr exp_ty
+    let* _, warnings = check_type_expr ctx (Some nname) array_idx_expr exp_ty in 
+    R.ok warnings
   | TupleStructItem _ -> Lib.todo __LOC__
   | TupleSelection _ -> Lib.todo __LOC__
   | FieldSelection _ -> Lib.todo __LOC__
@@ -1922,8 +1931,8 @@ and tc_ctx_contract_eqn: tc_context -> NI.t -> LA.contract_node_equation -> (tc_
       ctx
       (IMap.bindings m), []) 
 
-and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning] list, [> error]) result
-  = fun ctx (cname, _, args, rets, (p, contract)) ->
+and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (LA.contract_node_decl * [> warning] list, [> error]) result
+  = fun ctx (cname, params, args, rets, (p, contract)) ->
   let arg_ids = LA.SI.of_list (List.map (fun arg -> LH.extract_ip_ty arg |> fst) args) in
   let ret_ids = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
   Debug.parse "TC Contract Decl: %a {" NI.pp_print_node_id_user_name cname;
@@ -1937,15 +1946,18 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> ([> warning
   let ctxs, warnings1 = List.split ctxs_warnings in
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
-  let* warnings2 = check_type_contract (arg_ids, ret_ids) local_ctx cname (p, contract) in
-  R.ok (Debug.parse "TC Contract Decl %a done }" NI.pp_print_node_id_user_name cname; List.flatten warnings1 @ warnings2)
+  let* contract, warnings2 = check_type_contract (arg_ids, ret_ids) local_ctx cname (p, contract) in
+  let decl = cname, params, args, rets, contract in
+  R.ok (Debug.parse "TC Contract Decl %a done }" NI.pp_print_node_id_user_name cname; decl, List.flatten warnings1 @ warnings2)
 
-and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract -> ([> warning] list, [> error]) result
-  = fun node_params ctx nname (_, eqns) ->
-  let* warnings = R.seq (List.map (check_contract_node_eqn node_params ctx nname) eqns) in 
-  R.ok (List.flatten warnings)
+and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract -> (LA.contract * [> warning] list, [> error]) result
+  = fun node_params ctx nname (p, eqns) ->
+  let* eqns_warnings = R.seq (List.map (check_contract_node_eqn node_params ctx nname) eqns) in 
+  let eqns, warnings = List.split eqns_warnings in
+  R.ok ((p, eqns), List.flatten warnings)
 
-and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract_node_equation -> ([> warning] list, [> error]) result
+and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract_node_equation 
+  -> (LA.contract_node_equation * [> warning] list, [> error]) result
   = fun node_params ctx nname eqn ->
   Debug.parse "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
   ; match eqn with
@@ -1955,34 +1967,50 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       match List.find_opt (fun (_, id) -> LA.SI.mem id io_params |> not) ids with
       | Some (pos, id) ->
         type_error pos (AssumptionMustBeInputOrOutput id)
-      | None -> R.ok []
+      | None -> R.ok (eqn, [])
     )
     | GhostConst (FreeConst (_, _, exp_ty) as c) -> 
-      check_type_const_decl ctx (Some nname) c exp_ty
-    | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx (Some nname) c exp_ty
-    | GhostConst (UntypedConst _) -> R.ok []
-    | GhostVars v -> let node_eqn = contract_eqn_to_node_eqn v in do_node_eqn ctx nname node_eqn
-    | Assume (pos, _, _, e) ->
-      check_type_expr ctx (Some nname) e (Bool pos)
-         
-    | Guarantee (pos, _, _, e) -> check_type_expr ctx (Some nname) e (Bool pos)
-    | Mode (pos, _, reqs, ensures) ->
-      let* warnings = R.seq (Lib.list_apply (List.map (check_type_expr ctx (Some nname))
-                                (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
-                (Bool pos)) in 
-      R.ok (List.flatten warnings)
-      
+      let* _, warnings = check_type_const_decl ctx (Some nname) c exp_ty in 
+      R.ok (eqn, warnings)
+    | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> 
+      let* _, warnings = check_type_const_decl ctx (Some nname) c exp_ty in 
+      R.ok (eqn, warnings)
+    | GhostConst (UntypedConst _) -> R.ok (eqn, [])
+    | GhostVars v -> 
+      let node_eqn = contract_eqn_to_node_eqn v in 
+      let* eqn, warnings = do_node_eqn ctx nname node_eqn in 
+      let eqn = node_eqn_to_contract_eqn ctx eqn in 
+      R.ok (LA.GhostVars eqn, warnings)
+    | Assume (pos, id, b, e) ->
+      let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
+      R.ok (LA.Assume (pos, id, b, e), warnings)
+    | Guarantee (pos, id, b, e) -> 
+      let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
+      R.ok (LA.Guarantee (pos, id, b, e), warnings) 
+    | Mode (pos, id, reqs, ensures) ->
+      let* reqs_warnings = R.seq (List.map (fun (a, b, e)  -> 
+        let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
+        R.ok ((a, b, e), warnings)
+      ) reqs) in 
+      let* ensures_warnings = R.seq (List.map (fun (a, b, e)  -> 
+        let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
+        R.ok ((a, b, e), warnings)
+      ) ensures) in 
+      let reqs, warnings1 = List.split reqs_warnings in 
+      let ensures, warnings2 = List.split ensures_warnings in 
+      let warnings = List.flatten warnings1 @ List.flatten warnings2 in
+      R.ok (LA.Mode (pos, id, reqs, ensures), warnings)
     | ContractCall (pos, c_id, ty_args, args, rets) ->
       let* ret_tys_warns = R.seq (List.map (infer_type_expr ctx (Some nname))
         (List.map (fun i -> LA.Ident (pos, i)) rets))
       in
-      let ret_tys, warnings1 = List.split ret_tys_warns in
+      let ret_tys, _, warnings1 = Lib.split3 ret_tys_warns in
       let ret_ty = if List.length ret_tys = 1
         then List.hd ret_tys
         else LA.GroupType (pos, ret_tys)
       in
       let* arg_tys_warns = R.seq (List.map (infer_type_expr ctx (Some nname)) args) in
-      let arg_tys, warnings2 = List.split arg_tys_warns in
+      let arg_tys, _, warnings2 = Lib.split3 arg_tys_warns in
       let arg_ty = if List.length arg_tys = 1
         then List.hd arg_tys
         else LA.GroupType (pos, arg_tys)
@@ -1992,7 +2020,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       | Some inf_ty -> 
           let* inf_ty = instantiate_type_variables ctx pos c_id inf_ty ty_args in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
-            (R.ok (List.flatten warnings1 @ List.flatten warnings2))
+            (R.ok (eqn, List.flatten warnings1 @ List.flatten warnings2))
             (type_error pos (MismatchedNodeType (NI.get_user_name c_id, exp_ty, inf_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))
@@ -2003,6 +2031,18 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     List.map (fun (pos, i, _) -> LA.SingleIdent(pos, i)) tis
     ) in
     Equation(pos1, lhs, expr)
+
+and node_eqn_to_contract_eqn: tc_context -> LA.node_equation -> LA.contract_ghost_vars 
+  = fun ctx eqn -> match eqn with 
+  | Equation (p1, StructDef (p2, sis), expr) ->
+    let tis = List.map (fun si -> match si with 
+     | LA.SingleIdent (p, id)  ->  
+       let ty = lookup_ty ctx id |> Option.get in 
+       p, id, ty
+     | _ -> assert false
+    ) sis in
+    p1, GhostVarDec (p2, tis), expr
+  | Assert _ -> assert false
 
 and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> (tc_context * [> warning] list, [> error]) result
   = fun ctx src nname ->
@@ -2016,7 +2056,7 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
-      let* ty, warnings = infer_type_expr ctx nname e in
+      let* ty, _, warnings = infer_type_expr ctx nname e in
       let* ctx = check_and_add_constant_definition ctx i e ty src in 
       R.ok (ctx, warnings)
     )
@@ -2025,7 +2065,7 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
-      let* warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
+      let* _, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
       let* ctx = check_and_add_constant_definition ctx i e exp_ty src in 
       R.ok (ctx, warnings1 @ warnings2)
 (** Fail if a duplicate constant is detected  *)
@@ -2136,7 +2176,7 @@ and extract_exports: NI.t -> tc_context -> LA.contract -> (tc_context * [> warni
       function
       | LA.GhostConst (FreeConst (_, i, ty)) -> R.ok ([(i, ty)], [])
       | LA.GhostConst (UntypedConst (_, i, e)) ->
-        let* ty, warnings = infer_type_expr ctx (Some nname) e in
+        let* ty, _, warnings = infer_type_expr ctx (Some nname) e in
         R.ok ([(i, ty)], warnings)
       | LA.GhostConst (TypedConst (_, i, _, ty)) ->
         R.ok ([(i, ty)], [])
@@ -2221,17 +2261,17 @@ and build_type_and_const_context: tc_context -> LA.t -> (tc_context * [> warning
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
 
-and check_const_integer_expr: tc_context -> NI.t option -> string -> LA.expr -> ([> warning] list, [> error ]) result
+and check_const_integer_expr: tc_context -> NI.t option -> string -> LA.expr -> (LA.expr * [> warning] list, [> error ]) result
 = fun ctx nname kind e ->
   match infer_type_expr ctx nname e with
   | Error (`LustreTypeCheckerError (pos, UnboundNodeName _)) ->
     type_error pos
       (ExpectedConstant (kind, "node call or any operator"))
-  | Ok (ty, warnings) ->
+  | Ok (ty, e, warnings) ->
     let* eq = eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)) in
     if eq then
       check_expr_is_constant ctx kind e >>
-      R.ok (warnings)
+      R.ok (e, warnings)
     else
       type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
   | Error err -> Error err
@@ -2354,15 +2394,15 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     match e1, e2 with
     | None, None -> type_error pos IntervalMustHaveBound
     | Some e, None | None, Some e -> (
-      let* inf_ty, warnings = infer_type_expr ctx nname e in
+      let* inf_ty, _, warnings = infer_type_expr ctx nname e in
       let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
       match inf_ty with 
       | LA.Int _ -> R.ok warnings 
       | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
     )
     | Some e1, Some e2 ->
-      let* inf_ty1, warnings1 = infer_type_expr ctx nname e1 in 
-      let* inf_ty2, warnings2 = infer_type_expr ctx nname e2 in 
+      let* inf_ty1, _, warnings1 = infer_type_expr ctx nname e1 in 
+      let* inf_ty2, _, warnings2 = infer_type_expr ctx nname e2 in 
       let* inf_ty1 = expand_type_syn_reftype_history_subrange ctx inf_ty1 in
       let* inf_ty2 = expand_type_syn_reftype_history_subrange ctx inf_ty2 in
       match inf_ty1, inf_ty2 with 
@@ -2500,7 +2540,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 and is_expr_int_type: tc_context -> NI.t option -> LA.expr -> bool  = fun ctx nname e ->
   R.safe_unwrap false
     (infer_type_expr ctx nname e
-      >>= fun (ty, _) -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)))
+      >>= fun (ty, _, _) -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)))
 (** Checks if the expr is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
@@ -2529,36 +2569,39 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
    Hence, silently return true with a leap of faith. *)         
 
                                  
-let rec type_check_group: tc_context -> LA.t ->  ([> warning] list, [> error]) result list
+let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> error]) result 
   = fun global_ctx
   -> function
-  | [] -> [R.ok ([])]
+    | [] -> R.ok ([], [])
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
-  | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
+  | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  (*!!*)
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
-    (check_type_node_decl pos global_ctx node_decl)
-    :: type_check_group global_ctx rest
+    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in  
+    let* decls, warnings2 = type_check_group global_ctx rest in 
+    R.ok (LA.NodeDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.FuncDecl (span, node_decl):: rest ->
     let { LA.start_pos = pos } = span in
-    (check_type_node_decl pos global_ctx node_decl)
-    :: type_check_group global_ctx rest
-  | LA.ContractNodeDecl (_, contract_decl) :: rest ->
-    (check_type_contract_decl global_ctx contract_decl)
-    :: type_check_group global_ctx rest
+    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in 
+    let* decls, warnings2 = type_check_group global_ctx rest in 
+    R.ok (LA.FuncDecl (span, node_decl) :: decls, warnings @ warnings2)
+  | LA.ContractNodeDecl (span, contract_decl) :: rest ->
+    let* contract_decl, warnings = check_type_contract_decl global_ctx contract_decl in 
+    let* decls, warnings2 = type_check_group global_ctx rest in 
+    R.ok (LA.ContractNodeDecl (span, contract_decl) :: decls, warnings @ warnings2)
   | LA.NodeParamInst  _ :: rest ->
     type_check_group global_ctx rest
 (** By this point, all the circularity should be resolved,
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*) 
 
-let type_check_decl_grps: tc_context -> LA.t list -> ([> warning] list, [> error]) result list
+let type_check_decl_grps: tc_context -> LA.t list -> ((LA.t * [> warning] list) list, [> error]) result 
   = fun ctx decls ->
     Debug.parse ("@.===============================================@."
       ^^ "Phase: Type checking declaration Groups@."
       ^^"===============================================@.");
-    List.concat (List.map (fun decl -> type_check_group ctx decl) decls)
+    Res.seq (List.map (fun decl -> type_check_group ctx decl) decls) 
 (** Typecheck a list of independent groups using a global context*)
 
 (**************************************************************************************
@@ -2574,7 +2617,7 @@ let type_check_infer_globals: tc_context -> LA.t -> (tc_context * [> warning] li
     let* global_ctx, warnings = build_type_and_const_context ctx prg in
     R.ok (global_ctx, warnings)
 
-let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result
+let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * LA.t * [> warning] list, [> error]) result
   = fun ctx prg -> 
   (* type check the nodes and contract decls using this base typing context  *)
   Debug.parse ("@.===============================================@."
@@ -2587,11 +2630,12 @@ let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [>
     ^^ "with TC Context@.%a@."
     ^^"===============================================@.")
     pp_print_tc_context global_ctx;
-  let* warnings2 = R.seq (type_check_decl_grps global_ctx [prg]) in
+  let* prg_warnings2 = type_check_decl_grps global_ctx [prg] in
+  let prg, warnings2 = List.split prg_warnings2 in 
   Debug.parse ("@.===============================================@."
     ^^ "Type checking declaration Groups Done@."
     ^^"===============================================@.");
-  R.ok (global_ctx, warnings1 @ List.flatten warnings2)
+  R.ok (global_ctx, List.flatten prg, warnings1 @ List.flatten warnings2)
 
 (* 
    Local Variables:

@@ -124,7 +124,7 @@ val type_check_infer_globals: tc_context -> LA.t -> (tc_context * [> warning] li
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * LA.t * [> warning] list, [> error]) result
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
@@ -206,7 +206,7 @@ val expand_type_syn_reftype_history_subrange :
     [> error] )
   result
   
-val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
+val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val desugar_generic_index: tc_context -> NI.t option -> LA.expr -> LA.label_or_index -> (LA.label_or_index, [> error]) result
@@ -228,7 +228,7 @@ val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
    End: 
 *)
                                 
-val infer_type_node_args: Lib.position -> tc_context -> LA.expr list -> NodeId.t option -> (tc_type * [> warning] list, [> error]) result 
+val infer_type_node_args: Lib.position -> tc_context -> LA.expr list -> NodeId.t option -> (tc_type * LA.expr list * [> warning] list, [> error]) result 
 val unify_types: Lib.position ->
 tc_context ->
 tc_type ->

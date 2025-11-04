@@ -171,7 +171,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 8. Type check nodes and contracts *)
-    let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+    let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Provide lsp info if option is enabled *)
     if Flags.log_format_json () && Flags.Lsp.lsp () then
