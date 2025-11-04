@@ -1187,6 +1187,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         R.ok (acc_w @ warnings, acc_ctx)
       ) ([], ctx) qs)
     in
+    (* Disallow quantification over variables with types containing map or set types *)
+    let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
+      if type_contains_array ctx ty || type_contains_map_or_set ctx ty then
+        type_error pos (UnsupportedQuantifiedVariable id)
+      else
+        R.ok ()
+    ) qs) in
     let extn_ctx = List.fold_left union ctx
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
@@ -1200,8 +1207,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.When (_, e, _) -> infer_type_expr ctx nname e
   | LA.Condact (pos, c, e, node, args, defaults) ->
     check_type_expr ctx nname c (Bool pos) >> 
-    let* r_ty, c, warnings1 = infer_type_expr ctx nname (Call (pos, [], node, args)) in
-    let args = match c with 
+    let* r_ty, call, warnings1 = infer_type_expr ctx nname (Call (pos, [], node, args)) in
+    let args = match call with 
     | Call (_, _, _, args) -> args 
     | _ -> assert false 
     in
@@ -1212,8 +1219,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         (type_error pos IlltypedDefaults)
   | LA.Activate (pos, node, cond, e, args) ->
     check_type_expr ctx nname cond (Bool pos) >>
-    let* ty, c, warnings = infer_type_expr ctx nname (Call (pos, [], node, args)) in (
-    match c with 
+    let* ty, call, warnings = infer_type_expr ctx nname (Call (pos, [], node, args)) in (
+    match call with 
     | Call (_, _, node, args) -> 
       R.ok (ty, LA.Activate (pos, node, cond, e, args), warnings)
     | _ -> assert false
@@ -1231,8 +1238,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx nname cond (LA.Bool pos) >> 
-    let* ty, c, warnings = infer_type_expr ctx nname (LA.Call (pos, [], node, args)) in (
-    match c with 
+    let* ty, call, warnings = infer_type_expr ctx nname (LA.Call (pos, [], node, args)) in (
+    match call with 
     | Call (_, _, node, args) -> 
       R.ok (ty, LA.RestartEvery (pos, node, args, cond), warnings) 
     | _ -> assert false 
