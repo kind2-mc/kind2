@@ -846,15 +846,24 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   | _, (Some v), (Some _) -> Some v
 
-(*!! Documentation *)
-(*!! What if user type has type args? *)
+(* Unify `ty1` with `ty2` in the context of inferring type arguments for node calls. 
+   `ty1` represents the function signature with type parameters, and 
+   `ty2` represents the types of the concrete arguments.  
+    We return a map of strings to types denoting a substitution from type parameters (from `ty1`) 
+    to types (from `ty2`).
+
+    The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
+    a boolean. *)
 let rec unify_types pos ctx ty1 ty2 = 
   let r = unify_types pos ctx in
   let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
   match ty1, ty2 with 
+  (* UserTypes denote __the callee's__ 
+     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  (*!! This node's poly type is an abstract type?? *)
+  (* AbstractTypes denote __the caller's__ 
+     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
   | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
 
   (* Group types are weird... *)
@@ -890,7 +899,7 @@ let rec unify_types pos ctx ty1 ty2 =
   | LA.Real _, LA.Real _ 
   | LA.Bool _, LA.Bool _ 
   | LA.SBitVector _, LA.SBitVector _
-  | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty (*!! And other cases *)
+  | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty 
   | ty1, ty2 -> 
     type_error pos (IlltypedCall (ty1, ty2))
 
@@ -2589,7 +2598,7 @@ let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> er
     | [] -> R.ok ([], [])
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
-  | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  (*!!*)
+  | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
     let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in  

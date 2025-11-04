@@ -3,16 +3,11 @@ let
   out = inp;
 tel
 
-node Bad<T>() returns (out: T)
-let
-tel
-
 node M2<T>(inp: T) returns (out: T)
 let
 tel
 
-
-node N(inp: int^3; inp2: int) returns (out: int^3; out2: int; out3: int)
+node N(inp: int^3; inp2: int) returns (out: int^3; out2: int;)
 let
   out = M(inp, inp2);
   out2 = M2(inp2);
