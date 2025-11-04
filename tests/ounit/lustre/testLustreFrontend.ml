@@ -423,6 +423,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/map_dangling_type_id.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test map dangling type identifier" (fun () ->
+    match load_file "./lustreTypeChecker/bad_type_inference.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false);
   mk_test "test polymorphism 1" (fun () ->
     match load_file "./lustreTypeChecker/poly_fail.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true

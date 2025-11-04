@@ -227,9 +227,3 @@ val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
    End: 
 *)
                                 
-val infer_type_node_args: Lib.position -> tc_context -> LA.expr list -> NodeId.t option -> (tc_type * LA.expr list * [> warning] list, [> error]) result 
-val unify_types: Lib.position ->
-tc_context ->
-tc_type ->
-tc_type ->
-(tc_type HString.HStringMap.t, [> `LustreTypeCheckerError of Lib.position * error_kind ]) result
