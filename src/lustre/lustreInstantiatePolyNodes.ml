@@ -326,11 +326,11 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
   | Call (pos, [], node_id, exprs) ->
-      let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-        let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-        ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-      ) (ctx, gids, [], [], node_decls_map) exprs in 
-      ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
+    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
+      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
+      ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], [], node_decls_map) exprs in 
+    ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
   | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
