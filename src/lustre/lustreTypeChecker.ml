@@ -102,7 +102,6 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | GlobalConstRefType of HString.t
-  | QuantifiedAbstractType of HString.t
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
@@ -212,7 +211,6 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
-  | QuantifiedAbstractType id -> "Variable '" ^ HString.string_of_hstring id ^ "' with type that contains an abstract type (or type variable) cannot be quantified"
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
@@ -929,12 +927,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
                 | Some ty -> R.ok ty in
     let* ty = lookup_mode_ty ctx ids in 
     R.ok (ty, e, [])
-  | LA.StructUpdate (pos, (EmptyMap _ as e1), [MapIndex (p2, e2)], Some e3) ->
+  | LA.StructUpdate (pos, (EmptyMap (_, None) as e1), [MapIndex (p2, e2)], Some e3) ->
     let* ty1, e2, warnings1 = infer_type_expr ctx nname e2 in 
     let* ty2, e3, warnings2 = infer_type_expr ctx nname e3 in 
     let e = LA.StructUpdate (pos, e1, [MapIndex (p2, e2)], Some e3) in 
     R.ok (LA.Map (pos, ty1, ty2), e, warnings1 @ warnings2)
-  | LA.StructUpdate (pos, (EmptySet _ as e1), [SetIndex (p2, e2)], None) ->
+  | LA.StructUpdate (pos, (EmptySet (_, None) as e1), [SetIndex (p2, e2)], None) ->
     let* ty, e2, warnings = infer_type_expr ctx nname e2 in 
     let e = LA.StructUpdate (pos, e1, [SetIndex (p2, e2)], None) in
     R.ok (LA.Set (pos, ty), e, warnings)
@@ -1396,7 +1394,6 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (R.ok (LA.Const (pos, c), []))
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
-  (* Quantified expressions *)
   | AnyOp _ -> assert false 
     (* Already desugared in lustreDesugarAnyOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
@@ -1523,6 +1520,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
           (type_error pos (UnificationFailed (ty1, ty2))))
       | Ok _, Ok _ -> (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
+  | LA.Times
   | LA.Plus -> 
     let* b1 = are_args_num ctx pos ty1 ty2 in 
     let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in 
@@ -1534,7 +1532,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     if b1 || b2 
     then R.ok (ty2, e1, e2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
-  | LA.Minus | LA.Times | LA.Div ->
+  | LA.Minus | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok (ty2, e1, e2, warnings1 @ warnings2)
@@ -1571,6 +1569,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
       | Ok _, Ok _ -> (type_error pos (ExpectedBitShiftMachineIntegerType ty1))
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Union -> assert false (* Parsed as Plus and changed to Union during normalization *)
+  | LA.Intersection -> assert false (* Parsed as Times and changed to Intersection during normalization *)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
@@ -2327,10 +2326,18 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
   r ty 
 | TupleType (_, tys) -> 
   Res.seq_ (List.map r tys)
-| UserType _ -> 
-  let* ty = expand_type_syn_reftype ctx ty in 
-  r ty 
-| AbstractType _ | Bool _ | Int _ | IntRange _ | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| UserType (_, ty_args, i) ->
+  if (member_ty_syn ctx i || member_u_types ctx i)
+  then 
+    let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
+    let ty = expand_type_syn ctx ty in
+      r ty 
+  (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because 
+     this will be caught by `check_type_well_formed`, which recursively checks 
+     the map key and value types for wellformedness. *)
+  else R.ok () 
+| AbstractType _ | Bool _ | Int _ | IntRange _ 
+| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> ([> warning] list, [> error]) result
   = fun ctx src nname is_const ->

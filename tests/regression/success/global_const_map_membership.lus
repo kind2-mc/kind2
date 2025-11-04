@@ -1,0 +1,7 @@
+type H = enum { H0, H1 };
+const P : subtype { m : map<H,bool> | forall (h:H) h in m };
+
+node N (h: H) returns () 
+let
+  check h in P;
+tel

@@ -419,8 +419,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test map dangling type identifier" (fun () ->
+    match load_file "./lustreTypeChecker/map_dangling_type_id.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
   mk_test "test polymorphism 1" (fun () ->
     match load_file "./lustreTypeChecker/poly_fail.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test bad type annotation" (fun () ->
+    match load_file "./lustreTypeChecker/bad_ty_annot.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
   mk_test "test polymorphism 2" (fun () ->

@@ -78,6 +78,12 @@ type t = {
     LustreAst.expr * 
     HString.t *
     LustreAst.lustre_type) list;
+  set_binops: (HString.t * 
+    LustreAst.expr * 
+    LustreAst.expr * 
+    HString.t *
+    LustreAst.binary_operator * 
+    LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
@@ -129,6 +135,7 @@ let union ids1 ids2 = {
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
+    set_binops = ids1.set_binops @ ids2.set_binops;
     set_insertions = ids1.set_insertions @ ids2.set_insertions;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
@@ -157,6 +164,7 @@ let empty () = {
   empty_maps = [];
   empty_sets = [];
   map_element_updates = [];
+  set_binops = [];
   set_insertions = [];
   expanded_variables = StringSet.empty;
   equations = [];

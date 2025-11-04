@@ -17,10 +17,8 @@ and returns an output of type ``T`` equal to the input.
     tel
 
 In Kind 2, all abstract types have infinite domains. 
-Therefore, to maintain soundness, quantification over variables with abstract
-types is not allowed. For example, the following code block 
-is rejected by Kind 2, since the contract assumption would constrain 
-type ``T`` to have a finite domain.
+As a result, assumptions that constrain an abstract type 
+to a finite domain are inconsistent (such an example is shown in the following code block). 
 
 .. code-block::
 
@@ -32,3 +30,7 @@ type ``T`` to have a finite domain.
     let
         y = x;
     tel
+
+
+Thus, users should exercise caution with assumptions involving 
+quantification over variables with abstract types.
