@@ -908,7 +908,7 @@ let infer_poly_node_type pos ctx node_ty arg_inf_tys =
   match node_ty with 
   | LA.TArr (_, ty1, _) -> 
     let* substitution = unify_types pos ctx ty1 arg_inf_tys in 
-    let substitution = StringMap.to_list substitution in
+    let substitution = StringMap.bindings substitution in
     R.ok (LH.apply_type_subst_in_type substitution node_ty, substitution)
   | _ -> assert false
 
