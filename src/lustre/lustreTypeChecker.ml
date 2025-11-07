@@ -1717,20 +1717,16 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
     let* guard_type, e, warnings1 = infer_type_expr ctx (Some nname) e in
     (match guard_type with
       | Bool _ -> 
-        let* l1_warnings2 = R.seq (List.map (do_item ctx nname) l1) in 
-        let* l2_warnings3 = R.seq (List.map (do_item ctx nname) l2) in 
-        let l1, warnings2 = List.split l1_warnings2 in 
-        let l2, warnings3 = List.split l2_warnings3 in
+        let* l1, warnings2 = R.seq (List.map (do_item ctx nname) l1) |> R.map List.split in 
+        let* l2, warnings3 = R.seq (List.map (do_item ctx nname) l2) |> R.map List.split in 
         R.ok (LA.IfBlock (pos, e, l1, l2), warnings1 @ List.flatten warnings2 @ List.flatten warnings3)
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
     let vars' = List.map snd vars in
     let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars')) in
-    let* nes_warnings1 = R.seq (List.map (do_node_eqn ctx nname) nes) in
-    let nes, warnings1 = List.split nes_warnings1 in 
-    let* nis_warnings2 = R.seq (List.map (do_item ctx nname) nis) in 
-    let nis, warnings2 = List.split nis_warnings2 in 
+    let* nes, warnings1 = R.seq (List.map (do_node_eqn ctx nname) nes) |> R.map List.split in
+    let* nis, warnings2 = R.seq (List.map (do_item ctx nname) nis) |> R.map List.split in 
     let* warnings3 =
       if ((SI.cardinal reassigned_consts) = 0) 
       then R.ok ([])
@@ -1870,8 +1866,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (LA.contrac
 
 and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract -> (LA.contract * [> warning] list, [> error]) result
   = fun node_params ctx nname (p, eqns) ->
-  let* eqns_warnings = R.seq (List.map (check_contract_node_eqn node_params ctx nname) eqns) in 
-  let eqns, warnings = List.split eqns_warnings in
+  let* eqns, warnings = R.seq (List.map (check_contract_node_eqn node_params ctx nname) eqns) |> R.map List.split in 
   R.ok ((p, eqns), List.flatten warnings)
 
 and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.contract_node_equation 
@@ -1906,16 +1901,14 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
       R.ok (LA.Guarantee (pos, id, b, e), warnings) 
     | Mode (pos, id, reqs, ensures) ->
-      let* reqs_warnings = R.seq (List.map (fun (a, b, e)  -> 
+      let* reqs, warnings1 = R.seq (List.map (fun (a, b, e)  -> 
         let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
         R.ok ((a, b, e), warnings)
-      ) reqs) in 
-      let* ensures_warnings = R.seq (List.map (fun (a, b, e)  -> 
+      ) reqs) |> R.map List.split in 
+      let* ensures, warnings2 = R.seq (List.map (fun (a, b, e)  -> 
         let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
         R.ok ((a, b, e), warnings)
-      ) ensures) in 
-      let reqs, warnings1 = List.split reqs_warnings in 
-      let ensures, warnings2 = List.split ensures_warnings in 
+      ) ensures) |> R.map List.split in 
       let warnings = List.flatten warnings1 @ List.flatten warnings2 in
       R.ok (LA.Mode (pos, id, reqs, ensures), warnings)
     | ContractCall (pos, c_id, ty_args, args, rets) ->
@@ -2556,8 +2549,7 @@ let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * LA
     ^^ "with TC Context@.%a@."
     ^^"===============================================@.")
     pp_print_tc_context global_ctx;
-  let* prg_warnings2 = type_check_decl_grps global_ctx [prg] in
-  let prg, warnings2 = List.split prg_warnings2 in 
+  let* prg, warnings2 = type_check_decl_grps global_ctx [prg] |> R.map List.split in
   Debug.parse ("@.===============================================@."
     ^^ "Type checking declaration Groups Done@."
     ^^"===============================================@.");
