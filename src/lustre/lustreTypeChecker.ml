@@ -1152,7 +1152,11 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.e
     | _ -> assert false
     )
   | LA.Merge (pos, i, mcases) as e ->
-    let* ty, _, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
+    let* ty, i_e, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
+    let i = match i_e with 
+    | LA.Ident (_, i) -> i 
+    | _ -> assert false 
+    in
     let mcases_ids, mcases_exprs = List.split mcases in
     let* case_tys_es_warns = R.seq (List.map (infer_type_expr ctx nname) mcases_exprs) in
     let case_tys, mcases_exprs, warnings2 = Lib.split3 case_tys_es_warns in
@@ -1882,12 +1886,10 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
         type_error pos (AssumptionMustBeInputOrOutput id)
       | None -> R.ok (eqn, [])
     )
-    | GhostConst (FreeConst (_, _, exp_ty) as c) -> 
-      let* _, warnings = check_type_const_decl ctx (Some nname) c exp_ty in 
-      R.ok (eqn, warnings)
+    | GhostConst (FreeConst (_, _, exp_ty) as c) 
     | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> 
-      let* _, warnings = check_type_const_decl ctx (Some nname) c exp_ty in 
-      R.ok (eqn, warnings)
+      let* c, warnings = check_type_const_decl ctx (Some nname) c exp_ty in 
+      R.ok (LA.GhostConst c, warnings)
     | GhostConst (UntypedConst _) -> R.ok (eqn, [])
     | GhostVars v -> 
       let node_eqn = contract_eqn_to_node_eqn v in 
