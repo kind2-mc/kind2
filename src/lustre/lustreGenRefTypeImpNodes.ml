@@ -219,6 +219,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
   let* decls, ctx, gids = R.seq_chain (fun (acc_decls, acc_ctx, acc_gids) decl -> 
     match decl with 
     | A.ConstDecl (_, FreeConst _)
+    | A.GlobalAssume _
     | A.ConstDecl (_, TypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
     | A.TypeDecl (_, AliasType (p, id, ps, ty)) -> 
       (match type_to_contract p id ty ps with 

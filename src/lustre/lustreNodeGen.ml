@@ -2700,6 +2700,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     nodes = node :: cstate.nodes;
   }
 
+and compile_global_assume cstate ctx map expr =
+  let c_expr = compile_ast_expr cstate ctx [] map expr in
+  let global_constraints =
+    (X.max_binding c_expr |> snd) :: cstate.global_constraints
+  in
+  { cstate with global_constraints }
 
 and compile_const_decl cstate ctx map scope = function
   | A.FreeConst (p, i, ty) -> (
@@ -2787,6 +2793,9 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
+  | A.GlobalAssume (_, expr) ->
+    let empty_map = ref (empty_identifier_maps None) in
+    compile_global_assume cstate ctx empty_map expr
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
     compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->

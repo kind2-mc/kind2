@@ -321,6 +321,7 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let contract = flatten_ref_types_contract ctx contract in
       ContractNodeDecl (pos, (id, params, ips, ops, contract))
     | ConstDecl (pos, cd) -> ConstDecl (pos, flatten_ref_types_const_decl ctx cd)
+    | GlobalAssume (pos, e) -> GlobalAssume (pos, flatten_ref_types_expr ctx e)
     | A.TypeDecl (_, FreeType _) -> decl
     
   ) decls in 

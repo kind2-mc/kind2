@@ -361,6 +361,7 @@ type declaration =
   | FuncDecl of span * node_decl
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
+  | GlobalAssume of span * expr
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list

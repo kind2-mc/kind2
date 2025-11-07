@@ -229,7 +229,8 @@ and interpret_contract_eqn (node_id: NI.t) ctx ty_ctx = function
 
 and interpret_decl ty_ctx gids = function
   | LA.TypeDecl _
-  | ConstDecl _ -> empty_context
+  | ConstDecl _
+  | GlobalAssume _ -> empty_context
   | NodeDecl (_, decl)
   | FuncDecl (_, decl) -> interpret_node ty_ctx gids decl
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl

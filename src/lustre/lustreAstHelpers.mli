@@ -138,8 +138,8 @@ val extract_loc_ty: node_local_decl -> ident * lustre_type * expr option
 val is_const_arg: const_clocked_typed_decl -> bool
 (** Returns [true] if the node input stream is a constant  *)
 
-val is_type_or_const_decl: declaration -> bool
-(** returns [true] if it is a type or a constant declaration  *)
+val is_type_or_const_decl_or_global_assume : declaration -> bool
+(** returns [true] if it is a type or a constant declaration or a global assumption *)
 
 val flatten_group_types: lustre_type list -> lustre_type list
 (** Flatten group type structure  *)

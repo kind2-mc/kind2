@@ -1191,6 +1191,9 @@ and normalize_declaration info map = function
   | ConstDecl (p, FreeConst (p2, id, ty)) ->
     let ty, _, warnings = normalize_ty info None map id ty in 
     Some (A.ConstDecl (p, FreeConst (p2, id, ty))), map, warnings 
+  | GlobalAssume (p, expr) ->
+    let expr, _, warnings = normalize_expr info None map expr in
+    Some (GlobalAssume (p, expr)), map, warnings
   | ConstDecl (p, TypedConst (p2, id, expr, ty)) ->
     let ty, _, warnings1 = normalize_ty info None map id ty in 
     let expr, _, warnings2 = normalize_expr info None map expr in 

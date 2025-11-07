@@ -538,6 +538,9 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
   | ConstDecl (span, FreeConst (pos, id, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     ctx, ConstDecl (span, FreeConst (pos, id, ty'))
+  | GlobalAssume (span, e) ->
+    let e' = simplify_expr ctx e in
+    (ctx, GlobalAssume (span, e'))
   | ConstDecl (span, UntypedConst (pos', i, e)) ->
     let e' = simplify_expr ctx e in
     (match (TC.lookup_ty ctx i) with

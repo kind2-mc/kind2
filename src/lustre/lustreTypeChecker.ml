@@ -2110,6 +2110,11 @@ and build_type_and_const_context: tc_context -> LA.t -> (tc_context * [> warning
     let* ctx', warnings2 = build_type_and_const_context ctx' rest in
     R.ok (ctx', warnings1 @ warnings2)
   )
+  | LA.GlobalAssume (span, e) :: rest ->
+    let { LA.start_pos = pos } = span in
+    let* warnings1 = check_type_expr ctx None e (Bool pos) in
+    let* ctx, warnings2 = build_type_and_const_context ctx rest in
+    R.ok (ctx, warnings1 @ warnings2)
   | LA.ConstDecl (_, UntypedConst _) :: _ -> assert false
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
@@ -2436,7 +2441,8 @@ let rec type_check_group: tc_context -> LA.t ->  ([> warning] list, [> error]) r
   -> function
   | [] -> [R.ok ([])]
   (* skip over type declarations and const_decls*)
-  | (LA.TypeDecl _ :: rest) 
+  | (LA.TypeDecl _ :: rest)
+  | LA.GlobalAssume _ :: rest
   | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in

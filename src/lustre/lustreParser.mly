@@ -289,6 +289,9 @@ decl:
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
+  | ASSUME; e = qexpr; SEMICOLON; {
+    [A.GlobalAssume (mk_span $startpos $endpos, e)]
+  }
 
 
 (* ********************************************************************** *)
@@ -1289,7 +1292,7 @@ merge_case :
 ident:
   (* Contract tokens are not keywords. *)
   | MODE { HString.mk_hstring "mode" }
-  | ASSUME { HString.mk_hstring "assume" }
+  (*| ASSUME { HString.mk_hstring "assume" }*)
   | GUARANTEE { HString.mk_hstring "guarantee" }
   | REQUIRE { HString.mk_hstring "require" }
   | ENSURE { HString.mk_hstring "ensure" }

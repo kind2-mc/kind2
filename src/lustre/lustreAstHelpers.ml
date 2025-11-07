@@ -1150,10 +1150,11 @@ let extract_loc_ty: node_local_decl -> ident * lustre_type * expr option
 let is_const_arg: const_clocked_typed_decl -> bool
   = fun (_, _, _, _, is_const) -> is_const
 
-let is_type_or_const_decl: declaration -> bool 
+let is_type_or_const_decl_or_global_assume: declaration -> bool
  = fun ty -> match ty with
   | TypeDecl _
-    | ConstDecl _ -> true
+  | ConstDecl _
+  | GlobalAssume _ -> true
   | _ -> false
 
 let rec flatten_group_type: lustre_type -> lustre_type list = function
@@ -1166,7 +1167,7 @@ let flatten_group_types: lustre_type list -> lustre_type list
 let split_program: declaration list -> (declaration list * declaration list)
   = List.fold_left
       (fun (ds, ds') d ->
-        if is_type_or_const_decl d then (d::ds, ds')
+        if is_type_or_const_decl_or_global_assume d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 (** Splits program into type and constant decls and rest of the program *)
 

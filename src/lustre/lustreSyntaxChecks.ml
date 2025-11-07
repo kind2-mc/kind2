@@ -54,6 +54,7 @@ type error_kind = Unknown of string
   | IllegalNodeCall of (HString.t * string)
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
+  | NodeCallInGlobalAssume
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
@@ -106,6 +107,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
+  | NodeCallInGlobalAssume -> "Illegal node call or 'any' operator in global assumption"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
     ^ HString.string_of_hstring contract ^ "'. Functions can only be specified by stateless contracts"
@@ -526,6 +528,11 @@ let no_dangling_identifiers ctx = function
     no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
+let no_node_calls_in_global_assume e =
+  if LAH.expr_contains_call e
+  then syntax_error (LAH.pos_of_expr e) NodeCallInGlobalAssume
+  else Ok ()
+
 let no_node_calls_in_constant i e =
   if LAH.expr_contains_call e
   then syntax_error (LAH.pos_of_expr e) (NodeCallInConstant i)
@@ -703,10 +710,21 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
       | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
     in
     Ok (warnings, LA.ConstDecl (span, decl))
+  | GlobalAssume (span, e) ->
+    let* warnings = check_global_assume_expr ctx e in
+    Ok (warnings, LA.GlobalAssume (span, e))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
+
+and check_global_assume_expr: context -> LA.expr -> ([> warning] list, [>  error]) result
+= fun ctx expr ->
+  let composed_checks ctx e =
+    (no_dangling_identifiers ctx e) >>
+    (no_node_calls_in_global_assume e) >> Ok []
+  in
+  check_expr ctx composed_checks expr
 
 and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->

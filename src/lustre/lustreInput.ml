@@ -262,6 +262,7 @@ let print_nodes_and_globals nodes globals =
   Debug.parse ("===============================================\n"
   ^^ "Free Constants: [@[<hv>%a@]];@ \n\n"
   ^^ "State Variable Bounds: [@[<hv>%a@]];@ \n\n"
+  ^^ "Global Assumptions: [@[<hv>%a@]];@ \n\n"
   ^^ "Nodes: [@[<hv>%a@]];@ \n\n"
   ^^ "State Var Instances: [@[<hv>%a@]];@ \n\n"
   ^^ "State Var Definitions: [@[<hv>%a@]];@ \n\n"
@@ -285,6 +286,9 @@ let print_nodes_and_globals nodes globals =
       (fun k v acc -> (k, v) :: acc)
       globals.LG.state_var_bounds
       [])
+  (pp_print_list
+    (LustreExpr.pp_print_lustre_expr true)
+    ";@ ") globals.LG.global_constraints
   (pp_print_list LustreNode.pp_print_node_debug ";@ ") nodes
   (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@ ") nodes
   (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@ ") nodes

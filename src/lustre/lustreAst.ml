@@ -330,6 +330,7 @@ type declaration =
   | FuncDecl of span * node_decl
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
+  | GlobalAssume of span * expr
 
 
 (* A Lustre program *)
@@ -1269,6 +1270,9 @@ let pp_print_declaration ppf = function
       pp_print_ident n 
       pp_print_ident n 
       (pp_print_list pp_print_lustre_type "@ ") p
+
+  | GlobalAssume (_, e) ->
+    Format.fprintf ppf "assume @[<hov 2>%a@];" pp_print_expr e
 
 
 let pp_print_program ppf p =

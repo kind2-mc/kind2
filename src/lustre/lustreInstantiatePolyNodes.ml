@@ -655,7 +655,8 @@ and gen_poly_decls_decls
     ctx, gids, decl :: decls, node_decls_map
   | TypeDecl _ 
   | ConstDecl _ 
-  | NodeParamInst _ -> ctx, gids, decl :: acc_decls, node_decls_map
+  | NodeParamInst _
+  | GlobalAssume _ -> ctx, gids, decl :: acc_decls, node_decls_map
   ) (ctx, gids, [], node_decls_map) decls in
   ctx, gids, decls, node_decls_map
 
@@ -667,7 +668,7 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declarat
   | (A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (FuncDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (ContractNodeDecl (_, (id, _, _, _, _)) as decl) -> NI.Map.add id (decl, []) acc
-  | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> acc
+  | TypeDecl _ | ConstDecl _ | NodeParamInst _ | GlobalAssume _ -> acc
   ) NI.Map.empty decls 
   in
 

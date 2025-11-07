@@ -1,0 +1,10 @@
+const K1: int;
+const K2: int;
+
+assume K1 + K2 > 0;
+
+node N() returns (z: int);
+let
+  z = K1 + K2;
+  check "P1" z>0;
+tel

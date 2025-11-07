@@ -35,6 +35,7 @@ type error_kind = Unknown of string
   | IllegalNodeCall of (HString.t * string)
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
+  | NodeCallInGlobalAssume
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput

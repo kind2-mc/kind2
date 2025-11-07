@@ -252,6 +252,7 @@ let map_g_pos: (LA.ident -> LA.ident) -> dependency_analysis_data -> dependency_
                       
                       
 (* Suffixes for declaration types *)
+let assume_prefix = HString.mk_hstring "assume "
 let ty_prefix = HString.mk_hstring "type "
 let const_prefix = HString.mk_hstring ""
 let node_prefix = HString.mk_hstring ""
@@ -571,7 +572,7 @@ let check_and_add: 'a IMap.t -> Lib.position
   then graph_error pos (IdentifierRedeclared i)
   else R.ok (add_decl m i' tyd)
 (** reject program if identifier is already declared  *)
-  
+
 let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration option IMap.t), [> error]) result =
   fun m ->
   function  
@@ -590,6 +591,12 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
     let* m' = check_and_add m pos const_prefix i (Some cnstd)  in
     mk_decl_map m' decls 
 
+  | (LA.GlobalAssume (span, e) as decl) :: decls ->
+    let {LA.start_pos = pos} = span in
+    let i = HString.mk_hstring (Format.asprintf "%a" Lib.pp_print_position pos) in
+    let* m' = check_and_add m pos assume_prefix i (Some decl) in
+    mk_decl_map m' decls
+
   | (LA.NodeDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls
   | (LA.FuncDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
     let {LA.start_pos = pos} = span in
@@ -603,11 +610,16 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
 
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
-                            
+
+let mk_graph_global_assume pos expr =
+  let i = HString.mk_hstring (Format.asprintf "%a" Lib.pp_print_position pos) in
+  connect_g_pos (mk_graph_expr expr) (HString.concat2 assume_prefix i) pos
+
 let mk_graph_decls: LA.t -> dependency_analysis_data 
   = let mk_graph: LA.declaration -> dependency_analysis_data = function
       | TypeDecl (_, tydecl) -> mk_graph_type_decl tydecl 
       | ConstDecl (_, cdecl) -> mk_graph_const_decl cdecl
+      | GlobalAssume ({LA.start_pos = pos}, expr) -> mk_graph_global_assume pos expr
       | NodeDecl ({LA.start_pos = pos}, ndecl) -> mk_graph_node_decl pos ndecl
       | FuncDecl ({LA.start_pos = pos}, ndecl) -> mk_graph_node_decl pos ndecl
       | ContractNodeDecl ({LA.start_pos = pos}, cdecl) -> mk_graph_contract_decl pos cdecl
