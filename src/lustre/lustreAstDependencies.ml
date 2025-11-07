@@ -591,7 +591,7 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
     let* m' = check_and_add m pos const_prefix i (Some cnstd)  in
     mk_decl_map m' decls 
 
-  | (LA.GlobalAssume (span, e) as decl) :: decls ->
+  | (LA.GlobalAssume (span, _) as decl) :: decls ->
     let {LA.start_pos = pos} = span in
     let i = HString.mk_hstring (Format.asprintf "%a" Lib.pp_print_position pos) in
     let* m' = check_and_add m pos assume_prefix i (Some decl) in
