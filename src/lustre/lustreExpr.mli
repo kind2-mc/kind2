@@ -284,6 +284,9 @@ val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
 val vars_of_expr : t -> Var.VarSet.t
 
+(** Return the terms of the form (select ...) that appear in a expression *)
+val select_terms : t -> Term.TermSet.t
+
 (** Return all state variables of the initial state expression at the
     base instant *)
 val base_state_vars_of_init_expr : t -> StateVar.StateVarSet.t

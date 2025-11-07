@@ -43,7 +43,7 @@ type one_index =
   (* Array field indexed by variable *)
   | ArrayVarIndex of E.expr
 
-  | MapIndex of E.expr 
+  | SetMapIndex of E.expr 
 
   (* Index to the representation field of an abstract type *)
   | AbstractTypeIndex of string
@@ -60,7 +60,7 @@ let pp_print_one_index' db = function
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
        | ArrayVarIndex _ -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
-       | MapIndex _ -> ()
+       | SetMapIndex _ -> ()
        | AbstractTypeIndex _ -> ())
 
   | true ->
@@ -71,7 +71,7 @@ let pp_print_one_index' db = function
        | ListIndex i -> Format.fprintf ppf "_%d" i
        | ArrayIntIndex i -> Format.fprintf ppf "_%d" i
        | ArrayVarIndex _ ->  Format.fprintf ppf "_X%d" db
-       | MapIndex _ ->  Format.fprintf ppf "_Y%d" db 
+       | SetMapIndex _ ->  Format.fprintf ppf "_Y%d" db 
        | AbstractTypeIndex i -> Format.fprintf ppf ".%s" i)
 
 
@@ -123,7 +123,7 @@ let compare_one_index a b = match a, b with
 
   (* Variable indexes are equal regardless of the bound expression *)
   | ArrayVarIndex _, ArrayVarIndex _ -> 0
-  | MapIndex _, MapIndex _ -> 0
+  | SetMapIndex _, SetMapIndex _ -> 0
 
   (* Record indexes are greatest *)
   | RecordIndex _, TupleIndex _
@@ -131,7 +131,7 @@ let compare_one_index a b = match a, b with
   | RecordIndex _, ArrayIntIndex _
   | RecordIndex _, ArrayVarIndex _
   | RecordIndex _, AbstractTypeIndex _
-  | RecordIndex _, MapIndex _ -> 1 
+  | RecordIndex _, SetMapIndex _ -> 1 
 
   (* Tuple indexes are only smaller than record indexes *)
   | TupleIndex _, RecordIndex _ -> -1 
@@ -139,7 +139,7 @@ let compare_one_index a b = match a, b with
   | TupleIndex _, ArrayIntIndex _
   | TupleIndex _, ArrayVarIndex _
   | TupleIndex _, AbstractTypeIndex _
-  | TupleIndex _, MapIndex _ -> 1 
+  | TupleIndex _, SetMapIndex _ -> 1 
 
   (* List indexes are smaller than tuple and record indexes *)
   | ListIndex _, RecordIndex _
@@ -147,7 +147,7 @@ let compare_one_index a b = match a, b with
   | ListIndex _, ArrayIntIndex _
   | ListIndex _, ArrayVarIndex _
   | ListIndex _, AbstractTypeIndex _
-  | ListIndex _, MapIndex _ -> 1 
+  | ListIndex _, SetMapIndex _ -> 1 
 
   (* Intger array indexes are greater than array variables
    * and abstract type indexes *)
@@ -155,7 +155,7 @@ let compare_one_index a b = match a, b with
   | ArrayIntIndex _, TupleIndex _
   | ArrayIntIndex _, ListIndex _ -> -1
   | ArrayIntIndex _, ArrayVarIndex _
-  | ArrayIntIndex _, MapIndex _
+  | ArrayIntIndex _, SetMapIndex _
   | ArrayIntIndex _, AbstractTypeIndex _ -> 1
 
   (* Array variable indexes are greater than map indexes and abstract type indexes *)
@@ -163,16 +163,16 @@ let compare_one_index a b = match a, b with
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ListIndex _
   | ArrayVarIndex _, TupleIndex _ -> -1
-  | ArrayVarIndex _, MapIndex _
+  | ArrayVarIndex _, SetMapIndex _
   | ArrayVarIndex _, AbstractTypeIndex _ -> 1
 
   (* Map indexes are only greater than abstract types indexes *)
-  | MapIndex _, RecordIndex _
-  | MapIndex _, ArrayIntIndex _
-  | MapIndex _, ListIndex _
-  | MapIndex _, TupleIndex _ 
-  | MapIndex _, ArrayVarIndex _ -> -1
-  | MapIndex _, AbstractTypeIndex _ -> 1
+  | SetMapIndex _, RecordIndex _
+  | SetMapIndex _, ArrayIntIndex _
+  | SetMapIndex _, ListIndex _
+  | SetMapIndex _, TupleIndex _ 
+  | SetMapIndex _, ArrayVarIndex _ -> -1
+  | SetMapIndex _, AbstractTypeIndex _ -> 1
 
   (* Abstract type indexes are the smallest *)
   | AbstractTypeIndex _, RecordIndex _
@@ -180,7 +180,7 @@ let compare_one_index a b = match a, b with
   | AbstractTypeIndex _, ListIndex _
   | AbstractTypeIndex _, TupleIndex _
   | AbstractTypeIndex _, ArrayVarIndex _ 
-  | AbstractTypeIndex _, MapIndex _ -> -1
+  | AbstractTypeIndex _, SetMapIndex _ -> -1
 
 (* Equality of indexes *)
 let equal_one_index a b = match a,b with 
@@ -289,7 +289,7 @@ let filter_array_indices index = List.filter (
   function
   | ArrayVarIndex _
   | ArrayIntIndex _ 
-  | MapIndex _ -> false 
+  | SetMapIndex _ -> false 
   | RecordIndex _
   | TupleIndex _
   | ListIndex _

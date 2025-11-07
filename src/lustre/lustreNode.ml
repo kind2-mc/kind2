@@ -50,6 +50,7 @@ module D = LustreIndex
 module E = LustreExpr
 module C = LustreContract
 module NI = NodeId
+module LG = LustreGlobals
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -1364,6 +1365,7 @@ let stateful_vars_of_expr { E.expr_step } =
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
+    (svar_bounds: LG.state_var_bounds)
     { inputs; 
       oracles; 
       outputs; 
@@ -1373,6 +1375,11 @@ let stateful_vars_of_node
       asserts; 
       props; 
       contract } =
+
+  let is_unbounded_array svar =
+    let bounds = SVT.find svar_bounds svar in
+    List.exists (function E.Unbound _ -> true | _ -> false) bounds
+  in
 
   (* Input, oracle, and output variables are always stateful
 
@@ -1435,10 +1442,26 @@ let stateful_vars_of_node
                   if
                     (* Arrays are global TODO maybe this is not necessary *)
                     not (Type.is_array (StateVar.type_of_state_var sv)) &&
-                    (* Local state variable is defined by an equation? *)
-                    List.exists
-                      (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
-                      equations 
+                    (* Local state variable is defined by an equation and
+                       the definition does not access an unbounded array *)
+                    let eq =
+                      List.find_opt
+                        (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
+                        equations
+                    in
+                    match eq with
+                    | Some (_, def) -> (
+                      let select_terms = E.select_terms def in
+                      Term.TermSet.for_all
+                        (fun t ->
+                          let svar =
+                            Var.state_var_of_state_var_instance (Term.var_of_select_store t)
+                          in
+                          not (is_unbounded_array svar)
+                        )
+                        select_terms
+                    )
+                    | None -> false
                   then a
                   else
                     (* State variable without equation must be stateful *)
@@ -1561,10 +1584,30 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 
 
 (* Return true if the state variable should be visible to the user,
-    false if it was created internally *)
-let state_var_is_visible node state_var =
-  let open Lib.ReservedIds in
+    false if it was created internally or it is a map or set *)
+let state_var_is_visible node =
+  let set_or_map_vars =
+    let { inputs; outputs; locals } = node in
+    let inputs_and_outputs =
+      List.rev_append
+        (D.bindings inputs)
+        (D.bindings outputs)
+    in
+    List.fold_left
+      (fun acc l -> List.rev_append (D.bindings l) acc)
+      inputs_and_outputs
+      locals
+    |> List.filter (fun (idx, _) ->
+      List.exists (function
+        | D.SetMapIndex _ -> true
+        | _ -> false
+        ) idx
+    )
+    |> List.map snd
+    |> SVS.of_list
+  in
 
+  (fun state_var ->
   let visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
@@ -1575,7 +1618,7 @@ let state_var_is_visible node state_var =
     | Input
     | Output
     | Ghost
-    | Local -> true
+    | Local -> not (SVS.mem state_var set_or_map_vars)
 
     (* (* Alias depends on source of alias. *)
     | Alias (_, None) -> false
@@ -1585,32 +1628,9 @@ let state_var_is_visible node state_var =
   (match get_state_var_source node state_var with
    | src -> visible_of_src src
    (* Invisible if no source set *)
-   | exception Not_found -> false)
-  &&
-  let s = StateVar.name_of_state_var state_var in
-  let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\|%s\\..*\\)$"
-      state_selected_string restart_selected_string
-      state_selected_next_string restart_selected_next_string "last"
-  in
-  let r = Str.regexp r in
-  not (Str.string_match r s 0)  
+   | exception Not_found -> false))
 
-let node_is_visible node =
-  let open Lib.ReservedIds in
-  let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in
-  let r = Str.regexp r in
-  not (Str.string_match r (NI.get_internal_name node.node_id |> HString.string_of_hstring) 0)
-
-
-let node_is_state_handler node =
-  let open Lib.ReservedIds in
-  let r = Format.sprintf ".*\\.\\(%s\\)\\.\\(.*\\)$" handler_string in
-  let r = Str.regexp r in
-  let s = NI.get_internal_name node.node_id |> HString.string_of_hstring in
-  if Str.string_match r s 0 then
-    try Some (Str.matched_group 2 s)
-    with Not_found -> None
-  else None
+let node_is_visible _ = true
   
 
 (* Return true if the state variable is an input *)

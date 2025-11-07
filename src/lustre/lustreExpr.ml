@@ -1073,6 +1073,13 @@ let vars_of_expr { expr_init; expr_step } =
   (* Join sets of state variables *)
   Var.VarSet.union vars_init vars_step
 
+let select_terms { expr_init; expr_step } =
+  let terms_init = Term.select_terms expr_init in
+
+  let terms_step = Term.select_terms expr_step in
+
+  Term.TermSet.union terms_init terms_step
+
 
 (* Return all state variables at the current instant in the initial
    state expression *)

@@ -186,7 +186,7 @@ let mk_state_var_name ident index = Format.asprintf "%a%a"
 let bounds_of_index index =
   List.fold_left (fun acc -> function
       | X.ArrayVarIndex b -> E.Bound b :: acc
-      | X.MapIndex b -> E.Unbound (Some b) :: acc
+      | X.SetMapIndex b -> E.Unbound (Some b) :: acc
       | X.ArrayIntIndex i ->
         E.Fixed (E.mk_int_expr (Numeral.of_int (i + 1))) :: acc
       | _ -> acc
@@ -380,7 +380,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
-  | (X.MapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
+  | (X.SetMapIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
     expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
@@ -465,15 +465,15 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Map index on right and left side *)
-  | (X.MapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
-    (X.MapIndex b :: rhs_index_tl, expr) :: rhs_tl -> 
+  | (X.SetMapIndex _ :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.SetMapIndex b :: rhs_index_tl, expr) :: rhs_tl -> 
     let expr_type = expr.E.expr_type in
     let array_index_types = Type.all_index_types_of_array expr_type in
     let over_index_types (e, i, j) _ =
       let ty = 
-        let idx = List.nth (List.rev (X.MapIndex b :: rhs_index_tl)) j in 
+        let idx = List.nth (List.rev (X.SetMapIndex b :: rhs_index_tl)) j in 
         match idx with 
-        | X.MapIndex b -> 
+        | X.SetMapIndex b -> 
           E.type_of_expr b 
         | _ -> assert false 
       in
@@ -554,47 +554,47 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.RecordIndex _ :: _, _) :: _, (X.MapIndex _ :: _, _) :: _
+  | (X.RecordIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
 
   | (X.TupleIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.TupleIndex _ :: _, _) :: _, (X.MapIndex _ :: _, _) :: _
+  | (X.TupleIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
 
   | (X.ListIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.ListIndex _ :: _, _) :: _, (X.MapIndex _ :: _, _) :: _
+  | (X.ListIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
 
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.ArrayIntIndex _ :: _, _) :: _, (X.MapIndex _ :: _, _) :: _
+  | (X.ArrayIntIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
 
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.ArrayVarIndex _::_, _)::_, (MapIndex _ :: _, _)::_
+  | (X.ArrayVarIndex _::_, _)::_, (SetMapIndex _ :: _, _)::_
 
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
-  | (X.AbstractTypeIndex _ :: _, _) :: _, (X.MapIndex _ :: _, _) :: _
+  | (X.AbstractTypeIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
 
-  | (X.MapIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
-  | (X.MapIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
-  | (X.MapIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
-  | (X.MapIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
-  | (X.MapIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
-  | (X.MapIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
 
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
@@ -701,7 +701,7 @@ and compile_ast_type
     let over_element_type ty j t a = 
       let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
       X.add
-      (j @ [X.MapIndex dummy])
+      (j @ [X.SetMapIndex dummy])
       (Type.mk_array t ty)
       a
     in
@@ -725,7 +725,7 @@ and compile_ast_type
     let over_element_type ty j t a = 
       let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
       X.add
-      (j @ [X.MapIndex dummy])
+      (j @ [X.SetMapIndex dummy])
       (Type.mk_array t ty)
       a
     in
@@ -1121,11 +1121,11 @@ and compile_ast_expr
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
-      | X.MapIndex _ :: _, v
+      | X.SetMapIndex _ :: _, v
       | X.ArrayVarIndex _ :: _, v
       | X.ArrayIntIndex _ :: _, v ->
         let over_expr = fun e -> match e with
-          | X.MapIndex _ :: tl
+          | X.SetMapIndex _ :: tl
           | X.ArrayVarIndex _ :: tl
           | X.ArrayIntIndex _ :: tl -> X.add tl
           | _ -> assert false
@@ -2096,7 +2096,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let kt = X.fold (fun k _ acc -> 
         List.fold_left (fun (acc, acc_is, acc_i) idx -> 
         match idx with 
-        | X.MapIndex b -> 
+        | X.SetMapIndex b -> 
           if is_set then 
             X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
           else 
@@ -2164,7 +2164,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | X.ArrayVarIndex b -> if cpt < indexes
           then E.Bound b :: acc, succ cpt
           else acc, cpt
-        | X.MapIndex b -> if cpt < indexes 
+        | X.SetMapIndex b -> if cpt < indexes 
           then E.Unbound (Some b) :: acc, succ cpt
           else acc, cpt
         | X.ArrayIntIndex x -> 

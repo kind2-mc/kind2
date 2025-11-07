@@ -799,6 +799,9 @@ let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = fa
     let* ty1 = rec_call ty1 in
     let* ty2 = rec_call ty2 in
     R.ok (LA.Map (p, ty1, ty2))
+  | Set (p, ty) -> 
+    let* ty = rec_call ty in
+    R.ok (LA.Set (p, ty))
   | RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
@@ -1413,7 +1416,6 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     check_type_expr extn_ctx e1 (Bool pos)
     >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
-  (* Clock operators *)
   | IndexAccess (pos, _, _, _)
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)

@@ -2531,7 +2531,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
              variables for node instance, first tick flag, and state
              variables capturing outputs of node calls *)
           let stateful_vars_of_node =
-            N.stateful_vars_of_node node |> SVS.elements
+            N.stateful_vars_of_node globals.state_var_bounds node
+            |> SVS.elements
           in
           let stateful_vars = 
             init_flag :: stateful_vars_of_node
