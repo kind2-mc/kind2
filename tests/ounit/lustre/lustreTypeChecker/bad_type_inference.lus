@@ -1,8 +1,0 @@
-node Bad<T>() returns (out: T)
-let
-tel
-
-node N() returns (out: int)
-let
-  out = Bad();
-tel

@@ -412,8 +412,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
 
 and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
-    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
-    in
+    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap in
     TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap
   in
   match f expr with
@@ -470,8 +469,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
-    in
+    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap in
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
   in

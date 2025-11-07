@@ -309,6 +309,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
   | A.Call (pos, ty :: tys, node_id, exprs) ->
+    (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (Lib.pp_print_list A.pp_print_lustre_type "; ") (ty :: tys); *)
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
@@ -325,7 +328,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
         |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
-  | Call (pos, [], node_id, exprs) ->
+  | Call (pos, [], node_id, exprs) -> 
     let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map

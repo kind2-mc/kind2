@@ -831,8 +831,7 @@ let get_expr_ty info map node_id expr =
       )
       | None -> info.context
     in
-    let (ty, _, _) = Chk.infer_type_expr ctx node_id expr |> unwrap in 
-    ty in
+    Chk.infer_type_expr ctx node_id expr |> unwrap |> (fun (ty, _, _) -> ty) in
   Chk.expand_type_syn_reftype_history info.context ty |> unwrap
 
 let normalize_list f list =
@@ -1852,9 +1851,7 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else 
-      let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-      ty
-    in
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
@@ -1929,9 +1926,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else 
-      let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-      ty
-    in
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
       match nexpr with
@@ -1955,9 +1950,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else 
-        let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-        ty
-      in
+        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
