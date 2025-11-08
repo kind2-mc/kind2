@@ -392,17 +392,11 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
     | A.EnumType (_, _, values) when mk_enum -> (
-      let eqs =
-        List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
-      in
-      match eqs with
-      | [] -> assert false
-      | [e] -> [e, true]
-      | e :: eqs ->
-        let disj =
-          List.fold_left (fun acc e' -> A.BinaryOp(dpos, A.Or, acc, e')) e eqs
-        in
-        [disj, true]
+      let first_value = List.hd values in
+      let last_value = List.hd (List.rev values) in
+      let l = A.CompOp (dpos, A.Lte, A.Ident(dpos, first_value), expr) in
+      let u = A.CompOp (dpos, A.Lte, expr, A.Ident(dpos, last_value)) in
+      [A.BinaryOp (dpos, A.And, l, u), true]
     )
     | A.IntRange (_, l, u) when mk_range ->
       let original_ty, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in

@@ -1625,6 +1625,13 @@ let type_of_num_num_bool = function
       | t when Type.is_int t || Type.is_int_range t -> Type.t_bool 
       | _ -> raise Type_mismatch)
 
+  | t1 when Type.is_enum t1 ->
+    (function
+      | t2 when Type.is_enum t2 &&
+        (Type.name_of_enum t1 = Type.name_of_enum t2) -> Type.t_bool
+      | _ -> raise Type_mismatch
+    )
+
   | t when Type.is_real t -> 
     (function 
       | t when Type.is_real t -> Type.t_bool
