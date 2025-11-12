@@ -157,9 +157,9 @@ let type_check declarations =
 
     (* Step 3. Dependency analysis on the top level declarations.  *)
     let* sorted_const_type_decls = AD.sort_globals const_type_decls in
-    
+   
     (* Step 4. Type check top level declarations *)
-    let* ctx, warnings2 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
+    let* sorted_const_type_decls, ctx, warnings2 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
