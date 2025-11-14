@@ -977,8 +977,7 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.e
             if eq then R.ok ((p, i, ty), (i, exp), warnings)
             else type_error (LH.pos_of_expr exp) (ExpectedType (ty, exp_ty))
           in
-          let* fld_tys_flds_warns = R.seq (List.map (infer_field ctx) matches) in
-          let fld_tys, flds, warnings = Lib.split3 fld_tys_flds_warns in
+          let* fld_tys, flds, warnings = R.seq (List.map (infer_field ctx) matches) |> R.map Lib.split3 in
           R.ok (LA.RecordType (pos, r_name, fld_tys), LA.RecordExpr (pos, name, ty_args, flds), List.flatten warnings)
         )
       )
@@ -987,12 +986,10 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.e
   | LA.GroupExpr (pos, struct_type, exprs) ->
     (match struct_type with
     | LA.ExprList ->
-        let* tys_es_warns = R.seq (List.map (infer_type_expr ctx nname) exprs) in
-        let tys, es, warnings = Lib.split3 tys_es_warns in
+        let* tys, es, warnings = R.seq (List.map (infer_type_expr ctx nname) exprs) |> R.map Lib.split3 in
         R.ok (LA.GroupType (pos, tys), LA.GroupExpr (pos, struct_type, es), List.flatten warnings)
     | LA.TupleExpr ->
-        let* tys_es_warns = R.seq (List.map (infer_type_expr ctx nname) exprs) in 
-        let tys, es, warnings = Lib.split3 tys_es_warns in
+        let* tys, es, warnings = R.seq (List.map (infer_type_expr ctx nname) exprs) |> R.map Lib.split3 in 
         R.ok (LA.TupleType (pos, tys), LA.GroupExpr (pos, struct_type, es), List.flatten warnings)
     | LA.ArrayExpr ->
       let* tys, es, warnings = R.seq (List.map (infer_type_expr ctx nname) exprs) |> R.map Lib.split3 in
@@ -1679,8 +1676,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         ) ldecls) |> R.map List.split in 
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
-        let* items_warnings2 = R.seq (List.map (do_item local_ctx node_name) items) in
-        let items, warnings2 = List.split items_warnings2 in
+        let* items, warnings2 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
         (* check that the LHS of the equations are not args to node *)
         let check_lhs_eqns = List.map (fun (pos, v) ->
             if SI.mem v arg_ids then
