@@ -157,9 +157,9 @@ let type_check declarations =
 
     (* Step 3. Dependency analysis on the top level declarations.  *)
     let* sorted_const_type_decls = AD.sort_globals const_type_decls in
-    
+   
     (* Step 4. Type check top level declarations *)
-    let* ctx, warnings2 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
+    let* sorted_const_type_decls, ctx, warnings2 = TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls in
 
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
@@ -171,7 +171,7 @@ let type_check declarations =
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 8. Type check nodes and contracts *)
-    let* global_ctx, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+    let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Provide lsp info if option is enabled *)
     if Flags.log_format_json () && Flags.Lsp.lsp () then

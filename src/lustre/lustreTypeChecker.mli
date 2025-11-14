@@ -118,15 +118,15 @@ val error_message: error_kind -> string
 val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
      
-val type_check_infer_globals: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result  
+val type_check_infer_globals: tc_context -> LA.t -> (LA.t * tc_context * [> warning] list, [> error]) result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * [> warning] list, [> error]) result
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context * LA.t * [> warning] list, [> error]) result
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> NI.t -> LA.contract -> (tc_context * [> warning ] list, [> error ]) result 
+val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> source -> NI.t -> LA.contract -> (LA.contract * tc_context * [> warning ] list, [> error ]) result 
 
 val extract_exports: NI.t ->
   tc_context ->
@@ -204,7 +204,7 @@ val expand_type_syn_reftype_history_subrange :
     [> error] )
   result
   
-val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * [> warning] list, [> error]) result
+val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
 val desugar_generic_index: tc_context -> NI.t option -> LA.expr -> LA.label_or_index -> (LA.label_or_index, [> error]) result
