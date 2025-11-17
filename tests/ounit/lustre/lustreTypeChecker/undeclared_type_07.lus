@@ -1,0 +1,1 @@
+type T = subtype { i: Nat | i < 5 };

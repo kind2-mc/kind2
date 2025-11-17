@@ -2309,19 +2309,19 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
   )
   | LA.RefinementType (p, (p2, i, ty), e) ->
+    let* ty, warnings1 = check_type_well_formed ctx src nname is_const ty in
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
       check_expr_is_constant ctx "type of constant or refinement type argument" e 
     else R.ok ()) in
-    let* e, warnings1 = check_type_expr ctx nname e (Bool p) in
+    let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
-    let warnings2 = 
+    let warnings3 = 
       if not (LH.expr_contains_id i e) 
       then [mk_warning p (UnusedBoundVariableWarning i)] 
       else []
     in
-    let* ty, warnings3 = check_type_well_formed ctx src nname is_const ty in
     R.ok (LA.RefinementType (p, (p2, i, ty), e), warnings1 @ warnings2 @ warnings3)
   | LA.TupleType (p, tys) ->
     let* tys, warnings = 
