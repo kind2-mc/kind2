@@ -392,17 +392,11 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
     | A.EnumType (_, _, values) when mk_enum -> (
-      let eqs =
-        List.map (fun v -> A.CompOp (dpos, A.Eq, expr, A.Ident(dpos, v) )) values
-      in
-      match eqs with
-      | [] -> assert false
-      | [e] -> [e, true]
-      | e :: eqs ->
-        let disj =
-          List.fold_left (fun acc e' -> A.BinaryOp(dpos, A.Or, acc, e')) e eqs
-        in
-        [disj, true]
+      let first_value = List.hd values in
+      let last_value = List.hd (List.rev values) in
+      let l = A.CompOp (dpos, A.Lte, A.Ident(dpos, first_value), expr) in
+      let u = A.CompOp (dpos, A.Lte, expr, A.Ident(dpos, last_value)) in
+      [A.BinaryOp (dpos, A.And, l, u), true]
     )
     | A.IntRange (_, l, u) when mk_range ->
       let original_ty, _, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
@@ -831,8 +825,7 @@ let get_expr_ty info map node_id expr =
       )
       | None -> info.context
     in
-    let (ty, _, _) = Chk.infer_type_expr ctx node_id expr |> unwrap in 
-    ty in
+    Chk.infer_type_expr ctx node_id expr |> unwrap |> (fun (ty, _, _) -> ty) in
   Chk.expand_type_syn_reftype_history info.context ty |> unwrap
 
 let normalize_list f list =
@@ -1336,7 +1329,7 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids6, interpretation, warnings4 = match contract with
     | Some contract ->
-      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fst
+      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
@@ -1852,9 +1845,7 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else 
-      let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-      ty
-    in
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
@@ -1929,9 +1920,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else 
-      let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-      ty
-    in
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
       match nexpr with
@@ -1955,9 +1944,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let ty = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else 
-        let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-        ty
-      in
+        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
@@ -2334,8 +2321,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
   | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
-    let nexpr1, gids1, warnings1 = normalize_expr info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr info node_id map expr2 in 
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_union") in 

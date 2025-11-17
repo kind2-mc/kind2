@@ -1339,12 +1339,16 @@ and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx nod
           map
           (node_scope @ I.reserved_scope)
           (I.mk_string_ident (Format.sprintf "poracle_%d" (po_ct+i) ))
-          X.empty_index
+          X.empty_index (* Use dummy value here, replace it below *)
           (StateVar.type_of_state_var sv)
           (Some N.Oracle)
         in
         match sv' with
-        | Some sv' -> sv'
+        | Some sv' -> (
+          (* Use the bounds computed for the original oracle *)
+          SVT.add !map.bounds sv' (SVT.find cstate.state_var_bounds sv);
+          sv'
+        )
         | None -> assert false
       in
       N.set_state_var_instance propagated_oracle pos ident sv;
