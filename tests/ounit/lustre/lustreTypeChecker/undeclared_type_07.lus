@@ -1,8 +1,1 @@
 type T = subtype { i: Nat | i < 5 };
---type T = int;
-
-node N(inp: T) returns (out: T)
-let
-  out = inp;
-  check inp = out;
-tel
