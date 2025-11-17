@@ -1,0 +1,15 @@
+node N<T>(x1,x2: T) returns (y: int)
+(*@contract
+  guarantee "G1" y = if x1=x2 then 1 else 0;
+*)
+let
+  y = if x1=x2 then 1 else 0;
+tel
+
+type Nat = subrange [0,*] of int;
+
+node R(x: int) returns (y: int);
+let
+  y = N@<Nat>(x,x);
+  check "P1" y>0;
+tel
