@@ -1308,7 +1308,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let ty_args = if inferred_type_args <> [] then inferred_type_args else ty_args in
       if are_equal then
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
-        (check_constant_args ctx node_id arg_exprs >> (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2)))
+        (check_constant_args ctx node_id arg_exprs >> 
+        (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
       else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
