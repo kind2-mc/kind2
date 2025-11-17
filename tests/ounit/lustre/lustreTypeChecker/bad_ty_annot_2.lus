@@ -1,0 +1,8 @@
+node Bad<T>(inp: T) returns (out: T)
+let
+tel
+
+node N(inp: int) returns (out: int)
+let
+  out = Bad@<bool>(inp);
+tel
