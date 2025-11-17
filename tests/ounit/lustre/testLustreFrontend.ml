@@ -435,6 +435,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/bad_ty_annot.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test bad type annotation 2" (fun () ->
+    match load_file "./lustreTypeChecker/bad_ty_annot_2.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
+    | _ -> false);
   mk_test "test polymorphism 2" (fun () ->
     match load_file "./lustreTypeChecker/poly_fail2.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
