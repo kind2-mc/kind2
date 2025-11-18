@@ -114,7 +114,6 @@ let empty_tc_context: tc_context =
   ; ty_vars = NI.Map.empty
   ; contract_ty_vars = NI.Map.empty
   ; ty_ty_vars = IMap.empty
-  (* ; ty_args = IMap.empty *)
   }
 (** The empty context with no information *)
 

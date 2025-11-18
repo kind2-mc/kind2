@@ -28,6 +28,7 @@ module R = Res
 module LA = LustreAst
 module LH = LustreAstHelpers
 module IC = LustreAstInlineConstants
+module StringMap = HString.HStringMap
 open TypeCheckerContext
 
 type tc_type  = LA.lustre_type
@@ -110,6 +111,7 @@ type error_kind = Unknown of string
   | ExpectedMapSetType of tc_type
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
+  | CallRequiresExplicitAnnotation of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -218,6 +220,9 @@ let error_message kind = match kind with
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
+  | CallRequiresExplicitAnnotation id -> 
+    Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
+      HString.pp_print_hstring id
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -838,7 +843,86 @@ let expand_type_syn_reftype_history_subrange ctx =
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
-let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
+let union_keys key id1 id2 = match key, id1, id2 with
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
+  | _, (Some v), (Some _) -> Some v
+
+(* Unify `ty1` with `ty2` in the context of inferring type arguments for node calls. 
+   `ty1` represents the function signature with type parameters, and 
+   `ty2` represents the types of the concrete arguments.  
+    We return a map of strings to types denoting a substitution from type parameters (from `ty1`) 
+    to types (from `ty2`).
+
+    The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
+    a boolean. *)
+let rec unify_types pos ctx ty1 ty2 = 
+  let r = unify_types pos ctx in
+  let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
+  let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
+  match ty1, ty2 with 
+  (* UserTypes denote __the callee's__ 
+     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
+  | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
+  (* AbstractTypes denote __the caller's__ 
+     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
+  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
+
+  (* Group types are weird... *)
+  | GroupType (_, tys1), GroupType (_, tys2) ->
+    let (ftys1, ftys2) = LH.flatten_group_types tys1, LH.flatten_group_types tys2 in 
+    if List.length ftys1 = List.length ftys2
+    then 
+      let* maps = R.seq (List.map2 r ftys1 ftys2) in 
+      R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+    else type_error pos (IlltypedCall (ty1, ty2)) 
+  | GroupType (_, tys), t
+  | t, GroupType (_, tys) when List.length tys = 1 ->
+    r t (List.hd tys)
+
+  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
+    R.ok StringMap.empty 
+  | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
+    let* maps = R.seq (List.map2 r tys1 tys2) in 
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+  | LA.ArrayType (_, (ty1, _)), LA.ArrayType (_, (ty2, _)) -> 
+    r ty1 ty2
+  | LA.Set (_, ty1), LA.Set (_, ty2) -> r ty1 ty2
+  | LA.Map (_, kt1, vt1), LA.Map (_, kt2, vt2) -> 
+    let* m1 = r kt1 kt2 in 
+    let* m2 = r vt1 vt2 in 
+    R.ok (StringMap.merge union_keys m1 m2) 
+  | LA.RecordType (_, id1, tis1), LA.RecordType (_, id2, tis2) when HString.equal id1 id2 -> 
+    let tys1 = List.map (fun (_, _, ty) -> ty) tis1 in 
+    let tys2 = List.map (fun (_, _, ty) -> ty) tis2 in 
+    let* maps = R.seq (List.map2 r tys1 tys2) in 
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+  | LA.Int _, LA.Int _
+  | LA.Real _, LA.Real _ 
+  | LA.Bool _, LA.Bool _ 
+  | LA.SBitVector _, LA.SBitVector _
+  | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty 
+  | ty1, ty2 -> 
+    type_error pos (IlltypedCall (ty1, ty2))
+
+
+let infer_poly_node_type pos ctx node_ty arg_inf_tys = 
+  match node_ty with 
+  | LA.TArr (_, ty1, _) -> 
+    let* substitution = unify_types pos ctx ty1 arg_inf_tys in 
+    let substitution = StringMap.bindings substitution in
+    R.ok (LH.apply_type_subst_in_type substitution node_ty, substitution)
+  | _ -> assert false
+
+let rec infer_type_node_args: Lib.position -> tc_context -> LA.expr list -> NodeId.t option -> (tc_type * LA.expr list * [> warning] list, [> error]) result =
+    fun pos ctx args node_id ->
+      let* arg_tys_exprs_warns = R.seq (List.map (infer_type_expr ctx node_id) args) in
+      let arg_tys, arg_exprs, warnings = Lib.split3 arg_tys_exprs_warns in
+      if List.length arg_tys = 1 then R.ok ((List.hd arg_tys), arg_exprs, List.flatten warnings)
+      else R.ok (LA.GroupType (pos, arg_tys), arg_exprs, List.flatten warnings)
+
+and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
   = fun ctx nname e -> match e with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
@@ -1189,28 +1273,43 @@ let rec infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.e
     let* ty_args, warnings1 = 
       R.seq (List.map (check_type_well_formed ctx Input nname true) ty_args) |> R.map List.split 
     in
-    let infer_type_node_args: tc_context -> LA.expr list -> (tc_type * LA.expr list * [> warning] list, [> error]) result =
-    fun ctx args ->
-      let* arg_tys, es, warnings = R.seq (List.map (infer_type_expr ctx nname) args) |> R.map Lib.split3 in
-      if List.length arg_tys = 1 then R.ok ((List.hd arg_tys), es, List.flatten warnings)
-      else R.ok (LA.GroupType (pos, arg_tys), es, List.flatten warnings)
-    in
     match (lookup_node_param_ids ctx node_id), (lookup_node_ty ctx node_id) with
     | Some call_params, Some node_ty -> (
       (* Express exp_arg_tys and exp_ret_tys in terms of the current context *)
       let node_ty = update_ty_with_ctx node_ty call_params ctx arg_exprs in
-      let* node_ty = instantiate_type_variables ctx pos node_id node_ty ty_args in
+      let* node_ty, inferred_type_args, arg_exprs, warnings2 = match ty_args with 
+      | [] -> 
+        (* Infer type arguments  *)
+        let* arg_inf_tys, arg_exprs, warnings2 = infer_type_node_args pos ctx arg_exprs nname in
+        let* node_ty, substitution = infer_poly_node_type pos ctx node_ty arg_inf_tys in 
+        let ty_vars = match lookup_node_ty_vars ctx node_id with 
+        | None -> [] 
+        | Some ty_vars -> ty_vars 
+        in
+        let* inferred_type_args = R.seq (List.map (fun ty_var -> 
+          match List.assoc_opt ty_var substitution with 
+          | Some ty -> R.ok ty 
+          | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
+        ) ty_vars) in
+        R.ok (node_ty, inferred_type_args, arg_exprs, warnings2)
+      | ty_args -> 
+        (* Type arguments were provided with a type annotation *)
+          let* node_ty = instantiate_type_variables ctx pos node_id node_ty ty_args in 
+          R.ok (node_ty, [], arg_exprs, [])
+      in
       let exp_arg_tys, exp_ret_tys = match node_ty with 
         | LA.TArr (_, exp_arg_tys, exp_ret_tys) ->
           expand_type_syn ctx exp_arg_tys, expand_type_syn ctx exp_ret_tys
         | _ -> assert false 
       in
-      let* given_arg_tys, arg_exprs, warnings2 = infer_type_node_args ctx arg_exprs in
+      let* given_arg_tys, arg_exprs, warnings3 = infer_type_node_args pos ctx arg_exprs nname in
       let given_arg_tys = expand_type_syn ctx given_arg_tys in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
+      let ty_args = if inferred_type_args <> [] then inferred_type_args else ty_args in
       if are_equal then
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
-        (check_constant_args ctx node_id arg_exprs >> (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2)))
+        (check_constant_args ctx node_id arg_exprs >> 
+        (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
       else
         (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
     )
@@ -1289,11 +1388,11 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     let* ty, con, warnings1 = infer_type_expr ctx nname con in (
     match ty with 
         | Bool _ ->
-            let* ty1, e1, warnings2 = infer_type_expr ctx nname e1 in
-            let* ty2, e2, warnings3 = infer_type_expr ctx nname e2 in
-            R.ifM (eq_lustre_type ctx ty1 ty2)
-              (R.ok (LA.TernaryOp (pos, ite, con, e1, e2), (warnings1 @ warnings2 @ warnings3)))
-              (type_error pos (UnificationFailed (ty1, ty2)))
+          let* ty1, e1, warnings2 = infer_type_expr ctx nname e1 in
+          let* ty2, e2, warnings3 = infer_type_expr ctx nname e2 in
+          R.ifM (eq_lustre_type ctx ty1 ty2)
+            (R.ok (LA.TernaryOp (pos, ite, con, e1, e2), (warnings1 @ warnings2 @ warnings3)))
+            (type_error pos (UnificationFailed (ty1, ty2)))
         | ty  -> type_error pos (ExpectedType ((Bool pos), ty))
     )
   | ConvOp (pos, cvop, e) ->

@@ -10,8 +10,8 @@ node M<T2>(x1, x2: int; x4: int) returns (y1, y2: int; y3: int | Poly@<int>(y3) 
 *)
 var l: int;
 let
-    l = Poly@<int>(x1);
-    y1 = Poly@<int>(x1); 
+    l = Poly(x1);
+    y1 = Poly(x1); 
     y2 = Poly@<int>(x2); 
     y3 = 4;
     y4 = Poly@<int>(Poly@<int>(x4));
