@@ -178,10 +178,22 @@ let error_csv (type s) : s t -> string * string * Unix.file_descr
   t.euid <- euid + 1 ;
   name, path, openfile path
 
+let error_json (type s) : s t -> string * string * Unix.file_descr
+= fun ({euid ; edir} as t) ->
+  let name = Format.sprintf "error_%d" euid in
+  let path = Format.sprintf "%s/%s.json" edir name in
+  t.euid <- euid + 1 ;
+  name, path, openfile path
 (* Converts a model to the system's input values in csv. *)
 let cex_to_inputs_csv fmt in_sys sys cex k =
   Format.fprintf fmt "%a"
-    (InputSystem.pp_print_path_json in_sys sys true)
+    (InputSystem.pp_print_path_in_csv in_sys sys true)
+    (Model.path_from_model (TransSys.state_vars sys) cex k)
+
+(* Converts a model to the system's input values in csv. *)  
+let cex_to_inputs_json fmt in_sys sys cex k =
+  Format.fprintf fmt "%a"
+    (InputSystem.pp_print_path_json_testgen in_sys sys true)
     (Model.path_from_model (TransSys.state_vars sys) cex k)
 
 (* Pretty printer for a testcase in xml. *)
@@ -253,7 +265,7 @@ let log_testcase (type s)
     let name, _, tc_file = testcase_json t in
     let tc_fmt = fmt_of_file tc_file in
     (* Logging test case. *)
-    cex_to_inputs_csv tc_fmt t.input_sys t.sys model k ;
+    cex_to_inputs_json tc_fmt t.input_sys t.sys model k ;
     (* Flushing. *)
     Format.fprintf tc_fmt "@?" ;
     (* Close file. *)
@@ -262,7 +274,7 @@ let log_testcase (type s)
     (* |===| Updating class file. *)
     (* Format.printf "    updating class file@." ; *)
     let class_fmt = fmt_of_file t.class_file in
-    pp_print_tc t.input_sys class_fmt (Format.sprintf "%s/%s.csv" t.name name) name modes ;
+    pp_print_tc t.input_sys class_fmt (Format.sprintf "%s/%s.json" t.name name) name modes ;
   ) ;
 
   (* |===| Updating graph. *)
@@ -286,7 +298,7 @@ let log_deadlock (type s)
 
   (* |===| Logging error. *)
   (* Format.printf "    logging deadlock@." ; *)
-  let name, path, e_file = error_csv t in
+  let name, path, e_file = error_json t in
   let e_fmt = fmt_of_file e_file in
   (* Logging test case. *)
   cex_to_inputs_csv e_fmt t.input_sys t.sys model k ;
