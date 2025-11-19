@@ -29,6 +29,7 @@ val pp_print_path_xml :
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
 val pp_print_path_pt :
+  ?full_contract:bool -> 
   TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
@@ -38,6 +39,12 @@ val pp_print_path_json :
   TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
+
+val pp_print_path_json_testgen :
+  TransSys.t ->
+  LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
+  Format.formatter -> Model.path -> unit
+
 
 (** Outputs a model as a sequence of inputs in CSV. *)
 val pp_print_path_in_csv :

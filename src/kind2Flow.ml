@@ -93,7 +93,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-    | `CMonitor -> Flags.Interpreter.input_file () |> Interpreter.main
+    | `CMonitor ->  Flags.ContractMonitor.input_file () |> ContractMonitor.main
     | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
@@ -708,6 +708,29 @@ let run in_sys =
     with e -> on_exit_child None m e
   )
 
+  | [m] when m = `CMonitor -> (
+    (* Set module currently running. *)
+    KEvent.set_module m ;
+    try (
+      let param = ISys.monitor_param in_sys in
+      (* Build trans sys and slicing info. *)
+      let sys, _ = 
+        ISys.trans_sys_of_analysis
+          ~preserve_sig:true ~slice_nodes:`Off in_sys param
+      in
+      let sliced_inp = ISys.slice_to_abstraction in_sys param sys in 
+
+      (* Run interpreter. *)
+      (ContractMonitor.main (
+        Flags.ContractMonitor.input_file ()
+      )) sliced_inp param sys ;
+      (* Ignore SIGALRM from now on *)
+      Signals.ignore_sigalrm () ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m Exit
+    )
+    with e -> on_exit_child None m e
+  )
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
     KEvent.log L_fatal "Cannot run the interpreter with other processes." ;

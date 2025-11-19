@@ -93,6 +93,8 @@ type param =
   | First of info
   (* Refinement of a system. Store the result of the previous analysis. *)
   | Refinement of info * result
+  (* Monitoring a trace of execution, leaving the contract as proof obligations *)
+  | ContractMonitor of info 
 
 
 (** Result of analysing a transistion system *)
@@ -126,6 +128,7 @@ let param_clone = function
 | ContractCheck info -> ContractCheck (info_clone info)
 | First info -> First (info_clone info)
 | Refinement (info, res) -> Refinement (info_clone info, res)
+| ContractMonitor info -> ContractMonitor (info_clone info)
 
 (* The info or a param. *)
 let info_of_param = function
@@ -133,6 +136,7 @@ let info_of_param = function
 | ContractCheck info -> info
 | First info -> info
 | Refinement (info,_) -> info
+| ContractMonitor info -> info
 
 (** Shrinks a param to a system. *)
 let shrink_param_to_sys param sys = match param with
@@ -140,6 +144,7 @@ let shrink_param_to_sys param sys = match param with
 | ContractCheck info -> ContractCheck (shrink_info_to_sys info sys)
 | First info -> First (shrink_info_to_sys info sys)
 | Refinement (info, res) -> Refinement ( (shrink_info_to_sys info sys), res )
+| ContractMonitor info -> ContractMonitor (shrink_info_to_sys info sys)
 
 let rec get_first_analysis_info = function
 | Refinement (_, { param }) -> get_first_analysis_info param
@@ -351,7 +356,8 @@ let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> par
       | Interpreter _ -> "Interpreter"
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
-      | Refinement _ -> "Refinement")
+      | Refinement _ -> "Refinement"
+      | ContractMonitor _ -> "ContractMonitor")
     pp_print_system_user_name top
 
     (fun fmt -> function
@@ -413,6 +419,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
+  | ContractMonitor _ -> Format.fprintf fmt "simulating system"
   | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
   | First { abstraction_map } ->
     let count =

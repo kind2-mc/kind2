@@ -15,23 +15,16 @@
    permissions and limitations under the License. 
 
 *)
+(** Interpreter for Lustre programs 
 
-(** Represents the lhs of an assignment. For non-array state vars, the index list is empty. 
-    For array state vars, the index list indicates which cell of the array must be assigned. *)
-type assignment_lhs = StateVar.t * int list
+    @author Baoluo Meng *)
 
-(** Parse a JSON or CSV input file. The format is determined from the extension. *)
-val read_file: ?only_inputs:bool -> string list -> string -> (assignment_lhs * (Term.t list)) list
+(** Entry point *)
+val main : string -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-(** Parser for a CSV input file 
+(** Cleanup before exit *)
+val on_exit : TransSys.t option -> unit
 
-    @author Baoluo Meng, Christoph Sticksel *)
-
-(** Parse a CSV input file *)
-val read_csv_file: string list -> string -> (StateVar.t * (Term.t list)) list
-
-(** Parse a JSON input file *)
-val read_json_file: ?only_inputs:bool -> string list -> string -> (assignment_lhs * (Term.t list)) list
 
 (* 
    Local Variables:
