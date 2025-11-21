@@ -1231,7 +1231,7 @@ let filter_locals is_visible locals =
 let rec get_widths_for_contract ident_width values_width contract_trace = match contract_trace with
   | (a,b,c) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
-  
+
   (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
 let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map ppf = function
@@ -1722,8 +1722,6 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     (pp_print_contract_section_xml "Assumptions" ppf contract_assumptions) ;
     (pp_print_contract_section_xml "Guarantees" ppf contract_guarantees) ;
     (pp_print_contract_section_xml "Modes" ppf contract_modes) ;
-    (* (pp_print_contract_section_xml contract_assumptions contract_guarantees contract_modes ppf) ; *)
-    pp_print_active_modes_xml ppf active_modes;
     List.iter (pp_print_stream_xml node model clock ppf) globals';
     List.iter (pp_print_stream_xml node model clock ppf) constants';
     List.iter (pp_print_stream_xml node model clock ppf) inputs';
@@ -2184,7 +2182,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
        "@,{@[<v 1>@,\
         \"blockType\" : \"%s\",@,\
         \"name\" : \"%s\"\
-        %a%a%a%a%a%a%a\
+        %a%a%a%a%a%a\
         @]@,}%s\
        "
        title 
@@ -2193,7 +2191,6 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
        (pp_print_section_json "assumptionsTrace") contract_assumptions
        (pp_print_section_json "guaranteesTrace") contract_guarantees
        (pp_print_section_json "modesTrace") (interleave (required_modes,ensured_modes))
-        pp_print_active_modes_json active_modes
        (pp_print_streams_json is_top const_map) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
