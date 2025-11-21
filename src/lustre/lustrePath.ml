@@ -37,11 +37,15 @@ type t =
   Node of
     N.t *
     Model.path *
-    C.mode list list option *
-    (string * Type.t * Model.value list) list *
-    (string * Type.t * Model.value list) list *
-    (string * Type.t * Model.value list) list *
-    (string * Type.t * Model.value list) list *
+    C.mode list list option * (* Want to ultimaltely remove this part. Currently, 
+                                 its purpose is to keep track of which mode was active 
+                                 at each timestep, but this information is captured in 
+                                 the truth values of the "required modes" part of this 
+                                 datatype*)
+    (string * Type.t * Model.value list) list * (* Required modes: conjunction of all the requires clauses of a mode *)
+    (string * Type.t * Model.value list) list * (* Ensured modes: conjunction of all the ensures  clauses of a mode *)
+    (string * Type.t * Model.value list) list * (* Assumptions *)
+    (string * Type.t * Model.value list) list * (* Guarantees *)
     N.call_cond list *
     ((I.t * position) list * t) list
 
@@ -511,7 +515,7 @@ let assumptions_of_instances model_top instances = function
     List.map svar_tform assumes
     
 
-let mode_active_of_instances model_top instances = function
+let mode_requires_of_instances model_top instances = function
   (* No contract. *)
   | None | Some { C.modes = [] } -> ([], 0)
   (* Contract with some modes. *)
@@ -743,7 +747,7 @@ let node_path_of_instance
   ;
   let active_modes = active_modes_of_instances model_top instances contract in
 
-  let required_modes, max_length = mode_active_of_instances (*active_modes_of_instances*) model_top instances contract in
+  let required_modes, max_length = mode_requires_of_instances (*active_modes_of_instances*) model_top instances contract in
   let required_modes = fill_empty_modes max_length required_modes in
   let ensured_modes, max_length = mode_ensures_of_instances model_top instances contract in
   let ensured_modes = fill_empty_modes max_length ensured_modes in
@@ -778,7 +782,7 @@ let node_path_of_instance
   ) ;
 
   (* Return path for subnode and its call trace *)
-  (trace, Node (node, model, active_modes, required_modes, ensured_modes (*ensured_modes*), contract_assumptions, contract_guarantees, call_conds, subnodes))
+  (trace, Node (node, model, active_modes, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
@@ -1194,7 +1198,17 @@ let pp_print_contract_section_pt ident_width val_width ppf = function
       l
 
 (* For modes *)
-let pp_print_modes_section_pt ident_width val_width mode_ident ppf = function 
+let pp_print_modes_section_pt full_contract ident_width val_width mode_ident ppf = function 
+| (active_modes, contract_info) ->
+if full_contract then match contract_info with
+  | (modes, assumed, guarunteed) ->
+  Format.fprintf 
+    ppf 
+    "%a%a%a"
+    (pp_print_stream_section_pt ident_width val_width "Assumptions") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) assumed)
+    (pp_print_stream_section_pt ident_width val_width "Guarantees") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) guarunteed)
+    (pp_print_stream_section_pt ident_width val_width "Modes") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) modes)
+  else match active_modes with
   | None -> ()
   | Some vals -> 
     Format.fprintf
@@ -1217,210 +1231,10 @@ let filter_locals is_visible locals =
 let rec get_widths_for_contract ident_width values_width contract_trace = match contract_trace with
   | (a,b,c) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
-(* Output sequences of values for each stream of the nodes in the list
-   and for all its called nodes *)
-let rec pp_print_lustre_path_pt_contract' is_top const_map ppf = function
-
-(* All nodes printed *)
-| [] -> ()
-
-(* Take first node to print *)
-| (
-  trace, Node (
-    { N.node_id; N.inputs; N.outputs; N.locals;
-      N.is_function; } as node,
-    model,_, active_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
-  )
-) :: tl when N.node_is_visible node ->
-
-  let is_visible = N.state_var_is_visible node in
-
-  let is_state, node_name =
-    match N.node_is_state_handler node with
-    | None -> false, NI.get_user_name node_id |> HString.string_of_hstring
-    | Some state -> true, state
-  in
-  let title =
-    if is_function then "Function"
-    else if is_state then "State"
-    else match (NI.get_node_type node_id) with 
-    | Environment -> "Environment of"
-    | Contract -> "Contract of"
-    | Type -> "Type"
-    | Component -> "Node"
-    | Any -> "'Any' operator"
-  in
   
-  (* Remove first dimension from index *)
-  let pop_head_index = function 
-    | ([], sv) -> ([], sv)
-    | (_ :: tl, sv) -> (tl, sv)
-  in
-
-  (* Boolean clock that indicates if the node is active for this particular
-     call *)
-  let clock = act_stream model call_conds in
-  
-  (* Reset maximum widths for this node *)
-  let ident_width, val_width = 0, 0 in
-
-  (* Remove index of position in input for printing *)
-  let ident_width, val_width, inputs' = 
-    D.bindings inputs
-    |> List.map pop_head_index
-    |> List.filter (fun (_, sv) -> is_visible sv)
-    |> streams_to_values model ident_width val_width []
-  in
-
-  (* Remove index of position in output for printing *)
-  let ident_width, val_width, outputs' = 
-    D.bindings outputs
-    |> List.map pop_head_index
-    |> List.filter (fun (_, sv) -> is_visible sv)
-    |> streams_to_values model ident_width val_width []
-  in
-(* 
-  let a_mode_ident = "Active Mode(s)" in
-  (* let _ (* ident_witdth *), val_width, a_modes = match active_modes with
-    | None -> ident_width, val_width, None
-    | Some modes ->
-      let ident_width = max ident_width (String.length a_mode_ident) in
-      let modes, val_width = modes_to_strings val_width modes in
-      (* Format.printf "modes:@." ;
-      modes |> List.iter (
-        fun line -> Format.printf "  %a@." (pp_print_list Format.pp_print_string ", ") line
-      ) ;
-      Format.printf "@." ; *)
-      ident_width, val_width, Some modes
-  in *)
-
-    let e_mode_ident = "Ensured Mode(s)" in
-  (* let _ (* ident_witdth *), val_width, e_modes = match ensured_modes with
-    | None -> ident_width, val_width, None
-    | Some modes ->
-      let ident_width = max ident_width (String.length e_mode_ident) in
-      let modes, val_width = modes_to_strings val_width modes in
-      (* Format.printf "modes:@." ;
-      modes |> List.iter (
-        fun line -> Format.printf "  %a@." (pp_print_list Format.pp_print_string ", ") line
-      ) ;
-      Format.printf "@." ; *)
-      ident_width, val_width, Some modes
-  in *) *)
-
-
-  let modes_stream =  (interleave (active_modes, ensured_modes)) in 
-  let ident_width, val_width = get_widths_for_contract ident_width val_width modes_stream in
-  (* Filter locals to for visible state variables only and return
-     as a list 
-
-     The list of locals is the reversed from the original input in the node,
-     with fold_left in filter_locals here we get it in the
-     original order again. *)
-  let locals = filter_locals is_visible locals in
-  
-  let ghosts, locals =
-    locals
-    |> List.partition
-      (fun (_, sv) ->
-        try
-          match N.get_state_var_source node sv with
-          | N.Ghost -> true
-          | _ -> false
-        with Not_found -> false
-      )
-  in
-
-  let _ (* ident_witdth *), val_width, ghosts' =
-    ghosts |> streams_to_values model ident_width val_width []
-  in
-
-  let ident_width, val_width, locals' = 
-    locals |> streams_to_values model ident_width val_width []
-  in
-
-  let globals = if is_top then get_constants const_map [] else [] in
-
-  let scope = LustreNode.scope_of_node node in
-  let constants = get_constants const_map scope in
-
-  let ident_width, val_width, globals' =
-    globals |> streams_to_values model ident_width val_width []
-  in
-
-  let ident_width, val_width, constants' =
-    constants |> streams_to_values model ident_width val_width []
-  in
-
-  (* Sample inputs, outputs and locals on clock *)
-  let globals', constants', inputs', outputs', ghosts', locals'  = match clock with
-    | None -> globals', constants', inputs', outputs', ghosts', locals'
-    | Some c ->
-      sample_streams_on_clock c globals',
-      sample_streams_on_clock c constants',
-      sample_streams_on_clock c inputs',
-      sample_streams_on_clock c outputs',
-      sample_streams_on_clock c ghosts',
-      sample_streams_on_clock c locals'
-  in
-  
-  (* Pretty-print this node or function. *)
-  Format.fprintf ppf "@[<v>\
-      @{<b>%s@} @{<blue>%s@} (%a)@,  @[<v>\
-        %a\
-        %a\
-        %a\
-        %a\
-        %a\
-        %a\
-        %a\
-        %a\
-        %a\
-      @]\
-    @,@]"
-    title
-    node_name
-    (pp_print_list pp_print_call_pt " / ") 
-    (List.rev trace)
-    (* (pp_print_modes_section_pt ident_width val_width a_mode_ident) active_modes *)
-    (* (pp_print_modes_section_pt ident_width val_width e_mode_ident) e_modes *)
-    (pp_print_stream_section_pt ident_width val_width "Assumptions") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) contract_assumptions)
-    (pp_print_stream_section_pt ident_width val_width "Guarantees") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) contract_guarantees)
-
-    (pp_print_stream_section_pt ident_width val_width "Modes") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) modes_stream)
-
-    (* (pp_print_stream_section_pt ident_width val_width "Ensures") ensured_modes *)
-    (pp_print_stream_section_pt ident_width val_width "Global Constants") globals'
-    (pp_print_stream_section_pt ident_width val_width "Constants") constants'
-    (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
-    (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
-    (pp_print_stream_section_pt ident_width val_width "Ghosts") ghosts'
-    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
-
-  (* Recurse depth-first to print subnodes *)
-  pp_print_lustre_path_pt_contract'
-    false
-    const_map
-    ppf
-    (subnodes @ tl)
-
-| _ :: tl ->
-  
-  pp_print_lustre_path_pt_contract' false const_map ppf tl
-
-  
-
-(* Output sequences of values for each stream of the node and for all
-   its called nodes *)
-let pp_print_lustre_path_pt_contract ppf (lustre_path, const_map) = 
-
-  (* Delegate to recursive function *)
-  pp_print_lustre_path_pt_contract' true const_map ppf [lustre_path]
-
-
   (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' is_top const_map ppf = function
+let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map ppf = function
 
 (* All nodes printed *)
 | [] -> ()
@@ -1543,7 +1357,11 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
       sample_streams_on_clock c ghosts',
       sample_streams_on_clock c locals'
   in
-  
+  let modes_stream = interleave (required_modes, ensured_modes) in
+  let contract_info = (modes, (modes_stream ,contract_assumptions, contract_guarantees)) in
+  let ident_width, val_width = if full_contract then 
+    get_widths_for_contract ident_width val_width (modes_stream @ contract_assumptions @ contract_guarantees) 
+    else ident_width, val_width in
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
       @{<b>%s@} @{<blue>%s@} (%a)@,  @[<v>\
@@ -1560,7 +1378,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     node_name
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
-    (pp_print_modes_section_pt ident_width val_width mode_ident) modes
+    (pp_print_modes_section_pt full_contract ident_width val_width mode_ident) contract_info
     (pp_print_stream_section_pt ident_width val_width "Global Constants") globals'
     (pp_print_stream_section_pt ident_width val_width "Constants") constants'
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
@@ -1583,22 +1401,21 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_pt ppf (lustre_path, const_map) = 
+let pp_print_lustre_path_pt ?(full_contract = false) ppf (lustre_path, const_map) = 
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_pt' true const_map ppf [lustre_path]
+  pp_print_lustre_path_pt' ~full_contract:full_contract true const_map ppf [lustre_path]
 
 
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
   ?(full_contract = false) trans_sys globals subsystems first_is_init ppf model
   =
-  let print_fn = if full_contract then pp_print_lustre_path_pt_contract else pp_print_lustre_path_pt in
   (* Create the hierarchical model *)
   node_path_of_subsystems
     globals first_is_init trans_sys model subsystems
   (* Output as plain text *)
-  |> print_fn ppf
+  |> pp_print_lustre_path_pt ~full_contract:full_contract ppf
 
 
 (* ********************************************************************** *)
@@ -1787,7 +1604,8 @@ let pp_print_contract_section_xml ctype ppf items =
     ctype
     (pp_print_list pp_print_contract_var "") items
 
-let pp_print_active_modes_xml ppf assumes guarantees = function
+
+let pp_print_active_modes_xml ppf = function
 | None | Some [] -> ()
 | Some mode_trace ->
   Format.fprintf ppf
@@ -1796,7 +1614,7 @@ let pp_print_active_modes_xml ppf assumes guarantees = function
       ( fun _ (k, tree) ->
         Format.fprintf ppf
           "\
-            <Assumes instant=\"%d\">@   \
+            <ActiveModes instant=\"%d\">@   \
               %a\
             </ActiveModes>\
           "
@@ -1832,7 +1650,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   | (
     trace, Node (
       { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
-      model,_, active_modes, ensured_modes, contract_assumptions, contract_guarantees , call_conds, subnodes
+      model,active_modes, required_modes, ensured_modes, contract_assumptions, contract_guarantees , call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
@@ -1895,7 +1713,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     in
 
     let globals' = if is_top then get_constants const_map [] else [] in
-    let contract_modes = interleave (active_modes, ensured_modes) in
+    let contract_modes = interleave (required_modes, ensured_modes) in
     let constants' =
       let scope = LustreNode.scope_of_node node in
       get_constants const_map scope
@@ -1910,7 +1728,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     (pp_print_contract_section_xml "Guarantees" ppf contract_guarantees) ;
     (pp_print_contract_section_xml "Modes" ppf contract_modes) ;
     (* (pp_print_contract_section_xml contract_assumptions contract_guarantees contract_modes ppf) ; *)
-    (* pp_print_active_modes_xml ppf active_modes; *)
+    pp_print_active_modes_xml ppf active_modes;
     List.iter (pp_print_stream_xml node model clock ppf) globals';
     List.iter (pp_print_stream_xml node model clock ppf) constants';
     List.iter (pp_print_stream_xml node model clock ppf) inputs';
@@ -2336,7 +2154,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
 
   | (
     trace, Node ({ N.node_id; N.is_function } as node,
-      model,_, active_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
+      model,active_modes, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
@@ -2376,15 +2194,16 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
        "@,{@[<v 1>@,\
         \"blockType\" : \"%s\",@,\
         \"name\" : \"%s\"\
-        %a%a%a%a%a%a\
+        %a%a%a%a%a%a%a\
         @]@,}%s\
        "
        title 
        name
+       pp_print_call_json trace
        (pp_print_section_json "assumptionsTrace") contract_assumptions
        (pp_print_section_json "guaranteesTrace") contract_guarantees
-       (pp_print_section_json "modesTrace") (interleave (active_modes,ensured_modes))
-       pp_print_call_json trace
+       (pp_print_section_json "modesTrace") (interleave (required_modes,ensured_modes))
+        pp_print_active_modes_json active_modes
        (pp_print_streams_json is_top const_map) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
