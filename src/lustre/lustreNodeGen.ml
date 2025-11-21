@@ -898,9 +898,6 @@ and compile_ast_expr
     result
 
   and compile_equality bounds polarity expr1 expr2 =
-    (*Format.printf "expr1: %a, expr2: %a\n"
-      (E.pp_print_expr true) expr1
-      (E.pp_print_expr true) expr2;*)
     let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
       | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
