@@ -2616,7 +2616,7 @@ module ContractMonitor = struct
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "contract-monitor"
+  let id = "contract_monitor"
   (* Short description of the module. *)
   let desc = "contract monitor flags"
   (* Explanation of the module. *)
@@ -3283,7 +3283,7 @@ module Global = struct
     | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
-    | "contract-monitor" -> `CMonitor
+    | "contract_monitor" -> `CMonitor
     | "MCS" -> `MCS
     | "CONTRACTCK" -> `CONTRACTCK
     | unexpected -> Arg.Bad (
@@ -3308,7 +3308,7 @@ module Global = struct
     | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
-    | `CMonitor -> "contract-monitor"
+    | `CMonitor -> "contract_monitor"
     | `MCS -> "MCS"
     | `CONTRACTCK -> "CONTRACTCK"
   let string_of_enable = function
