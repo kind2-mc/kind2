@@ -1626,13 +1626,7 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (if type_contains_array ctx ty1  then
-         type_error pos (Unsupported "Extensional array equality is not supported")
-       else if type_contains_map_or_set ctx ty1 then 
-         type_error pos (Unsupported "Extensional map and set equality are not supported") 
-       else 
-         R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2)
-      )
+      (R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2))
       (type_error pos (UnificationFailed (ty1, ty2)))
   | Lte  | Lt  | Gte | Gt ->
     are_args_num ctx pos ty1 ty2
