@@ -244,6 +244,7 @@ let keyword_table = mk_hashtbl [
   "enum", ENUM ;
   "history", HISTORY ;
   "map", MAP ;
+  "set", SET ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;
@@ -291,6 +292,7 @@ let keyword_table = mk_hashtbl [
   "if", IF ;
   "then", THEN ;
   "else", ELSE ;
+  "otherwise", OTHERWISE;
   "elsif", ELSIF ;
   "fi", FI ;
   "frame", FRAME ;
@@ -470,6 +472,7 @@ rule token = parse
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
+  | "==>" { LAZY_IMPL }
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }
@@ -490,6 +493,8 @@ rule token = parse
   | "rsh" { RSH }
   | "++" { CONCAT }
   | ":=" { ASSIGN }
+  | "'" { TICK }
+      
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }
@@ -499,6 +504,18 @@ rule token = parse
   | hex_num as p { NUMERAL (HString.mk_hstring p) }
   | hex_dec1 as p { DECIMAL (HString.mk_hstring p) }
   | hex_dec2 as p { DECIMAL (HString.mk_hstring p) }
+
+  | "and" ((whitespace | newline) as gap)+ "then" {
+    (* update line counter for every newline in the gap *)
+    String.iter (fun c -> if c = '\n' then Lexing.new_line lexbuf) gap;
+    AND_THEN
+  }
+
+  | "or" ((whitespace | newline) as gap)+ "else" {
+    (* update line counter for every newline in the gap *)
+    String.iter (fun c -> if c = '\n' then Lexing.new_line lexbuf) gap;
+    OR_ELSE
+  }
 
   (* Keyword *)
   | id as p {
@@ -513,7 +530,7 @@ rule token = parse
 
   (* String *)
   | "\"" { Buffer.clear string_buf; string lexbuf }
-      
+
   (* End of file *)
   | eof {
     (* Pop previous lexing buffer form stack if at end of included file *)

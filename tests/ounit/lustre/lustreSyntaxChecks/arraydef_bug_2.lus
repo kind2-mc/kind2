@@ -1,0 +1,5 @@
+node N() returns (A: int^4^4;)
+let
+  A[i][j] = ((i+j)^4)[i][j];
+tel
+

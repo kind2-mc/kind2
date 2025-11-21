@@ -494,7 +494,7 @@ let lustre_source_ast (type s) (input_system : s t) =
 let trans_sys_of_analysis (type s)
 ?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
-?(add_functional_constraints = Flags.Contracts.enforce_func_congruence ())
+?(add_functional_constraints = true)
 ?slice_to_prop
 : s t -> A.param -> TransSys.t * s t = function
 
@@ -1122,7 +1122,11 @@ let prefix_system (type s) (input_system : s t) prefix : s t = match input_syste
     let rename_contract (contract : LustreContract.t) : LustreContract.t =
       {
         assumes = List.map rename_svar contract.assumes;
-        sofar_assump = rename_state_var contract.sofar_assump;
+        sofar_assump = (
+          match contract.sofar_assump with
+          | None -> None
+          | Some v -> Some (rename_state_var v)
+        );
         guarantees = List.map (fun (sv, candidate) -> (rename_svar sv, candidate)) contract.guarantees;
         modes = List.map rename_mode contract.modes;
       }

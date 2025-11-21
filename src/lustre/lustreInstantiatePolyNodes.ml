@@ -270,6 +270,9 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty1, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty1 in 
     let ctx, gids, ty2, decls2, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty2 in 
     ctx, gids, Map (p, ty1, ty2), decls1 @ decls2, node_decls_map
+  | Set (p, ty) -> 
+    let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
+    ctx, gids, Set (p, ty), decls, node_decls_map
   | RefinementType (p, (p2, id, ty), expr) -> 
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
@@ -306,9 +309,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
   | A.Call (pos, ty :: tys, node_id, exprs) ->
-    (* Format.fprintf Format.std_formatter "Processing call to node %a with types %a\n"
-      HString.pp_print_hstring (NI.get_internal_name node_id)
-      (Lib.pp_print_list A.pp_print_lustre_type "; ") (ty :: tys); *)
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
@@ -325,13 +325,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
         |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
     ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
-  | Call (pos, [], node_id, exprs) -> 
+  | Call (pos, [], node_id, exprs) ->
     let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
-  | Ident _ 
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
   | RecordProject (p, expr, id) -> 
@@ -371,10 +371,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
     ctx, gids, Arrow (p, expr1, expr2), decls1 @ decls2, node_decls_map 
-  | StructUpdate (p, expr1, lois, expr2) ->
+  | StructUpdate (p, expr1, lois, Some expr2) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
-    ctx, gids, StructUpdate (p, expr1, lois, expr2), decls1 @ decls2, node_decls_map 
+    ctx, gids, StructUpdate (p, expr1, lois, Some expr2), decls1 @ decls2, node_decls_map 
+  | StructUpdate (p, expr1, lois, None) ->
+    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
+    ctx, gids, StructUpdate (p, expr1, lois, None), decls1, node_decls_map 
   | IndexAccess (p, expr1, expr2, kind) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
@@ -388,10 +391,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, AnyOp (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
-  | EmptyMap (p, (kt, vt)) ->
+  | EmptySet (p, Some ty) ->
+    let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
+    ctx, gids, EmptySet (p, Some ty), decls, node_decls_map
+  | EmptyMap (p, Some (kt, vt)) ->
     let ctx, gids, kt, decls1, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map kt in 
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 
-    ctx, gids, EmptyMap (p, (kt, vt)), decls1 @ decls2, node_decls_map
+    ctx, gids, EmptyMap (p, Some (kt, vt)), decls1 @ decls2, node_decls_map
   | Quantifier (p, q, tis, expr) -> 
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 

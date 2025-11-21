@@ -81,8 +81,8 @@ type t = {
   assumes: svar list ;
   (** Assumptions of the contract. *)
 
-  sofar_assump: StateVar.t ;
-  (** State variable to model Sofar(/\ assumes) *)
+  sofar_assump: StateVar.t option;
+  (** State variable to model Sofar(/\ assumes), if any *)
 
   guarantees: (svar * bool) list ;
   (** Guarantees of the contract (boolean is the [candidate] flag). *)
@@ -93,7 +93,7 @@ type t = {
 
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
 list of modes. *)
-val mk: svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
+val mk: svar list -> StateVar.t option -> (svar * bool) list -> mode list -> t
 
 (** Adds assumes to a contract. *)
 val add_ass: t -> svar list -> t

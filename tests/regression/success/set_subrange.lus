@@ -1,0 +1,4 @@
+node N(s: set<subrange [0,1] of int>) returns ();
+let
+  check not (3 in s);
+tel

@@ -74,7 +74,7 @@ let mk_mode name pos path requires ensures candidate = {
 
 type t = {
   assumes: svar list ;
-  sofar_assump: StateVar.t ;
+  sofar_assump: StateVar.t option;
   guarantees: (svar * bool) list ;
   modes: mode list ;
 }
@@ -118,7 +118,9 @@ let svars_of_modes modes set = modes |> List.fold_left (
 let svars_of ?(with_sofar_var=true) { assumes ; sofar_assump ; guarantees ; modes } =
   let initial_set =
     if with_sofar_var then
-      SVarSet.singleton sofar_assump
+      match sofar_assump with
+      | None -> SVarSet.empty
+      | Some v -> SVarSet.singleton v
     else
       SVarSet.empty
   in
@@ -193,8 +195,12 @@ let pp_print_contract safe fmt { assumes ; guarantees ; modes } =
     ) modes
 
 let pp_print_contract_debug safe fmt { sofar_assump; assumes; guarantees; modes } =
-  Format.fprintf fmt "@[<v 2>(*@contract@ %a@ %a@ %a@ %a@]@ *)"
-  StateVar.pp_print_state_var_debug sofar_assump
+  Format.fprintf fmt "@[<v 2>(*@contract@ %t%a@ %a@ %a@]@ *)"
+  (fun fmt ->
+     match sofar_assump with
+     | None -> ()
+     | Some sv -> Format.fprintf fmt "%a@ " StateVar.pp_print_state_var_debug sv
+  )
   (pp_print_list (
       fun fmt ass ->
         Format.fprintf fmt "  assume%a" pp_print_svar_debug ass

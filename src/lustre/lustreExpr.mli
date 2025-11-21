@@ -34,8 +34,8 @@
     fresh variable that is defined by this expression. There are no
     node calls in a Lustre expression. They have to be abstracted out
     and the results are captured in fresh variables. See
-    {!LustreSimplify} for details about how the input file is
-    translates
+    {!LustreAstNormalizer} for details about how the input file is
+    translated
 
     The offsets of state variable instances are zero for the initial
     state and zero for the current state, see the constants
@@ -283,6 +283,9 @@ val var_of_init_expr : t -> Var.t
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
 val vars_of_expr : t -> Var.VarSet.t
+
+(** Return the terms of the form (select ...) that appear in a expression *)
+val select_terms : t -> Term.TermSet.t
 
 (** Return all state variables of the initial state expression at the
     base instant *)

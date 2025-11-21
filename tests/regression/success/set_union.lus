@@ -1,0 +1,8 @@
+node N(s1, s2: set<int>) returns (s3: set<int>);
+let
+  s3 = s1 + s2;
+
+  check forall (i: int) i in s3 => (i in s1 or i in s2);
+  check forall (i: int) i in s1 => i in s3; 
+  check forall (i: int) i in s2 => i in s3;
+tel

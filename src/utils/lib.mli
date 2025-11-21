@@ -595,17 +595,6 @@ module ReservedIds : sig
   (** New clock initialization flag. *)
   val index_ident_string: string
 
-  (** Automaton state encoding. *)
-  val state_string: string
-
-  val restart_string: string
-  val state_selected_string: string
-  val restart_selected_string: string
-  val state_selected_next_string: string
-  val restart_selected_next_string: string
-  val handler_string: string
-  val unless_string: string
-
   (** Init flag string. *)
   val init_flag_string: string
 

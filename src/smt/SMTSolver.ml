@@ -581,7 +581,8 @@ let get_var_values s state_var_indexes vars =
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
 
-      let bnds = try
+      try
+        let bnds =
           List.map (function
           | LustreExpr.Unbound _ ->
             raise Exit
@@ -594,57 +595,58 @@ let get_var_values s state_var_indexes vars =
               (* evaluate value of bound in current model *)
               (* assert (StateVar.is_const svub); *)
               let ub = LustreExpr.unsafe_term_of_expr eu
-                       |> Term.bump_state offset
-                       |> Eval.eval_term [] model in
+                        |> Term.bump_state offset
+                        |> Eval.eval_term [] model in
               (match ub with
-               | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
-               | _ -> assert false)
+                | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
+                | _ -> assert false)
             ) indexes
-        with Exit -> []
-      in
-      
-      let index_term, term_to_index =
-        let idx_ty = Type.index_type_of_array ty in
-        if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
-          let size =
-            match Type.get_bv_size idx_ty with
-            | Some s -> Numeral.of_int s
-            | None -> assert false
-          in
-          (fun i -> Bitvector.num_to_ubv size (Numeral.of_int i) |> Term.mk_ubv),
-          (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
-        else
-          (fun i -> (Term.mk_num_of_int i)),
-          (fun t -> Numeral.to_int (Term.numeral_of_term t))
-      in
+        in
 
-      let args_list = cross (List.map range bnds) in
-      let vt = Term.mk_var v in
-      let sexprs =
-        List.map (fun args ->
-            List.fold_left Term.mk_select
-              vt (List.rev_map index_term args)
-            |> Term.convert_select
-            |> S.Conv.smtexpr_of_term
-          ) args_list in
-      
-      let values =
-        if sexprs = [] then [] (* when the size of the array is 0 in the model *)
-        else match prof_get_value s sexprs with
-          | `Values v -> v
-          | r -> smt_error s r
-      in
+        let index_term, term_to_index =
+          let idx_ty = Type.index_type_of_array ty in
+          if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
+            let size =
+              match Type.get_bv_size idx_ty with
+              | Some s -> Numeral.of_int s
+              | None -> assert false
+            in
+            (fun i -> Bitvector.num_to_ubv size (Numeral.of_int i) |> Term.mk_ubv),
+            (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
+          else
+            (fun i -> (Term.mk_num_of_int i)),
+            (fun t -> Numeral.to_int (Term.numeral_of_term t))
+        in
 
-      let m =
-        List.fold_left (fun acc (t, e) ->
-            let t = S.Conv.term_of_smtexpr t in
-            assert (Term.is_select t);
-            let v', args_t = Term.indexes_and_var_of_select t in
-            assert (Var.equal_vars v v');
-            let args = List.map term_to_index args_t in
-            Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
-          ) Model.MIL.empty values in
-      Var.VarHashtbl.add model v (Model.Map m)
+        let args_list = cross (List.map range bnds) in
+        let vt = Term.mk_var v in
+        let sexprs =
+          List.map (fun args ->
+              List.fold_left Term.mk_select
+                vt (List.rev_map index_term args)
+              |> Term.convert_select
+              |> S.Conv.smtexpr_of_term
+            ) args_list in
+
+        let values =
+          if sexprs = [] then [] (* when the size of the array is 0 in the model *)
+          else match prof_get_value s sexprs with
+            | `Values v -> v
+            | r -> smt_error s r
+        in
+
+        let m =
+          List.fold_left (fun acc (t, e) ->
+              let t = S.Conv.term_of_smtexpr t in
+              assert (Term.is_select t);
+              let v', args_t = Term.indexes_and_var_of_select t in
+              assert (Var.equal_vars v v');
+              let args = List.map term_to_index args_t in
+              Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
+            ) Model.MIL.empty values in
+        Var.VarHashtbl.add model v (Model.Map m)
+      with Exit -> (* No values for unbounded arrays *)
+        Var.VarHashtbl.add model v (Model.Map Model.MIL.empty)
     ) array_vars;
       
   model

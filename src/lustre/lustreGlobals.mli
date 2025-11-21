@@ -21,14 +21,16 @@
     @author Christoph Sticksel *)
 
 (** *)
+
+type state_var_bounds = (LustreExpr.expr LustreExpr.bound_or_fixed list)
+        StateVar.StateVarHashtbl.t
+
 type t = 
   { 
     free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
     (** Free constants *)
 
-    state_var_bounds :
-      (LustreExpr.expr LustreExpr.bound_or_fixed list)
-        StateVar.StateVarHashtbl.t;
+    state_var_bounds : state_var_bounds;
     (** Register bounds of state variables for later use *)
 
     global_constraints: LustreExpr.t list;

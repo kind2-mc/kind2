@@ -1,0 +1,13 @@
+function imported F1(x:int) returns (z:int);
+(*@contract
+  assume x>=0;
+  guarantee z>0;
+*)
+
+node F2(x:int) returns (z:int);
+(*@contract
+  guarantee "P1" z>0;
+*)
+let
+  z = if x>=0 then F1(x) else 1;
+tel

@@ -1,0 +1,6 @@
+node N() returns (A: int^4;)
+let
+  A[j] = (j^4)[j];
+  check forall (j: subrange [0, 3] of int) A[j] = j; 
+tel
+

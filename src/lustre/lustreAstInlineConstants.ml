@@ -187,14 +187,14 @@ and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
   match top with
-  | LA.Ite -> if c then R.ok v1 else R.ok v2
+  | LA.Ite | LA.LazyIte -> if c then R.ok v1 else R.ok v2
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx _ top b1 e1 e2 ->
   match top with
-  | LA.Ite ->
+  | LA.Ite | LA.LazyIte ->
      eval_bool_expr ctx b1 >>= fun c ->
      if c
      then eval_int_expr ctx e1
@@ -250,6 +250,7 @@ and push_pre is_guarded pos =
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
+  | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> TupleProject (p, r e, i)
@@ -257,6 +258,7 @@ and push_pre is_guarded pos =
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
+  | TernaryOp (p, LazyIte, e1, e2, e3) -> TernaryOp (p, LazyIte, e1, e2, e3)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
@@ -266,7 +268,8 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
-  | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
+  | StructUpdate (p, e1, l, Some e2) -> StructUpdate (p, r e1, l, Some (r e2))
+  | StructUpdate (p, e1, l, None) -> StructUpdate (p, r e1, l, None)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
@@ -325,7 +328,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
       | Error _ -> e')
   | LA.TernaryOp (pos, top, cond, e1, e2) ->
      (match top with
-     | Ite -> 
+     | Ite | LazyIte -> 
         (match eval_bool_expr ctx cond with
         | Ok v -> if v then simplify_expr ~ind_vars ~is_guarded ctx e1
           else simplify_expr ~ind_vars ~is_guarded ctx e2 
@@ -369,8 +372,10 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     Quantifier (pos, q, tis, e')
-  | EmptyMap (pos, (kt, vt)) -> 
-    EmptyMap (pos, (inline_constants_of_lustre_type ~ind_vars ctx kt, 
+  | EmptySet (pos, Some ty) -> 
+    EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
+  | EmptyMap (pos, Some (kt, vt)) -> 
+    EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
@@ -398,6 +403,9 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     let ty' = inline_constants_of_lustre_type ctx ty in
     let expr' = simplify_expr ~ind_vars ctx expr in
     ArrayType (pos, (ty', expr'))
+  | Set (pos, ty) -> 
+    let ty = inline_constants_of_lustre_type ctx ty in 
+    Set (pos, ty)
   | Map (pos, ty1, ty2) ->
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in

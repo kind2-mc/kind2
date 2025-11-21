@@ -1453,15 +1453,6 @@ module ReservedIds = struct
   let trans_uf_string = "__node_trans"
   let index_ident_string = "__index"
   let function_of_inputs = "__function_of_inputs"
-
-  let state_string = "state"
-  let restart_string = "restart"
-  let state_selected_string = "state.selected"
-  let restart_selected_string = "restart.selected"
-  let state_selected_next_string = "state.selected.next"
-  let restart_selected_next_string = "restart.selected.next"
-  let handler_string = "handler"
-  let unless_string = "unless"
   
   (* Init flag string. *)
   let init_flag_string = "__init_flag"

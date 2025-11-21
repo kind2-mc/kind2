@@ -1,0 +1,31 @@
+type T = int;
+type S = set<T>;
+
+const N: subtype { x: int | x > 5 };
+type R = struct { x: int; y: int }; 
+
+node N() returns (o: S; o2: set<[int, int]>; o3: set<[[int, int], int]>; o4: set<[int, int]>; o6: set<R>) 
+let
+    o = { 3, 4 }@<int>;
+    o2 ={ '(3, 4), '(6, 7) }@<[int, int]>;
+
+    check 3 in o; 
+    check 4 in o; 
+    check '(3, 4) in o2; 
+    check '(6, 7) in o2;
+    check forall (i: int) i <> 3 and i <> 4 => not (i in o);
+    check forall (i: [int, int]) i <> '(3, 4) and i <> '(6, 7) => not (i in o2);
+
+    o3 = { '('(3, 4), 5), '('(6, 7), 8) }@<[[int, int], int]>; 
+    o4 = { '(3, 4), '(7, 8) }@<[int, int]>;
+    o6 = { R {x = 3; y = 4}, R {x = 5; y = 6} }@<R>;
+
+    check '('(3, 4), 5) in o3;
+    check '('(6, 7), 8) in o3;
+    check '(3, 4) in o4;
+    check '(7, 8) in o4;
+    check R {x = 3; y = 4} in o6;
+    check (forall (i: [[int, int], int]) i <> '('(3, 4), 5) and i <> '('(6, 7), 8) => not (i in o3)); 
+    check (forall (i: [int, int]) i <> '(3, 4) and i <> '(7, 8) => not (i in o4));
+    check (forall (i: R) i <> (R {x = 3; y = 4}) and i <> (R {x = 5; y = 6}) => not (i in o6));
+tel

@@ -154,6 +154,7 @@ let rec unannot_pos = function
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
   | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
+  | A.Set (_, ty) -> Set (dpos, ty)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -237,13 +238,14 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
-    | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
+    | A.StructUpdate (p,e1,ls,Some e2) -> A.StructUpdate (p,aux e1,ls,Some (aux e2))
+    | A.StructUpdate (p,e1,ls,None) -> A.StructUpdate (p,aux e1,ls,None)
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
     | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
@@ -273,16 +275,16 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
-    | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
+    | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
     | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
     | A.Arrow (_,e1,e2) -> aux e1 || aux e2

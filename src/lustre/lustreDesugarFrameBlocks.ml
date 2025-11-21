@@ -88,7 +88,9 @@ let warn_unguarded_pres nis pos =
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
 *)
-let rec fill_ite_helper frame_pos node_id lhs id fill = function
+let rec fill_ite_helper frame_pos node_id lhs fill e = 
+  let r = fill_ite_helper frame_pos node_id lhs fill in 
+  match e with
   (* Replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
@@ -108,55 +110,61 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (p, e) -> Pre (p, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | Pre (p, e) -> Pre (p, r e) 
+  | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | EmptyMap _ as e -> e
-    
-  | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Extract (a, e, b, c) -> Extract (a, fill_ite_helper frame_pos node_id lhs id fill e, b, c)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e)
-  | When (a, e, b) -> When (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper frame_pos node_id lhs id fill e, b)
-  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper frame_pos node_id lhs id fill e)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
+  | EmptySet _ as e -> e
+  | RecordProject (p, e, id) -> RecordProject (p, r e, id)
+  | ConvOp (p, b, e) -> ConvOp (p, b, r e)
+  | Extract (p, e, b, c) -> Extract (p, r e, b, c)
+  | UnaryOp (p, b, e) -> UnaryOp (p, b, r e)
+  | When (p, e, b) -> When (p, r e, b)
+  | TupleProject (p, e, b) -> TupleProject (p, r e, b)
+  | Quantifier (p, b, c, e) -> Quantifier (p, b, c, r e)
+  | BinaryOp (p, b, e1, e2) -> BinaryOp (p, b, r e1, r e2)
+  | CompOp (p, b, e1, e2) -> CompOp (p, b, r e1, r e2)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, k)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper frame_pos node_id lhs id fill e1, fill_ite_helper frame_pos node_id lhs id fill e2, fill_ite_helper frame_pos node_id lhs id fill e3)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
+  | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, r e2)
+  | TernaryOp (p, b, e1, e2, e3) -> TernaryOp (p, b, r e1, r e2, r e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Call (a, b, c, l) -> Call (a, b, c, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
+  | GroupExpr (p, b, l) -> GroupExpr (p, b, List.map r l)
+  | Call (p, b, c, l) -> Call (p, b, c, List.map r l)
 
-  | Merge (a, b, l) -> Merge (a, b, 
+  | Merge (p, b, l) -> Merge (p, b, 
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
-  | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
+  | RecordExpr (p, b, c, l) -> RecordExpr (p, b, c,
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper frame_pos node_id lhs id fill) (List.map snd l)))
+    (List.map r (List.map snd l)))
   
-  | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (fill_ite_helper frame_pos node_id lhs id fill) l, fill_ite_helper frame_pos node_id lhs id fill e)
-  | Activate (a, b, e, r, l) ->
-    Activate (a, b, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, List.map (fill_ite_helper frame_pos node_id lhs id fill) l)
-  | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (fill_ite_helper frame_pos node_id lhs id fill) e, (fill_ite_helper frame_pos node_id lhs id fill) r, b, 
-             List.map (fill_ite_helper frame_pos node_id lhs id fill) l1, List.map (fill_ite_helper frame_pos node_id lhs id fill) l2)
+  | RestartEvery (p, b, l, e) -> 
+    RestartEvery (p, b, List.map r l, r e)
+  | Activate (p, b, e1, e2, l) ->
+    Activate (p, b, r e1, r e2, List.map r l)
+  | Condact (p, e1, e2, b, l1, l2) ->
+    Condact (p, r e1, r e2, b, 
+             List.map r l1, List.map r l2)
 
-  | StructUpdate (a, e1, li, e2) -> 
-    A.StructUpdate (a, fill_ite_helper frame_pos node_id lhs id fill e1, 
+  | StructUpdate (p, e1, li, e2) -> 
+    let e2 = match e2 with 
+    | Some e2 -> Some (r e2)
+    | None -> None 
+    in
+    A.StructUpdate (p, r e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
-              | MapIndex (a, e) -> MapIndex (a, fill_ite_helper frame_pos node_id lhs id fill e)
-              | Index (a, e) -> Index (a, fill_ite_helper frame_pos node_id lhs id fill e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
+              | Index (a, e) -> Index (a, r e)
+              | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
-    fill_ite_helper frame_pos node_id lhs id fill e2)
+    e2)
 
 (** Helper function to generate node equations when an initialized variable in the 
     frame block is left undefined in the frame block body. *)
@@ -220,6 +228,34 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
      case is not possible *)
   | A.Equation _ -> assert false
 
+(* Helper function to "push indices" further inside ITEs, e.g. 
+   (if c then arr1 else arr2)[i][j] --> if c then arr1[i][j] else arr2[i][j]. 
+   This is a necessary normalization step for fill_ite_helper, 
+   as the initialization itself may contain indices.
+   For example, consider the array equation 
+     A[i] = (if c then ib_oracle else arr2)[i], with initialization 
+     A[i] = i. 
+   Without this step, fill_ite_helper will generate the malformed equation
+     A[i] = (if c then i -> pre A[i] else arr2)[i].
+   But, if we push indices first, we convert equation 
+     A[i] = (if c then ib_oracle else arr2)[i] to  
+     A[i] = if c then ib_oracle else arr2[i], and then to  
+     A[i] = if c then i -> pre A[i] else arr2[i], which is well-formed. 
+*)
+let rec push_indices indices e =
+  let r = push_indices indices in
+  match e with
+  | (A.Ident (pos, id) as e) -> 
+    if GI.var_is_iboracle id then e else 
+      List.fold_left (fun acc ind -> 
+        A.IndexAccess (pos, acc, Ident (pos, ind), Array)
+      ) e indices 
+  | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
+  | e ->  
+    let p = AH.pos_of_expr e in
+    List.fold_left (fun acc ind -> 
+      A.IndexAccess (p, acc, Ident (p, ind), Array)
+    ) e indices 
 
 (** Helper function to generate node equations when a variable in the 
     frame block var list is left undefined in the frame block body AND has 
@@ -256,14 +292,17 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
 
         R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
 
-(** Helper function to fill in ITE oracles and guard equations with specified
-    initialization values (if present). *)
+(** Helper function to fill in ITE oracles. 
+    For variable v, fill each ITE oracle with `init_v -> pre v` if an initialization exists, 
+    and `pre v` otherwise. *) 
 let fill_ite_oracles f_pos node_id nes ni = 
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), rhs_expr)) -> 
     (* Find initialization value *)
-    let lhs_init_e = List.find_map (fun ne -> match ne with 
-      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> Some (lhs, init_expr, rhs_expr)
+    let exprs = List.find_map (fun ne -> match ne with 
+      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> 
+        let pre_expr = A.Pre (pos, Ident (pos, i)) in 
+        Some (lhs, init_expr, rhs_expr, pre_expr)
       (* In this case, the initialization is a recursive array definition, but 
          the body equation is not. So, we have to make the whole desugared equation recursive. *)
       | A.Equation (_, StructDef(p1, [ArrayDef(p2, id, inds1)]), init_expr) when id = i  -> 
@@ -272,22 +311,29 @@ match ni with
         let lhs = A.StructDef(p1, [ArrayDef(p2, id, fresh)]) in
         let init_expr = AH.replace_idents inds1 fresh init_expr in
         let pos = AH.pos_of_expr init_expr in
-        let rhs_expr = List.fold_left (fun acc ind -> 
-          A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
-        ) rhs_expr fresh in
-        Some (lhs, init_expr, rhs_expr)
+        let rhs_expr = push_indices fresh rhs_expr in
+        let pre_expr = List.fold_left (fun expr j -> 
+          A.IndexAccess (pos, expr, A.Ident(pos, j), Array)
+        ) (A.Pre (pos, Ident (pos, i))) fresh 
+        in 
+        Some (lhs, init_expr, rhs_expr, pre_expr)
       | _ -> None
     ) nes in
-    (match lhs_init_e with
-      | Some (lhs, init, rhs_expr) ->     
+    (match exprs with
+      | Some (lhs, init, rhs_expr, pre_expr) ->     
         let pos2 = AH.pos_of_expr rhs_expr in 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i (A.Pre (pos2, Ident(pos2, i))) rhs_expr)))))
+        let rhs = 
+          fill_ite_helper f_pos node_id lhs 
+            (A.Arrow (pos2, init, pre_expr)) rhs_expr
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs))) 
       | None -> 
         let pos2 = AH.pos_of_expr rhs_expr in 
-        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i
-                                (A.Pre (pos2, Ident(pos2, i)))
-                                rhs_expr))))
+        let rhs = 
+          fill_ite_helper f_pos node_id lhs 
+            (A.Pre (pos2, Ident(pos2, i))) rhs_expr
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs))))
   | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1)]), rhs_expr)) ->
     (* Substitute fresh variables for inds1 in lhs and init_expr to avoid name clash issues *)
     let fresh = mk_fresh_indices inds1 in
@@ -308,17 +354,22 @@ match ni with
         let expr = List.fold_left (fun acc ind -> 
           A.IndexAccess (pos, acc, Ident (pos, ind), Array)  
         ) expr fresh in
-        Some (expr)
+        Some expr
       | _ -> None
     ) nes in 
     (match init with
       | Some init -> 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
-                                                    fill_ite_helper f_pos node_id lhs i1 (A.Pre (pos2, array_index)) rhs_expr)))))
+        let rhs = 
+          fill_ite_helper f_pos node_id lhs 
+            (A.Arrow (pos2, init, (A.Pre (pos2, array_index)))) rhs_expr
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs)))
       | None -> 
-        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper f_pos node_id lhs i1
-                          (A.Pre (pos2, array_index))
-                          rhs_expr))))
+        let rhs = 
+          fill_ite_helper f_pos node_id lhs 
+            (A.Pre (pos2, array_index)) rhs_expr 
+        in
+        R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
@@ -332,8 +383,8 @@ match ni with
 
 (**
   For each node item in frame block body:
-    Fill in ITE oracles and initialize equations (RHS) when an initialization
-    value is specified.
+    Fill in ITE oracles (for variable v, fill with `init_v -> pre v` if an initialization 
+    exists, and `pre v` otherwise).  
   For each initialization:
     Fill in an equation if one doesn't exist.
   For each variable that is neither initialized nor defined:
@@ -364,10 +415,9 @@ let desugar_node_item (node_id: NI.t) ni = match ni with
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
 
-(** Desugars a declaration list to remove frame blocks. Node equations
-    in the body are initialized with the provided initializations. If a frame block 
-    node equation has if statements with undefined branches, it fills the branches in by setting
-    the variable equal to its value in the previous timestep. *)
+(** Desugars a declaration list to remove frame blocks. 
+    If a frame block node equation has if statements with undefined branches, it fills the branches in by setting
+    the variable v equal to `init_v -> pre v` (or, if no initialization is provided, just `pre v`) *)
 let desugar_frame_blocks sorted_node_contract_decls = 
   NI.Hashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with

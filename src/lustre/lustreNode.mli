@@ -48,6 +48,7 @@
 open Lib
 
 module NI = NodeId
+module LG = LustreGlobals
 
 (** {1 Types} *)
 
@@ -74,6 +75,9 @@ type node_call = {
   
   call_cond : call_cond list;
   (** Boolean activation and/or restart conditions if any *)
+
+  call_context : StateVar.t option;
+  (** Boolean variable representing the condition of a function call if any *)
 
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 
@@ -331,7 +335,7 @@ val subsystem_of_nodes : NI.t -> t list -> t SubSystem.t
 val nodes_of_subsystem : t SubSystem.t -> t list
 
 (** Return all stateful variables from expressions in a node *)
-val stateful_vars_of_node : t -> StateVar.StateVarSet.t
+val stateful_vars_of_node : LG.state_var_bounds -> t -> StateVar.StateVarSet.t
 
 (** Return the name of the node *)
 val node_id_of_node : t -> NI.t
@@ -476,9 +480,6 @@ val state_var_is_visible : t -> StateVar.t -> bool
 (** Return true if the node should be visible to the user,
     false if it was created internally. *)
 val node_is_visible : t -> bool
-
-(** Return the state that is handled by the node if any. *)
-val node_is_state_handler : t -> string option
 
 (** Return true if the state variable is an input *)
 val state_var_is_input : t -> StateVar.t -> bool

@@ -34,6 +34,7 @@ let mk_span start_pos end_pos =
 
 (* Special characters *)
 %token ATSIGN
+%token TICK
 %token SEMICOLON 
 %token EQUALS 
 %token COLON
@@ -84,6 +85,7 @@ let mk_span start_pos end_pos =
 %token SUBTYPE
 %token HISTORY
 %token MAP
+%token SET
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -150,10 +152,10 @@ let mk_span start_pos end_pos =
 %token TRUE
 %token FALSE
 %token NOT
-%token AND
+%token AND AND_THEN
 %token XOR
-%token OR
-%token IMPL
+%token OR OR_ELSE
+%token IMPL LAZY_IMPL
 %token FORALL
 %token EXISTS
 %token IN
@@ -163,6 +165,7 @@ let mk_span start_pos end_pos =
 %token THEN
 %token ELSE
 %token ELSIF
+%token OTHERWISE
 %token FI
 %token FRAME
 
@@ -216,12 +219,12 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
-%nonassoc ELSE
+%nonassoc ELSE OTHERWISE
 %right ARROW
 %nonassoc prec_forall prec_exists
-%right IMPL
-%left OR XOR
-%left AND
+%right IMPL LAZY_IMPL
+%left OR OR_ELSE XOR
+%left AND AND_THEN
 %left IN
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
@@ -412,6 +415,8 @@ lustre_type:
     OF
     INT 
     { A.IntRange (mk_pos $startpos, l, u) }
+  | SET; LT; ty = lustre_type; GT; 
+    { A.Set (mk_pos $startpos, ty) }
   | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
     { A.Map (mk_pos $startpos, ty1, ty2) }
 
@@ -454,7 +459,7 @@ array_type:
   | t = lustre_type; CARET; s = expr { t, s }
 
 refinement_type_base:
-  | LCURLYBRACKET; id = typed_ident; BAR; e = expr; RCURLYBRACKET
+  | LCURLYBRACKET; id = typed_ident; BAR; e = qexpr; RCURLYBRACKET
   { id, e }
 
 (* Refinement type *)
@@ -873,6 +878,14 @@ any_expr:
 assign:
   | e2 = expr; ASSIGN; e3 = expr { e2, e3 }
 
+map_type_annotation: 
+  | ATSIGN; LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
+  { key_ty, value_ty } 
+
+type_annotation: 
+  | ATSIGN; LT ty=lustre_type; GT
+  { ty }
+
 (* An possibly quantified expression *)
 pexpr(Q): 
   
@@ -918,8 +931,7 @@ pexpr(Q):
     { A.GroupExpr (mk_pos $startpos, A.ExprList, h :: l) } 
 
   (* A tuple expression (not quantified) *)
-  (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
+  | TICK; LPAREN; l = pexpr_list(Q); RPAREN { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
 
   (* An array expression (not quantified) *)
   | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
@@ -927,10 +939,36 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  | MAP LSQBRACKET RSQBRACKET ATSIGN
-    LT key_ty=lustre_type; comma_or_semicolon; value_ty=lustre_type; GT
+  (* Map literals *)
+  | MAP LSQBRACKET 
+    updates = separated_list(SEMICOLON, assign); 
+    RSQBRACKET 
+    ta = option(map_type_annotation)
   {
-    A.EmptyMap (mk_pos $startpos, (key_ty, value_ty))
+    match ta, updates with 
+    | None, [] -> 
+      let pos = mk_pos $startpos in 
+      fail_at_position pos "Empty map must have a type annotation"
+    | ta, updates -> 
+      List.fold_left (fun acc (e2, e3) -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], Some e3) 
+      )  (A.EmptyMap (mk_pos $startpos, ta)) updates 
+  }
+
+  (* Set literals *)
+  | LCURLYBRACKET 
+    elements = separated_list(COMMA, expr);
+    RCURLYBRACKET 
+    ta = option(type_annotation); 
+  {
+    match ta, elements with 
+    | None, [] -> 
+      let pos = mk_pos $startpos in 
+      fail_at_position pos "Empty set must have a type annotation"
+    | ta, elements -> 
+      List.fold_left (fun acc e -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
+      ) (A.EmptySet (mk_pos $startpos, ta)) elements
   }
 
   | e1 = pexpr(Q); 
@@ -938,13 +976,9 @@ pexpr(Q):
     updates = separated_nonempty_list(SEMICOLON, assign); 
     RSQBRACKET;
     { 
-      match updates with 
-      | [] -> assert false 
-      | (e2, e3) :: tl -> 
-        List.fold_left (fun acc (e2, e3) -> 
-          A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], e3) 
-        ) (A.StructUpdate (mk_pos $startpos, e1, [A.MapIndex (mk_pos $startpos, e2)], e3)) 
-          tl 
+      List.fold_left (fun acc (e2, e3) -> 
+        A.StructUpdate (mk_pos $startpos, acc, [A.GenericIndex (mk_pos $startpos, e2)], Some e3) 
+      ) e1 updates 
     }
 
   (* Tuple projection (not quantified) *)
@@ -976,17 +1010,6 @@ pexpr(Q):
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: array concatenation" } 
 
-  (* with operator for updating fields of a structure (not quantified) *)
-  | LPAREN; 
-    e1 = pexpr(Q); 
-    WITH; 
-    i = nonempty_list(label_or_index); 
-    EQUALS; 
-    e2 = pexpr(Q); 
-    RPAREN
-
-    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
-
   (* An arithmetic operation *)
   | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
   | MINUS; e = expr { A.UnaryOp (mk_pos $startpos, A.Uminus, e) } 
@@ -1000,10 +1023,13 @@ pexpr(Q):
   (* A Boolean operation *)
   | NOT; e = pexpr(Q) { A.UnaryOp (mk_pos $startpos, A.Not, e) } 
   | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.And, e1, e2) }
+  | e1 = pexpr(Q); AND_THEN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.AndThen, e1, e2) }
   | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Or, e1, e2) }
+  | e1 = pexpr(Q); OR_ELSE; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.OrElse, e1, e2) }
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
-  | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In, e1, e2) }
+  | e1 = pexpr(Q); LAZY_IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.LazyImpl, e1, e2) }
+  | e1 = pexpr(Q); IN; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.In Unknown, e1, e2) }
   | HASH; LPAREN; pexpr_list(Q); RPAREN { 
     let pos = mk_pos $startpos in
     fail_at_position pos "Unsupported operator: #" }
@@ -1044,6 +1070,9 @@ pexpr(Q):
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
+
+  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); OTHERWISE; e3 = pexpr(Q)
+    { A.TernaryOp (mk_pos $startpos, A.LazyIte, e1, e2, e3) }
 
   (* Recursive node call *)
   | WITH; pexpr(Q); THEN; pexpr(Q); ELSE; pexpr(Q) 
@@ -1427,25 +1456,6 @@ tlist_tail(separator, closing, X):
 tlist(opening, separator, closing, X):
   | opening; l = tlist_tail(separator, closing, X) { l }
   | opening; closing { [ ] }
-
-(* ********************************************************************** *)
-
-
-(* An index *)
-label_or_index: 
-
-  (* An index into a record *)
-  | DOT; i = ident
-     { A.Label (mk_pos $startpos, i) } 
-
-  (* An index into an array with a variable or constant *)
-  | LSQBRACKET; e = expr; RSQBRACKET
-     { A.Index (mk_pos $startpos, e) }
-
-  (* An index into a tuple with a variable or constant *)
-  | DOTPERCENT; e = expr; 
-     { A.Index (mk_pos $startpos, e) }
-
 
 
 (* 

@@ -637,8 +637,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
     if Simplify.has_division_by_zero_happened () then
       div_by_zero_text prop
       |> printf_pt L_warn
-        "%t @[<v> %a@]"
-        warning_tag
+        "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
 
   ) else

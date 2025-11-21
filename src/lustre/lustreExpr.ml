@@ -1073,6 +1073,13 @@ let vars_of_expr { expr_init; expr_step } =
   (* Join sets of state variables *)
   Var.VarSet.union vars_init vars_step
 
+let select_terms { expr_init; expr_step } =
+  let terms_init = Term.select_terms expr_init in
+
+  let terms_step = Term.select_terms expr_step in
+
+  Term.TermSet.union terms_init terms_step
+
 
 (* Return all state variables at the current instant in the initial
    state expression *)
@@ -1413,7 +1420,7 @@ let best_int_range is_div op t t' =
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
-  ) -> raise Division_by_zero
+  ) -> Type.t_int
   
   | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
@@ -1617,6 +1624,13 @@ let type_of_num_num_bool = function
     (function 
       | t when Type.is_int t || Type.is_int_range t -> Type.t_bool 
       | _ -> raise Type_mismatch)
+
+  | t1 when Type.is_enum t1 ->
+    (function
+      | t2 when Type.is_enum t2 &&
+        (Type.name_of_enum t1 = Type.name_of_enum t2) -> Type.t_bool
+      | _ -> raise Type_mismatch
+    )
 
   | t when Type.is_real t -> 
     (function 
@@ -2324,17 +2338,25 @@ let eval_div expr1 expr2 =
 
     if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
-      Term.mk_dec
-        Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2)
+      let divisor = Symbol.decimal_of_symbol c2 in
+
+      if Decimal.(equal divisor zero) then
+        Term.mk_div [expr1; expr2]
+      else
+        Term.mk_dec
+          Decimal.(Symbol.decimal_of_symbol c1 / divisor)
 
     else (
 
       assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
 
-      Term.mk_num
-        Numeral.(Symbol.numeral_of_symbol c1 /
-                 Symbol.numeral_of_symbol c2)
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_intdiv [expr1; expr2]
+      else
+        Term.mk_num
+          Numeral.(Symbol.numeral_of_symbol c1 / divisor)
     )
 
   | _ ->

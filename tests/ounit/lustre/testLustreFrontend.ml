@@ -22,7 +22,7 @@
 
 open OUnit2
 
-let load_file file = LustreInput.of_file ?old_frontend:(Some false) true file
+let load_file file = LustreInput.of_file true file
 
 let mk_test label fn = label >:: (fun _ -> assert_bool "expected error" (fn ()))
 
@@ -66,6 +66,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test unsupported arraydef" (fun () ->
+    match load_file "./lustreSyntaxChecks/arraydef_bug_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, InductiveVarsWithArrayConstr _)) -> true
+    | _ -> false);
   mk_test "test undefined local" (fun () ->
     match load_file "./lustreSyntaxChecks/undefined_local.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedLocal _)) -> true
@@ -104,7 +108,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "test function with node call in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_node_call.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "test function with pre in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
@@ -136,7 +140,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);  
   mk_test "test node call in function contract" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract_2.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "test defining a variable more than once 1" (fun () ->
     match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
@@ -180,7 +184,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "node call in any op in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
-    | Error (`LustreSyntaxChecksError (_, NodeCallInFunction _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "pre in any op in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with
@@ -415,13 +419,29 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test map dangling type identifier" (fun () ->
+    match load_file "./lustreTypeChecker/map_dangling_type_id.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test bad polymorphic call" (fun () ->
+    match load_file "./lustreTypeChecker/bad_type_inference.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false);
   mk_test "test polymorphism 1" (fun () ->
     match load_file "./lustreTypeChecker/poly_fail.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test bad type annotation" (fun () ->
+    match load_file "./lustreTypeChecker/bad_ty_annot.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test bad type annotation 2" (fun () ->
+    match load_file "./lustreTypeChecker/bad_ty_annot_2.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
+    | _ -> false);
   mk_test "test polymorphism 2" (fun () ->
     match load_file "./lustreTypeChecker/poly_fail2.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test polymorphism 3" (fun () ->
     match load_file "./lustreTypeChecker/poly_hanging_type_var.lus" with
@@ -433,7 +453,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test abstract type" (fun () ->
     match load_file "./lustreTypeChecker/abstract_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test non-number (bool) cast to int" (fun () ->
     match load_file "./lustreTypeChecker/cast_01.lus" with
@@ -553,15 +573,15 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test unification failure 1" (fun () ->
     match load_file "./lustreTypeChecker/test_homeomorphic_exn_array.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test unification failure 2" (fun () ->
     match load_file "./lustreTypeChecker/test_homeomorphic_exn_tuples.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test unification failure 3" (fun () ->
     match load_file "./lustreTypeChecker/test_homeomorphic_exn.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test not a field of record 01" (fun () ->
     match load_file "./lustreTypeChecker/test_record_expr.lus" with
@@ -569,11 +589,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test not a field of record 02" (fun () ->
     match load_file "./lustreTypeChecker/not_a_field_of_record.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
     | _ -> false);
   mk_test "test no value for field 01" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_01.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
     | _ -> false);
   mk_test "test no value for field 02" (fun () ->
     match load_file "./lustreTypeChecker/no_value_for_field_02.lus" with
@@ -581,7 +601,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test unification failure 4" (fun () ->
     match load_file "./lustreTypeChecker/test-func-sliced.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test expected type 3" (fun () ->
     match load_file "./lustreTypeChecker/test-type.lus" with
@@ -623,6 +643,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/undeclared_type_06.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test undeclared 7" (fun () ->
+    match load_file "./lustreTypeChecker/undeclared_type_07.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
   mk_test "test arity incorrect node call" (fun () ->
     match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
@@ -653,7 +677,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test expected record type" (fun () ->
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
   mk_test "test provided invalid type" (fun () ->
     match load_file "./lustreTypeChecker/provided.lus" with
@@ -669,7 +693,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nondeterministic choice type error 2" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
   mk_test "test temporal op in const" (fun () ->
     match load_file "./lustreSyntaxChecks/const_not_const.lus" with

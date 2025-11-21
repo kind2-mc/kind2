@@ -34,8 +34,6 @@
     
     2b. Sort contract equations and perform cirularity check of node equations. 
 
-   TODO: This should module should supercede LustreDependencies when it hardens.     
-
    @author Apoorv Ingle *)
 
 module LA = LustreAst

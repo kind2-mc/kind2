@@ -9,7 +9,7 @@ node test(x: int) returns (y1: int^2;
 var helper: int^2;
 let 
   p1 = (x > 0 => y1[0] = 0);
-  p2 = (x > 0 => y2 = {44, false, true});
+  p2 = (x > 0 => y2 = '(44, false, true));
   p3 = (x > 0 => y3.v4.v2 = 45);
 
 
@@ -28,7 +28,7 @@ let
   if (x > 0)
   then 
     y1 = [0, 0];
-    y2 = {44, false, true};
+    y2 = '(44, false, true);
     y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
     y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
   fi

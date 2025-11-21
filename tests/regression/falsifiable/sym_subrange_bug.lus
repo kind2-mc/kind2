@@ -1,0 +1,12 @@
+type Pos = subrange [1,*] of int;
+
+const N: Pos;
+
+type R = subrange [0,N-1] of int;
+
+node N(c: bool; r: R) returns (s: set<R>);
+let
+  if c then
+    s = {r} + {r};
+  fi
+tel

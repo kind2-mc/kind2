@@ -1,0 +1,10 @@
+node Division (c:int;) returns();
+var v1 : int;
+let
+    if ((0 -> pre v1) > 0) then
+    	v1 = 10 / (0 -> pre v1);
+    else
+        v1 = c;
+	fi
+    check not(v1=1);
+tel  

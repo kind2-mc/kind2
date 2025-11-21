@@ -19,6 +19,8 @@
 module A = LustreAst
 module AH = LustreAstHelpers
 module AN = LustreAstNormalizer
+module GI = GeneratedIdentifiers
+module NI = NodeId
 
 let rec flatten_ref_type ctx ty = match ty with
   | A.UserType (pos, ty_args, str) -> 
@@ -29,6 +31,9 @@ let rec flatten_ref_type ctx ty = match ty with
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis) 
+  | Set (pos, ty) -> 
+    let ty = flatten_ref_type ctx ty in 
+    Set (pos, ty)
   | Map (pos, ty1, ty2) -> 
     let ty1 = flatten_ref_type ctx ty1 in 
     let ty2 = flatten_ref_type ctx ty2 in 
@@ -55,16 +60,42 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in
         List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
       ) tys |> List.flatten
+    | Set (pos, ty) ->
+      let dummy_index = AN.mk_fresh_dummy_index () in
+      let exprs = chase_refinements ty in
+      List.map (fun expr ->
+        let idx = A.Ident(pos, dummy_index) in
+        let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Set, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
+        let ty = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty], expr)
+      ) exprs
     | Map (pos, ty1, ty2) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
-      let exprs = chase_refinements ty2 in
-      List.map (fun expr ->
+      let exprs1 = chase_refinements ty1 in
+      let exprs1 = List.map (fun expr ->
+        let idx = A.Ident(pos, dummy_index) in
+        let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
+        let ty1 = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty1 |> Result.get_ok in 
+        A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
+      ) exprs1 in 
+      let exprs2 = chase_refinements ty2 in
+      let exprs2 = List.map (fun expr ->
         let idx =
           A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Map)
         in
         let expr = AH.substitute_naive id idx expr in
+        let expr = 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+        in
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
-      ) exprs
+      ) exprs2 in 
+      exprs1 @ exprs2
     | ArrayType (pos, (ty, len)) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements ty in
@@ -133,12 +164,16 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   fun ctx e -> 
   let rec_call = flatten_ref_types_expr ctx in  
   match e with
-  (* Quantified expressions *)
+  (* Expressions with types *)
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (flatten_ref_type ctx ty))
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
   (* Everything else *)
-  | Ident _ 
+  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, rec_call e, i)
@@ -154,7 +189,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
     let ps = List.map (flatten_ref_type ctx) ps in
     RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, rec_call e)) flds))
   | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map rec_call es)
-  | StructUpdate (p, e1, i, e2) -> StructUpdate (p, rec_call e1, i, rec_call e2) 
+  | StructUpdate (p, e1, i, Some e2) -> StructUpdate (p, rec_call e1, i, Some (rec_call e2))
+  | StructUpdate (p, e1, i, None) -> StructUpdate (p, rec_call e1, i, None) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, rec_call e1, rec_call e2, k)
   | When (p, e, c) -> When (p, rec_call e, c) 
@@ -176,7 +212,6 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | Pre (p, e) -> Pre(p, rec_call e)
   | Arrow (p, e1, e2) ->  Arrow (p, rec_call e1, rec_call e2)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | EmptyMap _ as e -> e
 
 let flatten_ref_types_item ctx item = 
   match item with 
@@ -235,8 +270,8 @@ let flatten_ref_types_contract_opt ctx = function
 | Some c -> Some (flatten_ref_types_contract ctx c)
 | None -> None
 
-let flatten_ref_types ctx sorted_node_contract_decls = 
-  List.map (fun decl -> match decl with
+let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls = 
+  let decls = List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
       A.TypeDecl (pos, AliasType (pos2, id, ps, flatten_ref_type ctx ty))
     | NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
@@ -288,4 +323,11 @@ let flatten_ref_types ctx sorted_node_contract_decls =
     | ConstDecl (pos, cd) -> ConstDecl (pos, flatten_ref_types_const_decl ctx cd)
     | A.TypeDecl (_, FreeType _) -> decl
     
-  ) sorted_node_contract_decls
+  ) decls in 
+  let gids = NI.Map.map (fun gids -> 
+    { gids with 
+      GI.ib_oracles = List.map (fun (id, ty) -> id, flatten_ref_type ctx ty) gids.GI.ib_oracles; 
+      GI.locals = GI.StringMap.map (fun ty -> flatten_ref_type ctx ty) gids.GI.locals;
+    } 
+  ) gids in 
+  decls, gids

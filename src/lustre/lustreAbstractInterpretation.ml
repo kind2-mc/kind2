@@ -63,10 +63,15 @@ let union a b = NodeId.Map.union
     n1 n2))
   a b
 
-let get_type ctx node_name id = match NodeId.Map.find_opt node_name ctx with
-  | Some node_ctx -> (match IMap.find_opt id node_ctx with
-    | Some ty -> Some ty
-    | None -> None)
+let get_type ctx node_id id = 
+  match node_id with 
+  | Some node_id -> ( 
+    match NodeId.Map.find_opt node_id ctx with
+    | Some node_ctx -> (match IMap.find_opt id node_ctx with
+      | Some ty -> Some ty
+      | None -> None)
+    | None -> None
+    ) 
   | None -> None
 
 let add_type ctx node_name id ty =
@@ -195,7 +200,7 @@ let rec interpret_program ty_ctx gids = function
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract (node_id: NI.t) ctx ty_ctx contract =
-  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id contract |> unwrap |> fst
+  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx Ghost node_id contract |> unwrap |> (fun (_, ctx, _) -> ctx)
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
@@ -407,15 +412,14 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
 
 and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
-    let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
-    in
+    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap in
     TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap
   in
   match f expr with
   | Some ty -> ty
   | None ->
     (match expr with
-    | LA.Ident (_, id) -> (match (get_type ctx node_id id) with
+    | LA.Ident (_, id) -> (match (get_type ctx (Some node_id) id) with
       | Some id_ty -> id_ty
       | None -> 
         let id_ty = Ctx.lookup_ty ty_ctx id |> get in
@@ -441,7 +445,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
         | Bool _ | Int _ | IntRange _ | Real _
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
-        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ 
+        | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ | Set _
         | SBitVector _ | UBitVector _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
@@ -465,14 +469,13 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    let ty, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap
-    in
+    let ty, _, _ = TC.infer_type_expr ty_ctx (Some node_id) e |> unwrap in
     let ty = TC.expand_type_syn_reftype_history ty_ctx ty |> unwrap in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
   in
   match expr with
   | LA.Ident (_, id) ->
-    (match get_type ctx node_id id with
+    (match get_type ctx (Some node_id) id with
     | Some ty ->
       extract_bounds_from_type ty
     | None ->
@@ -491,7 +494,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | Bool _ | Int _ | IntRange _ | Real _
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _ 
-      | Map _ | SBitVector _ | UBitVector _ -> assert false) 
+      | Set _ | Map _ | SBitVector _ | UBitVector _ -> assert false) 
   | TupleProject (_, e, idx) -> (match infer e with
     | TupleType (_, nested) -> 
       let ty = List.nth nested idx in
@@ -511,7 +514,8 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_unary_expr node_id ctx ty_ctx op proj e
   | BinaryOp (_, op, e1, e2) ->
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
-  | TernaryOp (_, Ite, _, e1, e2) ->
+  | TernaryOp (_, Ite, _, e1, e2)
+  | TernaryOp (_, LazyIte, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
@@ -539,6 +543,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     in
     extract_bounds_from_type output_ty
   | EmptyMap _
+  | EmptySet _
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
@@ -593,7 +598,15 @@ and interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2 =
         let lmax = Numeral.max l1 l2 in
         let rmax = Numeral.max r1 r2 in
         let rmin = Numeral.min r1 r2 in
-        Some (Numeral.(/) lmin rmax), Some (Numeral.(/) lmax rmin)
+        let lb =
+          if Numeral.(equal rmax zero) then None
+          else Some (Numeral.(/) lmin rmax)
+        in
+        let ub =
+          if Numeral.(equal rmin zero) then None
+          else Some (Numeral.(/) lmax rmin)
+        in
+        lb, ub
       | _ -> None, None)
   | _ -> assert false)
 
