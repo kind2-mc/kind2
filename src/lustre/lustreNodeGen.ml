@@ -948,8 +948,8 @@ and compile_ast_expr
           ) e arr_is in
           E.mk_and acc e 
         ) E.t_true acc_guard in
-        (* For equality:    forall (x: K) conditions => arr1[x] = arr2[x] 
-           For disequality: exists (x:K) conditions and arr1[x] <> arr2[x]. 
+        (* For equality:    forall (x: K) conditions =>  arr1[x]  = arr2[x] 
+           For disequality: exists (x: K) conditions and arr1[x] <> arr2[x]. 
            For arrays, `conditions` are that the index is in range. 
            For maps, `conditions` are that the key is in the map (only for arr1 and arr2 representing map values) *)
         let e = mk_quant idx_vars (mk_comb (E.mk_and acc_guard' guard) (mk_binary e1' e2')) in 
