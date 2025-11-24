@@ -442,8 +442,9 @@ let rec infer_const_attr ctx exp =
     let r2 = infer_const_attr_ty ctx in 
     let ty = expand_type_syn ctx ty in
     match ty with 
-    | LA.RefinementType (_, (_, _, ty), e) -> 
-      combine (r2 ty) (r e) 
+    | LA.RefinementType (_, (p, b, ty), e) ->
+      let ctx = add_const ctx b (LA.Ident (p, b)) ty Local in
+      combine (r2 ty) (infer_const_attr ctx e)
     | LA.ArrayType (_, (ty, e)) -> 
       combine (r2 ty) (r e) 
     | LA.History (_, id) -> (
