@@ -905,7 +905,7 @@ and compile_ast_expr
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
     (* Compile the equality for each pair of `eqs` *)
-    let over_indices = fun i (e1, e2) (fst, acc_guard, acc) ->  
+    let over_indices = fun i (e1, e2) (fst_flag, acc_guard, acc) ->  
       match E.type_of_lustre_expr e1 with 
       (* For LustreNode array types (LustreAst arrays, maps, and sets) we need quantification 
          for structural equality *)
@@ -950,7 +950,7 @@ and compile_ast_expr
            For arrays, `conditions` are that the index is in range. 
            For maps, `conditions` are that the key is in the map (only for arr1 and arr2 representing map values) *)
         let e = mk_quant idx_vars (mk_comb (E.mk_and acc_guard' guard) (mk_binary e1' e2')) in 
-        let acc_guard = match fst, bounds with 
+        let acc_guard = match fst_flag, bounds with 
         (* Remember `e1` for `acc_guard` if it represents the Boolean presence/absence array *)
         | true, E.Unbound _ :: _ -> e1 :: acc_guard 
         | _ -> acc_guard 
