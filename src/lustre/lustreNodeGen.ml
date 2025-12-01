@@ -956,6 +956,7 @@ and compile_ast_expr
         | _ -> acc_guard 
         in
         false, acc_guard, X.add i e acc 
+      (* For non-array types, straightforward equality (no quantification) *)
       | _ ->
         false, acc_guard, X.add i (mk_binary e1 e2) acc 
     in
