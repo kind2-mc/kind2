@@ -44,7 +44,6 @@ jobs:
       uses: ./.github/actions/build-kind2
       with:
         ocaml-version: ${{ matrix.ocaml-version }}
-        build-target: check
 
     - name: Install Z3 (Ubuntu)
       if: runner.os == 'Linux'
