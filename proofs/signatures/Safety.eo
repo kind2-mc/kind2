@@ -1,0 +1,130 @@
+
+(define StatePred () (-> Int Bool))
+(define TransPred () (-> Int Int Bool))
+
+; (Invariant I T P) stands for P is invariant in system (I, T)
+(declare-const Invariant (-> StatePred TransPred StatePred Bool))
+
+;; Unrolling transition relation k times starting from the initial state
+(program unroll_from
+  ((T TransPred) (I StatePred) (k Int))
+  :signature (TransPred StatePred Int) Bool
+  (
+    ( (unroll_from T I 0) (I 0) )
+    ( (unroll_from T I k) 
+      (eo::requires (eo::is_neg k) false
+        (eo::define ((j (eo::add k -1)))
+          (and (unroll_from T I j) (T j k))
+        )
+      )
+    )
+  )
+)
+
+;; Base for k steps
+(program base_k
+  ((I StatePred) (T TransPred) (P StatePred) (k Int))
+  :signature (StatePred TransPred StatePred Int) Bool
+  ( 
+    ( (base_k I T P 0)
+      (and (unroll_from T I 0) (not (P 0)))
+    )
+    ( (base_k I T P k)
+      (eo::requires (eo::is_neg k) false
+        (eo::define ((j (eo::add k -1)))
+          (or (base_k I T P j) (and (unroll_from T I k) (not (P k))))
+        )
+      )
+    )
+  )
+)
+
+;; Base for k-1 steps
+(program base
+  ((I StatePred) (T TransPred) (P StatePred) (k Int))
+  :signature (StatePred TransPred StatePred Int) Bool
+  ( 
+    ( (base I T P k) (base_k I T P (eo::add k -1)) )
+  )
+)
+
+;; Unroll step case under assumption
+(program unroll_with
+  ((T TransPred) (P StatePred) (k Int))
+  :signature (TransPred StatePred Int) Bool
+  (
+    ( (unroll_with T P 0)  (P 0) )
+    ( (unroll_with T P k)
+      (eo::requires (eo::is_neg k) false
+        (eo::define ((j (eo::add k -1)))
+          (eo::ite (eo::is_eq j 0)
+            (and (P 0) (T 0 1))
+            (and (unroll_with T P j) (P j) (T j k))
+          )
+        )
+      )
+    )
+  )
+)
+
+;; Step for k
+(program step
+  ((T TransPred) (P StatePred) (k Int))
+  :signature (TransPred StatePred Int) Bool
+  ( 
+    ( (step T P k) (and (unroll_with T P k) (not (P k))) )
+  )
+)
+
+;; Rule for k-induction principle
+(declare-rule k-induction ((I StatePred) (T TransPred) (P StatePred) (k Int))
+  :premises ((=> (base I T P k) false) (=> (step T P k) false))
+  :args (I T P k)
+  :conclusion (Invariant I T P)
+)
+
+(declare-rule invariant-implies
+  ((I StatePred) (T TransPred) (P1 StatePred) (P2 StatePred))
+  :premises ( (Invariant I T P1) (=> (not (=> (P1 0) (P2 0))) false) )
+  :args (I T P1 P2)
+  :conclusion (Invariant I T P2)
+)
+
+; (Weak_Obs_Eq I1 T1 P1 I2 T2 P2) stands for weak observational equivalence between
+; systems (I1, T1) and (I2, T2) with respect to properties P1 and P2
+(declare-const Weak_Obs_Eq
+  (-> StatePred TransPred StatePred StatePred TransPred StatePred Bool))
+
+;; Rule for proving observational equivalence between two transitions systems
+;; with respect to their properties
+(declare-rule weak-obs-eq
+  ((I1 StatePred) (T1 TransPred) (P1 StatePred) 
+   (I2 StatePred) (T2 TransPred) (P2 StatePred)
+   (same_inputs StatePred))
+  :premises 
+  ( 
+    (eo::define ((i (@var "i" Int)) (j (@var "j" Int)))
+      (Invariant
+        (lambda (@list i) (and (same_inputs i) (and (I1 i) (I2 i))))
+        (lambda (@list i j) (and (same_inputs j) (and (T1 i j) (T2 i j))))
+        (lambda (@list i) (= (P1 i) (P2 i)))
+      )
+    )
+  )
+  :args (I1 T1 P1 I2 T2 P2 same_inputs)
+  :conclusion (Weak_Obs_Eq I1 T1 P1 I2 T2 P2)
+)
+
+(declare-const Safe (-> StatePred TransPred StatePred Bool))
+
+(declare-rule inv-and-obs
+  ((I1 StatePred) (T1 TransPred) (P1 StatePred) 
+   (I2 StatePred) (T2 TransPred) (P2 StatePred))
+  :premises 
+  (
+    (Invariant I1 T1 P1) (Weak_Obs_Eq I1 T1 P1 I2 T2 P2)
+  )
+  :args (I1 T1 P1 I2 T2 P2)
+  :conclusion (Safe I1 T1 P1)
+)
+
