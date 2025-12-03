@@ -620,25 +620,6 @@ let mode_ensures_of_instances model_top instances = function
     List.fold_left add_mode_to_trace ([], 0) modes
 
 
-let modes_to_strings =
-  let rec loop acc current rest width = function
-    | [] :: tail ->
-      loop acc ("" :: current) ([] :: rest) width tail
-    | ( mode :: mode_tail ) :: tail ->
-      let str = Format.asprintf "%a" (I.pp_print_ident false) mode.C.name in
-      loop
-        acc (str :: current) (mode_tail :: rest)
-        ( max width (String.length str) ) tail
-    | [] -> (
-      if rest |> List.for_all (fun l -> l = []) then
-        (List.rev current) :: acc, width
-      else
-        loop ( (List.rev current) :: acc ) [] [] width (List.rev rest)
-    )
-  in
-  loop [] [] []
-
-
 let get_constants const_map scope =
   match Scope.Map.find_opt scope const_map with
   | None -> []
@@ -1186,17 +1167,6 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
       l
 
-let pp_print_contract_section_pt ident_width val_width ppf = function 
-  | [] -> ()
-  | l -> 
-    Format.fprintf
-      ppf
-      "== @{<b>%s@} ==@,\
-       %a@,"
-      "Contract"
-      (pp_print_list (pp_print_contract_stream_pt ident_width val_width) "@,") 
-      l
-
 (* For modes *)
 let pp_print_modes_section_pt full_contract ident_width val_width mode_ident ppf = function 
 | (active_modes, contract_info) ->
@@ -1229,7 +1199,7 @@ let filter_locals is_visible locals =
     ) [] locals
 
 let rec get_widths_for_contract ident_width values_width contract_trace = match contract_trace with
-  | (a,b,c) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
+  | (a,_,_) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
 
   (* Output sequences of values for each stream of the nodes in the list
@@ -1604,44 +1574,6 @@ let pp_print_contract_section_xml ctype ppf items =
     ctype
     (pp_print_list pp_print_contract_var "") items
 
-
-let pp_print_active_modes_xml ppf = function
-| None | Some [] -> ()
-| Some mode_trace ->
-  Format.fprintf ppf
-    "@,@[<v>%a@]"
-    (pp_print_list
-      ( fun _ (k, tree) ->
-        Format.fprintf ppf
-          "\
-            <ActiveModes instant=\"%d\">@   \
-              %a\
-            </ActiveModes>\
-          "
-          k
-          C.ModeTrace.fmt_as_cex_step_xml tree
-          (* (List.length scoped)
-          (pp_print_list
-            (fun fmt ->
-              Format.fprintf fmt
-                "<Mode name=\"%a\">"
-                (I.pp_print_ident false)
-            )
-            "@ "
-          ) active
-          (pp_print_list pp_print_mode_scoped_xml "@ ") scoped
-          (fun ppf ->
-            if scoped <> [[]] || active <> [] then Format.fprintf ppf "@ ") *)
-      )
-      "@ "
-    ) (
-      mode_trace |> List.fold_left (
-        fun (acc, count) mode ->
-          (count, C.ModeTrace.mode_paths_to_tree mode) :: acc, count + 1
-      ) ([], 0)
-      |> fst |> List.rev
-    )
-
 (* Output a list of node models. *)
 let rec pp_print_lustre_path_xml' is_top const_map ppf = function 
 
@@ -1650,7 +1582,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
   | (
     trace, Node (
       { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
-      model,active_modes, required_modes, ensured_modes, contract_assumptions, contract_guarantees , call_conds, subnodes
+      model,_, required_modes, ensured_modes, contract_assumptions, contract_guarantees , call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
@@ -1952,30 +1884,6 @@ let pp_print_section_json sect ppf mode_traces  =
        ",")
     mode_traces
    
-
-let pp_print_active_modes_json ppf = function
-  | None | Some [] -> ()
-  | Some mode_trace ->
-      Format.fprintf ppf ",@,\"activeModes\" :@,[@[<v 1>%a@]@,]"
-        (pp_print_list (fun _ (k, tree) ->
-          Format.fprintf ppf
-            "@,{@[<v 1>@,\
-              \"instant\" : %d,@,\
-              %a\
-             @]@,}\
-            "
-            k
-            C.ModeTrace.fmt_as_cex_step_json tree
-        ) ",")
-        (
-          mode_trace |> List.fold_left (
-          fun (acc, count) mode ->
-            (count, C.ModeTrace.mode_paths_to_tree mode) :: acc, count + 1
-          ) ([], 0)
-          |> fst |> List.rev
-        )
-
-
 (* Pretty-print a single stream *)
 let pp_print_stream_json node model clock ppf (index, state_var) =
   try
@@ -2096,8 +2004,8 @@ let pp_print_instance_testgen names_types ppf values =
     (List.combine names_types values)
 
 
-let pp_print_streams_json_testgen is_top const_map ppf
-  ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
+let pp_print_streams_json_testgen ppf
+  ({N.inputs; N.outputs; _} as node, model, _) =
 
   let is_visible = N.state_var_is_visible node in
 
@@ -2225,30 +2133,19 @@ let pp_print_path_json
 
 
 
-let rec pp_print_lustre_path_json_testgen' is_top const_map ppf = function
+let pp_print_lustre_path_json_testgen' is_top const_map ppf = function
   | [] -> ()
   | (
-    trace, Node ({ N.node_id; N.is_function } as node,
-      model,_, active_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
+    trace, Node (node,
+      model,_, _, _, _, _, call_conds, _
     )
   ) :: tl when N.node_is_visible node ->
-    (* Pretty-print this node *)
-    (* Format.fprintf ppf
-       "@,{@[<v 1>@,\
-        \"blockType\" : \"%s\",@,\
-        \"name\" : \"%s\"\
-        %a%a%a%a%a\
-        @]@,}%s\
-       " *)
-         Format.fprintf ppf
+      Format.fprintf ppf
        "@[<v 1>@,\
         %a\
         @]@,\
        "
-      
- 
-       (* pp_print_call_json trace *)
-       (pp_print_streams_json_testgen is_top const_map) (node, model, call_conds)
+       (pp_print_streams_json_testgen) (node, model, call_conds)
        ;
 
     (* Continue *)
