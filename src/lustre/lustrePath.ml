@@ -1127,17 +1127,6 @@ let pp_print_stream_pt
     stream_name
     (pp_print_list (pp_print_stream_value_pt ty val_width) "@ ")
     stream_values
-let pp_print_contract_stream_pt
-    ident_width val_width ppf (stream_name, ty, stream_values) = 
-  (* Break lines if necessary and indent correctly *)
-  Format.fprintf
-    ppf
-    "@[<hov %d>@{<blue_b>%-*s@} %a@]"
-    (ident_width + 1)
-    ident_width
-    stream_name
-    (pp_print_list (pp_print_contract_value_pt ty val_width) "@ ")
-    stream_values
 
 (* Output a stream value with given width for the identifier and
    values *)
@@ -2005,7 +1994,7 @@ let pp_print_instance_testgen names_types ppf values =
 
 
 let pp_print_streams_json_testgen ppf
-  ({N.inputs; N.outputs; _} as node, model, _) =
+  ({N.inputs} as node, model, _) =
 
   let is_visible = N.state_var_is_visible node in
 
@@ -2055,7 +2044,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
 
   | (
     trace, Node ({ N.node_id; N.is_function } as node,
-      model,active_modes, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
+      model,_, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
@@ -2133,10 +2122,10 @@ let pp_print_path_json
 
 
 
-let pp_print_lustre_path_json_testgen' is_top const_map ppf = function
+let pp_print_lustre_path_json_testgen' const_map ppf = function
   | [] -> ()
   | (
-    trace, Node (node,
+    _, Node (node,
       model,_, _, _, _, _, call_conds, _
     )
   ) :: tl when N.node_is_visible node ->
@@ -2161,7 +2150,7 @@ let pp_print_lustre_path_json_testgen' is_top const_map ppf = function
 
   (* Delegate to recursive function *)
   Format.fprintf ppf "[@[<v 1>%a@]]"
-    (pp_print_lustre_path_json_testgen' true const_map) [path]
+    (pp_print_lustre_path_json_testgen' const_map) [path]
 
   let pp_print_path_json_testgen
   trans_sys globals subsystems first_is_init ppf model
