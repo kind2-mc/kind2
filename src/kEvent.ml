@@ -934,7 +934,7 @@ let pp_print_path_xml input_sys trans_sys ppf path =
 
 
 (* Output execution path as XML *)
-let execution_path_xml level input_sys trans_sys path full_contract = 
+let execution_path_xml level input_sys trans_sys path = 
 
   (ignore_or_fprintf level)
     !log_ppf 
@@ -1366,7 +1366,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
 
 (* Output execution path without slicing as JSON *)
-let execution_path_json level input_sys trans_sys path full_contract=
+let execution_path_json level input_sys trans_sys path=
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -1558,8 +1558,8 @@ let log_execution_path level input_sys full_contract trans_sys path  =
 
   (match get_log_format () with 
     | F_pt -> execution_path_pt level input_sys trans_sys path full_contract
-    | F_xml -> execution_path_xml level input_sys trans_sys path full_contract
-    | F_json -> execution_path_json level input_sys trans_sys path full_contract
+    | F_xml -> execution_path_xml level input_sys trans_sys path
+    | F_json -> execution_path_json level input_sys trans_sys path
     | F_relay -> ())
 
 

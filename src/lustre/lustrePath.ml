@@ -932,21 +932,6 @@ let pp_print_stream_value_pt ty val_width ppf = function
     let padding = val_width - (width_of_string value_string) in
     Format.fprintf ppf "%*s%a" padding "" (pp_print_value ~as_type:ty) v
 
-let pp_print_contract_value_pt ty val_width ppf = function
-  | None ->
-    Format.fprintf ppf "%*s" val_width "_"
-  | Some v when v == Model.Term (Term.mk_true ())->
-    
-    let value_string = "tt" in
-    let padding = val_width - (width_of_string value_string) in
-    Format.fprintf ppf "%*s%s" padding "" ("tt")
-  | Some v when v != Model.Term (Term.mk_true ())->
-    let value_string = string_of_t (pp_print_value ~as_type:ty) v in
-    let padding = val_width - (width_of_string value_string) in
-    Format.fprintf ppf "%*s%s" padding "" "ff"
-
-  | Some _ -> ()
-
 let pp_print_stream_string_pt val_width ppf v =
   Format.fprintf ppf "%*s" val_width v
 

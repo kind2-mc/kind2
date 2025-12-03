@@ -155,14 +155,6 @@ let testcase_count (type s) : s t -> int
 let error_count (type s) : s t -> int
 = fun  { euid } -> euid
 
-(* Descriptor for a testcase file. *)
-let testcase_csv (type s) : s t -> string * string * Unix.file_descr
-= fun {uid ; dir} ->
-  let name = Format.sprintf "testcase_%d" uid in
-  let path = Format.sprintf "%s/%s.csv" dir name in
-  name, path, openfile path
-
-
   (* Descriptor for a testcase file. *)
 let testcase_json (type s) : s t -> string * string * Unix.file_descr
 = fun {uid ; dir} ->
@@ -170,13 +162,6 @@ let testcase_json (type s) : s t -> string * string * Unix.file_descr
   let path = Format.sprintf "%s/%s.json" dir name in
   name, path, openfile path
 
-(* Descriptor for an error file. *)
-let error_csv (type s) : s t -> string * string * Unix.file_descr
-= fun ({euid ; edir} as t) ->
-  let name = Format.sprintf "error_%d" euid in
-  let path = Format.sprintf "%s/%s.csv" edir name in
-  t.euid <- euid + 1 ;
-  name, path, openfile path
 
 let error_json (type s) : s t -> string * string * Unix.file_descr
 = fun ({euid ; edir} as t) ->
