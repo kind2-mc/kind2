@@ -2085,7 +2085,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  let compile_map_or_set_def i l is_set = 
+  let compile_map_or_set_def i idx is_set = 
     Format.printf "i: %a\n"
       HString.pp_print_hstring i;
     let ident = mk_ident i in
@@ -2094,7 +2094,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggests that shadowing can occur here *)
-    let indexes = List.length l in
     (*Format.printf "expr: %a\n"
       (X.pp_print_trie_expr true) expr;*)
 
@@ -2114,10 +2113,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       if count < acc then count else acc
     ) max_int (X.keys expr |> List.map List.rev) in 
 
-    List.iteri (fun i v -> 
-      Format.printf "Processing index var %d\n"
-        i;
-      let ident = mk_ident v in
+      let ident = mk_ident idx in
 
       (*Format.printf "num_is: %d\n" 
         num_is;*)
@@ -2143,14 +2139,13 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         let expr = E.mk_array_index_var i t in
         i + 1, X.add j expr a 
       in
-      let index = X.fold over_indices kt (i, X.empty) |> snd in
+      let _, index = X.fold over_indices kt (0, X.empty) in
       Format.printf "Adding the following mapping: %a -> %a\n"
         (I.pp_print_ident true) ident 
         (X.pp_print_trie_expr true) index;
-      H.add !map.array_index ident index;)
-      l;
+      H.add !map.array_index ident index;
       Format.printf "\n";
-    result, indexes
+    result
 
   in let compile_array_def i l =
     let ident = mk_ident i in
@@ -2307,8 +2302,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (*Format.printf "fresh_idx_name: %a\n"
         HString.pp_print_hstring fresh_idx_name;*)
       (*!! Here we are only passing one index... *)
-      let eq_lhs, indexes = compile_map_or_set_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in 
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
@@ -2389,8 +2384,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_or_set_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
@@ -2432,8 +2427,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
       (* Desugar to lhs[i] = i in nexpr1 <op> i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_or_set_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let op' = match op with 
       | A.Union -> A.Or 
       | A.Intersection -> And 
