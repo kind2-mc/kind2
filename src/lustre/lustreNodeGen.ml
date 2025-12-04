@@ -2093,12 +2093,17 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggests that shadowing can occur here *)
 
-    (*!! Find the number of indices to collect for the first index variable 
-         based on the minimum number of SetMapIndexes in a row before the first TupleIndex... *)
-    (* The problem is that in an index list, subsequent SetMapIndexes could either represent 
-       a structured key in the same map, or nested maps. This is how we disambiguate. 
-       If it is a structured key with N elements, we will always get N indices in a row 
-       before the TupleIndex representing the membership/value arrays. *)
+    (* In the list of indices multiple SetMapIndexes are ambiguous: 
+       they can represent either multiple components of a single structured key, or 
+       separate keys of nested maps.
+       But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row 
+       before encountering the TupleIndex representing the membership/value arrays. 
+       So, we can compute the number of SetMapIndexes associated with the outer map's key type 
+       by finding the minimal number of SetMapIndexes before the first TupleIndex. 
+
+       Note that this only suffices to find the number of SetMapIndexes for the outermost map; 
+       hence, this function (compile_map_or_set_def) currently can handle only a single input 
+       index variable `idx` (as opposed to a list of indices, which is supported by compile_array_def) *)
     let num_is = List.fold_left (fun acc i -> 
       let _, count = List.fold_left (fun (acc_b, acc_c) i -> 
         if acc_b then match i with 
@@ -2274,18 +2279,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_maps [] gids.GI.empty_maps 
   in 
   let gequations = gequations @ empty_map_eqs in
-  (* Unit testing an agent w/ supervised data... 
-    
-        -- nondeterministic? 
-        -- how do we measure performance? what is acceptable? 
-        -- measure right vs wrong and also the certainty level 
-
-        fix env theta, 
-        sample data from env, 
-        don't pass data directly to agent but through A/B/C, 
-        compare actual vs expected output taking into account confidence 
-
-        goal is to statistically evaluate LLMs *)
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
