@@ -2086,16 +2086,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
   let compile_map_or_set_def i idx is_set = 
-    Format.printf "i: %a\n"
-      HString.pp_print_hstring i;
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggests that shadowing can occur here *)
-    (*Format.printf "expr: %a\n"
-      (X.pp_print_trie_expr true) expr;*)
 
     (*!! Find the number of indices to collect for the first index variable 
          based on the minimum number of SetMapIndexes in a row before the first TupleIndex... *)
@@ -2113,39 +2109,33 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       if count < acc then count else acc
     ) max_int (X.keys expr |> List.map List.rev) in 
 
-      let ident = mk_ident idx in
+    let ident = mk_ident idx in
+    (* Add index types to kt trie *)
+    let kt = X.fold (fun k _ acc -> 
+        List.fold_left (fun (acc, acc_is, acc_i, num_is) idx -> 
+      match idx with 
+      | X.SetMapIndex b -> 
+        if is_set && num_is > 0 then 
+          X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else if num_is > 0 then  
+          X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else 
+          acc, acc_is, acc_i, num_is 
+      | _ -> acc, acc_is, acc_i, num_is  
+      ) (acc, [], 0, num_is) (List.rev k) |> (fun (x, _, _, _) -> x) 
+    ) expr X.empty in
 
-      (*Format.printf "num_is: %d\n" 
-        num_is;*)
-
-      (* Add index types to kt trie *)
-      let kt = X.fold (fun k _ acc -> 
-        (*Format.printf "k: %a\n"
-          (X.pp_print_index true) (List.rev k);*)
-          List.fold_left (fun (acc, acc_is, acc_i, num_is) idx -> 
-        match idx with 
-        | X.SetMapIndex b -> 
-          if is_set && num_is > 0 then 
-            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
-          else if num_is > 0 then  
-            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
-          else 
-            acc, acc_is, acc_i, num_is 
-        | _ -> acc, acc_is, acc_i, num_is  
-        ) (acc, [], 0, num_is) (List.rev k) |> (fun (x, _, _, _) -> x) 
-      ) expr X.empty in
-
-      let over_indices j t (i, a) = 
-        let expr = E.mk_array_index_var i t in
-        i + 1, X.add j expr a 
-      in
-      let _, index = X.fold over_indices kt (0, X.empty) in
-      Format.printf "Adding the following mapping: %a -> %a\n"
-        (I.pp_print_ident true) ident 
-        (X.pp_print_trie_expr true) index;
-      H.add !map.array_index ident index;
-      Format.printf "\n";
-    result
+    let over_indices j t (i, a) = 
+      let expr = E.mk_array_index_var i t in
+      i + 1, X.add j expr a 
+    in
+    let _, index = X.fold over_indices kt (0, X.empty) in
+    Format.printf "Adding the following mapping: %a -> %a\n"
+      (I.pp_print_ident true) ident 
+      (X.pp_print_trie_expr true) index;
+    H.add !map.array_index ident index;
+    Format.printf "\n";
+  result
 
   in let compile_array_def i l =
     let ident = mk_ident i in
@@ -2299,34 +2289,16 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      (*Format.printf "fresh_idx_name: %a\n"
-        HString.pp_print_hstring fresh_idx_name;*)
-      (*!! Here we are only passing one index... *)
       let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
-      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
-         compile_ast_type flattens indices, so we need to do a corresponding flattening 
-         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
-      (*Format.printf "nexpr2: %a\nfresh_idx_e: %a\n"
-        (X.pp_print_trie_expr true) nexpr2 
-        (X.pp_print_trie_expr true) fresh_idx_e;*)
       let nexpr2 = 
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
           X.add [X.TupleIndex acc_i] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2 |> fst 
       in
-      (*!! Project onto indices in nexpr2? *)
-      (*!! Maybe we need to kill this at the source and only compile the index with the 
-           projected type... *)
-      (*let fresh_idx_e = X.filter (fun idx _ -> 
-        X.mem idx nexpr2
-      ) fresh_idx_e in*)
-      (*Format.printf "nexpr2: %a\nfresh_idx_e: %a\n"
-        (X.pp_print_trie_expr true) nexpr2 
-        (X.pp_print_trie_expr true) fresh_idx_e;*)
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
         X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
@@ -2336,11 +2308,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
-      (*Format.printf "then_expr: %a\n"
-        A.pp_print_expr then_expr;*)
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
-      (*Format.printf "else_expr: %a\n"
-        A.pp_print_expr else_expr;*)
       let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
       let cond_expr = match X.bindings cond_expr with
       | [_, expr] -> expr

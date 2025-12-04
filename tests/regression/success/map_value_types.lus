@@ -1,0 +1,29 @@
+node N (x1: map<int, map<int, int>>; x2: map<int, set<int>>; x3, x4: set<[int, int]>) 
+returns (y1: map<int, map<int, int>>; y2: map<int, set<int>>; y3: map<int, map<int, int>>; 
+         y4: map<[int, int], map<[int, int], [int, int]>>; 
+         y5, y6: map<[int, int], map<[int, int], set<[int, int]>>>;)
+let
+  y1 = x1; 
+  check forall (i: int; j: int) (i in x1) = (i in y1) and x1[i][j] = y1[i][j];
+
+  y2 = map[1 := {1}];
+  check forall (i: int) i in y2 => i in y2[i];
+
+  -- l[j]     = if i = 1 then 1    else empty_map[j] 
+  -- y3[i][j] = if 1 = i then l[j] else empty_map_2[i][j]
+  -- Need to make sure indices i and j are compiled with the correct types
+  -- Here, i needs the first key type and j needs the second key type; 
+  --   we don't want i to have a key type that combines both key types in a tuple
+  y3 = map[1 := map[1 := 1]];
+  check forall (i: int) i in y3 => i in y3[i];
+
+  y4 = map['(1, 2) := map['(1, 2) := '(3, 4)]];
+  check forall (i: [int, int]) i in y4 => i in y4[i];
+
+  y5 = map['(1, 2) := map['(1, 2) := { '(1, 2) } + { '(1, 2) }]] ;
+  check forall (i: [int, int]) i in y5 => i in y5[i] and i in y5[i][i];
+  check forall (i: [int, int]) not (i in y5) => not (i in y5['(1, 2)]) and not (i in y5['(1, 2)]['(1, 2)]);
+
+  y6 = map['(1, 2) := map['(1, 2) := x3 + x4]] ;
+  check forall (i: [int, int]) i in y6 => (forall (j: [int, int]) (j in y6[i][i]) => (j in x3 or j in x4));
+tel
