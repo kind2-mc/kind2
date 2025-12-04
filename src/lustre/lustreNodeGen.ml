@@ -2093,7 +2093,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (* TODO: Old code checks that result must have at least one element *)
     (* TODO: Old code suggests that shadowing can occur here *)
 
-    (* In the list of indices multiple SetMapIndexes are ambiguous: 
+    let num_is = List.fold_left (fun acc i -> 
+    (* In the list of indices `i`, multiple SetMapIndexes are ambiguous: 
        they can represent either multiple components of a single structured key, or 
        separate keys of nested maps.
        But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row 
@@ -2101,10 +2102,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
        So, we can compute the number of SetMapIndexes associated with the outer map's key type 
        by finding the minimal number of SetMapIndexes before the first TupleIndex. 
 
-       Note that this only suffices to find the number of SetMapIndexes for the outermost map; 
+       Note that this only suffices to find the number of SetMapIndexes for the key type of the outermost map; 
        hence, this function (compile_map_or_set_def) currently can handle only a single input 
        index variable `idx` (as opposed to a list of indices, which is supported by compile_array_def) *)
-    let num_is = List.fold_left (fun acc i -> 
       let _, count = List.fold_left (fun (acc_b, acc_c) i -> 
         if acc_b then match i with 
         | X.SetMapIndex _ -> acc_b, acc_c + 1 
