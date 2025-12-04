@@ -2384,12 +2384,11 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty -> match ty with
-  | LA.Map (p, ty1, ty2) ->
-    let* _ = check_map_type p ctx ty1 in 
-    let* _ = check_map_type p ctx ty2 in
-    let* ty1, warnings1 = check_type_well_formed ctx src nname is_const ty1 in
-    let* ty2, warnings2 = check_type_well_formed ctx src nname is_const ty2 in 
-    R.ok (LA.Map (p, ty1, ty2), warnings1 @ warnings2)
+  | LA.Map (p, kt, vt) ->
+    let* _ = check_map_type p ctx kt in 
+    let* kt, warnings1 = check_type_well_formed ctx src nname is_const kt in
+    let* vt, warnings2 = check_type_well_formed ctx src nname is_const vt in 
+    R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
   | LA.Set (p, ty) -> 
     let* ty, warnings = check_type_well_formed ctx src nname is_const ty in 
     R.ok (LA.Set (p, ty), warnings)

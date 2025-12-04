@@ -2081,32 +2081,62 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
+  in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_map_def i l is_set = 
+  let compile_map_def i l is_set = 
+    Format.printf "i: %a\n"
+      HString.pp_print_hstring i;
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
-    (* TODO: Old code suggets that shadowing can occur here *)
+    (* TODO: Old code suggests that shadowing can occur here *)
     let indexes = List.length l in
+    (*Format.printf "expr: %a\n"
+      (X.pp_print_trie_expr true) expr;*)
+
+    (*!! Find the number of indices to collect for the first index variable 
+         based on the minimum number of SetMapIndexes in a row before the first TupleIndex... *)
+    (* The problem is that in an index list, subsequent SetMapIndexes could either represent 
+       a structured key in the same map, or nested maps. This is how we disambiguate. 
+       If it is a structured key with N elements, we will always get N indices in a row 
+       before the TupleIndex representing the membership/value arrays. *)
+    let num_is = List.fold_left (fun acc i -> 
+      let _, count = List.fold_left (fun (acc_b, acc_c) i -> 
+        if acc_b then match i with 
+        | X.SetMapIndex _ -> acc_b, acc_c + 1 
+        | _ -> false, acc_c
+        else acc_b, acc_c
+      ) (true, 0) i in 
+      if count < acc then count else acc
+    ) max_int (X.keys expr |> List.map List.rev) in 
 
     List.iteri (fun i v -> 
+      Format.printf "Processing index var %d\n"
+        i;
       let ident = mk_ident v in
+
+      (*Format.printf "num_is: %d\n" 
+        num_is;*)
 
       (* Add index types to kt trie *)
       let kt = X.fold (fun k _ acc -> 
-        List.fold_left (fun (acc, acc_is, acc_i) idx -> 
+        (*Format.printf "k: %a\n"
+          (X.pp_print_index true) (List.rev k);*)
+          List.fold_left (fun (acc, acc_is, acc_i, num_is) idx -> 
         match idx with 
         | X.SetMapIndex b -> 
-          if is_set then 
-            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
+          if is_set && num_is > 0 then 
+            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+          else if num_is > 0 then  
+            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
           else 
-            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
-        | _ -> acc, acc_is, acc_i
-        ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
+            acc, acc_is, acc_i, num_is 
+        | _ -> acc, acc_is, acc_i, num_is  
+        ) (acc, [], 0, num_is) (List.rev k) |> (fun (x, _, _, _) -> x) 
       ) expr X.empty in
 
       let over_indices j t (i, a) = 
@@ -2114,8 +2144,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         i + 1, X.add j expr a 
       in
       let index = X.fold over_indices kt (i, X.empty) |> snd in
+      Format.printf "Adding the following mapping: %a -> %a\n"
+        (I.pp_print_ident true) ident 
+        (X.pp_print_trie_expr true) index;
       H.add !map.array_index ident index;)
       l;
+      Format.printf "\n";
     result, indexes
 
   in let compile_array_def i l =
@@ -2255,22 +2289,49 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_empty_maps [] gids.GI.empty_maps 
   in 
   let gequations = gequations @ empty_map_eqs in
+  (* Unit testing an agent w/ supervised data... 
+    
+        -- nondeterministic? 
+        -- how do we measure performance? what is acceptable? 
+        -- measure right vs wrong and also the certainty level 
+
+        fix env theta, 
+        sample data from env, 
+        don't pass data directly to agent but through A/B/C, 
+        compare actual vs expected output taking into account confidence 
+
+        goal is to statistically evaluate LLMs *)
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
+      (*Format.printf "fresh_idx_name: %a\n"
+        HString.pp_print_hstring fresh_idx_name;*)
+      (*!! Here we are only passing one index... *)
       let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
          compile_ast_type flattens indices, so we need to do a corresponding flattening 
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
-      let nexpr2 =
+      (*Format.printf "nexpr2: %a\nfresh_idx_e: %a\n"
+        (X.pp_print_trie_expr true) nexpr2 
+        (X.pp_print_trie_expr true) fresh_idx_e;*)
+      let nexpr2 = 
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
           X.add [X.TupleIndex acc_i] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2 |> fst 
       in
+      (*!! Project onto indices in nexpr2? *)
+      (*!! Maybe we need to kill this at the source and only compile the index with the 
+           projected type... *)
+      (*let fresh_idx_e = X.filter (fun idx _ -> 
+        X.mem idx nexpr2
+      ) fresh_idx_e in*)
+      (*Format.printf "nexpr2: %a\nfresh_idx_e: %a\n"
+        (X.pp_print_trie_expr true) nexpr2 
+        (X.pp_print_trie_expr true) fresh_idx_e;*)
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
         X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
@@ -2280,7 +2341,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
+      (*Format.printf "then_expr: %a\n"
+        A.pp_print_expr then_expr;*)
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
+      (*Format.printf "else_expr: %a\n"
+        A.pp_print_expr else_expr;*)
       let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
       let cond_expr = match X.bindings cond_expr with
       | [_, expr] -> expr
