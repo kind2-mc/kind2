@@ -1,8 +1,12 @@
-node N (x1: map<int, map<int, int>>; x2: map<int, set<int>>; x3, x4: set<[int, int]>) 
+const N: subrange [1, *] of int;
+
+node N (x1: map<int, map<int, int>>; x2: map<int, set<int>>; x3, x4: set<[int, int]>; x5: [int, int]^N; x6: int^N) 
 returns (y1: map<int, map<int, int>>; y2: map<int, set<int>>; y3: map<int, map<int, int>>; 
          y4: map<[int, int], map<[int, int], [int, int]>>; 
          y5, y6: map<[int, int], map<[int, int], set<[int, int]>>>;
-         y7: [map<[int, int], map<[int, int], set<[int, int]>>>, map<[int, int], map<[int, int], set<[int, int]>>>];)
+         y7: [map<[int, int], map<[int, int], set<[int, int]>>>, map<[int, int], map<[int, int], set<[int, int]>>>];
+         y9: map<int,int^N>;
+         y8: map<[int, int], map<[int, int], [int, int]^N>>;)
 let
   y1 = x1; 
   check forall (i: int; j: int) (i in x1) = (i in y1) and x1[i][j] = y1[i][j];
@@ -25,4 +29,12 @@ let
 
   y7 = '(map['(1, 2) := map['(1, 2) := x3 + x4]], map['(1, 2) := map['(1, 2) := x3 + x4]]);
   check forall (i: [int, int]) i in y7.%0 => (forall (j: [int, int]) (j in y7.%0[i][i]) => (j in x3 or j in x4));
+
+  y8 = map['(1, 2) := map['(1, 2) := x5]] ;
+  check '(1, 2) in y8;
+  check forall (i: [int, int]) i in y8 => i in y8[i]; 
+  check forall (i: [int, int]) not (i in y8) => not (i in y8['(1, 2)]); 
+
+  y9 = map[1 := x6];
+  check 1 in y9;
 tel
