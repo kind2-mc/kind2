@@ -48,6 +48,7 @@ Table of Contents
     9_other/11_minimal_cut_set
     9_other/12_contract_check
     9_other/13_assumption_generation
+    9_other/14_contract_monitor
 
 .. toctree::
     :maxdepth: 2
