@@ -474,9 +474,13 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let ty = 
         let idx = List.nth (List.rev (X.SetMapIndex b :: rhs_index_tl)) j in 
         match idx with 
+        | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
-        | _ -> assert false 
+        | _ -> 
+          Format.printf "Unhandled idx: %a\n"
+            (X.pp_print_one_index true) idx;
+          assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
     in
