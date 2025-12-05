@@ -37,7 +37,7 @@ let cvc5_proof_args () =
       "--lang=smt2";
       "--simplification=none";
       "--dump-proofs";
-      "--proof-format=lfsc";
+      "--proof-format-mode=cpc";
     ]
   in
   let args =
