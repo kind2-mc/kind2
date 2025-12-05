@@ -1145,13 +1145,22 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
 let pp_print_modes_section_pt full_contract ident_width val_width mode_ident ppf = function 
 | (active_modes, contract_info) ->
 if full_contract then match contract_info with
-  | (modes, assumed, guarunteed) ->
+  | (modes, assumed, guaranteed) ->
+
+  let transform_to_valid_format = function 
+    | trace -> (List.map 
+      (function (name, stream_type, mode_trace) -> 
+        (name, stream_type, List.map (function (tr_val) -> 
+          (Some tr_val)) mode_trace) ) trace) 
+  in
+
   Format.fprintf 
     ppf 
     "%a%a%a"
-    (pp_print_stream_section_pt ident_width val_width "Assumptions") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) assumed)
-    (pp_print_stream_section_pt ident_width val_width "Guarantees") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) guarunteed)
-    (pp_print_stream_section_pt ident_width val_width "Modes") (List.map (function (name, stream_type, mode_trace) -> (name, stream_type, List.map (function (tr_val) -> (Some tr_val)) mode_trace) ) modes)
+    (pp_print_stream_section_pt ident_width val_width "Assumptions") (transform_to_valid_format assumed)
+    (pp_print_stream_section_pt ident_width val_width "Guarantees") (transform_to_valid_format guaranteed)
+    (pp_print_stream_section_pt ident_width val_width "Modes") (transform_to_valid_format modes)
+  
   else match active_modes with
   | None -> ()
   | Some vals -> 
@@ -2128,13 +2137,13 @@ let pp_print_lustre_path_json_testgen' const_map ppf = function
     pp_print_lustre_path_json' false const_map ppf tl
 
 
-  let pp_print_lustre_path_json_testgen ppf (path, const_map) =
+let pp_print_lustre_path_json_testgen ppf (path, const_map) =
 
   (* Delegate to recursive function *)
   Format.fprintf ppf "[@[<v 1>%a@]]"
     (pp_print_lustre_path_json_testgen' const_map) [path]
 
-  let pp_print_path_json_testgen
+let pp_print_path_json_testgen
   trans_sys globals subsystems first_is_init ppf model
 =
 

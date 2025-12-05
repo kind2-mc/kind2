@@ -504,7 +504,7 @@ let pp_print_path_pt ?(full_contract = false) input_sys trans_sys ppf path =
   (* Output path *)
   Format.fprintf ppf 
     "%a"
-    (InputSystem.pp_print_path_pt ~full_contract:full_contract input_sys trans_sys true)
+    (InputSystem.pp_print_path_pt ~full_contract input_sys trans_sys true)
     (Model.path_of_list path)
 
 
@@ -514,7 +514,7 @@ let execution_path_pt level input_sys trans_sys path full_contract=
     !log_ppf 
     ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
-    (pp_print_path_pt ~full_contract:full_contract input_sys trans_sys) path
+    (pp_print_path_pt ~full_contract input_sys trans_sys) path
 
 
 (* Output cex for a property as plain text *)

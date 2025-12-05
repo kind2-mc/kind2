@@ -175,7 +175,7 @@ let cex_to_inputs_csv fmt in_sys sys cex k =
     (InputSystem.pp_print_path_in_csv in_sys sys true)
     (Model.path_from_model (TransSys.state_vars sys) cex k)
 
-(* Converts a model to the system's input values in csv. *)  
+(* Converts a model to the system's input values in json. *)  
 let cex_to_inputs_json fmt in_sys sys cex k =
   Format.fprintf fmt "%a"
     (InputSystem.pp_print_path_json_testgen in_sys sys true)

@@ -94,7 +94,8 @@ val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.p
 (** Output a path in the input system *)
 val pp_print_path_json : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
-(** Output a path in the input system *)
+(** Output a path in the input system. The format for this path is the same format that 
+the Interpreter module expects as input. *)
 val pp_print_path_json_testgen :  _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a model as a sequnce of inputs in CSV. *)
