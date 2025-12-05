@@ -458,7 +458,7 @@ let active_modes_to_strings =
   in
   loop [] [] []
 
-let guaruntees_of_instances model_top instances = function
+let guarantees_of_instances model_top instances = function
   (* No contract. *)
   | None | Some { C.guarantees = [] } -> []
   (* Contract with some modes. *)
@@ -733,7 +733,7 @@ let node_path_of_instance
   let ensured_modes, max_length = mode_ensures_of_instances model_top instances contract in
   let ensured_modes = fill_empty_modes max_length ensured_modes in
   let contract_assumptions = assumptions_of_instances model_top instances contract in
-  let contract_guarantees = guaruntees_of_instances model_top instances contract in
+  let contract_guarantees = guarantees_of_instances model_top instances contract in
 
     (*   ( match active_modes with
     | None -> ()
@@ -2046,10 +2046,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
           Format.fprintf ppf ",@,\"subnodes\" :@,[@[<v 1>%a@]@,]"
             (pp_print_lustre_path_json' false const_map) subnodes
     in
-      let rec interleave = function 
-      | (l, []) | ([], l) -> l 
-      | (x::xs, y::ys) -> x::y::(interleave (xs,ys))
-      in
+    
     let comma = if tl <> [] then "," else "" in
 
     (* Pretty-print this node *)

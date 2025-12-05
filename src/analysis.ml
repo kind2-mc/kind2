@@ -93,7 +93,7 @@ type param =
   | First of info
   (* Refinement of a system. Store the result of the previous analysis. *)
   | Refinement of info * result
-  (* Monitoring a trace of execution, leaving the contract as proof obligations *)
+  (* Monitoring the satisfaction of a contract for an input trace. *)
   | ContractMonitor of info 
 
 
@@ -419,7 +419,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
-  | ContractMonitor _ -> Format.fprintf fmt "simulating system"
+  | ContractMonitor _ -> Format.fprintf fmt "monitoring contract"
   | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
   | First { abstraction_map } ->
     let count =

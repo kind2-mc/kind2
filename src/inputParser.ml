@@ -180,7 +180,7 @@ let record_to_tuple assoc =
 (* Take as input a JSON element representing the value of a variable (at a given step)
    and return the associated assignments.
    It can return multiple variable assignements if the value is an array/record/tuple. *)
-let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  = (* Need to somehow make this able to accept outputs as well*)
+let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
   match json with
   | `Assoc lst ->
     (* Can represent a record or a tuple *)

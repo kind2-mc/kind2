@@ -100,7 +100,7 @@ type param =
   (** Refinement of a system. Store the result of the previous analysis. *)
   
   | ContractMonitor of info 
-  (* Monitoring a trace of execution, leaving the contract as proof obligations *)
+  (* Monitoring the satisfaction of a contract for an input trace. *)
 
 
 (** Result of analysing a transistion system *)
