@@ -138,7 +138,7 @@ let main input_file input_sys _ trans_sys =
   (* Number of steps to simulate *)
   let steps = 
 
-    match Flags.Interpreter.steps () with 
+    match Flags.ContractMonitor.steps () with 
 
     (* Simulate length of smallest input if number of steps not given *)
     | s when s <= 0 -> input_length

@@ -2624,7 +2624,7 @@ module ContractMonitor = struct
     Format.fprintf fmt "@[<v>\
       The contract monitor is a special mode where Kind 2 reads a @ \ 
 model trace (inputs and outputs) from a file and prints the @\ 
-truth values of the modes and guaruntees of the system at each step.\
+truth values of the modes and guarantees of the system at each step.\
     @]"
 
   let input_file_default = ""
@@ -2637,10 +2637,10 @@ truth values of the modes and guaruntees of the system at each step.\
     )
   let input_file () = !input_file
 
-  (* let steps_default = 0
+  let steps_default = 0
   let steps = ref steps_default
   let _ = add_spec
-    "--interpreter_steps"
+    "--monitor_steps"
     (Arg.Set_int steps)
     (fun fmt ->
       Format.fprintf fmt
@@ -2651,7 +2651,7 @@ truth values of the modes and guaruntees of the system at each step.\
         @]"
         steps_default
     ) 
-  let steps () = !steps *)
+  let steps () = !steps 
 
 end
 

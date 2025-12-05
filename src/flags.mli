@@ -781,9 +781,9 @@ module ContractMonitor : sig
   (** Read input from file. *)
   val input_file : unit -> string
 
-  (* (** Run number of steps, override the number of steps given in the input
+  (** Run number of steps, override the number of steps given in the input
     file. *)
-  val steps : unit -> int *)
+  val steps : unit -> int 
 end
 
 (** {2 LSP flags} *)
