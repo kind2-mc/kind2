@@ -8,7 +8,7 @@ tel
 node imported top(x: int)
 returns (y: int);
 (*@contract
-    var g: int = f(x, y);
+    gvar g: int = f(x, y);
     assume g>0;
     guarantee y>g;
 *)

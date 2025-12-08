@@ -95,6 +95,7 @@ let mk_span start_pos end_pos =
 
 (* Token for constant/parameter declarations *)
 %token CONST
+%token GCONST
 %token PARAM
     
 (* Tokens for node declarations *)
@@ -105,6 +106,7 @@ let mk_span start_pos end_pos =
 %token FUNCTION
 %token RETURNS
 %token VAR
+%token GVAR
 %token LET
 %token TEL
     
@@ -487,10 +489,14 @@ node_decl:
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
   option(SEMICOLON);
-  r = option(contract_spec)
+  r = contract_option; 
   {
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
   }
+
+contract_option:
+  | r = list(contract_item) { if r = [] then None else Some (mk_pos $startpos, r) }
+  | r = contract_spec { Some r }
 
 (* A node definition (locals + body). *)
 node_def:
@@ -503,15 +509,15 @@ node_def:
   { (List.flatten l, e) }
 
 contract_ghost_vars:
-  | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
+  | GVAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
-  | CONST; i = ident; COLON; t = lustre_type; SEMICOLON
+  | GCONST; i = ident; COLON; t = lustre_type; SEMICOLON
     { A.GhostConst (A.FreeConst (mk_pos $startpos, i, t)) }
-  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
+  | GCONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
-  | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
+  | GCONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:

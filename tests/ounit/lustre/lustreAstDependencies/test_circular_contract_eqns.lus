@@ -5,6 +5,6 @@ tel;
 
 contract c(x: int) returns (y: int);
 let
-   var v:int = c;
-   var c:int = n(v) + 1;
+   gvar v:int = c;
+   gvar c:int = n(v) + 1;
 tel

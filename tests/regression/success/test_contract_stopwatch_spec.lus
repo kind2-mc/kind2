@@ -52,7 +52,7 @@ let
   -- afterwards, it is activated iff 
   --   it was activated before and the toggle button is unpressed or
   --   it was not activated before and the toggle button is pressed 
-  var on: bool = toggle ->    (pre on and not toggle) 
+  gvar on: bool = toggle ->    (pre on and not toggle) 
                            or (not pre on and toggle) ;
   
   -- we can assume that the two buttons are never pressed together

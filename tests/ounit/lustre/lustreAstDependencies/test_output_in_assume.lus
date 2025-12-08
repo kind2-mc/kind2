@@ -1,7 +1,7 @@
 
 node top(x: int) returns (y: int);
 (*@contract
-  var g: int = y + 1;
+  gvar g: int = y + 1;
   assume g>0;
 *)
 let

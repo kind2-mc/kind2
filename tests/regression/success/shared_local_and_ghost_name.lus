@@ -2,7 +2,7 @@
 
 node N(i:bool) returns (out:bool);
 (*@contract
-  var A : bool = true;
+  gvar A : bool = true;
 *)
 var A: bool;
 let
