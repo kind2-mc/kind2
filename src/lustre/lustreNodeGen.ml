@@ -477,10 +477,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
-        | _ -> 
-          Format.printf "Unhandled idx: %a\n"
-            (X.pp_print_one_index true) idx;
-          assert false 
+        | _ -> assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
     in
@@ -1099,29 +1096,17 @@ and compile_ast_expr
       result
 
   and compile_map_index bounds expr k =
-    Format.printf "Calling compile_map_index on %a[%a]\n"
-      A.pp_print_expr expr 
-      A.pp_print_expr k ;
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let index_exprs = X.values compiled_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
-    Format.printf "compiled_expr before folding: %a\n"
-      (X.pp_print_trie_expr true) compiled_expr;
     (*Format.printf "compiled keys before folding: %a\n"
       (Lib.pp_print_list (E.pp_print_lustre_expr true) ", ") index_exprs ;*)
-    let r = List.fold_left
+    List.fold_left
       (fun acc index ->
-        Format.printf "Fold iteration, acc %a\n"
-          (X.pp_print_trie_expr true) acc;
-        (*!! Second fold iteration is peeling off another round of indices, 
-             but happening after they are already reversed... so they get reversed again... *)
         compile_array_index' acc index
       )
       compiled_expr
-      index_exprs in 
-    Format.printf "compiled map index result: %a\n\n"
-      (X.pp_print_trie_expr true) r;
-    r
+      index_exprs
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
@@ -1146,10 +1131,7 @@ and compile_ast_expr
         (* in expr[k], Removing extra Array/Set/Map index from expr (since you're indexing) 
         and adding the index access *)
         let over_expr = fun k v acc -> 
-          Format.printf "Inner fold iteration for keys %a, val %a\n"
-            (Lib.pp_print_list (X.pp_print_one_index true) ", ") (List.rev k)
-            (E.pp_print_lustre_expr true) v;
-          match (List.rev k) with (*!! Reversed *)
+          match (List.rev k) with 
           | X.SetMapIndex _ :: tl
           | X.ArrayVarIndex _ :: tl
           | X.ArrayIntIndex _ :: tl -> X.add (List.rev tl) v acc
@@ -2160,11 +2142,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       i + 1, X.add j expr a 
     in
     let _, index = X.fold over_indices kt (0, X.empty) in
-    (*Format.printf "Adding the following mapping: %a -> %a\n"
-      (I.pp_print_ident true) ident 
-      (X.pp_print_trie_expr true) index;*)
     H.add !map.array_index ident index;
-    (*Format.printf "\n";*)
   result
 
   in let compile_array_def i l =
@@ -2326,9 +2304,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
                                             A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
       in 
-      Format.printf "then: %a\nelse: %a\n\n" 
-        A.pp_print_expr then_expr 
-        A.pp_print_expr else_expr;
       let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
       let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
       let cond_expr = match X.bindings cond_expr with
@@ -2339,9 +2314,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         let e1', e2' = coalesce_array2 e1 e2 in
         E.mk_ite cond_expr e1' e2'
       in
-      Format.printf "then: %a\nelse: %a\n" 
-        (X.pp_print_trie_expr true) then_expr 
-        (X.pp_print_trie_expr true) else_expr;
       let eq_rhs = compile_binary' mk then_expr else_expr in 
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
