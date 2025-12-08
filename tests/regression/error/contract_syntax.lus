@@ -1,0 +1,10 @@
+node N (inp: int) returns (x: int)
+var l: int;
+assume inp > 0;
+guarantee l > 2; 
+guarantee x > 2;
+let
+  l = 3;
+  x = inp + l;
+  check x > 2;
+tel
