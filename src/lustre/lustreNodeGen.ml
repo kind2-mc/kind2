@@ -1099,8 +1099,6 @@ and compile_ast_expr
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let index_exprs = X.values compiled_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
-    (*Format.printf "compiled keys before folding: %a\n"
-      (Lib.pp_print_list (E.pp_print_lustre_expr true) ", ") index_exprs ;*)
     List.fold_left
       (fun acc index ->
         compile_array_index' acc index
@@ -1128,8 +1126,6 @@ and compile_ast_expr
       | X.SetMapIndex _ :: _, v
       | X.ArrayVarIndex _ :: _, v
       | X.ArrayIntIndex _ :: _, v -> 
-        (* in expr[k], Removing extra Array/Set/Map index from expr (since you're indexing) 
-        and adding the index access *)
         let over_expr = fun k v acc -> 
           match (List.rev k) with 
           | X.SetMapIndex _ :: tl
@@ -1319,7 +1315,7 @@ and compile_ast_expr
   | A.IndexAccess (_, expr, i, Array) -> compile_array_index bounds expr i
   | A.IndexAccess (_, expr, k, Map) ->
     let expr = compile_map_index bounds expr k in
-    X.find_prefix [(X.TupleIndex 1)] expr 
+    X.find_prefix [(X.TupleIndex 1)] expr
   | A.IndexAccess _ -> assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
