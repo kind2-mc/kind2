@@ -1,7 +1,7 @@
 
 node N(i:bool) returns (out:bool);
 (*@contract
-  gvar A : bool = Undefined(cancel);
+  var A : bool = Undefined(cancel);
 *)
 let
   out = i;
