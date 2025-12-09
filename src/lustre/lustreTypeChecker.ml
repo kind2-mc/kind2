@@ -1182,6 +1182,15 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       else
         type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
+    | LA.TupleType (_, tys) -> (
+      match i with 
+      | LA.Const (_, LA.Num n) -> 
+        let n = n |> HString.string_of_hstring |> int_of_string in 
+        if n >= List.length tys then error else
+          let inf_ty = List.nth tys n in
+          R.ok (inf_ty, LA.IndexAccess (pos, e, i, k), warnings1 @ warnings2)
+      | _ -> error;
+    )
     | ty -> type_error pos (IlltypedIndexAccess ty)
   )
   (* Quantified expressions *)

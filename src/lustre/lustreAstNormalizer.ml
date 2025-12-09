@@ -2304,6 +2304,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let expr = match ty with 
     | A.Map _ -> A.BinaryOp (pos, In Map, expr1, expr2) 
     | A.Set _ -> A.BinaryOp (pos, In Set, expr1, expr2) 
+    | A.TupleType _ -> A.BinaryOp (pos, In Tuple, expr1, expr2)
     | _ -> assert false
     in 
     normalize_expr ?guard info node_id map expr

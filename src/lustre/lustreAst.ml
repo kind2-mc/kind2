@@ -66,6 +66,7 @@ type in_kind =
   | Unknown 
   | Map
   | Set 
+  | Tuple
 
 type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
