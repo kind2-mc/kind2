@@ -13,5 +13,5 @@ type my_tuple2 = [my_tuple1, my_tuple1];
 
 node imported top2 (i : my_tuple2) returns (out : bool);
 (*@contract
-   guarantee out = i.%1.%0 and i.%0.%0; 
+   guarantee out = i[1][0] and i[0][0]; 
 *)

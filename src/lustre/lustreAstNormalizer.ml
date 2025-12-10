@@ -454,8 +454,8 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       let var = dpos, id_str, (A.Int dpos) in
       let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
-    | TupleType (_, tys) ->
-      let mk_proj i = A.TupleProject (dpos, expr, i) in
+    | TupleType (p, tys) ->
+      let mk_proj i = A.IndexAccess (dpos, expr, A.Const (p, A.Num (i |> string_of_int |> HString.mk_hstring)), A.Tuple) in
       let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
@@ -544,7 +544,8 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
-      mk_ref_type_expr ctx node_id (A.TupleProject(pos, expr, i)) ty
+      let i = i |> string_of_int |> HString.mk_hstring in
+      mk_ref_type_expr ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
@@ -937,9 +938,6 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | RecordProject (pos, e, idx) ->
     let vars, e' = r map e in
     vars, RecordProject (pos, e', idx)
-  | TupleProject (pos, e, idx) ->
-    let vars, e' = r map e in
-    vars, TupleProject (pos, e', idx)
   | Const _ -> StringSet.empty, expr
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
@@ -2271,9 +2269,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings
-  | TupleProject (pos, expr, i) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    TupleProject (pos, nexpr, i), gids, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
@@ -2304,7 +2299,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let expr = match ty with 
     | A.Map _ -> A.BinaryOp (pos, In Map, expr1, expr2) 
     | A.Set _ -> A.BinaryOp (pos, In Set, expr1, expr2) 
-    | A.TupleType _ -> A.BinaryOp (pos, In Tuple, expr1, expr2)
     | _ -> assert false
     in 
     normalize_expr ?guard info node_id map expr
@@ -2412,6 +2406,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       match expr1_ty with
       | ArrayType _ -> A.Array
       | Map _ -> Map
+      | TupleType _ -> Tuple
       | _ -> assert false
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
@@ -2454,7 +2449,6 @@ and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
   match expr with
   | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
-  | TupleProject (p, e, i) -> A.TupleProject (p, r e, i)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)

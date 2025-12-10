@@ -321,7 +321,6 @@ and mk_graph_expr ?(only_modes = false)
     union_dependency_analysis_data (mk_graph_expr ~only_modes e1)
       (union_dependency_analysis_data (mk_graph_expr ~only_modes e2) (mk_graph_expr ~only_modes e3)) 
   | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
-  | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
   | LA.IndexAccess (_, e1, e2, _) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.GroupExpr (_, _, es) ->
@@ -386,8 +385,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | ModeRef (pos, ids) ->
     if List.length ids = 1 then []
     else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
-  | RecordProject (_, e, _)
-  | TupleProject (_, e, _) -> get_node_call_from_expr e
+  | RecordProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
   | LA.Const _ -> []
   (* Operators *)
@@ -655,7 +653,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | EmptySet (_, Some ty) -> LH.vars_of_type ty
   | EmptyMap (_, Some (kt, vt)) -> SI.union (LH.vars_of_type kt) (LH.vars_of_type vt) 
   | RecordProject (_, e, _) -> r e 
-  | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> SI.empty
 
@@ -837,8 +834,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      else
        R.ok (List.map (fun g -> union_dependency_analysis_data g1 g)
                (List.map2 (fun g g' -> union_dependency_analysis_data g g') g2 g3))
-  | LA.RecordProject (_, e, _)
-    | LA.TupleProject (_, e, _) -> mk_graph_expr2 m e
+  | LA.RecordProject (_, e, _) -> mk_graph_expr2 m e
   | LA.ArrayConstr (_, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 -> 

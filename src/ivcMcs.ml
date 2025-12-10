@@ -230,7 +230,7 @@ let nodes_input_types = Hashtbl.create 10
 let rec minimize_node_call_args ue lst expr =
   let minimize_arg ident i arg =
     match arg with
-    | A.Ident _ | A.ModeRef _ | A.RecordProject _ | A.TupleProject _ -> arg
+    | A.Ident _ | A.ModeRef _ | A.RecordProject _ -> arg
     | _ ->
       let t = Hashtbl.find nodes_input_types ident |> (fun lst -> List.nth lst i) in
       let (_, expr) = minimize_expr ue lst [t] arg in
@@ -243,7 +243,6 @@ let rec minimize_node_call_args ue lst expr =
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
-    | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1, e2)
     | A.StructUpdate (p,e1,ls,Some e2) -> A.StructUpdate (p,aux e1,ls,Some (aux e2))
     | A.StructUpdate (p,e1,ls,None) -> A.StructUpdate (p,aux e1,ls,None)
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
@@ -281,7 +280,7 @@ and ast_contains p ast =
       List.map aux args
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
-      | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
+      | A.Quantifier (_,_,_,e)
       | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
