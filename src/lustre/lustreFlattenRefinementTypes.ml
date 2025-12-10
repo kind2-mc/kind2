@@ -58,7 +58,8 @@ let rec flatten_ref_type ctx ty = match ty with
     | TupleType (pos, tys) | GroupType (pos, tys) -> 
       List.mapi (fun i ty ->
         let exprs = chase_refinements ty in
-        List.map (AH.substitute_naive id (A.TupleProject(pos, Ident(pos, id), i))) exprs
+        let i = i |> string_of_int |> HString.mk_hstring in
+        List.map (AH.substitute_naive id (A.IndexAccess (pos, Ident(pos, id), A.Const (pos, A.Num i), A.Tuple))) exprs
       ) tys |> List.flatten
     | Set (pos, ty) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
@@ -176,7 +177,6 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
-  | TupleProject (p, e, i) -> TupleProject (p, rec_call e, i)
   | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 

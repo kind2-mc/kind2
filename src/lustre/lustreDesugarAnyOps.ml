@@ -94,9 +94,6 @@ fun ctx node_name fun_ids expr ->
   | RecordProject (pos, e, idx) -> 
     let e, gen_nodes = rec_call e in
     RecordProject (pos, e, idx), gen_nodes
-  | TupleProject (pos, e, idx) -> 
-    let e, gen_nodes = rec_call e in
-    TupleProject (pos, e, idx), gen_nodes
   | UnaryOp (pos, op, e) -> 
     let e, gen_nodes = rec_call e in
     UnaryOp (pos, op, e), gen_nodes

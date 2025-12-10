@@ -541,7 +541,6 @@ let rec arity_of_expr ty_ctx = function
   | Pre (_, e) -> arity_of_expr ty_ctx e
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
   | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
-  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
   | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
   | _ -> 1
@@ -858,7 +857,6 @@ let rec ty_vars_of_expr ctx node_name expr =
   | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
-  | TupleProject (_, e, _) -> call e
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)

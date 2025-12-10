@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | IlltypedRecordProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
+  | NonConcreteTupleProjection of LA.expr 
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
   | ExpectedIntegerExpression of tc_type
@@ -133,6 +134,7 @@ let error_message kind = match kind with
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
+  | NonConcreteTupleProjection e -> "Tuple projection '" ^ LA.string_of_expr e ^ "' must be a concrete natural number"
   | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
   | ExpectedBooleanExpression ty -> "Expected a boolean expression but found expression of type " ^ string_of_tc_type ty
@@ -327,7 +329,7 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
-    | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+    | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
@@ -369,7 +371,7 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
-    | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+    | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
@@ -491,7 +493,6 @@ let rec infer_const_attr ctx exp =
     [res]
   | ModeRef _ -> [error exp "mode reference"]
   | RecordProject (_, e, _) -> r e
-  | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ | EmptyMap (_, None) | EmptySet (_, None) -> [R.ok ()]
   | EmptyMap (_, Some (kt, vt)) -> 
@@ -700,9 +701,6 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
   | RecordProject (pos, e, idx) -> 
     let* e = call e in 
     R.ok (LA.RecordProject (pos, e, idx))
-  | TupleProject (pos, e, idx) -> 
-    let* e = call e in
-    R.ok (LA.TupleProject (pos, e, idx))
   | Const (_, _) as e -> R.ok e
   | Extract (pos, e, idx1, idx2) -> 
     let* e = call e in 
@@ -968,18 +966,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         | None -> type_error pos (NotAFieldOfRecord fld))
     | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
 
-  | LA.TupleProject (pos, e1, i) ->
-    let* tup_ty, e1, warnings = infer_type_expr ctx nname e1 in
-    let* tup_ty = expand_type_syn_reftype_history ctx tup_ty in
-    (match tup_ty with
-    | LA.TupleType (pos, tys) as ty ->
-        if List.length tys <= i
-        then type_error pos (TupleIndexOutOfBounds (i, ty))
-        else 
-          let* ty = expand_type_syn_reftype_history ctx (List.nth tys i) in 
-          R.ok (ty, LA.TupleProject (pos, e1, i), warnings)
-    | ty -> type_error pos (IlltypedTupleProjection ty))
-
   (* Values *)
   | LA.Const (pos, c) -> 
     let ty = infer_type_const pos c in 
@@ -1182,6 +1168,17 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       else
         type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
     )
+    | LA.TupleType (_, tys) -> (
+      match i with 
+      | LA.Const (_, LA.Num n) -> 
+        let n = n |> HString.string_of_hstring |> int_of_string in
+        if List.length tys <= n
+        then type_error pos (TupleIndexOutOfBounds (n, ty))
+        else 
+          let* ty = expand_type_syn_reftype_history ctx (List.nth tys n) in 
+          R.ok (ty, LA.IndexAccess (pos, e, i, k), [])
+      | _ -> type_error pos (NonConcreteTupleProjection i) 
+    )
     | ty -> type_error pos (IlltypedIndexAccess ty)
   )
   (* Quantified expressions *)
@@ -1364,9 +1361,6 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | RecordProject (pos, expr, fld) -> 
     let* expr, warnings = check_type_record_proj pos ctx nname expr fld exp_ty in 
     R.ok (LA.RecordProject (pos, expr, fld), warnings)
-  | TupleProject (pos, expr, idx) -> 
-    let* expr, warnings = check_type_tuple_proj pos ctx nname expr idx exp_ty in 
-    R.ok (LA.TupleProject (pos, expr, idx), warnings)
   (* Operators *)
   | Extract (pos, _, idx1, idx2) as expr -> 
     let* inf_ty, expr, warnings = infer_type_expr ctx nname expr in 

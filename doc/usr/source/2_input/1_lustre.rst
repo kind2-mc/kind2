@@ -1125,7 +1125,7 @@ returns the corresponding swapped pair tuple as output.
 
    node PairSwap<T; U>(x: [T, U]) returns (y: [U, T]);
    let
-   y = {x.%1, x.%0};
+   y = {x[1], x[0]};
    tel
 
 For a polymorphic node to be well-typed, it must be meaningful for *any* type instantiation

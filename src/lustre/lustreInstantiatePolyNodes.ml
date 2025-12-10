@@ -337,9 +337,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | RecordProject (p, expr, id) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, RecordProject (p, expr, id), decls, node_decls_map
-  | TupleProject (p, expr, i) -> 
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, TupleProject (p, expr, i), decls, node_decls_map
   | ConvOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, ConvOp (p, op, expr), decls, node_decls_map

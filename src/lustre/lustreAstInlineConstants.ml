@@ -95,8 +95,7 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   function
   | Const _ -> true
   | RecordExpr (_, _, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
-  | RecordProject (_, e, _)
-    | TupleProject (_, e, _) -> is_normal_form ctx e
+  | RecordProject (_, e, _) -> is_normal_form ctx e
   | _ -> false
 (** is the expression in a normal form? *)
          
@@ -216,7 +215,7 @@ and eval_comp_op: TC.tc_context -> LA.comparison_operator
   | Gt -> R.ok (v1 > v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
-and simplify_array_index ctx pos e1 idx kind =
+and simplify_index_access ctx pos e1 idx kind =
   let e1' = simplify_expr ctx e1 in
   let idx' = simplify_expr ctx idx in
   let raise_error () =
@@ -235,16 +234,6 @@ and simplify_array_index ctx pos e1 idx kind =
     IndexAccess (pos, e1', idx', kind)
 (** picks out the idx'th component of an array if it can *)
 
-and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.expr
-  = fun ctx pos e1 idx ->
-  match (simplify_expr ctx e1) with
-  | LA.GroupExpr (_, _, es) ->
-     if List.length es > idx
-     then List.nth es idx
-     else (raise (Out_of_bounds (pos, "Tuple element access out of bounds.")))
-  | _ -> TupleProject (pos, e1, idx)
-(** picks out the idx'th component of a tuple if it is possible *)
-
 and push_pre is_guarded pos =
   let r e = push_pre is_guarded pos e in
   function
@@ -253,7 +242,6 @@ and push_pre is_guarded pos =
   | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
-  | TupleProject (p, e, i) -> TupleProject (p, r e, i)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
@@ -357,8 +345,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
      (*(match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, List.init size (fun _ -> e1'))
       | Error _ -> e')*)
-  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_array_index ctx pos e1 e2 kind
-  | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
+  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_index_access ctx pos e1 e2 kind
   | Call (pos, ty_args, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded:false ctx e) es in
     Call (pos, ty_args, i, es')

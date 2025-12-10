@@ -1334,7 +1334,10 @@ and compile_ast_expr
   | A.RecordProject (_, expr, field) ->
     let field = HString.string_of_hstring field in
     compile_projection bounds expr (X.RecordIndex field)
-  | A.TupleProject (_, expr, field) ->
+  | A.IndexAccess (_, expr, field, A.Tuple) ->
+    let field = match field with 
+    | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
+    | _ -> assert false in (* Tuple accesses are guaranteed concrete integers in type checking *)
     compile_projection bounds expr (X.TupleIndex field)
   | A.GroupExpr (_, A.ExprList, expr_list) ->
     let rec flatten_expr_list accum = function

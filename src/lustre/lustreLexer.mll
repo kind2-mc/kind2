@@ -471,7 +471,6 @@ rule token = parse
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
-  | ".%" { DOTPERCENT }
   | "==>" { LAZY_IMPL }
   | "=>" { IMPL }
   | '#' { HASH }

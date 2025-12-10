@@ -154,7 +154,6 @@ and process_expr ind_vars ctx ns proj indices expr =
   | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
   | RecordProject (_, e, _) -> r e
-  | TupleProject (_, e, _) -> r e
   (* Values *)
   | Const _ -> empty_
   (* Operators *)
