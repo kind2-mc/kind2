@@ -1,4 +1,4 @@
-Enumeration types
+Tuple types
 ==================
 
 Tuples are constructed with the syntax ``'(x1, ..., xn)`` and destructed with the syntax ``t[idx]``, 
