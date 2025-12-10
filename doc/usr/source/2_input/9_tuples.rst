@@ -7,8 +7,8 @@ where ``idx`` is some concrete natural number that is in range (with ``0``-based
 .. code-block:: none
 
    type my_tuple = [int, bool, real];
-   node n (x : my_tuple) returns (y1 : my_tuple) 
+   node n (x : my_tuple) returns (y : my_tuple) 
    let
-     y1 = '(0, false, x[2]);
+     y = '(0, false, x[2]);
    tel
 

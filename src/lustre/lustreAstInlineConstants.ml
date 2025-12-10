@@ -215,7 +215,7 @@ and eval_comp_op: TC.tc_context -> LA.comparison_operator
   | Gt -> R.ok (v1 > v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
-and simplify_array_index ctx pos e1 idx kind =
+and simplify_index_access ctx pos e1 idx kind =
   let e1' = simplify_expr ctx e1 in
   let idx' = simplify_expr ctx idx in
   let raise_error () =
@@ -345,7 +345,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
      (*(match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, List.init size (fun _ -> e1'))
       | Error _ -> e')*)
-  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_array_index ctx pos e1 e2 kind
+  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_index_access ctx pos e1 e2 kind
   | Call (pos, ty_args, i, es) ->
     let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded:false ctx e) es in
     Call (pos, ty_args, i, es')
