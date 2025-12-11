@@ -68,9 +68,7 @@ system:
    tel
 
    node stopwatch ( toggle, reset : bool ) returns ( count : int ) ;
-   (*@contract
      import stopwatchSpec ( toggle, reset ) returns ( count ) ;
-   *)
    var running : bool ;
    let
      running = (false -> pre running) <> toggle ;

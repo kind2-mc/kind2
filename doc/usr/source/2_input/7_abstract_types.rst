@@ -24,9 +24,7 @@ to a finite domain are inconsistent (such an example is shown in the following c
 
     type T;
     function id_T (x: T) returns (y: T);
-    (*@contract
     assume forall (x: T) (forall (y: T) x = y);
-    *)
     let
         y = x;
     tel
