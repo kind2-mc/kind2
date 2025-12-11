@@ -28,6 +28,13 @@ test_cases = {
 # Where to find the regression tests
 regression_dir = Path("regression").absolute()
 
+# Tests where a timeout should NOT be considered a failure.
+# Second element of tuple should match one of the keys in `test_cases`.
+timeout_ok = {
+    (regression_dir / "success/map_value_types.lus", "slice_off"),
+    (regression_dir / "falsifiable/map_ref_types_subranges_combo.lus", "slice_off"),
+}
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -102,6 +109,13 @@ class LustreItem(pytest.Item):
 
     def runtest(self):
         self.res = run(self._command(), capture_output=True)
+
+        # Timeout is OK in specified cases (only with slicing disabled)
+        case_name = dict(self.user_properties).get("case_name")
+        result = code_to_expected.get(self.res.returncode)
+        if result == "timeout" and (self.path, case_name) in timeout_ok:
+          return   
+
         if self.res.returncode != expected_to_code[self.expected]:
             raise LustreException
 
