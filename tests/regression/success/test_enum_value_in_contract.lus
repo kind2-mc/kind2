@@ -3,7 +3,7 @@ type my_enum = enum { A, B };
 
 node top(x:my_enum) returns (y: int);
 (*@contract
-  var g: bool = x = A;
+  gvar g: bool = x = A;
   guarantee g => y=0;
 *)
 let

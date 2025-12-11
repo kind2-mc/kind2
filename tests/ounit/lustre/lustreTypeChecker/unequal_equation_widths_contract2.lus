@@ -8,7 +8,7 @@ tel
 contract counter_spec (init: int) returns(out: int);
 let
   (* Test different ways to assign ghost variables in parallel *)
-   var out1: int = counter2(init);
+   gvar out1: int = counter2(init);
 tel
 
 node counter (init : int) returns (out : int);

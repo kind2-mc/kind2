@@ -94,6 +94,7 @@ let mk_span start_pos end_pos =
 
 (* Token for constant/parameter declarations *)
 %token CONST
+%token GCONST
 %token PARAM
     
 (* Tokens for node declarations *)
@@ -104,6 +105,7 @@ let mk_span start_pos end_pos =
 %token FUNCTION
 %token RETURNS
 %token VAR
+%token GVAR
 %token LET
 %token TEL
     
@@ -486,10 +488,14 @@ node_decl:
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
   option(SEMICOLON);
-  r = option(contract_spec)
+  r = contract_option; 
   {
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
   }
+
+contract_option:
+  | r = list(contract_item) { if r = [] then None else Some (mk_pos $startpos, r) }
+  | r = contract_spec { Some r }
 
 (* A node definition (locals + body). *)
 node_def:
@@ -502,10 +508,24 @@ node_def:
   { (List.flatten l, e) }
 
 contract_ghost_vars:
+  | GVAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
+    { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
+
+(* DEPRECATED contract syntax (var instead of gvar), but still here to support tools like VERDICT *)
+old_contract_ghost_vars:
   | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
+  | GCONST; i = ident; COLON; t = lustre_type; SEMICOLON
+    { A.GhostConst (A.FreeConst (mk_pos $startpos, i, t)) }
+  | GCONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
+    { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
+  | GCONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
+    { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
+
+(* DEPRECATED contract syntax (const instead of gconst), but still here to support tools like VERDICT *)
+old_contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; SEMICOLON
     { A.GhostConst (A.FreeConst (mk_pos $startpos, i, t)) }
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
@@ -571,8 +591,21 @@ contract_item:
   | i = contract_import { i }
   | a = assumption_vars { a }
 
+(* Support DEPRECATED contract syntax (var instead of gvar) in contract blocks 
+   to support tools like VERDICT *)
+old_contract_item:
+  | e = old_contract_ghost_vars { e }
+  | e = contract_ghost_vars { e }
+  | c = old_contract_ghost_const { c }
+  | c = contract_ghost_const { c }
+  | a = contract_assume { a }
+  | g = contract_guarantee { g }
+  | m = mode_equation { m }
+  | i = contract_import { i }
+  | a = assumption_vars { a }
+
 contract_in_block:
-  | c = nonempty_list(contract_item) { c }
+  | c = nonempty_list(old_contract_item) { c }
 
 
 (* A contract node declaration. *)
@@ -595,7 +628,7 @@ contract_decl:
        List.flatten o,
        (mk_pos $startpos, e)) }
 
-
+(* Deprecated contract syntax *)
 contract_spec:
   (* Block contract, parenthesis star (PS). *)
   | CONTRACT_PSATBLOCK ;

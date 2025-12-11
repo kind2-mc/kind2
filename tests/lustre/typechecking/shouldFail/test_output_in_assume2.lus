@@ -5,7 +5,7 @@ tel
 
 node top(x: int) returns (y: int);
 (*@contract
-  var g: int = b(y) + 1;
+  gvar g: int = b(y) + 1;
   assume g>0;
 *)
 let

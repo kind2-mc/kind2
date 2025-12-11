@@ -96,11 +96,9 @@ Conceptually, the refinement types can be viewed as an augmentation of
 .. code-block::
 
    node M(x1: int; x2: int) returns (y: int);
-   (*@contract
       assume x1 mod 2 = 0; 
       assume x2 mod 2 = 1;
       guarantee y mod 2 = 1;
-   *)
    let
       y = x1 + x2;
       --%MAIN;

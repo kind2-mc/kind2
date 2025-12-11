@@ -220,7 +220,14 @@ A local contract is a special comment between the signature of the node
 and its body. That is, between the ``;`` of the node signature and the ``let``
 opening its body.
 
-A local contract is a special block comment of the form
+A local contract is simply a list of contract items:
+
+.. code-block:: none
+
+   [item]+
+
+The original contract syntax (which is deprecated but still available) 
+is a special block comment of the form
 
 .. code-block:: none
 
@@ -266,22 +273,26 @@ Ghost variables and constants
 
 A ghost variable (constant) is a stream that is local to the contract. That is,
 it is not accessible from the body of the node specified. Ghost variables
-(constants) are defined with the ``var`` (\ ``const``\ ) keyword. Kind 2 performs type
-inference for constants so in most cases type annotations are not necessary.
+(constants) are defined with the ``gvar`` (\ ``gconst``\ ) keyword. Kind 2 performs type
+-inference for constants so in most cases type annotations are not necessary.
 
 The general syntax is
 
 .. code-block:: none
 
-   const <id> [: <type>] = <expr> ;
-   var   <id>  : <type>  = <expr> ;
+   gconst <id> [: <type>] = <expr> ;
+   gvar   <id>  : <type>  = <expr> ;
 
 For instance:
 
 .. code-block:: none
 
-   const max = 42 ;
-   var ghost_stream: real = if input > max then max else input ;
+   gconst max = 42 ;
+   gvar ghost_stream: real = if input > max then max else input ;
+
+If using the deprecated block comment for syntax (i.e., ``(*@contract ... *)``), 
+then one can alternatively substitute ``const`` or ``var`` for ``gconst`` or ``gvar``, 
+respectively.
 
 Assumptions
 ~~~~~~~~~~~
@@ -392,12 +403,11 @@ For instance:
    ) returns (
      engaged: real
    ) ;
-   (*@contract 
-     var bool_eng: bool = engage <> 0.0 ;
-     var bool_dis: bool = disengage <> 0.0 ;
-     var bool_enged: bool = engaged <> 0.0 ;
+     gvar bool_eng: bool = engage <> 0.0 ;
+     gvar bool_dis: bool = disengage <> 0.0 ;
+     gvar bool_enged: bool = engaged <> 0.0 ;
 
-     var never_triggered: bool = (
+     gvar never_triggered: bool = (
        not bool_eng -> not bool_eng and pre never_triggered
      ) ;
 
@@ -412,7 +422,6 @@ For instance:
      ) ;
 
      import spec (bool_eng, bool_dis) returns (bool_enged) ;
-   *)
    let ... tel
 
 Mode references
@@ -715,18 +724,16 @@ node
 .. code-block:: none
 
    node count (trigger: bool) returns (count: int ; error: bool) ;
-   (*@contract
-     var once: bool = trigger or (false -> pre once) ;
-     guarantee count >= 0 ;
-     mode still_zero (
-       require not once ;
-       ensure count = 0 ;
-     ) ;
-     mode gt (
-       require not ::still_zero ;
-       ensure count > 0 ;
-     ) ;
-   *)
+   gvar once: bool = trigger or (false -> pre once) ;
+   guarantee count >= 0 ;
+   mode still_zero (
+     require not once ;
+     ensure count = 0 ;
+   ) ;
+   mode gt (
+     require not ::still_zero ;
+     ensure count > 0 ;
+   ) ;
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
    tel
@@ -755,10 +762,8 @@ given, then the implicit (rather weak) contract
 
 .. code-block:: none
 
-   (*@contract
-     assume true ;
-     guarantee true ;
-   *)
+   assume true ;
+   guarantee true ;
 
 is used.
 
@@ -1179,18 +1184,14 @@ node call).
    tel
 
    node N (x: int) returns (y: int);
-   (*@contract 
       import Stutter@<int>(x) returns (y);
-   *)
    let
       y = pre x;
    tel
 
 
    node P<U>(x: U) returns (y: U);
-   (*@contract 
       import Stutter@<U>(x) returns (y);
-   *)
    let
       y = pre x;
    tel
@@ -1199,17 +1200,15 @@ Above, node ``N`` instantiates the contract ``Stutter`` with type ``int``.
 Also, node ``P`` demonstrates using a polymorphic contract declaration with a polymorphic 
 node. 
 
-Another way of specifying a polymorphic contract is by including it in the 
-node declaration with the ``(*@contract ... *)`` syntax.
+Another way of specifying a polymorphic contract is by including it directly in the 
+node declaration of a polymorphic node as a local contract.
 
 .. code-block:: none
 
    node M<T>(x: int) returns (y: int);
-   (*@contract
       guarantee 
          (y = x) or
          (true -> (y = pre x));
-   *)
    let
       y = pre x;
    tel
@@ -1232,10 +1231,8 @@ operator to define a local stream ``l`` of arbitrary odd values.
 .. code-block:: none
 
    node N(y: int) returns (z:int);
-   (*@contract
      assume "y is odd" y mod 2 = 1;
      guarantee "z is even" z mod 2 = 0;
-   *)
      var l: int;
    let
      l = any { x: int | x mod 2 = 1 };
