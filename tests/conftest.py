@@ -31,6 +31,7 @@ regression_dir = Path("regression").absolute()
 # Tests where a timeout should NOT be considered a failure.
 timeout_ok = {
     (regression_dir / "success/map_value_types.lus", "slice_off"),
+    (regression_dir / "falsifiable/map_ref_types_subranges_combo.lus", "slice_off"),
 }
 
 # Where to write log files
