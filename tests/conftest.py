@@ -31,8 +31,10 @@ regression_dir = Path("regression").absolute()
 # Tests where a timeout should NOT be considered a failure.
 # Second element of tuple should match one of the keys in `test_cases`.
 timeout_ok = {
+    (regression_dir / "falsifiable/contract_import_indirection.lus", "slice_experimental")
     (regression_dir / "success/map_value_types.lus", "slice_off"),
     (regression_dir / "falsifiable/map_ref_types_subranges_combo.lus", "slice_off"),
+    (regression_dir / "success/test-alias.lus", "slice_experimental"),
 }
 
 # Where to write log files
