@@ -642,6 +642,7 @@ module RunCertif: PostAnalysis = struct
             CertifChecker.generate_smt2_certificates in_sys sys
         ) ;
         ( if Flags.Certif.proof () then
+            Format.printf "Calling generate_all_proofs";
             CertifChecker.generate_all_proofs uid in_sys sys
         ) ;
         Ok ()

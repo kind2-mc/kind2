@@ -1794,13 +1794,15 @@ let generate_split_certificates sys dirname =
 
   export_phi ~trace_lfsc_defs:true
     dirname kind2_phi_lfsc_f [kind2_defs_path] names_kind2 sys phi;
-
+  Printf.printf "Generated some proofs\n";
   let kind2_phi_path = Filename.concat dirname kind2_phi_f in
   let kind2_phi_lfsc_path = Filename.concat dirname kind2_phi_lfsc_f in
   
   (* definitions to use for the checks *)
   let smt2_definitions = [kind2_defs_path; kind2_phi_path] in
   
+
+  Printf.printf "Doing some checks\n";
   (* write certificates checks in smtlib2 scripts *)
   let base =
     mononames_base_check sys dirname base_f smt2_definitions k names_kind2 in
@@ -1814,7 +1816,7 @@ let generate_split_certificates sys dirname =
       dirname implication_f smt2_definitions names_kind2 in
 
   let kind2_sys = kind2_cert_sys svars dirname in
-  
+  Printf.printf "Making inv\n";
   let inv = {
     k;
     name = names_kind2.phi;
@@ -1836,7 +1838,7 @@ let generate_split_certificates sys dirname =
   (* Show which file contains the certificate *)
   Debug.certif
      "SMT-LIB2 intermediate certificates were written in %s" dirname;
-
+  Printf.printf "Returning\n";
   inv
 
   
@@ -3239,8 +3241,8 @@ let remove dirname =
 
 
 (* Generate all certificates in the directory given by {!Flags.output_dir}. *)
-let generate_all_proofs uid input sys =
-
+let generate_all_proofs_old uid input sys =
+  Printf.printf "Started generating proofs\n";
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
@@ -3255,16 +3257,24 @@ let generate_all_proofs uid input sys =
   in
   create_dir dirname;
 
+  Printf.printf "File directory created\n";
   if not (is_fec sys) then begin
+    Printf.printf "Not fec\n";
     let cert_inv, syms =
       try
+        Printf.printf "Trying to generate certificates\n";
         let cert_inv = generate_split_certificates sys dirname in
+        Printf.printf "Genrated split certificates.\n";
+
         (cert_inv, Proof.generate_inv_proof cert_inv)
+      
       with e ->
+        Printf.printf "Failed\n";
         (* Send statistics *)
         KEvent.stat Stat.[ (certif_stats_title, certif_stats) ];
         raise e
     in
+    Printf.printf "Generated split certificates\n";
     let inv_lfsc = Filename.concat dirname Proof.proofname in
     let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
     let trust_lfsc = Filename.concat dirname Proof.trustfname in
@@ -3385,5 +3395,145 @@ let generate_all_proofs uid input sys =
 
     (* Send statistics *)
     KEvent.stat Stat.[certif_stats_title, certif_stats];
+
+  end
+
+
+
+
+  let generate_all_proofs uid input sys =
+    
+  Printf.printf "Started generating proofs\n";
+  Proof.set_proof_logic (TS.get_logic sys);
+
+  Hashtbl.clear solver_actlits;
+
+  let dirname =
+    if is_fec sys then Filename.dirname (Flags.input_file ())
+    else begin
+      Flags.output_dir () |> mk_dir ;
+      Filename.concat (Flags.output_dir ())
+        ("certificates." ^ string_of_int uid)
+    end
+  in
+  create_dir dirname;
+
+  Printf.printf "File directory created\n";
+  if not (is_fec sys) then begin
+    Printf.printf "Not fec\n";
+    let cert_inv =
+      try
+        Printf.printf "Trying to generate certificates\n";
+        let cert_inv = generate_split_certificates sys dirname in
+        Printf.printf "Genrated split certificates.\n";
+
+
+
+        (cert_inv)
+      
+      with e ->
+        Printf.printf "Failed\n";
+        KEvent.stat Stat.[ (certif_stats_title, certif_stats) ];
+        raise e
+    in
+    Proof.construct_safety_proof dirname cert_inv.base cert_inv.induction cert_inv.implication;
+
+     (* Build FEC system *)
+    (* let cert_obs =
+      generate_frontend_certificates obs_sys dirname
+    in *)
+    (* let gen_frontend =
+      if InputSystem.is_lustre_input input then
+        try
+          generate_frontend_obs input sys dirname |> ignore;
+          true
+        with Failure s ->
+          KEvent.log L_warn "%s@ No frontend observer." s;
+          false
+      else begin
+        Debug.certif "No certificate for frontend";
+        false
+      end
+    in *)
+
+
+    (* ---- dump CPC proofs ---- *)
+    (* Proof.construct_safety_proof dirname cert_obs.base cert_obs.induction cert_obs.implication; *)
+    (*Proofs needed: Base, Induction, Implication, 
+    Frontend proof for Observer (Base, Inductive, Implication) *)
+    (* let inv_cpc = Filename.concat dirname Proof.proofname_cpc in
+    let front_cpc = Filename.concat dirname Proof.frontend_proofname_cpc in
+
+    Flags.output_dir () |> mk_dir ;
+    let final_lfsc =
+      Filename.concat (Flags.output_dir ())
+        (String.concat "."
+           [Filename.basename (Flags.input_file ());
+            string_of_int uid; "lfsc"]) in
+    let final_trust =
+      Filename.concat (Flags.output_dir ())
+        (String.concat "."
+           [Filename.basename (Flags.input_file ());
+            string_of_int uid; "trusted_aux"; "lfsc"]) in
+
+    if call_frontend then begin
+
+      if gen_frontend then begin
+
+        KEvent.log L_note "@{<b>Generating frontend proof@}";
+        let cmd_l =
+          Array.to_list Sys.argv
+          |> List.filter (fun s -> s <> (Flags.input_file ()))
+        in
+
+         let cmd =
+          asprintf "%a %s"
+            (pp_print_list pp_print_string " ") cmd_l
+            (Filename.concat dirname "FEC.kind2")
+        in
+        Debug.certif "Second run with: %s" cmd;
+
+        begin match Sys.command cmd with
+          | 0 | 20 ->
+            let filter_and_copy_lines ic oc keep =
+              let rec read_line () =
+                try
+                  let line = input_line ic in
+                  if keep line then Printf.fprintf oc "%s\n" line ;
+                  read_line ()
+                with End_of_file -> ()
+              in
+              read_line ()
+            in
+            (* let sym_defs =
+              List.map
+                (fun sym -> "(define " ^ HString.string_of_hstring sym)
+                syms
+            in *)
+            (* let pred l =
+              List.exists (fun sym -> Lib.string_starts_with l sym) sym_defs
+              |> not
+            in *)
+            let oc =
+              open_out_gen [ Open_append; Open_creat ] 0o666 Proof.final_cpc
+            in
+            filter_and_copy_lines (open_in front_lfsc) oc pred ;
+            fprintf (formatter_of_out_channel oc) ";; Final proof of safety\n@.";
+            Proof.write_safe_proof
+              (formatter_of_out_channel oc)
+              cert_inv.kind2_system cert_inv.jkind_system;
+            close_out oc;
+            if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
+
+          | c ->
+            KEvent.log L_warn
+              "Failed to generate frontend proof (return code %d)" c;
+            file_copy inv_lfsc final_lfsc;
+            if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
+
+        end;
+      end; *)
+    Printf.printf "Generated split certificates\n";
+    
 
   end

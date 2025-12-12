@@ -102,13 +102,14 @@ rule main buf = parse
   | blank+ | ';' (_ # lf_cr)* { main buf lexbuf }
   | '(' { LPAREN }
   | ')' { RPAREN }
-  | '"'
+    | '"'
       {
         scan_string buf (lexeme_start_p lexbuf) lexbuf;
         let str = Buffer.contents buf in
         Buffer.clear buf;
-        STRING (HString.mk_hstring str)
+        STRING (HString.mk_hstring ("\"" ^ str ^ "\""))
       }
+
   | "#;" { HASH_SEMI }
   | "#|"
       {

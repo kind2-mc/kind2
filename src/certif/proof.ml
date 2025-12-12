@@ -112,7 +112,14 @@ let proof_obs_eq_name = H.mk_hstring "proof_obs_eq"
 let proof_safe_name = H.mk_hstring "proof_safe"
   
 let proofname = "proof.lfsc"
+
+let proofname_cpc = "proof.cpc"
 let frontend_proofname = "frontend_proof.lfsc"
+let frontend_proofname_cpc = "frontend_proof.cpc"
+let trustfname = "trusted.lfsc"
+
+let proofname = "proof.lfsc"
+let frontend_proofname_cpc = "frontend_proof.cpc"
 let trustfname = "trusted.lfsc"
 
 
@@ -535,6 +542,8 @@ let proof_from_file ctx prefix f =
     raise e
 
 
+
+    
 (******************************************)
 (* Parsing context from dummy lfsc proofs *)
 (******************************************)
@@ -915,6 +924,9 @@ let generate_inv_proof inv =
   decl_syms @ def_syms
 
 
+
+
+
 let get_itp_binders ctx =
   let is_sym sym lfsc_def =
     match lfsc_def.def_symb with
@@ -1042,3 +1054,214 @@ let generate_frontend_proof inv =
   Debug.certif "LFSC proof written in %s" proof_file;
 
   log_trusted ~frontend:true inv.dirname
+(* LFSC terms (sexpressions) *)
+type cpc_step = HS.t
+
+let pp_cpc_proof fmt pf =
+  List.iter (fun s -> HS.pp_print_sexpr fmt s; Format.fprintf fmt "@.") pf
+
+let parse_cpc_from_lexbuf lexbuf =
+  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
+  let commands =
+    match sexps with
+    | [HS.List xs] -> xs
+    | xs -> xs  (* fall back: already flat *)
+  in
+  commands
+
+let cpc_proof_from_chan prefix in_ch =
+
+  let lexbuf = Lexing.from_channel in_ch in
+  let first_line = input_line in_ch in
+  if String.trim first_line <> "unsat"
+  then failwith "Expected 'unsat' at beginning of CPC proof";
+
+  let sexps = parse_cpc_from_lexbuf lexbuf in
+  Format.printf "Outputting CPC proof: %s (%n steps)@." prefix (List.length sexps);
+
+  Format.printf "%a" pp_cpc_proof sexps;
+  let oc = open_out prefix in
+  let fmt = Format.formatter_of_out_channel oc in
+  List.iter (fun s -> Format.fprintf fmt "%a@." HS.pp_print_sexpr s) sexps;
+  close_out oc;
+  Format.printf "Outputted file: %s@." prefix;
+  sexps
+
+
+let s_define = HString.mk_hstring "define"
+let s_declare_const = HString.mk_hstring "declare-const"
+let s_assume = HString.mk_hstring "assume"
+let s_assume_push = HString.mk_hstring "assume-push"
+let s_step = HString.mk_hstring "step"
+let is_def = function
+  | HS.List (HS.Atom s :: _) ->
+      HString.equal s s_define || HString.equal s s_declare_const
+  | _ -> false
+let is_global_name (s : HString.t) : bool =
+  let name = HString.string_of_hstring s in
+  not (String.length name > 0 && name.[0] = '@')
+
+let is_global_def = function
+  | HS.List (HS.Atom kw :: HS.Atom name :: _) ->
+      (HString.equal kw (s_define)
+      && is_global_name name) 
+      || HString.equal kw (s_declare_const)
+  | _ -> false
+
+
+let is_local_def = function
+  | HS.List (HS.Atom kw :: HS.Atom name :: _) ->
+      HString.equal kw (HString.mk_hstring "define")
+      && not (is_global_name name)
+  | _ -> false
+
+let normalize_step = function
+  | HS.List (HS.Atom kw :: tl)
+      when HString.equal kw s_assume ->
+        HS.List (HS.Atom s_assume_push :: tl)
+  | sexpr -> sexpr
+
+
+let get_proof_defs (proof : cpc_step list) =
+  let rec aux (acc_global_defs, acc_steps) = function
+    | sexpr :: tl when is_global_def sexpr ->
+        aux (sexpr :: acc_global_defs, acc_steps) tl
+    | sexpr :: tl when is_local_def sexpr ->
+        aux (acc_global_defs, sexpr :: acc_steps) tl
+     | sexpr :: tl ->
+        let sexpr = normalize_step sexpr in
+        aux (acc_global_defs, sexpr :: acc_steps) tl
+    | [] ->
+        (List.rev acc_global_defs, List.rev acc_steps)
+  in
+  aux ([], []) proof
+
+
+let get_last_step_name steps =
+  let rec find_last = function
+    | [] ->
+        failwith "Empty proof: no steps"
+
+    | [HS.List (HS.Atom kw :: HS.Atom id :: _)]
+      when HString.equal kw (s_step) ->
+        id
+
+    | [sexpr] ->
+        failwith ("Last SExpr is not a step: " ^
+                  (Format.asprintf "%a" HS.pp_print_sexpr sexpr))
+
+    | _ :: tl ->
+        find_last tl
+  in
+  find_last steps
+
+
+let generate_cpc_proof smt_file =
+  let out_file = String.sub smt_file 0 ((String.length smt_file) - 5)  ^ ".cpc" in
+  let cmd =
+  Printf.sprintf "%s %s" (cvc5_proof_cmd ()) smt_file
+  in
+  let (in_ch, out_ch, err_ch) =
+    Unix.open_process_full cmd (Unix.environment ())
+  in
+  cpc_proof_from_chan out_file in_ch
+
+  (* These steps need to be dynamically created since the premises are 
+     the step-pop and the last step of the previous proof              *)
+  let step_pop_steps = [
+    ("base_proof_kind_2", "(=> (and (I1 0) @t1) false)");
+    ("induction_proof_kind_2", "(=> (and (and (PHI1 0) (T1 0 1)) @t1) false)");
+    ("implication_proof_kind_2", "(=> @t2 false)");
+    ("base_proof_jkind", "(=> (and (I1 0) @t1) false)");
+    ("induction_proof_jkind", "(=> (and (and (PHI1 0) (T1 0 1)) @t1) false)");
+    ("implication_proof_jkind", "(=> @t2 false)");
+  ]
+  let hardcoded_steps = [
+    (
+      "k_ind_proof_kind_2",
+      "(step k_ind_proof_kind_2 (Invariant I1 T1 PHI1) :rule k-induction 
+       :premises (base_proof_kind_2 induction_proof_kind_2) :args (I1 T1 PHI1 1))"
+    );
+    (
+      "proof_inv", 
+      "(step proof_inv (Invariant I1 T1 P1) :rule invariant-implies
+       :premises (k_ind_proof_kind_2 implication_proof_kind_2) :args (I1 T1 PHI1 P1))"
+    );
+    (
+      "k_ind_proof_jkind",
+      "(step k_ind_proof_jkind (Invariant IO TO PHIO) :rule k-induction
+       :premises (base_proof_jkind induction_proof_jkind) :args (IO TO PHIO 1))"
+    );
+    (
+      "proof_obs",
+      "(step proof_obs (Invariant IO TO PO) :rule invariant-implies
+       :premises (k_ind_proof_jkind implication_proof_jkind) :args (IO TO PHIO PO))"
+    );
+    (
+      "proof_obs_eq",
+      "(step proof_obs_eq (Weak_Obs_Eq I1 T1 P1 I2 T2 P2) :rule weak-obs-eq
+       :premises (proof_obs) :args (I1 T1 P1 I2 T2 P2 same_inputs))"
+    );
+    (
+      "proof_safe",
+      "(step proof_safe (Safe I1 T1 P1) :rule inv-and-obs
+       :premises (proof_inv proof_obs_eq) :args (I1 T1 P1 I2 T2 P2))"
+    );
+  ]
+let rec hardoced_lookup step_name = function
+  | (step, formula) :: rest -> if (String.equal step step_name) then formula else (hardoced_lookup step_name rest)
+  | [] -> "" 
+
+let formula_of_step_pop step_name = 
+  hardoced_lookup step_name step_pop_steps
+
+let mk_hardcoded_step step_name = 
+  HS.List (Lexing.from_string (hardoced_lookup step_name hardcoded_steps) |> parse_cpc_from_lexbuf )
+
+let mk_step_pop name last_step_id =
+  HS.List [
+    HS.Atom (HString.mk_hstring "step-pop");
+    HS.Atom (HString.mk_hstring name);
+    HS.List (parse_cpc_from_lexbuf (Lexing.from_string (formula_of_step_pop name)));
+    HS.Atom (HString.mk_hstring ":rule");
+    HS.Atom (HString.mk_hstring "scope");
+    HS.Atom (HString.mk_hstring ":premises");
+    HS.List [ HS.Atom last_step_id ];
+  ]
+let pp_print_safety_proof fmt defs base_steps induction_steps implication_steps =
+    Format.fprintf fmt "%a" pp_cpc_proof defs;
+    Format.fprintf fmt ";; Base proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof base_steps;
+    Format.fprintf fmt ";; base_proof_k2\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "base_proof_kind_2" (get_last_step_name base_steps))] ;
+    Format.fprintf fmt ";; Induction proof \n";
+    Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
+    Format.fprintf fmt ";; induction_proof_k2 \n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "induction_proof_kind_2" (get_last_step_name induction_steps))] ;
+    Format.fprintf fmt ";; k_ind_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "k_ind_proof_kind_2")];
+    Format.fprintf fmt ";; implication_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
+    Format.fprintf fmt ";; impl_rule \n" ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "implication_proof_kind_2" (get_last_step_name implication_steps))]; 
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")]
+
+
+let construct_safety_proof dirname base induction implication = 
+
+    let base_k2 = generate_cpc_proof base in
+    let induction_k2 =generate_cpc_proof induction in
+    let implication_k2 =generate_cpc_proof implication in
+
+
+    let (defs, base_steps) = get_proof_defs base_k2 in
+    let (_, induction_steps) = get_proof_defs induction_k2 in
+    let (_, implication_steps) = get_proof_defs implication_k2 in
+    Format.printf "Outputting defs for proofs: \n";
+
+    Format.printf "%a" (fun fmt () -> pp_print_safety_proof fmt defs base_steps induction_steps implication_steps) ();
+    
+ let oc = open_out (dirname ^ "/proof.cpc") in
+  let fmt = Format.formatter_of_out_channel oc in
+    Format.printf "%s\n" dirname ;
+  pp_print_safety_proof fmt defs base_steps induction_steps implication_steps
