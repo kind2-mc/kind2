@@ -20,6 +20,10 @@ The built-in map operators are **map insertion/update**
 Indexing a map with ``m[k]`` returns the associated value for ``k`` in map ``m``. 
 If ``m`` does not have a binding for ``k``, 
 then the output of the operation is unconstrained.
+However, the output is still *functional* in the sense that 
+indexing a map will always yield the same value for a fixed key and timestep
+(i.e., for all maps ``m`` and keys ``k`` of the proper type, 
+``m[k] = m[k]`` is valid, even if key ``k`` is not in the map ``m``).
 Otherwise, the operators all take the expected semantics.
 See below for an example.
 
