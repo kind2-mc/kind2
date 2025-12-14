@@ -1,4 +1,4 @@
-(* This file is part of the Kind 2 model checker.lustreparser.
+(* This file is part of the Kind 2 model checker.
 
    Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
