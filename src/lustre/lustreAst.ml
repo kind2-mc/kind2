@@ -1055,21 +1055,21 @@ let pp_print_contract_ghost_const ppf = function
   | FreeConst (_, s, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>gconst %a:@ %a;@]" 
+      "@[<hv 3>const %a:@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
 
   | UntypedConst (_, s, e) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>gconst %a =@ %a;@]" 
+      "@[<hv 3>const %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_expr e
 
   | TypedConst (_, s, e, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>gconst %a:@ %a =@ %a;@]" 
+      "@[<hv 3>const %a:@ %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
       pp_print_expr e
@@ -1077,7 +1077,7 @@ let pp_print_contract_ghost_const ppf = function
 
 let pp_print_contract_ghost_vars ppf = fun (_, lhs, e) ->
   Format.fprintf ppf 
-  "@[<hv 3>gvar %a =@ %a;@]" 
+  "@[<hv 3>var %a =@ %a;@]" 
   pp_print_typed_contract_eq_lhs lhs
   pp_print_expr e
 

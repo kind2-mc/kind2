@@ -17,7 +17,7 @@ tel
 
 contract B (x:bool) returns (y:bool) ;
 let
-  gvar v: bool = not (not x);
+  var v: bool = not (not x);
 
   assume H(x);
   import A (x) returns (y);
@@ -37,7 +37,7 @@ tel
 
 node N (u:bool) returns (v:bool);
 (*@contract
-  gvar h1: bool = not u;
+  var h1: bool = not u;
   import C (h1) returns (v);
   guarantee ::C::B::A::Am;
 *)

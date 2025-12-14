@@ -34,8 +34,8 @@ node my_node (i: int ; i_pos: int) returns (out: int) ;
 
 (*@contract
 
-  gconst bound = 10 ;
-  gvar i_bounded: bool = abs(i) < bound ;
+  const bound = 10 ;
+  var i_bounded: bool = abs(i) < bound ;
 
   assume i_bounded ;
   guarantee out >= - bound ;

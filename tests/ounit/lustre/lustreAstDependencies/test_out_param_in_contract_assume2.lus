@@ -5,7 +5,7 @@ node imported f(x,z: int) returns (y: int);
 
 node imported top(x: int) returns (y: int);
 (*@contract
-    gvar g: int = f(x, y);
+    var g: int = f(x, y);
     assume g>0;
     guarantee y>g;
 *)
