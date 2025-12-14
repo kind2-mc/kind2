@@ -19,8 +19,10 @@ For instance, consider the following Lustre program:
 .. code-block:: none
 
    node Arbiter (s1,s2: bool; e1,e2:int) returns(o: int);
+   con
      guarantee "G1" s1 => o=e1;
      guarantee "G2" s2 => o=e2;
+   noc
    let
      if s1 and s2 then
        o = any { o:int | o = e1 or o = e2 };

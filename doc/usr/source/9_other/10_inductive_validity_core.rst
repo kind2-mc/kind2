@@ -45,7 +45,9 @@ Let's consider the following Lustre code:
   tel;
 
   node f(u, v : real) returns (r : real);
-  import fSpec(u,v) returns (r) ; 
+  con
+      import fSpec(u,v) returns (r) ; 
+  noc
   var m1,m2: real;
   let
       m1 = if v > u then v else u;

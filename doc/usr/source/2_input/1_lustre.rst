@@ -401,6 +401,7 @@ For instance:
    ) returns (
      engaged: real
    ) ;
+   con
      var bool_eng: bool = engage <> 0.0 ;
      var bool_dis: bool = disengage <> 0.0 ;
      var bool_enged: bool = engaged <> 0.0 ;
@@ -420,6 +421,7 @@ For instance:
      ) ;
 
      import spec (bool_eng, bool_dis) returns (bool_enged) ;
+   noc
    let ... tel
 
 Mode references
@@ -722,16 +724,18 @@ node
 .. code-block:: none
 
    node count (trigger: bool) returns (count: int ; error: bool) ;
-   var once: bool = trigger or (false -> pre once) ;
-   guarantee count >= 0 ;
-   mode still_zero (
-     require not once ;
-     ensure count = 0 ;
-   ) ;
-   mode gt (
-     require not ::still_zero ;
-     ensure count > 0 ;
-   ) ;
+   con
+     var once: bool = trigger or (false -> pre once) ;
+     guarantee count >= 0 ;
+     mode still_zero (
+       require not once ;
+       ensure count = 0 ;
+     ) ;
+     mode gt (
+       require not ::still_zero ;
+       ensure count > 0 ;
+     ) ;
+   noc
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
    tel
@@ -1204,9 +1208,11 @@ node declaration of a polymorphic node as a local contract.
 .. code-block:: none
 
    node M<T>(x: int) returns (y: int);
+   con
       guarantee 
          (y = x) or
          (true -> (y = pre x));
+   noc
    let
       y = pre x;
    tel
@@ -1229,8 +1235,10 @@ operator to define a local stream ``l`` of arbitrary odd values.
 .. code-block:: none
 
    node N(y: int) returns (z:int);
+   con
      assume "y is odd" y mod 2 = 1;
      guarantee "z is even" z mod 2 = 0;
+   noc
      var l: int;
    let
      l = any { x: int | x mod 2 = 1 };
