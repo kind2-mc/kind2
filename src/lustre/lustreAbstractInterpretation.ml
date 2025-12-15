@@ -429,6 +429,10 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
       merge_types t1 t2
+    | TernaryOp (_, LazyIte, _, e1, e2) ->
+      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
+      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
+      merge_types t1 t2
     | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
     | Arrow (_, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
