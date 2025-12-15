@@ -863,10 +863,20 @@ let rec unify_types pos ctx ty1 ty2 =
   match ty1, ty2 with 
   (* UserTypes denote __the callee's__ 
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
-  | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
+  | LA.UserType (_, _, id), ty2 -> 
+    Format.printf "Got here: %a\n"
+      HString.pp_print_hstring id;
+    R.ok (StringMap.singleton id ty2)
   (* AbstractTypes denote __the caller's__ 
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
-  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
+  | LA.AbstractType (_, id), ty2 -> 
+    Format.printf "Got here 2: %a\n"
+      HString.pp_print_hstring id;
+    let _ = match ty2 with 
+    | AbstractType _ -> Format.printf "abstract\n"
+    | UserType _ -> Format.printf "user\n" 
+    | ty2 -> Format.printf "other ty2: %a\n" LA.pp_print_lustre_type ty2; in
+    R.ok (StringMap.singleton id ty2) 
 
   (* Group types are weird... *)
   | GroupType (_, tys1), GroupType (_, tys2) ->
@@ -1012,8 +1022,9 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ok (ty, LA.CompOp (pos, cop, e1, e2), warnings)
 
   (* Structured expressions *)
+  (*!! Here *)
   | LA.RecordExpr (pos, name, ty_args, flds) -> (
-    match lookup_ty_syn ctx name ty_args with
+    match lookup_ty_syn ctx name [] with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
@@ -1026,7 +1037,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
                | Some e -> R.ok ( (p, f, e, ty) :: acc)
              )
              []
-             fld_tys
+             fld_tys |> R.map List.rev
         in
         if List.length flds > List.length matches then (
           let open HString in
@@ -1043,13 +1054,38 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         )
         else (
           let infer_field ctx (p, i, exp, ty) =
-            let* exp_ty, exp, warnings = infer_type_expr ctx nname exp in
-            let* eq = eq_lustre_type ctx ty exp_ty in
+            let* inf_ty, exp, warnings = infer_type_expr ctx nname exp in
+            (*Format.printf "Inf type for %a is %a\n"
+              LA.pp_print_expr exp 
+              LA.pp_print_lustre_type inf_ty;*)
+            (* inf_ty is the concrete inferred type, `ty` should be the abstract type, 
+               and if there are no ty args we should try to instantiate 
+               (if there are ty args, we don't need to do anything *)
+            (*!!let* eq = eq_lustre_type ctx ty inf_ty in
             if eq then R.ok ((p, i, ty), (i, exp), warnings)
-            else type_error (LH.pos_of_expr exp) (ExpectedType (ty, exp_ty))
+            else type_error (LH.pos_of_expr exp) (ExpectedType (ty, inf_ty))*)
+            R.ok ((p, i, inf_ty), (i, exp), warnings)
           in
           let* fld_tys, flds, warnings = R.seq (List.map (infer_field ctx) matches) |> R.map Lib.split3 in
-          R.ok (LA.RecordType (pos, r_name, fld_tys), LA.RecordExpr (pos, name, ty_args, flds), List.flatten warnings)
+    let inf_record_type = LA.RecordType (pos, r_name, fld_tys) in
+    (*Format.printf "ty: %a\ninf_record_type: %a\n" 
+      LA.pp_print_lustre_type ty 
+      LA.pp_print_lustre_type inf_record_type;*)
+    let* substitution = unify_types pos ctx ty inf_record_type in 
+    let substitution = StringMap.bindings substitution in
+    let* ty = R.ok (LH.apply_type_subst_in_type substitution ty) in
+    let ty_vars = match lookup_ty_ty_vars ctx name with 
+    | None -> [] 
+    | Some ty_vars -> ty_vars 
+    in
+    let* inferred_type_args = R.seq (List.map (fun ty_var -> 
+    match List.assoc_opt ty_var substitution with 
+    | Some ty -> R.ok ty 
+    | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
+    ) ty_vars) in
+          R.ok (ty,
+                LA.RecordExpr (pos, name, inferred_type_args, flds),  
+                List.flatten warnings)
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)

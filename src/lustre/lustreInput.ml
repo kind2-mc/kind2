@@ -170,9 +170,15 @@ let type_check declarations =
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
+    Format.printf "Before type checking: %a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") sorted_node_contract_decls;
+
+    Format.printf "=======================================\n";
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
+    Format.printf "After type checking: %a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") sorted_node_contract_decls;
     (* Provide lsp info if option is enabled *)
     if Flags.log_format_json () && Flags.Lsp.lsp () then
       LspInfo.print_ast_info global_ctx declarations;
