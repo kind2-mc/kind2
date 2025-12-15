@@ -2316,8 +2316,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
   | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    (* Don't supply the guard when normalizing subexpressions, 
+       because we need to generate oracle variables in initial step 
+       if there are unguarded pres *)
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
+       while supplying the guard, but ignore all other outputs *)
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in 
