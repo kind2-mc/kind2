@@ -85,8 +85,7 @@ For instance, a (linear) contract for non-linear multiplication could be
    let res = if in < 0.0 then - in else in ; tel
 
    node times (lhs, rhs: real) returns (res: real) ;
-   (*@contract
-
+   con
      mode absorbing (
        require lhs = 0.0 or rhs = 0.0 ;
        ensure res = 0.0 ;
@@ -117,7 +116,7 @@ For instance, a (linear) contract for non-linear multiplication could be
        ) ;
        ensure res < 0.0 ;
      ) ;
-   *)
+   noc
    let
      res = lhs * rhs ;
    tel

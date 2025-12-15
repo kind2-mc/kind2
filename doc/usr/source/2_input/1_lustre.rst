@@ -211,7 +211,7 @@ syntaxes.
 Inline syntax
 ^^^^^^^^^^^^^
 
-A local contract is a special comment between the signature of the node
+A local contract is a block between the signature of the node
 
 .. code-block:: none
 
@@ -220,7 +220,16 @@ A local contract is a special comment between the signature of the node
 and its body. That is, between the ``;`` of the node signature and the ``let``
 opening its body.
 
-A local contract is a special block comment of the form
+A local contract block is denoted by the keywords `con` and `noc`:
+
+.. code-block:: none
+
+   con
+     [item]+
+   noc
+
+The original contract syntax (which is deprecated but still available) 
+is a special block comment of the form
 
 .. code-block:: none
 
@@ -267,7 +276,7 @@ Ghost variables and constants
 A ghost variable (constant) is a stream that is local to the contract. That is,
 it is not accessible from the body of the node specified. Ghost variables
 (constants) are defined with the ``var`` (\ ``const``\ ) keyword. Kind 2 performs type
-inference for constants so in most cases type annotations are not necessary.
+-inference for constants so in most cases type annotations are not necessary.
 
 The general syntax is
 
@@ -392,7 +401,7 @@ For instance:
    ) returns (
      engaged: real
    ) ;
-   (*@contract 
+   con
      var bool_eng: bool = engage <> 0.0 ;
      var bool_dis: bool = disengage <> 0.0 ;
      var bool_enged: bool = engaged <> 0.0 ;
@@ -412,7 +421,7 @@ For instance:
      ) ;
 
      import spec (bool_eng, bool_dis) returns (bool_enged) ;
-   *)
+   noc
    let ... tel
 
 Mode references
@@ -715,7 +724,7 @@ node
 .. code-block:: none
 
    node count (trigger: bool) returns (count: int ; error: bool) ;
-   (*@contract
+   con
      var once: bool = trigger or (false -> pre once) ;
      guarantee count >= 0 ;
      mode still_zero (
@@ -726,7 +735,7 @@ node
        require not ::still_zero ;
        ensure count > 0 ;
      ) ;
-   *)
+   noc
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
    tel
@@ -755,10 +764,10 @@ given, then the implicit (rather weak) contract
 
 .. code-block:: none
 
-   (*@contract
+   con
      assume true ;
      guarantee true ;
-   *)
+   noc
 
 is used.
 
@@ -1125,7 +1134,7 @@ returns the corresponding swapped pair tuple as output.
 
    node PairSwap<T; U>(x: [T, U]) returns (y: [U, T]);
    let
-   y = {x.%1, x.%0};
+   y = {x[1], x[0]};
    tel
 
 For a polymorphic node to be well-typed, it must be meaningful for *any* type instantiation
@@ -1179,18 +1188,18 @@ node call).
    tel
 
    node N (x: int) returns (y: int);
-   (*@contract 
+   con 
       import Stutter@<int>(x) returns (y);
-   *)
+   noc
    let
       y = pre x;
    tel
 
 
    node P<U>(x: U) returns (y: U);
-   (*@contract 
+   con 
       import Stutter@<U>(x) returns (y);
-   *)
+   noc
    let
       y = pre x;
    tel
@@ -1199,17 +1208,17 @@ Above, node ``N`` instantiates the contract ``Stutter`` with type ``int``.
 Also, node ``P`` demonstrates using a polymorphic contract declaration with a polymorphic 
 node. 
 
-Another way of specifying a polymorphic contract is by including it in the 
-node declaration with the ``(*@contract ... *)`` syntax.
+Another way of specifying a polymorphic contract is by including it directly in the 
+node declaration of a polymorphic node as a local contract.
 
 .. code-block:: none
 
    node M<T>(x: int) returns (y: int);
-   (*@contract
+   con
       guarantee 
          (y = x) or
          (true -> (y = pre x));
-   *)
+   noc
    let
       y = pre x;
    tel
@@ -1232,10 +1241,10 @@ operator to define a local stream ``l`` of arbitrary odd values.
 .. code-block:: none
 
    node N(y: int) returns (z:int);
-   (*@contract
+   con
      assume "y is odd" y mod 2 = 1;
      guarantee "z is even" z mod 2 = 0;
-   *)
+   noc
      var l: int;
    let
      l = any { x: int | x mod 2 = 1 };

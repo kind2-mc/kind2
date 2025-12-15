@@ -900,10 +900,69 @@ and compile_ast_expr
     result
 
   and compile_equality bounds polarity expr1 expr2 =
-    let (mk_binary, mk_seq, const_expr) = match polarity with
-      | true -> (E.mk_eq, E.mk_and, E.t_true)
-      | false -> (E.mk_neq, E.mk_or, E.t_false) in
-    let expr = compile_binary bounds mk_binary expr1 expr2 in
+    let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
+      | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
+      | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
+    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
+    (* Compile the equality for each pair of `eqs` *)
+    let over_indices = fun i (e1, e2) (fst_flag, acc_guard, acc) ->  
+      match E.type_of_lustre_expr e1 with 
+      (* For LustreNode array types (LustreAst arrays, maps, and sets) we need quantification 
+         for structural equality *)
+      | ty when Type.is_array ty ->
+        let sv = state_var_of_expr e1 in
+        let bounds = SVT.find !map.bounds sv in
+        let idx_tys = Type.all_index_types_of_array ty in
+        assert (List.length bounds = List.length idx_tys);
+        let idx_vars = List.map (Var.mk_fresh_var) idx_tys in
+        let arr_is = List.map E.mk_free_var idx_vars in
+        let e1' = List.fold_left (fun acc arr_i -> 
+          E.mk_select_and_push acc arr_i
+        ) e1 arr_is in
+        let e2' = List.fold_left (fun acc arr_i -> 
+          E.mk_select_and_push acc arr_i
+        ) e2 arr_is in
+        let guard = List.fold_left (fun acc (idx_var, bound) -> 
+          match bound with 
+          (* For arrays we only consider indices that are in bounds *)
+          | E.Bound n
+          | E.Fixed n -> 
+            let n = E.mk_of_expr n in
+            let idx_var = E.mk_free_var idx_var in
+            let cond = E.mk_and 
+              (E.mk_lte (E.mk_int (Numeral.of_int 0)) idx_var) 
+              (E.mk_lt idx_var n) 
+            in
+            E.mk_and cond acc 
+          | E.Unbound _ -> 
+            acc
+        ) E.t_true (List.combine idx_vars bounds) in
+        (* For map value equality we only consider m1[k] = m2[k] for k in the maps. 
+           `acc_guard` collects the constraints that k is in the map (if the equality is over maps) *)
+        let acc_guard' = List.fold_left (fun acc e -> 
+          let e = List.fold_left (fun acc arr_i -> 
+            E.mk_select_and_push acc arr_i
+          ) e arr_is in
+          E.mk_and acc e 
+        ) E.t_true acc_guard in
+        (* For equality:    forall (x: K) conditions =>  arr1[x]  = arr2[x] 
+           For disequality: exists (x: K) conditions and arr1[x] <> arr2[x]. 
+           For arrays, `conditions` are that the index is in range. 
+           For maps, `conditions` are that the key is in the map (only for arr1 and arr2 representing map values) *)
+        let e = mk_quant idx_vars (mk_comb (E.mk_and acc_guard' guard) (mk_binary e1' e2')) in 
+        let acc_guard = match fst_flag, bounds with 
+        (* Remember `e1` for `acc_guard` if it represents the Boolean presence/absence array *)
+        | true, E.Unbound _ :: _ -> e1 :: acc_guard 
+        | _ -> acc_guard 
+        in
+        false, acc_guard, X.add i e acc 
+      (* For non-array types, straightforward equality (no quantification) *)
+      | _ ->
+        false, acc_guard, X.add i (mk_binary e1 e2) acc 
+    in
+    let _, _, expr = X.fold over_indices eqs (true, [], X.empty) in 
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
 
   and compile_ite bounds expr1 expr2 expr3 =
@@ -1278,7 +1337,10 @@ and compile_ast_expr
   | A.RecordProject (_, expr, field) ->
     let field = HString.string_of_hstring field in
     compile_projection bounds expr (X.RecordIndex field)
-  | A.TupleProject (_, expr, field) ->
+  | A.IndexAccess (_, expr, field, A.Tuple) ->
+    let field = match field with 
+    | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
+    | _ -> assert false in (* Tuple accesses are guaranteed concrete integers in type checking *)
     compile_projection bounds expr (X.TupleIndex field)
   | A.GroupExpr (_, A.ExprList, expr_list) ->
     let rec flatten_expr_list accum = function
@@ -2383,7 +2445,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_set_insertions [] gids.GI.set_insertions
   in
   let gequations = gequations @ set_insertions_eqs in
-  let set_union_eqs = 
+  let set_binop_eqs = 
     let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
       (* Desugar to lhs[i] = i in nexpr1 <op> i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
@@ -2403,12 +2465,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let set_union_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      set_union_eqs @ acc
+      let set_binop_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_binop_eqs @ acc
     in 
     List.fold_left over_set_binops [] gids.GI.set_binops
   in
-  let gequations = gequations @ set_union_eqs in
+  let gequations = gequations @ set_binop_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)

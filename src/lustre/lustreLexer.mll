@@ -260,6 +260,8 @@ let keyword_table = mk_hashtbl [
   "var", VAR ;
   "let", LET ;
   "tel", TEL ;
+  "con", CON ; 
+  "noc", NOC ;
   
   (* Assertion *)
   "assert", ASSERT ;
@@ -471,7 +473,6 @@ rule token = parse
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }
-  | ".%" { DOTPERCENT }
   | "==>" { LAZY_IMPL }
   | "=>" { IMPL }
   | '#' { HASH }

@@ -248,7 +248,7 @@ function
 
 | RecordProject (_, e, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
-| TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
+| Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
@@ -634,7 +634,6 @@ let rec expr_only_supported_in_merge observer expr =
       e)
   | Ident _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
   | RecordProject (_, e, _)
-  | TupleProject (_, e, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
@@ -977,7 +976,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
   let res = f ctx expr in
   let check = function
     | LA.RecordProject (_, e, _)
-    | TupleProject (_, e, _)
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)

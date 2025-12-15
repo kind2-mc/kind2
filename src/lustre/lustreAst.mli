@@ -108,7 +108,7 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
-type access_kind = Array | Map | Unknown
+type access_kind = Array | Map | Tuple | Unknown
 
 (** A Lustre type *)
 type lustre_type =
@@ -140,7 +140,6 @@ and expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)

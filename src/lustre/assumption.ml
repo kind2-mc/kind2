@@ -940,7 +940,13 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
     let old_log_level = Lib.get_log_level () in
   
     let scope = TSys.scope_of_trans_sys sys in
-    
+
+    (* Ensure that c_sys (used with abduction and realizability anslysis)
+       does not include functional constraints *)
+    let c_sys, _ =
+      ISys.trans_sys_of_analysis
+        ~add_functional_constraints:false in_sys param
+    in
     (* To uniformly handle systems with constant streams,
        we create a semantically equivalent system where
        constantness is enforced by making the current value 
@@ -948,7 +954,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
        the transition relation predicate
     *)
     let c_sys, const_svars =
-      TSys.enforce_constantness_via_equations sys
+      TSys.enforce_constantness_via_equations c_sys
     in
   
     let assump_svars =

@@ -2387,17 +2387,20 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             )
           in
 
-          if (Flags.slice_nodes () != `On) then
-            all_state_vars |> List.iter (fun state_var ->
-              let state_var_type = StateVar.type_of_state_var state_var in
-              if Type.is_array state_var_type then (
-                (* Enforce creation of 'select' functions required to retrieve models, even if
-                   the array variable is not used in the input. Legacy slicing algorithm
-                   handles this case for us *)
-                StateVar.encode_select state_var |> ignore
-              )
+          (* Enforce creation of 'select' functions required to retrieve models, even if
+             the array variable is not used in the input.
+             - When no slicing is applied, unused variables are not removed.
+             - There are cases where slicing doesn't remove unused variable (e.g.
+               record value with an array field that is unused, but
+               the record value is still passed to a node or a function).
+             - The experimental slicing algorithm also requires this.
+          *)
+          all_state_vars |> List.iter (fun state_var ->
+            let state_var_type = StateVar.type_of_state_var state_var in
+            if Type.is_array state_var_type then (
+              StateVar.encode_select state_var |> ignore
             )
-          ;
+          );
 
           let subrange_and_enum_state_vars =
             let enum_state_vars = filter_enum_svars all_state_vars in

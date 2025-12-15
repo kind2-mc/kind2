@@ -44,7 +44,6 @@ let mk_span start_pos end_pos =
 %token RSQBRACKET 
 %token LPAREN 
 %token RPAREN 
-%token DOTPERCENT
 %token ASSIGN
 
 (* Tokens for enumerated types *)
@@ -107,6 +106,8 @@ let mk_span start_pos end_pos =
 %token VAR
 %token LET
 %token TEL
+%token CON 
+%token NOC
     
 (* Tokens for annotations *)
 
@@ -238,7 +239,7 @@ let mk_span start_pos end_pos =
 %nonassoc NOT
 %nonassoc BVNOT 
 %left CARET 
-%left LSQBRACKET DOT DOTPERCENT
+%left LSQBRACKET DOT 
 
 (* Start token *)
 %start <LustreAst.t> main
@@ -487,7 +488,7 @@ node_decl:
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
   option(SEMICOLON);
-  r = option(contract_spec)
+  r = option(contract_spec); 
   {
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
   }
@@ -575,7 +576,6 @@ contract_item:
 contract_in_block:
   | c = nonempty_list(contract_item) { c }
 
-
 (* A contract node declaration. *)
 contract_decl:
   | CONTRACT;
@@ -596,8 +596,13 @@ contract_decl:
        List.flatten o,
        (mk_pos $startpos, e)) }
 
-
 contract_spec:
+  (* Block contract, `con` and `noc`. *)
+  | CON ;
+    eqs = contract_in_block
+    NOC ; 
+    { (mk_pos $startpos, eqs) }
+  (* DEPRECATED contract syntax, but still here to support tools like VERDICT *)
   (* Block contract, parenthesis star (PS). *)
   | CONTRACT_PSATBLOCK ;
     eqs = contract_in_block
@@ -981,18 +986,12 @@ pexpr(Q):
       ) e1 updates 
     }
 
-  (* Tuple projection (not quantified) *)
-  | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
-  { let idx = try (int_of_string (HString.string_of_hstring i)) with
-              | _ -> fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
-    A.TupleProject (mk_pos $startpos, e, idx) }
-
   (* An array slice (not quantified) *)
   | pexpr(Q); LSQBRACKET; array_slice; RSQBRACKET
     { let pos = mk_pos $startpos in
       fail_at_position pos "Unsupported operator: array slice" }
 
-  (* An array index (not quantified) *)
+  (* An index access (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
     { A.IndexAccess (mk_pos $startpos, e, i, Unknown) }
     
