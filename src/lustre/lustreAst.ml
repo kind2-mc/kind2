@@ -1174,7 +1174,11 @@ let pp_print_contract fmt contract =
 
 let pp_print_contract_spec ppf = function
 | None -> ()
-| Some (_, contract) -> pp_print_contract ppf contract
+| Some (_, contract) ->
+  Format.fprintf 
+    ppf
+    "@[<v 2>con %a@]@ noc@ "
+    pp_print_contract contract
 
 (* Pretty-prints a contract node. *)
 let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))

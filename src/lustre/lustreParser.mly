@@ -596,7 +596,6 @@ contract_decl:
        List.flatten o,
        (mk_pos $startpos, e)) }
 
-(* Deprecated contract syntax *)
 contract_spec:
   (* Block contract, `con` and `noc`. *)
   | CON ;

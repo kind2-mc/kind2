@@ -764,8 +764,10 @@ given, then the implicit (rather weak) contract
 
 .. code-block:: none
 
-   assume true ;
-   guarantee true ;
+   con
+     assume true ;
+     guarantee true ;
+   noc
 
 is used.
 
@@ -1186,14 +1188,18 @@ node call).
    tel
 
    node N (x: int) returns (y: int);
+   con 
       import Stutter@<int>(x) returns (y);
+   noc
    let
       y = pre x;
    tel
 
 
    node P<U>(x: U) returns (y: U);
+   con 
       import Stutter@<U>(x) returns (y);
+   noc
    let
       y = pre x;
    tel
