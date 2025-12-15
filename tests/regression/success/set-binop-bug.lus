@@ -1,0 +1,7 @@
+node F() returns (s: set<int>);
+var c: int;
+let
+  c = 0 -> pre c + 1;
+  s = {c} -> pre s + {c};
+  check "P1" forall (i: int) i in s => i >= 0;
+tel
