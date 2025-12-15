@@ -248,7 +248,6 @@ let keyword_table = mk_hashtbl [
 
   (* Constant/parameter declaration *)
   "const", CONST ;
-  "gconst", GCONST ;
   "param", PARAM ;
   
   (* Node / function declaration *)
@@ -259,9 +258,10 @@ let keyword_table = mk_hashtbl [
   "function", FUNCTION ;
   "returns", RETURNS ;
   "var", VAR ;
-  "gvar", GVAR ;
   "let", LET ;
   "tel", TEL ;
+  "con", CON ; 
+  "noc", NOC ;
   
   (* Assertion *)
   "assert", ASSERT ;

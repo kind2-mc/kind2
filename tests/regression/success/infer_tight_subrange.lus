@@ -30,8 +30,8 @@ tel;
 
 node N4 (i: t1) returns (o: int);
 (*@contract
-    gvar v1 : int = i + 1;
-    gvar v2 : int = v1 * 2;
+    var v1 : int = i + 1;
+    var v2 : int = v1 * 2;
     guarantee 1 <= v1 and v1 <= 2;
     guarantee 2 <= v2 and v2 <= 4;
 *)

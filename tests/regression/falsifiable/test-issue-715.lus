@@ -1,8 +1,8 @@
 node model(a, b: int) returns (r : bool);
 (*@contract
 
-    gvar pre_a: int = 0 -> pre(a);
-    gvar pre_b: int = 0 -> pre(b);
+    var pre_a: int = 0 -> pre(a);
+    var pre_b: int = 0 -> pre(b);
 
     assume "a increments with reset at 2"
         if pre_a = 0 then

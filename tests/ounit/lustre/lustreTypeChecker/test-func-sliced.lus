@@ -1,9 +1,9 @@
 function imported sincos(i: real) returns (sin: real; cos: real);
 (*@contract
-  gconst max = 1.0;
-  gconst pi = 3.14;
-  gconst tau = 2.0 * pi;
-  gvar min:real = - max;
+  const max = 1.0;
+  const pi = 3.14;
+  const tau = 2.0 * pi;
+  var min:real = - max;
   assume i <= 0.0 or i >= 0.0;
   guarantee min <= sin and sin <= max;
 
@@ -29,10 +29,10 @@ tel;
 
 node id (i: real) returns (out: int);
 (*@contract
-  gconst max = 1.0;
-  gconst pi = 3.14;
-  gconst tau = 2.0 * pi;
-  gvar min:real = - max;
+  const max = 1.0;
+  const pi = 3.14;
+  const tau = 2.0 * pi;
+  var min:real = - max;
   assume - tau <= i ;
 *)
 var inn: real ; ok: bool ;

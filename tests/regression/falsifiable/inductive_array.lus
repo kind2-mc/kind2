@@ -34,8 +34,8 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
   assume n > 0 ;
   assume n <= 4 ;
 
-  gvar NoOtherRequests : bool^n = Since_array(n, Accepted, count(n,Request) = 0);
-  gvar LastWrite : int^n = Last_array(n, Accepted, Value, Init) ;
+  var NoOtherRequests : bool^n = Since_array(n, Accepted, count(n,Request) = 0);
+  var LastWrite : int^n = Last_array(n, Accepted, Value, Init) ;
 
   guarantee "maintain" true ->
    forall (i:int) 0 <= i and i < n =>

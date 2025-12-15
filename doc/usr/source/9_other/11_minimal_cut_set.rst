@@ -41,7 +41,9 @@ Let's consider the following Lustre code:
   tel;
 
   node main(x, y : real) returns (z : real);
-    import spec(x,y) returns (z) ; 
+  con
+      import spec(x,y) returns (z) ; 
+  noc 
     var P : bool;
   let
       z = x + y;

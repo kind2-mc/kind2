@@ -211,7 +211,7 @@ syntaxes.
 Inline syntax
 ^^^^^^^^^^^^^
 
-A local contract is a special comment between the signature of the node
+A local contract is a block between the signature of the node
 
 .. code-block:: none
 
@@ -220,11 +220,13 @@ A local contract is a special comment between the signature of the node
 and its body. That is, between the ``;`` of the node signature and the ``let``
 opening its body.
 
-A local contract is simply a list of contract items:
+A local contract block is denoted by the keywords `con` and `noc`:
 
 .. code-block:: none
 
-   [item]+
+   con
+     [item]+
+   noc
 
 The original contract syntax (which is deprecated but still available) 
 is a special block comment of the form
@@ -273,26 +275,22 @@ Ghost variables and constants
 
 A ghost variable (constant) is a stream that is local to the contract. That is,
 it is not accessible from the body of the node specified. Ghost variables
-(constants) are defined with the ``gvar`` (\ ``gconst``\ ) keyword. Kind 2 performs type
+(constants) are defined with the ``var`` (\ ``const``\ ) keyword. Kind 2 performs type
 -inference for constants so in most cases type annotations are not necessary.
 
 The general syntax is
 
 .. code-block:: none
 
-   gconst <id> [: <type>] = <expr> ;
-   gvar   <id>  : <type>  = <expr> ;
+   const <id> [: <type>] = <expr> ;
+   var   <id>  : <type>  = <expr> ;
 
 For instance:
 
 .. code-block:: none
 
-   gconst max = 42 ;
-   gvar ghost_stream: real = if input > max then max else input ;
-
-If using the deprecated block comment for syntax (i.e., ``(*@contract ... *)``), 
-then one can alternatively substitute ``const`` or ``var`` for ``gconst`` or ``gvar``, 
-respectively.
+   const max = 42 ;
+   var ghost_stream: real = if input > max then max else input ;
 
 Assumptions
 ~~~~~~~~~~~
@@ -403,11 +401,12 @@ For instance:
    ) returns (
      engaged: real
    ) ;
-     gvar bool_eng: bool = engage <> 0.0 ;
-     gvar bool_dis: bool = disengage <> 0.0 ;
-     gvar bool_enged: bool = engaged <> 0.0 ;
+   con
+     var bool_eng: bool = engage <> 0.0 ;
+     var bool_dis: bool = disengage <> 0.0 ;
+     var bool_enged: bool = engaged <> 0.0 ;
 
-     gvar never_triggered: bool = (
+     var never_triggered: bool = (
        not bool_eng -> not bool_eng and pre never_triggered
      ) ;
 
@@ -422,6 +421,7 @@ For instance:
      ) ;
 
      import spec (bool_eng, bool_dis) returns (bool_enged) ;
+   noc
    let ... tel
 
 Mode references
@@ -724,16 +724,18 @@ node
 .. code-block:: none
 
    node count (trigger: bool) returns (count: int ; error: bool) ;
-   gvar once: bool = trigger or (false -> pre once) ;
-   guarantee count >= 0 ;
-   mode still_zero (
-     require not once ;
-     ensure count = 0 ;
-   ) ;
-   mode gt (
-     require not ::still_zero ;
-     ensure count > 0 ;
-   ) ;
+   con
+     var once: bool = trigger or (false -> pre once) ;
+     guarantee count >= 0 ;
+     mode still_zero (
+       require not once ;
+       ensure count = 0 ;
+     ) ;
+     mode gt (
+       require not ::still_zero ;
+       ensure count > 0 ;
+     ) ;
+   noc
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
    tel
@@ -762,8 +764,10 @@ given, then the implicit (rather weak) contract
 
 .. code-block:: none
 
-   assume true ;
-   guarantee true ;
+   con
+     assume true ;
+     guarantee true ;
+   noc
 
 is used.
 
@@ -1184,14 +1188,18 @@ node call).
    tel
 
    node N (x: int) returns (y: int);
+   con 
       import Stutter@<int>(x) returns (y);
+   noc
    let
       y = pre x;
    tel
 
 
    node P<U>(x: U) returns (y: U);
+   con 
       import Stutter@<U>(x) returns (y);
+   noc
    let
       y = pre x;
    tel
@@ -1206,9 +1214,11 @@ node declaration of a polymorphic node as a local contract.
 .. code-block:: none
 
    node M<T>(x: int) returns (y: int);
+   con
       guarantee 
          (y = x) or
          (true -> (y = pre x));
+   noc
    let
       y = pre x;
    tel
@@ -1231,8 +1241,10 @@ operator to define a local stream ``l`` of arbitrary odd values.
 .. code-block:: none
 
    node N(y: int) returns (z:int);
+   con
      assume "y is odd" y mod 2 = 1;
      guarantee "z is even" z mod 2 = 0;
+   noc
      var l: int;
    let
      l = any { x: int | x mod 2 = 1 };
