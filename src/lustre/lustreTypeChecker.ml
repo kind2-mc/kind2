@@ -1045,7 +1045,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           | Some name -> type_error pos (NotAFieldOfRecord name)
         )
         else (
-          let infer_field ctx (p, i, exp, ty) =
+          let infer_field ctx (p, i, exp, _) =
             let* inf_ty, exp, warnings = infer_type_expr ctx nname exp in
             R.ok ((p, i, inf_ty), (i, exp), warnings)
           in
@@ -1061,7 +1061,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           | [] -> (* Do type inference *) 
             let* substitution = unify_types pos ctx ty inf_record_type in 
             let substitution = StringMap.bindings substitution in
-            let* ty = R.ok (LH.apply_type_subst_in_type substitution ty) in
+            let ty = LH.apply_type_subst_in_type substitution ty in
             let* inferred_type_args = R.seq (List.map (fun ty_var -> 
             match List.assoc_opt ty_var substitution with 
             | Some ty -> R.ok ty 
