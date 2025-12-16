@@ -74,6 +74,7 @@ type error_kind = Unknown of string
   | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
+  | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
   | IlltypedIdentifier of HString.t * tc_type * tc_type
   | UnificationFailed of tc_type * tc_type
@@ -164,6 +165,8 @@ let error_message kind = match kind with
     ^ "Found types " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
+    ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
+  | IlltypedRecord (ty1, ty2) -> "Record expression expected to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
   | IlltypedIdentifier (id, ty1, ty2) -> "Identifier '" ^ HString.string_of_hstring id
@@ -1066,7 +1069,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             ) ty_vars) in
             R.ok (ty, inferred_type_args)
           | _ -> (* Use given type args *)
-            let substitution = List.combine ty_vars ty_args in
+            let* substitution = 
+              if List.length ty_vars = List.length ty_args then 
+                R.ok (List.combine ty_vars ty_args)
+              else 
+                type_error pos (InvalidPolymorphicCall name) 
+            in
             let ty = LustreAstHelpers.apply_type_subst_in_type substitution ty in
             R.ok (ty, ty_args) 
           in
@@ -1076,7 +1084,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
                   LA.RecordExpr (pos, name, type_args, flds),  
                   List.flatten warnings)
           else 
-            (type_error pos (IlltypedCall (ty, inf_record_type)))
+            (type_error pos (IlltypedRecord (ty, inf_record_type)))
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)
