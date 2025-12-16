@@ -1071,6 +1071,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     (*Format.printf "ty: %a\ninf_record_type: %a\n" 
       LA.pp_print_lustre_type ty 
       LA.pp_print_lustre_type inf_record_type;*)
+let* ty, type_args = match ty_args with 
+| [] -> (* Do type inference *) 
     let* substitution = unify_types pos ctx ty inf_record_type in 
     let substitution = StringMap.bindings substitution in
     let* ty = R.ok (LH.apply_type_subst_in_type substitution ty) in
@@ -1083,8 +1085,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | Some ty -> R.ok ty 
     | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
     ) ty_vars) in
+    R.ok (ty, inferred_type_args)
+| _ -> 
+(*!!! check the given type annotation *)
+R.ok (ty, ty_args) 
+in
           R.ok (ty,
-                LA.RecordExpr (pos, name, inferred_type_args, flds),  
+                LA.RecordExpr (pos, name, type_args, flds),  
                 List.flatten warnings)
         )
       )
