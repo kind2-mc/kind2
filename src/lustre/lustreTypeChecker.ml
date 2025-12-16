@@ -1071,28 +1071,36 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     (*Format.printf "ty: %a\ninf_record_type: %a\n" 
       LA.pp_print_lustre_type ty 
       LA.pp_print_lustre_type inf_record_type;*)
+let ty_vars = match lookup_ty_ty_vars ctx name with 
+| None -> [] 
+| Some ty_vars -> ty_vars 
+in
 let* ty, type_args = match ty_args with 
 | [] -> (* Do type inference *) 
-    let* substitution = unify_types pos ctx ty inf_record_type in 
-    let substitution = StringMap.bindings substitution in
-    let* ty = R.ok (LH.apply_type_subst_in_type substitution ty) in
-    let ty_vars = match lookup_ty_ty_vars ctx name with 
-    | None -> [] 
-    | Some ty_vars -> ty_vars 
-    in
-    let* inferred_type_args = R.seq (List.map (fun ty_var -> 
-    match List.assoc_opt ty_var substitution with 
-    | Some ty -> R.ok ty 
-    | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
-    ) ty_vars) in
-    R.ok (ty, inferred_type_args)
+  let* substitution = unify_types pos ctx ty inf_record_type in 
+  let substitution = StringMap.bindings substitution in
+  let* ty = R.ok (LH.apply_type_subst_in_type substitution ty) in
+  let* inferred_type_args = R.seq (List.map (fun ty_var -> 
+  match List.assoc_opt ty_var substitution with 
+  | Some ty -> R.ok ty 
+  | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
+  ) ty_vars) in
+  R.ok (ty, inferred_type_args)
 | _ -> 
+  let substitution = List.combine ty_vars ty_args in
+  let ty = LustreAstHelpers.apply_type_subst_in_type substitution ty in
 (*!!! check the given type annotation *)
+
 R.ok (ty, ty_args) 
 in
+
+let* are_equal = eq_lustre_type ctx ty inf_record_type in
+if are_equal then 
           R.ok (ty,
                 LA.RecordExpr (pos, name, type_args, flds),  
                 List.flatten warnings)
+else 
+        (type_error pos (IlltypedCall (ty, inf_record_type)))
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)
