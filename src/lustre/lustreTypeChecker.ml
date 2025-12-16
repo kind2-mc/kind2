@@ -74,6 +74,7 @@ type error_kind = Unknown of string
   | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
+  | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
   | IlltypedIdentifier of HString.t * tc_type * tc_type
   | UnificationFailed of tc_type * tc_type
@@ -164,6 +165,8 @@ let error_message kind = match kind with
     ^ "Found types " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
+    ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
+  | IlltypedRecord (ty1, ty2) -> "Record expression expected to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
   | IlltypedIdentifier (id, ty1, ty2) -> "Identifier '" ^ HString.string_of_hstring id
@@ -1013,7 +1016,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, name, ty_args, flds) -> (
-    match lookup_ty_syn ctx name ty_args with
+    match lookup_ty_syn ctx name [] with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
       match ty with
@@ -1026,7 +1029,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
                | Some e -> R.ok ( (p, f, e, ty) :: acc)
              )
              []
-             fld_tys
+             fld_tys |> R.map List.rev
         in
         if List.length flds > List.length matches then (
           let open HString in
@@ -1042,14 +1045,46 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           | Some name -> type_error pos (NotAFieldOfRecord name)
         )
         else (
-          let infer_field ctx (p, i, exp, ty) =
-            let* exp_ty, exp, warnings = infer_type_expr ctx nname exp in
-            let* eq = eq_lustre_type ctx ty exp_ty in
-            if eq then R.ok ((p, i, ty), (i, exp), warnings)
-            else type_error (LH.pos_of_expr exp) (ExpectedType (ty, exp_ty))
+          let infer_field ctx (p, i, exp, _) =
+            let* inf_ty, exp, warnings = infer_type_expr ctx nname exp in
+            R.ok ((p, i, inf_ty), (i, exp), warnings)
           in
-          let* fld_tys, flds, warnings = R.seq (List.map (infer_field ctx) matches) |> R.map Lib.split3 in
-          R.ok (LA.RecordType (pos, r_name, fld_tys), LA.RecordExpr (pos, name, ty_args, flds), List.flatten warnings)
+          let* fld_tys, flds, warnings = 
+            R.seq (List.map (infer_field ctx) matches) |> R.map Lib.split3 
+          in
+          let inf_record_type = LA.RecordType (pos, r_name, fld_tys) in
+          let ty_vars = match lookup_ty_ty_vars ctx name with 
+          | None -> [] 
+          | Some ty_vars -> ty_vars 
+          in
+          let* ty, type_args = match ty_args with 
+          | [] -> (* Do type inference *) 
+            let* substitution = unify_types pos ctx ty inf_record_type in 
+            let substitution = StringMap.bindings substitution in
+            let ty = LH.apply_type_subst_in_type substitution ty in
+            let* inferred_type_args = R.seq (List.map (fun ty_var -> 
+            match List.assoc_opt ty_var substitution with 
+            | Some ty -> R.ok ty 
+            | None -> type_error pos (CallRequiresExplicitAnnotation ty_var) 
+            ) ty_vars) in
+            R.ok (ty, inferred_type_args)
+          | _ -> (* Use given type args *)
+            let* substitution = 
+              if List.length ty_vars = List.length ty_args then 
+                R.ok (List.combine ty_vars ty_args)
+              else 
+                type_error pos (InvalidPolymorphicCall name) 
+            in
+            let ty = LustreAstHelpers.apply_type_subst_in_type substitution ty in
+            R.ok (ty, ty_args) 
+          in
+          let* are_equal = eq_lustre_type ctx ty inf_record_type in
+          if are_equal then 
+            R.ok (ty,
+                  LA.RecordExpr (pos, name, type_args, flds),  
+                  List.flatten warnings)
+          else 
+            (type_error pos (IlltypedRecord (ty, inf_record_type)))
         )
       )
       | _ -> type_error pos (ExpectedRecordType ty)

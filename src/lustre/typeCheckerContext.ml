@@ -154,7 +154,10 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
       | Some ps -> ps
       | None -> []
     in
-    let sigma = List.combine ps ty_args in
+    let sigma = match ty_args with 
+    | [] -> [] (* If no type args given, retrieve the polymorphic type *) 
+    | _ -> List.combine ps ty_args 
+    in
     let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
     match ty with
     | LA.UserType (_, ty_args, uid) ->

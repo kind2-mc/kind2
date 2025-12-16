@@ -1,0 +1,16 @@
+const MAX_SIZE: subrange[1,*] of int;
+
+type Index = subtype { i: int | -1 <= i and i < MAX_SIZE };
+
+type Stack<T> = struct {
+  items: T^MAX_SIZE;
+  top_pos: Index;
+};
+
+node N(s1:Stack<bool>) returns (s2:Stack<int>; z1,z2:int);
+let
+  s2 = Stack@<int, int> {  
+    items = 2^MAX_SIZE;
+    top_pos = 3;
+  };
+tel

@@ -204,6 +204,23 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  (*!!*)
+  mk_test "test record type inference 1" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_1.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 2" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_2.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 3" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_3.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 4" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_4.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
+    | _ -> false); 
   mk_test "test illtyped call" (fun () ->
     match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
     | Error (`LustreArrayDependencies (_, Cycle _)) -> true
