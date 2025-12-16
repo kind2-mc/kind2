@@ -155,7 +155,7 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
       | None -> []
     in
     let sigma = match ty_args with 
-    | [] -> [] (*!! Retrieve the abstract type without failing on `List.combine` *)
+    | [] -> [] (* If no type args given, retrieve the polymorphic type *) 
     | _ -> List.combine ps ty_args 
     in
     let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
