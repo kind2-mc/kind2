@@ -30,7 +30,7 @@ let
   check forall (i: [int, int]) i in y6 => (forall (j: [int, int]) (j in y6[i][i]) => (j in x3 or j in x4));
 
   y7 = '(map['(1, 2) := map['(1, 2) := x3 + x4]], map['(1, 2) := map['(1, 2) := x3 + x4]]);
-  check forall (i: [int, int]) i in y7.%0 => (forall (j: [int, int]) (j in y7.%0[i][i]) => (j in x3 or j in x4));
+  check forall (i: [int, int]) i in y7[0] => (forall (j: [int, int]) (j in y7[0][i][i]) => (j in x3 or j in x4));
 
   y8 = map['(1, 2) := map['(1, 2) := x5]] ;
   check '(1, 2) in y8;
