@@ -1546,7 +1546,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
             | Some state_var -> X.add index state_var accum
             | None -> accum
           )
-          in X.fold over_indices index_types X.empty 
+          in
+          let indexed_state_var =
+            X.fold over_indices index_types X.empty
+          in
+          H.replace !map.usr_state_var ident indexed_state_var ;
+          indexed_state_var
         ) in
         
         (* Patch up eq_rhs and ghost_local *)
