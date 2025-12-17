@@ -785,6 +785,16 @@ let get_history_type ctx id =
     in
   A.ArrayType (dpos, (base_ty, size))
 
+
+let rename_id info id =
+  match StringMap.find_opt id info.interpretation with
+  | Some new_id -> new_id
+  | None -> id
+
+let rename_id_expr info = function
+  | A.Ident (pos, id) -> A.Ident (pos, rename_id info id)
+  | _ -> assert false
+
 let add_history_var_and_equation info id h_id =
   let ty = get_history_type info.context id in
   let locals = StringMap.singleton h_id ty in
@@ -795,6 +805,7 @@ let add_history_var_and_equation info id h_id =
       let cond =
         A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
       in
+      let id = rename_id info id in
       let prev_hist =
         A.Arrow (dpos,
           A.Ident(dpos, id),
@@ -1332,7 +1343,8 @@ and normalize_node info map
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
       let ncontracts, gids, interpretation, warnings =
-        normalize_contract info node_id map inputs outputs contract in
+        normalize_contract info node_id map inputs outputs contract
+      in
       (Some ncontracts), gids, interpretation, warnings
     | None -> None, empty (), StringMap.empty, []
   in
@@ -1386,16 +1398,8 @@ and normalize_node info map
     else
       empty ()
   in
-  let gids10 =
-    StringMap.fold
-      (fun id h_id acc ->
-        union acc (add_history_var_and_equation info id h_id)
-      )
-      gids6_8.history_vars
-      (empty ())
-  in
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                             gids4; gids5; gids7; gids6_8; gids9; gids10] in
+                             gids4; gids5; gids7; gids6_8; gids9] in
   let old_gids, warnings6 = normalize_gid_equations { info with interpretation = interpretation; } map (Some node_id) in
   let map = NI.Map.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
@@ -1422,7 +1426,15 @@ and desugar_history info expr =
       history_arg_vars
       (info, empty ())
   in
-  info, h_gids, expr
+  let gids =
+    StringMap.fold
+      (fun id h_id acc ->
+        union acc (add_history_var_and_equation info id h_id)
+      )
+      h_gids.history_vars
+      h_gids
+  in
+  info, gids, expr
 
 and normalize_item info node_id map = function
   | A.Body equation ->
@@ -1556,6 +1568,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
     let nitem, gids', warnings', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
         let info, h_gids, expr = desugar_history info expr in
+
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
@@ -1825,13 +1838,6 @@ and normalize_equation info node_id map = function
       else empty ()
     in
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
-
-and rename_id info = function
-  | A.Ident (pos, id) ->
-    (match (StringMap.find_opt id info.interpretation) with
-      | Some new_id -> A.Ident (pos, new_id)
-      | None -> A.Ident (pos, id))
-  | _ -> assert false
 
 and abstract_expr ?guard force info (node_id : NI.t option) map expr = 
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
@@ -2178,7 +2184,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
-  | Ident _ as e -> rename_id info e, empty (), []
+  | Ident _ as e -> rename_id_expr info e, empty (), []
   (* ************************************************************************ *)
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
