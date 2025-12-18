@@ -453,6 +453,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let ty = 
         let idx = List.nth (List.rev (X.ArrayVarIndex b :: rhs_index_tl)) j in 
         match idx with 
+        | X.SetMapIndex b
         | X.ArrayVarIndex b -> 
           E.type_of_expr b 
         | _ -> assert false 
@@ -473,6 +474,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let ty = 
         let idx = List.nth (List.rev (X.SetMapIndex b :: rhs_index_tl)) j in 
         match idx with 
+        | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
         | _ -> assert false 
@@ -1182,13 +1184,14 @@ and compile_ast_expr
     let rec push expr = match X.choose expr with
       | X.SetMapIndex _ :: _, v
       | X.ArrayVarIndex _ :: _, v
-      | X.ArrayIntIndex _ :: _, v ->
-        let over_expr = fun e -> match e with
+      | X.ArrayIntIndex _ :: _, v -> 
+        let over_expr = fun k v acc -> 
+          match (List.rev k) with 
           | X.SetMapIndex _ :: tl
           | X.ArrayVarIndex _ :: tl
-          | X.ArrayIntIndex _ :: tl -> X.add tl
-          | _ -> assert false
-        in let expr = X.fold over_expr expr X.empty in
+          | X.ArrayIntIndex _ :: tl -> X.add (List.rev tl) v acc
+          | _ -> assert false in
+        let expr = X.fold over_expr expr X.empty in
         if E.type_of_lustre_expr v |> Type.is_array then
           X.map (fun e -> E.mk_select_and_push e index) expr
         else expr
@@ -2148,42 +2151,62 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
+  in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_map_def i l is_set = 
+  let compile_map_or_set_def i idx is_set = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
-    (* TODO: Old code suggets that shadowing can occur here *)
-    let indexes = List.length l in
+    (* TODO: Old code suggests that shadowing can occur here *)
 
-    List.iteri (fun i v -> 
-      let ident = mk_ident v in
+    let num_is = List.fold_left (fun acc i -> 
+    (* In the list of indices `i`, multiple SetMapIndexes are ambiguous: 
+       they can represent either multiple components of a single structured key, or 
+       separate keys of nested maps.
+       But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row 
+       before encountering the TupleIndex representing the membership/value arrays. 
+       So, we can compute the number of SetMapIndexes associated with the outer map's key type 
+       by finding the minimal number of SetMapIndexes before the first TupleIndex. 
 
-      (* Add index types to kt trie *)
-      let kt = X.fold (fun k _ acc -> 
-        List.fold_left (fun (acc, acc_is, acc_i) idx -> 
-        match idx with 
-        | X.SetMapIndex b -> 
-          if is_set then 
-            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
-          else 
-            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
-        | _ -> acc, acc_is, acc_i
-        ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
-      ) expr X.empty in
+       Note that this only suffices to find the number of SetMapIndexes for the key type of the outermost map; 
+       hence, this function (compile_map_or_set_def) currently can handle only a single input 
+       index variable `idx` (as opposed to a list of indices, which is supported by compile_array_def) *)
+      let _, count = List.fold_left (fun (acc_b, acc_c) i -> 
+        if acc_b then match i with 
+        | X.SetMapIndex _ -> acc_b, acc_c + 1 
+        | _ -> false, acc_c
+        else acc_b, acc_c
+      ) (true, 0) i in 
+      if count < acc then count else acc
+    ) max_int (X.keys expr |> List.map List.rev) in 
 
-      let over_indices j t (i, a) = 
-        let expr = E.mk_array_index_var i t in
-        i + 1, X.add j expr a 
-      in
-      let index = X.fold over_indices kt (i, X.empty) |> snd in
-      H.add !map.array_index ident index;)
-      l;
-    result, indexes
+    let ident = mk_ident idx in
+    (* Add index types to kt trie *)
+    let kt = X.fold (fun k _ acc -> 
+        List.fold_left (fun (acc, acc_is, acc_i, num_is) idx -> 
+      match idx with 
+      | X.SetMapIndex b -> 
+        if is_set && num_is > 0 then 
+          X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else if num_is > 0 then  
+          X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else 
+          acc, acc_is, acc_i, num_is 
+      | _ -> acc, acc_is, acc_i, num_is  
+      ) (acc, [], 0, num_is) (List.rev k) |> (fun (x, _, _, _) -> x) 
+    ) expr X.empty in
+
+    let over_indices j t (i, a) = 
+      let expr = E.mk_array_index_var i t in
+      i + 1, X.add j expr a 
+    in
+    let _, index = X.fold over_indices kt (0, X.empty) in
+    H.add !map.array_index ident index;
+  result
 
   in let compile_array_def i l =
     let ident = mk_ident i in
@@ -2325,14 +2348,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
-      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
-         compile_ast_type flattens indices, so we need to do a corresponding flattening 
-         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
-      let nexpr2 =
+      let nexpr2 = 
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
           X.add [X.TupleIndex acc_i] e acc, acc_i + 1
@@ -2391,8 +2411,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
@@ -2434,8 +2454,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
       (* Desugar to lhs[i] = i in nexpr1 <op> i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let op' = match op with 
       | A.Union -> A.Or 
       | A.Intersection -> And 
