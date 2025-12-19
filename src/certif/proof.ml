@@ -1077,9 +1077,6 @@ let cpc_proof_from_chan prefix in_ch =
   then failwith "Expected 'unsat' at beginning of CPC proof";
 
   let sexps = parse_cpc_from_lexbuf lexbuf in
-  Format.printf "Outputting CPC proof: %s (%n steps)@." prefix (List.length sexps);
-
-  Format.printf "%a" pp_cpc_proof sexps;
   let oc = open_out prefix in
   let fmt = Format.formatter_of_out_channel oc in
   List.iter (fun s -> Format.fprintf fmt "%a@." HS.pp_print_sexpr s) sexps;
@@ -1137,6 +1134,29 @@ let get_proof_defs (proof : cpc_step list) =
   aux ([], []) proof
 
 
+let is_jkind_name (s : HString.t) =
+  let n = HString.string_of_hstring s in
+  String.starts_with ~prefix:"JKind." n
+  || String.starts_with ~prefix:"%f" n
+
+let is_jkind_decl = function
+  | HS.List [HS.Atom kw; HS.Atom name; _]
+    when HString.equal kw (HString.mk_hstring "declare-const") ->
+      is_jkind_name name
+  | _ -> false
+
+
+let factor_jkind_defs (proof : cpc_step list) =
+  let rec aux (acc_k2_global_defs) = function
+    | sexpr :: tl when sexpr |> is_jkind_decl->
+       (acc_k2_global_defs, sexpr :: tl)
+    | sexpr :: tl ->
+        aux (sexpr :: acc_k2_global_defs) tl
+    | [] ->
+        (acc_k2_global_defs, [])
+  in
+  aux ([]) proof
+
 let get_last_step_name steps =
   let rec find_last = function
     | [] ->
@@ -1172,8 +1192,8 @@ let generate_cpc_proof smt_file =
     ("base_proof_kind_2", "(=> (and (I1 0) @t1) false)");
     ("induction_proof_kind_2", "(=> (and (and (PHI1 0) (T1 0 1)) @t1) false)");
     ("implication_proof_kind_2", "(=> @t2 false)");
-    ("base_proof_jkind", "(=> (and (I1 0) @t1) false)");
-    ("induction_proof_jkind", "(=> (and (and (PHI1 0) (T1 0 1)) @t1) false)");
+    ("base_proof_jkind", "(=> (and (IO 0) @t1) false)");
+    ("induction_proof_jkind", "(=> (and (and (PHIO 0) (TO 0 1)) @t1) false)");
     ("implication_proof_jkind", "(=> @t2 false)");
   ]
   let hardcoded_steps = [
@@ -1247,7 +1267,26 @@ let pp_print_safety_proof fmt defs base_steps induction_steps implication_steps 
     Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")]
 
 
-let construct_safety_proof dirname base induction implication = 
+let pp_print_frontend_proof fmt defs base_steps induction_steps implication_steps =
+    Format.fprintf fmt "%a" pp_cpc_proof defs;
+    Format.fprintf fmt ";; Base proof (Observer)\n";
+    Format.fprintf fmt "%a" pp_cpc_proof base_steps;
+    Format.fprintf fmt ";; base_proof_jkind\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "base_proof_jkind" (get_last_step_name base_steps))] ;
+    Format.fprintf fmt ";; Induction proof (Observer) \n";
+    Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
+    Format.fprintf fmt ";; induction_proof_jkind \n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "induction_proof_jkind" (get_last_step_name induction_steps))] ;
+    Format.fprintf fmt ";; k_ind_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "k_ind_proof_jkind")];
+    Format.fprintf fmt ";; implication_proof (Observer)\n";
+    Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
+    Format.fprintf fmt ";; impl_rule \n" ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "implication_proof_jkind" (get_last_step_name implication_steps))]
+    (* Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")] *)
+
+
+let construct_kind_2_proof dirname base induction implication = 
 
     let base_k2 = generate_cpc_proof base in
     let induction_k2 =generate_cpc_proof induction in
@@ -1257,11 +1296,59 @@ let construct_safety_proof dirname base induction implication =
     let (defs, base_steps) = get_proof_defs base_k2 in
     let (_, induction_steps) = get_proof_defs induction_k2 in
     let (_, implication_steps) = get_proof_defs implication_k2 in
-    Format.printf "Outputting defs for proofs: \n";
-
-    Format.printf "%a" (fun fmt () -> pp_print_safety_proof fmt defs base_steps induction_steps implication_steps) ();
     
- let oc = open_out (dirname ^ "/proof.cpc") in
+ let oc = open_out (dirname ^ "/kind_2_proof.cpc") in
   let fmt = Format.formatter_of_out_channel oc in
     Format.printf "%s\n" dirname ;
   pp_print_safety_proof fmt defs base_steps induction_steps implication_steps
+
+
+
+
+  let construct_frontend_proof dirname base induction implication = 
+
+    let base_jkind = generate_cpc_proof base in
+    let induction_jkind =generate_cpc_proof induction in
+    let implication_jkind =generate_cpc_proof implication in
+
+  
+
+    let (defs, base_steps) = get_proof_defs base_jkind in
+    let (_, induction_steps) = get_proof_defs induction_jkind in
+    let (_, implication_steps) = get_proof_defs implication_jkind in
+    let (_, jkind_defs) = factor_jkind_defs defs in
+    
+ let oc = open_out (dirname ^ "/frontend_proof.cpc") in
+  let fmt = Format.formatter_of_out_channel oc in
+    Format.printf "%s\n" dirname ;
+  pp_print_frontend_proof fmt jkind_defs base_steps induction_steps implication_steps
+
+let parse_cpc_file (filename : string) : cpc_step list =
+  let ic = open_in filename in
+  let lexbuf = Lexing.from_channel ic in
+  let steps =
+    try
+      parse_cpc_from_lexbuf lexbuf
+    with e ->
+      close_in ic;
+      raise e
+  in
+  close_in ic;
+  steps
+
+
+  let construct_safety_proof dirname =
+    let kind_2_proof = parse_cpc_file (dirname ^"/kind_2_proof.cpc") in
+    let frontend_proof = parse_cpc_file (dirname^"/frontend_proof.cpc") in
+      let final_steps = [
+          (mk_hardcoded_step "proof_obs");
+          (mk_hardcoded_step "proof_obs_eq");
+          (mk_hardcoded_step "proof_safe");
+
+    ] in
+    
+    let final_proof = List.concat [kind_2_proof; frontend_proof; final_steps] in
+     let oc = open_out (dirname ^ "/proof.cpc") in
+    let fmt = Format.formatter_of_out_channel oc in
+      Format.printf "%s\n" dirname ;
+    Format.fprintf fmt "%a" pp_cpc_proof final_proof

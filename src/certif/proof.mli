@@ -45,6 +45,10 @@ val generate_frontend_proof : Certificate.invariant -> unit
     observational equivalence. **)
 val write_safe_proof : Format.formatter -> ?check:bool -> Certificate.system -> Certificate.system -> unit
 
-val construct_safety_proof: string -> string -> string -> string -> unit
+val construct_kind_2_proof: string -> string -> string -> string -> unit
+
+val construct_frontend_proof: string -> string -> string -> string -> unit
+
+val construct_safety_proof: string -> unit
 
 val generate_cpc_proof: string -> HStringSExpr.t list
