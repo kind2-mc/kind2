@@ -93,7 +93,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-    | `CMonitor ->  Flags.ContractMonitor.input_file () |> ContractMonitor.main
+    | `CMonitor ->  Flags.ContractMonitor.input_file () |> Interpreter.main ~contract_monitor:true
     | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
@@ -721,7 +721,7 @@ let run in_sys =
       let sliced_inp = ISys.slice_to_abstraction in_sys param sys in 
 
       (* Run interpreter. *)
-      (ContractMonitor.main (
+      (Interpreter.main ~contract_monitor:true (
         Flags.ContractMonitor.input_file ()
       )) sliced_inp param sys ;
       (* Ignore SIGALRM from now on *)
