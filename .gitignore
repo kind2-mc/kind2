@@ -23,6 +23,11 @@ ocamldoc
 # Generated LFSC stuff.
 lfsc
 
+# Generated proof stuff.
+proofs/signatures/cpc
+proofs/bin
+proofs/tmp
+
 # Generated server stuff.
 server/myocamlbuild.ml
 server/Makefile

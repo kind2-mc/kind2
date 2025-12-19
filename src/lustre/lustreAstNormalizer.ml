@@ -454,8 +454,8 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       let var = dpos, id_str, (A.Int dpos) in
       let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
-    | TupleType (_, tys) ->
-      let mk_proj i = A.TupleProject (dpos, expr, i) in
+    | TupleType (p, tys) ->
+      let mk_proj i = A.IndexAccess (dpos, expr, A.Const (p, A.Num (i |> string_of_int |> HString.mk_hstring)), A.Tuple) in
       let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
@@ -544,7 +544,8 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
-      mk_ref_type_expr ctx node_id (A.TupleProject(pos, expr, i)) ty
+      let i = i |> string_of_int |> HString.mk_hstring in
+      mk_ref_type_expr ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
@@ -784,6 +785,16 @@ let get_history_type ctx id =
     in
   A.ArrayType (dpos, (base_ty, size))
 
+
+let rename_id info id =
+  match StringMap.find_opt id info.interpretation with
+  | Some new_id -> new_id
+  | None -> id
+
+let rename_id_expr info = function
+  | A.Ident (pos, id) -> A.Ident (pos, rename_id info id)
+  | _ -> assert false
+
 let add_history_var_and_equation info id h_id =
   let ty = get_history_type info.context id in
   let locals = StringMap.singleton h_id ty in
@@ -794,6 +805,7 @@ let add_history_var_and_equation info id h_id =
       let cond =
         A.CompOp (dpos, A.Eq, A.Ident(dpos, index), A.Ident(dpos, ctr_id))
       in
+      let id = rename_id info id in
       let prev_hist =
         A.Arrow (dpos,
           A.Ident(dpos, id),
@@ -937,9 +949,6 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | RecordProject (pos, e, idx) ->
     let vars, e' = r map e in
     vars, RecordProject (pos, e', idx)
-  | TupleProject (pos, e, idx) ->
-    let vars, e' = r map e in
-    vars, TupleProject (pos, e', idx)
   | Const _ -> StringSet.empty, expr
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
@@ -1334,7 +1343,8 @@ and normalize_node info map
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
       let ncontracts, gids, interpretation, warnings =
-        normalize_contract info node_id map inputs outputs contract in
+        normalize_contract info node_id map inputs outputs contract
+      in
       (Some ncontracts), gids, interpretation, warnings
     | None -> None, empty (), StringMap.empty, []
   in
@@ -1388,16 +1398,8 @@ and normalize_node info map
     else
       empty ()
   in
-  let gids10 =
-    StringMap.fold
-      (fun id h_id acc ->
-        union acc (add_history_var_and_equation info id h_id)
-      )
-      gids6_8.history_vars
-      (empty ())
-  in
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                             gids4; gids5; gids7; gids6_8; gids9; gids10] in
+                             gids4; gids5; gids7; gids6_8; gids9] in
   let old_gids, warnings6 = normalize_gid_equations { info with interpretation = interpretation; } map (Some node_id) in
   let map = NI.Map.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
@@ -1424,7 +1426,15 @@ and desugar_history info expr =
       history_arg_vars
       (info, empty ())
   in
-  info, h_gids, expr
+  let gids =
+    StringMap.fold
+      (fun id h_id acc ->
+        union acc (add_history_var_and_equation info id h_id)
+      )
+      h_gids.history_vars
+      h_gids
+  in
+  info, gids, expr
 
 and normalize_item info node_id map = function
   | A.Body equation ->
@@ -1558,6 +1568,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
     let nitem, gids', warnings', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
         let info, h_gids, expr = desugar_history info expr in
+
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
@@ -1827,13 +1838,6 @@ and normalize_equation info node_id map = function
       else empty ()
     in
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
-
-and rename_id info = function
-  | A.Ident (pos, id) ->
-    (match (StringMap.find_opt id info.interpretation) with
-      | Some new_id -> A.Ident (pos, new_id)
-      | None -> A.Ident (pos, id))
-  | _ -> assert false
 
 and abstract_expr ?guard force info (node_id : NI.t option) map expr = 
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
@@ -2180,7 +2184,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
-  | Ident _ as e -> rename_id info e, empty (), []
+  | Ident _ as e -> rename_id_expr info e, empty (), []
   (* ************************************************************************ *)
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
@@ -2271,9 +2275,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     RecordProject (pos, nexpr, i), gids, warnings
-  | TupleProject (pos, expr, i) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    TupleProject (pos, nexpr, i), gids, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
@@ -2321,11 +2322,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
   | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    (* Don't supply the guard when normalizing subexpressions, 
+       because we need to generate oracle variables in initial step 
+       if there are unguarded pres *)
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
+       while supplying the guard, but ignore all other outputs *)
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name1 = HString.concat2 prefix (HString.mk_hstring "_set_union") in 
+    let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
     let ty = match Chk.infer_type_expr info.context node_id expr1 with 
     | Ok (ty, _, _) -> (
@@ -2411,6 +2419,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       match expr1_ty with
       | ArrayType _ -> A.Array
       | Map _ -> Map
+      | TupleType _ -> Tuple
       | _ -> assert false
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
@@ -2453,7 +2462,6 @@ and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
   match expr with
   | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
-  | TupleProject (p, e, i) -> A.TupleProject (p, r e, i)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)

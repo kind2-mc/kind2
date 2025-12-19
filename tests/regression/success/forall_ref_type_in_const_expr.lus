@@ -1,0 +1,10 @@
+const N: int = 3;
+
+type R = subtype { x: int | 0 <= x and x < N };
+
+const P : subtype { m : map<R,int> | forall (h:R) h in m };
+
+function Test() returns ();
+let
+  check "P1" 2 in P;
+tel

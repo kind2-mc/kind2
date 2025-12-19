@@ -2446,9 +2446,13 @@ let eval_intdiv expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
 
-      Term.mk_num
-        Numeral.(Symbol.numeral_of_symbol c1 /
-                 Symbol.numeral_of_symbol c2)                 
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_div [expr1; expr2]
+      else
+        Term.mk_num
+          Numeral.(Symbol.numeral_of_symbol c1 / divisor)
 
     | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvudiv [expr1; expr2]

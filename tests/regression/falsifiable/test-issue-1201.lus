@@ -1,4 +1,4 @@
-node Division (c:int;) returns();
+node Division1 (c:int;) returns();
 var v1 : int;
 let
     if ((0 -> pre v1) > 0) then
@@ -7,4 +7,15 @@ let
         v1 = c;
 	fi
     check not(v1=1);
-tel  
+tel
+
+node Division2 (c:int;) returns();
+var v1 : int;
+let
+    if ((0 -> pre v1) > 0) then
+    	v1 = 10 div (0 -> pre v1);
+    else
+        v1 = c;
+	fi
+    check not(v1=1);
+tel

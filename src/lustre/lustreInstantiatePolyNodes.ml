@@ -324,7 +324,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
         |> Ctx.SI.elements
         |> List.map (fun ty_var -> A.UserType (pos, [], ty_var))
     in
-    ctx, gids, Call (pos, ty_args, pnname, exprs), decls1 @ decls2, node_decls_map
+    ctx, gids, Call (pos, ty_args, pnname, exprs), decls2 @ decls1, node_decls_map
   | Call (pos, [], node_id, exprs) ->
     let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
@@ -337,9 +337,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | RecordProject (p, expr, id) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, RecordProject (p, expr, id), decls, node_decls_map
-  | TupleProject (p, expr, i) -> 
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, TupleProject (p, expr, i), decls, node_decls_map
   | ConvOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, ConvOp (p, op, expr), decls, node_decls_map

@@ -1,0 +1,15 @@
+
+contract NoRepeatStream(inp : int) returns ();
+let
+    var in_p: int = 0 -> pre inp;
+    assume forall (old: history(in_p)) (true -> (inp <> old));
+tel
+
+node Obs(inp :int) returns (res: int);
+(*@contract
+  import NoRepeatStream(inp) returns ();
+*)
+let
+  res = inp;
+  check "P1" true -> res <> pre res;
+tel

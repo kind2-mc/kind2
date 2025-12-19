@@ -6,5 +6,5 @@ let
   B = A[0 := 1];
   p2 = p1[1 := true];
   check B[0] = 1;
-  check p2.%1;
+  check p2[1];
 tel

@@ -68,7 +68,7 @@ let rec expr_contains_mode_ref expr =
   | Const (_, _)
   | EmptySet _
   | EmptyMap _ -> false
-  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | StructUpdate (_, e, _, None)
     -> r e

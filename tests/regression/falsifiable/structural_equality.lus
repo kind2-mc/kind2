@@ -1,0 +1,23 @@
+const N: subrange [1, *] of int;
+
+node N  (sc_x: int; x1: bool^N; x2: [int, int]; x3: [int, int]^N; x4: [map<[int, int], bool>, map<[int, int], bool>]; 
+         x5: map<int, bool>; x6: set<int>) 
+returns (sc_y: int; y1: bool^N; y2: [int, int]; y3: [int, int]^N; y4: [map<[int, int], bool>, map<[int, int], bool>];
+         y5: map<int, bool>; y6: set<int>)
+let
+  check sc_x = sc_y;
+  check x2 = y2;
+  check x1 = y1;
+  check x4 = y4;
+  check x5 = y5;
+  check x6 = y6;
+  check x6 <> y6;
+tel
+
+type K = [int, int];
+type V = [int, int];
+node M (a1, a2: int^N; m1, m2: map<K, V>) returns ()
+let
+  check m1 = m2;
+  check a1 = a2;
+tel

@@ -95,6 +95,7 @@ type group_expr =
 type access_kind =
   | Array 
   | Map 
+  | Tuple
   | Unknown
 
 (** A Lustre expression *)
@@ -103,7 +104,6 @@ type expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -496,10 +496,6 @@ let rec pp_print_expr ppf =
               (pp_print_list pp_print_lustre_type ";") ty_args
         )
         (pp_print_list pp_print_field_assign ";@ ") l
-
-    | TupleProject (p, e, f) -> 
-
-      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e Format.pp_print_int f
 
     | Const (p, True) -> ps p (HString.mk_hstring "true")
     | Const (p, False) -> ps p (HString.mk_hstring "false")
@@ -1181,7 +1177,7 @@ let pp_print_contract_spec ppf = function
 | Some (_, contract) ->
   Format.fprintf 
     ppf
-    "@[<v 2>(*@contract@ %a@]@ *)@ "
+    "@[<v 2>con %a@]@ noc@ "
     pp_print_contract contract
 
 (* Pretty-prints a contract node. *)

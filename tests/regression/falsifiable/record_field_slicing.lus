@@ -1,0 +1,14 @@
+
+
+type R = struct { x: int; y: bool^3; };
+
+function G(r: R) returns (z: int);
+let
+  z = F(r);
+  check z=0;
+tel
+
+function F(r: R) returns (z: int);
+let
+  z = r.x + 1;
+tel
