@@ -518,6 +518,9 @@ let mode_ensures_of_instances model_top instances = function
 
     List.fold_left add_mode_to_trace ([], 0) modes
 
+let rec transpose = function
+    | [] | [] :: _ -> []
+    | rows -> List.map List.hd rows :: transpose (List.map List.tl rows)
 
 let get_constants const_map scope =
   match Scope.Map.find_opt scope const_map with
@@ -942,15 +945,12 @@ let req_modes_to_stream_strings
     let len = String.length s in
     String.sub s 0 (len - 9) 
   in
- List.map
-  (fun (name, _ty, trace) ->
-     trace
-     |> List.filter_map (fun v ->
-          if Model.equal_value (Model.Term (Term.mk_true ())) v
-          then Some (strip_requires name)
-          else None))
-  modes
+ let list_with_none = List.map 
+ (fun (name, _, trace) -> List.map
+ (fun v -> if Model.equal_value
+   (Model.Term (Term.mk_true ())) v then Some (strip_requires name) else None) trace) modes in
 
+ List.map (List.filter_map Fun.id) (transpose list_with_none) |> transpose
 
 (* Convert identifiers and values of streams to strings and update
    maximal lenght of the strings *)
@@ -1922,10 +1922,7 @@ let pp_print_streams_json_testgen ppf
     |> List.rev
   in
 
-  let rec transpose = function
-    | [] | [] :: _ -> []
-    | rows -> List.map List.hd rows :: transpose (List.map List.tl rows)
-  in
+  
 
   let streams_with_values =
     streams
