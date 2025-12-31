@@ -512,7 +512,7 @@ tel
 
 -- Section 2
 
--- Two free types 
+-- Two free types. 
 type TIME, DAY;
 type DISPLAY = [TIME, DAY];
 
@@ -711,3 +711,59 @@ let
   e = (int8 1) > (int8 -1); -- true
 tel
 
+-- ------------------------------------------------------------
+-- Frame blocks 
+-- ------------------------------------------------------------
+node example() returns (y1, y2, y3: int);
+let
+   (* Frame block *)
+   frame ( y1, y2, y3 )
+   (* Initializations *)
+   y1 = 0; y2 = 100; y3 = 5;
+   (* Body *)
+   let
+      y2 = counter();
+      y3 = pre counter();
+   tel
+tel
+   
+node counter() returns (y: int);
+let
+   y = 0 -> pre y + 1;
+tel
+
+-- ------------------------------------------------------------
+-- If blocks 
+-- ------------------------------------------------------------
+node example_2() returns (y1, y2, y3, y4: int);
+let
+   frame ( y1, y2, y3, y4 )
+   y1 = 10; 
+   y2 = 100;
+   y3 = 100; 
+   y4 = 100;
+   let
+      -- If block
+      if (counter() < 10)
+      then
+         y1 = counter(); -- y2 is not assigned in this branch 
+      else
+         y2 = counter() * 2; -- y1 is not assigned in this branch 
+      fi
+
+      -- If block with no else condition
+      if counter() < 10
+      then 
+         y3 = counter();
+      fi
+
+      -- If block with elsif 
+      if counter() < 10 then
+         y4 = counter();
+      elsif counter () < 20 then 
+         y4 = counter() + 1;
+      else 
+         y4 = counter() + 2;
+      fi
+   tel
+tel
