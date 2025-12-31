@@ -767,3 +767,44 @@ let
       fi
    tel
 tel
+
+-- ------------------------------------------------------------
+-- Sets 
+-- ------------------------------------------------------------
+node N8 (s1, s2: set<int>) returns (out: set<int>) 
+let
+  -- Set intersection and union 
+  out = s1 * { 1, 2, 3 } + {}@<int>;
+  
+  -- `in` is set (and map) membership
+  check forall (i: int) not (i in s1 + s2) = (not (i in s1) and not (i in s2));
+  check forall (i: int) i in out => (i = 1 or i = 2 or i = 3);
+tel
+
+-- ------------------------------------------------------------
+-- Maps 
+-- ------------------------------------------------------------
+node N9 (inp: map<int, int>) returns (out, out2: map<int, int>) 
+let
+  -- Map element update(s)
+  out = inp[0 := 0; 1 := 1; 2 := 2]; 
+  -- Map literal
+  out2 = map[0 := 0; 1 := 1];
+  
+  -- Map membership
+  check 0 in out;
+  -- Map `get` at index 0
+  check out[0] = 0; 
+  check forall (i: int) not (i in { 0, 1, 2 }) => out[i] = inp[i];
+  check forall (i: int) not (i = 0 or i = 1) => not (i in out2);
+tel
+
+-- ------------------------------------------------------------
+-- History 
+-- ------------------------------------------------------------
+node N10 () returns (out: int)
+let
+  out = 0 -> pre 0 + 2;
+  -- `history(.)` type constructor
+  check forall (i: history(out)) i mod 2 = 0;
+tel
