@@ -172,7 +172,7 @@ let
   -- Record construction
   t = y_t { b = 2.0; a = 1 };
 
-  -- Assertion (deprecated; one should use contract assumptions instead 
+  -- Assertion (deprecated; one should use contract assumptions instead)
   assert a;
 
   -- Property, must be terminated with a semicolon
@@ -223,10 +223,11 @@ tel
 
 -- Imported function with inlined contract
 function imported sqrt(n: real) returns (r: real);
-con
+-- Old contract syntax. Deprecated but still supported.
+(*@contract
   assume n >= 0.0;
   guarantee r >= 0.0 and r * r = n;
-noc
+*)
 
 node sum_ge_10 (inp: int) returns (out: bool) ;
 var sum: int ;
