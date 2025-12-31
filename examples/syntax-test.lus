@@ -808,3 +808,21 @@ let
   -- `history(.)` type constructor
   check forall (i: history(out)) i mod 2 = 0;
 tel
+
+-- ------------------------------------------------------------
+-- Refinement types 
+-- ------------------------------------------------------------
+type Odd = subtype { n: int | n mod 2 = 1 };
+
+node M(
+  -- Concise refinement type syntax 
+  x1: int | x1 mod 2 = 0; 
+  -- Full refinement type syntax
+  x2: subtype { n: int | n mod 2 = 1 }
+) returns (y: 
+  -- Use the refinement type declared above
+  Odd
+);
+let
+   y = x1 + x2;
+tel
