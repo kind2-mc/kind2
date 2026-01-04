@@ -57,13 +57,13 @@ type i = { one: i2;  two : bool; };
 
 -- A constant of the type of the record, name of the record is
 -- required
-const i: i = i { one = i2 { a = 1; b = true }; two = true };
+const i_zero: i = i { one = i2 { a = 1; b = true }; two = true };
 
 -- A constant of type bool
-const i_two : bool = i.two;
+const i_two : bool = i_zero.two;
 
 -- A constant of type i2
-const i_one : i2 = i.one;
+const i_one : i2 = i_zero.one;
 
 -- A constant of type int
 const i_one_a : int = i_one.a;
@@ -222,11 +222,11 @@ let
 tel
 
 -- Imported function with inlined contract
-function imported sqrt(n: real) returns (r: real);
+function imported sqrt(m: real) returns (r: real);
 -- Old contract syntax. Deprecated but still supported.
 (*@contract
-  assume n >= 0.0;
-  guarantee r >= 0.0 and r * r = n;
+  assume m >= 0.0;
+  guarantee r >= 0.0 and r * r = m;
 *)
 
 node sum_ge_10 (inp: int) returns (out: bool) ;
@@ -485,10 +485,10 @@ let
 tel
 
 node x3 (omega: real) returns (min, max: real);
-var s, c: real;
+var s_real, c_real: real;
 let 
-  (s, c) = sincos(omega);
-  (min, max) = if s > c then (s, c) else (c, s);
+  (s_real, c_real) = sincos(omega);
+  (min, max) = if s_real > c_real then (s_real, c_real) else (c_real, s_real);
 tel
 
 node STABLE (set_i: bool; delay_i: int) returns (level: bool);
@@ -627,12 +627,12 @@ let
   f = e[1];
 tel
 
-node x73 (a, b, c, e, f: int; d: bool) returns (e1, e2, e4: int; e3: bool);
+node x73 (a, b, c, e, f: int; g: bool) returns (e1, e2, e4: int; e3: bool);
 let
   e1 = a + 2 * b;
   e2 = a + b - c;
   e3 = not (a = b);
-  e4 = if d then a else e -> f;
+  e4 = if g then a else e -> f;
 tel
 
 node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
@@ -651,17 +651,17 @@ type color1 = enum { blue, white, black };
 type color2 = enum { green, orange, yellow };
 
 -- Node with enumerated types 
-node enum0 (x: color1) returns (y: color2);
+node enum0 (color1: color1) returns (color2: color2);
 let
-  y = if x = blue then green else if x = white then orange else yellow;
+  color2 = if color1 = blue then green else if color1 = white then orange else yellow;
 tel
 
 type complex1 = { re: real; im: real };
 const j: complex1 = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
-node get_im(c: complex1) returns (x: real);
+node get_im(cm1: complex1) returns (x: real);
 let
-  x = c.im;
+  x = cm1.im;
 tel
 
 type matrix_3_3 = int^3^3;
