@@ -827,3 +827,43 @@ node M(
 let
    y = x1 + x2;
 tel
+
+-- ------------------------------------------------------------
+-- `any` operator (nondeterministic choice) 
+-- ------------------------------------------------------------
+node M2(y: int) returns (z:int);
+con
+  assume "y is odd" y mod 2 = 1;
+  guarantee "z is even" z mod 2 = 0;
+noc
+  var l1: int;
+  var l2: int;
+let
+  -- Choose from set syntax 
+  l1 = any { x: int | x mod 2 = 1 };
+
+  -- Choose from type syntax
+  l2 = any@<int>;
+
+  z = y + l1 + l2;
+tel
+
+-- ------------------------------------------------------------
+-- `transparent` and `opaque` modifiers 
+-- ------------------------------------------------------------
+transparent function abs_1(x: int) returns (y: int)
+con
+  guarantee y >= 0;
+noc
+let
+  y = if x >= 0 then x else -1*x;
+tel
+
+
+opaque function abs_2(x: int) returns (y: int)
+con
+  guarantee y >= 0;
+noc
+let
+  y = if x >= 0 then x else -1*x;
+tel
