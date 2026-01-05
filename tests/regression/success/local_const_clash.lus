@@ -1,0 +1,9 @@
+node g () returns ();
+const n : int = 5;
+let tel;
+
+function imported sqrt(n: real) returns (r: real);
+con
+  assume n >= 0.0;
+  guarantee r >= 0.0 and r * r = n;
+noc
