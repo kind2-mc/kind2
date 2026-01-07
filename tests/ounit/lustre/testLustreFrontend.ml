@@ -66,6 +66,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test any operator in global refinement type" (fun () ->
+    match load_file "./lustreSyntaxChecks/global_ref_ty_any.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
+    | _ -> false);
   mk_test "test unsupported arraydef" (fun () ->
     match load_file "./lustreSyntaxChecks/arraydef_bug_2.lus" with
     | Error (`LustreSyntaxChecksError (_, InductiveVarsWithArrayConstr _)) -> true
@@ -634,7 +638,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
     | _ -> false);
   mk_test "test undeclared 1" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
@@ -710,7 +714,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test illegal node call in array size expression" (fun () ->
     match load_file "./lustreTypeChecker/bad_array_size_1.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
     | _ -> false);
   mk_test "test illegal arrow operator in array size expression" (fun () ->
     match load_file "./lustreTypeChecker/bad_array_size_2.lus" with

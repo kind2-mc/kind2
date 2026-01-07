@@ -1,0 +1,1 @@
+const C: subtype { c: int | C > any@<int> };

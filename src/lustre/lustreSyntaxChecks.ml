@@ -697,7 +697,7 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
-      | LA.FreeConst _ -> Ok []
+      | LA.FreeConst (_, i, ty) -> check_ty_node_calls i ty >> Res.ok [] 
       | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
       | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
     in

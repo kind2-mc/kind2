@@ -297,8 +297,9 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | Set (_, ty) -> mk_graph_type ty
   | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  (* Circular dependencies in refinement type predicates are allowed *)
-  | RefinementType (_, (_, _, ty), e) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
+  | RefinementType (_, (_, i, ty), e) -> 
+    let g_expr = remove (mk_graph_expr e) i in (* `i` shadows global constants *)
+    union_dependency_analysis_data (mk_graph_type ty) g_expr 
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
