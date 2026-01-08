@@ -406,7 +406,7 @@ rule token = parse
     Need to have the '-'* here, otherwise "---" would be matched 
     as operator *)
   | "--" '-'* { skip_to_eol lexbuf }
-  | "//" '-'* { skip_to_eol lexbuf }
+  | "//" '/'* { skip_to_eol lexbuf }
 
   (* Multi-line. *)
   | "/*" { skip_commented_slashstar lexbuf }
