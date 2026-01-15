@@ -48,6 +48,7 @@ module LFR = LustreFlattenRefinementTypes
 module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
+module LCF = LustreConstantsToFunctions
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -227,9 +228,28 @@ let type_check declarations =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
+    Format.printf "Before desugaring:\n %a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
+    Format.printf "\n%a\n\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
+
+    let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
+      LCF.gen_functions inlined_global_ctx const_inlined_type_and_consts in
+    let const_inlined_type_and_consts = 
+      LCF.constants_to_calls new_func_ids const_inlined_type_and_consts in
+    let const_inlined_nodes_and_contracts = 
+      LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
+    in
+
+    Format.printf "After desugaring:\n %a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
+    Format.printf "\n%a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
+
     (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings6) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_nodes_and_contracts gids
+      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
+                    const_inlined_nodes_and_contracts gids
     in
 
     let* (normalized_type_and_consts, _, warnings7) =

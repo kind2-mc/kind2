@@ -201,3 +201,7 @@ val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 
 val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 (** `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
+
+val constants_to_calls: index list -> expr -> expr
+(** `constants_to_calls gen_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
+     provided that `C` is in `gen_func_ids` *)

@@ -420,15 +420,15 @@ let desugar_node_item (node_id: NI.t) ni = match ni with
 let desugar_frame_blocks sorted_node_contract_decls = 
   NI.Hashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with
-    | A.NodeDecl (s, ((node_id, b, o, nps, cctds, ctds, nlds, nis2, co))) ->
+    | A.NodeDecl (s, ((node_id, g, b, o, nps, cctds, ctds, nlds, nis2, co))) ->
       let* res = R.seq (List.map (desugar_node_item node_id) nis2) in
       let decls, nis, warnings = Lib.split3 res in
       let warnings = List.flatten warnings in 
-      R.ok (A.NodeDecl (s, (node_id, b, o, nps, cctds, ctds,
+      R.ok (A.NodeDecl (s, (node_id, g, b, o, nps, cctds, ctds,
                        (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
                       
     (* Make sure there are no frame blocks in functions *)
-    | A.FuncDecl (_, ((_, _, _, _, _, _, _, nis, _))) -> (
+    | A.FuncDecl (_, ((_, _, _, _, _, _, _, _, nis, _))) -> (
       let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
       match contains_frame_block with
         | Some (FrameBlock (pos, _, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)

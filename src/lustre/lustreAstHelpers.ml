@@ -1346,26 +1346,34 @@ let rec replace_idents locals1 locals2 expr =
       | Some i2 -> Ident (pos, i2)
       | None -> Ident (pos, i)
   )
+  | Quantifier (a, b, tis, e) -> 
+    (* Remove 'tis' from locals because they're bound in 'e' *)
+    let locals = List.combine locals1 locals2 in 
+    let is = List.map (fun (_, i, _) -> i) tis in
+    let locals1, locals2 = List.filter (fun (i, _) -> not (List.mem i is)) locals |> List.split in
+    Quantifier (a, b, tis, replace_idents locals1 locals2 e)
   (* Everything else is just recursing to find Idents *)
-  | Pre (a, e) -> Pre (a, r e)
-  | Arrow (a, e1, e2) -> Arrow (a, r e1, r e2)
+  | Pre (p, e) -> Pre (p, r e)
+  | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, r e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, r e)
-  | Extract (a, e, b, c) -> Extract (a, r e, b, c)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, r e)
+  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | ConvOp (p, op, e) -> ConvOp (p, op, r e)
+  | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   
-  | When (a, e, b) -> When (a, r e, b)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
-  | IndexAccess (a, e1, e2, k) -> IndexAccess (a, r e1, r e2, k)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, r e1, r e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, r e1, r e2, r e3)
+  | When (p, e, c) -> When (p, r e, c)
+  | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
+  | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
+  | ArrayConstr (p, e1, e2)  -> ArrayConstr (p, r e1, r e2)
+  | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, r e1, r e2, r e3)
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map r l)
-  | Call (a, b, c, l) -> Call (a, b, c, List.map r l)
+  | GroupExpr (p, ge, l) -> GroupExpr (p, ge, List.map r l)
+  | Call (p, ty_args, id, l) -> 
+    let ty_args = List.map (map_lustre_ty r) ty_args in
+    Call (p, ty_args, id, List.map r l)
   | EmptyMap (_, None) | EmptySet (_, None) -> expr
   | EmptyMap (p, Some (kt, vt)) ->
     EmptyMap (p, Some (map_lustre_ty r kt, map_lustre_ty r vt))
@@ -1373,33 +1381,27 @@ let rec replace_idents locals1 locals2 expr =
     EmptySet (p, Some (map_lustre_ty r t))
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
-  | Quantifier (a, b, tis, e) -> 
-    (* Remove 'tis' from locals because they're bound in 'e' *)
-    let locals = List.combine locals1 locals2 in 
-    let is = List.map (fun (_, i, _) -> i) tis in
-    let locals1, locals2 = List.filter (fun (i, _) -> not (List.mem i is)) locals |> List.split in
-    Quantifier (a, b, tis, replace_idents locals1 locals2 e)
 
-  | Merge (a, b, l) -> Merge (a, b, 
+  | Merge (p, idx, l) -> Merge (p, idx, 
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
   
-  | RecordExpr (a, b, c, l) -> RecordExpr (a, b, c,
+  | RecordExpr (p, idx, tys, l) -> RecordExpr (p, idx, tys,
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
   
-  | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map r l, r e)
-  | Activate (a, b, e1, e2, l) ->
-    Activate (a, b, r e1, r e2, List.map r l)
-  | Condact (a, e1, e2, b, l1, l2) ->
-    Condact (a, r e1, r e2, b, 
+  | RestartEvery (p, id, l, e) -> 
+    RestartEvery (p, id, List.map r l, r e)
+  | Activate (p, id, e1, e2, l) ->
+    Activate (p, id, r e1, r e2, List.map r l)
+  | Condact (p, e1, e2, id, l1, l2) ->
+    Condact (p, r e1, r e2, id, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (a, e1, li, Some e2) -> 
-    StructUpdate (a, r e1, 
+  | StructUpdate (p, e1, li, Some e2) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
               | Index (a, e) -> Index (a, r e)
@@ -1408,14 +1410,14 @@ let rec replace_idents locals1 locals2 expr =
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (a, e1, li, None) -> 
-    StructUpdate (a, r e1, 
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
     List.map (function
-              | Label (a, b) -> Label (a, b)
-              | Index (a, e) -> Index (a, r e)
-              | GenericIndex (a, e) -> GenericIndex (a, r e)
-              | MapIndex (a, e) -> MapIndex (a, r e)
-              | SetIndex (a, e) -> SetIndex (a, r e)
+              | Label (p, b) -> Label (p, b)
+              | Index (p, e) -> Index (p, r e)
+              | GenericIndex (p, e) -> GenericIndex (p, r e)
+              | MapIndex (p, e) -> MapIndex (p, r e)
+              | SetIndex (p, e) -> SetIndex (p, r e)
              ) li, 
     None)
 (** For every identifier, if that identifier is position n in locals1,
@@ -1436,7 +1438,7 @@ let get_last_node_name: declaration list -> NI.t option
   let rec get_first_node_name: declaration list -> NI.t option =
     function
     | [] -> None
-    | NodeDecl (_, (n, _, _, _, _, _, _, _, _)) :: _ -> Some n
+    | NodeDecl (_, (n, _, _, _, _, _, _, _, _, _)) :: _ -> Some n
     | _ :: rest -> get_first_node_name rest
   in get_first_node_name (List.rev ds)   
 
@@ -1448,7 +1450,7 @@ let rec remove_node_in_declarations:
   fun n pres ->
   function
   | [] -> None
-  | (NodeDecl (_, (n', _, _, _, _, _, _, _, _)) as mn) :: rest ->
+  | (NodeDecl (_, (n', _, _, _, _, _, _, _, _, _)) as mn) :: rest ->
      if Stdlib.compare n' n = 0
      then Some (mn, pres @ rest)
      else remove_node_in_declarations n (pres @ [mn]) rest 
@@ -1902,4 +1904,84 @@ let get_const_num_value = function
   | Const (_, Num x) ->
     int_of_string_opt (HString.string_of_hstring x)
   | _ -> None
+
+let rec constants_to_calls new_func_ids expr = 
+  let r = constants_to_calls new_func_ids in
+  match expr with 
+  | Ident (p, id) -> 
+    if List.mem id new_func_ids then Call (p, [], NI.mk_node_id id, []) else expr
+  | Quantifier (p, b, tis, e) -> 
+    (* Remove 'tis' from new_func_ids because they're bound in 'e' *)
+    let is = List.map (fun (_, i, ty) -> i) tis in
+    let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
+    let tis = List.map (fun (p, i, ty) -> p, i, map_lustre_ty (constants_to_calls new_func_ids) ty) tis in
+    Quantifier (p, b, tis, constants_to_calls new_func_ids e)
+  (* Everything else is just recursing to find Idents *)
+  | Pre (p, e) -> Pre (p, r e)
+  | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | Const _ as e -> e
+  | ModeRef _ as e -> e
+    
+  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | ConvOp (p, op, e) -> ConvOp (p, op, r e)
+  | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
+  
+  | When (p, e, c) -> When (p, r e, c)
+  | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
+  | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
+  | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
+  | ArrayConstr (p, e1, e2)  -> ArrayConstr (p, r e1, r e2)
+  | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, r e1, r e2, r e3)
+  
+  | GroupExpr (p, ge, l) -> GroupExpr (p, ge, List.map r l)
+  | Call (p, ty_args, id, l) -> 
+    let ty_args = List.map (map_lustre_ty (constants_to_calls new_func_ids)) ty_args in
+    Call (p, ty_args, id, List.map r l)
+  | EmptyMap (_, None) | EmptySet (_, None) -> expr
+  | EmptyMap (p, Some (kt, vt)) ->
+    EmptyMap (p, Some (map_lustre_ty r kt, map_lustre_ty r vt))
+  | EmptySet (p, Some t) ->
+    EmptySet (p, Some (map_lustre_ty r t))
+
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+
+  | Merge (p, idx, l) -> Merge (p, idx, 
+    List.combine
+    (List.map fst l)
+    (List.map r (List.map snd l)))
+  
+  | RecordExpr (p, idx, tys, l) -> RecordExpr (p, idx, tys,
+    List.combine
+    (List.map fst l)
+    (List.map r (List.map snd l)))
+  
+  | RestartEvery (p, id, l, e) -> 
+    RestartEvery (p, id, List.map r l, r e)
+  | Activate (p, id, e1, e2, l) ->
+    Activate (p, id, r e1, r e2, List.map r l)
+  | Condact (p, e1, e2, id, l1, l2) ->
+    Condact (p, r e1, r e2, id, 
+             List.map r l1, List.map r l2)
+
+  | StructUpdate (p, e1, li, Some e2) -> 
+    StructUpdate (p, r e1, 
+    List.map (function
+              | Label (a, b) -> Label (a, b)
+              | Index (a, e) -> Index (a, r e)
+              | GenericIndex (a, e) -> GenericIndex (a, r e)
+              | MapIndex (a, e) -> MapIndex (a, r e)
+              | SetIndex (a, e) -> SetIndex (a, r e)
+             ) li, 
+    Some (r e2))
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
+    List.map (function
+              | Label (p, b) -> Label (p, b)
+              | Index (p, e) -> Index (p, r e)
+              | GenericIndex (p, e) -> GenericIndex (p, r e)
+              | MapIndex (p, e) -> MapIndex (p, r e)
+              | SetIndex (p, e) -> SetIndex (p, r e)
+             ) li, 
+    None)
 

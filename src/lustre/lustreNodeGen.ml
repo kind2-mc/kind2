@@ -2888,10 +2888,10 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map false [] const_decl 
-  | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+  | A.FuncDecl (_, (nname, _, ext, opac, params, inputs, outputs, locals, items, contract)) ->
     let cstate = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
-  | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+  | A.NodeDecl (_, (nname, _, ext, opac, params, inputs, outputs, locals, items, contract)) ->
     let cstate = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,

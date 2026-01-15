@@ -530,7 +530,7 @@ and extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
 = fun l -> List.fold_left (fun acc i -> extract_node_calls_item i @ acc) [] l
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
-  = fun pos (node_id, _, _, _, ips, ops, locals, nitems, contract_opt) ->
+  = fun pos (node_id, _, _, _, _, ips, ops, locals, nitems, contract_opt) ->
   let cg = connect_g_pos
              (match contract_opt with
               | None -> empty_dependency_analysis_data
@@ -589,8 +589,8 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
     let* m' = check_and_add m pos const_prefix i (Some cnstd)  in
     mk_decl_map m' decls 
 
-  | (LA.NodeDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls
-  | (LA.FuncDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
+  | (LA.NodeDecl (span, (node_id, _, _, _, _, _, _, _, _, _)) as ndecl) :: decls
+  | (LA.FuncDecl (span, (node_id, _, _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos node_prefix (NI.get_internal_name node_id) (Some ndecl) in
     mk_decl_map m' decls
@@ -1171,7 +1171,7 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
 (** Helper function to generate a node summary *)
   
 let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
-    = fun connect_imported s (i, imported, _, _, ips, ops, _, items, _) ->
+    = fun connect_imported s (i, _, imported, _, _, ips, ops, _, items, _) ->
   if not imported
   then 
     let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
@@ -1375,7 +1375,7 @@ let check_no_input_output_local_duplicate ips ops locals =
 let check_node_equations: dependency_analysis_data
                           -> LA.node_decl
                           -> (LA.node_decl, [> error]) result
-  = fun ad ((node_id, imported, opac, params, ips, ops, locals, items, contract_opt) as ndecl)->
+  = fun ad ((node_id, generated, imported, opac, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
     let* _ = check_no_input_output_local_duplicate ips ops locals in
     analyze_circ_node_equations ad.nsummary2 items >> 
@@ -1387,7 +1387,7 @@ let check_node_equations: dependency_analysis_data
       let* (_, _, _, _, c') = sort_and_check_contract_eqns ad
         ((NI.mk_node_id (HString.concat (HString.mk_hstring "inline$") [contract_prefix; (NI.get_internal_name node_id)])), params, ips, ops, c)
       in
-      R.ok (node_id, imported, opac, params, ips, ops, locals, items, Some c')
+      R.ok (node_id, generated, imported, opac, params, ips, ops, locals, items, Some c')
 (** Check if node equations do not have circularity and also, if the node has a contract
     sort the contract equations. *)
     
