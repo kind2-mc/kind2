@@ -17,7 +17,7 @@ Improvements:
 - Other fixes and improvements in the Lustre front end
 
 Changes:
-- Allow calls to nodes and functions with both a body and a contract
+- Allow calls to nodes and functions with both a body and a contract inside a contract
 
 # Kind 2 v2.2.0
 

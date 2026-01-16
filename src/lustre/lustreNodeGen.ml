@@ -51,6 +51,7 @@ type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
   free_constants : (HString.t option * HString.t * Var.t LustreIndex.t) list;
+  local_constants : LustreAst.expr StringMap.t;
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
@@ -134,6 +135,7 @@ let empty_compiler_state () = {
   nodes = [];
   type_alias = StringMap.empty;
   free_constants = [];
+  local_constants = StringMap.empty;
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
   global_constraints = [];
@@ -829,7 +831,11 @@ and compile_ast_expr
         cstate.free_constants
       in
       X.map E.mk_free_var var
-    with Not_found ->
+    with Not_found -> (* Local constants *)
+    try
+      let expr = StringMap.find id_str cstate.local_constants in
+      compile_ast_expr cstate ctx bounds map expr
+    with Not_found -> (* Global constants *)
     try
       let expr = StringMap.find id_str cstate.other_constants in
       compile_ast_expr cstate ctx bounds map expr
@@ -1511,7 +1517,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let cstate =
     List.fold_left
       (fun cstate g ->
-        compile_const_decl cstate ctx map (node_scope @ ["contract"]) g
+        compile_const_decl cstate ctx map true (node_scope @ ["contract"]) g
       )
       cstate
       gconsts
@@ -1813,7 +1819,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         H.replace !map.usr_state_var ident indexed_state_var ;
         indexed_state_var :: locals, cstate
       | A.NodeConstDecl (_, decl) ->
-        locals, compile_const_decl cstate ctx map (node_scope @ ["impl"]) decl
+        locals, compile_const_decl cstate ctx map true (node_scope @ ["impl"]) decl
       | A.NodeVarDecl _ -> assert false (* guaranteed by LustreSyntaxChecks *)
     in
     List.fold_left over_locals ([], cstate) locals
@@ -1824,7 +1830,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left
       (fun cstate (id, ty) ->
         let g = A.FreeConst (dummy_pos, id, ty) in
-        compile_const_decl cstate ctx map (node_scope @ ["res"]) g
+        compile_const_decl cstate ctx map true (node_scope @ ["res"]) g
       )
       cstate
       gids.GI.free_constants
@@ -2792,7 +2798,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   }
 
 
-and compile_const_decl cstate ctx map scope = function
+and compile_const_decl cstate ctx map is_local scope = function
   | A.FreeConst (p, i, ty) -> (
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
@@ -2848,8 +2854,12 @@ and compile_const_decl cstate ctx map scope = function
     Otherwise these other constants are used only for constant propagation *)
   | A.UntypedConst (_, id, expr)
   | A.TypedConst (_, id, expr, _) ->
-    { cstate with
-      other_constants = StringMap.add id expr cstate.other_constants }
+    if is_local then ( 
+      { cstate with
+        local_constants = StringMap.add id expr cstate.local_constants })
+    else 
+      { cstate with
+        other_constants = StringMap.add id expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ps, ltype) ->
@@ -2877,11 +2887,13 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
-    compile_const_decl cstate ctx empty_map [] const_decl
+    compile_const_decl cstate ctx empty_map false [] const_decl 
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract
+    let cstate = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract
+    let cstate = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
