@@ -3,14 +3,6 @@
 Test Generation
 ===============
 
-..
-
-   **Disclaimer:** Test generation is, as of Kind 2 1.0, still a rather experimental
-   feature. In particular, it works only for models whose nodes have inputs and outputs 
-   of simple type (int, real, bool, and enum), not structured type (record, tuple, or 
-   array). There is a lot of room for improvement and the Kind 2 team welcomes
-   feedback / bug reports.
-
 
 Most test generation techniques analyze the syntax of the model they run on to
 generate test cases satisfying some coverage criteria. Kind 2 does not follow
@@ -129,8 +121,8 @@ activated from the initial states, generating test cases is simple. Each test
 case is simply a trace of inputs, or *witness*\ , triggering a different path of
 mode combinations in the DAG discussed above.
 
-Each witness is logged in JSON file. It is in the same as interpreter 
-input. (See the :ref:`Interpreter <9_other/8_interpreter>`)
+Each witness is logged in JSON file. It is in the same format as the interpreter 
+input format. (See the :ref:`Interpreter <9_other/8_interpreter>`)
 
 A glue XML file lists all the test cases
 and provides additional information such as the trace of mode combinations they

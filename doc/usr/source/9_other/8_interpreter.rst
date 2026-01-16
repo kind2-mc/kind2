@@ -110,3 +110,22 @@ An alternative syntax using a JSON object is allowed in case you want to produce
       "t": { "0":"36", "1": false, "2":"5.0" }
     }
   ]
+
+
+
+Contract Monitor
+----------------
+
+The contract monitor is a special mode of the interpreter where Kind 2 reads input and output values from a file and prints a full execution trace of the top-level node and its subnodes, with truth values for contract assumptions, guarantees, mode requires, and mode ensures.
+
+
+To use the contract monitor, run:
+
+.. code-block:: none
+
+  kind2 --enable contract_monitor <lustre_file> --monitor_trace_file <input_file>
+
+
+
+You can specify the number of steps to run with the option ``--monitor_steps <int>``.
+By default, the number of steps is determined by the input file.
