@@ -241,26 +241,26 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    Format.printf "After desugaring:\n %a\n"
+    Format.printf "Before normalization:\n %a\n"
       (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
     Format.printf "\n%a\n"
       (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
 
     (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings6) =
+    let* (normalized_decls, gids, warnings6) =
       LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
-                    const_inlined_nodes_and_contracts gids
+                    (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 
-    let* (normalized_type_and_consts, _, warnings7) =
+    (*let* (normalized_type_and_consts, _, warnings7) =
       LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_type_and_consts gids
-    in
+    in*)
     
     Res.ok (inlined_global_ctx,
       gids,
-      normalized_type_and_consts @ normalized_nodes_and_contracts,
+      normalized_decls,
       toplevel_nodes,
-      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6 @ warnings7)
+      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6)
     )
   in
   match tc_res with

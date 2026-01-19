@@ -222,6 +222,10 @@ val tc_ctx_of_contract_node_decl: Lib.position -> tc_context
 
 val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
 
+
+val expr_contains_set_binop: tc_context -> NI.t option -> LA.expr -> bool 
+(** `expr_contains_set_binop e` returns true iff `e` contains some set union or set intersection operator *)
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

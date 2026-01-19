@@ -129,11 +129,11 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let span, gen, is_function, is_contract, ext, opac, ips, ops, locs, nis, c =
       match NI.Map.find node_id node_decls_map with
       | (A.FuncDecl (span, (_, gen, ext, opac, _, ips, ops, locs, nis, c)), _) ->
-        span, true, false, gen, ext, opac, ips, ops, locs, nis, c
+        span, gen, true, false, ext, opac, ips, ops, locs, nis, c
       | (A.NodeDecl (span, (_, gen, ext, opac, __FUNCTION__, ips, ops, locs, nis, c)), _) ->
-        span, false, false, gen, ext, opac, ips, ops, locs, nis, c
+        span, gen, false, false, ext, opac, ips, ops, locs, nis, c
       | (A.ContractNodeDecl (span, (_, _, ips, ops, c)), _) ->
-        span, false, true, false, false, A.Default, ips, ops, [], [], Some c
+        span, false, false, true, false, A.Default, ips, ops, [], [], Some c
       | _ -> assert false
     in
     let nis = List.filter (fun ni -> match ni with 

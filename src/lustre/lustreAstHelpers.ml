@@ -1905,6 +1905,8 @@ let get_const_num_value = function
     int_of_string_opt (HString.string_of_hstring x)
   | _ -> None
 
+(*!! In cases where we enter an array length (also think about other cases) 
+     we need to throw a proper error... *)
 let rec constants_to_calls new_func_ids expr = 
   let r = constants_to_calls new_func_ids in
   match expr with 
@@ -1912,7 +1914,7 @@ let rec constants_to_calls new_func_ids expr =
     if List.mem id new_func_ids then Call (p, [], NI.mk_node_id id, []) else expr
   | Quantifier (p, b, tis, e) -> 
     (* Remove 'tis' from new_func_ids because they're bound in 'e' *)
-    let is = List.map (fun (_, i, ty) -> i) tis in
+    let is = List.map (fun (_, i, _) -> i) tis in
     let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
     let tis = List.map (fun (p, i, ty) -> p, i, map_lustre_ty (constants_to_calls new_func_ids) ty) tis in
     Quantifier (p, b, tis, constants_to_calls new_func_ids e)

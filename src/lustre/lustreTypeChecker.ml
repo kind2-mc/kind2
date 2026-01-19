@@ -2409,6 +2409,50 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
 | AbstractType _ | Bool _ | Int _ | IntRange _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
 
+and expr_contains_set_binop ctx ni expr = 
+  let r = expr_contains_set_binop ctx ni in 
+  match expr with
+  | LA.BinaryOp (_, (Union | Intersection | Plus | Times), e, _) -> 
+  (* We call this function before relabeling Plus/Times to Union/Intersection *)
+    let ty, _, _ = infer_type_expr ctx None e |> Result.get_ok in
+    type_contains_map_or_set ctx ty 
+  | Quantifier (_, _, tis, e) -> 
+    let ctx = List.fold_left (fun acc (_, id, ty) -> 
+      add_ty acc id ty 
+    ) ctx tis in 
+    expr_contains_set_binop ctx ni e 
+  | Ident _  -> false 
+  | EmptyMap (_, None) | EmptySet (_, None)
+  | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptyMap (_, Some (kt, vt)) -> 
+    LH.fold_lustre_ty r false (||) kt || 
+    LH.fold_lustre_ty r false (||) vt 
+  | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 
+  | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
+    -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
+    -> r e1 || r e2
+  | TernaryOp (_, _, e1, e2, e3)
+    -> r e1 || r e2 || r e3
+  | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || r x) false expr_list
+  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    r e1 || r e2
+    || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | AnyOp (_, (_, _, _), e) -> r e 
+  | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
+    r e1 || r e2 || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list2
+  | RestartEvery (_, _, expr_list, e) -> 
+    r e || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list
+
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty -> match ty with
   | LA.Map (p, kt, vt) ->
