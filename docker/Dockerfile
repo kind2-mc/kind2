@@ -1,4 +1,4 @@
-FROM ocaml/opam:alpine-ocaml-5.3-flambda as builder
+FROM ocaml/opam:alpine-3.22-ocaml-5.4-flambda AS builder
 
 USER root
 
@@ -7,10 +7,10 @@ RUN apk add make m4 g++ musl-dev git \
 
 USER opam
 
-COPY --chown=opam:opam . kind2-build/
+COPY --chown=opam:opam . /home/opam/kind2-build/
 
 # Build Kind 2
-WORKDIR kind2-build
+WORKDIR /home/opam/kind2-build
 
 # Note: we use remote OPAM repo until local one is updated
 RUN eval $(opam env) && \
