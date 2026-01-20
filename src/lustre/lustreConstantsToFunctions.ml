@@ -9,14 +9,10 @@ let (let*) = R.(>>=)
 
 type error_kind = 
   | GenCallInArrayLength of HString.t 
-  | GenCallInTypeDecl of HString.t
 
 let error_message error = match error with
   | GenCallInArrayLength id -> 
     Format.asprintf "Constant %a is unsupported in array length"
-      HString.pp_print_hstring id
-  | GenCallInTypeDecl id -> 
-    Format.asprintf "Constant %a is unsupported in type declaration"
       HString.pp_print_hstring id
 
 type error = [
@@ -144,19 +140,8 @@ let decl_constants_to_calls new_func_ids decl = match decl with
   let* c = contract_constants_to_calls new_func_ids c in 
   R.ok (A.ContractNodeDecl (p, (id, ps, ips, ops, c)))
 | A.TypeDecl (s, AliasType (p, id, ps, ty)) -> 
-  (* Calls in type declarations are not (yet) supported *)
-  let collect_call e = 
-    match List.find_opt (fun id -> AH.expr_contains_id id e) new_func_ids with 
-    | Some id -> Some id 
-    | None -> None 
-  in
-  let join2 = fun x1 x2 -> match x1, x2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
-  let ty_contains_calls = AH.fold_lustre_ty collect_call None join2 ty in (
-  match ty_contains_calls with 
-  | Some id -> 
-    mk_error p (GenCallInTypeDecl id)
-  | None -> R.ok (A.TypeDecl (s, AliasType (p, id, ps, ty)))
-  )
+  let* ty = ty_constants_to_calls_safe new_func_ids ty in (*!! Maybe don't desugar? *)
+  R.ok (A.TypeDecl (s, AliasType (p, id, ps, ty)))
 | A.TypeDecl (_, FreeType _) -> R.ok decl 
 | A.ConstDecl (s, const_decl) -> 
   let* const_decl = const_decl_constants_to_calls new_func_ids const_decl in

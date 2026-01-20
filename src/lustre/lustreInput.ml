@@ -229,11 +229,7 @@ let type_check declarations =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
-    Format.printf "Before desugaring:\n %a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
-    Format.printf "\n%a\n\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
-
+    (* Step 19. Convert free constants to functions without args *)
     let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_functions inlined_global_ctx const_inlined_type_and_consts in
     let* const_inlined_type_and_consts = 
@@ -242,21 +238,12 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    Format.printf "Before normalization:\n %a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
-    Format.printf "\n%a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
-
-    (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 20. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
       LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 
-    (*let* (normalized_type_and_consts, _, warnings7) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_type_and_consts gids
-    in*)
-    
     Res.ok (inlined_global_ctx,
       gids,
       normalized_decls,
