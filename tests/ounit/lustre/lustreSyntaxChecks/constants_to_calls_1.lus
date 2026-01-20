@@ -1,0 +1,11 @@
+const S1: set<int>;
+const S2: set<int>;
+const S3: subtype { s: set<int> | s = S1 * S2 };
+const S4: subtype { x: int | x in S1 * S2 };
+--!! Should probably be able to support this
+type R = subtype { x: int | x < S4 };
+
+node N () returns () 
+let
+  check S1 * S2 = S3;
+tel

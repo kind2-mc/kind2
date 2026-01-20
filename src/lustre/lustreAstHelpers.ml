@@ -110,6 +110,30 @@ let rec map_lustre_ty f ty =
   | RefinementType (p1, (p2, id, ty), e) -> 
     RefinementType (p1, (p2, id, r ty), f e)
 
+(* `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
+let rec contains_subtype_satisfying p ty = 
+  let r = contains_subtype_satisfying p in
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ 
+  | UserType _ | History _ -> p ty 
+  | Map (_, kt, vt) -> 
+    p ty || r kt || r vt 
+  | Set (_, ty') -> p ty || r ty' 
+  | ArrayType (_, (ty', _)) -> 
+    p ty || r ty'
+  | TArr (_, ty1, ty2) -> 
+    p ty || r ty1 || r ty2
+  | GroupType (_, tys) -> 
+    p ty || List.exists r tys
+  | TupleType (_, tys) -> 
+    p ty || List.exists r tys
+  | RecordType (_, _, tis) -> 
+    p ty || 
+    List.exists (fun (_, _, ty) -> r ty) tis
+  | RefinementType (_, (_, _, ty'), _) -> 
+    p ty || r ty'
+
 let type_arity ty =
   let inner_types = function
     | GroupType (_, es) -> List.length es
@@ -1986,4 +2010,12 @@ let rec constants_to_calls new_func_ids expr =
               | SetIndex (p, e) -> SetIndex (p, r e)
              ) li, 
     None)
+
+let pos_of_type ty = match ty with 
+  | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
+  | IntRange (p, _, _) | EnumType (p, _, _) | AbstractType (p, _) 
+  | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _) 
+  | ArrayType (p, (_, _)) | TArr (p, _, _) | GroupType (p, _)  
+  | TupleType (p, _)  | RecordType (p, _, _)  
+  | RefinementType (p, _, _) -> p
 

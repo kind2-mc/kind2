@@ -1,46 +1,81 @@
+module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
 module NI = NodeId
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
+let (let*) = R.(>>=)
+
+type error_kind = 
+  | GenCallInArrayLength of HString.t 
+  | GenCallInTypeDecl of HString.t
+
+let error_message error = match error with
+  | GenCallInArrayLength id -> 
+    Format.asprintf "Constant %a is unsupported in array length"
+      HString.pp_print_hstring id
+  | GenCallInTypeDecl id -> 
+    Format.asprintf "Constant %a is unsupported in type declaration"
+      HString.pp_print_hstring id
+
+type error = [
+  | `LustreConstantsToFunctionsError of Lib.position * error_kind
+]
+
+let mk_error pos kind = Error (`LustreConstantsToFunctionsError (pos, kind))
+
+let is_array_type_containing_id new_func_id ty = match ty with 
+  | A.ArrayType (_, (_, expr)) -> AH.expr_contains_id new_func_id expr
+  | _ -> false
+
+(* Convert constants to calls in a type, but error if generating a call in an array length *)
+let ty_constants_to_calls_safe new_func_ids ty = 
+  match List.find_opt (fun id -> (AH.contains_subtype_satisfying (is_array_type_containing_id id) ty)) new_func_ids with 
+  | Some func_id -> 
+    mk_error (AH.pos_of_type ty) (GenCallInArrayLength func_id)   
+  | None -> 
+    Ok (AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty)
+
 let const_decl_constants_to_calls new_func_ids const_decl = match const_decl with
 | A.FreeConst (pos, id, ty) -> 
-  let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-  A.FreeConst (pos, id, ty)
+  let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+  R.ok (A.FreeConst (pos, id, ty))
 | A.TypedConst (pos, id, expr, ty) -> 
   let expr = AH.constants_to_calls new_func_ids expr in 
-  let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-  A.TypedConst (pos, id, expr, ty)
+  let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+  R.ok (A.TypedConst (pos, id, expr, ty))
 | A.UntypedConst (pos, id, expr) -> 
   let expr = AH.constants_to_calls new_func_ids expr in 
-  A.UntypedConst (pos, id, expr)
+  R.ok (A.UntypedConst (pos, id, expr))
 
 let contract_constants_to_calls new_func_ids (p, ceqs) = 
-  let ceqs = List.map (fun ceq -> match ceq with 
+  let* ceqs = R.seq (List.map (fun ceq -> match ceq with 
   | A.GhostConst const_decl -> 
-    A.GhostConst (const_decl_constants_to_calls new_func_ids const_decl)
+    let* const_decl = const_decl_constants_to_calls new_func_ids const_decl in
+    R.ok (A.GhostConst (const_decl))
   | GhostVars (p, (GhostVarDec (p2, tis)), rhs) -> 
-    let tis = List.map (fun (p, id, ty) -> 
-      p, id, AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty 
-    ) tis in 
+    let* tis = R.seq (List.map (fun (p, id, ty) -> 
+      let* ty = ty_constants_to_calls_safe new_func_ids ty in
+      R.ok (p, id, ty)
+    ) tis) in 
     let rhs = AH.constants_to_calls new_func_ids rhs in 
-    GhostVars (p, (GhostVarDec (p2, tis)), rhs)
+    R.ok (A.GhostVars (p, (GhostVarDec (p2, tis)), rhs))
   | Assume (p, id, b, e) -> 
-    Assume (p, id, b, AH.constants_to_calls new_func_ids e)
+    R.ok (A.Assume (p, id, b, AH.constants_to_calls new_func_ids e))
   | Guarantee (p, id, b, e) -> 
-    Guarantee (p, id, b, AH.constants_to_calls new_func_ids e)
+    R.ok (A.Guarantee (p, id, b, AH.constants_to_calls new_func_ids e))
   | Mode (p, id, reqs, enss) -> 
     let reqs = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) reqs in 
     let enss = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) enss in 
-    Mode (p, id, reqs, enss)
+    R.ok (A.Mode (p, id, reqs, enss))
   | ContractCall (p, id, tys, es, ops) -> 
-    let tys = List.map (AH.map_lustre_ty (AH.constants_to_calls new_func_ids)) tys in 
+    let* tys = R.seq (List.map (ty_constants_to_calls_safe new_func_ids) tys) in 
     let es = List.map (AH.constants_to_calls new_func_ids) es in 
-    ContractCall (p, id, tys, es, ops)
-  | AssumptionVars _ -> ceq 
-  ) ceqs in 
-  p, ceqs
+    R.ok (A.ContractCall (p, id, tys, es, ops))
+  | AssumptionVars _ -> R.ok ceq 
+  ) ceqs) in 
+  R.ok (p, ceqs)
 
 let rec ni_constants_to_calls new_func_ids ni = match ni with 
 | A.Body (A.Assert (p, e)) ->
@@ -64,52 +99,76 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   A.AnnotProperty (p, id, AH.constants_to_calls new_func_ids e, k)
 
 let node_decl_constants_to_calls new_func_ids (ni, gen, imp, opac, ps, ips, ops, locals, nis, c) = 
-  let ips = List.map (fun (p, id, ty, c, b) -> 
-    let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-    p, id, ty, c, b
-  ) ips in 
-  let ops = List.map (fun (p, id, ty, c) -> 
-    let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-    p, id, ty, c
-  ) ops in 
-  let locals = List.map (fun local -> match local with 
+  let* ips = R.seq (List.map (fun (p, id, ty, c, b) -> 
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+    R.ok (p, id, ty, c, b)
+  ) ips) in 
+  let* ops = R.seq (List.map (fun (p, id, ty, c) -> 
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+    R.ok (p, id, ty, c)
+  ) ops) in 
+  let* locals = R.seq (List.map (fun local -> match local with 
   | A.NodeConstDecl (p, const_decl) -> 
-    A.NodeConstDecl (p, const_decl_constants_to_calls new_func_ids const_decl)
+    let* const_decl = const_decl_constants_to_calls new_func_ids const_decl in
+    R.ok (A.NodeConstDecl (p, const_decl))
   | A.NodeVarDecl (p, (p2, id, ty, c)) -> 
-    let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-    A.NodeVarDecl (p, (p2, id, ty, c))
-  ) locals in
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+    R.ok (A.NodeVarDecl (p, (p2, id, ty, c)))
+  ) locals) in
   let nis = List.map (ni_constants_to_calls new_func_ids) nis in
-  let c = Option.map (contract_constants_to_calls new_func_ids) c in
-  (ni, gen, imp, opac, ps, ips, ops, locals, nis, c)
+  let* c =  
+    match c with
+    | None -> Ok None
+    | Some c' ->
+      let* c'' = contract_constants_to_calls new_func_ids c' in
+      R.ok (Some c'')
+  in
+  R.ok ((ni, gen, imp, opac, ps, ips, ops, locals, nis, c))
 
 let decl_constants_to_calls new_func_ids decl = match decl with 
 | A.NodeDecl (s, node_decl) -> 
-  A.NodeDecl (s, node_decl_constants_to_calls new_func_ids node_decl)
+  let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
+  R.ok (A.NodeDecl (s, node_decl))
 | A.FuncDecl (s, node_decl) -> 
-  A.FuncDecl (s, node_decl_constants_to_calls new_func_ids node_decl) 
+  let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
+  R.ok (A.FuncDecl (s, node_decl))
 | A.ContractNodeDecl (p, (id, ps, ips, ops, c)) -> 
-  let ips = List.map (fun (p, id, ty, c, b) -> 
-    let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-    p, id, ty, c, b
-  ) ips in 
-  let ops = List.map (fun (p, id, ty, c) -> 
-    let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-    p, id, ty, c
-  ) ops in 
-  let c = contract_constants_to_calls new_func_ids c in 
-  A.ContractNodeDecl (p, (id, ps, ips, ops, c)) 
+  let* ips = R.seq (List.map (fun (p, id, ty, c, b) -> 
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+    R.ok (p, id, ty, c, b)
+  ) ips) in 
+  let* ops = R.seq (List.map (fun (p, id, ty, c) -> 
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in 
+    R.ok (p, id, ty, c)
+  ) ops) in 
+  let* c = contract_constants_to_calls new_func_ids c in 
+  R.ok (A.ContractNodeDecl (p, (id, ps, ips, ops, c)))
 | A.TypeDecl (s, AliasType (p, id, ps, ty)) -> 
-  let ty = AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty in 
-  A.TypeDecl (s, AliasType (p, id, ps, ty)) 
-| A.TypeDecl (_, FreeType _) -> decl 
+  (* Calls in type declarations are not (yet) supported *)
+  let collect_call e = 
+    match List.find_opt (fun id -> AH.expr_contains_id id e) new_func_ids with 
+    | Some id -> Some id 
+    | None -> None 
+  in
+  let join2 = fun x1 x2 -> match x1, x2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+  let ty_contains_calls = AH.fold_lustre_ty collect_call None join2 ty in (
+  match ty_contains_calls with 
+  | Some id -> 
+    mk_error p (GenCallInTypeDecl id)
+  | None -> R.ok (A.TypeDecl (s, AliasType (p, id, ps, ty)))
+  )
+| A.TypeDecl (_, FreeType _) -> R.ok decl 
 | A.ConstDecl (s, const_decl) -> 
-  A.ConstDecl (s, const_decl_constants_to_calls new_func_ids const_decl)
+  let* const_decl = const_decl_constants_to_calls new_func_ids const_decl in
+  R.ok (A.ConstDecl (s, const_decl))
 | A.NodeParamInst _ -> assert false
 
 let constants_to_calls new_func_ids decls = 
-  List.map (decl_constants_to_calls new_func_ids) decls
+  R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
+(* Returns true iff the type contains some expression that would induce generated 
+   identifiers. In this context, the only way to induce generated identifiers 
+   is from set binary operations (union/intersection) *)
 let ty_contains_gids ctx ni ty =
   AH.fold_lustre_ty (Chk.expr_contains_set_binop ctx ni) false (||) ty
 

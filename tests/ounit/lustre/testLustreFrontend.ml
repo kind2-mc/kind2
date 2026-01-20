@@ -789,6 +789,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
 (*                        Lustre If and Frame Block Checks                     *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
+  mk_test "Bad generated call 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/constants_to_calls_1.lus" with
+    | Error (`LustreConstantsToFunctionsError (_, GenCallInTypeDecl _)) -> true
+    | _ -> false);  
+  mk_test "Bad generated call 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/constants_to_calls_2.lus" with
+    | Error (`LustreConstantsToFunctionsError (_, GenCallInArrayLength _)) -> true
+    | _ -> false);  
   mk_test "Misplaced frame block inside if block" (fun () ->
     match load_file "./lustreSyntaxChecks/misplaced_frame_block.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true

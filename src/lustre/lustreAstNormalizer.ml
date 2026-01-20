@@ -833,7 +833,7 @@ let get_expr_ty info map node_id expr =
           StringMap.fold
             (fun id ty acc -> Ctx.add_ty acc id ty)
             locals info.context
-        | None -> assert false 
+        | None -> info.context 
       )
       | None -> info.context
     in

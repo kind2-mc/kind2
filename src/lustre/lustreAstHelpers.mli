@@ -205,3 +205,9 @@ val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 val constants_to_calls: index list -> expr -> expr
 (** `constants_to_calls gen_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
      provided that `C` is in `gen_func_ids` *)
+
+val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
+(** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
+
+val pos_of_type: lustre_type -> Lib.position 
+(** `pos_of_type ty` returns the position of `ty` *)

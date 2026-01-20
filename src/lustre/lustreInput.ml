@@ -62,6 +62,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
@@ -235,9 +236,9 @@ let type_check declarations =
 
     let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_functions inlined_global_ctx const_inlined_type_and_consts in
-    let const_inlined_type_and_consts = 
+    let* const_inlined_type_and_consts = 
       LCF.constants_to_calls new_func_ids const_inlined_type_and_consts in
-    let const_inlined_nodes_and_contracts = 
+    let* const_inlined_nodes_and_contracts = 
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
