@@ -979,7 +979,7 @@ let filter_locals is_visible locals =
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' is_top const_map ppf = function
+let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
 
 (* All nodes printed *)
 | [] -> ()
@@ -988,15 +988,17 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 | (
   trace, Node (
     { N.node_id; N.inputs; N.outputs; N.locals;
-      N.is_function; } as node,
+      N.is_gen; N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
 ) :: tl when N.node_is_visible node ->
 
+  (* Generated functions are printed along with the global constants *)
+  if is_gen then pp_print_lustre_path_pt' false const_map gen_funcs ppf tl else
+
   let is_visible = N.state_var_is_visible node in
 
   let node_name = NI.get_user_name node_id |> HString.string_of_hstring in
-
   let title =
     if is_function then "Function"
     else match (NI.get_node_type node_id) with 
@@ -1093,9 +1095,11 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   (* Sample inputs, outputs and locals on clock *)
   let globals', constants', inputs', outputs', ghosts', locals'  = match clock with
-    | None -> globals', constants', inputs', outputs', ghosts', locals'
+    | None -> 
+      (if is_top then globals' @ gen_funcs else []), 
+      constants', inputs', outputs', ghosts', locals'
     | Some c ->
-      sample_streams_on_clock c globals',
+      (if is_top then (sample_streams_on_clock c globals') @ (sample_streams_on_clock c gen_funcs) else []),
       sample_streams_on_clock c constants',
       sample_streams_on_clock c inputs',
       sample_streams_on_clock c outputs',
@@ -1131,21 +1135,48 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   pp_print_lustre_path_pt'
     false
     const_map
+    gen_funcs
     ppf
     (subnodes @ tl)
 
 | _ :: tl ->
   
-  pp_print_lustre_path_pt' false const_map ppf tl
+  pp_print_lustre_path_pt' false const_map gen_funcs ppf tl
 
-  
+let get_gen_func_info n = 
+  let rec get_gen_funcs (Node (top, path, _, _, subnodes)) = 
+    let recursive_results = List.concat_map get_gen_funcs (List.map snd subnodes) in
+    if top.LustreNode.is_gen then 
+      (top, path) :: recursive_results 
+    else 
+      recursive_results 
+  in
+  let gen_funcs = get_gen_funcs n in 
+  let gen_funcs = List.map (fun ({ LustreNode.node_id; outputs; }, path) -> 
+    let str_name = node_id |> NI.get_name |> HString.string_of_hstring in 
+    let output = List.hd (D.values outputs) in
+    let vals = StateVar.StateVarHashtbl.find path output |> List.map Option.some in
+    let ty = StateVar.type_of_state_var output in
+    str_name, ty, vals 
+  ) gen_funcs in
+  (* Filter duplicates *)
+  List.fold_left (fun acc (id, ty, vals) -> 
+    if List.exists (fun (id2, _, _) -> String.equal id id2) acc then 
+      acc 
+    else 
+      (id, ty, vals) :: acc
+  ) [] gen_funcs
+
+
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_pt ppf (lustre_path, const_map) = 
+  (* Collect generated function information *)
+  let gen_funcs = get_gen_func_info (snd lustre_path) in
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_pt' true const_map ppf [lustre_path]
+  pp_print_lustre_path_pt' true const_map gen_funcs ppf [lustre_path]
 
 
 (* Output a hierarchical model as plain text *)
@@ -1372,7 +1403,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
 
   | (
     trace, Node (
-      { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
+      { N.node_id; N.inputs; N.outputs; N.locals; N.is_gen; N.is_function } as node,
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
