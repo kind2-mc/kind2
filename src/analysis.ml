@@ -338,14 +338,9 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
-= fun verbose pp_print_system_user_name fmt param ->
-  let { top ; abstraction_map ; assumptions } = info_of_param param in
-  let abstract, concrete =
-    abstraction_map |> Scope.Map.bindings |> List.fold_left (
-      fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
-    ) ([], [])
-  in
+let pp_print_param: bool -> Scope.t list -> Scope.t list -> pp_print_system_user_name -> Format.formatter -> param -> unit
+= fun verbose abstract concrete pp_print_system_user_name fmt param ->
+  let { top ; assumptions } = info_of_param param in
   Format.fprintf fmt "%s @[<v>top: '@{<blue>%a@}'%a%a@]"
     ( match param with
       | Interpreter _ -> "Interpreter"
@@ -538,7 +533,7 @@ let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) 
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
       reachability_properties
 
-let pp_print_result pp_print_system_user_name fmt {
+let pp_print_result pp_print_system_user_name abstract concrete fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
   let pp_print_prop_list pref = fun fmt props ->
@@ -550,11 +545,11 @@ let pp_print_result pp_print_system_user_name fmt {
   in
   let pp_print_skip _ _ = () in
   let valid, invalid, unknown = split_properties_nocands sys in
-  Format.fprintf fmt "@[<v>\
+    Format.fprintf fmt "@[<v>\
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true pp_print_system_user_name) param
+    (pp_print_param true abstract concrete pp_print_system_user_name) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"

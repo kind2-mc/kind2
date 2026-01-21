@@ -596,6 +596,17 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
   else
     modules
 
+let collect_abstract_concrete param in_sys = 
+  let { Analysis.abstraction_map } = Analysis.info_of_param param in
+  let abstract, concrete =
+    abstraction_map |> Scope.Map.bindings |> List.fold_left (
+      fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
+    ) ([], [])
+  in 
+  let abstract = List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) abstract in
+  let concrete = List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) concrete in
+  abstract, concrete
+
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
@@ -658,7 +669,8 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
   (* Issue analysis end notification. *)
   KEvent.log_analysis_end () ;
   (* Issue analysis outcome. *)
-  KEvent.log L_info "Result: %a" (Analysis.pp_print_result (KEvent.pp_print_user_node_name in_sys)) result
+  let abstract, concrete = collect_abstract_concrete param in_sys in 
+  KEvent.log L_info "Result: %a" (Analysis.pp_print_result (KEvent.pp_print_user_node_name in_sys) abstract concrete) result
 
 
 let handle_exception process e =
