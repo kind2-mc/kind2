@@ -111,7 +111,7 @@ An alternative syntax using a JSON object is allowed in case you want to produce
     }
   ]
 
-
+.. _contract-monitor:
 
 Contract Monitor
 ----------------

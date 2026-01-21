@@ -139,3 +139,23 @@ realistic unless the specification is extremely strong and precise, which it
 very rarely is. (Also, if it was, it would arguably be easier to produce
 the object code as a refinement of the specification using the B-method for
 instance.)
+
+
+Analyzing the executable
+------------------------
+
+The purpose of generating these test cases is to eventually run them on an
+executable version of the model to check whether it crashes and whether it
+respects the specification.
+
+For convenience, Kind 2 offers a feature, 
+a :ref:`contract monitor <contract-monitor>`, which checks whether the output
+produced by the executable for a given test case respects the contract.
+
+The contract monitor reads the input values of the test case that are fed
+to the System Under Test (SUT), along with the output values returned by the
+SUT, and reports the truth values of the guarantees and modes of the original
+contract. The input format for the contract monitor is the same as the
+:ref:`interpreter <9_other/8_interpreter>` input format, except that 
+the input includes not only the values of the input variables but also 
+the values of the output variables.
