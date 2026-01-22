@@ -1,0 +1,11 @@
+const C: int;
+
+node M() returns (out: int) 
+let 
+  out = C; 
+tel
+
+node Top() returns (out: [subtype { x: int | x < M() }, subtype { y: int | y > M() }])
+let
+  out = '(M() - 1, M() + 1);
+tel

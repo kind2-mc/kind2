@@ -7,7 +7,7 @@ node N<T>(x: T) returns (y: T | O@<T>(y) = y);
 let
   y = O@<T>(x);
 tel
-
+(*!! Need to tie generated index variable to y *)
 node M(x: int) returns (y: int | N@<int>(y) > 0)
 let 
   y = 1;

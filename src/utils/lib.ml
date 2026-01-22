@@ -1317,6 +1317,12 @@ let split3 triples =
   let zs = List.map (fun (_, _, z) -> z) triples in
   xs, ys, zs
 
+let split4 quads =
+  let as' = List.map (fun (a, _, _, _) -> a) quads in
+  let bs = List.map (fun (_, b, _, _) -> b) quads in
+  let cs = List.map (fun (_, _, c, _) -> c) quads in
+  let ds = List.map (fun (_, _, _, d) -> d) quads in
+  as', bs, cs, ds 
 
 (* Extract scope from a concatenated name *)
 let extract_scope_name name =
