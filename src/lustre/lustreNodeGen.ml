@@ -1039,8 +1039,6 @@ and compile_ast_expr
   
   and compile_group_expr bounds mk expr_list =
     let over_exprs = fun (i, accum) expr ->
-      Format.printf "Compiling %a\n"
-        A.pp_print_expr expr;
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
       let over_expr = fun j e a -> X.add (mk j i) e a in
       (succ i, X.fold over_expr compiled_expr accum)
@@ -1165,8 +1163,6 @@ and compile_ast_expr
   and compile_map_index bounds expr k =
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let index_exprs = X.values compiled_k in
-    Format.printf "Compiling %a\n"
-      A.pp_print_expr expr;
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
