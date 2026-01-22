@@ -1929,8 +1929,7 @@ let get_const_num_value = function
     int_of_string_opt (HString.string_of_hstring x)
   | _ -> None
 
-(*!! In cases where we enter an array length (also think about other cases) 
-     we need to throw a proper error... *)
+(* Convert identifiers present in `new_func_ids` to calls with no args *)
 let rec constants_to_calls new_func_ids expr = 
   let r = constants_to_calls new_func_ids in
   match expr with 

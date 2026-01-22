@@ -148,6 +148,7 @@ let decl_constants_to_calls new_func_ids decl = match decl with
   R.ok (A.ConstDecl (s, const_decl))
 | A.NodeParamInst _ -> assert false
 
+(* Across all decls, convert identifiers present in `new_func_ids` to calls with no args *)
 let constants_to_calls new_func_ids decls = 
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
@@ -157,6 +158,8 @@ let constants_to_calls new_func_ids decls =
 let ty_contains_gids ctx ni ty =
   AH.fold_lustre_ty (Chk.expr_contains_set_binop ctx ni) false (||) ty
 
+(* Convert free constants to imported functions without args if there are (will be) associated 
+   generated identifiers *)
 let gen_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 

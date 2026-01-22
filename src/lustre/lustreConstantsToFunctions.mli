@@ -31,6 +31,7 @@ val error_message : error_kind -> string
 type error =
     [ `LustreConstantsToFunctionsError of Lib.position * error_kind ]
 
+(** Across all decls, convert identifiers present in `new_func_ids` to calls with no args *)
 val constants_to_calls :
   HString.t list ->
   A.declaration list ->
@@ -38,6 +39,8 @@ val constants_to_calls :
    [> `LustreConstantsToFunctionsError of Lib.position * error_kind ])
   result
 
+(** Convert free constants to imported functions without args if there are (will be) associated 
+    generated identifiers *)
 val gen_functions :
   Ctx.tc_context ->
   A.declaration list -> A.declaration list * A.ident list * Ctx.tc_context

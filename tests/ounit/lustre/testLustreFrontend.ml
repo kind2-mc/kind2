@@ -789,7 +789,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
 (*                        Lustre If and Frame Block Checks                     *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
-  mk_test "Bad generated call 2" (fun () ->
+  mk_test "Bad generated call" (fun () ->
     match load_file "./lustreSyntaxChecks/constants_to_calls.lus" with
     | Error (`LustreConstantsToFunctionsError (_, GenCallInArrayLength _)) -> true
     | _ -> false);  
