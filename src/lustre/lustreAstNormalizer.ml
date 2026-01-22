@@ -538,17 +538,8 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
   let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
   | A.RefinementType (_, (_, id2, _), ref_expr) -> 
-      (*!! This function generates the right tuple/array accesses and so on *)
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    (*Format.printf "Just made ref_type_expr %a\n"
-      A.pp_print_expr ref_expr;
-    [ref_expr]*)
-    Format.printf "Making ref type expr for %a, %a, %a\n"
-      HString.pp_print_hstring id2 
-      A.pp_print_expr expr
-      A.pp_print_expr ref_expr;
-      (*!! ref_expr may have gids that we need to substitute *)
     let expr = AH.substitute_naive id2 expr ref_expr in 
     [expr]
   | TupleType (pos, tys) 
@@ -1201,10 +1192,10 @@ and normalize_declaration info map = function
     let map = NI.Map.add id ngids map in
     None, map, warnings
   | ConstDecl (p, FreeConst (p2, id, ty)) ->
-    let ty, _, warnings, _ = normalize_ty info None id map ty in 
+    let ty, _, warnings = normalize_ty info None id map ty in 
     Some (A.ConstDecl (p, FreeConst (p2, id, ty))), map, warnings 
   | ConstDecl (p, TypedConst (p2, id, expr, ty)) ->
-    let ty, _, warnings1, _ = normalize_ty info None id map ty in 
+    let ty, _, warnings1 = normalize_ty info None id map ty in 
     let expr, _, warnings2 = normalize_expr info None map expr in 
     Some (A.ConstDecl (p, TypedConst (p2, id, expr, ty))), map, warnings1 @ warnings2
   | ConstDecl (p, UntypedConst (p2, id, expr)) ->
@@ -1215,11 +1206,11 @@ and normalize_declaration info map = function
 and normalize_node_contract info (node_id : NI.t) map cref inputs outputs (id, _, ivars, ovars, body) =
   (* Normalize types *)
   let ivars, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
-    let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+    let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
     (p, id, ty, cl, c), gids, warnings
   ) ivars |> Lib.split3 in
   let ovars, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
-    let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+    let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
     (p, id, ty, cl), gids, warnings
   ) ovars |> Lib.split3 in
   let contract_ref = cref in
@@ -1293,12 +1284,12 @@ and normalize_ghost_declaration info node_id map = function
     let nexpr, map, warnings = normalize_expr ?guard:None info (Some node_id) map expr in
     A.UntypedConst (pos, new_id, nexpr), map, warnings
   | TypedConst (pos, id, expr, ty) ->
-    let ty, map1, warnings1, info = normalize_ty info (Some node_id) id map ty in
+    let ty, map1, warnings1 = normalize_ty info (Some node_id) id map ty in
     let new_id = StringMap.find id info.interpretation in
     let nexpr, map2, warnings2 = normalize_expr ?guard:None info (Some node_id) map expr in
     A.TypedConst (pos, new_id, nexpr, ty), union map1 map2, warnings1 @ warnings2
   | FreeConst (pos, id, ty) -> 
-    let ty, map, warnings, _ = normalize_ty info (Some node_id) id map ty in
+    let ty, map, warnings = normalize_ty info (Some node_id) id map ty in
     FreeConst (pos, id, ty), map, warnings
 
 and normalize_node info map
@@ -1309,25 +1300,25 @@ and normalize_node info map
   let info = { info with context = ctx } in
   (* Normalize types *)
   let inputs, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
-    let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+    let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
     (p, id, ty, cl, c), gids, warnings
   ) inputs |> Lib.split3 in
   let outputs, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
-    let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+    let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
     (p, id, ty, cl), gids, warnings
   ) outputs |> Lib.split3 in
   let locals, gids3, warnings3 = List.map (fun decl -> 
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
-      let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+      let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
       A.NodeConstDecl (p1, FreeConst (p2, id, ty)), gids, warnings
     | A.NodeConstDecl (p1, UntypedConst (p2, id, e)) ->
       A.NodeConstDecl (p1, UntypedConst (p2, id, e)), empty (), []
     | A.NodeConstDecl (p, TypedConst (p2, id, e, ty)) -> 
-      let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in
+      let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in
       A.NodeConstDecl (p, TypedConst (p2, id, e, ty)), gids, warnings
     | A.NodeVarDecl (p1, (p2, id, ty, cl)) -> 
-      let ty, gids, warnings, _ = normalize_ty info (Some node_id) id map ty in 
+      let ty, gids, warnings = normalize_ty info (Some node_id) id map ty in 
       A.NodeVarDecl (p1, (p2, id, ty, cl)), gids, warnings
   ) locals |> Lib.split3 in
   (* Record subrange and refinement type constraints on inputs, outputs *)
@@ -1722,7 +1713,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           let tis, gids_list, warnings = (
             List.map (
               fun (pos, i, ty) -> 
-                let ty, gids, warnings, info = normalize_ty info (Some node_id) i map ty in
+                let ty, gids, warnings = normalize_ty info (Some node_id) i map ty in
                 let new_id = StringMap.find i info.interpretation in
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   (pos, i, ty),
@@ -2517,60 +2508,44 @@ and normalize_ty ?(guard = None) info node_id id map ty =
   match ty with 
   | A.RefinementType (p1, (p2, id2, ty2), expr) -> 
     let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
-    Format.printf "Refinement type expr: %a\n"
-      A.pp_print_expr expr;
-    (*let info =  { info with context = 
-      Ctx.add_ty info.context id ty2 
-    } in*)
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
     let gids = union h_gids gids in
     (*let gids = { gids with locals = StringMap.add id ty2 gids.locals } in*)
-    A.RefinementType (p1, (p2, id, ty2), nexpr), gids, warnings, info
+    A.RefinementType (p1, (p2, id, ty2), nexpr), gids, warnings
   | TupleType (p, tys) -> 
-    let tys, gids, warnings, infos = List.map (normalize_ty ~guard info node_id id map) tys |> Lib.split4 in 
+    let tys, gids, warnings = List.map (normalize_ty ~guard info node_id id map) tys |> Lib.split3 in
     let gids = List.fold_left union (empty ()) gids in 
     let warnings = List.concat warnings in
-    let info = List.fold_left (fun acc info -> 
-      { acc with context = Ctx.union acc.context info.context }
-    ) info infos in
-    TupleType (p, tys), gids, warnings, info 
+    TupleType (p, tys), gids, warnings 
   | GroupType (p, tys) ->
-    let tys, gids, warnings, infos = List.map (normalize_ty ~guard info node_id id map) tys |> Lib.split4 in 
+    let tys, gids, warnings = List.map (normalize_ty ~guard info node_id id map) tys |> Lib.split3 in
     let gids = List.fold_left union (empty ()) gids in 
     let warnings = List.concat warnings in
-    let info = List.fold_left (fun acc info -> 
-      { acc with context = Ctx.union acc.context info.context }
-    ) info infos in
-    GroupType (p, tys), gids, warnings, info  
+    GroupType (p, tys), gids, warnings 
   | RecordType (p, id, tis) -> 
-    let tis, gids, warnings, infos = List.map (fun (p, id, ty) -> 
-      let ty, gids, warnings, ctx = normalize_ty ~guard info node_id id map ty in 
-      (p, id, ty), gids, warnings, ctx 
-    ) tis |> Lib.split4 in 
+    let tis, gids, warnings = List.map (fun (p, id, ty) -> 
+      let ty, gids, warnings = normalize_ty ~guard info node_id id map ty in 
+      (p, id, ty), gids, warnings 
+    ) tis |> Lib.split3 in 
     let gids = List.fold_left union (empty ()) gids in 
     let warnings = List.concat warnings in
-    let info = List.fold_left (fun acc info -> 
-      { acc with context = Ctx.union acc.context info.context }
-    ) info infos in
-    RecordType (p, id, tis), gids, warnings, info  
+    RecordType (p, id, tis), gids, warnings 
   | ArrayType (p, (ty, len)) -> 
-    let ty, gids1, warnings1, info = normalize_ty ~guard info node_id id map ty in 
+    let ty, gids1, warnings1 = normalize_ty ~guard info node_id id map ty in 
     let len, gids2, warnings2  = normalize_expr ?guard info node_id  map len in 
-    ArrayType (p, (ty, len)), union gids1 gids2, warnings1 @ warnings2, info
+    ArrayType (p, (ty, len)), union gids1 gids2, warnings1 @ warnings2
   | TArr (p, ty1, ty2) ->
-    let ty1, gids1, warnings1, info1 = normalize_ty ~guard info node_id id map ty1 in 
-    let ty2, gids2, warnings2, info2 = normalize_ty ~guard info node_id id map ty2 in 
-    let info = { info with context = Ctx.union info1.context info2.context } in
-    TArr (p, ty1, ty2 ), union gids1 gids2, warnings1 @ warnings2, info 
+    let ty1, gids1, warnings1 = normalize_ty ~guard info node_id id map ty1 in 
+    let ty2, gids2, warnings2 = normalize_ty ~guard info node_id id map ty2 in 
+    TArr (p, ty1, ty2 ), union gids1 gids2, warnings1 @ warnings2 
   | Map (p, kt, vt) -> 
-    let kt, gids1, warnings1, info1 = normalize_ty ~guard info node_id id map kt in 
-    let vt, gids2, warnings2, info2 = normalize_ty ~guard info node_id id map vt in 
-    let info = { info with context = Ctx.union info1.context info2.context } in
-    Map (p, kt, vt), union gids1 gids2, warnings1 @ warnings2, info 
+    let kt, gids1, warnings1 = normalize_ty ~guard info node_id id map kt in 
+    let vt, gids2, warnings2 = normalize_ty ~guard info node_id id map vt in 
+    Map (p, kt, vt), union gids1 gids2, warnings1 @ warnings2 
   | Set (p, ty) -> 
-    let ty, gids, warnings, info = normalize_ty ~guard info node_id id map ty in 
-    Set (p, ty), gids, warnings, info 
+    let ty, gids, warnings = normalize_ty ~guard info node_id id map ty in 
+    Set (p, ty), gids, warnings 
   | Int _ | History _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ 
-  | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), [], info
+  | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []

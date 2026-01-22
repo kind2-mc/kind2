@@ -152,9 +152,6 @@ val list_split : int -> 'a list -> ('a list * 'a list)
 (** [split3 l] takes a list of triples and produces a triple of lists *)
 val split3 : ('a * 'b * 'c) list -> 'a list * 'b list * 'c list
 
-(** [split4 l] takes a list of 4-tuples and produces a 4-tuple of lists *)
-val split4 : ('a * 'b * 'c * 'd) list -> 'a list * 'b list * 'c list * 'd list
-
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
