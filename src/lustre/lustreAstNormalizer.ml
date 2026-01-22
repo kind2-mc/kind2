@@ -2506,13 +2506,20 @@ and normalize_ty info node_id map id ty =
   | A.RefinementType (p1, (p2, id2, ty2), expr) -> 
     let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
     let info =  { info with context = 
-      let ctx = Ctx.add_ty info.context id2 ty2 in 
-      Ctx.add_ty ctx id ty 
+      (*let ctx = Ctx.add_ty info.context id2 ty2 in 
+      Ctx.add_ty ctx id ty *)
+      Ctx.add_ty info.context id2 ty2
     }; in
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
     A.RefinementType (p1, (p2, id, ty2), nexpr), union h_gids gids, warnings
-    
+  | TupleType _ -> _
+  | GroupType _ -> _
+  | RecordType _  -> _
+  | ArrayType _ -> _
+  | TArr _ -> _
+  | Map _ -> _ 
+  | Set _ -> _
   | Int _ | History _ | Bool _ | Real _ | IntRange _ 
-  | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ | Map _ | Set _ | SBitVector _ | UBitVector _ -> ty, empty (), []
+  | UserType _ | AbstractType _ 
+  | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
