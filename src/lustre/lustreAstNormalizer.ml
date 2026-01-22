@@ -2501,17 +2501,13 @@ and expand_node_calls_in_place info node_id var count expr =
     expand_node_call info (Some node_id) e var count
   | e -> e
 
-  (*!! returned info currently not updated *)
 and normalize_ty ?(guard = None) info node_id map id ty = 
-  (* id' -> id 
-     id -> id2 *)
   match ty with 
   | A.RefinementType (p1, (p2, id2, ty2), expr) -> 
     let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
     let gids = union h_gids gids in
-    (*let gids = { gids with locals = StringMap.add id ty2 gids.locals } in*)
     A.RefinementType (p1, (p2, id, ty2), nexpr), gids, warnings
   | TupleType (p, tys) -> 
     let tys, gids, warnings = List.map (normalize_ty ~guard info node_id map id) tys |> Lib.split3 in
