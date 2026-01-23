@@ -1464,11 +1464,14 @@ let pp_print_contract_var ppf (vname, ty, values) =
 
 
 let pp_print_contract_section_xml ctype ppf items =
-  Format.fprintf ppf
-    "@,@[<hv 0>@[<hv 1><Contract@ type=\"%s\">@]@,\
-      @[<hv 3>%a@]@,</Contract>@]"
-    ctype
-    (pp_print_list pp_print_contract_var "") items
+  match items with 
+  | [] -> ()
+  | _ -> 
+    Format.fprintf ppf
+      "@,@[<hv 0>@[<hv 1><Contract@ type=\"%s\">@]@,\
+        @[<hv 3>%a@]@,</Contract>@]"
+      ctype
+      (pp_print_list pp_print_contract_var "") items
 
 (* Output a list of node models. *)
 let rec pp_print_lustre_path_xml' is_top const_map ppf = function 
