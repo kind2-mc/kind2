@@ -714,16 +714,15 @@ let run in_sys =
     try (
       let param = ISys.monitor_param in_sys in
       (* Build trans sys and slicing info. *)
-      let sys, _ = 
+      let sys, in_sys = 
         ISys.trans_sys_of_analysis
           ~preserve_sig:true ~slice_nodes:`Off in_sys param
       in
-      let sliced_inp = ISys.slice_to_abstraction in_sys param sys in 
 
       (* Run interpreter. *)
       (Interpreter.main ~contract_monitor:true (
         Flags.ContractMonitor.input_file ()
-      )) sliced_inp param sys ;
+      )) in_sys param sys ;
       (* Ignore SIGALRM from now on *)
       Signals.ignore_sigalrm () ;
       (* Cleanup before exiting process *)
