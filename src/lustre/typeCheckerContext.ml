@@ -848,8 +848,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   | LA.EmptySet (_, Some ty) ->
     ty_vars_of_type ctx node_name ty 
   | AnyOp (_, (_, i, ty), e) -> 
-    let ctx = add_ty ctx i ty in
-    SI.union (call e) (ty_vars_of_type ctx node_name ty)
+    let ctx' = add_ty ctx i ty in
+    SI.union (ty_vars_of_expr ctx' node_name e) (ty_vars_of_type ctx node_name ty)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
