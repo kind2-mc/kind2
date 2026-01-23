@@ -429,6 +429,10 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
       merge_types t1 t2
+    | TernaryOp (_, LazyIte, _, e1, e2) ->
+      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
+      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
+      merge_types t1 t2
     | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
     | Arrow (_, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
@@ -447,18 +451,17 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
         | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ | Set _
         | SBitVector _ | UBitVector _ -> assert false)
-    | TupleProject (_, e, idx) ->
-      let parent_ty = infer e in
-      let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
-      (match parent_ty with
-      | TupleType (_, types) -> List.nth types idx
-      | _ -> assert false)
-    | IndexAccess (_, e, _, _) ->
+    | IndexAccess (_, e, idx, _) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | ArrayType (_, (ty, _)) -> ty
       | Map (_, _, ty) -> ty
+      | TupleType (_, types) -> 
+        let idx = match idx with 
+        | LA.Const (_, Num n) -> n |> HString.string_of_hstring |> int_of_string
+        | _ -> assert false in (* Guaranteed concrete int in type checking *)
+        List.nth types idx
       | _ -> assert false)
     | GroupExpr (_, ExprList, es) -> (
       let g = interpret_structured_expr f node_id ctx ty_ctx ty in
@@ -495,14 +498,15 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _ 
       | Set _ | Map _ | SBitVector _ | UBitVector _ -> assert false) 
-  | TupleProject (_, e, idx) -> (match infer e with
-    | TupleType (_, nested) -> 
-      let ty = List.nth nested idx in
-      extract_bounds_from_type ty
-    | _ -> assert false)
-  | IndexAccess (_, e, _, _) -> (match infer e with
+  | IndexAccess (_, e, idx, _) -> (match infer e with
     | ArrayType (_, (t, _)) -> extract_bounds_from_type t
     | Map (_, _, t) -> extract_bounds_from_type t
+    | TupleType (_, nested) -> 
+      let idx = match idx with 
+      | LA.Const (_, Num n) -> n |> HString.string_of_hstring |> int_of_string
+      | _ -> assert false in (* Guaranteed concrete int in type checking *)
+      let ty = List.nth nested idx in 
+      extract_bounds_from_type ty
     | _ -> assert false)
   | Const (_, const) -> (match const with
     | True | False -> assert false

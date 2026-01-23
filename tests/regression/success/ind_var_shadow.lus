@@ -1,0 +1,7 @@
+const i: bool = true;
+
+node slice (const n: int; A: int ^ n; const low: int; const up: int)
+returns (B : int ^ (up-low));
+let
+  B[i] = A[low + i];
+tel

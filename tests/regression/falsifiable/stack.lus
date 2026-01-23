@@ -1,0 +1,73 @@
+const MAX_SIZE: subrange[1,*] of int;
+
+type Index = subtype { i: int | -1 <= i and i < MAX_SIZE };
+
+type Stack<T> = struct {
+  items: T^MAX_SIZE;
+  top_pos: Index;
+};
+
+function push<T>(s_in: Stack<T>; e: T) returns (s_out: Stack<T>);
+con
+  assume "Stack is not full" not is_full(s_in);
+  guarantee "Size has increased by one" size(s_out)=size(s_in)+1;
+  guarantee "The top element is 'e'" top(s_out)=e;
+noc
+var new_items: T^MAX_SIZE;
+let
+  new_items[i] = if i=s_in.top_pos+1 then e else s_in.items[i];
+  s_out = Stack@<T> {
+    items = new_items;
+    top_pos = s_in.top_pos + 1;
+  };
+tel
+
+function pop<T>(s_in: Stack<T>) returns (s_out: Stack<T>);
+con
+  assume "Stack is not empty" not is_empty(s_in);
+  guarantee "Size has decreased by one" size(s_out)=size(s_in)-1;
+noc
+let
+  s_out = Stack@<T> {
+    items = s_in.items;
+    top_pos = s_in.top_pos - 1;
+  };
+tel
+
+function empty_stack<T>() returns (s: Stack<T>);
+let
+  s = Stack@<T> {
+    items = any@<T^MAX_SIZE>;
+    top_pos = -1;
+  };
+tel
+
+function is_empty<T>(s: Stack<T>) returns (r: bool);
+let
+   r = s.top_pos = -1;
+tel
+
+function is_full<T>(s: Stack<T>) returns (r: bool);
+let
+   r = s.top_pos = MAX_SIZE - 1;
+tel
+
+function size<T>(s: Stack<T>) returns (sz: int);
+let
+  sz = s.top_pos + 1;
+tel
+
+function top<T>(s: Stack<T>) returns (t: T);
+con
+  assume "Stack is not empty" not is_empty(s);
+noc
+let
+  t = s.items[s.top_pos];
+tel
+
+node N(s1:Stack<int>) returns (s2:Stack<int>; z1,z2:int);
+let
+
+  s2 = push(pop(s1), 3);
+  --%MAIN;
+tel

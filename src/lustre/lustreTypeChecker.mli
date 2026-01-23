@@ -36,6 +36,7 @@ type error_kind = Unknown of string
   | IlltypedRecordProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
+  | NonConcreteTupleProjection of LA.expr 
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
   | ExpectedIntegerExpression of tc_type
@@ -58,6 +59,7 @@ type error_kind = Unknown of string
   | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
+  | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
   | IlltypedIdentifier of HString.t * tc_type * tc_type
   | UnificationFailed of tc_type * tc_type

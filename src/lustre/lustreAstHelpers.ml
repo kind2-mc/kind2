@@ -50,7 +50,7 @@ let id_of_expr = function
 
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
-  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
+  | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
   | IndexAccess (pos , _, _, _)
   | RecordExpr (pos , _ , _, _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
@@ -128,7 +128,7 @@ let rec expr_contains_call = function
   | EmptyMap (_, Some (kt, vt)) ->
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
-  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
@@ -156,7 +156,7 @@ let rec expr_contains_id id = function
     fold_lustre_ty expr_is_id false (||) kt || 
     fold_lustre_ty expr_is_id false (||) vt 
   | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
-  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_id id e
@@ -191,7 +191,6 @@ let rec substitute_naive (var:HString.t) t = function
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
-  | TupleProject (pos, e, idx) -> TupleProject (pos, substitute_naive var t e, idx)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
@@ -255,7 +254,6 @@ let rec apply_subst_in_expr sigma = function
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
-  | TupleProject (pos, e, idx) -> TupleProject (pos, apply_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -326,7 +324,6 @@ let rec apply_type_subst_in_expr
   | Ident _ 
   | ModeRef _  -> expr
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
-  | TupleProject (pos, e, idx) -> TupleProject (pos, apply_type_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -440,7 +437,7 @@ let rec has_unguarded_pre ung = function
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
+  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
   | AnyOp (pos, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
@@ -541,7 +538,7 @@ let rec has_unguarded_pre_no_warn ung = function
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
+  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
@@ -644,7 +641,7 @@ let rec has_pre_or_arrow = function
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) 
+  | Quantifier (_, _, _, e) 
   | AnyOp (_, _, e) | Extract (_, e, _, _) -> 
     has_pre_or_arrow e
 
@@ -734,7 +731,7 @@ let rec lasts_of_expr acc = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
+  | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
 
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
@@ -896,7 +893,6 @@ let rec vars_of_node_calls_h obs =
   | Ident (_, i) -> if obs then SI.singleton i else SI.empty
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | RecordProject (_, e, _) -> vars obs e 
-  | TupleProject (_, e, _) -> vars obs e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
@@ -945,7 +941,6 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Ident (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
-  | TupleProject (_, e, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1003,7 +998,6 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Ident _ -> NI.Set.empty
   | ModeRef _ -> NI.Set.empty
   | RecordProject (_, e, _) -> calls_of_expr e 
-  | TupleProject (_, e, _) -> calls_of_expr e
   | Const _ -> NI.Set.empty
   | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> calls_of_expr e
@@ -1037,7 +1031,6 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | Ident (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
   | RecordProject (_, e, _) -> vars e 
-  | TupleProject (_, e, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1178,7 +1171,6 @@ let rec replace_with_constants: expr -> expr =
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
-  | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1271,7 +1263,6 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
   | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
-  | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
   (* Values *)
   | Const _ as e -> e
 
@@ -1367,7 +1358,6 @@ let rec replace_idents locals1 locals2 expr =
   | UnaryOp (a, b, e) -> UnaryOp (a, b, r e)
   
   | When (a, e, b) -> When (a, r e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, r e, b)
   | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, r e1, r e2)
   | CompOp (a, b, e1, e2) -> CompOp (a, b, r e1, r e2)
   | IndexAccess (a, e1, e2, k) -> IndexAccess (a, r e1, r e2, k)
@@ -1504,8 +1494,6 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok t
     | RecordProject (_, xe, xi), RecordProject (_, ye, yi) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi)
-    | TupleProject (_, xe, xi), TupleProject(_, ye, yi) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && xi = yi)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
     | Const (_, Num x), Const (_, Num y) -> Ok (HString.equal x y)
@@ -1716,9 +1704,6 @@ let hash depth_limit expr =
       | RecordProject (_, e, i) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (3, e_hash, HString.hash i)
-      | TupleProject (_, e, i) ->
-        let e_hash = r (depth + 1) e in
-        Hashtbl.hash (4, e_hash, i)
       | Const (_, True) -> Hashtbl.hash (5, 0)
       | Const (_, False) -> Hashtbl.hash (5, 1)
       | Const (_, Num x) -> Hashtbl.hash (5, 2, HString.hash x)
@@ -1855,7 +1840,6 @@ let rec rename_contract_vars = function
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
   | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
-  | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)

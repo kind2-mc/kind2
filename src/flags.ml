@@ -698,7 +698,7 @@ module BmcKind = struct
     )
   let max () = !max
 
-  let check_unroll_default = true
+  let check_unroll_default = false
   let check_unroll = ref check_unroll_default
   let _ = add_spec
     "--bmc_check_unroll"

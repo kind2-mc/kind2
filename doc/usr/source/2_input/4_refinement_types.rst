@@ -96,11 +96,11 @@ Conceptually, the refinement types can be viewed as an augmentation of
 .. code-block::
 
    node M(x1: int; x2: int) returns (y: int);
-   (*@contract
+   con
       assume x1 mod 2 = 0; 
       assume x2 mod 2 = 1;
       guarantee y mod 2 = 1;
-   *)
+   noc
    let
       y = x1 + x2;
       --%MAIN;
@@ -160,7 +160,7 @@ One way to make the above interface realizable is to add a refinement type for `
 
    node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 
-To check the realizability refinement types, one can call ``kind2 <filename> --enable CONTRACTCK``.
+To check the realizability of refinement types, one can call ``kind2 <filename> --enable CONTRACTCK``.
 Kind 2 performs three types of realizability checks:
 
 1. Node and imported node contracts, including type information

@@ -73,6 +73,13 @@ jobs:
     - name: Run ounit and regression tests
       run: opam exec make test
 
+    - name: Build user documentation
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y latexmk texlive-xetex lmodern
+        pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
+        make doc
+
     - name: Upload kind2 artifact
       if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
       uses: actions/upload-artifact@v4

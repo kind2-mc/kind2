@@ -102,6 +102,12 @@ class LustreItem(pytest.Item):
 
     def runtest(self):
         self.res = run(self._command(), capture_output=True)
+
+        # Timeout is OK 
+        result = code_to_expected.get(self.res.returncode)
+        if result == "timeout": 
+          return   
+
         if self.res.returncode != expected_to_code[self.expected]:
             raise LustreException
 

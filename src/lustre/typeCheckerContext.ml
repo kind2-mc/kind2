@@ -154,7 +154,10 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
       | Some ps -> ps
       | None -> []
     in
-    let sigma = List.combine ps ty_args in
+    let sigma = match ty_args with 
+    | [] -> [] (* If no type args given, retrieve the polymorphic type *) 
+    | _ -> List.combine ps ty_args 
+    in
     let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
     match ty with
     | LA.UserType (_, ty_args, uid) ->
@@ -541,7 +544,6 @@ let rec arity_of_expr ty_ctx = function
   | Pre (_, e) -> arity_of_expr ty_ctx e
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
   | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
-  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
   | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
   | _ -> 1
@@ -858,7 +860,6 @@ let rec ty_vars_of_expr ctx node_name expr =
   | EmptyMap (_, None) | EmptySet (_, None) 
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e 
-  | TupleProject (_, e, _) -> call e
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)

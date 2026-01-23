@@ -29,6 +29,9 @@ Table of Contents
     2_input/6_history_type
     2_input/7_abstract_types
     2_input/8_polymorphic_types
+    2_input/9_tuples
+    2_input/10_sets
+    2_input/11_maps
     3_output/2_machine_readable
     3_output/3_exit_codes
 

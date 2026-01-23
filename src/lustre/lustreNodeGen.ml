@@ -51,6 +51,7 @@ type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
   free_constants : (HString.t option * HString.t * Var.t LustreIndex.t) list;
+  local_constants : LustreAst.expr StringMap.t;
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
@@ -134,6 +135,7 @@ let empty_compiler_state () = {
   nodes = [];
   type_alias = StringMap.empty;
   free_constants = [];
+  local_constants = StringMap.empty;
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
   global_constraints = [];
@@ -453,6 +455,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let ty = 
         let idx = List.nth (List.rev (X.ArrayVarIndex b :: rhs_index_tl)) j in 
         match idx with 
+        | X.SetMapIndex b
         | X.ArrayVarIndex b -> 
           E.type_of_expr b 
         | _ -> assert false 
@@ -473,6 +476,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       let ty = 
         let idx = List.nth (List.rev (X.SetMapIndex b :: rhs_index_tl)) j in 
         match idx with 
+        | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
         | _ -> assert false 
@@ -827,7 +831,11 @@ and compile_ast_expr
         cstate.free_constants
       in
       X.map E.mk_free_var var
-    with Not_found ->
+    with Not_found -> (* Local constants *)
+    try
+      let expr = StringMap.find id_str cstate.local_constants in
+      compile_ast_expr cstate ctx bounds map expr
+    with Not_found -> (* Global constants *)
     try
       let expr = StringMap.find id_str cstate.other_constants in
       compile_ast_expr cstate ctx bounds map expr
@@ -1182,13 +1190,14 @@ and compile_ast_expr
     let rec push expr = match X.choose expr with
       | X.SetMapIndex _ :: _, v
       | X.ArrayVarIndex _ :: _, v
-      | X.ArrayIntIndex _ :: _, v ->
-        let over_expr = fun e -> match e with
+      | X.ArrayIntIndex _ :: _, v -> 
+        let over_expr = fun k v acc -> 
+          match (List.rev k) with 
           | X.SetMapIndex _ :: tl
           | X.ArrayVarIndex _ :: tl
-          | X.ArrayIntIndex _ :: tl -> X.add tl
-          | _ -> assert false
-        in let expr = X.fold over_expr expr X.empty in
+          | X.ArrayIntIndex _ :: tl -> X.add (List.rev tl) v acc
+          | _ -> assert false in
+        let expr = X.fold over_expr expr X.empty in
         if E.type_of_lustre_expr v |> Type.is_array then
           X.map (fun e -> E.mk_select_and_push e index) expr
         else expr
@@ -1334,7 +1343,10 @@ and compile_ast_expr
   | A.RecordProject (_, expr, field) ->
     let field = HString.string_of_hstring field in
     compile_projection bounds expr (X.RecordIndex field)
-  | A.TupleProject (_, expr, field) ->
+  | A.IndexAccess (_, expr, field, A.Tuple) ->
+    let field = match field with 
+    | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
+    | _ -> assert false in (* Tuple accesses are guaranteed concrete integers in type checking *)
     compile_projection bounds expr (X.TupleIndex field)
   | A.GroupExpr (_, A.ExprList, expr_list) ->
     let rec flatten_expr_list accum = function
@@ -1505,7 +1517,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let cstate =
     List.fold_left
       (fun cstate g ->
-        compile_const_decl cstate ctx map (node_scope @ ["contract"]) g
+        compile_const_decl cstate ctx map true (node_scope @ ["contract"]) g
       )
       cstate
       gconsts
@@ -1543,7 +1555,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
             | Some state_var -> X.add index state_var accum
             | None -> accum
           )
-          in X.fold over_indices index_types X.empty 
+          in
+          let indexed_state_var =
+            X.fold over_indices index_types X.empty
+          in
+          H.replace !map.usr_state_var ident indexed_state_var ;
+          indexed_state_var
         ) in
         
         (* Patch up eq_rhs and ghost_local *)
@@ -1802,7 +1819,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         H.replace !map.usr_state_var ident indexed_state_var ;
         indexed_state_var :: locals, cstate
       | A.NodeConstDecl (_, decl) ->
-        locals, compile_const_decl cstate ctx map (node_scope @ ["impl"]) decl
+        locals, compile_const_decl cstate ctx map true (node_scope @ ["impl"]) decl
       | A.NodeVarDecl _ -> assert false (* guaranteed by LustreSyntaxChecks *)
     in
     List.fold_left over_locals ([], cstate) locals
@@ -1813,7 +1830,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left
       (fun cstate (id, ty) ->
         let g = A.FreeConst (dummy_pos, id, ty) in
-        compile_const_decl cstate ctx map (node_scope @ ["res"]) g
+        compile_const_decl cstate ctx map true (node_scope @ ["res"]) g
       )
       cstate
       gids.GI.free_constants
@@ -2140,42 +2157,62 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
+  in
   (* ****************************************************************** *)
   (* Helpers for generated and user equations                           *)
   (* ****************************************************************** *)
-  in let compile_map_def i l is_set = 
+  let compile_map_or_set_def i idx is_set = 
     let ident = mk_ident i in
     let expr = H.find !map.expr ident in
     let result = X.map state_var_of_expr expr in
     (* TODO: Old code checks that array lengths between l and result match *)
     (* TODO: Old code checks that result must have at least one element *)
-    (* TODO: Old code suggets that shadowing can occur here *)
-    let indexes = List.length l in
+    (* TODO: Old code suggests that shadowing can occur here *)
 
-    List.iteri (fun i v -> 
-      let ident = mk_ident v in
+    let num_is = List.fold_left (fun acc i -> 
+    (* In the list of indices `i`, multiple SetMapIndexes are ambiguous: 
+       they can represent either multiple components of a single structured key, or 
+       separate keys of nested maps.
+       But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row 
+       before encountering the TupleIndex representing the membership/value arrays. 
+       So, we can compute the number of SetMapIndexes associated with the outer map's key type 
+       by finding the minimal number of SetMapIndexes before the first TupleIndex. 
 
-      (* Add index types to kt trie *)
-      let kt = X.fold (fun k _ acc -> 
-        List.fold_left (fun (acc, acc_is, acc_i) idx -> 
-        match idx with 
-        | X.SetMapIndex b -> 
-          if is_set then 
-            X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1
-          else 
-            X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1
-        | _ -> acc, acc_is, acc_i
-        ) (acc, [], 0) (List.rev k) |> (fun (x, _, _) -> x) 
-      ) expr X.empty in
+       Note that this only suffices to find the number of SetMapIndexes for the key type of the outermost map; 
+       hence, this function (compile_map_or_set_def) currently can handle only a single input 
+       index variable `idx` (as opposed to a list of indices, which is supported by compile_array_def) *)
+      let _, count = List.fold_left (fun (acc_b, acc_c) i -> 
+        if acc_b then match i with 
+        | X.SetMapIndex _ -> acc_b, acc_c + 1 
+        | _ -> false, acc_c
+        else acc_b, acc_c
+      ) (true, 0) i in 
+      if count < acc then count else acc
+    ) max_int (X.keys expr |> List.map List.rev) in 
 
-      let over_indices j t (i, a) = 
-        let expr = E.mk_array_index_var i t in
-        i + 1, X.add j expr a 
-      in
-      let index = X.fold over_indices kt (i, X.empty) |> snd in
-      H.add !map.array_index ident index;)
-      l;
-    result, indexes
+    let ident = mk_ident idx in
+    (* Add index types to kt trie *)
+    let kt = X.fold (fun k _ acc -> 
+        List.fold_left (fun (acc, acc_is, acc_i, num_is) idx -> 
+      match idx with 
+      | X.SetMapIndex b -> 
+        if is_set && num_is > 0 then 
+          X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else if num_is > 0 then  
+          X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+        else 
+          acc, acc_is, acc_i, num_is 
+      | _ -> acc, acc_is, acc_i, num_is  
+      ) (acc, [], 0, num_is) (List.rev k) |> (fun (x, _, _, _) -> x) 
+    ) expr X.empty in
+
+    let over_indices j t (i, a) = 
+      let expr = E.mk_array_index_var i t in
+      i + 1, X.add j expr a 
+    in
+    let _, index = X.fold over_indices kt (0, X.empty) in
+    H.add !map.array_index ident index;
+  result
 
   in let compile_array_def i l =
     let ident = mk_ident i in
@@ -2317,14 +2354,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   let map_element_update_eqs = 
     let over_map_element_updates acc (id, nexpr1, nexpr2, nexpr3, fresh_idx_name, _, _) =
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
-      (* Flatten nexpr2 to make the indices align (the compilation of map types in 
-         compile_ast_type flattens indices, so we need to do a corresponding flattening 
-         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e) *)
-      let nexpr2 =
+      let nexpr2 = 
         let nexpr2 = X.values nexpr2 in 
         List.fold_left (fun (acc, acc_i) e -> 
           X.add [X.TupleIndex acc_i] e acc, acc_i + 1
@@ -2383,8 +2417,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     let over_set_insertions acc (id, nexpr1, nexpr2, fresh_idx_name, _) =
       (* Desugar to lhs[i] = if i = nexpr2 then true else i in nexpr1 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       (* Flatten nexpr2 to make the indices align (the compilation of map types in 
@@ -2422,12 +2456,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_set_insertions [] gids.GI.set_insertions
   in
   let gequations = gequations @ set_insertions_eqs in
-  let set_union_eqs = 
+  let set_binop_eqs = 
     let over_set_binops acc (id, nexpr1, nexpr2, fresh_idx_name, op, _) =
       (* Desugar to lhs[i] = i in nexpr1 <op> i in nexpr2 *)
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
-      let eq_lhs, indexes = compile_map_def id [fresh_idx_name] false in 
-      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs indexes in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
       let op' = match op with 
       | A.Union -> A.Or 
       | A.Intersection -> And 
@@ -2442,12 +2476,12 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let set_union_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
-      set_union_eqs @ acc
+      let set_binop_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      set_binop_eqs @ acc
     in 
     List.fold_left over_set_binops [] gids.GI.set_binops
   in
-  let gequations = gequations @ set_union_eqs in
+  let gequations = gequations @ set_binop_eqs in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
@@ -2764,7 +2798,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   }
 
 
-and compile_const_decl cstate ctx map scope = function
+and compile_const_decl cstate ctx map is_local scope = function
   | A.FreeConst (p, i, ty) -> (
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
@@ -2820,8 +2854,12 @@ and compile_const_decl cstate ctx map scope = function
     Otherwise these other constants are used only for constant propagation *)
   | A.UntypedConst (_, id, expr)
   | A.TypedConst (_, id, expr, _) ->
-    { cstate with
-      other_constants = StringMap.add id expr cstate.other_constants }
+    if is_local then ( 
+      { cstate with
+        local_constants = StringMap.add id expr cstate.local_constants })
+    else 
+      { cstate with
+        other_constants = StringMap.add id expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ps, ltype) ->
@@ -2849,11 +2887,13 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
-    compile_const_decl cstate ctx empty_map [] const_decl
+    compile_const_decl cstate ctx empty_map false [] const_decl 
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract
+    let cstate = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract
+    let cstate = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
