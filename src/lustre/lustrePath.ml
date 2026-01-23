@@ -1757,29 +1757,32 @@ let rec pp_print_type_json field ppf stream_type =
   )
 
 let pp_print_section_json sect ppf mode_traces  =
-  Format.fprintf ppf ",@,\"%s\" :@,[@[<v 1>%a@]@,]"
-    sect
-    (pp_print_list
-       (fun ppf (name, stream_type, values) ->
-          Format.fprintf ppf
-            "@,{@[<v 1>@,\
-              \"name\" : \"%s\",@,\
-              %a\
-              \"instantValues\" :%t\
-             @]@,}"
-            name
-            (pp_print_type_json "type") stream_type
-            (fun ppf ->
-               if values = [] then
-                 Format.fprintf ppf " []"
-               else
-                 Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
-                   (pp_print_stream_values_json None stream_type) values
-            )
-       )
-       ",")
-    mode_traces
-   
+  match mode_traces with 
+  | [] -> ()
+  | _ -> 
+    Format.fprintf ppf ",@,\"%s\" :@,[@[<v 1>%a@]@,]"
+      sect
+      (pp_print_list
+        (fun ppf (name, stream_type, values) ->
+            Format.fprintf ppf
+              "@,{@[<v 1>@,\
+                \"name\" : \"%s\",@,\
+                %a\
+                \"instantValues\" :%t\
+              @]@,}"
+              name
+              (pp_print_type_json "type") stream_type
+              (fun ppf ->
+                if values = [] then
+                  Format.fprintf ppf " []"
+                else
+                  Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
+                    (pp_print_stream_values_json None stream_type) values
+              )
+        )
+        ",")
+      mode_traces
+    
 (* Pretty-print a single stream *)
 let pp_print_stream_json node model clock ppf (index, state_var) =
   try
