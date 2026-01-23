@@ -540,7 +540,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
   | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 expr ref_expr in
+    let expr = AH.substitute_naive id2 expr ref_expr in 
     [expr]
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
@@ -2501,18 +2501,47 @@ and expand_node_calls_in_place info node_id var count expr =
     expand_node_call info (Some node_id) e var count
   | e -> e
 
-and normalize_ty info node_id map id ty = 
+and normalize_ty ?(guard = None) info node_id map id ty = 
   match ty with 
   | A.RefinementType (p1, (p2, id2, ty2), expr) -> 
     let expr = AH.substitute_naive id2 (A.Ident (p1, id)) expr in
-    let info =  { info with context = 
-      let ctx = Ctx.add_ty info.context id2 ty2 in 
-      Ctx.add_ty ctx id ty 
-    }; in
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
-    A.RefinementType (p1, (p2, id, ty2), nexpr), union h_gids gids, warnings
-    
+    let gids = union h_gids gids in
+    A.RefinementType (p1, (p2, id, ty2), nexpr), gids, warnings
+  | TupleType (p, tys) -> 
+    let tys, gids, warnings = List.map (normalize_ty ~guard info node_id map id) tys |> Lib.split3 in
+    let gids = List.fold_left union (empty ()) gids in 
+    let warnings = List.concat warnings in
+    TupleType (p, tys), gids, warnings 
+  | GroupType (p, tys) ->
+    let tys, gids, warnings = List.map (normalize_ty ~guard info node_id map id) tys |> Lib.split3 in
+    let gids = List.fold_left union (empty ()) gids in 
+    let warnings = List.concat warnings in
+    GroupType (p, tys), gids, warnings 
+  | RecordType (p, id, tis) -> 
+    let tis, gids, warnings = List.map (fun (p, id, ty) -> 
+      let ty, gids, warnings = normalize_ty ~guard info node_id map id ty in 
+      (p, id, ty), gids, warnings 
+    ) tis |> Lib.split3 in 
+    let gids = List.fold_left union (empty ()) gids in 
+    let warnings = List.concat warnings in
+    RecordType (p, id, tis), gids, warnings 
+  | ArrayType (p, (ty, len)) -> 
+    let ty, gids1, warnings1 = normalize_ty ~guard info node_id map id ty in 
+    let len, gids2, warnings2  = normalize_expr ?guard info node_id  map len in 
+    ArrayType (p, (ty, len)), union gids1 gids2, warnings1 @ warnings2
+  | TArr (p, ty1, ty2) ->
+    let ty1, gids1, warnings1 = normalize_ty ~guard info node_id map id ty1 in 
+    let ty2, gids2, warnings2 = normalize_ty ~guard info node_id map id ty2 in 
+    TArr (p, ty1, ty2 ), union gids1 gids2, warnings1 @ warnings2 
+  | Map (p, kt, vt) -> 
+    let kt, gids1, warnings1 = normalize_ty ~guard info node_id map id kt in 
+    let vt, gids2, warnings2 = normalize_ty ~guard info node_id map id vt in 
+    Map (p, kt, vt), union gids1 gids2, warnings1 @ warnings2 
+  | Set (p, ty) -> 
+    let ty, gids, warnings = normalize_ty ~guard info node_id map id ty in 
+    Set (p, ty), gids, warnings 
   | Int _ | History _ | Bool _ | Real _ | IntRange _ 
-  | UserType _ | AbstractType _ | TupleType _ | GroupType _ | RecordType _ 
-  | ArrayType _ | EnumType _ | TArr _ | Map _ | Set _ | SBitVector _ | UBitVector _ -> ty, empty (), []
+  | UserType _ | AbstractType _ 
+  | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
