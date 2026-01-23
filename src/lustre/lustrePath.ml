@@ -1503,7 +1503,7 @@ let process_gen_funcs gen_funcs path =
   List.iter (fun (_, _, vals, sv) -> 
     SVT.add model sv (List.map Option.get vals)
   ) gen_funcs;  
-  List.map (fun (id, ty, _, sv) -> [], sv) gen_funcs 
+  List.map (fun (_, _, _, sv) -> [], sv) gen_funcs 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
