@@ -19,7 +19,6 @@
 open Lib
 open LustreReporting
 open Lexing
-open MenhirLib.General
    
 module LA = LustreAst
 module LH = LustreAstHelpers
@@ -80,9 +79,9 @@ let success (v : LustreAst.t): LustreAst.t =
 
 (* Generates the appropriate parser error message *)
 let build_parse_error_msg env =
-  match LPMI.stack env with
-  | lazy Nil -> None, "Syntax Error!"
-  | lazy (Cons (LPMI.Element (state, _, _, p), _)) ->
+  match LPMI.top env with
+  | None -> None, "Syntax Error!"
+  | Some (LPMI.Element (state, _, _, p)) ->
     let pstate = LPMI.number state in
     let error_msg = "Syntax Error!" in
     Log.log L_debug "(Parser Error State: %d)" pstate;
