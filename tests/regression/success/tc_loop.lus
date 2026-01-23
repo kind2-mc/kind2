@@ -7,7 +7,6 @@ type bounded =
 
 node I(b:bool) returns (o: bounded);
 let
-  -- o = 0 -> pre o + 1; --
   o = any { n: increasing | true  };
 tel
 

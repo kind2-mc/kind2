@@ -838,8 +838,6 @@ let rec type_contains_array ctx = function
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec ty_vars_of_expr ctx node_name expr = 
-  Format.printf "Collecting type variable of %a\n"
-    LA.pp_print_expr expr;
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
   | LA.Call (_, tys, _, es) -> 
@@ -892,8 +890,6 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
 
 and ty_vars_of_type ctx node_name ty = 
-  Format.printf "Collecting type variable of %a\n"
-    LA.pp_print_lustre_type ty;
   let call = ty_vars_of_type ctx node_name in 
   match ty with
   | UserType (_, ty_args, id) -> (
