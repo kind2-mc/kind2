@@ -838,6 +838,8 @@ let rec type_contains_array ctx = function
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec ty_vars_of_expr ctx node_name expr = 
+  Format.printf "Collecting type variable of %a\n"
+    LA.pp_print_expr expr;
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
   | LA.Call (_, tys, _, es) -> 
@@ -847,7 +849,8 @@ let rec ty_vars_of_expr ctx node_name expr =
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
   | LA.EmptySet (_, Some ty) ->
     ty_vars_of_type ctx node_name ty 
-  | AnyOp (_, (_, _, ty), e) -> 
+  | AnyOp (_, (_, i, ty), e) -> 
+    let ctx = add_ty ctx i ty in
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
@@ -889,6 +892,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
 
 and ty_vars_of_type ctx node_name ty = 
+  Format.printf "Collecting type variable of %a\n"
+    LA.pp_print_lustre_type ty;
   let call = ty_vars_of_type ctx node_name in 
   match ty with
   | UserType (_, ty_args, id) -> (
@@ -896,7 +901,9 @@ and ty_vars_of_type ctx node_name ty =
     | Some ty -> ty_vars_of_type ctx node_name ty
     | None -> SI.empty
   )
-  | RefinementType (_, (_, _, ty), e) 
+  | RefinementType (_, (_, i, ty), e) ->
+    let ctx = add_ty ctx i ty in
+    SI.union (call ty) (ty_vars_of_expr ctx node_name e)
   | ArrayType (_, (ty, e)) -> 
     SI.union (call ty) (ty_vars_of_expr ctx node_name e)
   | TupleType (_, tys) | GroupType (_, tys) -> 
