@@ -1,0 +1,12 @@
+type nat = subrange [0, *] of int;
+
+type increasing = subtype { n: nat | true -> n > pre n };
+
+type bounded =
+  subtype { n: increasing | true -> n - pre n <= 3 };
+
+node I(b:bool) returns (o: bounded);
+let
+  o = any { n: increasing | true  };
+tel
+
