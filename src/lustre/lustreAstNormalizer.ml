@@ -167,7 +167,7 @@ type info = {
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = StringMap.bindings gids.locals in
+  let locals_list = StringMap.bindings gids.locals in 
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
@@ -2422,7 +2422,33 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | TupleType _ -> Tuple
       | _ -> assert false
     in
-    IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+    let index_access = A.IndexAccess (pos, nexpr1, nexpr2, kind') in
+    (match kind' with 
+    | Map -> index_access, union gids1 gids2, warnings1 @ warnings2 
+    | Unknown -> assert false
+    | Array -> 
+    (* Wrap the index access a[i] inside an ite `if index_in_bounds then a[i] else default_value`. 
+       We need default values for out of bounds array accesses -- otherwise we can have 
+       arr1 = arr2 (by assignment of arr2 to arr1), 
+       but arr1[i] <> arr2[i] for some i (e.g. -1), violating Lustre semantics. *)
+    let array_type, _ = Chk.infer_type_expr info.context (Some node_id) expr1 |> unwrap in
+    let array_type = Chk.expand_type_syn_reftype_history_subrange info.context array_type |> unwrap in
+    let value_type, bound = match array_type with 
+    | ArrayType (_, (value_type, bound)) -> value_type, bound 
+    | _ -> assert false 
+    in
+    let nbound, gids3, warnings3 = normalize_expr ?guard info node_id map bound in
+    let index_in_bounds = 
+      A.BinaryOp (pos, A.And, 
+        A.CompOp (pos, A.Lte, A.Const (pos, A.Num (HString.mk_hstring "0")), nexpr2), 
+        A.CompOp (pos, A.Lt, nexpr2, nbound)
+      )
+    in 
+    let default_value = AH.default_value_of_type pos value_type in
+    let ndefault_value, gids4, warnings4 = normalize_expr ?guard info node_id map default_value in
+    let ite = A.TernaryOp (pos, A.Ite, index_in_bounds, index_access, ndefault_value) in 
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in
+    ite, gids, warnings1 @ warnings2 @ warnings3 @ warnings4)
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)

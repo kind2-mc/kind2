@@ -1708,6 +1708,7 @@ let hash depth_limit expr =
       | Const (_, False) -> Hashtbl.hash (5, 1)
       | Const (_, Num x) -> Hashtbl.hash (5, 2, HString.hash x)
       | Const (_, Dec x) -> Hashtbl.hash (5, 3, HString.hash x)
+      | Const (_, AbstractTypeConst (id, n)) -> Hashtbl.hash (5, 3, HString.hash id, n)
       | UnaryOp (_, op, e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (6, op, e_hash)
@@ -1820,6 +1821,69 @@ let hash depth_limit expr =
   in
   r 0 expr
 
+let hash_ty depth_limit ty =
+  let rec r depth ty =
+    if Lib.is_some depth_limit && depth > Lib.get depth_limit then
+      Hashtbl.hash (0, Lib.get depth_limit)
+    else match ty with
+      | Bool _ -> Hashtbl.hash 1
+      | Int _ -> Hashtbl.hash 2
+      | SBitVector (_, n) -> Hashtbl.hash (3, n)
+      | UBitVector (_, n) -> Hashtbl.hash (4, n)
+      | IntRange (_, lo, hi) ->
+        let lo_hash = match lo with
+          | None -> 0
+          | Some e -> hash depth_limit e
+        in
+        let hi_hash = match hi with
+          | None -> 0
+          | Some e -> hash depth_limit e
+        in
+        Hashtbl.hash (5, lo_hash, hi_hash)
+      | Real _ -> Hashtbl.hash 6
+      | UserType (_, tys, id) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (7, tys_hash, HString.hash id)
+      | AbstractType (_, id) ->
+        Hashtbl.hash (8, HString.hash id)
+      | TupleType (_, tys) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (9, tys_hash)
+      | GroupType (_, tys) ->
+        let tys_hash = List.map (r (depth + 1)) tys in
+        Hashtbl.hash (10, tys_hash)
+      | RecordType (_, id, fields) ->
+        let fields_hash =
+          List.map (fun (_, i, t) -> HString.hash i, r (depth + 1) t) fields
+        in
+        Hashtbl.hash (11, HString.hash id, fields_hash)
+      | ArrayType (_, (t, e)) ->
+        let t_hash = r (depth + 1) t in
+        let e_hash = hash depth_limit e in
+        Hashtbl.hash (12, t_hash, e_hash)
+      | EnumType (_, id, ids) ->
+        let ids_hash = List.map HString.hash ids in
+        Hashtbl.hash (13, HString.hash id, ids_hash)
+      | History (_, id) ->
+        Hashtbl.hash (14, HString.hash id)
+      | TArr (_, t1, t2) ->
+        let t1_hash = r (depth + 1) t1 in
+        let t2_hash = r (depth + 1) t2 in
+        Hashtbl.hash (15, t1_hash, t2_hash)
+      | RefinementType (_, (_, i, t), e) ->
+        let t_hash = r (depth + 1) t in
+        let e_hash = hash depth_limit e in
+        Hashtbl.hash (16, HString.hash i, t_hash, e_hash)
+      | Map (_, t1, t2) ->
+        let t1_hash = r (depth + 1) t1 in
+        let t2_hash = r (depth + 1) t2 in
+        Hashtbl.hash (17, t1_hash, t2_hash)
+      | Set (_, t) -> 
+        let t_hash = r (depth + 1) t in 
+        Hashtbl.hash (18, t_hash)
+  in
+  r 0 ty
+
 let rec rename_contract_vars = function
   | Ident (p, i) as e ->
     let components = String.split_on_char '_' (HString.string_of_hstring i) in
@@ -1902,4 +1966,33 @@ let get_const_num_value = function
   | Const (_, Num x) ->
     int_of_string_opt (HString.string_of_hstring x)
   | _ -> None
+
+let rec default_value_of_type p value_type =
+  let r = default_value_of_type p in match value_type with 
+  | Int _ -> Const (p, Num (HString.mk_hstring "0"))
+  | Bool _ -> Const (p, True) 
+  | Real _ -> Const (p, Dec (HString.mk_hstring "0.0"))
+  | SBitVector (_, width) -> 
+    ConvOp (p, ToBV width, Const (p, Num (HString.mk_hstring "0")))
+  | UBitVector (_, width) -> 
+    ConvOp (p, ToUBV width, Const (p, Num (HString.mk_hstring "0")))
+  | TupleType (_, tys) -> 
+    GroupExpr (p, TupleExpr, List.map r tys) 
+  | GroupType (_, tys) -> 
+    GroupExpr (p, ExprList, List.map r tys) 
+  | Set (_, ty) -> EmptySet (p, Some ty)
+  | Map (_, kt, vt) -> EmptyMap (p, Some (kt, vt))
+  | RecordType (_, id, tis) -> 
+    let tys = List.map (fun (_, _, ty) -> ty) tis in
+    let record_values = List.map (fun (_, id, ty) -> 
+      id, r ty 
+    ) tis in 
+    RecordExpr (p, id, tys, record_values) 
+  | ArrayType (_, (v_ty, size_expr)) ->
+    ArrayConstr (p, r v_ty, size_expr)
+  | EnumType (_, _, vals) -> 
+    (* Enum types must have at least one enum constant, so List.hd is safe *)
+    Ident (p, List.hd vals)
+  | AbstractType (_, id) -> Const (p, AbstractTypeConst (id, 0))
+  | RefinementType _ | IntRange _ | UserType _ | History _ | TArr _ -> assert false
 

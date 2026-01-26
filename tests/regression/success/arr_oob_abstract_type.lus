@@ -1,0 +1,7 @@
+type T;
+
+node N () returns (arr1, arr2: T^5)
+let
+  arr2 = arr1;
+  check arr2[-1] = arr1[-1];
+tel

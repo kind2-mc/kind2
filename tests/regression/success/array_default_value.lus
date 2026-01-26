@@ -1,0 +1,5 @@
+node N () returns (a1: [int, int]^5; a2: [int, int]^5)
+let
+  a2 = a1; 
+  check a2[-1] = a1[-1];
+tel

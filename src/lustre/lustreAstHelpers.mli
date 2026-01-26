@@ -186,6 +186,11 @@ val hash : int option -> expr -> int
     the same hash value is assigned to every sub expression. This function does not include position
     information in the hash. *)
 
+val hash_ty : int option -> lustre_type -> int
+(** Compute the hash of a lustre type to the given depth. After the depth limit is reached
+    the same hash value is assigned to every sub type. This function does not include position
+    information in the hash. *)
+
 val rename_contract_vars : expr -> expr
 (** Rename contract variables from internal names (with format #_contract_var) to syntax names *)
 
@@ -193,6 +198,8 @@ val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HS
 (** Get the name associated with a property *)
 
 val get_const_num_value : expr -> int option
+
+val default_value_of_type: Lib.position -> lustre_type -> expr 
 
 val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 (** `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,

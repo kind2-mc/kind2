@@ -83,6 +83,7 @@ type constant =
   | True | False
   | Num of HString.t
   | Dec of HString.t
+  | AbstractTypeConst of HString.t * int
 
 type quantifier =
   | Forall | Exists
@@ -500,6 +501,8 @@ let rec pp_print_expr ppf =
     | Const (p, True) -> ps p (HString.mk_hstring "true")
     | Const (p, False) -> ps p (HString.mk_hstring "false")
     | Const (p, Num n) -> ps p n
+    | Const (p, AbstractTypeConst (id, n)) -> 
+      ps p (Format.asprintf "%a_%d" HString.pp_print_hstring id n |> HString.mk_hstring) 
     | Const (p, Dec d) -> ps p d
 
     | ConvOp (p, ToInt, e) -> p1 p "int" e
