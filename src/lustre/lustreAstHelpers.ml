@@ -1462,7 +1462,7 @@ let get_last_node_name: declaration list -> NI.t option
   let rec get_first_node_name: declaration list -> NI.t option =
     function
     | [] -> None
-    | NodeDecl (_, (n, _, _, _, _, _, _, _, _, _)) :: _ -> Some n
+    | NodeDecl (_, (n, _, _, _, _, _, _, _, _)) :: _ -> Some n
     | _ :: rest -> get_first_node_name rest
   in get_first_node_name (List.rev ds)   
 
@@ -1474,7 +1474,7 @@ let rec remove_node_in_declarations:
   fun n pres ->
   function
   | [] -> None
-  | (NodeDecl (_, (n', _, _, _, _, _, _, _, _, _)) as mn) :: rest ->
+  | (NodeDecl (_, (n', _, _, _, _, _, _, _, _)) as mn) :: rest ->
      if Stdlib.compare n' n = 0
      then Some (mn, pres @ rest)
      else remove_node_in_declarations n (pres @ [mn]) rest 
@@ -1934,7 +1934,8 @@ let rec constants_to_calls new_func_ids expr =
   let r = constants_to_calls new_func_ids in
   match expr with 
   | Ident (p, id) -> 
-    if List.mem id new_func_ids then Call (p, [], NI.mk_node_id id, []) else expr
+    let node_type = NI.Constant in
+    if List.mem id new_func_ids then Call (p, [], NI.mk_node_id ~node_type id, []) else expr
   | Quantifier (p, b, tis, e) -> 
     (* Remove 'tis' from new_func_ids because they're bound in 'e' *)
     let is = List.map (fun (_, i, _) -> i) tis in

@@ -94,7 +94,7 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
 | A.AnnotProperty (p, id, e, k) -> 
   A.AnnotProperty (p, id, AH.constants_to_calls new_func_ids e, k)
 
-let node_decl_constants_to_calls new_func_ids (ni, gen, imp, opac, ps, ips, ops, locals, nis, c) = 
+let node_decl_constants_to_calls new_func_ids (ni, imp, opac, ps, ips, ops, locals, nis, c) = 
   let* ips = R.seq (List.map (fun (p, id, ty, c, b) -> 
     let* ty = ty_constants_to_calls_safe new_func_ids ty in 
     R.ok (p, id, ty, c, b)
@@ -119,7 +119,7 @@ let node_decl_constants_to_calls new_func_ids (ni, gen, imp, opac, ps, ips, ops,
       let* c'' = contract_constants_to_calls new_func_ids c' in
       R.ok (Some c'')
   in
-  R.ok ((ni, gen, imp, opac, ps, ips, ops, locals, nis, c))
+  R.ok ((ni, imp, opac, ps, ips, ops, locals, nis, c))
 
 let decl_constants_to_calls new_func_ids decl = match decl with 
 | A.NodeDecl (s, node_decl) -> 
@@ -168,13 +168,14 @@ let gen_functions ctx decls =
       if ty_contains_gids ctx None ty then 
         (* Only generate a function if necessary (we need it to handle generated identifiers *)
         let p = s.start_pos in
-        let node_id = NI.mk_node_id id in
+        let node_type = NI.Constant in
+        let node_id = NI.mk_node_id ~node_type id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
         let acc_ctx = Ctx.remove_const acc_ctx id in
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
-        acc_decls @ [A.FuncDecl (s, (node_id, true, true, Default, [], [], ops, [], [], None))],
+        acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))],
         id :: acc_new_func_ids, 
         acc_ctx
       else 

@@ -988,13 +988,15 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
 | (
   trace, Node (
     { N.node_id; N.inputs; N.outputs; N.locals;
-      N.is_gen; N.is_function; } as node,
+      N.is_function; } as node,
     model, active_modes, call_conds, subnodes
   )
 ) :: tl when N.node_is_visible node ->
 
   (* Generated functions are printed along with the global constants *)
-  if is_gen then pp_print_lustre_path_pt' false const_map gen_funcs ppf tl else
+  if NI.get_node_type node_id = Constant then 
+    pp_print_lustre_path_pt' false const_map gen_funcs ppf tl 
+  else
 
   let is_visible = N.state_var_is_visible node in
 
@@ -1007,6 +1009,7 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
     | Type -> "Type"
     | Component -> "Node"
     | Any -> "'Any' operator"
+    | Constant -> "Global constant"
   in
   
   (* Remove first dimension from index *)
@@ -1146,7 +1149,7 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
 let get_gen_func_info n = 
   let rec get_gen_funcs (Node (top, path, _, _, subnodes)) = 
     let recursive_results = List.concat_map get_gen_funcs (List.map snd subnodes) in
-    if top.LustreNode.is_gen then 
+    if NI.get_node_type top.LustreNode.node_id = Constant then 
       (top, path) :: recursive_results 
     else 
       recursive_results 
@@ -1402,13 +1405,15 @@ let rec pp_print_lustre_path_xml' is_top const_map gen_funcs ppf = function
 
   | (
     trace, Node (
-      { N.node_id; N.inputs; N.outputs; N.locals; N.is_gen; N.is_function } as node,
+      { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
     (* Generated functions are printed along with the global constants *)
-    if is_gen then pp_print_lustre_path_xml' false const_map gen_funcs ppf tl else
+    if NI.get_node_type node_id = Constant then 
+      pp_print_lustre_path_xml' false const_map gen_funcs ppf tl 
+    else
 
     let is_visible = N.state_var_is_visible node in
   
@@ -1831,13 +1836,15 @@ let rec pp_print_lustre_path_json' is_top const_map gen_funcs ppf = function
   | [] -> ()
 
   | (
-    trace, Node ({ N.node_id; N.is_gen; N.is_function } as node,
+    trace, Node ({ N.node_id; N.is_function } as node,
       model, active_modes, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
 
     (* Generated functions are printed along with the global constants *)
-    if is_gen then pp_print_lustre_path_json' false const_map gen_funcs ppf tl else
+    if NI.get_node_type node_id = Constant then 
+      pp_print_lustre_path_json' false const_map gen_funcs ppf tl 
+    else
 
     let name = NI.get_user_name node_id |> HString.string_of_hstring in
 

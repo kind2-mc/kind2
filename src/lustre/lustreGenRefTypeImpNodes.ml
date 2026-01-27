@@ -158,7 +158,7 @@ let contract_node_decl_to_contracts
   else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
-= fun pos ctx (node_id, gen, extern, _, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -179,15 +179,15 @@ let node_decl_to_contracts
   (* We potentially generate two imported nodes: One for the input node's contract (w/ type info), and another 
      for the input node's inputs/environment *)
   if extern then 
-    let environment = gen_node_id, gen, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
+    let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated node *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
       R.ok ([environment], ctx, gids)
     else R.ok([], ctx, gids)
   else
-    let environment = gen_node_id, gen, extern', A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
-    let contract = (gen_node_id2, gen, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
+    let environment = gen_node_id, extern', A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
+    let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated nodes *)
       let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
@@ -212,7 +212,7 @@ let type_to_contract: Lib.position -> HString.t -> A.lustre_type -> HString.t li
   let node_items = [A.AnnotMain(pos, true)] in 
   (* Avoid name clashes (e.g., with enum constants) *)
   let id = mk_fresh_id id in
-  Some (NodeDecl (span, (gen_node_id, false, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
+  Some (NodeDecl (span, (gen_node_id, true, A.Opaque, ps, [], [(pos, id, ty, A.ClockTrue)], [], node_items, None)))
 
 let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list * Ctx.tc_context * GI.t NI.Map.t, [> error]) result
 = fun ctx decls -> 
@@ -226,10 +226,10 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.TypeDecl (_, FreeType _)
     | A.ConstDecl (_, UntypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
-    | A.NodeDecl (span, ((p, g, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
+    | A.NodeDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
       (* Add main annotations to imported nodes *)
       let node_decl = 
-        if e then p, g, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
+        if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else node_decl 
       in
       let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl in
@@ -238,10 +238,10 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
         NI.Map.merge GI.union_keys2 gids acc_gids
       )
-    | A.FuncDecl (span, ((p, g, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
+    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
       (* Add main annotations to imported functions *)
       let func_decl = 
-        if e then p, g, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
+        if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
       let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl in

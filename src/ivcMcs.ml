@@ -222,7 +222,7 @@ let rand_node name ts =
   |> List.map2 (fun t out -> dpos,HString.mk_hstring out,t,A.ClockTrue) ts
   in
   A.NodeDecl (dspan,
-    (name, false, true, Opaque, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
+    (name, true, Opaque, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
@@ -409,7 +409,7 @@ let minimize_contract_node_eq ue lst cne =
   | A.AssumptionVars _ -> [cne]
 
 let minimize_node_decl ue loc_core
-  ((node_id, gen, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
+  ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
   let id' = NI.get_internal_name node_id |> HString.string_of_hstring in
   let id_typ_map = build_id_typ_map inputs outputs locals in
@@ -424,7 +424,7 @@ let minimize_node_decl ue loc_core
     end
     in
     let locals = List.map (minimize_node_local_decl ue lst) locals in
-    (node_id, gen, extern, opac, tparams, inputs, outputs, locals, items, spec)
+    (node_id, extern, opac, tparams, inputs, outputs, locals, items, spec)
   in
   
   let scope = (Scope.mk_scope [id']) in
@@ -467,7 +467,7 @@ let minimize_decl ue loc_core = function
   | decl -> decl 
 
 let fill_input_types_hashtbl ast =
-  let aux_node_decl (id, _, _, _, _, inputs, _, _, _, _) =
+  let aux_node_decl (id, _, _, _, inputs, _, _, _, _) =
     let typ_of_input (_,_,t,_,_) = t in
     Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
   in

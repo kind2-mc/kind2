@@ -73,7 +73,7 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
         elnum ecnum
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (node_id, _, imported, _, _, _, _, _, _, contract) =
+    (node_id, imported, _, _, _, _, _, _, contract) =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   match contract with 
@@ -113,7 +113,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     elnum ecnum
 
 let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (node_id, _, imported, _, _, _, _, _, _, _) =
+    (node_id, imported, _, _, _, _, _, _, _) =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf

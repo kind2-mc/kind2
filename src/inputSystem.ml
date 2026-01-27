@@ -455,7 +455,7 @@ let get_node_id in_sys scope =
 
 let node_is_gen in_sys scope =
   match get_lustre_node in_sys scope with 
-  | Some { is_gen; } -> is_gen 
+  | Some { node_id; } -> NI.get_node_type node_id = Constant 
   | None -> false
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =

@@ -1716,7 +1716,7 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
 
 and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
   = fun pos ctx
-        (node_name, generated, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
+        (node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" NI.pp_print_node_id_user_name node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -1776,7 +1776,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
       if is_extern
       then 
         let decl = 
-          node_name, generated, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
+          node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
         in
         R.ok ( Debug.parse "External Node, no body to type check."
                 ; Debug.parse "TC declaration node %a done }" NI.pp_print_node_id_user_name node_name ;
@@ -1813,7 +1813,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         Debug.parse "TC declaration node %a done }"
           NI.pp_print_node_id_user_name node_name;
         let decl = 
-          node_name, generated, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
+          node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
         in
         check_lhs_eqns >> R.ok (decl, List.flatten warnings1 @ List.flatten warnings2))
 
@@ -2195,7 +2195,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
     R.ok (LA.FreeType (pos, i), add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (node_id, _, _, _, ps, ip, op, _, _, _)->
+  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _)->
   Debug.parse
     "Extracting type of node declaration: %a"
     NI.pp_print_node_id_user_name node_id

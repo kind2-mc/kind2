@@ -274,7 +274,7 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
   let decls = List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) -> 
       A.TypeDecl (pos, AliasType (pos2, id, ps, flatten_ref_type ctx ty))
-    | NodeDecl (pos, (id, gen, imported, opac, params, ips, ops, locals, items, contract)) ->
+    | NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
       let ctx =
         List.fold_left (fun acc p ->
           TypeCheckerContext.add_ty_syn acc p (A.AbstractType (Lib.dummy_pos, p))
@@ -290,8 +290,8 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
       let contract = flatten_ref_types_contract_opt ctx contract in
-      NodeDecl (pos, (id, gen, imported, opac, params, ips, ops, locals, items, contract))
-    | FuncDecl (pos, (id, gen, imported, opac, params, ips, ops, locals, items, contract)) ->
+      NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract))
+    | FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
       let ctx =
         List.fold_left (fun acc p ->
           TypeCheckerContext.add_ty_syn acc p (A.AbstractType (Lib.dummy_pos, p))
@@ -307,7 +307,7 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
       let contract = flatten_ref_types_contract_opt ctx contract in
-      FuncDecl (pos, (id, gen, imported, opac, params, ips, ops, locals, items, contract))
+      FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract))
     | NodeParamInst (pos, (id1, id2, tys)) -> 
       let tys = List.map (flatten_ref_type ctx) tys in 
       NodeParamInst (pos, (id1, id2, tys))

@@ -265,10 +265,10 @@ let pp_print_generated_identifiers ppf gids =
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
-  | A.NodeDecl (_, (id, _, _, _, _, inputs, _, _, _, _)) ->
+  | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
-  | FuncDecl (_, (id, _, _, _, _, inputs, _, _, _, _)) ->
+  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
   | _ -> map
@@ -331,7 +331,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   eq_lhs, nexpr
 
 let get_inline_func_expr inlinable_funcs name args =
-  let (_, _, _, _, _, inputs, _, _, items, _) : A.node_decl =
+  let (_, _, _, _, inputs, _, _, items, _) : A.node_decl =
     match NI.Map.find_opt name inlinable_funcs with
     | Some nd -> nd
     | None -> assert false
@@ -1075,7 +1075,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
     (fun acc decl ->
      match decl with
      | A.FuncDecl (_, nd) ->
-       let (id, _, _, _, _, _, _, _, _, _) = nd in
+       let (id, _, _, _, _, _, _, _, _) = nd in
        if NI.Set.mem id inlinable_funcs then
          NI.Map.add id nd acc
        else
@@ -1298,7 +1298,7 @@ and normalize_ghost_declaration info node_id map = function
     FreeConst (pos, id, ty), map, warnings
 
 and normalize_node info map
-    (node_id, gen, is_extern, opac, params, inputs, outputs, locals, items, contract) =
+    (node_id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
   (* Setup the typing context *)
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
@@ -1407,7 +1407,7 @@ and normalize_node info map
                              gids4; gids5; gids7; gids6_8; gids9] in
   let old_gids, warnings6 = normalize_gid_equations { info with interpretation = interpretation; } map (Some node_id) in
   let map = NI.Map.add node_id (union old_gids new_gids) map in
-  (node_id, gen, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
+  (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
   map, 
   List.flatten warnings1 @ List.flatten warnings2 @ List.flatten warnings3 @ warnings4 @ warnings5 @ warnings6
 
@@ -1995,6 +1995,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (info, [], empty())
     in
     let handle_call inlined args =
+      Format.printf "internal name: %a"  HString.pp_print_hstring (NI.get_internal_name id);
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in

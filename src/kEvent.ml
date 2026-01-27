@@ -1652,7 +1652,8 @@ let log_contractck_analysis_start in_sys scope =
         | Contract -> "contract of"
         | Type -> "type"
         | Component -> "contract of imported node"
-        | Any -> "'any' operator")
+        | Any -> "'any' operator"
+        | Constant -> "global constant")
         NI.pp_print_node_id_user_name node_id
     )
     | F_xml -> (
@@ -1667,7 +1668,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1683,7 +1685,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
 
     )

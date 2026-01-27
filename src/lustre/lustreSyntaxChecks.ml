@@ -300,9 +300,9 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _, _)) ->
+    | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
       ctx_add_node acc (NI.get_internal_name node_id) ()
-    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _, _)) ->
+    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
       ctx_add_func acc (NI.get_internal_name node_id) ()
     | _ -> acc
   in
@@ -747,9 +747,9 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
-and check_node_decl ctx span (node_id, gen, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let decl = LA.NodeDecl
-    (span, (node_id, gen, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
@@ -772,13 +772,13 @@ and check_node_decl ctx span (node_id, gen, ext, opac, params, inputs, outputs, 
   items) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
-and check_func_decl ctx span (node_id, gen, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
   in
   let decl = LA.FuncDecl
-    (span, (node_id, gen, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_calls_to_node "functions" ctx e)
@@ -1125,7 +1125,7 @@ let ovq_check_expr inlinable_funcs ctx = function
   List.fold_left (>>) (Ok []) check
 | _ -> Ok []
 
-let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, _, inputs, outputs, locals, items, contract) =
+let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
   let* warnings1 =
     match contract with
     | Some c ->

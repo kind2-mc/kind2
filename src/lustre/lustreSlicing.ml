@@ -551,7 +551,6 @@ let slice_all_of_node
       N.props; 
       N.contract;
       N.is_main;
-      N.is_gen;
       N.is_function;
       N.state_var_source_map;
       N.oracle_state_var_map;
@@ -578,7 +577,6 @@ let slice_all_of_node
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
-    N.is_gen;
     N.is_function;
     N.state_var_source_map = state_var_source_map;
     N.oracle_state_var_map = oracle_state_var_map;

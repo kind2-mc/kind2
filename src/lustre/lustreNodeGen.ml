@@ -1676,7 +1676,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids_map is_gen is_function opac cstate ctx node_id ext params inputs outputs locals items contract =
+and compile_node_decl gids_map is_function opac cstate ctx node_id ext params inputs outputs locals items contract =
   let gids = NI.Map.find node_id gids_map in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
@@ -2787,7 +2787,6 @@ and compile_node_decl gids_map is_gen is_function opac cstate ctx node_id ext pa
     props;
     contract;
     is_main;
-    is_gen;
     is_function;
     state_var_source_map;
     oracle_state_var_map;
@@ -2889,11 +2888,11 @@ and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map false [] const_decl 
-  | A.FuncDecl (_, (nname, gen, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let cstate = compile_node_decl gids gen true opac cstate ctx nname ext params inputs outputs locals items contract in
+  | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let cstate = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
-  | A.NodeDecl (_, (nname, gen, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let cstate = compile_node_decl gids gen false opac cstate ctx nname ext params inputs outputs locals items contract in
+  | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let cstate = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
