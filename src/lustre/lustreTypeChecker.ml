@@ -103,7 +103,6 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
-  | GlobalConstRefType of HString.t
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
@@ -215,7 +214,6 @@ let error_message kind = match kind with
     ^ Lib.string_of_t LA.pp_print_expr e
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
-  | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
@@ -2320,13 +2318,9 @@ and build_type_and_const_context: tc_context -> LA.t -> (LA.t * tc_context * [> 
     let* rest, ctx', warnings = build_type_and_const_context ctx' rest in 
     R.ok (LA.TypeDecl (p, ty_decl) :: rest, ctx', warnings)
   | LA.ConstDecl (s, (TypedConst (p, i, _, ty) as const_decl)) :: rest ->
-    let ty = expand_type_syn ctx ty in
-    if type_contains_ref ctx ty then type_error p (GlobalConstRefType i)
-    else (
-      let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
-      let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in 
-      R.ok (LA.ConstDecl (s, const_decl) :: rest, ctx', warnings1 @ warnings2)   
-    )
+    let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
+    let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in 
+    R.ok (LA.ConstDecl (s, const_decl) :: rest, ctx', warnings1 @ warnings2)   
   | LA.ConstDecl (s, ((FreeConst _) as const_decl)) :: rest -> (
     let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
     let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in

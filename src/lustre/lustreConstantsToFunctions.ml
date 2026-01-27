@@ -180,8 +180,26 @@ let gen_functions ctx decls =
         acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
+    | A.ConstDecl (s, A.TypedConst (p, id, e, ty)) -> 
+      if Ctx.type_contains_ref_or_subrange ctx ty then 
+        let p = s.start_pos in
+        let node_type = NI.Constant in
+        let node_id = NI.mk_node_id ~node_type id in
+        let ops = [s.start_pos, id, ty, A.ClockTrue] in
+        let nis = [A.Body (A.Equation (p, A.StructDef (p, [A.SingleIdent (p, id)]), e))] in 
+        (*!!let nis = A.AnnotMain (p, true) :: nis in*)
+        let func_ty = A.TArr (p, GroupType (p, []), ty) in 
+        let acc_ctx = Ctx.remove_const acc_ctx id in
+        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty in 
+        let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
+        acc_decls @ [A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))],
+        (* Constants with definitions don't appear in `new_func_ids` because their 
+           references don't need to be converted to calls (these constants are inlined) *)
+        acc_new_func_ids,
+        acc_ctx
+      else 
+        acc_decls @ [decl], acc_new_func_ids, acc_ctx
     | A.ConstDecl (_, A.UntypedConst _) 
-    | A.ConstDecl (_, A.TypedConst _) 
     | A.NodeDecl _ 
     | A.FuncDecl _ 
     | A.ContractNodeDecl _
