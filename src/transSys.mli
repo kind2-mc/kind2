@@ -302,7 +302,7 @@ val mk_trans_sys :
   (* Invariants. *)
   Invs.t ->
 
-  (* Is this system derived from a global constant? *)
+  (* Is this system visible *)
   bool -> 
 
   (* Created transition system and next starting value for fresh
