@@ -1712,12 +1712,12 @@ let log_analysis_start in_sys sys param =
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
       let concrete = 
-         List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) concrete
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
       |> List.map (InputSystem.get_node_id in_sys) 
       |> List.map NI.get_user_name 
       in
       let abstract = 
-         List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) abstract
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
@@ -1747,12 +1747,12 @@ let log_analysis_start in_sys sys param =
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
       let concrete = 
-           List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) concrete
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name      
       in
       let abstract = 
-           List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) abstract
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in

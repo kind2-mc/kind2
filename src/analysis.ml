@@ -347,10 +347,10 @@ let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.fo
     ) ([], [])
   in
   let concrete = 
-    List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) concrete
+    List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
   in
   let abstract = 
-    List.filter (fun sc -> not (TransSys.scope_is_derived_from_global_constant sc sys)) abstract
+    List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
   in
   Format.fprintf fmt "%s @[<v>top: '@{<blue>%a@}'%a%a@]"
     ( match param with
@@ -468,8 +468,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       ) refined
 
 let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) =
-  (* Don't print as a regular system if derived from global constant *)
-  if not (TransSys.get_derived_from_global_constant sys) then 
+  if TransSys.get_is_visible sys then 
   let valid, invalid, unknown = split_properties_nocands sys in
   let invariant, unreachable =
     valid |> List.partition (function
@@ -549,8 +548,7 @@ let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) 
 let pp_print_result pp_print_system_user_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
-  (* Don't print as a regular system if derived from global constant *)
-  if not (TransSys.get_derived_from_global_constant sys) then 
+  if not (TransSys.get_is_visible sys) then 
   let pp_print_prop_list pref = fun fmt props ->
     Format.fprintf fmt
       "%s: @[<v>%a@]@ "

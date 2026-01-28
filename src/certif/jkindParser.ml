@@ -466,8 +466,8 @@ let of_channel in_ch =
       trans_term
       (* No subsystems, no properties *)
       [] [] (None, []) (Invs.empty ())
-      (* Not derived from global constant *)
-      false
+      (* visible *)
+      true 
   in
 
   sys

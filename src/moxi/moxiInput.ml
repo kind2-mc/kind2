@@ -515,8 +515,8 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       [] (* properties *)
       (None, []) (* mode_requires *)
       (Invs.empty ()) (* node_assumptions *)
-      (* Not derived from global constant *)
-      false
+      (* visible *)
+      true 
   in
 
   let sys_vars = {

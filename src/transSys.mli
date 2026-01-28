@@ -685,9 +685,9 @@ val get_state_var_bounds : t ->
   (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t
 
-val get_derived_from_global_constant : t -> bool   
+val get_is_visible : t -> bool   
 
-val scope_is_derived_from_global_constant : Scope.t -> t -> bool   
+val scope_is_visible : Scope.t -> t -> bool   
 
 (** Same as above but with certificates *)
 val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
