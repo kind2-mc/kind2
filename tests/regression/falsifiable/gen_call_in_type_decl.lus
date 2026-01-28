@@ -4,8 +4,13 @@ const S3: subtype { s: set<int> | s = S1 * S2 };
 const S4: subtype { x: int | x in S1 * S2 };
 type R = subtype { x: int | x < S4 };
 
+node M(x: int) returns (y: int)
+let
+  y = x;
+tel
+
 node N () returns (out: R) 
 let
-  out = S4 - 1;
-  check S1 * S2 = S3;
+  out = M(S4 - 1);
+  check S1 * S2 <> S3;
 tel
