@@ -2533,7 +2533,10 @@ let merge_jkind_system lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ()) 
+      (* Not derived from global constant *)
+      false 
+  in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)
@@ -2661,7 +2664,10 @@ let merge_unsliced_system kind2_sys unsliced_sys =
       trans_term
       [kind2_subsys_inst; unsliced_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ())
+      (* Not derived from global constant *)
+      false 
+    in
 
   obs_sys
 

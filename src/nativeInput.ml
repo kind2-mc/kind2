@@ -495,7 +495,10 @@ let of_channel in_ch =
             trans_term
             subsystems
             props
-            (None, []) (Invs.empty ()) in
+            (None, []) (Invs.empty ()) 
+            (* Not derived from global constant *)
+            false 
+        in
 
         (* Add calling information *)
         (* List.iter (fun (c, m, g) -> *)

@@ -169,8 +169,6 @@ val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_id : _ t -> Scope.t -> NodeId.t
 
-val node_is_gen : _ t -> Scope.t -> bool 
-
 val current_state_props : _ t -> Scope.t -> string list
 
 val prefix_system : 'a t -> string -> 'a t

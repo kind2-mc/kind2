@@ -160,6 +160,10 @@ type t =
 
     invariants : Invs.t ;
 
+    derived_from_global_constant: bool ; 
+    (** Does this transition system originate from a function that was generated 
+        from a global constant? *)
+
   }
 
 (* ********************************************************************** *)
@@ -582,6 +586,7 @@ let set_logic t logic = { t with logic }
 (* Return the logic fragment needed to express the transition system *)
 let get_logic t = t.logic
 
+let get_derived_from_global_constant t = t.derived_from_global_constant 
 
 (* Return the scope identifying the transition system *)
 let scope_of_trans_sys t = t.scope
@@ -794,6 +799,9 @@ let find_subsystem_of_scope trans_sys scope =
     (* Return the subsystem *)
     | Some t -> t 
 
+let scope_is_derived_from_global_constant sc t = 
+  let t' = find_subsystem_of_scope t sc in 
+  t'.derived_from_global_constant 
 
 let get_max_depth trans_sys = 
   fold_subsystem_instances
@@ -1706,6 +1714,7 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
+  derived_from_global_constant 
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1888,7 +1897,8 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants}
+      invariants;
+      derived_from_global_constant;}
   in
 
   trans_sys, instance_var_id_start'

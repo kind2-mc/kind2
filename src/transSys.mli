@@ -302,6 +302,9 @@ val mk_trans_sys :
   (* Invariants. *)
   Invs.t ->
 
+  (* Is this system derived from a global constant? *)
+  bool -> 
+
   (* Created transition system and next starting value for fresh
       instance identifiers *)
   t * int
@@ -682,7 +685,10 @@ val get_state_var_bounds : t ->
   (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t
 
-    
+val get_derived_from_global_constant : t -> bool   
+
+val scope_is_derived_from_global_constant : Scope.t -> t -> bool   
+
 (** Same as above but with certificates *)
 val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
   Term.t * Certificate.t -> bool ->
