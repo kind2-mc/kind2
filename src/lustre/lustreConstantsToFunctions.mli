@@ -55,6 +55,6 @@ val constants_to_calls :
 
 (** Convert free constants to imported functions without args if there are (will be) associated 
     generated identifiers *)
-val gen_functions :
+val gen_const_functions :
   Ctx.tc_context ->
   A.declaration list -> A.declaration list * A.ident list * Ctx.tc_context

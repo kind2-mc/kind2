@@ -178,7 +178,7 @@ let ty_contains_gids ctx ni ty =
 
 (* Convert free constants to imported functions without args if there are (will be) associated 
    generated identifiers *)
-let gen_functions ctx decls = 
+let gen_const_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
     | A.ConstDecl (s, A.FreeConst (_, id, ty)) -> 
