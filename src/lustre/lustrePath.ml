@@ -1468,7 +1468,7 @@ let pp_print_contract_section_xml ctype ppf items =
   | [] -> ()
   | _ -> 
     Format.fprintf ppf
-      "@,@[<hv 0>@[<hv 1><Contract@ type=\"%s\">@]@,\
+      "@,@[<hv 0>@[<hv 1><Contract@ name=\"%s\">@]@,\
         @[<hv 3>%a@]@,</Contract>@]"
       ctype
       (pp_print_list pp_print_contract_var "") items

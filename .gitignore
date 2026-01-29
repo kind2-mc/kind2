@@ -54,8 +54,3 @@ travis_key.pub
 
 # Python stuff
 __pycache__
-
-test-stopwatch
-tests
-proof
-testgentest
