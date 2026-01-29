@@ -662,9 +662,6 @@
                     "column": {
                         "type": "integer"
                     },
-                    "activeModes": {
-                        "$ref": "#/definitions/activeModes"
-                    },
                     "streams" : {
                         "type": "array",
                         "items": {
