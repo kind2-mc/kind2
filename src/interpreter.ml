@@ -60,7 +60,7 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file input_sys _ trans_sys =
+let main ?(contract_monitor=false) input_file input_sys _ trans_sys =
 
   KEvent.set_module `Interpreter;
 
@@ -74,7 +74,7 @@ let main input_file input_sys _ trans_sys =
   let inputs =
     if input_file = "" then []
     else
-      try InputParser.read_file input_scope input_file
+      try InputParser.read_file  ~only_inputs:(not contract_monitor) input_scope input_file
       with Sys_error e -> 
         (* Output warning *)
         KEvent.log L_warn "@[<v>Error reading interpreter input file.@,%s@]" e;
@@ -134,8 +134,8 @@ let main input_file input_sys _ trans_sys =
 
   (* Number of steps to simulate *)
   let steps = 
-
-    match Flags.Interpreter.steps () with 
+    
+    match (if contract_monitor then Flags.ContractMonitor.steps else Flags.Interpreter.steps) () with 
 
     (* Simulate length of smallest input if number of steps not given *)
     | s when s <= 0 -> input_length
@@ -250,6 +250,7 @@ let main input_file input_sys _ trans_sys =
 
       (* Output execution path *)
       KEvent.execution_path
+        ~full_contract:contract_monitor
         input_sys
         trans_sys 
         (Model.path_to_list path)
