@@ -539,7 +539,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
@@ -1195,7 +1195,7 @@ let rec replace_with_constants: expr -> expr =
      let e1' = replace_with_constants e1 in
      let e2' = replace_with_constants e2 in
      CompOp (p, op, e1', e2')
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
 
   (* Structured expressions *)
   | RecordExpr (p, i, ps, flds) -> RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, replace_with_constants e)) flds))
@@ -1282,7 +1282,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      let e1' = abstract_pre_subexpressions e1 in
      let e2' = abstract_pre_subexpressions e2 in
      CompOp (p, op, e1', e2')
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | Extract (p, e, ub, lb) -> Extract (p, abstract_pre_subexpressions e, ub, lb)
 
   (* Structured expressions *)
@@ -1372,7 +1372,7 @@ let rec replace_idents locals1 locals2 expr =
   | EmptySet (p, Some t) ->
     EmptySet (p, Some (map_lustre_ty r t))
 
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | Quantifier (a, b, tis, e) -> 
     (* Remove 'tis' from locals because they're bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
@@ -1850,7 +1850,7 @@ let rec rename_contract_vars = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, rename_contract_vars e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr (pos, ident, ps, expr_list) ->
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->

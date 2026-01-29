@@ -975,7 +975,8 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     CompOp (pos, op, e1', e2')
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr (pos, ident, ps, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, RecordExpr (pos, ident, ps, expr_list')

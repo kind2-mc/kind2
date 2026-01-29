@@ -1240,7 +1240,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
-  (* Already desugared in lustreDesugarAnyOps *)
+  (* Already desugared in lustreDesugarAnyChooseOps *)
   (*check_type_expr ctx nname e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -1444,7 +1444,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   | AnyOp _ -> assert false 
-    (* Already desugared in lustreDesugarAnyOps *)
+    (* Already desugared in lustreDesugarAnyChooseOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))

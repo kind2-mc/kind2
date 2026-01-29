@@ -1336,7 +1336,7 @@ and compile_ast_expr
     compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
-  | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
+  | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)

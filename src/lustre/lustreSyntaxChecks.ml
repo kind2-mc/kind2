@@ -217,6 +217,7 @@ function
 
 | RestartEvery _
 | AnyOp _ -> true
+| ChooseOp _ -> false  
 
 | Condact (_, e, r, i, l1, l2) ->
   StringMap.mem (NI.get_internal_name i) ctx.nodes ||
@@ -641,6 +642,7 @@ let rec expr_only_supported_in_merge observer expr =
   | Quantifier (_, _, _, e) 
   | StructUpdate (_, e, _, None) -> r observer e
   | AnyOp (_, _, e) -> r false e
+  | ChooseOp (_, _, e) -> r false e (*!! Why was this `false` with `AnyOp`? *)
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, Some e2)
   | CompOp (_, _, e1, e2)

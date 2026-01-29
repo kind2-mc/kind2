@@ -124,7 +124,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | Quantifier (p, b, c, e) -> Quantifier (p, b, c, r e)
   | BinaryOp (p, b, e1, e2) -> BinaryOp (p, b, r e1, r e2)
   | CompOp (p, b, e1, e2) -> CompOp (p, b, r e1, r e2)
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, b, e1, e2, e3) -> TernaryOp (p, b, r e1, r e2, r e3)
