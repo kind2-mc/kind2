@@ -1,0 +1,9 @@
+--type Nat = subrange [0, *] of int;
+type Nat = subtype { x: int | x >= 0 } ;
+const nat: Nat = -1;
+
+node N() returns (out: int)
+let
+  out = nat;
+  check out < 0;
+tel

@@ -2317,10 +2317,7 @@ and build_type_and_const_context: tc_context -> LA.t -> (LA.t * tc_context * [> 
     let* ty_decl, ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     let* rest, ctx', warnings = build_type_and_const_context ctx' rest in 
     R.ok (LA.TypeDecl (p, ty_decl) :: rest, ctx', warnings)
-  | LA.ConstDecl (s, (TypedConst (p, i, _, ty) as const_decl)) :: rest ->
-    let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
-    let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in 
-    R.ok (LA.ConstDecl (s, const_decl) :: rest, ctx', warnings1 @ warnings2)   
+  | LA.ConstDecl (s, ((TypedConst _) as const_decl)) :: rest 
   | LA.ConstDecl (s, ((FreeConst _) as const_decl)) :: rest -> (
     let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
     let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in

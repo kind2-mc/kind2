@@ -198,7 +198,7 @@ let gen_const_functions ctx decls =
         acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
-    | A.ConstDecl (s, A.TypedConst (p, id, e, ty)) -> 
+    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
       if Ctx.type_contains_ref_or_subrange ctx ty then 
         let p = s.start_pos in
         let node_type = NI.Constant in
