@@ -49,7 +49,8 @@ let s_and = HString.mk_hstring "and"
 (**************************************)
 
 (* New scope for the JKind system *)
-let jkind_scope = ["JKind"]
+let jkind_id = "$JKind"
+let jkind_scope = [jkind_id]
 let jk_init_flag = StateVar.mk_init_flag jkind_scope
 
 (* Options used to run JKind. We make it dump its smt2 files that contain the
@@ -400,7 +401,7 @@ let of_channel in_ch =
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      ("__JKind" ^Ids.init_uf_string ^ "_0") 
+      (Ids.init_uf_string ^ "_" ^ jkind_id ^ "_0") 
       vars_types
       Type.t_bool 
   in
@@ -408,7 +409,7 @@ let of_channel in_ch =
   (* Predicate symbol for transition relation predicate *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      ("__JKind" ^Ids.trans_uf_string ^ "_0") 
+      (Ids.trans_uf_string ^ "_" ^jkind_id ^ "_0") 
       (vars_types @ vars_types)
       Type.t_bool 
   in

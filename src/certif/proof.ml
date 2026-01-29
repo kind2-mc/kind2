@@ -19,6 +19,8 @@
 open Lib
 open Format
 
+module Ids = ReservedIds
+module JP = JkindParser
 module HS = HStringSExpr
 module H  = HString
 module HM = HString.HStringMap
@@ -1136,7 +1138,7 @@ let get_proof_defs (proof : cpc_step list) =
 
 let is_jkind_name (s : HString.t) =
   let n = HString.string_of_hstring s in
-  String.starts_with ~prefix:"JKind." n
+  String.starts_with ~prefix: JP.jkind_id n
   || String.starts_with ~prefix:"%f" n
 
 let is_jkind_decl = function
@@ -1162,22 +1164,25 @@ let factor_jkind_defs (proof : cpc_step list) =
   
     let n = HString.string_of_hstring s in
     let result =
-    (String.starts_with ~prefix: init_uf_string n)
+    ((String.starts_with ~prefix: init_uf_string n) && 
+    (not (String.starts_with ~prefix: (Ids.init_uf_string ^ "_" ^ JP.jkind_id) n)))
     ||
-     (String.starts_with ~prefix: trans_uf_string n)
+    ((String.starts_with ~prefix: trans_uf_string n) && 
+    (not (String.starts_with ~prefix: (Ids.trans_uf_string ^ "_" ^ JP.jkind_id) n)))
+
     in
 
-    Format.printf "%B :: %s" result n;
+    (* Format.printf "%B :: %s" result n; *)
     result
   let is_kind_2_def = function 
   
-  | HS.List [HS.Atom kw; HS.Atom name; _] as step
-      when HString.equal kw (HString.mk_hstring "define") ->
-        Format.printf "CHecking if its a kind 2 def (true-ish): %a\n"  HS.pp_print_sexpr step;
-        is_kind_2_def_name name
-    | step -> 
-      Format.printf "CHecking if its a kind 2 def (false) %a\n" HS.pp_print_sexpr step;
-        false
+  | HS.List (HS.Atom kw :: HS.Atom name :: _)
+     when HString.equal kw (HString.mk_hstring "define") ->
+      (* Format.printf "CHecking if its a kind 2 def (true-ish) (kw = %a): %a\n"  HString.pp_print_hstring kw HS.pp_print_sexpr step; *)
+      is_kind_2_def_name name
+  | step -> 
+      (* Format.printf "CHecking if its a kind 2 def (false by struct): %a\n"  HS.pp_print_sexpr step; *)
+      false
 
   let remove_kind_2_defs (proof : cpc_step list) =
   let rec aux (acc) = function
@@ -1355,13 +1360,13 @@ let construct_kind_2_proof dirname base induction implication =
     let base_steps = remove_kind_2_defs base_steps in
     let induction_steps = remove_kind_2_defs induction_steps in
     let implication_steps = remove_kind_2_defs implication_steps in
-    Format.printf "Calling remove kind 2 defs\n";
+    (* Format.printf "Calling remove kind 2 defs\n"; *)
     let trimmed_jkind_defs = remove_kind_2_defs jkind_defs in
     
  let oc = open_out (dirname ^ "/frontend_proof.cpc") in
   let fmt = Format.formatter_of_out_channel oc in
     Format.printf "%s\n" dirname ;
-    Format.printf "JKIND defs (trimmed): %a\n" pp_cpc_proof trimmed_jkind_defs;
+    (* Format.printf "JKIND defs (trimmed): %a\n" pp_cpc_proof trimmed_jkind_defs; *)
   pp_print_frontend_proof fmt trimmed_jkind_defs base_steps induction_steps implication_steps
 
 let parse_cpc_file (filename : string) : cpc_step list =
