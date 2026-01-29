@@ -993,7 +993,7 @@ let rec pp_print_lustre_path_pt' is_top const_map const_funcs ppf = function
   )
 ) :: tl when N.node_is_visible node ->
 
-  (* Generated functions are printed along with the global constants *)
+  (* Functions derived from constants are printed along with the global constants *)
   if NI.get_node_type node_id = Constant then 
     pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
   else
@@ -1410,7 +1410,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
     )
   ) :: tl when N.node_is_visible node ->
 
-    (* Generated functions are printed along with the global constants *)
+    (* Functions derived from global constants are printed along with the global constants *)
     if NI.get_node_type node_id = Constant then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
@@ -1841,7 +1841,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
     )
   ) :: tl when N.node_is_visible node ->
 
-    (* Generated functions are printed along with the global constants *)
+    (* Functions derived from constants are printed along with the global constants *)
     if NI.get_node_type node_id = Constant then 
       pp_print_lustre_path_json' false const_map const_funcs ppf tl 
     else
