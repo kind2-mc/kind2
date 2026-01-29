@@ -1457,7 +1457,7 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
 let pp_print_contract_var ppf (vname, ty, values) =
   Format.fprintf 
     ppf
-    "@,@[<hv 2>@[<hv 1><Stream@ name=\"%s\" type=\"bool\">@]\
+    "@,@[<hv 2>@[<hv 1><Stream@ name=\"%s\" type=\"bool\" class=\"ghost\">@]\
      %a@]@,</Stream>"
     vname
     (pp_print_stream_values None ty) values  
