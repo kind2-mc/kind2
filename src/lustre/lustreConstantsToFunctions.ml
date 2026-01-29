@@ -205,7 +205,6 @@ let gen_const_functions ctx decls =
         let node_id = NI.mk_node_id ~node_type id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let nis = [A.Body (A.Equation (p, A.StructDef (p, [A.SingleIdent (p, id)]), e))] in 
-        (*!!let nis = A.AnnotMain (p, true) :: nis in*)
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
         let acc_ctx = Ctx.remove_const acc_ctx id in
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty in 

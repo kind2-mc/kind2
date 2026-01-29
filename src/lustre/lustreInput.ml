@@ -237,9 +237,6 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    Format.printf "%a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts);
-
     (* Step 20. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
       LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
@@ -383,6 +380,13 @@ let of_channel only_parse in_ch =
               raise (NoMainNode msg)
           )
         | None -> main_nodes in
+      let defined_const_funcs = List.filter_map (fun n -> 
+      if NI.get_node_type n.LustreNode.node_id = Constant && n.LustreNode.opacity = Transparent then 
+         Some n.LustreNode.node_id 
+      else 
+        None
+      ) nodes in 
+      let main_nodes = main_nodes @ defined_const_funcs in 
       Ok (nodes, globals, main_nodes)
     in
 
