@@ -202,9 +202,9 @@ val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 (** `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
 
-val constants_to_calls: index list -> expr -> expr
-(** `constants_to_calls gen_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
-     provided that `C` is in `gen_func_ids` *)
+val constants_to_calls: ident list -> expr -> expr
+(** `constants_to_calls const_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
+     provided that `C` is in `const_func_ids` *)
 
 val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 (** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)

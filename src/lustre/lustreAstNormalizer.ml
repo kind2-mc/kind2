@@ -537,7 +537,7 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       contract assumption and guarantee expressions),
       erasing bound variables, and does the proper handling to make sure the transformation is type correct. 
       For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
-      P1(x[0]) and P2(x[1]) and. *)
+      P1(x[0]) and P2(x[1]). *)
 and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
  = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
@@ -1995,7 +1995,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (info, [], empty())
     in
     let handle_call inlined args =
-      Format.printf "internal name: %a"  HString.pp_print_hstring (NI.get_internal_name id);
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in

@@ -1930,7 +1930,8 @@ let get_const_num_value = function
   | _ -> None
 
 (* Convert identifiers present in `new_func_ids` to calls with no args *)
-let rec constants_to_calls new_func_ids expr = 
+let rec constants_to_calls: ident list -> expr -> expr 
+= fun new_func_ids expr ->
   let r = constants_to_calls new_func_ids in
   match expr with 
   | Ident (p, id) -> 

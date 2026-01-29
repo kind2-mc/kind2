@@ -1,3 +1,21 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2026 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+ *)
+
+
 (**
     "Desugar" free constants to functions without arguments. 
     With new additions to the input language (namely, set binary operations), 
@@ -17,12 +35,8 @@
     @author Rob Lorch
 *)
 
-module R = Res
 module A = LustreAst
-module AH = LustreAstHelpers
-module NI = NodeId
 module Ctx = TypeCheckerContext
-module Chk = LustreTypeChecker
 
 type error_kind = GenCallInArrayLength of HString.t
 
@@ -41,6 +55,6 @@ val constants_to_calls :
 
 (** Convert free constants to imported functions without args if there are (will be) associated 
     generated identifiers *)
-val gen_functions :
+val gen_const_functions :
   Ctx.tc_context ->
   A.declaration list -> A.declaration list * A.ident list * Ctx.tc_context

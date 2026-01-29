@@ -1701,31 +1701,23 @@ let log_analysis_start in_sys sys param =
     let node_id = InputSystem.get_node_id in_sys info.Analysis.top in
     match get_log_format () with
     | F_pt ->
-      (* Splitting abstract and concrete systems. *)
-      let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = 
-         List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) concrete
-      in
-      let abstract = 
-         List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) abstract
-      in
       Format.fprintf !log_ppf "\
         @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
       Pretty.print_double_line ()
       NI.pp_print_node_id_user_name node_id
-      (Analysis.pp_print_param false abstract concrete (pp_print_user_node_name in_sys)) param
+      (Analysis.pp_print_param false sys (pp_print_user_node_name in_sys)) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
       let concrete = 
-         List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) concrete
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
       |> List.map (InputSystem.get_node_id in_sys) 
       |> List.map NI.get_user_name 
       in
       let abstract = 
-           List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) abstract
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
@@ -1755,12 +1747,12 @@ let log_analysis_start in_sys sys param =
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
       let concrete = 
-           List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) concrete
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name      
       in
       let abstract = 
-           List.filter (fun sc -> not (InputSystem.node_is_gen in_sys sc)) abstract 
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
         |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in

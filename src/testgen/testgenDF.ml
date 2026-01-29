@@ -257,12 +257,12 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
   let concrete = 
-       List.filter (fun sc -> not (InputSystem.node_is_gen input_sys sc)) concrete
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
     |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in
   let abstract = 
-       List.filter (fun sc -> not (InputSystem.node_is_gen input_sys sc)) abstract
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
     |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in 

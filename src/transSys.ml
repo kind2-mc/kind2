@@ -160,6 +160,10 @@ type t =
 
     invariants : Invs.t ;
 
+    is_visible: bool ; 
+    (** Is this transition system visible (in the output)? *)
+        
+
   }
 
 (* ********************************************************************** *)
@@ -582,6 +586,7 @@ let set_logic t logic = { t with logic }
 (* Return the logic fragment needed to express the transition system *)
 let get_logic t = t.logic
 
+let get_is_visible t = t.is_visible
 
 (* Return the scope identifying the transition system *)
 let scope_of_trans_sys t = t.scope
@@ -794,6 +799,9 @@ let find_subsystem_of_scope trans_sys scope =
     (* Return the subsystem *)
     | Some t -> t 
 
+let scope_is_visible sc t = 
+  let t' = find_subsystem_of_scope t sc in 
+  t'.is_visible
 
 let get_max_depth trans_sys = 
   fold_subsystem_instances
@@ -1706,6 +1714,7 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
+  is_visible 
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1888,7 +1897,8 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants}
+      invariants;
+      is_visible;}
   in
 
   trans_sys, instance_var_id_start'
