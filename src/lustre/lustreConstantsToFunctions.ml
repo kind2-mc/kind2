@@ -1,3 +1,21 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2026 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+ *)
+
+
 module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
@@ -140,7 +158,7 @@ let decl_constants_to_calls new_func_ids decl = match decl with
   let* c = contract_constants_to_calls new_func_ids c in 
   R.ok (A.ContractNodeDecl (p, (id, ps, ips, ops, c)))
 | A.TypeDecl (s, AliasType (p, id, ps, ty)) -> 
-  let* ty = ty_constants_to_calls_safe new_func_ids ty in (*!! Maybe don't desugar? *)
+  let* ty = ty_constants_to_calls_safe new_func_ids ty in 
   R.ok (A.TypeDecl (s, AliasType (p, id, ps, ty)))
 | A.TypeDecl (_, FreeType _) -> R.ok decl 
 | A.ConstDecl (s, const_decl) -> 

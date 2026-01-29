@@ -161,8 +161,8 @@ type t =
     invariants : Invs.t ;
 
     is_visible: bool ; 
-    (** Does this transition system originate from a function that was generated 
-        from a global constant? *)
+    (** Is this transition system visible (in the output)? *)
+        
 
   }
 

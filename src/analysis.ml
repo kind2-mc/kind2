@@ -548,7 +548,7 @@ let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) 
 let pp_print_result pp_print_system_user_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
-  if not (TransSys.get_is_visible sys) then 
+  if TransSys.get_is_visible sys then 
   let pp_print_prop_list pref = fun fmt props ->
     Format.fprintf fmt
       "%s: @[<v>%a@]@ "

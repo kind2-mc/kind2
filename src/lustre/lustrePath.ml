@@ -979,7 +979,7 @@ let filter_locals is_visible locals =
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
+let rec pp_print_lustre_path_pt' is_top const_map const_funcs ppf = function
 
 (* All nodes printed *)
 | [] -> ()
@@ -995,7 +995,7 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
 
   (* Generated functions are printed along with the global constants *)
   if NI.get_node_type node_id = Constant then 
-    pp_print_lustre_path_pt' false const_map gen_funcs ppf tl 
+    pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
   else
 
   let is_visible = N.state_var_is_visible node in
@@ -1099,10 +1099,10 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
   (* Sample inputs, outputs and locals on clock *)
   let globals', constants', inputs', outputs', ghosts', locals'  = match clock with
     | None -> 
-      (if is_top then globals' @ gen_funcs else []), 
+      (if is_top then globals' @ const_funcs else []), 
       constants', inputs', outputs', ghosts', locals'
     | Some c ->
-      (if is_top then (sample_streams_on_clock c globals') @ (sample_streams_on_clock c gen_funcs) else []),
+      (if is_top then (sample_streams_on_clock c globals') @ (sample_streams_on_clock c const_funcs) else []),
       sample_streams_on_clock c constants',
       sample_streams_on_clock c inputs',
       sample_streams_on_clock c outputs',
@@ -1138,50 +1138,50 @@ let rec pp_print_lustre_path_pt' is_top const_map gen_funcs ppf = function
   pp_print_lustre_path_pt'
     false
     const_map
-    gen_funcs
+    const_funcs
     ppf
     (subnodes @ tl)
 
 | _ :: tl ->
   
-  pp_print_lustre_path_pt' false const_map gen_funcs ppf tl
+  pp_print_lustre_path_pt' false const_map const_funcs ppf tl
 
-let get_gen_func_info n = 
-  let rec get_gen_funcs (Node (top, path, _, _, subnodes)) = 
-    let recursive_results = List.concat_map get_gen_funcs (List.map snd subnodes) in
+let get_const_func_info n = 
+  let rec get_const_funcs (Node (top, path, _, _, subnodes)) = 
+    let recursive_results = List.concat_map get_const_funcs (List.map snd subnodes) in
     if NI.get_node_type top.LustreNode.node_id = Constant then 
       (top, path) :: recursive_results 
     else 
       recursive_results 
   in
-  let gen_funcs = get_gen_funcs n in 
-  let gen_funcs = List.map (fun ({ LustreNode.node_id; outputs; }, path) -> 
+  let const_funcs = get_const_funcs n in 
+  let const_funcs = List.map (fun ({ LustreNode.node_id; outputs; }, path) -> 
     let str_name = node_id |> NI.get_name |> HString.string_of_hstring in 
     let output = List.hd (D.values outputs) in
     let () = StateVar.set_const true output in
     let vals = SVT.find path output |> List.map Option.some in
     let ty = StateVar.type_of_state_var output in
     str_name, ty, vals, output
-  ) gen_funcs in
+  ) const_funcs in
   (* Filter duplicates *)
   List.fold_left (fun acc ((id, _, _, _) as info) -> 
     if List.exists (fun (id2, _, _, _) -> String.equal id id2) acc then 
       acc 
     else 
       info :: acc
-  ) [] gen_funcs
+  ) [] const_funcs
 
 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_pt ppf (lustre_path, const_map) = 
-  (* Collect generated function information *)
-  let gen_funcs = get_gen_func_info (snd lustre_path) in
-  let gen_funcs = List.map (fun (id, ty, vals, _) -> id, ty, vals) gen_funcs in
+  (* Collect information on functions derived from global constants *)
+  let const_funcs = get_const_func_info (snd lustre_path) in
+  let const_funcs = List.map (fun (id, ty, vals, _) -> id, ty, vals) const_funcs in
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_pt' true const_map gen_funcs ppf [lustre_path]
+  pp_print_lustre_path_pt' true const_map const_funcs ppf [lustre_path]
 
 
 (* Output a hierarchical model as plain text *)
@@ -1399,7 +1399,7 @@ let pp_print_active_modes_xml ppf = function
     )
 
 (* Output a list of node models. *)
-let rec pp_print_lustre_path_xml' is_top const_map gen_funcs ppf = function 
+let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function 
 
   | [] -> ()
 
@@ -1412,7 +1412,7 @@ let rec pp_print_lustre_path_xml' is_top const_map gen_funcs ppf = function
 
     (* Generated functions are printed along with the global constants *)
     if NI.get_node_type node_id = Constant then 
-      pp_print_lustre_path_xml' false const_map gen_funcs ppf tl 
+      pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
     let is_visible = N.state_var_is_visible node in
@@ -1469,7 +1469,7 @@ let rec pp_print_lustre_path_xml' is_top const_map gen_funcs ppf = function
     in
 
     let globals' = 
-      if is_top then (get_constants const_map [] @ gen_funcs) else [] 
+      if is_top then (get_constants const_map [] @ const_funcs) else [] 
     in
 
     let constants' =
@@ -1490,34 +1490,34 @@ let rec pp_print_lustre_path_xml' is_top const_map gen_funcs ppf = function
     List.iter (pp_print_stream_xml node model clock ppf) outputs';
     List.iter (pp_print_stream_xml node model clock ppf) ghosts';
     List.iter (pp_print_stream_xml node model clock ppf) locals';
-    pp_print_lustre_path_xml' false const_map gen_funcs ppf subnodes;
+    pp_print_lustre_path_xml' false const_map const_funcs ppf subnodes;
     Format.fprintf ppf "@]@,</%s>" title;
 
     (* Continue *)
-    pp_print_lustre_path_xml' false const_map gen_funcs ppf tl
+    pp_print_lustre_path_xml' false const_map const_funcs ppf tl
 
   | _ :: tl ->
     
     (* Continue *)
-    pp_print_lustre_path_xml' false const_map gen_funcs ppf tl
+    pp_print_lustre_path_xml' false const_map const_funcs ppf tl
 
-(* gen_funcs need extra processing for xml and json *)
-let process_gen_funcs gen_funcs path = 
+(* const_funcs need extra processing for xml and json *)
+let process_const_funcs const_funcs path = 
 (* Need to update model in path to include the constant. *)
   let _, Node (_, model, _, _, _) = path in
   List.iter (fun (_, _, vals, sv) -> 
     SVT.add model sv (List.map Option.get vals)
-  ) gen_funcs;  
-  List.map (fun (_, _, _, sv) -> [], sv) gen_funcs 
+  ) const_funcs;  
+  List.map (fun (_, _, _, sv) -> [], sv) const_funcs 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_xml ppf (path, const_map) = 
-  let gen_funcs = get_gen_func_info (snd path) in
-  let gen_funcs = process_gen_funcs gen_funcs path in
+  let const_funcs = get_const_func_info (snd path) in
+  let const_funcs = process_const_funcs const_funcs path in
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_xml' true const_map gen_funcs ppf [path]
+  pp_print_lustre_path_xml' true const_map const_funcs ppf [path]
 
 
 (* Ouptut a hierarchical model as XML *)
@@ -1758,7 +1758,7 @@ let pp_print_streams_json node model clock ppf = function
           (pp_print_stream_json node model clock) ",")
         streams
 
-let pp_print_streams_json is_top const_map gen_funcs ppf
+let pp_print_streams_json is_top const_map const_funcs ppf
   ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
 
   let is_visible = N.state_var_is_visible node in
@@ -1808,7 +1808,7 @@ let pp_print_streams_json is_top const_map gen_funcs ppf
   in
 
   let globals' = 
-    if is_top then (get_constants const_map [] @ gen_funcs) else [] 
+    if is_top then (get_constants const_map [] @ const_funcs) else [] 
   in
 
   let constants' =
@@ -1831,7 +1831,7 @@ let pp_print_streams_json is_top const_map gen_funcs ppf
 
 
 (* Output a list of node models. *)
-let rec pp_print_lustre_path_json' is_top const_map gen_funcs ppf = function
+let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
 
   | [] -> ()
 
@@ -1843,7 +1843,7 @@ let rec pp_print_lustre_path_json' is_top const_map gen_funcs ppf = function
 
     (* Generated functions are printed along with the global constants *)
     if NI.get_node_type node_id = Constant then 
-      pp_print_lustre_path_json' false const_map gen_funcs ppf tl 
+      pp_print_lustre_path_json' false const_map const_funcs ppf tl 
     else
 
     let name = NI.get_user_name node_id |> HString.string_of_hstring in
@@ -1857,7 +1857,7 @@ let rec pp_print_lustre_path_json' is_top const_map gen_funcs ppf = function
       | [] -> ()
       | subnodes ->
           Format.fprintf ppf ",@,\"subnodes\" :@,[@[<v 1>%a@]@,]"
-            (pp_print_lustre_path_json' false const_map gen_funcs) subnodes
+            (pp_print_lustre_path_json' false const_map const_funcs) subnodes
     in
 
     let comma = if tl <> [] then "," else "" in
@@ -1874,28 +1874,28 @@ let rec pp_print_lustre_path_json' is_top const_map gen_funcs ppf = function
        name
        pp_print_call_json trace
        pp_print_active_modes_json active_modes
-       (pp_print_streams_json is_top const_map gen_funcs) (node, model, call_conds)
+       (pp_print_streams_json is_top const_map const_funcs) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
 
     (* Continue *)
-    pp_print_lustre_path_json' false const_map gen_funcs ppf tl
+    pp_print_lustre_path_json' false const_map const_funcs ppf tl
 
   | _ :: tl ->
 
     (* Continue *)
-    pp_print_lustre_path_json' false const_map gen_funcs ppf tl
+    pp_print_lustre_path_json' false const_map const_funcs ppf tl
 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_json ppf (path, const_map) =
-  let gen_funcs = get_gen_func_info (snd path) in
-  let gen_funcs = process_gen_funcs gen_funcs path in
+  let const_funcs = get_const_func_info (snd path) in
+  let const_funcs = process_const_funcs const_funcs path in
 
   (* Delegate to recursive function *)
   Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
-    (pp_print_lustre_path_json' true const_map gen_funcs) [path]
+    (pp_print_lustre_path_json' true const_map const_funcs) [path]
 
 
 (* Ouptut a hierarchical model as JSON *)
