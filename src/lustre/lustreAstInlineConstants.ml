@@ -262,6 +262,7 @@ and push_pre is_guarded pos =
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | When _ as e -> LA.Pre (pos, e)
   | Condact _ as e -> LA.Pre (pos, e)
   | Activate _ as e -> LA.Pre (pos, e)

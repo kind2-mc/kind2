@@ -344,6 +344,7 @@ and mk_graph_expr ?(only_modes = false)
       (mk_graph_type vt)
   | LA.EmptySet (_, Some ty) -> mk_graph_type ty
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
   | LA.Quantifier (_, _, tis, e) -> 
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
      List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
@@ -400,6 +401,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
   (* Structured expressions *)
   | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
@@ -683,8 +685,9 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
 
-  (* 'Any' operator *)
+  (* 'Any/Choose' operator *)
   | AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
 
   (* Clock operators *)
   | When (_, e, _) -> r e
@@ -852,6 +855,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              (List.concat gs)]
 
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
+  | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
      let node_call = LA.Call(pos, [], n, e1s) in

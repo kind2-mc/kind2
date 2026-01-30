@@ -847,6 +847,7 @@ let rec ty_vars_of_expr ctx node_name expr =
     SI.union (ty_vars_of_type ctx node_name kt) (ty_vars_of_type ctx node_name vt)
   | LA.EmptySet (_, Some ty) ->
     ty_vars_of_type ctx node_name ty 
+  | ChooseOp (_, (_, i, ty), e)
   | AnyOp (_, (_, i, ty), e) -> 
     let ctx' = add_ty ctx i ty in
     SI.union (ty_vars_of_expr ctx' node_name e) (ty_vars_of_type ctx node_name ty)

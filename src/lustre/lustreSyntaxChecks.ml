@@ -1077,7 +1077,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        in
        let* warnings3 = check_expr_list ctx f l in 
        Ok (warnings1 @ warnings2 @ warnings3)
-    | AnyOp (pos, (_, i, ty), e) -> 
+    | AnyOp (pos, (_, i, ty), e) 
+    | ChooseOp (pos, (_, i, ty), e) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
