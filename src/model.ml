@@ -123,7 +123,11 @@ let pp_print_value_term as_type ppf t = match as_type with
   | Some ty when Type.is_ubitvector ty ->
     let ubv = Term.bitvector_of_term t in
       Bitvector.pp_print_unsigned_machine_integer ppf ubv
-
+  | Some ty when Type.is_bool ty ->
+    if t == Term.mk_true () then
+      Format.pp_print_string ppf "tt"
+    else 
+      Format.fprintf ppf "@{<black_b>%s@}" "ff"
   | _ -> (*Type.pp_print_type2 ppf (Term.type_of_term t);*)pp_print_term ppf t
 
      

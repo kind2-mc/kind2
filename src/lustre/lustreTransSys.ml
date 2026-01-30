@@ -2282,6 +2282,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
               let interpreter_mode =
                 match analysis_param with
+                | A.ContractMonitor _
                 | A.Interpreter _ -> true
                 | _ -> false
               in
@@ -2308,12 +2309,18 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
-              if A.param_scope_is_abstract analysis_param scope then
-                abstraction_of_contract include_assumption contract :: contract_asserts,
-                properties 
-              else
+              (*Want to be in else branch with new interpreter param mode*)
+              match analysis_param, A.param_scope_is_abstract analysis_param scope with
+              | A.ContractMonitor _, _ 
+              | _, false ->  
+                (*First is assertions, second are proof obligations, want contract to go in proof obligation*)
                 contract_asserts,
                 guarantees_of_contract scope contract @ properties
+              | _, true -> 
+                abstraction_of_contract include_assumption contract :: contract_asserts,
+                properties
+            
+               
           in
 
           (* Initial state constraint *)
@@ -2947,7 +2954,8 @@ let trans_sys_of_nodes
      Contracts would be trivially satisfied otherwise *)
   ( match analysis_param with
     | A.Interpreter _
-    | A.ContractCheck _ -> ()
+    | A.ContractCheck _ 
+    | A.ContractMonitor _-> ()
     | _ -> if A.param_scope_is_abstract analysis_param top then raise (
       Invalid_argument
         "trans_sys_of_nodes: Top-level system must not be abstract"
