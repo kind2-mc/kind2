@@ -548,6 +548,7 @@ let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) 
 let pp_print_result pp_print_system_user_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
+  let param = shrink_param_to_sys param sys in
   let pp_print_prop_list pref = fun fmt props ->
     Format.fprintf fmt
       "%s: @[<v>%a@]@ "
