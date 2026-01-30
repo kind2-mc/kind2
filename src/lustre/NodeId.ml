@@ -22,6 +22,7 @@ type node_type =
   | Environment (* Generated imported node for environment realizability checking *)
   | Type (* Generated imported node for refinement type realizability checking *)
   | Any (* Generated for node corresponding to an 'any' operator *)
+  | Constant (* Global constant converted to function without args *)
  
 type t = {
   name : HString.t; (* Input name, probably not used *)
@@ -40,7 +41,8 @@ let pp_print_node_type ppf node_type =
       | Environment -> ".env_"
       | Contract -> ".contract_"
       | Type -> ".type_"
-      | Any -> ".any_")
+      | Any -> ".any_"
+      | Constant -> ".constant_")
 
 let rec pp_print_monomorphization ppf monomorphization = 
   match monomorphization with 

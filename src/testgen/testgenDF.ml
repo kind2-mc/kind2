@@ -256,10 +256,14 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> unit
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
-  let concrete = List.map (InputSystem.get_node_id input_sys) concrete 
+  let concrete = 
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+    |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in
-  let abstract = List.map (InputSystem.get_node_id input_sys) abstract
+  let abstract = 
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+    |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in 
   KEvent.log_uncond "%s@[<v>\

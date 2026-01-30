@@ -533,6 +533,11 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
   in
   mk ctx 0 expr_type expr
 
+  (* `mk_ref_type_expr` translates a full nested type to refinement type expressions (i.e., 
+      contract assumption and guarantee expressions),
+      erasing bound variables, and does the proper handling to make sure the transformation is type correct. 
+      For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
+      P1(x[0]) and P2(x[1]). *)
 and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
  = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
@@ -833,7 +838,7 @@ let get_expr_ty info map node_id expr =
           StringMap.fold
             (fun id ty acc -> Ctx.add_ty acc id ty)
             locals info.context
-        | None -> assert false 
+        | None -> info.context 
       )
       | None -> info.context
     in

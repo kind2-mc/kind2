@@ -1650,7 +1650,8 @@ let log_contractck_analysis_start in_sys scope =
         | Contract -> "contract of"
         | Type -> "type"
         | Component -> "contract of imported node"
-        | Any -> "'any' operator")
+        | Any -> "'any' operator"
+        | Constant -> "global constant")
         NI.pp_print_node_id_user_name node_id
     )
     | F_xml -> (
@@ -1665,7 +1666,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1681,7 +1683,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
 
     )
@@ -1701,15 +1704,19 @@ let log_analysis_start in_sys sys param =
       @.@."
       Pretty.print_double_line ()
       NI.pp_print_node_id_user_name node_id
-      (Analysis.pp_print_param false (pp_print_user_node_name in_sys)) param
+      (Analysis.pp_print_param false sys (pp_print_user_node_name in_sys)) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (InputSystem.get_node_id in_sys) concrete 
-        |> List.map NI.get_user_name
+      let concrete = 
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+      |> List.map (InputSystem.get_node_id in_sys) 
+      |> List.map NI.get_user_name 
       in
-      let abstract = List.map (InputSystem.get_node_id in_sys) abstract 
+      let abstract = 
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
       (* Counting the number of assumption for each subsystem. *)
@@ -1737,10 +1744,14 @@ let log_analysis_start in_sys sys param =
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (InputSystem.get_node_id in_sys) concrete 
+      let concrete = 
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name      
       in
-      let abstract = List.map (InputSystem.get_node_id in_sys) abstract 
+      let abstract = 
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
       (* Counting the number of assumption for each subsystem. *)
