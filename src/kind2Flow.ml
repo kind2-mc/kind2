@@ -255,6 +255,13 @@ let status_of_exn process status = function
       pp_print_kind_module process;
       status
     )
+    else if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
+            msg = "SMT solver failed: Higher-order compound types not supported" then (
+      (* MathSAT error *)
+      KEvent.log L_error "In %a: MathSAT does not support maps, sets, or arrays over bool"
+      pp_print_kind_module process;
+      status
+    )
     else (
       InvarManager.print_stats !latest_trans_sys ;
       KEvent.log L_fatal "Runtime failure in %a: %s"
