@@ -500,23 +500,21 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
 
 
 (* Output execution path without slicing *)
-let pp_print_path_pt input_sys trans_sys ppf path = 
-
+let pp_print_path_pt ?(full_contract = false) input_sys trans_sys ppf path = 
   (* Output path *)
   Format.fprintf ppf 
     "%a"
-    (InputSystem.pp_print_path_pt input_sys trans_sys true)
+    (InputSystem.pp_print_path_pt ~full_contract input_sys trans_sys true)
     (Model.path_of_list path)
 
 
 (* Output execution path as plain text *)
-let execution_path_pt level input_sys trans_sys path = 
-
+let execution_path_pt level input_sys trans_sys path full_contract= 
   (ignore_or_fprintf level)
     !log_ppf 
     ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
-    (pp_print_path_pt input_sys trans_sys) path
+    (pp_print_path_pt ~full_contract input_sys trans_sys) path
 
 
 (* Output cex for a property as plain text *)
@@ -1368,7 +1366,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
 
 (* Output execution path without slicing as JSON *)
-let execution_path_json level input_sys trans_sys path =
+let execution_path_json level input_sys trans_sys path=
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -1556,11 +1554,11 @@ let log_step_cex mdl level input_sys analysis trans_sys prop cex =
 
 
 (* Log an exection path *)
-let log_execution_path level input_sys trans_sys path =
+let log_execution_path level input_sys full_contract trans_sys path  =
 
   (match get_log_format () with 
-    | F_pt -> execution_path_pt level input_sys trans_sys path
-    | F_xml -> execution_path_xml level input_sys trans_sys path 
+    | F_pt -> execution_path_pt level input_sys trans_sys path full_contract
+    | F_xml -> execution_path_xml level input_sys trans_sys path
     | F_json -> execution_path_json level input_sys trans_sys path
     | F_relay -> ())
 
@@ -1652,7 +1650,8 @@ let log_contractck_analysis_start in_sys scope =
         | Contract -> "contract of"
         | Type -> "type"
         | Component -> "contract of imported node"
-        | Any -> "'any' operator")
+        | Any -> "'any' operator"
+        | Constant -> "global constant")
         NI.pp_print_node_id_user_name node_id
     )
     | F_xml -> (
@@ -1667,7 +1666,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1683,7 +1683,8 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment"
         | Type -> "type"
         | Contract | Component -> "contract"
-        | Any -> "'any' operator");
+        | Any -> "'any' operator"
+        | Constant -> "global constant");
       analysis_start_not_closed := true
 
     )
@@ -1703,15 +1704,19 @@ let log_analysis_start in_sys sys param =
       @.@."
       Pretty.print_double_line ()
       NI.pp_print_node_id_user_name node_id
-      (Analysis.pp_print_param false (pp_print_user_node_name in_sys)) param
+      (Analysis.pp_print_param false sys (pp_print_user_node_name in_sys)) param
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (InputSystem.get_node_id in_sys) concrete 
-        |> List.map NI.get_user_name
+      let concrete = 
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+      |> List.map (InputSystem.get_node_id in_sys) 
+      |> List.map NI.get_user_name 
       in
-      let abstract = List.map (InputSystem.get_node_id in_sys) abstract 
+      let abstract = 
+         List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
       (* Counting the number of assumption for each subsystem. *)
@@ -1739,10 +1744,14 @@ let log_analysis_start in_sys sys param =
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
-      let concrete = List.map (InputSystem.get_node_id in_sys) concrete 
+      let concrete = 
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name      
       in
-      let abstract = List.map (InputSystem.get_node_id in_sys) abstract 
+      let abstract = 
+           List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+        |> List.map (InputSystem.get_node_id in_sys) 
         |> List.map NI.get_user_name
       in
       (* Counting the number of assumption for each subsystem. *)
@@ -2033,13 +2042,13 @@ let step_cex input_sys analysis trans_sys prop cex =
 
 
 (* Broadcast a counterexample for some properties *)
-let execution_path input_sys = 
+let execution_path ?(full_contract = false) input_sys = 
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   
-  log_execution_path L_warn input_sys
+  log_execution_path L_warn input_sys full_contract
 
 
 (* Send progress indicator *)

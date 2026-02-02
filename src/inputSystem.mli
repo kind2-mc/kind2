@@ -65,6 +65,8 @@ val next_analysis_of_strategy :
 
 val interpreter_param : 'a t -> Analysis.param
 
+val monitor_param : 'a t -> Analysis.param
+
 val mcs_params : 'a t -> Analysis.param list
 
 (** Return analysis parameters for all systems without an implementation
@@ -84,13 +86,17 @@ val trans_sys_of_analysis:
   'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
-val pp_print_path_pt : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt : ?full_contract:bool -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
 val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
 val pp_print_path_json : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+
+(** Output a path in the input system. The format for this path is the same format that 
+the Interpreter module expects as input. *)
+val pp_print_path_json_testgen :  _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a model as a sequnce of inputs in CSV. *)
 val pp_print_path_in_csv : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit

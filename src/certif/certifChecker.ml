@@ -2533,7 +2533,10 @@ let merge_jkind_system lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ()) 
+      (* visible *)
+      true 
+  in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)
@@ -2661,7 +2664,10 @@ let merge_unsliced_system kind2_sys unsliced_sys =
       trans_term
       [kind2_subsys_inst; unsliced_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ())
+      (* visible *)
+      true 
+    in
 
   obs_sys
 
@@ -2752,6 +2758,7 @@ let generate_slice_obs node kind2_sys param dirname =
 
   let param = match param with
   | Analysis.Interpreter _ -> Analysis.Interpreter info
+  | Analysis.ContractMonitor _ -> Analysis.ContractMonitor info
   | Analysis.ContractCheck _ -> Analysis.ContractCheck info
   | Analysis.First _ -> Analysis.First info
   | Analysis.Refinement (_, res) -> Analysis.Refinement (info, res)

@@ -91,6 +91,11 @@ module RunTestGen: PostAnalysis = struct
         Format.fprintf fmt
           "%t@ Test generation is not compatible with interpreter mode." (head sys)
     )
+    | Analysis.ContractMonitor _ -> error (
+      fun fmt ->
+        Format.fprintf fmt
+          "%t@ Test generation is not compatible with contract check mode." (head sys)
+    )
     (* Contract check, node must be abstract. *)
     | Analysis.ContractCheck _ -> error (
       fun fmt ->
@@ -170,26 +175,12 @@ module RunTestGen: PostAnalysis = struct
           KEvent.log_uncond
             "%sGenerating tests for node '%a' to '%s'."
             TestGen.log_prefix HString.pp_print_hstring (NI.get_user_name node_id) tests_target ;
-          let testgen_xmls =
-            TestGen.main param input_sys_sliced sys tests_target
-          in
+            
+          TestGen.main param input_sys_sliced sys tests_target;
+          
           (* Yay, done. Killing stuff. *)
           TestGen.on_exit "yay" ;
-          (* Generate oracle. *)
-          let oracle_target = Format.sprintf "%s/%s" target Paths.oracle in
-          mk_dir oracle_target ;
-          KEvent.log_uncond
-            "%sCompiling oracle to Rust for node '%a' to '%s'."
-            TestGen.log_prefix HString.pp_print_hstring (NI.get_user_name node_id) oracle_target ;
-          let name, guarantees, modes =
-            InputSystem.compile_oracle_to_rust in_sys top oracle_target
-          in
-          KEvent.log_uncond
-            "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
-          testgen_xmls
-          |> List.map (fun xml -> Format.sprintf "%s/%s" Paths.testgen xml)
-          |> TestGen.log_test_glue_file
-            target name (Paths.oracle, guarantees, modes) Paths.implem ;
+
           KEvent.log_uncond
             "%sDone with test generation." TestGen.log_prefix ;
           Ok ()

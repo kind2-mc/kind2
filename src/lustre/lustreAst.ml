@@ -296,7 +296,7 @@ type opacity =
 Boolean flag indicates whether node / function is extern. *)
 type node_decl =
   NI.t
-  * bool
+  * bool (* is the node imported *)
   * opacity
   * ident list
   * const_clocked_typed_decl list

@@ -180,7 +180,7 @@ let record_to_tuple assoc =
 (* Take as input a JSON element representing the value of a variable (at a given step)
    and return the associated assignments.
    It can return multiple variable assignements if the value is an array/record/tuple. *)
-let rec read_val scope name indexes arr_indexes json =
+let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
   match json with
   | `Assoc lst ->
     (* Can represent a record or a tuple *)
@@ -234,7 +234,7 @@ let rec read_val scope name indexes arr_indexes json =
     let sv =
       try (StateVar.state_var_of_string (full_name, full_scope))
       with Not_found -> raise (Not_an_input full_name) in
-    if not (StateVar.is_input sv) then raise (Not_an_input full_name) ;
+    if (not (StateVar.is_input sv)) && only_inputs then raise (Not_an_input full_name) ;
     let typ = StateVar.type_of_state_var sv in
     let sv = (sv, arr_indexes) in
 
@@ -286,22 +286,22 @@ let rec read_val scope name indexes arr_indexes json =
     with Invalid_argument _ -> raise (Type_mismatch full_name)
 
 (* Parse the assignments of a JSON object representing a step *)
-let read_vars scope json =
-  to_assoc json |> List.map (fun (name, json) -> read_val scope name [] [] json)
+let read_vars ?(only_inputs=true) scope json =
+  to_assoc json |> List.map (fun (name, json) -> read_val ~only_inputs:only_inputs scope name [] [] json)
 
 (* Parse a JSON input file *)
-let read_json_file top_scope_index filename =
+let read_json_file ?(only_inputs=true) top_scope_index filename =
   Yojson.Safe.from_file filename |> to_list
-  |> List.map (read_vars top_scope_index) |> List.flatten |> group_by_var
+  |> List.map (read_vars ~only_inputs:only_inputs top_scope_index) |> List.flatten |> group_by_var
 
 
 (* ====================== GENERAL ======================== *)
 
 (* Parse a JSON or CSV input file. The format is determined from the extension. *)
-let read_file top_scope_index filename =
+let read_file ?(only_inputs=true) top_scope_index filename =
   if Filename.check_suffix filename ".json"
   then
-    read_json_file top_scope_index filename
+    read_json_file ~only_inputs:only_inputs top_scope_index filename
   else
     read_csv_file top_scope_index filename
     |> List.map (fun (sv,vs) -> ((sv,[]),vs))

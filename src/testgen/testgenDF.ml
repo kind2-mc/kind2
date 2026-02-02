@@ -247,7 +247,7 @@ and backward input_sys target io solver tree modes contract_term =
 
 (* Entry point. *)
 let main (type s) :
-Analysis.param -> s Sys.t -> TSys.t -> string -> string list
+Analysis.param -> s Sys.t -> TSys.t -> string -> unit
 = fun param input_sys sys target ->
   let node_id = InputSystem.get_node_id input_sys (TransSys.scope_of_trans_sys sys) in
   (* Separating abstract and concrete systems. *)
@@ -256,10 +256,14 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
-  let concrete = List.map (InputSystem.get_node_id input_sys) concrete 
+  let concrete = 
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+    |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in
-  let abstract = List.map (InputSystem.get_node_id input_sys) abstract
+  let abstract = 
+       List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
+    |> List.map (InputSystem.get_node_id input_sys) 
     |> List.map NodeId.get_user_name
   in 
   KEvent.log_uncond "%s@[<v>\
@@ -326,8 +330,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
   ) ;
   Stat.testgen_stop_timers () ;
   Stat.smt_stop_timers () ;
-
-  [ "unit.xml" ]
+  ()
 
 
 

@@ -319,7 +319,7 @@ type opacity =
     - its optional contract specification *)
 type node_decl =
   NI.t
-  * bool
+  * bool (* is the node imported *)
   * opacity
   * ident list
   * const_clocked_typed_decl list

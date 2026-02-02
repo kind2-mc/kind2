@@ -528,8 +528,7 @@ let trans_sys_of_analysis (type s)
 
 
 let pp_print_path_pt
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
-
+(type s) ?(full_contract = false) (input_system : s t) trans_sys first_is_init ppf model =
   match input_system with 
 
   | Lustre (main_subs, globals, _) ->
@@ -537,8 +536,7 @@ let pp_print_path_pt
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
-    LustrePath.pp_print_path_pt
-      trans_sys globals sub first_is_init ppf model
+    LustrePath.pp_print_path_pt ~full_contract:full_contract trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_pt not implemented for MoXI input@.";
@@ -575,6 +573,30 @@ let pp_print_path_xml
 
 
   | Horn _ -> assert false
+
+let pp_print_path_json_testgen
+(type s) (input_system : s t) trans_sys first_is_init ppf model  =
+
+  match input_system with
+
+  | Lustre (main_subs, globals, _) ->
+    let sub =
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+      S.find_subsystem_of_list main_subs scope
+    in
+    LustrePath.pp_print_path_json_testgen
+      trans_sys globals sub first_is_init ppf model
+
+    | Moxi _ ->
+    Format.eprintf "pp_print_path_json_testgen not implemented for MoXI input@.";
+    assert false;
+
+  | Native _ ->
+    Format.eprintf "pp_print_path_json_testgen not implemented for native input@.";
+    assert false;
+
+  | Horn _ -> assert false
+
 
 
 let pp_print_path_json
@@ -1180,6 +1202,52 @@ let prefix_system (type s) (input_system : s t) prefix : s t = match input_syste
     Lustre (main_subs, globals, ast)
   | _ -> input_system
 
+
+let monitor_param (type s) (input_system : s t) =
+  let scope, abstraction_map =
+    match input_system with
+    | Lustre (main_subs, _, _) ->
+      
+      let {S.scope} as sub =
+        match main_subs with
+        | [sub] -> sub
+        | _ ->
+          let msg =
+            Format.asprintf
+              "two or more top nodes detected, please select one with --lus_main or a single --%%MAIN annotation"
+          in
+          failwith msg
+      in 
+      (scope,
+       List.fold_left (
+        fun abs_map ({ S.scope; S.has_impl }) ->
+          Scope.Map.add scope ( Scope.equal scope sub.scope || not has_impl) abs_map
+        )
+        Scope.Map.empty (S.all_subsystems sub)
+       )
+    | Native ({S.scope} as sub) -> (scope,
+      List.fold_left (
+        fun abs_map ({ S.scope; S.has_impl }) ->
+          Scope.Map.add scope (not has_impl) abs_map
+        )
+        Scope.Map.empty (S.all_subsystems sub)
+    )
+    | Moxi _ -> raise (UnsupportedFileFormat "MoXI")
+    | Horn _ -> raise (UnsupportedFileFormat "Horn")
+  in
+  (* let map_print ppf (m: bool Scope.Map.t) = 
+    Scope.Map.iter (fun k v -> Format.fprintf ppf "%d -> %b@\n" (length k) v) m
+  in
+  Format.printf "%a" map_print (abstraction_map)  ; *)
+    (* Scope.Map.iter (fun k v ->
+    Printf.printf "%s -> %b\n" (String.concat ", " k) v
+  ) abstraction_map ; *)
+  A.ContractMonitor {
+    A.top = scope ;
+    A.uid = A.get_uid () ;
+    A.abstraction_map = abstraction_map ; 
+    A.assumptions = Scope.Map.empty ;
+  }
 
 (* 
    Local Variables:

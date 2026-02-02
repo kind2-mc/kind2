@@ -93,6 +93,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
+    | `CMonitor ->  Flags.ContractMonitor.input_file () |> Interpreter.main ~contract_monitor:true
     | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
@@ -123,6 +124,7 @@ let on_exit_of_process mdl =
     | `INVGENREALOS -> InvGen.exit None
     | `C2I -> C2I.on_exit None
     | `Interpreter -> Interpreter.on_exit None
+    | `CMonitor -> Interpreter.on_exit None
     | `Supervisor -> InvarManager.on_exit None
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ()
@@ -250,6 +252,13 @@ let status_of_exn process status = function
         the model contains non-linear expressions.@ \
         Consider running Kind 2 with `--smt_logic detect`\
       "
+      pp_print_kind_module process;
+      status
+    )
+    else if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
+            msg = "SMT solver failed: Higher-order compound types not supported" then (
+      (* MathSAT error *)
+      KEvent.log L_error "In %a: MathSAT does not support maps, sets, or arrays over bool"
       pp_print_kind_module process;
       status
     )
@@ -706,6 +715,28 @@ let run in_sys =
     with e -> on_exit_child None m e
   )
 
+  | [m] when m = `CMonitor -> (
+    (* Set module currently running. *)
+    KEvent.set_module m ;
+    try (
+      let param = ISys.monitor_param in_sys in
+      (* Build trans sys and slicing info. *)
+      let sys, in_sys = 
+        ISys.trans_sys_of_analysis
+          ~preserve_sig:true ~slice_nodes:`Off in_sys param
+      in
+
+      (* Run interpreter. *)
+      (Interpreter.main ~contract_monitor:true (
+        Flags.ContractMonitor.input_file ()
+      )) in_sys param sys ;
+      (* Ignore SIGALRM from now on *)
+      Signals.ignore_sigalrm () ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m Exit
+    )
+    with e -> on_exit_child None m e
+  )
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
     KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
