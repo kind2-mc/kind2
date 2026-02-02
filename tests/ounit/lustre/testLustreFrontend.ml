@@ -66,6 +66,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test any operator in function" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test any operator in contract import" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_contract_import.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+    | _ -> false);
   mk_test "test any operator in global refinement type" (fun () ->
     match load_file "./lustreSyntaxChecks/global_ref_ty_any.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
@@ -187,11 +195,11 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
     | _ -> false);
   mk_test "node call in any op in function" (fun () ->
-    match load_file "./lustreSyntaxChecks/any_op_func.lus" with
+    match load_file "./lustreSyntaxChecks/choose_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "pre in any op in function" (fun () ->
-    match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with
+    match load_file "./lustreSyntaxChecks/choose_op_func_pre.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
   mk_test "inductive array definition in multiple assignment" (fun () ->
