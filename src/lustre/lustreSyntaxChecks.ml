@@ -52,6 +52,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | IllegalNodeCall of (HString.t * string)
+  | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
@@ -104,6 +105,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "'"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
+  | IllegalAnyOp variant -> "Illegal `any` operator; "
+    ^ variant ^ " cannot contain `any` operators. Maybe you meant to use `choose`?"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
@@ -572,6 +575,7 @@ let no_calls_to_node scope ctx = function
       syntax_error pos 
         (IllegalNodeCall (NI.get_user_name node_id, scope))
     else Ok ()
+  | AnyOp (pos, _, _) -> syntax_error pos (IllegalAnyOp scope)
   | _ -> Ok ()
 
 let no_temporal_operator decl_ctx expr =
