@@ -143,6 +143,14 @@ type equation = equation_lhs * E.t
 (* A contract. *)
 type contract = C.t
 
+type func_info = {
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+}
+
+type type_of_component =
+  | Node
+  | Function of func_info
+
 (* A Lustre node *)
 type t = { 
 
@@ -197,8 +205,8 @@ type t = {
   (* Node is annotated as main node *)
   is_main : bool ;
 
-  (* Node is actually a function. *)
-  is_function: bool ;
+  (* Type of the component and its associated info *)
+  comp_type : type_of_component;
 
   (* Map from a state variable to its source *)
   state_var_source_map : state_var_source SVM.t;
@@ -211,41 +219,6 @@ type t = {
 
   history_svars: (StateVar.t * StateVar.t) list TM.t;
 }
-
-(* An empty node *)
-let empty_node (node_id: NI.t) is_extern = {
-  node_id ;
-  is_extern ;
-  opacity = Translucent;
-  instance = 
-    StateVar.mk_state_var
-      ~is_const:true
-      (I.instance_ident |> I.string_of_ident false)
-      (I.to_scope (NI.get_internal_name node_id |> I.of_hstring) @ I.reserved_scope)
-      Type.t_int;
-  init_flag = 
-    StateVar.mk_state_var
-      (I.init_flag_ident |> I.string_of_ident false)
-      (I.to_scope (NI.get_internal_name node_id |> I.of_hstring) @ I.reserved_scope)
-      Type.t_bool;
-  inputs = D.empty;
-  oracles = [];
-  outputs = D.empty;
-  locals = [];
-  equations = [];
-  calls = [];
-  asserts = [];
-  props = [];
-  contract = None ;
-  is_main = false;
-  is_function = false ;
-  state_var_source_map = SVM.empty;
-  oracle_state_var_map = SVT.create 17;
-  state_var_expr_map = SVT.create 17;
-  assumption_svars = SVS.empty;
-  history_svars = TM.empty;
-}
-
 
 (* Pretty-print array bounds of index *)
 let pp_print_array_dims safe ppf idx = 
@@ -595,10 +568,13 @@ let pp_print_node_signature fmt { inputs ; outputs } =
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings outputs))
 
-
+let is_function { comp_type } =
+  match comp_type with
+  | Node -> false
+  | Function _ -> true
 
 (* Pretty-print a node *)
-let pp_print_node safe ppf {
+let pp_print_node safe ppf ({
   node_id;
   inputs; 
   oracles; 
@@ -610,8 +586,7 @@ let pp_print_node safe ppf {
   props;
   contract;
   is_main ;
-  is_function ;
-} =
+} as node) =
 
   (* Output a space if list is not empty *)
   let space_if_nonempty = function
@@ -633,7 +608,7 @@ let pp_print_node safe ppf {
      tel;@]@]@?"  
 
     (* %s *)
-    (if is_function then "function" else "node")
+    (if is_function node then "function" else "node")
 
     (* %a *)
     NI.pp_print_node_id_user_name node_id
@@ -752,7 +727,7 @@ let pp_print_node_debug ppf
       props;
       contract;
       is_main;
-      is_function;
+      comp_type;
       state_var_source_map;
       oracle_state_var_map;
       state_var_expr_map; } = 
@@ -814,6 +789,11 @@ let pp_print_node_debug ppf
         Property.pp_print_prop_source source
   in
 
+  let pp_print_comp_type ppf = function
+    | Node -> Format.fprintf ppf "Node"
+    | Function _ -> Format.fprintf ppf "Function"
+  in
+
   let pp_print_state_var_source ppf = 
     let p sv src = Format.fprintf ppf "%a:%s" StateVar.pp_print_state_var sv src in
     function 
@@ -859,7 +839,7 @@ let pp_print_node_debug ppf
          props =      [@[<hv>%a@]];@ \
          contract =   [@[<hv>%a@]];@ \
          is_main =    @[<hv>%B@];@ \
-         is_function =    @[<hv>%B@];@ \
+         comp_type =    @[<hv>%a@];@ \
          state_var_source_map = [@[<hv>%a@]];@ \
          oracle_state_var_map = [@[<hv>%a@]];@ \
          state_var_expr_map = [@[<hv>%a@]]; }@]"
@@ -881,7 +861,7 @@ let pp_print_node_debug ppf
         Format.fprintf fmt "%a@ "
           (C.pp_print_contract_debug false) contract) contract
     is_main
-    is_function
+    pp_print_comp_type comp_type
     (pp_print_list pp_print_state_var_source ";@ ")
       (SVM.bindings state_var_source_map)
     (pp_print_list pp_print_oracle_state_var_map ";@ ")

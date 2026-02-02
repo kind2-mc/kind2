@@ -637,8 +637,8 @@ let compute_deadlocking_trace_and_conflict
     let scope = (Analysis.info_of_param param).top in
     match InputSystem.get_lustre_node in_sys scope with
     | None -> sys, false
-    | Some { LustreNode.is_function } ->
-      if is_function then (
+    | Some node ->
+      if LustreNode.is_function node then (
         (* Recompute transition system adding functional constraints *)
         let sys, _ =
           InputSystem.trans_sys_of_analysis

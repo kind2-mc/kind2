@@ -145,6 +145,14 @@ type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
     state variable as an expression. *)
 type equation = equation_lhs * LustreExpr.t
 
+type func_info = {
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+}
+
+type type_of_component =
+  | Node
+  | Function of func_info
+
 (** A Lustre node
 
     Every state variable occurs exactly once in {!t.inputs},
@@ -220,8 +228,8 @@ type t = {
   is_main : bool;
   (** Flag node as the top node *)
 
-  is_function : bool;
-  (** Node is actually a function *)
+  comp_type : type_of_component;
+  (* Type of the component and its associated info *)
 
   state_var_source_map : state_var_source StateVar.StateVarMap.t;
   (** Map from a state variable to its source 
@@ -257,11 +265,6 @@ type state_var_def =
   | IfBlock of position
   | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
-
-(** Return a node of the given name and is extern flag without inputs, outputs,
-    oracles, equations, etc. Create a state variable for the {!t.instance} and
-    {!t.init_flag} fields, and set {!t.is_main} to false. *)
-val empty_node : NI.t -> bool -> t
 
 (** {1 Pretty-printers} *)
 
@@ -339,6 +342,9 @@ val stateful_vars_of_node : LG.state_var_bounds -> t -> StateVar.StateVarSet.t
 
 (** Return the name of the node *)
 val node_id_of_node : t -> NI.t
+
+(** Return whether the component is a function *)
+val is_function : t -> bool
 
 (** [ordered_equations_of_node n stateful init]
     Returns the equations of [n], topologically sorted by their base (step)

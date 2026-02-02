@@ -1108,8 +1108,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 (* Take first node to print *)
 | (
    trace, Node (
-    { N.node_id; N.inputs; N.outputs; N.locals;
-      N.is_function; } as node,
+    { N.node_id; N.inputs; N.outputs; N.locals } as node,
     model, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
   )
 ) :: tl when N.node_is_visible node ->
@@ -1123,7 +1122,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 
   let node_name = NI.get_user_name node_id |> HString.string_of_hstring in
   let title =
-    if is_function then "Function"
+    if N.is_function node then "Function"
     else match (NI.get_node_type node_id) with 
     | Environment -> "Environment of"
     | Contract -> "Contract of"
@@ -1513,7 +1512,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
 
   | (
     trace, Node (
-      { N.node_id; N.inputs; N.outputs; N.locals; N.is_function } as node,
+      { N.node_id; N.inputs; N.outputs; N.locals } as node,
       model, required_modes, ensured_modes, contract_assumptions, contract_guarantees , call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
@@ -1528,7 +1527,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
     let name = NI.get_user_name node_id |> HString.string_of_hstring in
 
     let title =
-      if is_function then "Function"
+      if N.is_function node then "Function"
       else "Node"
     in
 
@@ -2005,7 +2004,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
   | [] -> ()
 
   | (
-    trace, Node ({ N.node_id; N.is_function } as node,
+    trace, Node ({ N.node_id } as node,
       model, required_modes, ensured_modes, contract_assumptions, contract_guarantees, call_conds, subnodes
     )
   ) :: tl when N.node_is_visible node ->
@@ -2018,7 +2017,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
     let name = NI.get_user_name node_id |> HString.string_of_hstring in
 
     let title =
-      if is_function then "function"
+      if N.is_function node then "function"
       else "node"
     in
 
