@@ -1230,12 +1230,15 @@ nondeterministic behaviors must be modeled.
 Kind 2 offers a convenient polymorphic operator of the form
 ``any { x: T | P(x) }`` which denotes an arbitrary stream of
 values of type ``T`` satisfying the predicate ``P``.
+We also support ``choose { x: T | P(x) }``, where the only difference 
+between ``any`` and ``choose`` is that ``any`` is nondeterministic, 
+while ``choose`` is functional (deterministic and non-temporal).
 In the expression above ``x`` is a locally bound variable of
 Lustre type ``T``, and ``P(x)`` is a Lustre boolean expression that
 typically, but not necessarily, contains ``x``. The expression ``P(x)``
 may also contain any input, output, or local variable that
-are in the scope of the ``any`` expression.
-The following example shows a component using the ``any``
+are in the scope of the ``any`` (or ``choose``) expression.
+The following example shows a component using the ``any`` (or ``choose``)
 operator to define a local stream ``l`` of arbitrary odd values.
 
 .. code-block:: none
@@ -1248,11 +1251,13 @@ operator to define a local stream ``l`` of arbitrary odd values.
      var l: int;
    let
      l = any { x: int | x mod 2 = 1 };
+     -- with `choose`, `l` is constant 
+     -- l = choose { x: int | x mod 2 = 1 };
      z = y + l;
    tel
 
 In reality, the :ref:`polymorphic <polymorphic-nodes>` operator 
-``any`` can be instantiated with any Lustre type ``T`` using
+``any`` (or ``choose``) can be instantiated with any Lustre type ``T`` using
 the instantiation operator ``@`` as follows: ``any@<T>``.
 For instance, the expression ``any@<int>`` is also accepted
 and denotes an arbitrary stream of values of type ``int``.
@@ -1261,12 +1266,12 @@ the more verbose form ``any @ < subtype { x: T | P(x) } >``, where
 ``T`` has been instantitated with the :ref:`refinement type <2_input/4_refinement_types>`
 ``subtype { x: T | P(x) }``.
 
-A challenge for the user with the use of ``any`` operator arises if
+A challenge for the user with the use of the ``any`` (or ``choose``) operator arises if
 the specified condition is inconsistent, or more generally, unrealizable.
 In that case, the system model may be satisfied by no execution trace.
 As a consequence, any property, even an inconsistent one, would be trivially
 satisfied by the (inconsistent) system model.
-For instance, the condition of the ``any`` operator in the node of
+For instance, the condition of the ``any`` (or analogously, ``choose``) operator in the node of
 the following example is inconsistent, and thus, there is no realization of
 the system model. As a result, Kind 2 proves the property P1 valid.
 
@@ -1276,19 +1281,21 @@ the system model. As a result, Kind 2 proves the property P1 valid.
      var l: int;
    let
      l = any { x : int | x < 0 and x > 0 };
+     -- Use `choose` if you want `l` to be constant
+     -- l = choose { x : int | x < 0 and x > 0 };
      z = y + l;
      check "P1" z > 0 and z < 0;
    tel
 
 This problem is mitigated by the possibility for
 the user to check that the predicate ``P(x)`` in
-the ``any`` expression is realizable.
-This is possible because, for each ``any`` expression occurring in
+the ``any`` (or ``choose``) expression is realizable.
+This is possible because, for each ``any`` (or ``choose``) expression occurring in
 a model, Kind 2 introduces an internal imported node whose
 contract restricts the values of the returned output using
 the given predicate as a guarantee.
 The user can take advantage of this fact to detect issues with
-the conditions of ``any`` expressions by enabling 
+the conditions of ``any`` (or ``choose``) expressions by enabling 
 Kind 2's functionality that checks
 the :ref:`realizability of contracts<9_other/11_contract_checks>` of
 imported nodes. When this functionality is enabled, Kind 2 is able to
