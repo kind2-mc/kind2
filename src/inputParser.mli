@@ -21,7 +21,7 @@
 type assignment_lhs = StateVar.t * int list
 
 (** Parse a JSON or CSV input file. The format is determined from the extension. *)
-val read_file: string list -> string -> (assignment_lhs * (Term.t list)) list
+val read_file: ?only_inputs:bool -> string list -> string -> (assignment_lhs * (Term.t list)) list
 
 (** Parser for a CSV input file 
 
@@ -31,7 +31,7 @@ val read_file: string list -> string -> (assignment_lhs * (Term.t list)) list
 val read_csv_file: string list -> string -> (StateVar.t * (Term.t list)) list
 
 (** Parse a JSON input file *)
-val read_json_file: string list -> string -> (assignment_lhs * (Term.t list)) list
+val read_json_file: ?only_inputs:bool -> string list -> string -> (assignment_lhs * (Term.t list)) list
 
 (* 
    Local Variables:

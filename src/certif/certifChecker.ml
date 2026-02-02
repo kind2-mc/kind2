@@ -2758,6 +2758,7 @@ let generate_slice_obs node kind2_sys param dirname =
 
   let param = match param with
   | Analysis.Interpreter _ -> Analysis.Interpreter info
+  | Analysis.ContractMonitor _ -> Analysis.ContractMonitor info
   | Analysis.ContractCheck _ -> Analysis.ContractCheck info
   | Analysis.First _ -> Analysis.First info
   | Analysis.Refinement (_, res) -> Analysis.Refinement (info, res)

@@ -21,7 +21,7 @@ val log_prefix: string
 
 (** Entry point. *)
 val main :
-  Analysis.param -> _ InputSystem.t -> TransSys.t -> string -> string list
+  Analysis.param -> _ InputSystem.t -> TransSys.t -> string -> unit
 
 (** Logs the top level XML glue file. *)
 val log_test_glue_file:

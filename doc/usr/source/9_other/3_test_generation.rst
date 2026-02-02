@@ -3,14 +3,6 @@
 Test Generation
 ===============
 
-..
-
-   **Disclaimer:** Test generation is, as of Kind 2 1.0, still a rather experimental
-   feature. In particular, it works only for models whose nodes have inputs and outputs 
-   of simple type (int, real, bool, and enum), not structured type (record, tuple, or 
-   array). There is a lot of room for improvement and the Kind 2 team welcomes
-   feedback / bug reports.
-
 
 Most test generation techniques analyze the syntax of the model they run on to
 generate test cases satisfying some coverage criteria. Kind 2 does not follow
@@ -129,7 +121,10 @@ activated from the initial states, generating test cases is simple. Each test
 case is simply a trace of inputs, or *witness*\ , triggering a different path of
 mode combinations in the DAG discussed above.
 
-Each witness is logged in CSV file. A glue XML file lists all the test cases
+Each witness is logged in JSON file. It is in the same format as the interpreter 
+input format. (See the :ref:`Interpreter <9_other/8_interpreter>`)
+
+A glue XML file lists all the test cases
 and provides additional information such as the trace of mode combinations they
 triggered in the model.
 
@@ -145,58 +140,22 @@ very rarely is. (Also, if it was, it would arguably be easier to produce
 the object code as a refinement of the specification using the B-method for
 instance.)
 
-Oracle generation
------------------
 
-The point of generating these test cases is to eventually run them on an
-executable version of the model to check whether it crashes and respects the
-specification.
+Analyzing the executable
+------------------------
 
-For convenience, Kind 2 automatically generates an executable *oracle* along
-with the test cases. It takes the form of a Rust project in the ``oracle``
-subdirectory of the Kind 2 output directory. The best way to learn about how
-this oracle behaves is to generate and read its documentation by running
-``cargo doc`` in said subdirectory and opening ``target/doc/<system>/index.html``.
+The purpose of generating these test cases is to eventually run them on an
+executable version of the model to check whether it crashes and whether it
+respects the specification.
 
-The idea is that this oracle will read comma-separated values on its standard
-input. These values correspond to the inputs fed to the System Under Test
-(SUT), followed by the values *returned by the SUT*. The oracle prints back
-the truth values of the guarantees / modes of the original contract as
-comma-separated values. (How the outputs are organized depends on your system
-and is currently not standardized. Refer to the oracle's documentation.)
+For convenience, Kind 2 offers a feature, 
+a :ref:`contract monitor <contract-monitor>`, which checks whether the output
+produced by the executable for a given test case respects the contract.
 
-Keeping in mind a test case is a sequence of input values each corresponding to
-a *step* or *cycle* for the SUT, the workflow is
-
-
-* read inputs ``ins`` for current step from the test case file
-* feed it to the SUT, obtaining some outputs ``outs``
-* write ``ins`` and ``outs`` as comma-separated values on the oracle's standard
-  input
-* read the truth values for the original contract on the oracle's standard
-  output
-
-**Note:** In general, the values for the contract depend on previous values
-of the SUT's inputs / outputs. In the workflow described above, the oracle
-*keeps running between each step* so that it can remember the information it
-needs from the previous steps to produce the next guarantee/mode truth values.
-
-An example of a Test Execution Engine
--------------------------------------
-
-A Test Execution Engine (TEE) compatible with Kind 2's test cases and oracles
-is available here:
-
-..
-
-   `https://github.com/kind2-mc/teas <https://github.com/kind2-mc/teas>`_
-
-
-``Teas`` is written in Python, and is able to compare a binary with Kind 2's
-test cases using the oracle described above. 
-
-..
-
-   **Disclaimer:** Like Kind 2's test generation feature, ``Teas`` is in an 
-   experimental and unstable state.
-
+The contract monitor reads the input values of the test case that are fed
+to the System Under Test (SUT), along with the output values returned by the
+SUT, and reports the truth values of the guarantees and modes of the original
+contract. The input format for the contract monitor is the same as the
+:ref:`interpreter <9_other/8_interpreter>` input format, except that 
+the input includes not only the values of the input variables but also 
+the values of the output variables.

@@ -2084,7 +2084,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             N.props;
             N.history_svars;
             N.contract;
-            N.is_function } as node =
+            N.comp_type } as node =
 
         try 
 
@@ -2213,52 +2213,34 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             List.filter is_undefined (D.values outputs)
           in
 
-          (* If node is a function, create a UF `f` for each undefined output. Also,
+          (* If node is a function, for each undefined output,
           create the term `(= (f <inputs>) output)` to add it to `init` and
           `trans`. *)
           let function_ufs, function_constraints_at_0 =
-
-            if not is_function || not options.add_functional_constraints then
-              [], []
-            else (
-              let inputs = D.values inputs in
-              let type_of = StateVar.type_of_state_var in
-              let term_0_of svar =
-                Var.mk_state_var_instance svar Numeral.zero
-                |> Term.mk_var
-              in
-              let input_types, input_terms_at_0 =
-                inputs
-                |> List.rev
-                |> List.fold_left (
-                  fun (types, terms) input ->
-                    (* Retrieving type of input. *)
-                    type_of input :: types,
-                    (* Creating term at 0. *)
-                    term_0_of input :: terms
-                ) ([], [])
-              in
-
-              undefined_outputs
-              |> List.fold_left (
-                fun (ufs, eqs) output ->
-                  let uf_name =
-                    Format.asprintf "%a.%s.%s"
-                    HString.pp_print_hstring (NI.get_internal_name node.node_id)
-                      (StateVar.name_of_state_var output)
-                      Lib.ReservedIds.function_of_inputs
-                  in
-                  let uf =
-                    UfSymbol.mk_uf_symbol
-                      uf_name input_types (type_of output)
-                  in
-                  uf :: ufs,
+            match comp_type with
+            | Function { uf_symbols } when options.add_functional_constraints -> (
+              let function_ufs = SVM.bindings uf_symbols |> List.map snd in
+              let constraints =
+                let term_0_of svar =
+                  Var.mk_state_var_instance svar Numeral.zero
+                  |> Term.mk_var
+                in
+                let input_terms_at_0 =
+                  let inputs = D.values inputs in
+                  List.map (fun input -> term_0_of input) inputs
+                in
+                undefined_outputs
+                |> List.map (fun output ->
+                  let uf = SVM.find output uf_symbols in
                   Term.mk_eq [
                     term_0_of output ;
                     Term.mk_uf uf input_terms_at_0
-                  ] :: eqs
-              ) ([], [])
+                  ]
+                )
+              in
+              function_ufs, constraints
             )
+            | _ -> [], []
           in
 
 
@@ -2282,6 +2264,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
               let interpreter_mode =
                 match analysis_param with
+                | A.ContractMonitor _
                 | A.Interpreter _ -> true
                 | _ -> false
               in
@@ -2308,12 +2291,18 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
-              if A.param_scope_is_abstract analysis_param scope then
-                abstraction_of_contract include_assumption contract :: contract_asserts,
-                properties 
-              else
+              (*Want to be in else branch with new interpreter param mode*)
+              match analysis_param, A.param_scope_is_abstract analysis_param scope with
+              | A.ContractMonitor _, _ 
+              | _, false ->  
+                (*First is assertions, second are proof obligations, want contract to go in proof obligation*)
                 contract_asserts,
                 guarantees_of_contract scope contract @ properties
+              | _, true -> 
+                abstraction_of_contract include_assumption contract :: contract_asserts,
+                properties
+            
+               
           in
 
           (* Initial state constraint *)
@@ -2947,7 +2936,8 @@ let trans_sys_of_nodes
      Contracts would be trivially satisfied otherwise *)
   ( match analysis_param with
     | A.Interpreter _
-    | A.ContractCheck _ -> ()
+    | A.ContractCheck _ 
+    | A.ContractMonitor _-> ()
     | _ -> if A.param_scope_is_abstract analysis_param top then raise (
       Invalid_argument
         "trans_sys_of_nodes: Top-level system must not be abstract"
