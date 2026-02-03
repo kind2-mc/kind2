@@ -334,7 +334,7 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
+    | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
@@ -376,7 +376,7 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
+    | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
@@ -555,6 +555,7 @@ let rec infer_const_attr ctx exp =
     List.map (fun _ -> error exp "arrow operator") (r e1)
   (* Node calls *)
   | AnyOp _ -> assert false
+  | ChooseOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _) 
@@ -785,7 +786,8 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.Arrow (pos, e1, e2))
-  | AnyOp _ -> assert false (* Polymorphism is handled after any ops are desugared *)
+  | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
+  | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
 
 let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
@@ -1240,7 +1242,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
-  (* Already desugared in lustreDesugarAnyOps *)
+  | ChooseOp _ -> assert false
+  (* Already desugared in lustreDesugarAnyChooseOps *)
   (*check_type_expr ctx nname e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -1444,7 +1447,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   | AnyOp _ -> assert false 
-    (* Already desugared in lustreDesugarAnyOps *)
+  | ChooseOp _ -> assert false 
+    (* Already desugared in lustreDesugarAnyChooseOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
@@ -2445,6 +2449,7 @@ and expr_contains_set_binop ctx ni expr =
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
   | AnyOp (_, (_, _, _), e) -> r e 
+  | ChooseOp (_, (_, _, _), e) -> r e 
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 

@@ -113,6 +113,7 @@ type expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr
+  | ChooseOp of position * typed_ident * expr
   | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
@@ -622,6 +623,14 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf
       "%aany { %a | %a }"
+      ppos p
+      pp_print_typed_ident id
+      pp_print_expr e
+
+    | ChooseOp (p, id, e) ->
+
+      Format.fprintf ppf
+      "%achoose { %a | %a }"
       ppos p
       pp_print_typed_ident id
       pp_print_expr e

@@ -388,6 +388,10 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, AnyOp (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
+  | ChooseOp (p, (p2, id, ty), expr) ->
+    let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
+    let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
+    ctx, gids, ChooseOp (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
   | EmptySet (p, Some ty) ->
     let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, EmptySet (p, Some ty), decls, node_decls_map
