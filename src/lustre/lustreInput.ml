@@ -381,7 +381,7 @@ let of_channel only_parse in_ch =
           )
         | None -> main_nodes in
       let defined_const_funcs = List.filter_map (fun n -> 
-      if NI.get_node_type n.LustreNode.node_id = Constant && n.LustreNode.opacity = Transparent then 
+      if NI.get_node_type n.LustreNode.node_id = DefinedConstant then 
          Some n.LustreNode.node_id 
       else 
         None

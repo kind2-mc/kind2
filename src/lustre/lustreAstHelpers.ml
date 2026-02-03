@@ -1935,7 +1935,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   let r = constants_to_calls new_func_ids in
   match expr with 
   | Ident (p, id) -> 
-    let node_type = NI.Constant in
+    let node_type = NI.FreeConstant in
     if List.mem id new_func_ids then Call (p, [], NI.mk_node_id ~node_type id, []) else expr
   | Quantifier (p, b, tis, e) -> 
     (* Remove 'tis' from new_func_ids because they're bound in 'e' *)

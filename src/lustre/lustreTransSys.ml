@@ -2890,7 +2890,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               properties
               mode_requires
               node_assumptions
-              (NI.get_node_type node_id <> NodeId.Constant)
+              (NI.get_node_type node_id <> NodeId.FreeConstant)
           in
           trans_sys_of_node'
             options

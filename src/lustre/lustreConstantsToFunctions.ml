@@ -186,7 +186,7 @@ let gen_const_functions ctx decls =
       if ty_contains_gids ctx None ty then 
         (* Only generate a function if necessary (we need it to handle generated identifiers *)
         let p = s.start_pos in
-        let node_type = NI.Constant in
+        let node_type = NI.FreeConstant in
         let node_id = NI.mk_node_id ~node_type id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
@@ -201,7 +201,7 @@ let gen_const_functions ctx decls =
     | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
       if Ctx.type_contains_ref_or_subrange ctx ty then 
         let p = s.start_pos in
-        let node_type = NI.Constant in
+        let node_type = NI.DefinedConstant in 
         let node_id = NI.mk_node_id ~node_type id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let nis = [A.Body (A.Equation (p, A.StructDef (p, [A.SingleIdent (p, id)]), e))] in 

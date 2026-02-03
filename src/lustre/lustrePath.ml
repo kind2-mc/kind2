@@ -1114,7 +1114,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 ) :: tl when N.node_is_visible node ->
 
   (* Functions derived from constants are printed along with the global constants *)
-  if NI.get_node_type node_id = Constant then 
+  if NI.get_node_type node_id = FreeConstant then 
     pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
   else
 
@@ -1129,7 +1129,8 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | Type -> "Type"
     | Component -> "Node"
     | Any -> "'Any' operator"
-    | Constant -> "Global constant"
+    | DefinedConstant -> "Global constant (defined)"
+    | FreeConstant -> "Global constant (free)"
   in
   
   (* Remove first dimension from index *)
@@ -1273,7 +1274,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 let get_const_func_info n = 
   let rec get_const_funcs (Node (top, path, _, _, _, _, _, subnodes)) = 
     let recursive_results = List.concat_map get_const_funcs (List.map snd subnodes) in
-    if NI.get_node_type top.LustreNode.node_id = Constant then 
+    if NI.get_node_type top.LustreNode.node_id = FreeConstant then 
       (top, path) :: recursive_results 
     else 
       recursive_results 
@@ -1516,7 +1517,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from global constants are printed along with the global constants *)
-    if NI.get_node_type node_id = Constant then 
+    if NI.get_node_type node_id = FreeConstant then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
@@ -2009,7 +2010,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from constants are printed along with the global constants *)
-    if NI.get_node_type node_id = Constant then 
+    if NI.get_node_type node_id = FreeConstant then 
       pp_print_lustre_path_json' false const_map const_funcs ppf tl 
     else
 
