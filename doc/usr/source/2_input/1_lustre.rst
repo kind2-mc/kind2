@@ -1290,22 +1290,22 @@ the system model. As a result, Kind 2 proves the property P1 valid.
 This problem is mitigated by the possibility for
 the user to check that the predicate ``P(x)`` in
 the ``any`` (or ``choose``) expression is realizable.
-This is possible because, for each ``any`` (or ``choose``) expression occurring in
-a model, Kind 2 introduces an internal imported node whose
+This is possible because, for each ``any`` (resp., ``choose``) expression occurring in
+a model, Kind 2 introduces an internal imported node (resp., imported function) whose
 contract restricts the values of the returned output using
 the given predicate as a guarantee.
 The user can take advantage of this fact to detect issues with
 the conditions of ``any`` (or ``choose``) expressions by enabling 
 Kind 2's functionality that checks
 the :ref:`realizability of contracts<9_other/11_contract_checks>` of
-imported nodes. When this functionality is enabled, Kind 2 is able to
+imported nodes and functions. When this functionality is enabled, Kind 2 is able to
 detect the problem illustrated in the example above.
 
 It is worth mentioning that Kind 2 does not consider the surrounding
-context when checking the realizability of the introduced imported node.
+context when checking the realizability of the introduced imported node or function.
 Because of this limitation, some checks may fail even if,
 in a broader context where all constraints included in
-the model are considered, the imported node would actually be considered
+the model are considered, the imported node or function would actually be considered
 realizable. Only the constraints imposed by the variable types
 are taken into account.
 
