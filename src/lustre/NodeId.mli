@@ -17,7 +17,7 @@
 
 (** @author: Rob Lorch *)
 
-type node_type = Component | Contract | Environment | Type | Any | Constant
+type node_type = Component | Contract | Environment | Type | Any | Choose | Constant
 
 type t
 
