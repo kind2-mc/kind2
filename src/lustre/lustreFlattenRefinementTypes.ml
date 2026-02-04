@@ -184,7 +184,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | ConvOp  (p, op, e) -> ConvOp (p, op, rec_call e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, rec_call e1, rec_call e2)
   | Extract (p, e, idx1, idx2) -> Extract (p, rec_call e, idx1, idx2)
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr (p, i, ps, flds) ->
     let ps = List.map (flatten_ref_type ctx) ps in
     RecordExpr (p, i, ps, (List.map (fun (f, e) -> (f, rec_call e)) flds))

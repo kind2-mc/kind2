@@ -211,6 +211,7 @@ let mk_span start_pos end_pos =
 
 (* Other tokens *)
 %token ANY
+%token CHOOSE 
 %token WITH
 %token HASH
 
@@ -866,6 +867,20 @@ index_var:
 %inline nonquantified:
   | { false }
 
+choose_expr:
+  (* `choose` operation *)
+  | CHOOSE; r = refinement_type_base;
+    { let (id, e) = r in A.ChooseOp (mk_pos $startpos, id, e) }
+  | CHOOSE; ATSIGN; LT; ty = lustre_type; GT
+    {
+      match ty with
+        | A.RefinementType (_, id, e) ->
+          A.ChooseOp(mk_pos $startpos, id, e)
+        | _ ->
+          A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty),
+                      Const(mk_pos $startpos, True))
+    }
+
 any_expr:
   (* 'Any' operation *)
   | ANY; r = refinement_type_base;
@@ -895,6 +910,7 @@ type_annotation:
 pexpr(Q): 
   
   | e = any_expr { e }
+  | e = choose_expr { e }
 
   (* An identifier *)
   | s = ident { A.Ident (mk_pos $startpos, s) } 

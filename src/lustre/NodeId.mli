@@ -17,7 +17,7 @@
 
 (** @author: Rob Lorch *)
 
-type node_type = Component | Contract | Environment | Type | Any | DefinedConstant | FreeConstant
+type node_type = Component | Contract | Environment | Type | Any | Choose | DefinedConstant | FreeConstant
 
 type t
 

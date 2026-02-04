@@ -1,0 +1,13 @@
+contract C () returns (out: int) ;
+let
+  guarantee out > any { x: int | x > 0 }; 
+tel
+
+function f () returns (out: int)
+con
+  import C() returns (out);
+noc 
+let
+  check out > 0;
+tel
+

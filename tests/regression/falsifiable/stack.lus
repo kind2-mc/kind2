@@ -37,7 +37,7 @@ tel
 function empty_stack<T>() returns (s: Stack<T>);
 let
   s = Stack@<T> {
-    items = any@<T^MAX_SIZE>;
+    items = choose@<T^MAX_SIZE>;
     top_pos = -1;
   };
 tel
