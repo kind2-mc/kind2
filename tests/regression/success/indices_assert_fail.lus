@@ -1,6 +1,6 @@
-type S1 = struct {f1: int; f2: bool};
-    
-node makeS1List(i1, i2: S1) returns (l: S1^2);
+type S2 = struct {f1: int; f2: bool^4};
+
+node makeS2List(i1, i2: S2) returns (l: S2^2);
 let
   l = [i1, i2];
 tel
