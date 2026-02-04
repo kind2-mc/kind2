@@ -458,6 +458,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         | X.SetMapIndex b
         | X.ArrayVarIndex b -> 
           E.type_of_expr b 
+        | X.ArrayIntIndex _ -> Type.t_int
         | _ -> assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
@@ -479,6 +480,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
+        | X.ArrayIntIndex _ -> Type.t_int
         | _ -> assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
@@ -608,6 +610,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
 (* Return a list of equations from a trie of state variables and a
   trie of expressions *)
 let expand_tuple pos lhs rhs = 
+  (*Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+    (X.pp_print_index_trie true StateVar.pp_print_state_var) lhs
+    (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) rhs; *)
   (* Format.eprintf "expand_tuple: \n"; *)
   expand_tuple' pos [] []
     (X.bindings lhs) (X.bindings rhs)
