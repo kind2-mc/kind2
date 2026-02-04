@@ -1109,7 +1109,7 @@ let slice_to_abstraction'
   let nodes =
     S.find_subsystem subsystem top |> N.nodes_of_subsystem 
   in
-  
+
   (* Slice all nodes to either abstraction or implementation *)
   let nodes' = 
 
@@ -1121,7 +1121,7 @@ let slice_to_abstraction'
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
 
   in
-  
+
   (* Create subsystem from list of nodes *)
   let { N.node_id = top; } = List.hd nodes in
   N.subsystem_of_nodes top nodes'

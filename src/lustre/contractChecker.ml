@@ -329,8 +329,9 @@ let pp_print_realizability_result_pt
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
-      | Choose -> "'Choose' operator"
-      | Constant -> "Global constant")
+      | DefinedConstant -> "Global constant (defined)"
+      | FreeConstant -> "Global constant (free)"
+      | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
@@ -570,8 +571,9 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
-      | Choose -> "'Choose' operator"
-      | Constant -> "Global constant")
+      | DefinedConstant -> "Global constant (defined)"
+      | FreeConstant -> "Global constant (free)"
+      | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
   )
@@ -592,8 +594,9 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
-      | Choose -> "'Choose' operator"
-      | Constant -> "Global constant")
+      | DefinedConstant -> "Global constant (defined)"
+      | FreeConstant -> "Global constant (free)"
+      | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)

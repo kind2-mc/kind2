@@ -1156,7 +1156,7 @@ let rec subsystem_of_nodes' nodes accum = function
             SubSystem.has_contract;
             SubSystem.has_modes;
             SubSystem.has_impl;
-            SubSystem.subsystems  }
+            SubSystem.subsystems; }
 
         in
 

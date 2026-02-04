@@ -1114,7 +1114,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 ) :: tl when N.node_is_visible node ->
 
   (* Functions derived from constants are printed along with the global constants *)
-  if NI.get_node_type node_id = Constant then 
+  if NI.get_node_type node_id = FreeConstant then 
     pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
   else
 
@@ -1129,8 +1129,9 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | Type -> "Type"
     | Component -> "Node"
     | Any -> "'Any' operator"
+    | DefinedConstant -> "Global constant (defined)"
+    | FreeConstant -> "Global constant (free)"
     | Choose -> "'Choose' operator"
-    | Constant -> "Global constant"
   in
   
   (* Remove first dimension from index *)
@@ -1274,7 +1275,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 let get_const_func_info n = 
   let rec get_const_funcs (Node (top, path, _, _, _, _, _, subnodes)) = 
     let recursive_results = List.concat_map get_const_funcs (List.map snd subnodes) in
-    if NI.get_node_type top.LustreNode.node_id = Constant then 
+    if NI.get_node_type top.LustreNode.node_id = FreeConstant then 
       (top, path) :: recursive_results 
     else 
       recursive_results 
@@ -1485,8 +1486,6 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
       (pp_print_stream_prop_xml node) state_var
       (pp_print_stream_values clock stream_type) stream_values
 
-
-
 let pp_print_contract_var ppf (vname, ty, values) =
   Format.fprintf 
     ppf
@@ -1519,7 +1518,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from global constants are printed along with the global constants *)
-    if NI.get_node_type node_id = Constant then 
+    if NI.get_node_type node_id = FreeConstant then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
@@ -1579,6 +1578,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
     let globals' = 
       if is_top then (get_constants const_map [] @ const_funcs) else [] 
     in
+
     let contract_modes = interleave (required_modes, ensured_modes) in
     let constants' =
       let scope = LustreNode.scope_of_node node in
@@ -2011,7 +2011,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from constants are printed along with the global constants *)
-    if NI.get_node_type node_id = Constant then 
+    if NI.get_node_type node_id = FreeConstant then 
       pp_print_lustre_path_json' false const_map const_funcs ppf tl 
     else
 

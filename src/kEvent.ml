@@ -1651,8 +1651,9 @@ let log_contractck_analysis_start in_sys scope =
         | Type -> "type"
         | Component -> "contract of imported node"
         | Any -> "'any' operator"
-        | Choose -> "'choose' operator"
-        | Constant -> "global constant")
+        | FreeConstant -> "global constant (free)"
+        | DefinedConstant -> "global constant (defined)"
+        | Choose -> "'choose' operator")
         NI.pp_print_node_id_user_name node_id
     )
     | F_xml -> (
@@ -1668,8 +1669,9 @@ let log_contractck_analysis_start in_sys scope =
         | Type -> "type"
         | Contract | Component -> "contract"
         | Any -> "'any' operator"
-        | Choose -> "'choose' operator"
-        | Constant -> "global constant");
+        | DefinedConstant -> "global constant (defined)"
+        | FreeConstant -> "global constant (free)"
+        | Choose -> "'choose' operator");
       analysis_start_not_closed := true
     )
     | F_json -> (
@@ -1686,8 +1688,9 @@ let log_contractck_analysis_start in_sys scope =
         | Type -> "type"
         | Contract | Component -> "contract"
         | Any -> "'any' operator"
-        | Choose -> "'choose' operator"
-        | Constant -> "global constant");
+        | DefinedConstant -> "global constant (defined)"
+        | FreeConstant -> "global constant (free)"
+        | Choose -> "'choose' operator");
       analysis_start_not_closed := true
 
     )

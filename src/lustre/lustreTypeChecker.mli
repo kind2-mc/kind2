@@ -88,7 +88,6 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
-  | GlobalConstRefType of HString.t
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
