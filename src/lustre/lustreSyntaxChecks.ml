@@ -52,6 +52,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | IllegalNodeCall of (HString.t * string)
+  | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
@@ -104,6 +105,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "'"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
+  | IllegalAnyOp variant -> "Illegal `any` operator; "
+    ^ variant ^ " cannot contain `any` operators. Maybe you meant to use `choose`?"
   | NodeCallInConstant id -> "Illegal node call or 'any' operator in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call or 'any' operator in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
@@ -217,6 +220,7 @@ function
 
 | RestartEvery _
 | AnyOp _ -> true
+| ChooseOp _ -> false  
 
 | Condact (_, e, r, i, l1, l2) ->
   StringMap.mem (NI.get_internal_name i) ctx.nodes ||
@@ -571,6 +575,7 @@ let no_calls_to_node scope ctx = function
       syntax_error pos 
         (IllegalNodeCall (NI.get_user_name node_id, scope))
     else Ok ()
+  | AnyOp (pos, _, _) -> syntax_error pos (IllegalAnyOp scope)
   | _ -> Ok ()
 
 let no_temporal_operator decl_ctx expr =
@@ -640,7 +645,8 @@ let rec expr_only_supported_in_merge observer expr =
   | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) 
   | StructUpdate (_, e, _, None) -> r observer e
-  | AnyOp (_, _, e) -> r false e
+  | AnyOp (_, _, e)  
+  | ChooseOp (_, _, e) -> r observer e 
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, Some e2)
   | CompOp (_, _, e1, e2)
@@ -1075,7 +1081,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        in
        let* warnings3 = check_expr_list ctx f l in 
        Ok (warnings1 @ warnings2 @ warnings3)
-    | AnyOp (pos, (_, i, ty), e) -> 
+    | AnyOp (pos, (_, i, ty), e) 
+    | ChooseOp (pos, (_, i, ty), e) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 

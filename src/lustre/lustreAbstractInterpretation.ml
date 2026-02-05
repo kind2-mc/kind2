@@ -523,7 +523,8 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr _ -> assert false
   | GroupExpr (_, ExprList, es) -> (
     let g = interpret_int_expr node_id ctx ty_ctx in

@@ -718,6 +718,14 @@ module Make (Graph : GraphSig) : Out = struct
     ) with
     | KEvent.Terminate -> exit ()
     | Failure msg -> (
+      let msg =
+        if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
+           msg = "SMT solver failed: Higher-order compound types not supported" then
+        (
+          "MathSAT does not support maps, sets, or arrays over bool"
+        )
+        else msg
+      in
       KEvent.log L_fatal "Caught failure in invariant generator: %s" msg ;
       minisleep 0.5 ;
       exit ()

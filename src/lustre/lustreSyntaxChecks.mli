@@ -33,6 +33,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | IllegalNodeCall of (HString.t * string)
+  | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string

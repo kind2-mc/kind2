@@ -533,6 +533,11 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
   in
   mk ctx 0 expr_type expr
 
+  (* `mk_ref_type_expr` translates a full nested type to refinement type expressions (i.e., 
+      contract assumption and guarantee expressions),
+      erasing bound variables, and does the proper handling to make sure the transformation is type correct. 
+      For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
+      P1(x[0]) and P2(x[1]). *)
 and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
  = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
@@ -833,7 +838,7 @@ let get_expr_ty info map node_id expr =
           StringMap.fold
             (fun id ty acc -> Ctx.add_ty acc id ty)
             locals info.context
-        | None -> assert false 
+        | None -> info.context 
       )
       | None -> info.context
     in
@@ -975,7 +980,8 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     CompOp (pos, op, e1', e2')
-  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
+  | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr (pos, ident, ps, expr_list) ->
     let vars, expr_list' = desugar_idx_expr_list map expr_list in
     vars, RecordExpr (pos, ident, ps, expr_list')
@@ -2380,6 +2386,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | AnyOp _ -> assert false (* desugared earlier in pipeline *)
+  | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, ps, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
       let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in

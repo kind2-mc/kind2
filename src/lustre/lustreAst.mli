@@ -149,6 +149,7 @@ and expr =
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
   | AnyOp of position * typed_ident * expr
+  | ChooseOp of position * typed_ident * expr
   | Extract of position * expr * int * int
   (* Structured expressions *)
   | RecordExpr of position * ident * lustre_type list * (ident * expr) list
@@ -318,7 +319,7 @@ type opacity =
     - its optional contract specification *)
 type node_decl =
   NI.t
-  * bool
+  * bool (* is the node imported *)
   * opacity
   * ident list
   * const_clocked_typed_decl list

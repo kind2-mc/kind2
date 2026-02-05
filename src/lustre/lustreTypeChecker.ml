@@ -103,7 +103,6 @@ type error_kind = Unknown of string
   | SubrangeArgumentMustBeConstantInteger of LA.expr
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
-  | GlobalConstRefType of HString.t
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidNumberOfIndices of HString.t
@@ -215,7 +214,6 @@ let error_message kind = match kind with
     ^ Lib.string_of_t LA.pp_print_expr e
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
-  | GlobalConstRefType id -> "Definition of global constant '" ^ HString.string_of_hstring id ^ "' has refinement type (not yet supported)"
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
@@ -334,7 +332,7 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
+    | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
@@ -376,7 +374,7 @@ let no_mismatched_clock is_bool e =
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
+    | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
@@ -555,6 +553,7 @@ let rec infer_const_attr ctx exp =
     List.map (fun _ -> error exp "arrow operator") (r e1)
   (* Node calls *)
   | AnyOp _ -> assert false
+  | ChooseOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
   | RestartEvery (_, i, _, _) 
@@ -785,7 +784,8 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.Arrow (pos, e1, e2))
-  | AnyOp _ -> assert false (* Polymorphism is handled after any ops are desugared *)
+  | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
+  | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
 
 let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
@@ -1240,7 +1240,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
   | AnyOp _ -> assert false
-  (* Already desugared in lustreDesugarAnyOps *)
+  | ChooseOp _ -> assert false
+  (* Already desugared in lustreDesugarAnyChooseOps *)
   (*check_type_expr ctx nname e ty >>
     R.ok ty*)
   (* Clock operators *)
@@ -1444,7 +1445,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   | AnyOp _ -> assert false 
-    (* Already desugared in lustreDesugarAnyOps *)
+  | ChooseOp _ -> assert false 
+    (* Already desugared in lustreDesugarAnyChooseOps *)
     (*let extn_ctx = union ctx (singleton_ty i ty) in
     check_type_expr extn_ctx e (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
@@ -1775,7 +1777,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
       (* if the node is extern, we will not have any body to typecheck *)
       if is_extern
       then 
-        let decl = node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract in
+        let decl = 
+          node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
+        in
         R.ok ( Debug.parse "External Node, no body to type check."
                 ; Debug.parse "TC declaration node %a done }" NI.pp_print_node_id_user_name node_name ;
                 decl, [])
@@ -1810,7 +1814,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         in
         Debug.parse "TC declaration node %a done }"
           NI.pp_print_node_id_user_name node_name;
-        let decl = node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract in
+        let decl = 
+          node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
+        in
         check_lhs_eqns >> R.ok (decl, List.flatten warnings1 @ List.flatten warnings2))
 
 and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [> warning] list, [> error]) result = fun ctx nname ->
@@ -2315,14 +2321,7 @@ and build_type_and_const_context: tc_context -> LA.t -> (LA.t * tc_context * [> 
     let* ty_decl, ctx' = tc_ctx_of_ty_decl ctx ty_decl in
     let* rest, ctx', warnings = build_type_and_const_context ctx' rest in 
     R.ok (LA.TypeDecl (p, ty_decl) :: rest, ctx', warnings)
-  | LA.ConstDecl (s, (TypedConst (p, i, _, ty) as const_decl)) :: rest ->
-    let ty = expand_type_syn ctx ty in
-    if type_contains_ref ctx ty then type_error p (GlobalConstRefType i)
-    else (
-      let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
-      let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in 
-      R.ok (LA.ConstDecl (s, const_decl) :: rest, ctx', warnings1 @ warnings2)   
-    )
+  | LA.ConstDecl (s, ((TypedConst _) as const_decl)) :: rest 
   | LA.ConstDecl (s, ((FreeConst _) as const_decl)) :: rest -> (
     let* const_decl, ctx', warnings1 = tc_ctx_const_decl ctx Global None const_decl in
     let* rest, ctx', warnings2 = build_type_and_const_context ctx' rest in
@@ -2404,6 +2403,51 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
   else R.ok () 
 | AbstractType _ | Bool _ | Int _ | IntRange _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+
+and expr_contains_set_binop ctx ni expr = 
+  let r = expr_contains_set_binop ctx ni in 
+  match expr with
+  | LA.BinaryOp (_, (Union | Intersection | Plus | Times), e, _) -> 
+  (* We call this function before relabeling Plus/Times to Union/Intersection *)
+    let ty, _, _ = infer_type_expr ctx None e |> Result.get_ok in
+    type_contains_map_or_set ctx ty 
+  | Quantifier (_, _, tis, e) -> 
+    let ctx = List.fold_left (fun acc (_, id, ty) -> 
+      add_ty acc id ty 
+    ) ctx tis in 
+    expr_contains_set_binop ctx ni e 
+  | Ident _  -> false 
+  | EmptyMap (_, None) | EmptySet (_, None)
+  | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptyMap (_, Some (kt, vt)) -> 
+    LH.fold_lustre_ty r false (||) kt || 
+    LH.fold_lustre_ty r false (||) vt 
+  | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 
+  | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
+    -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
+    -> r e1 || r e2
+  | TernaryOp (_, _, e1, e2, e3)
+    -> r e1 || r e2 || r e3
+  | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || r x) false expr_list
+  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    r e1 || r e2
+    || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | AnyOp (_, (_, _, _), e) -> r e 
+  | ChooseOp (_, (_, _, _), e) -> r e 
+  | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
+    r e1 || r e2 || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list2
+  | RestartEvery (_, _, expr_list, e) -> 
+    r e || 
+    List.fold_left (fun acc x -> acc || r x) false expr_list
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty -> match ty with

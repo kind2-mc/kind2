@@ -100,7 +100,7 @@ type param =
   (** Refinement of a system. Store the result of the previous analysis. *)
   
   | ContractMonitor of info 
-  (* Monitoring a trace of execution, leaving the contract as proof obligations *)
+  (* Monitoring the satisfaction of a contract for an input trace. *)
 
 
 (** Result of analysing a transistion system *)
@@ -210,7 +210,7 @@ val results_clean : results -> results
 type pp_print_system_user_name = Format.formatter -> Scope.t -> unit
 
 (** Pretty printer for [param]. *)
-val pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
+val pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
 val pp_print_result_quiet: pp_print_system_user_name -> Format.formatter -> result -> unit

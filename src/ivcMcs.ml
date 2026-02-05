@@ -255,6 +255,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
     | A.AnyOp (p,ti,e) -> A.AnyOp (p,ti,aux e)
+    | A.ChooseOp (p,ti,e) -> A.ChooseOp (p,ti,aux e)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
     | A.When (p,e,c) -> A.When (p,aux e,c)
@@ -281,7 +282,8 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
+      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
+      | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
     | A.IndexAccess (_,e1,e2,_) 

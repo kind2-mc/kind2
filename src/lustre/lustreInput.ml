@@ -42,11 +42,12 @@ module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
-module LDN = LustreDesugarAnyOps
+module LDN = LustreDesugarAnyChooseOps
 module LFR = LustreFlattenRefinementTypes
 module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
+module LCF = LustreConstantsToFunctions
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -60,6 +61,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
@@ -226,20 +228,26 @@ let type_check declarations =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
-    (* Step 19. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings6) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_nodes_and_contracts gids
+    (* Step 19. Convert free constants to functions without args *)
+    let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
+      LCF.gen_const_functions inlined_global_ctx const_inlined_type_and_consts in
+    let* const_inlined_type_and_consts = 
+      LCF.constants_to_calls new_func_ids const_inlined_type_and_consts in
+    let* const_inlined_nodes_and_contracts = 
+      LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    let* (normalized_type_and_consts, _, warnings7) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs const_inlined_type_and_consts gids
+    (* Step 20. Normalize AST: guard pres, abstract to locals where appropriate *)
+    let* (normalized_decls, gids, warnings6) =
+      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
+                    (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
-    
+
     Res.ok (inlined_global_ctx,
       gids,
-      normalized_type_and_consts @ normalized_nodes_and_contracts,
+      normalized_decls,
       toplevel_nodes,
-      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6 @ warnings7)
+      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6)
     )
   in
   match tc_res with
@@ -372,6 +380,13 @@ let of_channel only_parse in_ch =
               raise (NoMainNode msg)
           )
         | None -> main_nodes in
+      let defined_const_funcs = List.filter_map (fun n -> 
+      if NI.get_node_type n.LustreNode.node_id = DefinedConstant then 
+         Some n.LustreNode.node_id 
+      else 
+        None
+      ) nodes in 
+      let main_nodes = main_nodes @ defined_const_funcs in 
       Ok (nodes, globals, main_nodes)
     in
 

@@ -93,7 +93,7 @@ let main_of_process = function
     | `INVGENREALOS -> renice () ; InvGen.main_real false
     | `C2I -> renice () ; C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-    | `CMonitor ->  Flags.ContractMonitor.input_file () |> ContractMonitor.main
+    | `CMonitor ->  Flags.ContractMonitor.input_file () |> Interpreter.main ~contract_monitor:true
     | `Supervisor -> assert false
     | `INVGENMACH | `INVGENMACHOS | `MCS | `CONTRACTCK
     | `Parser | `Certif -> ( fun _ _ _ -> () )
@@ -252,6 +252,13 @@ let status_of_exn process status = function
         the model contains non-linear expressions.@ \
         Consider running Kind 2 with `--smt_logic detect`\
       "
+      pp_print_kind_module process;
+      status
+    )
+    else if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
+            msg = "SMT solver failed: Higher-order compound types not supported" then (
+      (* MathSAT error *)
+      KEvent.log L_error "In %a: MathSAT does not support maps, sets, or arrays over bool"
       pp_print_kind_module process;
       status
     )
@@ -714,16 +721,15 @@ let run in_sys =
     try (
       let param = ISys.monitor_param in_sys in
       (* Build trans sys and slicing info. *)
-      let sys, _ = 
+      let sys, in_sys = 
         ISys.trans_sys_of_analysis
           ~preserve_sig:true ~slice_nodes:`Off in_sys param
       in
-      let sliced_inp = ISys.slice_to_abstraction in_sys param sys in 
 
       (* Run interpreter. *)
-      (ContractMonitor.main (
+      (Interpreter.main ~contract_monitor:true (
         Flags.ContractMonitor.input_file ()
-      )) sliced_inp param sys ;
+      )) in_sys param sys ;
       (* Ignore SIGALRM from now on *)
       Signals.ignore_sigalrm () ;
       (* Cleanup before exiting process *)

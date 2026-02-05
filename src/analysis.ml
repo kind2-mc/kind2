@@ -93,7 +93,7 @@ type param =
   | First of info
   (* Refinement of a system. Store the result of the previous analysis. *)
   | Refinement of info * result
-  (* Monitoring a trace of execution, leaving the contract as proof obligations *)
+  (* Monitoring the satisfaction of a contract for an input trace. *)
   | ContractMonitor of info 
 
 
@@ -343,13 +343,19 @@ let results_clean = Scope.Map.filter (
   | [] -> failwith "unreachable"
 )
 
-let pp_print_param: bool -> pp_print_system_user_name -> Format.formatter -> param -> unit
-= fun verbose pp_print_system_user_name fmt param ->
+let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.formatter -> param -> unit
+= fun verbose sys pp_print_system_user_name fmt param ->
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
+  in
+  let concrete = 
+    List.filter (fun sc -> TransSys.scope_is_visible sc sys) concrete
+  in
+  let abstract = 
+    List.filter (fun sc -> TransSys.scope_is_visible sc sys) abstract
   in
   Format.fprintf fmt "%s @[<v>top: '@{<blue>%a@}'%a%a@]"
     ( match param with
@@ -419,7 +425,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
-  | ContractMonitor _ -> Format.fprintf fmt "simulating system"
+  | ContractMonitor _ -> Format.fprintf fmt "monitoring contract"
   | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
   | First { abstraction_map } ->
     let count =
@@ -469,6 +475,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       ) refined
 
 let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) =
+  if TransSys.get_is_visible sys then 
   let valid, invalid, unknown = split_properties_nocands sys in
   let invariant, unreachable =
     valid |> List.partition (function
@@ -548,6 +555,8 @@ let pp_print_result_quiet pp_print_system_user_name fmt ({ time ; sys } as res) 
 let pp_print_result pp_print_system_user_name fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =
+  if TransSys.get_is_visible sys then 
+  let param = shrink_param_to_sys param sys in
   let pp_print_prop_list pref = fun fmt props ->
     Format.fprintf fmt
       "%s: @[<v>%a@]@ "
@@ -557,11 +566,11 @@ let pp_print_result pp_print_system_user_name fmt {
   in
   let pp_print_skip _ _ = () in
   let valid, invalid, unknown = split_properties_nocands sys in
-  Format.fprintf fmt "@[<v>\
+    Format.fprintf fmt "@[<v>\
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    (pp_print_param true pp_print_system_user_name) param
+    (pp_print_param true sys pp_print_system_user_name) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"

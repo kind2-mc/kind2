@@ -458,6 +458,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         | X.SetMapIndex b
         | X.ArrayVarIndex b -> 
           E.type_of_expr b 
+        | X.ArrayIntIndex _ -> Type.t_int
         | _ -> assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
@@ -479,6 +480,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         | X.ArrayVarIndex b
         | X.SetMapIndex b -> 
           E.type_of_expr b 
+        | X.ArrayIntIndex _ -> Type.t_int
         | _ -> assert false 
       in
       E.mk_select_and_push e (E.mk_array_index_var i ty), succ i, succ j
@@ -608,6 +610,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
 (* Return a list of equations from a trie of state variables and a
   trie of expressions *)
 let expand_tuple pos lhs rhs = 
+  (*Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+    (X.pp_print_index_trie true StateVar.pp_print_state_var) lhs
+    (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) rhs; *)
   (* Format.eprintf "expand_tuple: \n"; *)
   expand_tuple' pos [] []
     (X.bindings lhs) (X.bindings rhs)
@@ -623,6 +628,26 @@ let compile_contract_item map count scope kind pos name expr =
     let contract_sv = C.mk_svar pos count name state_var scope in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
+
+let create_uf_symbols node_id inputs undefined_outputs =
+  let type_of = StateVar.type_of_state_var in
+  let input_types = List.map type_of (X.values inputs) in
+
+  undefined_outputs
+  |> List.fold_left (
+    fun uf_symbols output ->
+      let uf_name =
+        Format.asprintf "%a.%s.%s"
+        HString.pp_print_hstring (NI.get_internal_name node_id)
+          (StateVar.name_of_state_var output)
+          Lib.ReservedIds.function_of_inputs
+      in
+      let uf =
+        UfSymbol.mk_uf_symbol
+          uf_name input_types (type_of output)
+      in
+      SVM.add output uf uf_symbols
+  ) SVM.empty
 
 let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
@@ -1336,7 +1361,8 @@ and compile_ast_expr
     compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
-  | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyOps *)
+  | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
+  | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
@@ -1790,10 +1816,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | _ -> assert false (* Guaranteed by LustreSyntaxChecks *)
     and is_single = List.length outputs = 1
     in List.fold_left (over_outputs is_single) X.empty outputs
+  in
   (* ****************************************************************** *)
   (* User Locals                                                        *)
   (* ****************************************************************** *)
-  in let locals, cstate =
+  let locals, cstate =
     let over_locals = fun (locals, cstate) local ->
       match local with
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
@@ -2739,6 +2766,24 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | None -> ()
   );
   (* ****************************************************************** *)
+  (* Type of component                                                  *)
+  (* ****************************************************************** *)
+  let comp_type =
+    if is_function then
+      let undefined_outputs =
+        let defined_svars = List.fold_left
+          (fun set ((sv,_),_) -> SVS.add sv set) SVS.empty equations
+        in
+        let is_undefined svar = SVS.mem svar defined_svars |> not in
+        List.filter is_undefined (X.values outputs)
+      in
+      N.Function { uf_symbols = 
+        create_uf_symbols node_id inputs undefined_outputs
+      }
+    else
+      N.Node
+  in
+  (* ****************************************************************** *)
   (* Finalize and build intermediate LustreNode                         *)
   (* ****************************************************************** *)    
   let locals = sofar_local @ ghost_locals @ glocals @ locals in
@@ -2787,7 +2832,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     props;
     contract;
     is_main;
-    is_function;
+    comp_type;
     state_var_source_map;
     oracle_state_var_map;
     state_var_expr_map;

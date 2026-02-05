@@ -21,18 +21,23 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
-let mk_fresh_fn_name: Lib.position -> NI.t -> NI.t = 
-fun pos node_id -> 
+let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
+fun pos node_id node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
-  let name = HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") in
+  let name = match node_type with 
+  | Any -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") 
+  | Choose -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".choose_") 
+  | _ -> assert false
+  in
   let name = HString.concat2 name pos in
-  NI.mk_node_id ~node_type:Any ~user_name:name name
+  NI.mk_node_id ~node_type ~user_name:name name
 
 let rec desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
+  | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = 
@@ -60,13 +65,6 @@ fun ctx node_name fun_ids expr ->
         p, inp, ty, cl, is_const 
       | None -> assert false
     ) inputs in
-    let name = mk_fresh_fn_name pos node_name in
-    (* If the any op expressions are temporal or call a node, we generate an imported node. 
-    Otherwise, we generate an imported function. *)
-    let has_pre_arrow_or_node_call =
-      let node_calls1 = AH.calls_of_expr expr1 |> NI.Set.elements |> List.filter (fun i -> not (List.mem i fun_ids)) in 
-      (AH.has_pre_or_arrow expr1 != None) || (node_calls1 != []) 
-    in
     (* The generated imported node might be polymorphic, so we find all the needed type variables *)
     let ty_params = 
       Ctx.SI.union (Ctx.ty_vars_of_type ctx node_name ty) 
@@ -74,15 +72,22 @@ fun ctx node_name fun_ids expr ->
       |> Ctx.SI.elements
     in 
     let ty_vars = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
-    let generated_node = 
-      if has_pre_arrow_or_node_call then
+    let generated_node, name = match expr with 
+    | AnyOp _ -> 
+        (* `any` operators are nondeterministic *)
+        let name = mk_fresh_fn_name pos node_name Any in
         A.NodeDecl (span, 
         (name, true, A.Opaque, ty_params, inputs,
-        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))) 
-      else 
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))), 
+        name
+    | ChooseOp _ -> 
+        (* `choose` operators are deterministic *)
+        let name = mk_fresh_fn_name pos node_name Choose in
         A.FuncDecl (span, 
         (name, true, A.Opaque, ty_params, inputs,
-        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)))  
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))), 
+        name
+    | _ -> assert false
     in
     A.Call(pos, ty_vars, name, inputs_call), [generated_node]
 

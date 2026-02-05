@@ -551,7 +551,7 @@ let slice_all_of_node
       N.props; 
       N.contract;
       N.is_main;
-      N.is_function;
+      N.comp_type;
       N.state_var_source_map;
       N.oracle_state_var_map;
       N.state_var_expr_map;
@@ -577,7 +577,7 @@ let slice_all_of_node
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
-    N.is_function;
+    N.comp_type;
     N.state_var_source_map = state_var_source_map;
     N.oracle_state_var_map = oracle_state_var_map;
     N.state_var_expr_map = state_var_expr_map;
@@ -1109,7 +1109,7 @@ let slice_to_abstraction'
   let nodes =
     S.find_subsystem subsystem top |> N.nodes_of_subsystem 
   in
-  
+
   (* Slice all nodes to either abstraction or implementation *)
   let nodes' = 
 
@@ -1121,7 +1121,7 @@ let slice_to_abstraction'
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
 
   in
-  
+
   (* Create subsystem from list of nodes *)
   let { N.node_id = top; } = List.hd nodes in
   N.subsystem_of_nodes top nodes'

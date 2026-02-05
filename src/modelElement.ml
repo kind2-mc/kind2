@@ -245,7 +245,10 @@ let pp_print_core_data in_sys param sys fmt cpd =
       | Contract -> "Contract of"
       | Type -> "Type"
       | Component -> "Node"
-      | Any -> "'Any' operator") 
+      | Any -> "'Any' operator"
+      | DefinedConstant -> "Global constant (defined)"
+      | FreeConstant -> "Global constant (free)"
+      | Choose -> "'Choose' operator")
     NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;

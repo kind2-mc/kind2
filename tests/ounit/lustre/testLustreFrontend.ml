@@ -66,6 +66,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test any operator in function" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test any operator in contract import" (fun () ->
+    match load_file "./lustreSyntaxChecks/any_op_contract_import.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+    | _ -> false);
   mk_test "test any operator in global refinement type" (fun () ->
     match load_file "./lustreSyntaxChecks/global_ref_ty_any.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
@@ -187,11 +195,11 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInPre _)) -> true
     | _ -> false);
   mk_test "node call in any op in function" (fun () ->
-    match load_file "./lustreSyntaxChecks/any_op_func.lus" with
+    match load_file "./lustreSyntaxChecks/choose_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "pre in any op in function" (fun () ->
-    match load_file "./lustreSyntaxChecks/any_op_func_pre.lus" with
+    match load_file "./lustreSyntaxChecks/choose_op_func_pre.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
   mk_test "inductive array definition in multiple assignment" (fun () ->
@@ -208,7 +216,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
-  (*!!*)
   mk_test "test record type inference 1" (fun () ->
     match load_file "./lustreTypeChecker/record_type_inference_1.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
@@ -790,6 +797,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
 (*                        Lustre If and Frame Block Checks                     *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
+  mk_test "Bad generated call" (fun () ->
+    match load_file "./lustreSyntaxChecks/constants_to_calls.lus" with
+    | Error (`LustreConstantsToFunctionsError (_, GenCallInArrayLength _)) -> true
+    | _ -> false);  
   mk_test "Misplaced frame block inside if block" (fun () ->
     match load_file "./lustreSyntaxChecks/misplaced_frame_block.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true

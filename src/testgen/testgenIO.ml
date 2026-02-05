@@ -169,13 +169,8 @@ let error_json (type s) : s t -> string * string * Unix.file_descr
   let path = Format.sprintf "%s/%s.json" edir name in
   t.euid <- euid + 1 ;
   name, path, openfile path
-(* Converts a model to the system's input values in csv. *)
-let cex_to_inputs_csv fmt in_sys sys cex k =
-  Format.fprintf fmt "%a"
-    (InputSystem.pp_print_path_in_csv in_sys sys true)
-    (Model.path_from_model (TransSys.state_vars sys) cex k)
 
-(* Converts a model to the system's input values in csv. *)  
+(* Converts a model to the system's input values in json. *)  
 let cex_to_inputs_json fmt in_sys sys cex k =
   Format.fprintf fmt "%a"
     (InputSystem.pp_print_path_json_testgen in_sys sys true)
@@ -196,7 +191,7 @@ let pp_print_tc in_sys fmt path name modes =
     | [] -> ()
   in
   Format.fprintf fmt
-    "  <testcase path=\"%s\" name=\"%s\" format=\"csv\">@." path name ;
+    "  <testcase path=\"%s\" name=\"%s\" format=\"json\">@." path name ;
   List.rev modes |> loop 0 ;
   Format.fprintf fmt "  </testcase>@.@.@?"
 
@@ -214,7 +209,7 @@ let pp_print_deadlock in_sys fmt path name modes =
     | [] -> Format.fprintf fmt "    deadlock reached@."
   in
   Format.fprintf fmt
-    "  <deadlock path=\"%s\" name=\"%s\" format=\"csv\">@." path name ;
+    "  <deadlock path=\"%s\" name=\"%s\" format=\"json\">@." path name ;
   List.rev modes |> loop 0 ;
   Format.fprintf fmt "  </deadlock>@.@.@?"
 
@@ -246,7 +241,6 @@ let log_testcase (type s)
   if Flags.Testgen.graph_only () |> not then (
     (* |===| Logging testcase. *)
     (* Format.printf "    logging testcase@." ; *)
-    (* let name, _, tc_file = testcase_csv t in *)
     let name, _, tc_file = testcase_json t in
     let tc_fmt = fmt_of_file tc_file in
     (* Logging test case. *)
@@ -286,7 +280,7 @@ let log_deadlock (type s)
   let name, path, e_file = error_json t in
   let e_fmt = fmt_of_file e_file in
   (* Logging test case. *)
-  cex_to_inputs_csv e_fmt t.input_sys t.sys model k ;
+  cex_to_inputs_json e_fmt t.input_sys t.sys model k ;
   (* Flushing. *)
   Format.fprintf e_fmt "@?" ;
   (* Close file. *)
