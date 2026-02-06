@@ -1,4 +1,4 @@
-(* This file is part of the Kind 2 model checker.
+(* This file is part of the Kind 2 model checker.typechecke
 
    Copyright (c) 2020 by the Board of Trustees of the University of Iowa
 
@@ -541,7 +541,7 @@ let rec arity_of_expr ty_ctx = function
     let node_ty = lookup_node_ty ty_ctx id |> Lib.get in
     let (_, o) = LH.type_arity node_ty in
     o
-  | Pre (_, e) -> arity_of_expr ty_ctx e
+  | Pre (_, e, _) -> arity_of_expr ty_ctx e
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
   | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
@@ -887,7 +887,9 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Merge (_, _, es) -> List.split es |> snd |> List.map call |> SI.flatten
   | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
   (* Temporal operators *)
-  | Pre (_, e) -> call e
+  | Pre (_, e, None) -> call e
+  | Pre (_, e, Some ty) -> 
+    SI.union (call e) (ty_vars_of_type ctx node_name ty)
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
 
 and ty_vars_of_type ctx node_name ty = 

@@ -16,6 +16,7 @@
  *)
 
 module A = LustreAst
+module AH = LustreAstHelpers
 module NI = NodeId
 module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
@@ -66,11 +67,18 @@ let rec expr_contains_mode_ref expr =
   | A.ModeRef (_, _) -> true
   | Ident (_, _) 
   | Const (_, _)
-  | EmptySet _
-  | EmptyMap _ -> false
+  | EmptySet (_, None)
+  | EmptyMap (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) -> 
+    AH.fold_lustre_ty r false (||) kt || 
+    AH.fold_lustre_ty r false (||) vt
+  | EmptySet (_, Some ty) -> AH.fold_lustre_ty r false (||) ty
+  | Pre (_, e, Some ty) -> 
+    r e || 
+    AH.fold_lustre_ty r false (||) ty
   | RecordProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) | StructUpdate (_, e, _, None)
+  | Pre (_, e, None) | StructUpdate (_, e, _, None)
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)

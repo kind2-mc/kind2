@@ -737,7 +737,7 @@ let add_step_counter info =
     A.Arrow (dpos,
       Const (dpos, Num (HString.mk_hstring "0")),
       BinaryOp (dpos, Plus,
-        Pre (dpos, Ident (dpos, ctr_id)),
+        Pre (dpos, Ident (dpos, ctr_id), None),
         Const (dpos, Num (HString.mk_hstring "1"))
       )
     )
@@ -814,7 +814,7 @@ let add_history_var_and_equation info id h_id =
       let prev_hist =
         A.Arrow (dpos,
           A.Ident(dpos, id),
-          A.IndexAccess (dpos, A.Pre (dpos, A.Ident (dpos, h_id)), A.Ident (dpos, index), Array)
+          A.IndexAccess (dpos, A.Pre (dpos, A.Ident (dpos, h_id), None), A.Ident (dpos, index), Array)
         )
       in
       A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
@@ -2473,7 +2473,14 @@ and expand_node_calls_in_place info node_id var count expr =
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)
   | When (p, e, c) -> A.When (p, r e, c)
-  | Pre (p, e) -> A.Pre (p, r e)
+  | EmptySet (p, Some ty) -> 
+    EmptySet (p, Some (AH.map_lustre_ty r ty))
+  | EmptyMap (p, Some (kt, vt)) -> 
+    EmptyMap (p, Some (AH.map_lustre_ty r kt, AH.map_lustre_ty r vt))
+  | Pre (p, e, Some ty) -> 
+    let ty = AH.map_lustre_ty r ty in
+    A.Pre (p, r e, Some ty)
+  | Pre (p, e, None) -> A.Pre (p, r e, None)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
   | StructUpdate (p, e1, u, Some e2) -> A.StructUpdate (p, r e1, u, Some (r e2))

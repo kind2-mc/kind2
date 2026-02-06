@@ -234,15 +234,16 @@ and simplify_index_access ctx ?(ind_vars = []) pos e1 idx kind =
     IndexAccess (pos, e1', idx', kind)
 (** picks out the idx'th component of an array if it can *)
 
-and push_pre is_guarded pos =
-  let r e = push_pre is_guarded pos e in
+and push_pre is_guarded pos ta =
+  let r e = push_pre is_guarded pos ta e in
   function
-  | LA.Ident _ as e -> LA.Pre (pos, e)
-  | ModeRef _ as e -> LA.Pre (pos, e)
-  | EmptySet _ as e -> LA.Pre (pos, e)
-  | EmptyMap _ as e -> LA.Pre (pos, e)
+  | LA.Ident _ as e -> LA.Pre (pos, e, ta)
+  | ModeRef _ as e -> LA.Pre (pos, e, ta)
+  (*!! No recursive calls? *)
+  | EmptySet _ as e -> LA.Pre (pos, e, ta)
+  | EmptyMap _ as e -> LA.Pre (pos, e, ta)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
-  | Const _ as e -> if is_guarded then e else Pre (pos, e)
+  | Const _ as e -> if is_guarded then e else Pre (pos, e, ta)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
@@ -263,14 +264,14 @@ and push_pre is_guarded pos =
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
-  | When _ as e -> LA.Pre (pos, e)
-  | Condact _ as e -> LA.Pre (pos, e)
-  | Activate _ as e -> LA.Pre (pos, e)
-  | Merge _ as e -> LA.Pre (pos, e)
-  | RestartEvery _ as e -> LA.Pre (pos, e)
-  | Pre _ as e -> LA.Pre (pos, e)
-  | Arrow _ as e -> LA.Pre (pos, e)
-  | Call _ as e -> LA.Pre (pos, e)
+  | When _ as e -> LA.Pre (pos, e, ta)
+  | Condact _ as e -> LA.Pre (pos, e, ta)
+  | Activate _ as e -> LA.Pre (pos, e, ta)
+  | Merge _ as e -> LA.Pre (pos, e, ta)
+  | RestartEvery _ as e -> LA.Pre (pos, e, ta)
+  | Pre _ as e -> LA.Pre (pos, e, ta)
+  | Arrow _ as e -> LA.Pre (pos, e, ta)
+  | Call _ as e -> LA.Pre (pos, e, ta)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function
@@ -297,13 +298,13 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
       | Error _ -> e')
     | _ -> e')
-  | LA.Pre (pos, e) ->
+  | LA.Pre (pos, e, ta) ->
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     if is_guarded && LH.expr_is_const e' then e'
     else
       if Flags.lus_push_pre ()
-      then push_pre is_guarded pos e'
-      else Pre (pos, e')
+      then push_pre is_guarded pos ta e' 
+      else Pre (pos, e', ta)
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
     let e2' = simplify_expr ~ind_vars ~is_guarded:true ctx e2 in

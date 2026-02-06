@@ -1234,7 +1234,7 @@ pexpr(Q):
     { A.Merge (mk_pos $startpos, c, l) }
     
   (* A temporal operation *)
-  | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
+  | PRE; ta = option(type_annotation); e = pexpr(Q) { A.Pre (mk_pos $startpos, e, ta) }
   | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
     { let pos = mk_pos $startpos in
       fail_at_position pos "Unsupported operator: fby" }

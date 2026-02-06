@@ -169,7 +169,7 @@ and expr =
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
-  | Pre of position * expr
+  | Pre of position * expr * lustre_type option
   | Arrow of position * expr * expr
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list

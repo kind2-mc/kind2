@@ -330,8 +330,11 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
+    | Pre (_, e, Some ty) -> 
+      LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty >> 
+      check_clocks clock e
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
-    | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
+    | ConvOp (_, _, e) | Pre (_, e, None) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
@@ -372,8 +375,11 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
+    | Pre (_, e, Some ty) -> 
+      LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty >> 
+      check_merge e
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
-    | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
+    | ConvOp (_, _, e) | Pre (_, e, None) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
@@ -547,7 +553,10 @@ let rec infer_const_attr ctx exp =
     List.map (fun _ -> error exp "merge operator")
       (r (List.hd (snd (List.split es))))
   (* Temporal operators *)
-  | Pre (_, e) ->
+  | Pre (_, e, Some ty) ->
+    combine (LH.fold_lustre_ty r [R.ok ()] combine ty)
+            (List.map (fun _ -> error exp "pre operator") (r e))
+  | Pre (_, e, None) ->
     List.map (fun _ -> error exp "pre operator") (r e)
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
@@ -777,9 +786,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e = call e in 
     let* expr_list = R.seq (List.map call expr_list) in 
     R.ok (LA.RestartEvery (pos, ident, expr_list, e))
-  | Pre (pos, e) -> 
+  | Pre (pos, e, Some ty) -> 
+    let* ty = instantiate_type_variables ctx pos nname ty ty_args in
     let* e = call e in
-    R.ok (LA.Pre (pos, e))
+    R.ok (LA.Pre (pos, e, Some ty))
+  | Pre (pos, e, None) -> 
+    let* e = call e in
+    R.ok (LA.Pre (pos, e, None))
   | Arrow (pos, e1, e2) -> 
     let* e1 = call e1 in 
     let* e2 = call e2 in
@@ -1288,9 +1301,15 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> assert false 
     )                            
   (* Temporal operators *)
-  | LA.Pre (p, e) -> 
+  | LA.Pre (p, e, Some ty) -> 
+    let* inf_ty, e, warnings = infer_type_expr ctx nname e in 
+    R.ifM (eq_lustre_type ctx ty inf_ty)
+      (R.ok (ty, LA.Pre (p, e, Some ty), warnings))
+            (type_error p (ExpectedType (ty, inf_ty)))
+    (*R.ok (ty, LA.Pre (p, e, None), warnings)*)
+  | LA.Pre (p, e, None) -> 
     let* ty, e, warnings = infer_type_expr ctx nname e in 
-    R.ok (ty, LA.Pre (p, e), warnings)
+    R.ok (ty, LA.Pre (p, e, None), warnings)
   | LA.Arrow (pos, e1, e2) ->
     let* ty1, e1, warnings1 = infer_type_expr ctx nname e1 in
     let* ty2, e2, warnings2 = infer_type_expr ctx nname e2 in
@@ -1466,7 +1485,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | GroupExpr (pos, _, _) 
   | StructUpdate (pos, _, _, _) 
   | RecordExpr (pos, _, _, _) 
-  | Pre (pos, _) 
+  | Pre (pos, _, _) 
   | When (pos, _, _) 
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
@@ -2422,9 +2441,12 @@ and expr_contains_set_binop ctx ni expr =
   | EmptyMap (_, Some (kt, vt)) -> 
     LH.fold_lustre_ty r false (||) kt || 
     LH.fold_lustre_ty r false (||) vt 
+  | Pre (_, e, Some ty) ->
+    LH.fold_lustre_ty r false (||) ty || 
+    r e
   | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
   | RecordProject (_, e, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 
+  | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e, None) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)

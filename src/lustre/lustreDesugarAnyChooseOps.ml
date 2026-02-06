@@ -172,9 +172,10 @@ fun ctx node_name fun_ids expr ->
     let expr_list, gen_nodes1 = List.map (rec_call) expr_list |> List.split in
     let e, gen_nodes2 = rec_call e in
     RestartEvery (pos, ident, expr_list, e), List.flatten gen_nodes1 @ gen_nodes2
-  | Pre (pos, e) -> 
+    (*!! any/choose ops at the type level? *)
+  | Pre (pos, e, ta) -> 
     let e, gen_nodes = rec_call e in
-    Pre (pos, e), gen_nodes
+    Pre (pos, e, ta), gen_nodes
   | Arrow (pos, e1, e2) -> 
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in

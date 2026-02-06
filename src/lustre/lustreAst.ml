@@ -133,7 +133,7 @@ type expr =
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * NI.t * expr list * expr
   (* Temporal operators *)
-  | Pre of position * expr
+  | Pre of position * expr * lustre_type option
   | Arrow of position * expr * expr
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
@@ -598,7 +598,15 @@ let rec pp_print_expr ppf =
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
 
-    | Pre (p, e) -> p1 p "pre" e
+    | Pre (p, e, None) -> p1 p "pre" e
+
+    | Pre (p, e, Some ty) -> 
+
+      Format.fprintf ppf
+        "%apre@<%a>(%a)"
+        ppos p
+        pp_print_expr e
+        pp_print_lustre_type ty
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 

@@ -110,7 +110,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (p, e) -> Pre (p, r e) 
+  | Pre (p, e, ta) -> Pre (p, r e, ta) 
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
   | Const _ as e -> e
   | ModeRef _ as e -> e
@@ -191,7 +191,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
         in
         NI.Hashtbl.add pos_list_map node_id frame_info;
 
-        R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id)))))]
+        R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id), None))))]
     )
   | A.Equation (pos, (StructDef(_, [ArrayDef(_, id1, id2)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
@@ -220,7 +220,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
         in
         NI.Hashtbl.add pos_list_map node_id frame_info;
 
-        R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, build_array_index (List.rev id2)))))]
+        R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, build_array_index (List.rev id2), None))))]
     )
   (* Assert in frame block guard *)
   | A.Assert(pos, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
@@ -290,7 +290,7 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
         in
         NI.Hashtbl.add pos_list_map node_id frame_info;
 
-        R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
+        R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var), None)))]
 
 (** Helper function to fill in ITE oracles. 
     For variable v, fill each ITE oracle with `init_v -> pre v` if an initialization exists, 
@@ -301,7 +301,7 @@ match ni with
     (* Find initialization value *)
     let exprs = List.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), init_expr) when id = i  -> 
-        let pre_expr = A.Pre (pos, Ident (pos, i)) in 
+        let pre_expr = A.Pre (pos, Ident (pos, i), None) in 
         Some (lhs, init_expr, rhs_expr, pre_expr)
       (* In this case, the initialization is a recursive array definition, but 
          the body equation is not. So, we have to make the whole desugared equation recursive. *)
@@ -314,7 +314,7 @@ match ni with
         let rhs_expr = push_indices fresh rhs_expr in
         let pre_expr = List.fold_left (fun expr j -> 
           A.IndexAccess (pos, expr, A.Ident(pos, j), Array)
-        ) (A.Pre (pos, Ident (pos, i))) fresh 
+        ) (A.Pre (pos, Ident (pos, i), None)) fresh 
         in 
         Some (lhs, init_expr, rhs_expr, pre_expr)
       | _ -> None
@@ -331,7 +331,7 @@ match ni with
         let pos2 = AH.pos_of_expr rhs_expr in 
         let rhs = 
           fill_ite_helper f_pos node_id lhs 
-            (A.Pre (pos2, Ident(pos2, i))) rhs_expr
+            (A.Pre (pos2, Ident(pos2, i), None)) rhs_expr
         in
         R.ok (A.Body (Equation (pos, lhs, rhs))))
   | A.Body (Equation (pos, StructDef(p1, [ArrayDef(p2, i1, inds1)]), rhs_expr)) ->
@@ -361,13 +361,13 @@ match ni with
       | Some init -> 
         let rhs = 
           fill_ite_helper f_pos node_id lhs 
-            (A.Arrow (pos2, init, (A.Pre (pos2, array_index)))) rhs_expr
+            (A.Arrow (pos2, init, (A.Pre (pos2, array_index, None)))) rhs_expr
         in
         R.ok (A.Body (Equation (pos, lhs, rhs)))
       | None -> 
         let rhs = 
           fill_ite_helper f_pos node_id lhs 
-            (A.Pre (pos2, array_index)) rhs_expr 
+            (A.Pre (pos2, array_index, None)) rhs_expr 
         in
         R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,

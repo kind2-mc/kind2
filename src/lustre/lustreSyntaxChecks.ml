@@ -553,8 +553,9 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (_, IndexAccess (_, _, _, _)) -> Ok ()
-  | LA.Pre (pos, e) ->
+  | LA.Pre (_, IndexAccess (_, _, _, _), _) -> Ok ()
+  (*!! Revisit *)
+  | LA.Pre (pos, e, _) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
       let found_quant = StringMap.mem j ctx.quant_vars in
@@ -580,7 +581,7 @@ let no_calls_to_node scope ctx = function
 
 let no_temporal_operator decl_ctx expr =
   match expr with
-  | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
+  | LA.Pre (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
   | _ -> Ok []
 
@@ -641,7 +642,7 @@ let rec expr_only_supported_in_merge observer expr =
   | RecordProject (_, e, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
-  | Pre (_, e)
+  | Pre (_, e, _) (*!! Revisit *)
   | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) 
   | StructUpdate (_, e, _, None) -> r observer e
@@ -986,7 +987,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | ConvOp (_, _, e)
     | When (_, e, _)
     | Extract (_, e, _, _)
-    | Pre (_, e) -> check_expr ctx f e 
+    | Pre (_, e, _) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
       let over_vars (warnings, ctx) (_, i, ty) = 
         let* warnings2 = check_ty_quantified_var ctx f ty in
