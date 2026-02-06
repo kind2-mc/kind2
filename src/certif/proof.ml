@@ -1083,7 +1083,7 @@ let cpc_proof_from_chan prefix in_ch =
   let fmt = Format.formatter_of_out_channel oc in
   List.iter (fun s -> Format.fprintf fmt "%a@." HS.pp_print_sexpr s) sexps;
   close_out oc;
-  Format.printf "Outputted file: %s@." prefix;
+  (* Format.printf "Outputted file: %s@." prefix; *)
   sexps
 
 
@@ -1194,7 +1194,24 @@ let factor_jkind_defs (proof : cpc_step list) =
         List.rev acc
   in
   aux ([]) proof
+let get_first_assm steps= 
 
+ let rec aux = function
+    | [] ->
+        failwith "Couldn't find the first assume-push"
+
+    | (HS.List (HS.Atom kw :: HS.Atom id :: assm :: _)):: _    
+        when HString.equal kw (s_assume_push) ->
+        assm
+    | s :: rest ->
+      aux rest
+    in
+    aux steps
+      
+      (* failwith (Format.asprintf "Unexpected format of assume-push:  %a"  HS.pp_print_sexpr s)  *)
+
+   
+    
 
 let get_last_step_name steps =
   let rec find_last = function
@@ -1287,22 +1304,41 @@ let mk_step_pop name last_step_id =
     HS.Atom (HString.mk_hstring ":premises");
     HS.List [ HS.Atom last_step_id ];
   ]
+
+let mk_step_pop_dyn name last_step_id assm =
+  HS.List [
+    HS.Atom (HString.mk_hstring "step-pop");
+    HS.Atom (HString.mk_hstring name);
+    HS.List [
+      HS.Atom (HString.mk_hstring "=>");
+      assm;
+      HS.Atom (HString.mk_hstring "false");
+    ];
+    HS.Atom (HString.mk_hstring ":rule");
+    HS.Atom (HString.mk_hstring "scope");
+    HS.Atom (HString.mk_hstring ":premises");
+    HS.List [ HS.Atom last_step_id ];
+  ]
 let pp_print_safety_proof fmt defs base_steps induction_steps implication_steps =
     Format.fprintf fmt "%a" pp_cpc_proof defs;
     Format.fprintf fmt ";; Base proof\n";
     Format.fprintf fmt "%a" pp_cpc_proof base_steps;
     Format.fprintf fmt ";; base_proof_k2\n";
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "base_proof_kind_2" (get_last_step_name base_steps))] ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "base_proof_kind_2" (get_last_step_name base_steps) (get_first_assm base_steps))] ;
+    Format.printf "Found assume push base k2";
     Format.fprintf fmt ";; Induction proof \n";
     Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
     Format.fprintf fmt ";; induction_proof_k2 \n";
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "induction_proof_kind_2" (get_last_step_name induction_steps))] ;
+    Format.printf "Finding assume push induction";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "induction_proof_kind_2" (get_last_step_name induction_steps) (get_first_assm induction_steps))] ;
+    Format.printf "Found assume push";
     Format.fprintf fmt ";; k_ind_proof\n";
     Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "k_ind_proof_kind_2")];
     Format.fprintf fmt ";; implication_proof\n";
     Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
     Format.fprintf fmt ";; impl_rule \n" ;
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "implication_proof_kind_2" (get_last_step_name implication_steps))]; 
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "implication_proof_kind_2" (get_last_step_name implication_steps) (get_first_assm implication_steps))]; 
+    Format.printf "Found assume push";
     Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")]
 
 
@@ -1311,17 +1347,20 @@ let pp_print_frontend_proof fmt defs base_steps induction_steps implication_step
     Format.fprintf fmt ";; Base proof (Observer)\n";
     Format.fprintf fmt "%a" pp_cpc_proof base_steps;
     Format.fprintf fmt ";; base_proof_jkind\n";
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "base_proof_jkind" (get_last_step_name base_steps))] ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "base_proof_jkind" (get_last_step_name base_steps) (get_first_assm base_steps))] ;
+    Format.printf "Found assume push";
     Format.fprintf fmt ";; Induction proof (Observer) \n";
     Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
     Format.fprintf fmt ";; induction_proof_jkind \n";
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "induction_proof_jkind" (get_last_step_name induction_steps))] ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "induction_proof_jkind" (get_last_step_name induction_steps) (get_first_assm induction_steps))] ;
+    Format.printf "Found assume push";
     Format.fprintf fmt ";; k_ind_proof\n";
     Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "k_ind_proof_jkind")];
     Format.fprintf fmt ";; implication_proof (Observer)\n";
     Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
     Format.fprintf fmt ";; impl_rule \n" ;
-    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop "implication_proof_jkind" (get_last_step_name implication_steps))]
+    Format.printf "Found assume push";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "implication_proof_jkind" (get_last_step_name implication_steps) (get_first_assm implication_steps))]
     (* Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")] *)
 
 
