@@ -1794,7 +1794,6 @@ let generate_split_certificates sys dirname =
 
   export_phi ~trace_lfsc_defs:true
     dirname kind2_phi_lfsc_f [kind2_defs_path] names_kind2 sys phi;
-  Printf.printf "Generated some proofs\n";
   let kind2_phi_path = Filename.concat dirname kind2_phi_f in
   let kind2_phi_lfsc_path = Filename.concat dirname kind2_phi_lfsc_f in
   
@@ -1802,7 +1801,6 @@ let generate_split_certificates sys dirname =
   let smt2_definitions = [kind2_defs_path; kind2_phi_path] in
   
 
-  Printf.printf "Doing some checks\n";
   (* write certificates checks in smtlib2 scripts *)
   let base =
     mononames_base_check sys dirname base_f smt2_definitions k names_kind2 in
@@ -1816,7 +1814,6 @@ let generate_split_certificates sys dirname =
       dirname implication_f smt2_definitions names_kind2 in
 
   let kind2_sys = kind2_cert_sys svars dirname in
-  Printf.printf "Making inv\n";
   let inv = {
     k;
     name = names_kind2.phi;
@@ -1838,7 +1835,6 @@ let generate_split_certificates sys dirname =
   (* Show which file contains the certificate *)
   Debug.certif
      "SMT-LIB2 intermediate certificates were written in %s" dirname;
-  Printf.printf "Returning\n";
   inv
 
   
@@ -3248,7 +3244,6 @@ let remove dirname =
 
 (* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_all_proofs_old uid input sys =
-  Printf.printf "Started generating proofs\n";
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
@@ -3263,12 +3258,9 @@ let generate_all_proofs_old uid input sys =
   in
   create_dir dirname;
 
-  Printf.printf "File directory created\n";
   if not (is_fec sys) then begin
-    Printf.printf "Not fec\n";
     let cert_inv, syms =
       try
-        Printf.printf "Trying to generate certificates\n";
         let cert_inv = generate_split_certificates sys dirname in
         Printf.printf "Genrated split certificates.\n";
 
@@ -3409,7 +3401,6 @@ let generate_all_proofs_old uid input sys =
 
   let generate_all_proofs uid input sys =
     
-  Printf.printf "Started generating proofs\n";
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
