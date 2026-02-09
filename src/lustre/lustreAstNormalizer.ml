@@ -2229,10 +2229,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr = A.Ident (pos, name) in
     nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], Some expr3) as expr ->
-    let gids1 = match AH.find_type_annotation expr1 with 
+    let gids1, warnings1 = match AH.find_type_annotation expr1 with 
                  (*!! What to put for `kind`? *)
-    | Some ty -> mk_fresh_refinement_type_constraint Local info pos node_id expr2 ty
-    | None -> empty () 
+    | Some ty -> 
+        (*!! Should also incorporate expr3 *)
+      let ty, gids, warnings = normalize_ty info None map ty in 
+      let gids' = mk_fresh_refinement_type_constraint Local info pos node_id expr2 ty in 
+      union gids gids', warnings
+    | None -> empty (), [] 
     in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
@@ -2242,9 +2246,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr3, gids4, _ = normalize_expr info node_id map expr3 in 
     (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
        while supplying the guard, but ignore all other outputs *)
-    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
-    let _, _, warnings3 = normalize_expr ?guard info node_id map expr3 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings3 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings4 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
@@ -2259,12 +2263,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4; gids5] in 
-    nexpr, gids, warnings1 @ warnings2 @ warnings3 
+    nexpr, gids, warnings1 @ warnings2 @ warnings3 @ warnings4
     | StructUpdate (pos, expr1, [A.SetIndex (_, expr2)], None) as expr ->
-    let gids1 = match AH.find_type_annotation expr1 with 
+    let gids1, warnings1 = match AH.find_type_annotation expr1 with 
                  (*!! What to put for `kind`? *)
-    | Some ty -> mk_fresh_refinement_type_constraint Local info pos node_id expr2 ty
-    | None -> empty () 
+    | Some ty -> 
+      let ty, gids, warnings = normalize_ty info None map ty in 
+      let gids' = mk_fresh_refinement_type_constraint Local info pos node_id expr2 ty in 
+      union gids gids', warnings
+    | None -> empty (), [] 
     in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
@@ -2273,8 +2280,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr2, gids3, _ = normalize_expr info node_id map expr2 in 
     (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
        while supplying the guard, but ignore all other outputs *)
-    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
-    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings3 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_update") in 
@@ -2289,7 +2296,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
-    nexpr, gids, warnings1 @ warnings2 
+    nexpr, gids, warnings1 @ warnings2 @ warnings3
 
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in

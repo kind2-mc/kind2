@@ -1410,7 +1410,10 @@ and compile_ast_expr
   | A.IndexAccess (_, expr, k, Map) ->
     let expr = compile_map_index bounds expr k in
     X.find_prefix [(X.TupleIndex 1)] expr
-  | A.IndexAccess _ -> assert false
+  | A.IndexAccess _ -> 
+    Format.printf "index access expr: %a\n"
+      A.pp_print_expr expr;
+      assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
