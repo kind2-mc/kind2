@@ -1090,11 +1090,12 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   |> List.filter (fun (_, id) -> 
     let ty = get_type_of_id info node_id id in
     Ctx.type_contains_subrange info.context ty)
-  |> List.fold_left (fun acc (p, id) ->
+  |> List.fold_left (fun (acc_g, acc_w) (p, id) ->
     let ty = get_type_of_id info node_id id in
     let ty = AIC.inline_constants_of_lustre_type info.context ty in
-    union acc (mk_fresh_subrange_constraint kind info map p node_id (A.Ident (p, id)) ty))
-    (empty ())
+    let gids, warnings = mk_fresh_subrange_constraint kind info map p node_id (A.Ident (p, id)) ty in
+    union acc_g gids, acc_w @ warnings)
+    (empty (), [])
 
   and mk_fresh_refinement_type_constraint source info map pos node_id expr expr_type =
     let ref_type_exprs = mk_ref_type_expr info.context node_id expr expr_type in
@@ -1119,7 +1120,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   (* `force_prop` forces Kind 2 to treat the generated property as a real (non-candidate) property *)
   and mk_fresh_subrange_constraint ?(force_prop = false) source info map pos node_id expr expr_type =
     let range_exprs = mk_range_expr ~force_prop info.context node_id expr_type expr in
-    let gids = List.map (fun (range_expr, is_original) ->
+    let gids, warnings = List.map (fun (range_expr, is_original) ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars range_expr in
       let prefix = HString.mk_hstring (string_of_int !i) in
@@ -1132,10 +1133,10 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
         subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_nexpr)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_nexpr, None)]; }
       in
-      union (union gids1 gids2) gids3)
-      range_exprs
+      union (union gids1 gids2) gids3, warnings1 @ warnings2)
+      range_exprs |> List.split
     in
-    List.fold_left union (empty ()) gids
+    List.fold_left union (empty ()) gids, List.flatten warnings
 
 
 (* In this function, we normalize generated identifiers that were created earlier in the pipeline. 
@@ -1270,27 +1271,29 @@ and normalize_node_contract info (node_id : NI.t) map cref inputs outputs (id, _
      Future improvement: filter out variables based on subtyping relation
      on their types instead of equality.
   *)
-  let gids3 =
+  let gids3, warnings4 =
     let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
     let vars = compute_vars inputs vars in
     add_subrange_constraints info map (Some id) Input vars
   in
-  let gids4 = 
+  let gids4, warnings5 = 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     let vars = compute_vars outputs vars in
     add_subrange_constraints info map (Some id) Output vars
   in
-  let gids5, warnings4 =
+  let gids5, warnings6 =
     let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) ivars in
     add_ref_type_constraints info map Input (Some node_id) vars
   in
-  let gids6, warnings5 = 
+  let gids6, warnings7 = 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     add_ref_type_constraints info map Output (Some node_id) vars
   in
   let nbody, gids7, _, warnings3 = normalize_contract info node_id map ivars ovars body in
   let gids = List.fold_left union (empty ()) [union_list gids1; union_list gids2; gids3; gids4; gids5; gids6; gids7] in
-  nbody, gids, List.flatten (warnings1 @ warnings2) @ warnings3 @ warnings4 @ warnings5, StringMap.empty
+  nbody, gids, 
+  List.flatten (warnings1 @ warnings2) @ warnings3 @ warnings4 @ warnings5 @ warnings6 @ warnings7, 
+  StringMap.empty
 
 and normalize_ghost_declaration info node_id map = function
   | A.UntypedConst (pos, id, expr) ->
@@ -1340,15 +1343,15 @@ and normalize_node info map
     let vars = List.map (fun (p,id,ty,_,_) -> (p,id,ty)) inputs in
     let vars' = List.map (fun (p,id,_,_,_) -> (p,id)) inputs in
     let gids, warnings = add_ref_type_constraints info map Input (Some node_id) vars in
-    union (add_subrange_constraints info map (Some node_id) Input vars') 
-          gids, warnings 
+    let gids', warnings' = add_subrange_constraints info map (Some node_id) Input vars' in
+    union gids gids', warnings @ warnings'
   in
   let gids5, warnings5 = 
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) outputs in
     let vars' = List.map (fun (p,id,_,_) -> (p,id)) outputs in
     let gids, warnings = (add_ref_type_constraints info map Output (Some node_id) vars) in
-    union (add_subrange_constraints info map (Some node_id) Output vars') 
-          gids, warnings 
+    let gids', warnings' = add_subrange_constraints info map (Some node_id) Output vars' in 
+    union gids gids', warnings @ warnings' 
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
@@ -1380,9 +1383,9 @@ and normalize_node info map
       | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
         let ty = get_type_of_id info (Some node_id) id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        let gids = union acc_g (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in 
-        let gids2, warnings = mk_fresh_refinement_type_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty in
-        union gids gids2, acc_w @ warnings 
+        let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in 
+        let gids2, warnings2 = mk_fresh_refinement_type_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty in
+        union acc_g (union gids1 gids2), acc_w @ warnings1 @ warnings2
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _)-> assert false)
       (empty (), [])
@@ -1731,18 +1734,19 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           let tis, gids_list, warnings = (
             List.map (
               fun (pos, i, ty) -> 
-                let ty, gids, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in
+                let ty, gids1, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in
                 let new_id = StringMap.find i info.interpretation in
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   let gids2, warnings2 = 
                     mk_fresh_refinement_type_constraint Ghost info map pos (Some node_id) (A.Ident (pos, new_id)) ty 
                   in
+                  let gids3, warnings3 = 
+                    mk_fresh_subrange_constraint Ghost info map pos (Some node_id) (A.Ident (p, new_id)) ty
+                  in
                   (pos, i, ty),
-                  union gids (
-                  union (mk_fresh_subrange_constraint Ghost info map pos (Some node_id) (A.Ident (p, new_id)) ty)
-                        gids2), 
-                  warnings1 @ warnings2 
-                else (pos, i, ty), gids, []
+                  union gids1 (union gids2 gids3), 
+                  warnings1 @ warnings2 @ warnings3
+                else (pos, i, ty), gids1, []
             )
             tis |> Lib.split3
           ) in
@@ -2257,18 +2261,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids1, warnings1 = match AH.find_type_annotation expr1 with 
                  (*!! What to put for `kind`? *)
     | Some (Map (_, kt, vt)) -> 
-        (*!! Should also incorporate expr3 *)
+        (*!! SHould vt constraint be consequent of implication where antecedent is KT constraint? *)
       Format.printf "vt: %a\n"
         A.pp_print_lustre_type vt;
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
-      let gids''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
+      let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
+      let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
       Format.printf "gids'': %a\ngids''': %a\n" 
         pp_print_generated_identifiers gids'' 
         pp_print_generated_identifiers gids''';
       let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in
-      gids,  warnings @ warnings'
+      gids,  warnings @ warnings' @ warnings'' @ warnings'''
     | None -> empty (), []
     | _ -> assert false (* Type annotation must be `Map` type, enforced by the parser *) 
     in
@@ -2306,8 +2310,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
                  (*!! What to put for `kind`? *)
     | Some ty -> 
       let gids, warnings =  mk_fresh_refinement_type_constraint Local info map pos node_id expr2 ty in
-      let gids' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
-      union gids gids', warnings 
+      let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
+      union gids gids', warnings @ warnings'
     | None -> empty (), [] 
     in
     (* Don't supply the guard when normalizing subexpressions, 
