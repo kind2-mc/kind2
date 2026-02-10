@@ -1431,8 +1431,6 @@ let pp_print_bound_opt ppf bound = match bound with
 
 module Paths = struct
   let testgen = "tests"
-  let oracle = "oracle"
-  let implem = "implem"
 end
 
 (* ********************************************************************** *)
