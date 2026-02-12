@@ -2268,8 +2268,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in let compile_struct_item struct_item = match struct_item with
     | A.SingleIdent (_, i) ->
       let ident = mk_ident i in
-      Format.printf "ident: %a\n"
-        (I.pp_print_ident true) ident;
       let expr = H.find !map.expr ident in
       let result = X.map state_var_of_expr expr in
       result, 0
