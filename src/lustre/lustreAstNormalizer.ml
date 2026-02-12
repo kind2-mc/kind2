@@ -387,7 +387,7 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
+let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
@@ -428,8 +428,8 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
                 | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
                 | None, None -> [(A.Const (dpos, A.True)), true]
           in
-          user_prop, is_original || force_prop
-        | A.Int _ -> [], false || force_prop
+          user_prop, is_original 
+        | A.Int _ -> [], false 
         | _ -> assert false
       in (match l, u with 
         | Some l, Some u -> 
@@ -626,7 +626,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
 
   | _ -> []
 
-let mk_range_expr ?(force_prop = false) = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true
+let mk_range_expr = mk_enum_range_expr ~mk_enum:false ~mk_range:true
 
 let mk_enum_subrange_reftype_constraints node_id info vars =
   let enum_subrange_reftype_vars =
@@ -1116,8 +1116,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     List.fold_left union (empty ()) gids, List.flatten warnings
 
   (* `force_prop` forces Kind 2 to treat the generated property as a real (non-candidate) property *)
-  and mk_fresh_subrange_constraint ?(force_prop = false) source info map pos node_id expr expr_type =
-    let range_exprs = mk_range_expr ~force_prop info.context node_id expr_type expr in
+  and mk_fresh_subrange_constraint source info map pos node_id expr expr_type =
+    let range_exprs = mk_range_expr info.context node_id expr_type expr in
     let gids, warnings = List.map (fun (range_expr, is_original) ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars range_expr in
@@ -1940,6 +1940,84 @@ and combine_args_with_const info args flags =
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
 
+(* The generation of type annotation constraints for maps is more complicated 
+   than for sets. Consider map[ -1 := -1 ]@<Nat, Nat>. This should generate two constraints, 
+   `-1 >= 0` (for the key) and `-1 >= 0 => -1 >= 0` (for the value). 
+   The antecedent for the value constraint states that the key satisfies its type. 
+   (We view maps as functions of sorts, and you only get the value/output guarantee if the 
+    input/key guarantee is satisfied.) Most of the extra work in this function 
+   (compared to the case of set type annotations) is in generating this implication 
+   from the generated key and value constraints. *)
+and gen_map_ty_annot_constraints_refty info gids gids' = 
+  let reftype_constraints_kt, eqs_kt = match gids.refinement_type_constraints with 
+  | [] -> [], []
+  | (_, pos, _, c) :: cs -> 
+    let e = List.fold_left (fun acc (_, _, _, c) -> 
+      A.BinaryOp (pos, And, acc, c)
+    ) c cs in 
+    i := !i + 1;
+    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
+    let nexpr = A.Ident (pos, id) in
+    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
+    [Local, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
+  in
+  let reftype_constraints_vt, eqs_vt = match gids'.refinement_type_constraints with 
+  | [] -> [], [] 
+  | (_, pos, _, c) :: cs -> 
+    let e = List.fold_left (fun acc (_, _, _, c) -> 
+      A.BinaryOp (pos, And, acc, c)
+    ) c cs in 
+    let e = match reftype_constraints_kt with 
+    | [] -> e 
+    | (_, _, _, c) :: _ -> A.BinaryOp (pos, Impl, c, e) 
+    in
+    i := !i + 1;
+    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
+    let nexpr = A.Ident (pos, id) in
+    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
+    [Local, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
+  in
+  { (union gids gids') with 
+    refinement_type_constraints = reftype_constraints_kt @ reftype_constraints_vt ; 
+    equations = eqs_kt @ eqs_vt
+  } 
+
+(* Analogous to `gen_map_ty_annot_constraints_refty`, but for subranges. 
+   See the other function for explanation. *)
+and gen_map_ty_annot_constraints_subrange info gids gids' = 
+  let subrange_constraints_kt, eqs_kt = match gids.subrange_constraints with 
+  | [] -> [], []
+  | (_, _, _, pos, _, c) :: cs -> 
+    let e = List.fold_left (fun acc (_, _, _, _, _, c) -> 
+      A.BinaryOp (pos, And, acc, c)
+    ) c cs in 
+    i := !i + 1;
+    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_subrange") in
+    let nexpr = A.Ident (pos, id) in
+    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
+    [Local, info.contract_scope, true, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
+  in
+  let subrange_constraints_vt, eqs_vt = match gids'.subrange_constraints with 
+  | [] -> [], [] 
+  | (_, _, _, pos, _, c) :: cs -> 
+    let e = List.fold_left (fun acc (_, _, _, _, _, c) -> 
+      A.BinaryOp (pos, And, acc, c)
+    ) c cs in 
+    let e = match subrange_constraints_kt with 
+    | [] -> e 
+    | (_, _, _, _, _, c) :: _ -> A.BinaryOp (pos, Impl, c, e) 
+    in
+    i := !i + 1;
+    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
+    let nexpr = A.Ident (pos, id) in
+    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
+    [Local, info.contract_scope, true, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
+  in
+  { (union gids gids') with 
+    subrange_constraints = subrange_constraints_kt @ subrange_constraints_vt ; 
+    equations = eqs_kt @ eqs_vt
+  } 
+
 and normalize_expr ?guard info (node_id : NI.t option) map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
@@ -2257,15 +2335,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], Some expr3) as expr ->
     let gids1, warnings1 = match AH.find_type_annotation expr1 with 
-                 (*!! What to put for `kind`? *)
     | Some (Map (_, kt, vt)) -> 
-        (*!! SHould vt constraint be consequent of implication where antecedent is KT constraint? *)
+      (*!! Here (and in the set case) I use `Local`, as the expression may reference local variables *)
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
-      let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
-      let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in
-      gids,  warnings @ warnings' @ warnings'' @ warnings'''
+      let gids1 = gen_map_ty_annot_constraints_refty info gids gids' in 
+      let gids, warnings'' = mk_fresh_subrange_constraint Local info map pos node_id expr2 kt in 
+      let gids', warnings''' = mk_fresh_subrange_constraint Local info map pos node_id expr3 vt in  
+      let gids2 = gen_map_ty_annot_constraints_subrange info gids gids' in 
+      union gids1 gids2,  warnings @ warnings' @ warnings'' @ warnings'''
     | None -> empty (), []
     | _ -> assert false (* Type annotation must be `Map` type, enforced by the parser *) 
     in
@@ -2300,10 +2378,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     nexpr, gids, warnings1 @ warnings2 @ warnings3 @ warnings4
     | StructUpdate (pos, expr1, [A.SetIndex (_, expr2)], None) as expr ->
     let gids1, warnings1 = match AH.find_type_annotation expr1 with 
-                 (*!! What to put for `kind`? *)
     | Some ty -> 
       let gids, warnings =  mk_fresh_refinement_type_constraint Local info map pos node_id expr2 ty in
-      let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
+      let gids', warnings' = mk_fresh_subrange_constraint Local info map pos node_id expr2 ty in  
       union gids gids', warnings @ warnings'
     | None -> empty (), [] 
     in
