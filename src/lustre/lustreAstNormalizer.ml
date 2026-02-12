@@ -1115,7 +1115,6 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
 
-  (* `force_prop` forces Kind 2 to treat the generated property as a real (non-candidate) property *)
   and mk_fresh_subrange_constraint source info map pos node_id expr expr_type =
     let range_exprs = mk_range_expr info.context node_id expr_type expr in
     let gids, warnings = List.map (fun (range_expr, is_original) ->
