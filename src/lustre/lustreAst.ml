@@ -605,8 +605,8 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf
         "%apre@<%a>(%a)"
         ppos p
-        pp_print_expr e
         pp_print_lustre_type ty
+        pp_print_expr e
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 

@@ -329,9 +329,9 @@ and mk_graph_expr ?(only_modes = false)
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e, None) -> mk_graph_expr ~only_modes e
-  | LA.Pre (_, e, Some ty) -> 
-    union_dependency_analysis_data (mk_graph_expr ~only_modes e)
-                                   (mk_graph_type ty)
+  | LA.Pre (_, e, Some ty) ->  mk_graph_expr ~only_modes e
+    (*!!union_dependency_analysis_data (mk_graph_expr ~only_modes e)
+                                   (mk_graph_type ty)*)
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
     if List.length ids > 1 then
@@ -901,11 +901,11 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      let* clk_g = mk_graph_expr2 m clk_exp in
      let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
      R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) call_g)
-  | LA.Pre (_, e, Some ty) -> (*!! Check this... *)
+  (*!!| LA.Pre (_, e, Some ty) -> (*!! Check this... *)
     let* g = mk_graph_expr2 m e in
     let g2 = mk_graph_type ty in
-    R.ok (g2 :: List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
-  | LA.Pre (_, e, None) ->
+    R.ok (g2 :: List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) *)
+  | LA.Pre (_, e, _) ->
     let* g = mk_graph_expr2 m e in
     R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
   | LA.Arrow (p, e1, e2) ->
