@@ -584,11 +584,9 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     in
     let var = dpos, dummy_index, base_kt in
     let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
-    let r = List.map (fun e -> 
+    List.map (fun e -> 
       A.Quantifier (dpos, A.Forall, [var], body e assumption1)
-    ) exprs1 in
-    Format.printf "r: %a\n" (Lib.pp_print_list A.pp_print_expr ", ") r;
-    r
+    ) exprs1
   | Map (_, kt, vt) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
@@ -2262,15 +2260,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
                  (*!! What to put for `kind`? *)
     | Some (Map (_, kt, vt)) -> 
         (*!! SHould vt constraint be consequent of implication where antecedent is KT constraint? *)
-      Format.printf "vt: %a\n"
-        A.pp_print_lustre_type vt;
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
       let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
       let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
-      Format.printf "gids'': %a\ngids''': %a\n" 
-        pp_print_generated_identifiers gids'' 
-        pp_print_generated_identifiers gids''';
       let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in
       gids,  warnings @ warnings' @ warnings'' @ warnings'''
     | None -> empty (), []
