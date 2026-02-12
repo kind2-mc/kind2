@@ -1356,7 +1356,7 @@ and compile_ast_expr
   | A.TernaryOp (_, A.Ite, expr1, expr2, expr3)
   | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
-  | A.Pre (_, expr) -> compile_pre bounds expr
+  | A.Pre (_, expr, _) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 

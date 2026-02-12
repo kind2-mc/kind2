@@ -266,7 +266,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.Merge (p,id,lst) ->
       A.Merge (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
-    | A.Pre (p,e) -> A.Pre (p,aux e)
+    | A.Pre (p,e,ta) -> A.Pre (p,aux e,ta)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
   in aux expr
@@ -282,7 +282,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
+      | A.When (_,e,_) | A.Pre (_,e,_) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)

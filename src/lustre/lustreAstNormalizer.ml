@@ -1010,9 +1010,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | When (pos, e, c) ->
     let vars, e' = r map e in
     vars, When (pos, e', c)
-  | Pre (pos, e) ->
+  | Pre (pos, e, ta) ->
     let vars, e' = r map e in
-    vars, Pre (pos, e')
+    vars, Pre (pos, e', ta)
   | Arrow (pos, e1, e2) ->
     let vars1, e1' = r map e1 in
     let vars2, e2' = r map e2 in
@@ -2101,10 +2101,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
-  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind)) ->
-    let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
+  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind), ta) ->
+    let expr = A.IndexAccess (pos2, Pre (pos1, expr1, ta), expr2, kind) in
     normalize_expr ?guard info node_id map expr
-  | Pre (pos, expr) ->
+  | Pre (pos, expr, ta) ->
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
@@ -2117,7 +2117,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | Some guard -> guard, empty (), [], true
       | None ->
         let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
+        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr, ta)))] in
         guard, gids, warnings, false
     in
     let gids = union gids1 gids2 in
@@ -2127,7 +2127,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         match nexpr with
         | A.IndexAccess (pos2, expr1, expr2, kind) ->
           A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> Pre (pos, e)
+        | e -> Pre (pos, e, ta)
       in 
       process_expr nexpr, gids, warnings
     else
@@ -2135,7 +2135,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         match nexpr with
         | A.IndexAccess (pos2, expr1, expr2, kind) ->
           A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> A.Arrow (pos, guard, Pre (pos, e))
+        | e -> A.Arrow (pos, guard, Pre (pos, e, ta))
       in 
       process_expr nexpr, gids, warnings
   (* ************************************************************************ *)

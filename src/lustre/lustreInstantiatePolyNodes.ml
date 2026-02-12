@@ -348,7 +348,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ctx, gids, Pre (p, expr, None), decls, node_decls_map
   | Pre (p, expr, Some ty) -> 
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
-    let ctx, gids, kt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
+    let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, Pre (p, expr, Some ty), decls1 @ decls2, node_decls_map
   | UnaryOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
