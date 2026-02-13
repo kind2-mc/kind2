@@ -387,7 +387,7 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
+let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
@@ -428,8 +428,8 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
                 | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
                 | None, None -> [(A.Const (dpos, A.True)), true]
           in
-          user_prop, is_original 
-        | A.Int _ -> [], false 
+          user_prop, is_original || force_prop
+        | A.Int _ -> [], false || force_prop
         | _ -> assert false
       in (match l, u with 
         | Some l, Some u -> 
@@ -626,7 +626,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
 
   | _ -> []
 
-let mk_range_expr = mk_enum_range_expr ~mk_enum:false ~mk_range:true
+let mk_range_expr ?(force_prop = false) = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true
 
 let mk_enum_subrange_reftype_constraints node_id info vars =
   let enum_subrange_reftype_vars =
@@ -1115,8 +1115,9 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
 
-  and mk_fresh_subrange_constraint source info map pos node_id expr expr_type =
-    let range_exprs = mk_range_expr info.context node_id expr_type expr in
+  (* `force_prop` forces Kind 2 to treat the generated properties as non-candidate *)
+  and mk_fresh_subrange_constraint ?(force_prop = false) source info map pos node_id expr expr_type =
+    let range_exprs = mk_range_expr ~force_prop info.context node_id expr_type expr in
     let gids, warnings = List.map (fun (range_expr, is_original) ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars range_expr in
@@ -2203,7 +2204,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | None -> empty (), [] 
     | Some ty -> 
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr ty in 
-      let gids', warnings' = mk_fresh_subrange_constraint Local info map pos node_id expr ty in 
+      let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr ty in 
       union gids gids', warnings @ warnings'
     in
     let ivars = info.inductive_variables in
