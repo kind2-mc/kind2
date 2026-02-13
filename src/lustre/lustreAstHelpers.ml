@@ -543,21 +543,7 @@ let rec has_unguarded_pre ung = function
       ) li in
     u1 || List.exists Lib.identity us
 
-  | Pre (pos, e, None) as p ->
-    if ung then begin
-      (* Fail only if in strict mode *)
-      let err_or_warn =
-        if Flags.lus_strict () then fail_at_position else warn_at_position in
-
-      err_or_warn pos
-        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
-           pp_print_expr p)
-    end;
-
-    let u = has_unguarded_pre true e in
-    ung || u
-
-  | Pre (pos, e, Some ty) as p ->
+  | Pre (pos, e, ta) as p ->
     if ung then begin
       (* Fail only if in strict mode *)
       let err_or_warn =
@@ -569,7 +555,10 @@ let rec has_unguarded_pre ung = function
     end;
 
     let u1 = has_unguarded_pre true e in
-    let u2 = fold_lustre_ty (has_unguarded_pre ung) false (||) ty in
+    let u2 = match ta with 
+    | Some ty -> fold_lustre_ty (has_unguarded_pre ung) false (||) ty 
+    | None -> false 
+    in
     ung || u1 || u2
 
   | Arrow (_, e1, e2) ->
