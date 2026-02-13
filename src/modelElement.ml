@@ -204,9 +204,14 @@ let attach_counterexample_to_print_data data cex =
 
 
 let attach_property_to_print_data data prop =
+  (match Property.get_pos_from_prop_source prop.Property.prop_source with 
+  | Some pos -> 
+  Format.printf "Attaching property position to data %a" Lib.pp_print_position pos
+  | None -> Format.printf "Position was none";);
   { data with 
   property = Some prop.Property.prop_name; 
- }
+  property_position = Property.get_pos_from_prop_source prop.Property.prop_source;
+  }
 
 let attach_approx_to_print_data data approx =
   { data with approx = Some approx }
