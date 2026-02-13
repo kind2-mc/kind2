@@ -104,6 +104,7 @@ type term_print_data = {
 type core_print_data = {
   core_class: string ;
   property: string option ; (* Only for MCSs *)
+  property_position: Lib.position option ;
   counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
   time: float option ;
   size: int ;
@@ -190,6 +191,7 @@ let loc_core_to_print_data in_sys sys core_class time lc =
   {
     core_class ;
     property = None ;
+    property_position = None ;
     counterexample = None ;
     approx = None ;
     time ;
@@ -200,8 +202,11 @@ let loc_core_to_print_data in_sys sys core_class time lc =
 let attach_counterexample_to_print_data data cex =
   { data with counterexample = Some cex }
 
+
 let attach_property_to_print_data data prop =
-  { data with property = Some prop.Property.prop_name }
+  { data with 
+  property = Some prop.Property.prop_name; 
+ }
 
 let attach_approx_to_print_data data approx =
   { data with approx = Some approx }
