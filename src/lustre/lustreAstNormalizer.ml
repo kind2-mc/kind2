@@ -2199,6 +2199,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let expr = A.IndexAccess (pos2, Pre (pos1, expr1, ta), expr2, kind) in
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr, ta) ->
+    let gids1, warnings1 = match ta with 
+    | None -> empty (), [] 
+    | Some ty -> 
+      let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr ty in 
+      let gids', warnings' = mk_fresh_subrange_constraint Local info map pos node_id expr ty in 
+      union gids gids', warnings @ warnings'
+    in
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
@@ -2206,16 +2213,16 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
         ty, false
       in
-    let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
-    let guard, gids2, warnings2, previously_guarded = match guard with
+    let nexpr, gids2, warnings2 = abstract_expr ?guard:None force info node_id map expr in
+    let guard, gids3, warnings3, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
       | None ->
         let guard, _, gids = mk_fresh_oracle ty nexpr in
         let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr, ta)))] in
         guard, gids, warnings, false
     in
-    let gids = union gids1 gids2 in
-    let warnings = warnings1 @ warnings2 in
+    let gids = union gids3 (union gids1 gids2) in
+    let warnings = warnings1 @ warnings2 @ warnings3 in
     if previously_guarded then
       let rec process_expr nexpr = 
         match nexpr with

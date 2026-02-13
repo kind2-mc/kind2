@@ -329,7 +329,7 @@ and mk_graph_expr ?(only_modes = false)
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e, None) -> mk_graph_expr ~only_modes e
-  | LA.Pre (_, e, Some ty) ->  mk_graph_expr ~only_modes e
+  | LA.Pre (_, e, Some _) ->  mk_graph_expr ~only_modes e
     (*!!union_dependency_analysis_data (mk_graph_expr ~only_modes e)
                                    (mk_graph_type ty)*)
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
