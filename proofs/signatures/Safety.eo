@@ -59,7 +59,7 @@
         (eo::define ((j (eo::add k -1)))
           (eo::ite (eo::is_eq j 0)
             (and (P 0) (T 0 1))
-            (and (unroll_with T P j) (P j) (T j k))
+            (and (unroll_with T P j) (and (P j) (T j k)))
           )
         )
       )
