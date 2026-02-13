@@ -3430,7 +3430,7 @@ let generate_all_proofs_old uid input sys =
         KEvent.stat Stat.[ (certif_stats_title, certif_stats) ];
         raise e
     in
-    Proof.construct_kind_2_proof dirname cert_inv.base cert_inv.induction cert_inv.implication;
+    Proof.construct_kind_2_proof dirname cert_inv.base cert_inv.induction cert_inv.implication cert_inv.k;
      let gen_frontend =
       if InputSystem.is_lustre_input input then
         try
@@ -3477,7 +3477,8 @@ else begin
     dirname
     frontend_inv.base
     frontend_inv.induction
-    frontend_inv.implication;
+    frontend_inv.implication
+    frontend_inv.k;
 
 
   Proof.construct_safety_proof dirname;
