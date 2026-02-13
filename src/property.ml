@@ -309,15 +309,16 @@ let get_prop_status { prop_status } = prop_status
 
 
 let rec get_pos_from_prop_source source = match source with 
-  | PropAnnot pos -> Some pos
-  | Generated ((Some pos), _) -> Some pos
-  | Assumption (pos,_) -> Some pos
-  | Guarantee (pos,  _) -> Some pos
-  | GuaranteeOneModeActive(pos,_) -> Some pos
-  | GuaranteeModeImplication (pos,_) -> Some pos
-  | NonVacuityCheck (pos , _) -> Some pos
+  | PropAnnot pos
+  | Generated ((Some pos), _)
+  | Assumption (pos,_) 
+  | Guarantee (pos,  _) 
+  | GuaranteeOneModeActive(pos,_) 
+  | GuaranteeModeImplication (pos,_) 
+  | NonVacuityCheck (pos , _) -> 
+    Some pos
   | Candidate (Some psource) -> get_pos_from_prop_source psource
-  | _ -> None
+  | prop -> None
 
 (* Get property term *)
 let get_prop_term { prop_term } = prop_term

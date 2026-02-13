@@ -204,10 +204,6 @@ let attach_counterexample_to_print_data data cex =
 
 
 let attach_property_to_print_data data prop =
-  (match Property.get_pos_from_prop_source prop.Property.prop_source with 
-  | Some pos -> 
-  Format.printf "Attaching property position to data %a" Lib.pp_print_position pos
-  | None -> Format.printf "Position was none";);
   { data with 
   property = Some prop.Property.prop_name; 
   property_position = Property.get_pos_from_prop_source prop.Property.prop_source;
@@ -304,6 +300,15 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
     match cpd.property with
     | None -> []
     | Some n -> [("property", `String n)]
+  ) in
+  let assoc = assoc @ (
+    match cpd.property_position with
+    | None -> []
+    | Some pos -> 
+      let (file, row, col) = Lib.file_row_col_of_pos pos in
+      [("line", `Int row); ("col", `Int col)]
+      @ (if file = "" then [] else [("file", `String file)])
+
   )
   in
   let assoc = assoc @ (
