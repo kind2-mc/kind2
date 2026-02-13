@@ -554,7 +554,6 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
   | LA.Pre (_, IndexAccess (_, _, _, _), _) -> Ok ()
-  (*!! Revisit *)
   | LA.Pre (pos, e, _) ->
     let vars = LAH.vars_without_node_call_ids e in
     let over_vars j = 
@@ -642,7 +641,7 @@ let rec expr_only_supported_in_merge observer expr =
   | RecordProject (_, e, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
-  | Pre (_, e, _) (*!! Revisit *)
+  | Pre (_, e, _) 
   | Extract (_, e, _, _)
   | Quantifier (_, _, _, e) 
   | StructUpdate (_, e, _, None) -> r observer e

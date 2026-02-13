@@ -329,9 +329,9 @@ and mk_graph_expr ?(only_modes = false)
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e, None) -> mk_graph_expr ~only_modes e
-  | LA.Pre (_, e, Some _) ->  mk_graph_expr ~only_modes e
-    (*!!union_dependency_analysis_data (mk_graph_expr ~only_modes e)
-                                   (mk_graph_type ty)*)
+  | LA.Pre (_, e, Some ty) ->  
+    union_dependency_analysis_data (mk_graph_expr ~only_modes e)
+                                   (mk_graph_type ty)
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
     if List.length ids > 1 then
@@ -714,7 +714,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     let call_vars = r (Call (pos, [], node_id, es)) in
     SI.union (r clk_exp) call_vars
 
-  (* Temporal operators *) (*!! Was this case supposed to not recurse on the subexpression? *)
+  (* Temporal operators *) 
+  (*!! Was this case supposed to not recurse on the subexpression? *)
   | Pre (_, _, _) -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
@@ -901,10 +902,6 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      let* clk_g = mk_graph_expr2 m clk_exp in
      let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
      R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) call_g)
-  (*!!| LA.Pre (_, e, Some ty) -> (*!! Check this... *)
-    let* g = mk_graph_expr2 m e in
-    let g2 = mk_graph_type ty in
-    R.ok (g2 :: List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) *)
   | LA.Pre (_, e, _) ->
     let* g = mk_graph_expr2 m e in
     R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 

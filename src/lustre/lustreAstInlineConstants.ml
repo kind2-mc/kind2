@@ -239,7 +239,6 @@ and push_pre is_guarded pos ta =
   function
   | LA.Ident _ as e -> LA.Pre (pos, e, ta)
   | ModeRef _ as e -> LA.Pre (pos, e, ta)
-  (*!! No recursive calls? *)
   | EmptySet _ as e -> LA.Pre (pos, e, ta)
   | EmptyMap _ as e -> LA.Pre (pos, e, ta)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)

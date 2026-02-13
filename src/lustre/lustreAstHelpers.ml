@@ -1886,7 +1886,7 @@ let hash depth_limit expr =
         let l_hash = List.map (r (depth + 1)) l in
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (21, NI.hash i, l_hash, e_hash)
-      | Pre (_, e, _) -> (*!! hash_ty function? *)
+      | Pre (_, e, _) -> 
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (22, e_hash)
       | Arrow (_, e1, e2) ->
