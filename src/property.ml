@@ -308,7 +308,7 @@ let set_prop_unknown p =
 let get_prop_status { prop_status } = prop_status
 
 
-let rec get_pos_from_prop_source source = match source with 
+let rec get_pos_from_prop_source src = match src with 
   | PropAnnot pos
   | Generated ((Some pos), _)
   | Assumption (pos,_) 
@@ -318,7 +318,10 @@ let rec get_pos_from_prop_source source = match source with
   | NonVacuityCheck (pos , _) -> 
     Some pos
   | Candidate (Some psource) -> get_pos_from_prop_source psource
-  | prop -> None
+  | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
+  | prop -> 
+    Format.printf "\n\nCould not extract pos from property: %a\n\n" pp_print_prop_source prop;
+    None
 
 (* Get property term *)
 let get_prop_term { prop_term } = prop_term
