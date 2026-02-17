@@ -181,12 +181,8 @@ let record_to_tuple assoc =
    and return the associated assignments.
    It can return multiple variable assignements if the value is an array/record/tuple. *)
 let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
-  Format.printf "read_val: json = %s@."
-    (Yojson.Safe.pretty_to_string json);
-
   match json with
   | `Assoc lst ->
-    Format.printf "In Assoc list\n";
     (* Can represent a record or a tuple *)
     begin try (
       lst |>
@@ -289,8 +285,6 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
 
 (* Parse the assignments of a JSON object representing a step *)
 let read_vars ?(only_inputs=true) scope json =
-  Format.printf "read_vars: json = %s@."
-    (Yojson.Safe.pretty_to_string json);
   to_assoc json |> List.map (fun (name, json) -> read_val ~only_inputs:only_inputs scope name [] [] json)
 
 (* Parse a JSON input file *)
