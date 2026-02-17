@@ -319,8 +319,8 @@ let rec get_pos_from_prop_source src = match src with
     Some pos
   | Candidate (Some psource) -> get_pos_from_prop_source psource
   | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
-  | prop -> 
-    Format.printf "\n\nCould not extract pos from property: %a\n\n" pp_print_prop_source prop;
+  | _ -> 
+    (* Case only happens to candidates with no prop source *)
     None
 
 (* Get property term *)
