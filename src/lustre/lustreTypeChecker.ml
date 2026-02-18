@@ -953,9 +953,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    R.ok (LA.Map (pos, kt, vt), e, [])
+    let* kt, warnings1 = check_type_well_formed ctx Local nname true kt in 
+    let* vt, warnings2 = check_type_well_formed ctx Local nname true vt in 
+    R.ok (LA.Map (pos, kt, vt), e, warnings1 @ warnings2)
   | LA.EmptySet (pos, Some ty) -> 
-    R.ok (LA.Set (pos, ty), e, [])
+    let* ty, warnings = check_type_well_formed ctx Local nname true ty in 
+    R.ok (LA.Set (pos, ty), e, warnings)
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
