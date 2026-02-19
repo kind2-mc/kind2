@@ -1716,8 +1716,8 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
       (R.ok (LA.TypedConst (pos, i, exp, ty), warnings))
       (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
 
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
-  = fun pos ctx
+and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
+  = fun pos ctx is_function
         (node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" NI.pp_print_node_id_user_name node_name;
@@ -1762,6 +1762,18 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
     let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
       (List.map extract_ret_ctx output_vars)
     in
+    let* warnings1 = (R.seq_chain (fun acc (_, _, ty, _, _) -> 
+      let is_constant = is_function in
+      let* _, warnings = check_type_well_formed ctx_plus_ops_and_ips Local (Some node_name) is_constant ty in 
+      R.ok (acc @ warnings))
+    ) [] input_vars
+    in
+    let* warnings2 = (R.seq_chain (fun acc (_, _, ty, _) -> 
+      let is_constant = is_function in
+      let* _, warnings = check_type_well_formed ctx_plus_ops_and_ips Local (Some node_name) is_constant ty in 
+      R.ok (acc @ warnings))
+    ) [] output_vars
+    in
     Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
       pp_print_tc_context ctx_plus_ops_and_ips;
     (* Type check the contract *)
@@ -1787,12 +1799,12 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         (* Add local variable bindings to the context *)
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check locals' types and their well-formedness *)
-        let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
+        let* ldecls, warnings3 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* e, warnings2 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
-            let* ty, warnings3 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings2 @ warnings3)
+            let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
@@ -1803,7 +1815,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         ) ldecls) |> R.map List.split in 
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
-        let* items, warnings2 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
+        let* items, warnings4 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
         (* check that the LHS of the equations are not args to node *)
         let check_lhs_eqns = List.map (fun (pos, v) ->
             if SI.mem v arg_ids then
@@ -1817,7 +1829,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         let decl = 
           node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
         in
-        check_lhs_eqns >> R.ok (decl, List.flatten warnings1 @ List.flatten warnings2))
+        check_lhs_eqns >> R.ok (decl, warnings1 @ warnings2 @ List.flatten warnings3 @ List.flatten warnings4))
 
 and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [> warning] list, [> error]) result = fun ctx nname ->
   function
@@ -2479,7 +2491,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant or refinement type argument" e 
+      check_expr_is_constant ctx "type of constant, refinement type argument, or function interface variable" e 
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
@@ -2719,12 +2731,12 @@ let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> er
   | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in  
+    let* node_decl, warnings = check_type_node_decl pos global_ctx false node_decl in  
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.NodeDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.FuncDecl (span, node_decl):: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in 
+    let* node_decl, warnings = check_type_node_decl pos global_ctx true node_decl in 
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.FuncDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.ContractNodeDecl (span, contract_decl) :: rest ->

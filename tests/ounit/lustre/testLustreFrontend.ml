@@ -216,6 +216,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  mk_test "test function contract with temporal interface" (fun () ->
+    match load_file "./lustreTypeChecker/temporal_fun_contract.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false); 
   mk_test "test record type inference 1" (fun () ->
     match load_file "./lustreTypeChecker/record_type_inference_1.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
