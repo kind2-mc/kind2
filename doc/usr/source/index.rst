@@ -47,6 +47,7 @@ Table of Contents
     9_other/6_contract_generation
     9_other/9_invariant_printing
     9_other/8_interpreter
+    9_other/14_contract_monitor
     9_other/10_inductive_validity_core
     9_other/11_minimal_cut_set
     9_other/12_contract_check
