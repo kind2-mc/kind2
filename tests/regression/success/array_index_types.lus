@@ -1,0 +1,15 @@
+type nat = subrange [0,*] of int;
+type pos = subrange [1,*] of int;
+const N: pos;
+const M: pos;
+
+transparent function F(x,y: nat) returns (o: pos | o <= M;);
+let
+  o = 1+y;
+tel
+
+
+node Obs() returns (A:int^N^M)
+let
+  A[i][j] = F(i, j);
+tel

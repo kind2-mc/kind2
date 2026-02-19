@@ -154,7 +154,8 @@ let clear_cache () =
 type info = {
   context : Ctx.tc_context;
   abstract_interp_context : LustreAbstractInterpretation.context;
-  inductive_variables : LustreAst.lustre_type StringMap.t;
+  (* (Index variable type * array type) StringMap.t *)
+  inductive_variables : (LustreAst.lustre_type * LustreAst.lustre_type) StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) NI.Map.t;
   contract_calls_info : LustreAst.contract_node_decl NI.Map.t;
@@ -1691,9 +1692,9 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           in the future.*)
           let array_sizes =
             StringMap.fold
-              (fun v ty acc ->
+              (fun v (ind_ty, _) acc ->
                 if A.SI.mem v vars_of_calls then
-                  (v, extract_array_size_opt ty) :: acc
+                  (v, extract_array_size_opt ind_ty) :: acc
                 else acc
               )
               info.inductive_variables
@@ -1710,8 +1711,8 @@ and normalize_contract info node_id map ivars ovars (p, items) =
         let (nexpr, gids1, warnings), expanded = (
           if expand && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with
-            | Some (ivar, ty) ->
-              let size = extract_array_size ty in
+            | Some (ivar, (ind_ty, _)) ->
+              let size = extract_array_size ind_ty in
               let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
               let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
                 (
@@ -1728,8 +1729,8 @@ and normalize_contract info node_id map ivars ovars (p, items) =
             
           else if expand && lhs_arity = rhs_arity then
             let expanded_expr = List.fold_left
-              (fun acc (v, ty) -> 
-                let size = extract_array_size ty in
+              (fun acc (v, (ind_ty, _)) -> 
+                let size = extract_array_size ind_ty in
                 expand_node_calls_in_place info node_id v size acc)
               expr
               (StringMap.bindings info.inductive_variables)
@@ -1812,7 +1813,7 @@ and normalize_equation info node_id map = function
           index_types
         in
         let ivars = List.fold_left2
-          (fun m i index_ty -> StringMap.add i index_ty m)
+          (fun m i index_ty -> StringMap.add i (index_ty, ty) m)
           StringMap.empty
           is
           index_types
@@ -1829,9 +1830,9 @@ and normalize_equation info node_id map = function
     let vars_of_calls = AH.vars_of_node_calls expr in
     let array_sizes =
       StringMap.fold
-        (fun v ty acc ->
+        (fun v (ind_ty, _) acc ->
           if A.SI.mem v vars_of_calls then
-            (v, extract_array_size_opt ty) :: acc
+            (v, extract_array_size_opt ind_ty) :: acc
           else acc
         )
         info.inductive_variables
@@ -1848,8 +1849,8 @@ and normalize_equation info node_id map = function
     let (nexpr, gids1, warnings), expanded = (
       if expand && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
-        | Some (ivar, ty) ->
-          let size = extract_array_size ty in
+        | Some (ivar, (ind_ty, _)) ->
+          let size = extract_array_size ind_ty in
           let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
           let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
             (fun i -> 
@@ -1862,8 +1863,8 @@ and normalize_equation info node_id map = function
         | None -> normalize_expr info (Some node_id) map expr, false)
       else if expand && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
-          (fun acc (v, ty) -> 
-            let size = extract_array_size ty in
+          (fun acc (v, (ind_ty, _)) -> 
+            let size = extract_array_size ind_ty in
             expand_node_calls_in_place info node_id v size acc)
           expr
           (StringMap.bindings info.inductive_variables)
@@ -1891,7 +1892,7 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
     else 
       Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
@@ -1966,7 +1967,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
     else 
       Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
@@ -1990,7 +1991,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
       let ty = if expr_has_inductive_var ivars expr then
-        (StringMap.choose_opt info.inductive_variables) |> get |> snd
+        (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
       else 
         Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
@@ -2011,7 +2012,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
             args
         in
         let ind_vars = List.map 
-          (fun (v, ty) -> (Lib.dummy_pos, v, ty))
+          (fun (v, (ind_ty, _)) -> (Lib.dummy_pos, v, ind_ty))
           (StringMap.bindings info.inductive_variables)
         in
         List.fold_left
@@ -2145,7 +2146,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
-        (StringMap.choose_opt info.inductive_variables) |> get |> snd, true
+        (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd, true
       else 
         let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
         ty, false
