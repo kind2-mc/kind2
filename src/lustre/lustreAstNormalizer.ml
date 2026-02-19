@@ -854,9 +854,6 @@ let add_history_var_and_equation info id h_id =
   in
   { (empty ()) with locals; equations }
 
-(*!! Array length extraction was only working for single-dimensional arrays. 
-     And the whole thing of storing the whole array type with inductive variable didn't make sense *)
-
 let get_expr_ty info map node_id expr =
   let ty =
   (*let ivars = info.inductive_variables in
@@ -2466,7 +2463,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | ArrayType _ -> A.Array
       | Map _ -> Map
       | TupleType _ -> Tuple
-      | _ -> Format.printf "expr1_ty: %a\n" A.pp_print_lustre_type expr1_ty; assert false
+      | _ -> assert false
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
