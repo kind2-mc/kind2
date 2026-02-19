@@ -2335,7 +2335,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], Some expr3) as expr ->
     let gids1, warnings1 = match AH.find_type_annotation expr1 with 
     | Some (Map (_, kt, vt)) -> 
-      (*!! Here (and in the set case) I use `Local`, as the expression may reference local variables *)
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
       let gids1 = gen_map_ty_annot_constraints_refty info gids gids' in 
