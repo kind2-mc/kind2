@@ -317,11 +317,11 @@ let rec get_pos_from_prop_source src = match src with
   | GuaranteeModeImplication (pos,_) 
   | NonVacuityCheck (pos , _) -> 
     Some pos
+  | Candidate (None)
+  | Generated (None, _) ->  
+    None
   | Candidate (Some psource) -> get_pos_from_prop_source psource
   | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
-  | _ -> 
-    (* Case only happens to candidates with no prop source *)
-    None
 
 (* Get property term *)
 let get_prop_term { prop_term } = prop_term
