@@ -306,16 +306,46 @@ let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   HString.mk_hstring (string_of_int !contract_ref)
 
+(** Extract array size from an index type (IntRange or RefinementType).
+    Returns Some for IntRange with concrete bounds, None otherwise. *)
 let extract_array_size_opt = function
-  | A.ArrayType (_, (_, size)) -> (match size with
-    | A.Const (_, Num x) -> Some (x |> HString.string_of_hstring |> int_of_string)
-    | _ -> None)
+  | A.IntRange (_, lb, ub) -> (
+      match lb, ub with
+      | Some (A.Const (_, A.Num l)), Some (A.Const (_, A.Num u)) ->
+        let lv = int_of_string (HString.string_of_hstring l) in
+        let uv = int_of_string (HString.string_of_hstring u) in
+        Some (uv - lv + 1)
+      | _, _ -> None)
   | _ -> None
 
 let extract_array_size t =
   match extract_array_size_opt t with
   | Some s -> s
   | None -> assert false
+
+(** Build index type [0, size-1] for one dimension. Uses IntRange if size is
+    concrete, RefinementType otherwise. *)
+let mk_index_type pos idx_var size_expr =
+  match size_expr with
+  | A.Const (_, A.Num n) ->
+    let nv = int_of_string (HString.string_of_hstring n) in
+    let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
+    let upper = A.Const (pos, A.Num (HString.mk_hstring (string_of_int (nv - 1)))) in
+    A.IntRange (pos, Some zero, Some upper)
+  | _ ->
+    let id = HString.mk_hstring "_" in
+    let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
+    let bound_var = A.Ident (pos, id) in
+    let lb = A.CompOp (pos, A.Lte, zero, bound_var) in
+    let ub = A.CompOp (pos, A.Lt, bound_var, size_expr) in
+    A.RefinementType (pos, (pos, id, A.Int pos),
+      A.BinaryOp (pos, A.And, lb, ub))
+
+let rec index_types_of_array_type pos idx_vars ty : A.lustre_type list =
+  match ty, idx_vars with
+  | A.ArrayType (_, (inner_ty, size_expr)), i :: rest ->
+    index_types_of_array_type pos rest inner_ty @ [mk_index_type pos i size_expr]
+  | _, _ -> []
 
 let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
@@ -823,12 +853,15 @@ let add_history_var_and_equation info id h_id =
   in
   { (empty ()) with locals; equations }
 
+(*!! Array length extraction was only working for single-dimensional arrays. 
+     And the whole thing of storing the whole array type with inductive variable didn't make sense *)
+
 let get_expr_ty info map node_id expr =
   let ty =
-  let ivars = info.inductive_variables in
+  (*let ivars = info.inductive_variables in
   if expr_has_inductive_var ivars expr then
     (StringMap.choose_opt info.inductive_variables) |> get |> snd
-  else
+  else*)
     let ctx =
       match node_id with 
       | Some node_id -> (
@@ -1767,17 +1800,22 @@ and normalize_equation info node_id map = function
     let items = match lhs with | A.StructDef (_, items) -> items in
     let info = List.fold_left (fun info item -> match item with
       | A.ArrayDef (pos, v, is) ->
-        let info = List.fold_left (fun info i -> { info with
-          context = Ctx.add_ty info.context i (A.Int pos); })
-          info
-          is
-        in
-        let ty = match Ctx.lookup_ty info.context v with 
+        let ty = match Ctx.lookup_ty info.context v with
           | Some t -> t | None -> assert false
         in
-        let ivars = List.fold_left (fun m i -> StringMap.add i ty m)
+        let index_types = index_types_of_array_type pos is ty in
+        let info = List.fold_left2
+          (fun info i index_ty ->
+            { info with context = Ctx.add_ty info.context i index_ty })
+          info
+          is
+          index_types
+        in
+        let ivars = List.fold_left2
+          (fun m i index_ty -> StringMap.add i index_ty m)
           StringMap.empty
           is
+          index_types
         in { info with inductive_variables = ivars}
       | _ -> info)
       info
@@ -1973,7 +2011,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
             args
         in
         let ind_vars = List.map 
-          (fun (v, _) -> (Lib.dummy_pos, v, A.Int Lib.dummy_pos))
+          (fun (v, ty) -> (Lib.dummy_pos, v, ty))
           (StringMap.bindings info.inductive_variables)
         in
         List.fold_left
@@ -2427,7 +2465,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | ArrayType _ -> A.Array
       | Map _ -> Map
       | TupleType _ -> Tuple
-      | _ -> assert false
+      | _ -> Format.printf "expr1_ty: %a\n" A.pp_print_lustre_type expr1_ty; assert false
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
