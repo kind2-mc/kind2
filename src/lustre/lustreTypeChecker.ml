@@ -2491,7 +2491,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant, refinement type argument, or function interface variable" e 
+      check_expr_is_constant ctx "type of constant or function interface variable" e 
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
