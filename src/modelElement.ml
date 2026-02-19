@@ -104,7 +104,7 @@ type term_print_data = {
 type core_print_data = {
   core_class: string ;
   property: string option ; (* Only for MCSs *)
-  property_position: Lib.position option ;
+  property_position: Lib.position option ; (* Only for MCSs *)
   counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
   time: float option ;
   size: int ;
