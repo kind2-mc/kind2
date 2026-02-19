@@ -326,7 +326,7 @@ let extract_array_size t =
 
 (** Build index type [0, size-1] for one dimension. Uses IntRange if size is
     concrete, RefinementType otherwise. *)
-let mk_index_type pos idx_var size_expr =
+let mk_index_type pos size_expr =
   match size_expr with
   | A.Const (_, A.Num n) ->
     let nv = int_of_string (HString.string_of_hstring n) in
@@ -342,11 +342,11 @@ let mk_index_type pos idx_var size_expr =
     A.RefinementType (pos, (pos, id, A.Int pos),
       A.BinaryOp (pos, A.And, lb, ub))
 
-let rec index_types_of_array_type pos idx_vars ty : A.lustre_type list =
-  match ty, idx_vars with
-  | A.ArrayType (_, (inner_ty, size_expr)), i :: rest ->
-    index_types_of_array_type pos rest inner_ty @ [mk_index_type pos i size_expr]
-  | _, _ -> []
+let rec index_types_of_array_type pos ty =
+  match ty with
+  | A.ArrayType (_, (inner_ty, size_expr)) ->
+    index_types_of_array_type pos inner_ty @ [mk_index_type pos size_expr]
+  | _ -> []
 
 let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
@@ -856,10 +856,10 @@ let add_history_var_and_equation info id h_id =
 
 let get_expr_ty info map node_id expr =
   let ty =
-  (*let ivars = info.inductive_variables in
+  let ivars = info.inductive_variables in
   if expr_has_inductive_var ivars expr then
-    (StringMap.choose_opt info.inductive_variables) |> get |> snd
-  else*)
+    (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
+  else
     let ctx =
       match node_id with 
       | Some node_id -> (
@@ -1801,7 +1801,7 @@ and normalize_equation info node_id map = function
         let ty = match Ctx.lookup_ty info.context v with
           | Some t -> t | None -> assert false
         in
-        let index_types = index_types_of_array_type pos is ty in
+        let index_types = index_types_of_array_type pos ty in
         let info = List.fold_left2
           (fun info i index_ty ->
             { info with context = Ctx.add_ty info.context i index_ty })
