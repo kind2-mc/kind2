@@ -3,7 +3,7 @@ type pos = subrange [1,*] of int;
 const N: pos;
 const M: pos;
 
-transparent function F(x,y: nat) returns (o: pos | o <= M;);
+transparent function F(x,y: nat) returns (o: pos | o <= N;);
 let
   o = 1+y;
 tel

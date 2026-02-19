@@ -345,7 +345,7 @@ let mk_index_type pos size_expr =
 let rec index_types_of_array_type pos ty =
   match ty with
   | A.ArrayType (_, (inner_ty, size_expr)) ->
-    index_types_of_array_type pos inner_ty @ [mk_index_type pos size_expr]
+    mk_index_type pos size_expr :: index_types_of_array_type pos inner_ty 
   | _ -> []
 
 let generalize_to_array_expr name ind_vars expr nexpr =
