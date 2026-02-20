@@ -159,7 +159,7 @@ let contract_node_decl_to_contracts
   else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
-= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
@@ -183,7 +183,7 @@ let node_decl_to_contracts
     let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
       R.ok ([environment], ctx, gids)
     else R.ok([], ctx, gids)
   else
@@ -191,12 +191,12 @@ let node_decl_to_contracts
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated nodes *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([environment; contract], ctx, gids)
     else 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([contract], ctx, gids)
 
 (* NOTE: If "ty" is a refinement type that includes a constant with
@@ -233,7 +233,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else node_decl 
       in
-      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl false in
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
       R.ok (
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
@@ -245,7 +245,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
-      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl true in
       let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
       R.ok (
         A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
