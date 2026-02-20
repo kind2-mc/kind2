@@ -133,6 +133,7 @@ val get_prop_original_source : t -> prop_source
 
 val get_prop_term : t -> Term.t
 
+val get_pos_from_prop_source : prop_source -> Lib.position option
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
