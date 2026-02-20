@@ -368,10 +368,14 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in
-  Format.fprintf fmt "<%s class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
+  let pos_as_string pos = 
+    let (file, row, col) = Lib.file_row_col_of_pos pos in
+    Format.asprintf " line=\"%d\" column=\"%d\" file=\"%s\"" row col file in
+  Format.fprintf fmt "<%s class=\"%s\" size=\"%i\"%s%s%s>@.  @[<v>"
     tag cpd.core_class cpd.size
     (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n)
-    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b) ;
+    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b)
+    (match cpd.property_position with None -> "" | Some pos -> Format.asprintf "%s" (pos_as_string pos)) ;
   (
     match cpd.time with
     | None -> ()
