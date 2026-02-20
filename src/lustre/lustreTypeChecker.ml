@@ -113,6 +113,7 @@ type error_kind = Unknown of string
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
+  | TempOperatorInFuncInterface of NI.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -226,6 +227,9 @@ let error_message kind = match kind with
   | CallRequiresExplicitAnnotation id -> 
     Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
       HString.pp_print_hstring id
+  | TempOperatorInFuncInterface node_id -> 
+    Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator"
+      NI.pp_print_node_id_user_name node_id
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1762,17 +1766,22 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
     let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
       (List.map extract_ret_ctx output_vars)
     in
-    let* warnings1 = (R.seq_chain (fun acc (_, _, ty, _, _) -> 
-      let is_constant = is_function in
-      let* _, warnings = check_type_well_formed ctx_plus_ops_and_ips Local (Some node_name) is_constant ty in 
-      R.ok (acc @ warnings))
-    ) [] input_vars
+    (* No temporal operators in function interface *)
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _, _) -> 
+      let ty = expand_type_syn ctx ty in
+      let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+      match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+      | Some pos -> type_error pos (TempOperatorInFuncInterface node_name)  
+      | None -> R.ok ()
+    ) input_vars) else R.ok ()
     in
-    let* warnings2 = (R.seq_chain (fun acc (_, _, ty, _) -> 
-      let is_constant = is_function in
-      let* _, warnings = check_type_well_formed ctx_plus_ops_and_ips Local (Some node_name) is_constant ty in 
-      R.ok (acc @ warnings))
-    ) [] output_vars
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _) -> 
+      let ty = expand_type_syn ctx ty in
+      let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+      match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+      | Some pos -> type_error pos (TempOperatorInFuncInterface node_name)  
+      | None -> R.ok ()
+    ) output_vars) else R.ok ()
     in
     Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
       pp_print_tc_context ctx_plus_ops_and_ips;
@@ -1799,7 +1808,7 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         (* Add local variable bindings to the context *)
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check locals' types and their well-formedness *)
-        let* ldecls, warnings3 = R.seq (List.map (fun local_decl -> match local_decl with 
+        let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
             let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
@@ -1815,7 +1824,7 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         ) ldecls) |> R.map List.split in 
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
-        let* items, warnings4 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
+        let* items, warnings2 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
         (* check that the LHS of the equations are not args to node *)
         let check_lhs_eqns = List.map (fun (pos, v) ->
             if SI.mem v arg_ids then
@@ -1829,7 +1838,7 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let decl = 
           node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract 
         in
-        check_lhs_eqns >> R.ok (decl, warnings1 @ warnings2 @ List.flatten warnings3 @ List.flatten warnings4))
+        check_lhs_eqns >> R.ok (decl, List.flatten warnings1 @ List.flatten warnings2))
 
 and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [> warning] list, [> error]) result = fun ctx nname ->
   function
@@ -2491,7 +2500,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant or function interface variable" e 
+      check_expr_is_constant ctx "type of constant" e 
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 

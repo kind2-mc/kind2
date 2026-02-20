@@ -98,6 +98,7 @@ type error_kind = Unknown of string
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
+  | TempOperatorInFuncInterface of NodeId.t 
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
