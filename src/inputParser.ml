@@ -209,6 +209,7 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
       read_val scope name (new_index::indexes) (i::arr_indexes) json
     )
     |> List.flatten
+  | `Tuple s -> failwith (Format.asprintf "Error when reading %s. This old Yojson syntax is no longer supported, as it is not valid JSON" name)
   | json ->
     let indexes = List.rev indexes in
     let arr_indexes = List.rev arr_indexes in
