@@ -282,6 +282,15 @@
                 },
                 "property": {
                     "type": "string"
+                }, 
+                "file": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "column": {
+                    "type": "integer"
                 },
                 "runtime": {
                     "$ref": "#/definitions/runtime"
