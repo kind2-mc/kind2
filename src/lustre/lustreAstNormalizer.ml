@@ -1939,84 +1939,6 @@ and combine_args_with_const info args flags =
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
 
-(* The generation of type annotation constraints for maps is more complicated 
-   than for sets. Consider map[ -1 := -1 ]@<Nat, Nat>. This should generate two constraints, 
-   `-1 >= 0` (for the key) and `-1 >= 0 => -1 >= 0` (for the value). 
-   The antecedent for the value constraint states that the key satisfies its type. 
-   (We view maps as functions of sorts, and you only get the value/output guarantee if the 
-    input/key guarantee is satisfied.) Most of the extra work in this function 
-   (compared to the case of set type annotations) is in generating this implication 
-   from the generated key and value constraints. *)
-and gen_map_ty_annot_constraints_refty info gids gids' = 
-  let reftype_constraints_kt, eqs_kt = match gids.refinement_type_constraints with 
-  | [] -> [], []
-  | (_, pos, _, c) :: cs -> 
-    let e = List.fold_left (fun acc (_, _, _, c) -> 
-      A.BinaryOp (pos, And, acc, c)
-    ) c cs in 
-    i := !i + 1;
-    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
-    let nexpr = A.Ident (pos, id) in
-    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
-    [Local, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
-  in
-  let reftype_constraints_vt, eqs_vt = match gids'.refinement_type_constraints with 
-  | [] -> [], [] 
-  | (_, pos, _, c) :: cs -> 
-    let e = List.fold_left (fun acc (_, _, _, c) -> 
-      A.BinaryOp (pos, And, acc, c)
-    ) c cs in 
-    let e = match reftype_constraints_kt with 
-    | [] -> e 
-    | (_, _, _, c) :: _ -> A.BinaryOp (pos, Impl, c, e) 
-    in
-    i := !i + 1;
-    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
-    let nexpr = A.Ident (pos, id) in
-    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
-    [Local, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
-  in
-  { (union gids gids') with 
-    refinement_type_constraints = reftype_constraints_kt @ reftype_constraints_vt ; 
-    equations = eqs_kt @ eqs_vt
-  } 
-
-(* Analogous to `gen_map_ty_annot_constraints_refty`, but for subranges. 
-   See the other function for explanation. *)
-and gen_map_ty_annot_constraints_subrange info gids gids' = 
-  let subrange_constraints_kt, eqs_kt = match gids.subrange_constraints with 
-  | [] -> [], []
-  | (_, _, _, pos, _, c) :: cs -> 
-    let e = List.fold_left (fun acc (_, _, _, _, _, c) -> 
-      A.BinaryOp (pos, And, acc, c)
-    ) c cs in 
-    i := !i + 1;
-    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_subrange") in
-    let nexpr = A.Ident (pos, id) in
-    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
-    [Local, info.contract_scope, true, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
-  in
-  let subrange_constraints_vt, eqs_vt = match gids'.subrange_constraints with 
-  | [] -> [], [] 
-  | (_, _, _, pos, _, c) :: cs -> 
-    let e = List.fold_left (fun acc (_, _, _, _, _, c) -> 
-      A.BinaryOp (pos, And, acc, c)
-    ) c cs in 
-    let e = match subrange_constraints_kt with 
-    | [] -> e 
-    | (_, _, _, _, _, c) :: _ -> A.BinaryOp (pos, Impl, c, e) 
-    in
-    i := !i + 1;
-    let id = HString.concat2 (!i |> string_of_int |> HString.mk_hstring) (HString.mk_hstring "_reftype") in
-    let nexpr = A.Ident (pos, id) in
-    let (eq_lhs, _) = generalize_to_array_expr id StringMap.empty e nexpr in
-    [Local, info.contract_scope, true, pos, id, e], [(info.quantified_variables, info.contract_scope, eq_lhs, e, None)]
-  in
-  { (union gids gids') with 
-    subrange_constraints = subrange_constraints_kt @ subrange_constraints_vt ; 
-    equations = eqs_kt @ eqs_vt
-  } 
-
 and normalize_expr ?guard info (node_id : NI.t option) map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
@@ -2337,11 +2259,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | Some (Map (_, kt, vt)) -> 
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids1 = gen_map_ty_annot_constraints_refty info gids gids' in 
-      let gids, warnings'' = mk_fresh_subrange_constraint Local info map pos node_id expr2 kt in 
-      let gids', warnings''' = mk_fresh_subrange_constraint Local info map pos node_id expr3 vt in  
-      let gids2 = gen_map_ty_annot_constraints_subrange info gids gids' in 
-      union gids1 gids2,  warnings @ warnings' @ warnings'' @ warnings'''
+      let gids'', warnings'' = mk_fresh_subrange_constraint Local info map pos node_id expr2 kt in 
+      let gids''', warnings''' = mk_fresh_subrange_constraint Local info map pos node_id expr3 vt in  
+      let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in 
+      let warnings = warnings @ warnings' @ warnings'' @ warnings''' in
+      gids,  warnings 
     | None -> empty (), []
     | _ -> assert false (* Type annotation must be `Map` type, enforced by the parser *) 
     in
