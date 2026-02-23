@@ -172,7 +172,7 @@ You can specify a particular node or function to analyze using
 ``--lus_main_type <type_name>``.
 
 Structured types
-------------
+----------------
 
 Refinement types can be arbitrarily nested within structured types 
 (e.g., tuple component types, array and set element types, and 
