@@ -48,8 +48,11 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type node_ty_store = tc_type NI.Map.t
-(** A store of identifier and their types*)
+type node_ty_store = (tc_type * bool) NI.Map.t
+(** A store of identifier and their types. Bool is true iff the component is a function *)
+
+type contract_ty_store = tc_type NI.Map.t
+(** A store of contract identifier and their types. *)
 
 (** A store of monomorphized node names and their type arguments *)
 
@@ -82,7 +85,7 @@ type param_store = (HString.t * bool) list NI.Map.t
 
 type tc_context = { ty_syns: ty_alias_store       (* store of the type alias mappings *)
                   ; ty_ctx: ty_store              (* store of the types of identifiers and nodes *)
-                  ; contract_ctx: node_ty_store        (* store of the types of contracts *)
+                  ; contract_ctx: contract_ty_store        (* store of the types of contracts *)
                   ; node_ctx: node_ty_store       (* store of the types of nodes *)
                   ; node_param_attr: param_store  (* store of the parameter attributes of nodes *)
                   ; vl_ctx: const_store           (* store of typed constants to its value *)
@@ -228,11 +231,11 @@ let lookup_ty: tc_context -> LA.ident -> tc_type option
 (** Picks out the type of the identifier to type context map *)
 
 let lookup_contract_ty: tc_context -> NI.t -> tc_type option
-  = fun ctx i -> NI.Map.find_opt i (ctx.contract_ctx)
+  = fun ctx i -> NI.Map.find_opt i (ctx.contract_ctx) 
 (** Lookup a contract type  *)
                
 let lookup_node_ty: tc_context -> NI.t -> tc_type option
-  = fun ctx i -> NI.Map.find_opt i (ctx.node_ctx)
+  = fun ctx i -> NI.Map.find_opt i (ctx.node_ctx) |> Option.map fst
 (** Lookup a node type  *)
 
 let lookup_node_ty_vars: tc_context -> NI.t -> HString.t list option
@@ -276,8 +279,9 @@ let add_ty_contract: tc_context -> NI.t -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with contract_ctx = NI.Map.add i ty (ctx.contract_ctx)}
 (**  Add the type of the contract *)
 
-let add_ty_node: tc_context -> NI.t -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with node_ctx = NI.Map.add i ty (ctx.node_ctx)}
+let add_ty_node: tc_context -> NI.t -> tc_type -> bool -> tc_context
+  = fun ctx i ty is_func -> {ctx with node_ctx = 
+  NI.Map.add i (ty, is_func) (ctx.node_ctx)}
 (**  Add the type of the node *)
 
 let add_ty_vars_node: tc_context -> NI.t -> LA.ident list -> tc_context
@@ -426,7 +430,15 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_type_binding_node: Format.formatter -> (NI.t * tc_type) -> unit
+let pp_print_type_binding_node: Format.formatter -> (NI.t * (tc_type * bool)) -> unit
+  = fun ppf (i, (ty, is_func)) -> 
+    if is_func then 
+      Format.fprintf ppf "(function %a:%a)" NI.pp_print_node_id_user_name i LA.pp_print_lustre_type ty
+    else 
+      Format.fprintf ppf "(node %a:%a)" NI.pp_print_node_id_user_name i LA.pp_print_lustre_type ty
+(** Pretty print type bindings*)  
+
+let pp_print_type_binding_contract: Format.formatter -> (NI.t * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" NI.pp_print_node_id_user_name i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
@@ -463,6 +475,10 @@ let pp_print_tymap: Format.formatter -> ty_store -> unit
 
 let pp_print_tymap_node: Format.formatter -> node_ty_store -> unit
   = fun ppf m -> Lib.pp_print_list (pp_print_type_binding_node) ", " ppf (NI.Map.bindings m)
+(** Pretty print type binding context *)
+
+let pp_print_tymap_contract: Format.formatter -> contract_ty_store -> unit
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding_contract) ", " ppf (NI.Map.bindings m)
 (** Pretty print type binding context *)
                
 let pp_print_vstore: Format.formatter -> const_store -> unit
@@ -518,7 +534,7 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap_node (ctx.node_ctx)
-      pp_print_tymap_node (ctx.contract_ctx)
+      pp_print_tymap_contract (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
       pp_print_contract_exports (ctx.contract_export_ctx)
@@ -922,3 +938,43 @@ and ty_vars_of_type ctx node_name ty =
   )
   | History _ | Int _ | Bool _ | IntRange _ | Real _  | EnumType _ 
   | SBitVector _ | UBitVector _ -> SI.empty
+
+
+let node_id_is_node = fun ctx node_id -> 
+  match NI.Map.find_opt node_id ctx.node_ctx with 
+  | Some (_, is_func) -> not is_func 
+  | None -> false
+
+let rec expr_contains_node_call ctx expr = 
+  let r = expr_contains_node_call ctx in
+  match expr with
+  | LA.Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
+  | EmptySet (_, Some ty) -> 
+    LH.fold_lustre_ty r false (||) ty
+  | EmptySet (_, None)
+  | EmptyMap (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) ->
+    LH.fold_lustre_ty r false (||) kt || 
+    LH.fold_lustre_ty r false (||) vt
+  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
+    -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
+  | Arrow (_, e1, e2)
+    -> r e1 || r e2
+  | TernaryOp (_, _, e1, e2, e3)
+    -> r e1 || r e2 || r e3
+  | GroupExpr (_, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || r x) false expr_list
+  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    r e1 || r e2
+    || List.fold_left (fun acc x -> acc || r x) false expr_list
+  | AnyOp (_, _, _) -> true 
+  | ChooseOp (_, _, _) -> false
+  | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) -> 
+    node_id_is_node ctx ni  
+

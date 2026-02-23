@@ -177,7 +177,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in 
         let node_ty = build_node_fun_ty span.start_pos ips ops in
-        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty) pnname ps, 
+        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty true) pnname ps, 
         A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
       else if is_contract then 
         let c = Option.get c in
@@ -192,7 +192,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         let ctx = Ctx.add_ty_vars_node ctx pnname ps in
         let ctx = Ctx.add_node_param_attr ctx pnname ips in
         let node_ty = build_node_fun_ty span.start_pos ips ops in
-        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty) pnname ps, 
+        Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty false) pnname ps, 
         NodeDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c))
     in
 

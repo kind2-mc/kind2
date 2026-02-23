@@ -191,7 +191,7 @@ let gen_const_functions ctx decls =
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
         let acc_ctx = Ctx.remove_const acc_ctx id in
-        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty in 
+        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))],
         id :: acc_new_func_ids, 
@@ -207,7 +207,7 @@ let gen_const_functions ctx decls =
         let nis = [A.Body (A.Equation (p, A.StructDef (p, [A.SingleIdent (p, id)]), e))] in 
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
         let acc_ctx = Ctx.remove_const acc_ctx id in
-        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty in 
+        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         acc_decls @ [A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))],
         (* Constants with definitions don't appear in `new_func_ids` because their 

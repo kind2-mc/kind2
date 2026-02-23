@@ -134,8 +134,8 @@ val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add type binding into the typing context *)
 
-val add_ty_node: tc_context -> NI.t -> tc_type -> tc_context
-(** Add node/function type binding into the typing context *)
+val add_ty_node: tc_context -> NI.t -> tc_type -> bool -> tc_context
+(** Add node/function type binding into the typing context. Bool arg is true iff the component is a function *)
 
 val add_ty_vars_node: tc_context -> NI.t -> HString.t list -> tc_context 
 (** Add node/function type variables into the typing context *)
@@ -300,3 +300,6 @@ val ty_vars_of_expr: tc_context -> NI.t -> LA.expr -> SI.t
 
 val ty_vars_of_type: tc_context -> NI.t -> LA.lustre_type -> SI.t
 (** [ty_vars_of_type ctx node_id ty] returns all type variable identifiers that appear in the type [ty] *)
+
+val expr_contains_node_call: tc_context -> LA.expr -> bool
+(** [expr_contains_node_call ctx expr] returns true iff `expr` contains a node (NOT a function) call *)
