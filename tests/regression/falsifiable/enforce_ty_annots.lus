@@ -1,0 +1,13 @@
+node n () returns (set1, set2: set<[int, int]>; set3: set<int>; 
+                   map1, map2: map<[int, real], [int, real]>; map3: map<real, real>)
+let
+  set1 = { '(-1, -1) }@<subtype { x: [int, int] | pre x[0] >= 0 }>;
+  set2 = { '(-1, -1), '(-2, -2) }@<subtype { x: [int, int] | x[0] >= 0 }>;
+  set3 = { -1 }@<subtype { x: int | x >= 0 }>;
+
+  map1 = map[ '(-1, -1.0) := '(-1, 0.0) ]
+           @<subtype { x: [int, real] | pre x[0] >= 0 }, subtype { x: [int, real] | pre x[0] >= 0 }>;
+  map2 = map[ '(-1, -1.0) := '(-1, -1.0); '(-2, -2.0) := '(-1, -1.0) ]
+           @<subtype { x: [int, real] | x[1] >= 0.0 }, subtype { x: [int, real] | pre x[0] >= 0 }>;
+  map3 = map[ -1.0 := -1.0 ]@<subtype { x: real | x >= 0.0 }, subtype { x: real | x >= 0.0 }>;
+tel
