@@ -171,18 +171,26 @@ You can specify a particular node or function to analyze using
 ``--lus_main <node_name>``, and a specific refinement type using 
 ``--lus_main_type <type_name>``.
 
-Restrictions
+Structured types
 ------------
 
-Definitions of global constants with refinement types (as shown in the following example)
-are **not** supported:
+Refinement types can be arbitrarily nested within structured types 
+(e.g., tuple component types, array and set element types, and 
+map key and value types). For example, consider node `N` below.
 
 .. code-block::
+  type Nat = subtype { x: int | x >= 0 };
+  const N: Nat;
 
-   const n: subtype { x : int | x >= 0 } = 3;
+  node N () returns (my_tuple: [Nat, int]; my_set: set<Nat>;  
+                     my_array: Nat^N; my_map: map<Nat, Nat>)
+  ...
 
-However, declarations of free global constants (a.k.a system parameters) are supported:
-
-.. code-block::
-
-   const n: subtype { x : int | x >= 0 };
+Due to the refinement types, node `N` carries the following proof obligations:
+`my_tuple[0] >= 0` (for the tuple's first component type), 
+`forall (e: int) e in my_set => e >= 0` (for the set's element type),
+`forall (i: int) 0 <= i and i < N => my_array[i] >= 0` (for the array's element type),
+`forall (k: int) k in my_map => k >= 0` (for the map's key type), and 
+`forall (k: int) k in my_map => my_map[k] >= 0` (for the map's value type).
+If one has refinement types in node inputs, node locals, or global constants, 
+assumptions or proof obligations (depending on the case) are generated analogously.

@@ -527,32 +527,23 @@ let rec mk_enum_range_expr ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_typ
       let idx = A.Ident (dpos, idx_str) in
       let ctx = Ctx.add_ty ctx idx_str kt in
       let rexpr1 = mk ctx (succ n) kt idx in
-      (* To express value type constraints, we need all key type constraints 
-         (both enum/subrange and refinement type) 
-         for the antecedent to the implication *)
-      let kt_exprs = List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx) @
-        mk_ref_type_expr ctx node_id (Ident (dpos, idx_str)) kt 
-      in
       let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
       let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
       let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
-      let assumption1 = List.fold_left (fun acc e ->
+      let assumption = List.fold_left (fun acc e ->
           A.BinaryOp (dpos, A.And, acc, e)
         ) key_in_map enum_exprs
       in
-      let assumption2 = List.fold_left (fun acc e  -> 
-        A.BinaryOp (dpos, A.And, acc, e)
-      ) assumption1 kt_exprs in
       let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
       let var = dpos, idx_str, base_kt in
       let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
       let res = 
       List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption1), true
+        A.Quantifier (dpos, A.Forall, [var], body e assumption), true
       ) rexpr1 
       @ 
       List.map (fun (e, _) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption2), true
+        A.Quantifier (dpos, A.Forall, [var], body e assumption), true
       ) rexpr2 in 
       (*Format.fprintf Format.std_formatter "Generated constraints: %a\n"
         (Lib.pp_print_list (fun ppf (expr, b) -> 
@@ -625,15 +616,9 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     let ctx = Ctx.add_ty ctx dummy_index kt in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
     let exprs1 = mk_ref_type_expr ctx node_id idx kt in
-    (* To express value type constraints, we need all key type constraints 
-       (both enum/subrange and refinement type) 
-       for the antecedent to the implication *)
-    let kt_exprs = exprs1 @
-      (List.map fst (mk_enum_range_expr ~mk_enum:false ctx node_id kt idx)) 
-    in
     let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
     let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
-    let assumption1 = List.fold_left (fun acc e ->
+    let assumption = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
       ) key_in_map enum_exprs
     in
@@ -641,16 +626,13 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     let body = fun e a -> A.BinaryOp (dpos, A.Impl, a, e) in
     let exprs1 =
       List.map (fun e -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption1)
+        A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs1
     in
     let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
-    let assumption2 = List.fold_left (fun acc e  -> 
-        A.BinaryOp (dpos, A.And, acc, e)
-      ) assumption1 kt_exprs in
     let exprs2 =
       List.map (fun (e) -> 
-        A.Quantifier (dpos, A.Forall, [var], body e assumption2)
+        A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs2
     in
     exprs1 @ exprs2
