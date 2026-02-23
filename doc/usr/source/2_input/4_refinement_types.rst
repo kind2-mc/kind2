@@ -179,6 +179,7 @@ Refinement types can be arbitrarily nested within structured types
 map key and value types). For example, consider node `N` below.
 
 .. code-block::
+
   type Nat = subtype { x: int | x >= 0 };
   const N: Nat;
 
