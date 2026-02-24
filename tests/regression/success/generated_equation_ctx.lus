@@ -7,6 +7,6 @@ let
     a, b = W(t = 34);
   else
     a = any@<int>;
-    b = any@<int>;
+    b = any@<bool>;
   fi
 tel
