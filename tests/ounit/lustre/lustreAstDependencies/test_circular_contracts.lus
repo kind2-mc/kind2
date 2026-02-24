@@ -10,4 +10,5 @@ node n (x: int) returns (y: int);
 *)     
 let
     x = y;
+    y = any@<int>;
 tel;

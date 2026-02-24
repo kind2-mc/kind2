@@ -10,5 +10,6 @@ tel
 node a (x: int) returns (y: int)
 let
 y = x;
+x = any@<int>;
 tel
 

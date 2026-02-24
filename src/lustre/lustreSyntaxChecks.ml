@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t * Lib.position
   | DuplicateOutput of HString.t * Lib.position
+  | UndefinedOutput of HString.t 
   | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
@@ -80,13 +81,15 @@ type error = [
 let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
-    ^ HString.string_of_hstring id ^ "' has no definition"
+    ^ HString.string_of_hstring id ^ "' is not defined via an equation or frame block"
   | DuplicateLocal (id, pos) -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has already been defined at position " ^ 
      (Lib.string_of_t Lib.pp_print_position pos) 
   | DuplicateOutput (id, pos) -> "Output variable '"
     ^ HString.string_of_hstring id ^ "' has already been defined at position " ^
     (Lib.string_of_t Lib.pp_print_position pos) 
+  | UndefinedOutput id -> "Output variable '"
+    ^ HString.string_of_hstring id ^ "' is not defined via an equation or frame block"
   | DuplicateProperty id -> "Property '"
   ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
@@ -487,12 +490,12 @@ let locals_exactly_one_definition locals items =
   in
   Res.seq (List.map over_locals locals)
 
-let outputs_at_most_one_definition outputs items =
+let outputs_exactly_one_definition outputs items =
   let over_outputs = function
-  | (_, id, _, _) ->
+  | (p, id, _, _) ->
     let poss = List.map (find_var_def_count id) items |> List.flatten in
     match List.length poss with
-      | 0 
+      | 0 -> syntax_error p (UndefinedOutput id) 
       | 1 -> Ok ()
       | _ -> 
         let poss = List.sort Lib.compare_pos poss in
@@ -759,7 +762,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
-  >> (outputs_at_most_one_definition outputs items)
+  >> (if ext then (Res.ok []) else (outputs_exactly_one_definition outputs items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (match contract with
