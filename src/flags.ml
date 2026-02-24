@@ -207,6 +207,7 @@ module Smt = struct
 
   type itp_solver = [
     | `cvc5_QE
+    | `Bitwuzla_SMTLIB
     | `MathSAT_SMTLIB
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
@@ -216,17 +217,19 @@ module Smt = struct
   let itp_solver_of_string s =
     match String.lowercase_ascii s with
     | "cvc5qe" -> `cvc5_QE
+    | "bitwuzla" -> `Bitwuzla_SMTLIB
     | "mathsat" -> `MathSAT_SMTLIB
     | "opensmt" -> `OpenSMT_SMTLIB
     | "smtinterpol" -> `SMTInterpol_SMTLIB
     | "z3qe" -> `Z3_QE
     | _ -> Arg.Bad "Bad value for --smt_itp_solver" |> raise
   let string_of_itp_solver = function
+    | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `MathSAT_SMTLIB -> "MathSAT"
     | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `detect -> "detect"
-  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe, OpenSMT"
+  let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe, OpenSMT, Bitwuzla"
   let itp_solver_default = `detect
   let itp_solver = ref itp_solver_default
   let _ = add_spec
@@ -247,6 +250,7 @@ module Smt = struct
   let get_itp_solver () =
     match itp_solver () with
     | `cvc5_QE -> `cvc5_SMTLIB
+    | `Bitwuzla_SMTLIB -> `Bitwuzla_SMTLIB
     | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
     | `OpenSMT_SMTLIB -> `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
@@ -589,6 +593,12 @@ module Smt = struct
       | `cvc5_SMTLIB -> ()
       | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
     )
+    (* User chose Bitwuzla *)
+    | `Bitwuzla_SMTLIB -> (
+      match solver () with
+      | `Bitwuzla_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
+    )
     (* User chose MathSAT *)
     | `MathSAT_SMTLIB -> (
       match solver () with
@@ -651,6 +661,11 @@ module Smt = struct
           let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
           set_itp_solver `OpenSMT_SMTLIB;
           set_opensmt_bin exec;
+        with Not_found ->
+        try
+          let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
+          set_itp_solver `Bitwuzla_SMTLIB;
+          set_bitwuzla_bin exec;
         with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
       )
     )
