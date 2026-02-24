@@ -1056,7 +1056,7 @@ let generate_frontend_proof inv =
   Debug.certif "LFSC proof written in %s" proof_file;
 
   log_trusted ~frontend:true inv.dirname
-(* LFSC terms (sexpressions) *)
+
 type cpc_step = HS.t
 
 let pp_cpc_proof fmt pf =
@@ -1067,7 +1067,7 @@ let parse_cpc_from_lexbuf lexbuf =
   let commands =
     match sexps with
     | [HS.List xs] -> xs
-    | xs -> xs  (* fall back: already flat *)
+    | xs -> xs 
   in
   commands
 
