@@ -835,6 +835,7 @@ let abstr_simulate trace trans_sys raise_cex =
         )
         interpolizers
     )
+    | `Bitwuzla_SMTLIB
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> (
       List.map

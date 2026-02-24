@@ -299,6 +299,7 @@ module Smt : sig
 
   type itp_solver = [
     | `cvc5_QE
+    | `Bitwuzla_SMTLIB
     | `MathSAT_SMTLIB
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
