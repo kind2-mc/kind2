@@ -3,5 +3,6 @@ type my_enum = enum {A, B, C};
 
 node top(x: my_enum) returns (y: my_enum);
 let
+  y = any@<my_enum>;
   A = x;
 tel

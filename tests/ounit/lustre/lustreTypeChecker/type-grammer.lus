@@ -9,6 +9,7 @@ tel;
 node f(const x : int) returns (xb : int^true);
 var b: bool^5;
 let
+  xb = any@<int^true>;
   --%PROPERTY b[1] = false;
   b = false ^ x;
 tel;

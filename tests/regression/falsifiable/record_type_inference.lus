@@ -13,4 +13,6 @@ let
     items = 2^MAX_SIZE;
     top_pos = 3;
   };
+  z1 = any@<int>;
+  z2 = any@<int>;
 tel

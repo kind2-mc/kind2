@@ -2,6 +2,7 @@ type T;
 
 node N() returns (y: T);
 let
+  y = any@<T>;
 tel
 
 node M<T>() returns (y3: T)
