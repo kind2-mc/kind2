@@ -2285,8 +2285,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | Some (Map (_, kt, vt)) -> 
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids'', warnings'' = mk_fresh_subrange_constraint Local info map pos node_id expr2 kt in 
-      let gids''', warnings''' = mk_fresh_subrange_constraint Local info map pos node_id expr3 vt in  
+      let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
+      let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
       let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in 
       let warnings = warnings @ warnings' @ warnings'' @ warnings''' in
       gids,  warnings 
