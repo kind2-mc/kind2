@@ -567,8 +567,6 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
   | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    Format.printf "ref_expr: %a\n"
-      A.pp_print_expr ref_expr;
     let expr = AH.substitute_naive id2 expr ref_expr in 
     [expr]
   | TupleType (pos, tys) 
@@ -1111,11 +1109,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     (empty (), [])
 
   and mk_fresh_refinement_type_constraint source info map pos node_id expr expr_type =
-    Format.printf "expr: %a\n"
-      A.pp_print_expr expr;
     let ref_type_exprs = mk_ref_type_expr info.context node_id expr expr_type in
-    Format.printf "ref_type_exprs: %a\n"
-      (Lib.pp_print_list A.pp_print_expr ", ") ref_type_exprs;
     let gids, warnings = List.map (fun ref_type_expr ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars ref_type_expr in
