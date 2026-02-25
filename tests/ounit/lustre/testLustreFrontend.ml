@@ -216,6 +216,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  mk_test "test index access in array length" (fun () ->
+    match load_file "./lustreTypeChecker/array_len_bug.lus" with
+    | Error (`LustreTypeCheckerError (_, NoIndexAccessInArrayLength _)) -> true
+    | _ -> false); 
   mk_test "test function contract with temporal interface 2" (fun () ->
     match load_file "./lustreTypeChecker/temporal_fun_contract_2.lus" with
     | Error (`LustreTypeCheckerError (_, TempOperatorInFuncInterface _)) -> true
