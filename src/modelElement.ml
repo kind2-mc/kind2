@@ -104,6 +104,7 @@ type term_print_data = {
 type core_print_data = {
   core_class: string ;
   property: string option ; (* Only for MCSs *)
+  property_position: Lib.position option ; (* Only for MCSs *)
   counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
   time: float option ;
   size: int ;
@@ -190,6 +191,7 @@ let loc_core_to_print_data in_sys sys core_class time lc =
   {
     core_class ;
     property = None ;
+    property_position = None ;
     counterexample = None ;
     approx = None ;
     time ;
@@ -200,8 +202,12 @@ let loc_core_to_print_data in_sys sys core_class time lc =
 let attach_counterexample_to_print_data data cex =
   { data with counterexample = Some cex }
 
+
 let attach_property_to_print_data data prop =
-  { data with property = Some prop.Property.prop_name }
+  { data with 
+  property = Some prop.Property.prop_name; 
+  property_position = Property.get_pos_from_prop_source prop.Property.prop_source;
+  }
 
 let attach_approx_to_print_data data approx =
   { data with approx = Some approx }
@@ -294,6 +300,15 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
     match cpd.property with
     | None -> []
     | Some n -> [("property", `String n)]
+  ) in
+  let assoc = assoc @ (
+    match cpd.property_position with
+    | None -> []
+    | Some pos -> 
+      let (file, row, col) = Lib.file_row_col_of_pos pos in
+      [("line", `Int row); ("col", `Int col)]
+      @ (if file = "" then [] else [("file", `String file)])
+
   )
   in
   let assoc = assoc @ (
@@ -353,10 +368,14 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in
-  Format.fprintf fmt "<%s class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
+  let pos_as_string pos = 
+    let (file, row, col) = Lib.file_row_col_of_pos pos in
+    Format.asprintf " line=\"%d\" column=\"%d\" file=\"%s\"" row col file in
+  Format.fprintf fmt "<%s class=\"%s\" size=\"%i\"%s%s%s>@.  @[<v>"
     tag cpd.core_class cpd.size
     (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n)
-    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b) ;
+    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b)
+    (match cpd.property_position with None -> "" | Some pos -> Format.asprintf "%s" (pos_as_string pos)) ;
   (
     match cpd.time with
     | None -> ()

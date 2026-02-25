@@ -113,6 +113,7 @@ type error_kind = Unknown of string
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
+  | TempOperatorInFuncInterface of NI.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -226,6 +227,9 @@ let error_message kind = match kind with
   | CallRequiresExplicitAnnotation id -> 
     Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
       HString.pp_print_hstring id
+  | TempOperatorInFuncInterface node_id -> 
+    Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
+      NI.pp_print_node_id_user_name node_id
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -966,9 +970,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    R.ok (LA.Map (pos, kt, vt), e, [])
+    let* kt, warnings1 = check_type_well_formed ctx Local nname false kt in 
+    let* vt, warnings2 = check_type_well_formed ctx Local nname false vt in 
+    R.ok (LA.Map (pos, kt, vt), e, warnings1 @ warnings2)
   | LA.EmptySet (pos, Some ty) -> 
-    R.ok (LA.Set (pos, ty), e, [])
+    let* ty, warnings = check_type_well_formed ctx Local nname false ty in 
+    R.ok (LA.Set (pos, ty), e, warnings)
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1735,8 +1742,8 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
       (R.ok (LA.TypedConst (pos, i, exp, ty), warnings))
       (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
 
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
-  = fun pos ctx
+and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
+  = fun pos ctx is_function
         (node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" NI.pp_print_node_id_user_name node_name;
@@ -1781,6 +1788,27 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
     let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
       (List.map extract_ret_ctx output_vars)
     in
+    (* No temporal operators in function interface *)
+    let check_ty_for_temp_operators_or_node_calls ty = 
+      let ty = expand_type_syn ctx ty in
+      let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+      match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+      | Some pos -> type_error pos (TempOperatorInFuncInterface node_name)  
+      | None -> 
+        let contains_node_call = LH.fold_lustre_ty (expr_contains_node_call ctx_plus_ops_and_ips) false (||) ty in 
+        if contains_node_call then 
+          type_error pos (TempOperatorInFuncInterface node_name) 
+        else
+          R.ok ()
+    in
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _, _) -> 
+      check_ty_for_temp_operators_or_node_calls ty
+    ) input_vars) else R.ok ()
+    in
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _) -> 
+      check_ty_for_temp_operators_or_node_calls ty
+    ) output_vars) else R.ok ()
+    in
     Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
       pp_print_tc_context ctx_plus_ops_and_ips;
     (* Type check the contract *)
@@ -1809,9 +1837,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* e, warnings2 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
-            let* ty, warnings3 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings2 @ warnings3)
+            let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
@@ -2215,8 +2243,8 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (LA.FreeType (pos, i), add_ty_decl ctx' i)
 
-and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _)->
+and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
+  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _) is_func ->
   Debug.parse
     "Extracting type of node declaration: %a"
     NI.pp_print_node_id_user_name node_id
@@ -2227,7 +2255,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
     let ctx = add_node_param_attr ctx node_id ip in
     let ctx = add_ty_vars_node ctx node_id ps in
     let* fun_ty, warnings = build_node_fun_ty pos ctx node_id ps ip op in
-    let ctx = add_ty_node ctx node_id fun_ty in 
+    let ctx = add_ty_node ctx node_id fun_ty is_func in 
     R.ok (ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
@@ -2318,9 +2346,11 @@ and tc_ctx_of_declaration: (LA.t * tc_context * [> warning] list) -> LA.declarat
     | LA.ConstDecl (s, const_decl) -> 
       let* const_decl, ctx, warnings = tc_ctx_const_decl ctx' Global None const_decl in 
       R.ok (decls @ [LA.ConstDecl (s, const_decl)], ctx, warnings)
-    | LA.NodeDecl ({LA.start_pos=pos}, node_decl) 
+    | LA.NodeDecl ({LA.start_pos=pos}, node_decl) as decl -> 
+      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl false in 
+      R.ok (decls @ [decl], ctx, warnings)
     | LA.FuncDecl ({LA.start_pos=pos}, node_decl) as decl ->
-      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl in 
+      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl true in 
       R.ok (decls @ [decl], ctx, warnings)
     | LA.ContractNodeDecl ({LA.start_pos=pos} as s, contract_decl) ->
       let* ctx, warnings = tc_ctx_of_contract_node_decl pos ctx' contract_decl in 
@@ -2501,7 +2531,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant or refinement type argument" e 
+      check_expr_is_constant ctx "type of constant" e 
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
@@ -2741,12 +2771,12 @@ let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> er
   | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in  
+    let* node_decl, warnings = check_type_node_decl pos global_ctx false node_decl in  
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.NodeDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.FuncDecl (span, node_decl):: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in 
+    let* node_decl, warnings = check_type_node_decl pos global_ctx true node_decl in 
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.FuncDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.ContractNodeDecl (span, contract_decl) :: rest ->

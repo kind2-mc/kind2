@@ -307,6 +307,22 @@ let set_prop_unknown p =
 (* Get property status *)
 let get_prop_status { prop_status } = prop_status
 
+
+let rec get_pos_from_prop_source src = match src with 
+  | PropAnnot pos
+  | Generated ((Some pos), _)
+  | Assumption (pos,_) 
+  | Guarantee (pos,  _) 
+  | GuaranteeOneModeActive(pos,_) 
+  | GuaranteeModeImplication (pos,_) 
+  | NonVacuityCheck (pos , _) -> 
+    Some pos
+  | Candidate (None)
+  | Generated (None, _) ->  
+    None
+  | Candidate (Some psource) -> get_pos_from_prop_source psource
+  | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
+
 (* Get property term *)
 let get_prop_term { prop_term } = prop_term
 

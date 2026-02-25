@@ -98,6 +98,7 @@ type error_kind = Unknown of string
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
+  | TempOperatorInFuncInterface of NodeId.t 
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -219,7 +220,7 @@ val tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   -> LA.contract_node_decl
   -> (tc_context * [> warning] list, [> error]) result
 
-val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
+val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
 
 
 val expr_contains_set_binop: tc_context -> NI.t option -> LA.expr -> bool 

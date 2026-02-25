@@ -1,0 +1,7 @@
+function f (inp: subtype { x: int | true -> x > pre x }) returns (out: subtype { x: int | true -> x > pre x })
+(* @contract
+  assume true -> inp > pre inp;
+*)
+let
+  out = inp;
+tel

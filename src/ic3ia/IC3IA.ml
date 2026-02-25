@@ -382,6 +382,7 @@ let refine fwd solver sys predicates cubes =
         )
         interpolizers
     )
+    | `Bitwuzla_SMTLIB
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB -> (
       List.map

@@ -387,6 +387,9 @@
     <xs:attribute name="size" type="NonNegativeInteger" use="required"/>
     <xs:attribute name="property" type="xs:string" />
     <xs:attribute name="approximate" type="xs:boolean" use="required"/>
+    <xs:attribute name="file" type="xs:string"/>
+    <xs:attribute name="line" type="NonNegativeInteger"/>
+    <xs:attribute name="column" type="NonNegativeInteger"/>
   </xs:complexType>
 
   <xs:complexType name="NoModelElementSetType">
