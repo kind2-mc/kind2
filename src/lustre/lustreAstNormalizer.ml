@@ -567,6 +567,8 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
   | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
+    Format.printf "ref_expr: %a\n"
+      A.pp_print_expr ref_expr;
     let expr = AH.substitute_naive id2 expr ref_expr in 
     [expr]
   | TupleType (pos, tys) 
@@ -1109,7 +1111,11 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     (empty (), [])
 
   and mk_fresh_refinement_type_constraint source info map pos node_id expr expr_type =
+    Format.printf "expr: %a\n"
+      A.pp_print_expr expr;
     let ref_type_exprs = mk_ref_type_expr info.context node_id expr expr_type in
+    Format.printf "ref_type_exprs: %a\n"
+      (Lib.pp_print_list A.pp_print_expr ", ") ref_type_exprs;
     let gids, warnings = List.map (fun ref_type_expr ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars ref_type_expr in
@@ -1117,13 +1123,12 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
       let nexpr = A.Ident (pos, name) in
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
-      let output_nexpr, gids1, warnings1 = normalize_expr info node_id map output_expr in
-      let ref_type_nexpr, gids2, warnings2 = normalize_expr info node_id map ref_type_expr in 
-      let gids3 = { (empty ()) with
-        refinement_type_constraints = [(source, pos, name, output_nexpr)];
+      let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
+      let gids2 = { (empty ()) with
+        refinement_type_constraints = [(source, pos, name, output_expr)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
       in
-      union (union gids1 gids2) gids3, warnings1 @ warnings2
+      union gids1 gids2, warnings 
     ) ref_type_exprs |> List.split
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
@@ -1137,13 +1142,12 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
       let nexpr = A.Ident (pos, name) in
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
-      let output_nexpr, gids1, warnings1 = normalize_expr info node_id map output_expr in
-      let range_nexpr, gids2, warnings2 = normalize_expr info node_id map range_expr in 
-      let gids3 = { (empty ()) with
-        subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_nexpr)];
+      let range_nexpr, gids1, warnings = normalize_expr info node_id map range_expr in 
+      let gids2 = { (empty ()) with
+        subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_nexpr, None)]; }
       in
-      union (union gids1 gids2) gids3, warnings1 @ warnings2)
+      union gids1 gids2, warnings) 
       range_exprs |> List.split
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
@@ -1325,15 +1329,6 @@ and normalize_node info map
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
-  (* Normalize types *)
-  let inputs, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
-    let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
-    (p, id, ty, cl, c), gids, warnings
-  ) inputs |> Lib.split3 in
-  let outputs, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
-    let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
-    (p, id, ty, cl), gids, warnings
-  ) outputs |> Lib.split3 in
   let locals, gids3, warnings3 = List.map (fun decl -> 
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
@@ -1363,6 +1358,15 @@ and normalize_node info map
     let gids', warnings' = add_subrange_constraints info map (Some node_id) Output vars' in 
     union gids gids', warnings @ warnings' 
   in
+  (* Normalize types *)
+  let inputs, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
+    let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
+    (p, id, ty, cl, c), gids, warnings
+  ) inputs |> Lib.split3 in
+  let outputs, gids2, warnings2 = List.map (fun (p, id, ty, cl) -> 
+    let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
+    (p, id, ty, cl), gids, warnings
+  ) outputs |> Lib.split3 in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
   let ncontracts, gids6, interpretation, warnings6 = match contract with
