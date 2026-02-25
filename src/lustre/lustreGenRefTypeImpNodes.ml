@@ -173,7 +173,10 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
 
 let contract_node_decl_to_contracts
 = fun ctx (node_id, params, inputs, outputs, (pos, base_contract)) -> 
-  let* contract', gids = mk_generated_env_contract_eqs ctx node_id base_contract in
+  let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs [] in
+  let* contract', gids =
+    mk_generated_env_contract_eqs contract_ctx node_id base_contract
+  in
   let gen_node_id = NI.mk_node_id ~node_type:Environment (NI.get_name node_id) in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   (* We generate a contract representing this contract's inputs/environment *)
@@ -189,7 +192,10 @@ let contract_node_decl_to_contracts
 let node_decl_to_contracts 
 = fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
-  let* contract', gids = mk_generated_env_contract_eqs ctx node_id base_contract in
+  let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs locals in
+  let* contract', gids =
+    mk_generated_env_contract_eqs contract_ctx node_id base_contract
+  in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
