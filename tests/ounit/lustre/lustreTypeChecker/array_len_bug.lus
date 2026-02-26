@@ -1,0 +1,9 @@
+const S: int^3;
+
+const N: int = S[0] + 1;
+
+node N() returns (A: int^N);
+let
+  A[i] = 0;
+  check A[0]>0;
+tel
