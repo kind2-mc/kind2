@@ -75,6 +75,7 @@ fun ctx node_name fun_ids expr ->
   match expr with
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
+    let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = 
       [A.Guarantee (AH.pos_of_expr expr1, None, false, expr1)] 
@@ -125,12 +126,19 @@ fun ctx node_name fun_ids expr ->
         name
     | _ -> assert false
     in
-    A.Call(pos, ty_vars, name, inputs_call), [generated_node]
+    A.Call(pos, ty_vars, name, inputs_call), ty_gen_nodes @ [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
-  | EmptySet _ as e -> e, []
-  | EmptyMap _ as e -> e, []
+  | A.EmptySet (pos, None) -> A.EmptySet (pos, None), []
+  | A.EmptySet (pos, Some ty) ->
+    let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
+    A.EmptySet (pos, Some ty'), gen_nodes
+  | A.EmptyMap (pos, None) -> A.EmptyMap (pos, None), []
+  | A.EmptyMap (pos, Some (kt, vt)) ->
+    let kt', gen_nodes1 = desugar_type ctx node_name fun_ids kt in
+    let vt', gen_nodes2 = desugar_type ctx node_name fun_ids vt in
+    A.EmptyMap (pos, Some (kt', vt')), gen_nodes1 @ gen_nodes2
   | Const (_, _) as e -> e, []
   | RecordProject (pos, e, idx) -> 
     let e, gen_nodes = rec_call e in
@@ -158,11 +166,12 @@ fun ctx node_name fun_ids expr ->
     let e, gen_nodes = rec_call e in 
     Extract (pos, e, ub, lb), gen_nodes
   | RecordExpr (pos, ident, ps, expr_list) ->
+    let ps, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ps |> List.split in
     let id_list, exprs_gen_nodes = 
       List.map (fun (i, e) -> (i, (rec_call) e)) expr_list |> List.split 
     in
     let expr_list, gen_nodes = List.split exprs_gen_nodes in
-    RecordExpr (pos, ident, ps, List.combine id_list expr_list), List.flatten gen_nodes
+    RecordExpr (pos, ident, ps, List.combine id_list expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
   | GroupExpr (pos, kind, expr_list) ->
     let expr_list, gen_nodes = List.map (rec_call) expr_list |> List.split in
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
@@ -181,9 +190,13 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     IndexAccess (pos, e1, e2, kind), gen_nodes1 @ gen_nodes2
-  | Quantifier (pos, kind, idents, e) ->
+  | Quantifier (pos, kind, tis , e) ->
+    let tis, gen_nodes_ty = List.map (fun (p, id', ty) ->
+      let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
+      (p, id', ty'), gen_nodes
+    ) tis |> List.split in
     let e, gen_nodes = rec_call e in
-    Quantifier (pos, kind, idents, e), gen_nodes
+    Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
   | When (pos, e, clock) -> 
     let e, gen_nodes = rec_call e in
     When (pos, e, clock), gen_nodes
@@ -216,16 +229,25 @@ fun ctx node_name fun_ids expr ->
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
+    let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
-    Call (pos, ty_args, id, expr_list), List.flatten gen_nodes
+    Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match ci with
-  | A.GhostVars (pos, lhs, e) -> 
-    let e, gen_nodes = rec_call e in 
-    A.GhostVars (pos, lhs, e), gen_nodes
+  | A.GhostVars (pos, lhs, e) ->
+    let lhs, gen_nodes_ty = match lhs with
+      | A.GhostVarDec (p, tis) ->
+          let tis, gen_nodes_ty = List.map (fun (p, id, ty) ->
+            let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
+            (p, id, ty'), gen_nodes
+          ) tis |> List.split in
+          A.GhostVarDec (p, tis), List.flatten gen_nodes_ty
+    in
+    let e, gen_nodes = rec_call e in
+    A.GhostVars (pos, lhs, e), gen_nodes_ty @ gen_nodes
   | Assume (pos, name, b, e) ->
     let e, gen_nodes = rec_call e in 
     Assume (pos, name, b, e), gen_nodes
@@ -242,9 +264,10 @@ fun ctx node_name fun_ids ci ->
       List.map (fun (pos, id, (expr, decls)) -> ((pos, id, expr), decls)) |> 
       List.split in 
     Mode (pos, i, reqs, enss), (List.flatten gen_nodes1) @ (List.flatten gen_nodes2)
-  | ContractCall (pos, i, ty_args, exprs, ids) -> 
-    let (exprs, gen_nodes) = List.map rec_call exprs |> List.split in 
-    ContractCall (pos, i, ty_args, exprs, ids), List.flatten gen_nodes
+  | ContractCall (pos, i, ty_args, exprs, ids) ->
+    let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
+    let (exprs, gen_nodes) = List.map rec_call exprs |> List.split in
+    ContractCall (pos, i, ty_args, exprs, ids), List.flatten gen_nodes_ty @ List.flatten gen_nodes
   | GhostConst _ 
   | AssumptionVars _ as ci -> ci, []
 
@@ -297,26 +320,73 @@ fun ctx decls ->
     match decl with
     | A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
-      let outputs, gen_nodes1 = List.map (fun (p, id', ty, c) -> (*!! Like this *)
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in  
+      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        (p, id', ty, c, b), gen_nodes
+      ) inputs |> List.split in
+      let outputs, gen_nodes1 = List.map (fun (p, id', ty, c) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
         (p, id', ty, c), gen_nodes
       ) outputs |> List.split in
-      let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
+      let locals, gen_nodes_loc = List.map (function
+        | A.NodeVarDecl (pos, (p, id', ty, c)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeVarDecl (pos, (p, id', ty', c)), gen_nodes
+        | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty')), gen_nodes
+        | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty')), gen_nodes
+        | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
+            A.NodeConstDecl (pos, cd), []
+      ) locals |> List.split in
+      let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3 in
+      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes1 @ List.flatten gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
       decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
     | A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
-      let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
+      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        (p, id', ty, c, b), gen_nodes
+      ) inputs |> List.split in
+      let outputs, gen_nodes_out = List.map (fun (p, id', ty, c) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        (p, id', ty, c), gen_nodes
+      ) outputs |> List.split in
+      let locals, gen_nodes_loc = List.map (function
+        | A.NodeVarDecl (pos, (p, id', ty, c)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeVarDecl (pos, (p, id', ty', c)), gen_nodes
+        | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty')), gen_nodes
+        | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
+            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty')), gen_nodes
+        | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
+            A.NodeConstDecl (pos, cd), []
+      ) locals |> List.split in
+      let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = List.flatten gen_nodes in
+      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
     | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
       let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
+      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        (p, id', ty, c, b), gen_nodes
+      ) inputs |> List.split in
+      let outputs, gen_nodes_out = List.map (fun (p, id', ty, c) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        (p, id', ty, c), gen_nodes
+      ) outputs |> List.split in
       let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract
       | None -> assert false in (* Must have a contract *)
+      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ gen_nodes in
       decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
     | _ -> decl :: decls
   ) [] decls in 

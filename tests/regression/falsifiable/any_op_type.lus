@@ -1,0 +1,4 @@
+node N() returns (out: int | out > any@<int>)
+let
+  out = 3;
+tel
