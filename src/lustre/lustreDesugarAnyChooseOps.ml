@@ -45,16 +45,16 @@ fun ctx node_name fun_ids ty ->
     let vt, gen_nodes2 = r vt in
     Map (p, kt, vt), gen_nodes1 @ gen_nodes2
   | Set (p, ty) ->
-    let ty', gen_nodes = r ty in
-    Set (p, ty'), gen_nodes  
+    let ty, gen_nodes = r ty in
+    Set (p, ty), gen_nodes  
   | ArrayType (p, (ty, len)) ->
-    let ty', gen_nodes1 = r ty in
-    let len', gen_nodes2 = desugar_expr ctx node_name fun_ids len in
-    ArrayType (p, (ty', len')), gen_nodes1 @ gen_nodes2
+    let ty, gen_nodes1 = r ty in
+    let len, gen_nodes2 = desugar_expr ctx node_name fun_ids len in
+    ArrayType (p, (ty, len)), gen_nodes1 @ gen_nodes2
   | TArr (p, ty1, ty2) ->
-    let ty1', gen_nodes1 = r ty1 in
-    let ty2', gen_nodes2 = r ty2 in
-    TArr (p, ty1', ty2'), gen_nodes1 @ gen_nodes2
+    let ty1, gen_nodes1 = r ty1 in
+    let ty2, gen_nodes2 = r ty2 in
+    TArr (p, ty1, ty2), gen_nodes1 @ gen_nodes2
   | GroupType (p, tys) ->
     let tys, gen_nodes = List.map r tys |> List.split in
     GroupType (p, tys), List.flatten gen_nodes 
@@ -62,12 +62,12 @@ fun ctx node_name fun_ids ty ->
     let tys, gen_nodes = List.map r tys |> List.split in
     TupleType (p, tys), List.flatten gen_nodes 
   | RecordType (p, id, tis) ->
-    let tis, gen_nodes = List.map (fun (p, id, ty) -> let ty', d = r ty in (p, id, ty'), d) tis |> List.split in
+    let tis, gen_nodes = List.map (fun (p, id, ty) -> let ty, d = r ty in (p, id, ty), d) tis |> List.split in
     RecordType (p, id, tis), List.flatten gen_nodes
   | RefinementType (p1, (p2, id, ty), e) ->
-    let ty', gen_nodes1 = r ty in
-    let e', gen_nodes2 = desugar_expr ctx node_name fun_ids e in
-    RefinementType (p1, (p2, id, ty'), e'), gen_nodes1 @ gen_nodes2
+    let ty, gen_nodes1 = r ty in
+    let e, gen_nodes2 = desugar_expr ctx node_name fun_ids e in
+    RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
 
 and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
@@ -132,8 +132,8 @@ fun ctx node_name fun_ids expr ->
   | ModeRef (_, _) as e -> e, []
   | A.EmptySet (pos, None) -> A.EmptySet (pos, None), []
   | A.EmptySet (pos, Some ty) ->
-    let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
-    A.EmptySet (pos, Some ty'), gen_nodes
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+    A.EmptySet (pos, Some ty), gen_nodes
   | A.EmptyMap (pos, None) -> A.EmptyMap (pos, None), []
   | A.EmptyMap (pos, Some (kt, vt)) ->
     let kt', gen_nodes1 = desugar_type ctx node_name fun_ids kt in
@@ -191,9 +191,9 @@ fun ctx node_name fun_ids expr ->
     let e2, gen_nodes2 = rec_call e2 in
     IndexAccess (pos, e1, e2, kind), gen_nodes1 @ gen_nodes2
   | Quantifier (pos, kind, tis , e) ->
-    let tis, gen_nodes_ty = List.map (fun (p, id', ty) ->
-      let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
-      (p, id', ty'), gen_nodes
+    let tis, gen_nodes_ty = List.map (fun (p, id, ty) ->
+      let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+      (p, id, ty), gen_nodes
     ) tis |> List.split in
     let e, gen_nodes = rec_call e in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
@@ -241,8 +241,8 @@ fun ctx node_name fun_ids ci ->
     let lhs, gen_nodes_ty = match lhs with
       | A.GhostVarDec (p, tis) ->
           let tis, gen_nodes_ty = List.map (fun (p, id, ty) ->
-            let ty', gen_nodes = desugar_type ctx node_name fun_ids ty in
-            (p, id, ty'), gen_nodes
+            let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+            (p, id, ty), gen_nodes
           ) tis |> List.split in
           A.GhostVarDec (p, tis), List.flatten gen_nodes_ty
     in
@@ -330,14 +330,14 @@ fun ctx decls ->
       ) outputs |> List.split in
       let locals, gen_nodes_loc = List.map (function
         | A.NodeVarDecl (pos, (p, id', ty, c)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeVarDecl (pos, (p, id', ty', c)), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeVarDecl (pos, (p, id', ty, c)), gen_nodes
         | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty')), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
         | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty')), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
         | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
             A.NodeConstDecl (pos, cd), []
       ) locals |> List.split in
@@ -357,14 +357,14 @@ fun ctx decls ->
       ) outputs |> List.split in
       let locals, gen_nodes_loc = List.map (function
         | A.NodeVarDecl (pos, (p, id', ty, c)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeVarDecl (pos, (p, id', ty', c)), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeVarDecl (pos, (p, id', ty, c)), gen_nodes
         | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty')), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
         | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
-            let ty', gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty')), gen_nodes
+            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
         | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
             A.NodeConstDecl (pos, cd), []
       ) locals |> List.split in
