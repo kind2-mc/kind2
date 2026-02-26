@@ -33,7 +33,43 @@ fun pos node_id node_type ->
   let name = HString.concat2 name pos in
   NI.mk_node_id ~node_type ~user_name:name name
 
-let rec desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
+fun ctx node_name fun_ids ty -> 
+  let r = desugar_type ctx node_name fun_ids in 
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | IntRange _ | EnumType _ | AbstractType _ 
+  | UserType _ | History _ -> ty, [] 
+  | Map (p, kt, vt) -> 
+    let kt, gen_nodes1 = r kt in 
+    let vt, gen_nodes2 = r vt in
+    Map (p, kt, vt), gen_nodes1 @ gen_nodes2
+  | Set (p, ty) ->
+    let ty', gen_nodes = r ty in
+    Set (p, ty'), gen_nodes  
+  | ArrayType (p, (ty, len)) ->
+    let ty', gen_nodes1 = r ty in
+    let len', gen_nodes2 = desugar_expr ctx node_name fun_ids len in
+    ArrayType (p, (ty', len')), gen_nodes1 @ gen_nodes2
+  | TArr (p, ty1, ty2) ->
+    let ty1', gen_nodes1 = r ty1 in
+    let ty2', gen_nodes2 = r ty2 in
+    TArr (p, ty1', ty2'), gen_nodes1 @ gen_nodes2
+  | GroupType (p, tys) ->
+    let tys, gen_nodes = List.map r tys |> List.split in
+    GroupType (p, tys), List.flatten gen_nodes 
+  | TupleType (p, tys) ->
+    let tys, gen_nodes = List.map r tys |> List.split in
+    TupleType (p, tys), List.flatten gen_nodes 
+  | RecordType (p, id, tis) ->
+    let tis, gen_nodes = List.map (fun (p, id, ty) -> let ty', d = r ty in (p, id, ty'), d) tis |> List.split in
+    RecordType (p, id, tis), List.flatten gen_nodes
+  | RefinementType (p1, (p2, id, ty), e) ->
+    let ty', gen_nodes1 = r ty in
+    let e', gen_nodes2 = desugar_expr ctx node_name fun_ids e in
+    RefinementType (p1, (p2, id, ty'), e'), gen_nodes1 @ gen_nodes2
+
+and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
@@ -261,10 +297,14 @@ fun ctx decls ->
     match decl with
     | A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
-      let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
-      let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = List.flatten gen_nodes in
-      decls @ gen_nodes @ gen_nodes2 @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
+      let outputs, gen_nodes1 = List.map (fun (p, id', ty, c) -> (*!! Like this *)
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in  
+        (p, id', ty, c), gen_nodes
+      ) outputs |> List.split in
+      let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
+      let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
+      let gen_nodes = List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3 in
+      decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
     | A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in 
