@@ -268,7 +268,16 @@ fun ctx node_name fun_ids ci ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let (exprs, gen_nodes) = List.map rec_call exprs |> List.split in
     ContractCall (pos, i, ty_args, exprs, ids), List.flatten gen_nodes_ty @ List.flatten gen_nodes
-  | GhostConst _ 
+  | A.GhostConst (A.FreeConst (pos, id, ty)) ->
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+    A.GhostConst (A.FreeConst (pos, id, ty)), gen_nodes
+  | A.GhostConst (A.TypedConst (pos, id, e, ty)) ->
+    let ty, gen_nodes_ty = desugar_type ctx node_name fun_ids ty in
+    let e, gen_nodes = rec_call e in
+    A.GhostConst (A.TypedConst (pos, id, e, ty)), gen_nodes_ty @ gen_nodes
+  | A.GhostConst (A.UntypedConst (pos, id, e)) ->
+    let e, gen_nodes = rec_call e in
+    A.GhostConst (A.UntypedConst (pos, id, e)), gen_nodes
   | AssumptionVars _ as ci -> ci, []
 
 let desugar_contract: Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
