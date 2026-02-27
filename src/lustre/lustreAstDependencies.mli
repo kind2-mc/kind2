@@ -66,8 +66,10 @@ val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 
     This step processes 1. type declarations, and 2. constant declarations *)  
                      
-val sort_and_check_nodes_contracts: LA.t -> ((LA.t * LA.ident list * node_summary), [> error]) result
+val sort_and_check_nodes_contracts: LA.t -> GeneratedIdentifiers.t NodeId.Map.t -> ((LA.t * LA.ident list * node_summary), [> error]) result
 (** Returns a topological order of declarations to resolve all forward references,
     with a list of toplevel nodes.
+    [gids] is used to include dependencies from generated identifiers (e.g. gids.equations)
+    so that callees come before callers after e.g. polymorphic instantiation.
     It also reorders contract equations and checks for circularity of node equations.
     This step processes 1. nodes, 2. contracts and 3. functions *)  

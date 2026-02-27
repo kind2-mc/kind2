@@ -4,6 +4,7 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module LH = LustreAstHelpers
 module GI = GeneratedIdentifiers
+module AD = LustreAstDependencies
 
 let unwrap res = match res with 
 | Ok res -> res 
@@ -670,4 +671,8 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declarat
   in
 
   let ctx, gids, decls, _ = gen_poly_decls_decls ctx gids node_decls_map decls in 
-  ctx, gids, List.rev decls
+
+  let decls, _, _ =
+    AD.sort_and_check_nodes_contracts decls gids |> unwrap in
+
+  ctx, gids, decls
