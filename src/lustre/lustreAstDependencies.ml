@@ -606,7 +606,6 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
                             
-(** Build dependency edges from gids.equations: for each node, add edges to nodes called in its generated equations *)
 let mk_graph_gids: GI.t NI.Map.t -> dependency_analysis_data =
   fun gids ->
   NI.Map.fold (fun node_id gid acc ->
@@ -1155,7 +1154,7 @@ let sort_declarations: LA.t -> GI.t NI.Map.t -> ((LA.t * LA.ident list), [> erro
   = fun decls gids ->
   (* 1. make an id :-> decl map  *)
   let* decl_map = mk_decl_map IMap.empty decls in
-  (* 2. build a dependency graph (from decls and from gids.equations) *)
+  (* 2. build a dependency graph *)
   let ad = mk_graph_decls decls gids in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   let* sorted_ids = (try (R.ok (G.topological_sort ad.graph_data)) with
@@ -1469,9 +1468,7 @@ let sort_globals decls =
 
 let sort_and_check_nodes_contracts decls gids =
   (* Step 1. Sort the declarations according in their dependency order
-     This rules out the cases where we have recursive node or contract definitions.
-     gids.equations are included so that generated-node dependencies (e.g. from
-     monomorphization) are respected. *)
+     This rules out the cases where we have recursive node or contract definitions *)
   let* (sorted_decls, toplevel_nodes) = sort_declarations decls gids in
   Debug.parse "Sorting functions, nodes and contracts done.
     \n============\n%a\n============\n"
