@@ -715,8 +715,10 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     SI.union (r clk_exp) call_vars
 
   (* Temporal operators *) 
-  (*!! Was this case supposed to not recurse on the subexpression? *)
-  | Pre (_, _, _) -> SI.empty
+  (* TODO: we are currently not recursing in the `Pre` case. 
+     Question: should we recurse here to achieve this function's goals independently of `LH.abstract_pre_subexpressions`?
+   *)
+  | Pre (_, _, _) -> SI.empty 
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
 
   (* Node calls *)

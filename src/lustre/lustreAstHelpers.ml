@@ -1307,8 +1307,9 @@ let rec replace_with_constants: expr -> expr =
    | RestartEvery (p, i, es, e) ->
       RestartEvery (p, i, List.map replace_with_constants es, replace_with_constants e)
 
-  (* Temporal operators *) (*!! Was this case supposed to peel off the `Pre`? *)
-  | Pre (_, e, _) -> replace_with_constants e
+  (* Temporal operators *) 
+  | Pre (p, e, None) -> Pre (p, replace_with_constants e, None)
+  | Pre (p, e, Some ty) -> Pre (p, replace_with_constants e, Some (map_lustre_ty replace_with_constants ty))
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
 
   (* Node calls *)
@@ -1400,7 +1401,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Pre (p, e, None) -> Pre (p, replace_with_constants e, None)
   | Pre (p, e, Some ty) -> 
     let ty = map_lustre_ty abstract_pre_subexpressions ty in
-    Pre (p, replace_with_constants e, Some ty)
+    Pre (p, replace_with_constants e, Some (map_lustre_ty abstract_pre_subexpressions ty))
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
 
   (* Node calls *)
