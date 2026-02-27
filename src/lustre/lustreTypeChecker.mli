@@ -99,6 +99,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 
+  | NoIndexAccessInArrayLength of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

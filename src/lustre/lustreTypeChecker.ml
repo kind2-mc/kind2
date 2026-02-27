@@ -114,6 +114,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
+  | NoIndexAccessInArrayLength of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -230,6 +231,9 @@ let error_message kind = match kind with
   | TempOperatorInFuncInterface node_id -> 
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
+  | NoIndexAccessInArrayLength ty -> 
+    Format.asprintf "Index access is not supported in array length in type %a"
+      LA.pp_print_lustre_type ty
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1129,7 +1133,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) -> (
     let* b_ty, b_expr, warnings = infer_type_expr ctx nname b_expr in
-    check_array_size_expr ctx nname sup_expr >>
+    check_array_size_expr ctx nname b_ty sup_expr >>
     R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr), warnings)
   )
   | LA.StructUpdate (pos, ue, i_or_ls, e) ->
@@ -2396,8 +2400,80 @@ and check_const_integer_expr: tc_context -> NI.t option -> string -> LA.expr -> 
       type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
   | Error err -> Error err
 
-and check_array_size_expr ctx nname e =
-  check_const_integer_expr ctx nname "array size expression" e
+and check_no_index_access ctx nname ty e =
+  let r = check_no_index_access ctx nname ty in
+  match e with
+  | LA.IndexAccess (p, _, _, _) -> type_error p (NoIndexAccessInArrayLength ty)
+  | Ident (_, id) -> (
+    match lookup_const ctx id with 
+    | None (* Not a constant *) 
+    | Some (LA.Ident _, _, _) -> R.ok () (* Free constant *)
+    | Some (e, _, _) -> r e (* Defined constant *)
+  )
+  | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> R.ok ()
+  | EmptyMap (_, Some (kt, vt)) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) kt >>
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) vt
+  | EmptySet (_, Some ty') ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | When (_, e, _)
+  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
+  | AnyOp (_, (_, _, ty'), e) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
+  | ChooseOp (_, (_, _, ty'), e) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2)
+  | CompOp (_, _, e1, e2) ->
+    r e1 >> r e2
+  | TernaryOp (_, _, e1, e2, e3) ->
+    r e1 >> r e2 >> r e3
+  | Call (_, tys, _, l) ->
+    let check_ty = LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) in
+    Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map r l)
+  | GroupExpr (_, _, l) ->
+    Res.seq_ (List.map r l)
+  | Merge (_, _, l) ->
+    Res.seq_ (List.map (fun (_, x) -> r x) l)
+  | RestartEvery (_, _, l, e) ->
+    r e >> Res.seq_ (List.map r l)
+  | Activate (_, _, c, re, l) ->
+    r c >> r re >> Res.seq_ (List.map r l)
+  | Condact (_, e, re, _, l1, l2) ->
+    r e >> r re >> Res.seq_ (List.map r (l1 @ l2))
+  | RecordExpr (_, _, tys, ie) ->
+    let check_ty = LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) in
+    Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map (fun (_, e) -> r e) ie)
+  | StructUpdate (_, e1, li, Some e2) ->
+    r e1 >>
+    Res.seq_ (List.map (function
+        | LA.Label _ -> R.ok ()
+        | LA.MapIndex (_, e)
+        | LA.SetIndex (_, e)
+        | LA.GenericIndex (_, e)
+        | LA.Index (_, e) -> r e
+      ) li) >>
+    r e2
+  | StructUpdate (_, e1, li, None) ->
+    r e1 >>
+    Res.seq_ (List.map (function
+        | LA.Label _ -> R.ok ()
+        | LA.MapIndex (_, e)
+        | LA.SetIndex (_, e)
+        | LA.GenericIndex (_, e)
+        | LA.Index (_, e) -> r e
+      ) li)
+  | Pre (_, e) ->
+    r e
+  | Arrow (_, e1, e2) ->
+    r e1 >> r e2
+
+
+
+
+and check_array_size_expr ctx nname ty e =
+  check_const_integer_expr ctx nname "array size expression" e >> 
+  check_no_index_access ctx nname ty e
 
 (* Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
@@ -2491,8 +2567,12 @@ and expr_contains_set_binop ctx ni expr =
   | Activate (_, _, e1, e2, expr_list) -> 
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
-  | AnyOp (_, (_, _, _), e) -> r e 
-  | ChooseOp (_, (_, _, _), e) -> r e 
+  | AnyOp (_, (_, _, ty), e) -> 
+    LH.fold_lustre_ty r false (||) ty || 
+    r e
+  | ChooseOp (_, (_, _, ty), e) -> 
+    LH.fold_lustre_ty r false (||) ty || 
+    r e
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
@@ -2522,7 +2602,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
   | LA.ArrayType (p, (b_ty, s)) -> (
-    let* _ = check_array_size_expr ctx nname s in
+    let* _ = check_array_size_expr ctx nname ty s in
     let* b_ty, warnings = check_type_well_formed ctx src nname is_const b_ty in 
     R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
   )
