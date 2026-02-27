@@ -2463,7 +2463,9 @@ and check_no_index_access ctx nname ty e =
         | LA.GenericIndex (_, e)
         | LA.Index (_, e) -> r e
       ) li)
-  | Pre (_, e) ->
+  | Pre (_, e, None) -> r e
+  | Pre (_, e, Some ty) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty >>
     r e
   | Arrow (_, e1, e2) ->
     r e1 >> r e2
