@@ -30,7 +30,7 @@ More advanced features include contract-based compositional verification, proof 
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  yojson
+  (yojson (>= 3.0.0))
   (zmq
    (>= 5.1.0))
  )
@@ -52,7 +52,7 @@ More advanced features include contract-based compositional verification, proof 
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  yojson
+  (yojson (>= 3.0.0))
   (zmq
    (>= 5.1.0))
  )
