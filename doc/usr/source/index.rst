@@ -42,7 +42,6 @@ Table of Contents
     9_other/2_contract_semantics
     9_other/1_post_analyses
     9_other/3_test_generation
-    9_other/4_rust_compilation
     9_other/5_proofs
     9_other/6_contract_generation
     9_other/9_invariant_printing

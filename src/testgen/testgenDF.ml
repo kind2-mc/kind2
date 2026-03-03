@@ -333,11 +333,6 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> unit
   ()
 
 
-
-(* Logs the top level XML glue file. *)
-let log_test_glue_file = TestgenIO.log_test_glue_file
-
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

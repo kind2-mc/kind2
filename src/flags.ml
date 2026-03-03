@@ -3523,23 +3523,6 @@ let check_nonvacuity_default = true
   let check_subproperties () = !check_subproperties
 
 
-  let lus_compile_default = false
-  let lus_compile = ref lus_compile_default
-  let _ = add_spec
-    "--compile"
-    (bool_arg lus_compile)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Nodes proved correct will be compiled to Rust@ \
-          Note that uninitialized pre's are not allowed in this mode@ \
-          Default: %a\
-        "
-        fmt_bool lus_compile_default
-    )
-  let lus_compile () = !lus_compile
-
-
   (* Reject unguarded pre's in Lustre file. *)
   let lus_strict_default = false
   let lus_strict = ref lus_strict_default
@@ -3555,7 +3538,7 @@ let check_nonvacuity_default = true
         "
         fmt_bool lus_strict_default
     )
-  let lus_strict () = !lus_strict || (lus_compile ())
+  let lus_strict () = !lus_strict
 
   (* Reject unguarded pre's in Lustre file. *)
   let lus_push_pre_default = false
@@ -3791,7 +3774,6 @@ let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files
 let add_input_file = Global.add_input_file
-let lus_compile = Global.lus_compile
 let color = Global.color
 
 (* Path to subdirectory for a system (in the output directory). *)
