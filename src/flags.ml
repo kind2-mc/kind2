@@ -1428,7 +1428,7 @@ module Certif = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates (intermediate) certificates in the SMT-LIB 2 format and@ \
-      produces proofs in the LFSC format.\
+      produces proofs in the CPC format.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1457,7 +1457,7 @@ module Certif = struct
     (Arg.Bool (fun b -> proof := b))
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Produce LFSC proofs.@ Default: %a@]"
+        "@[<v>Produce CPC proofs.@ Default: %a@]"
         fmt_bool proof_default
     )
 
@@ -1476,19 +1476,6 @@ module Certif = struct
         fmt_bool smaller_holes_default
     )
   let smaller_holes () = !smaller_holes
-
-  let flatten_proof_default = false
-  let flatten_proof = ref flatten_proof_default
-  let _ = add_spec
-    "--flatten_proof"
-    (bool_arg flatten_proof)
-    (fun fmt ->
-        Format.fprintf fmt
-          "@[<v>Breakdown proofs into smaller steps, where each step is checked \
-          independently.@ Substantially reduces LFSC memory footprint. @ \
-          Default:%a@]"
-          fmt_bool smaller_holes_default)
-  let flatten_proof () = !flatten_proof
 
   let log_trust_default = false
   let log_trust = ref log_trust_default

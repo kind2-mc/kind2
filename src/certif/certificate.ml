@@ -36,13 +36,11 @@ type out = {
   base : string;
   induction : string;
   implication : string;
-  dummy_trace : string;
 }
 
 type system = {
   names : symbols;
   smt2_file : string;
-  smt2_lfsc_trace_file : string;
 }
 
 type invariant = {
@@ -50,7 +48,6 @@ type invariant = {
   name : string;
   dirname : string;
   phi_file : string;
-  phi_lfsc_trace_file : string;
   base : string;
   induction : string;
   implication : string;
