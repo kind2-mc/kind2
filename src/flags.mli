@@ -551,12 +551,6 @@ module Certif : sig
   (** Proof production. *)
   val proof : unit -> bool
 
-  (** Reduce the size of trusted holes. *)
-  val smaller_holes : unit -> bool
-
-  (** Log trusted parts of proofs. *)
-  val log_trust : unit -> bool
-
   (** Minimization stragegy for k *)
   val mink : unit -> mink
 

@@ -1464,32 +1464,6 @@ module Certif = struct
   let certif () = !certif
   let proof () = !proof
 
-  let smaller_holes_default = false
-  let smaller_holes = ref smaller_holes_default
-  let _ = add_spec
-    "--smaller_holes"
-    (bool_arg smaller_holes)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Generate proofs with smaller trust holes.@ Substantially \
-         increases the size of the proof.@ Default: %a@]"
-        fmt_bool smaller_holes_default
-    )
-  let smaller_holes () = !smaller_holes
-
-  let log_trust_default = false
-  let log_trust = ref log_trust_default
-  let _ = add_spec
-    "--log_trust"
-    (bool_arg log_trust)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Log trusted parts of the proof in a separate file \
-         for users to fill.@ Default: %a@]"
-        fmt_bool log_trust_default
-    )
-  let log_trust () = !log_trust
-
   type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
   let mink_of_string = function
     | "no" -> `No
