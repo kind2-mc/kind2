@@ -289,7 +289,15 @@ let read_vars ?(only_inputs=true) scope json =
 
 (* Parse a JSON input file *)
 let read_json_file ?(only_inputs=true) top_scope_index filename =
-  Yojson.Safe.from_file filename |> to_list
+  let json =
+    try Yojson.Safe.from_file filename with
+    | Yojson.Json_error msg ->
+        failwith
+          (Format.asprintf
+             "Error reading %s: the file is not valid JSON.\n\n%s"
+             filename msg)
+  in
+  json |> to_list
   |> List.map (read_vars ~only_inputs:only_inputs top_scope_index) |> List.flatten |> group_by_var
 
 
