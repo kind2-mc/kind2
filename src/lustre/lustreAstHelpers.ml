@@ -1885,10 +1885,6 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
-      | TypeAscription (_, e, ty) ->
-        let e_hash = r (depth + 1) e in
-        let ty_hash = Hashtbl.hash ty in
-        Hashtbl.hash (30, e_hash, ty_hash)
       | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, NI.hash id, l_hash)
@@ -1903,6 +1899,9 @@ let hash depth_limit expr =
         Hashtbl.hash (27, e_hash, idx1, idx2)
       | EmptyMap _ -> Hashtbl.hash 28
       | EmptySet _ -> Hashtbl.hash 29
+      | TypeAscription (_, e, _) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (30, e_hash)
   in
   r 0 expr
 

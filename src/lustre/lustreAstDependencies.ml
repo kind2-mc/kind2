@@ -715,7 +715,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
-  | TypeAscription (_, e, _) -> r e
+  | TypeAscription (_, e, ty) -> SI.union (r e) (LH.vars_of_type ty)
 
   (* Node calls *)
   | Call (_, _, i, es) ->

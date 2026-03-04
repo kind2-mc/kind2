@@ -648,7 +648,7 @@ let rec pp_print_expr ppf =
 
     | TypeAscription (p, e, ty) -> 
       Format.fprintf ppf 
-      "%a(%a)@<%a>"
+      "%a(%a : %a)"
       ppos p 
       pp_print_expr e 
       pp_print_lustre_type ty
