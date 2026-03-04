@@ -1319,7 +1319,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       (R.ok (ty1, LA.Arrow (pos, e1, e2), warnings1 @ warnings2))
       (type_error pos (IlltypedArrow (ty1, ty2)))
   | LA.TypeAscription (pos, e, exp_ty) ->
-    let* exp_ty, warnings1 = check_type_well_formed ctx Local nname true exp_ty in 
+    let* exp_ty, warnings1 = check_type_well_formed ctx Local nname false exp_ty in 
     let* inf_ty, e, warnings2 = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
