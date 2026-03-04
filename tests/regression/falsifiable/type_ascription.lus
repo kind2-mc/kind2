@@ -1,0 +1,6 @@
+type Nat = subrange [0, *] of int;
+
+node N () returns (m: int)
+let
+  m = (-3: Nat);
+tel

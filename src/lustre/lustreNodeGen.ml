@@ -1363,6 +1363,7 @@ and compile_ast_expr
     compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
+  | A.TypeAscription _ -> assert false (* already desugared in lustreAstNormalizer *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)

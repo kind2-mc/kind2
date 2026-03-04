@@ -1234,7 +1234,7 @@ pexpr(Q):
     { A.Merge (mk_pos $startpos, c, l) }
 
   (* Type ascription *) 
-  | LPAREN; e = expr; RPAREN; ty = type_annotation { A.TypeAscription (mk_pos $startpos, e, ty) }
+  | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }

@@ -228,6 +228,10 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
+  | TypeAscription (pos, e, ty) ->
+    let e, gen_nodes1 = rec_call e in
+    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+    TypeAscription (pos, e, ty), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in

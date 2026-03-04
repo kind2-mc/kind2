@@ -236,6 +236,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Temporal operators *)
   | Pre _ -> empty_
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
+  | TypeAscription (_, e, _) -> r e
   (* Node calls *)
   | Call (_, _, i, es) ->
     let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in

@@ -341,6 +341,8 @@ let no_mismatched_clock is_bool e =
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
+    | TypeAscription (_, e, ty) ->
+      check_clocks clock e >> LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
@@ -383,6 +385,8 @@ let no_mismatched_clock is_bool e =
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
+    | TypeAscription (_, e, ty) ->
+      check_merge e >> LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
     | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
@@ -559,6 +563,8 @@ let rec infer_const_attr ctx exp =
     List.map (fun _ -> error exp "pre operator") (r e)
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
+  | TypeAscription (_, e, ty) ->
+    combine (r e) (LH.fold_lustre_ty r [R.ok ()] combine ty)
   (* Node calls *)
   | AnyOp _ -> assert false
   | ChooseOp _ -> assert false
@@ -792,6 +798,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.Arrow (pos, e1, e2))
+  | TypeAscription (pos, e, ty) ->
+    let* ty = instantiate_type_variables ctx pos nname ty ty_args in
+    let* e = call e in
+    R.ok (LA.TypeAscription (pos, e, ty))
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
 
@@ -1308,7 +1318,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok (ty1, LA.Arrow (pos, e1, e2), warnings1 @ warnings2))
       (type_error pos (IlltypedArrow (ty1, ty2)))
-    
+  | LA.TypeAscription (pos, e, exp_ty) ->
+    let* exp_ty, warnings1 = check_type_well_formed ctx Local nname true exp_ty in 
+    let* inf_ty, e, warnings2 = infer_type_expr ctx nname e in
+    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+      (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
@@ -1447,7 +1462,6 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (LA.CompOp (pos, cop, e1, e2), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-
   (* Values/Constants *)
   | Const (pos, c) ->
     let cty = infer_type_const pos c in
@@ -1467,6 +1481,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   | IndexAccess (pos, _, _, _)
+  | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
   | Condact (pos, _, _, _, _, _) 
@@ -2448,9 +2463,8 @@ and check_no_index_access ctx nname ty e =
     r e
   | Arrow (_, e1, e2) ->
     r e1 >> r e2
-
-
-
+  | TypeAscription (_, e, ty') ->
+    r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2551,6 +2565,8 @@ and expr_contains_set_binop ctx ni expr =
   | ChooseOp (_, (_, _, ty), e) -> 
     LH.fold_lustre_ty r false (||) ty || 
     r e
+  | TypeAscription (_, e, ty) ->
+    LH.fold_lustre_ty r false (||) ty || r e
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 

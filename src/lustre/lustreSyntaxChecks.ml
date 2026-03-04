@@ -259,6 +259,8 @@ function
 | IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2
 
+| TypeAscription (_, e, _) -> has_stateful_op ctx e
+
 | TernaryOp (_, _, e1, e2, e3) ->
   has_stateful_op ctx e1 || has_stateful_op ctx e2 || has_stateful_op ctx e3
 
@@ -653,6 +655,7 @@ let rec expr_only_supported_in_merge observer expr =
   | Arrow (_, e1, e2)
   | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
+  | TypeAscription (_, e, _) -> r observer e
   | TernaryOp (_, _, e1, e2, e3)
     -> r observer e1 >> r observer e2 >> r observer e3
   | GroupExpr (_, _, e)
@@ -986,7 +989,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | ConvOp (_, _, e)
     | When (_, e, _)
     | Extract (_, e, _, _)
-    | Pre (_, e) -> check_expr ctx f e 
+    | Pre (_, e)
+    | TypeAscription (_, e, _) -> check_expr ctx f e 
     | Quantifier (_, _, vars, e) ->
       let over_vars (warnings, ctx) (_, i, ty) = 
         let* warnings2 = check_ty_quantified_var ctx f ty in

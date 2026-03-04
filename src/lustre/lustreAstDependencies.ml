@@ -349,6 +349,8 @@ and mk_graph_expr ?(only_modes = false)
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
      List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
        (List.map (mk_graph_type) tys)
+  | LA.TypeAscription (_, e, ty) ->
+    union_dependency_analysis_data (mk_graph_expr ~only_modes e) (mk_graph_type ty)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
@@ -429,6 +431,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
 (** Returns all the node calls from an expression *)
@@ -712,6 +715,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
+  | TypeAscription (_, e, _) -> r e
 
   (* Node calls *)
   | Call (_, _, i, es) ->
@@ -916,6 +920,10 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
        )
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
+  | LA.TypeAscription (_, e, ty) ->
+     let* g_e = mk_graph_expr2 m e in
+     let g_ty = mk_graph_type ty in
+     R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
 
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with

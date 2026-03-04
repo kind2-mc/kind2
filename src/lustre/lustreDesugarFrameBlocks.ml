@@ -110,8 +110,9 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
-  | Pre (p, e) -> Pre (p, r e) 
+  | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | EmptyMap _ as e -> e

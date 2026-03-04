@@ -63,6 +63,7 @@ let pos_of_expr = function
   | AnyOp (pos, _, _) | ChooseOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
   | EmptySet (pos, _)
+  | TypeAscription (pos, _, _)
   -> pos
 
 (* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
@@ -156,6 +157,8 @@ let rec expr_contains_call = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
+  | TypeAscription (_, e, ty) ->
+    fold_lustre_ty expr_contains_call false (||) ty || expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
@@ -184,6 +187,8 @@ let rec expr_contains_id id = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_id id e
+  | TypeAscription (_, e, ty) ->
+    fold_lustre_ty (expr_contains_id id) false (||) ty || expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
@@ -264,6 +269,8 @@ let rec substitute_naive (var:HString.t) t = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
+  | TypeAscription (pos, e, ty) ->
+    TypeAscription (pos, substitute_naive var t e, map_lustre_ty (substitute_naive var t) ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
 
@@ -323,6 +330,8 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | TypeAscription (pos, e, ty) ->
+    TypeAscription (pos, apply_subst_in_expr sigma e, map_lustre_ty (apply_subst_in_expr sigma) ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
@@ -392,6 +401,8 @@ let rec apply_type_subst_in_expr
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_type_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | TypeAscription (pos, e, ty) ->
+    TypeAscription (pos, apply_type_subst_in_expr sigma e, apply_type_subst_in_type sigma ty)
 
 
 (* Same as apply_subst_in_type, but the substitution occurs at the type level *)
@@ -461,11 +472,14 @@ let rec has_unguarded_pre ung = function
   | EmptyMap (_, Some (kt, vt)) ->  
     fold_lustre_ty (has_unguarded_pre ung) false (||) kt || 
     fold_lustre_ty (has_unguarded_pre ung) false (||) vt
-  | EmptySet (_, Some ty) -> 
+  | EmptySet (_, Some ty) ->
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre ung e
+  | Quantifier (_, _, _, e) | Extract (_, e, _, _)
+    -> has_unguarded_pre ung e
+  | TypeAscription (_, e, ty) ->
+    fold_lustre_ty (has_unguarded_pre ung) false (||) ty || has_unguarded_pre ung e
   | AnyOp (pos, _, _) -> fail_at_position pos "'Any' operations are not supported in the old front end"
   | ChooseOp (pos, _, _) -> fail_at_position pos "'Choose' operations are not supported in the old front end"
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
@@ -638,6 +652,9 @@ let rec has_unguarded_pre_no_warn ung = function
     let u = has_unguarded_pre_no_warn true e in
     ung || u
 
+  | TypeAscription (_, e, ty) ->
+    fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty || has_unguarded_pre_no_warn ung e
+
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn false e2 in
@@ -752,6 +769,11 @@ let rec has_pre_or_arrow = function
 
   | Pre (pos, _) -> Some pos
 
+  | TypeAscription (_, e, ty) -> (
+    match has_pre_or_arrow e with
+    | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
+    | res -> res
+  )
   | Arrow (pos, _, _) -> Some pos
 
 (*
@@ -960,6 +982,8 @@ let rec vars_of_node_calls_h obs =
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
   | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
+  | TypeAscription (_, e, ty) ->
+    SI.union (vars obs e) (fold_lustre_ty (vars obs) SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
 
@@ -1009,6 +1033,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  | TypeAscription (_, e, ty) ->
+    SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
@@ -1056,6 +1082,8 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | ChooseOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
   | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | TypeAscription (_, e, ty) ->
+    NI.Set.union (calls_of_expr e) (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty)
 
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
@@ -1101,6 +1129,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Temporal operators *)
   | Pre _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  | TypeAscription (_, e, ty) ->
+    SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
 
@@ -1281,6 +1311,8 @@ let rec replace_with_constants: expr -> expr =
   (* Temporal operators *)
   | Pre (_, e) -> replace_with_constants e
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
+  | TypeAscription (p, e, ty) ->
+    TypeAscription (p, replace_with_constants e, map_lustre_ty replace_with_constants ty)
 
   (* Node calls *)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es) 
@@ -1370,6 +1402,8 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Temporal operators *)
   | Pre (p, e) -> Pre(p, replace_with_constants e)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
+  | TypeAscription (p, e, ty) ->
+    TypeAscription (p, abstract_pre_subexpressions e, map_lustre_ty abstract_pre_subexpressions ty)
 
   (* Node calls *)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
@@ -1391,6 +1425,8 @@ let rec replace_idents locals1 locals2 expr =
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | TypeAscription (p, e, ty) ->
+    TypeAscription (p, r e, map_lustre_ty r ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
@@ -1648,6 +1684,10 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       rlist xl yl |> join >>= fun l ->
       Ok (e && l && NI.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
+    | TypeAscription (_, xe, xty), TypeAscription (_, ye, yty) ->
+      let* ty_eq = syn_type_equal depth_limit xty yty in 
+      let* e_eq = r (depth + 1) xe ye in
+      Ok (ty_eq && e_eq)
     | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1845,6 +1885,10 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
+      | TypeAscription (_, e, ty) ->
+        let e_hash = r (depth + 1) e in
+        let ty_hash = Hashtbl.hash ty in
+        Hashtbl.hash (30, e_hash, ty_hash)
       | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, NI.hash id, l_hash)
@@ -1926,6 +1970,8 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | TypeAscription (pos, e, ty) ->
+    TypeAscription (pos, rename_contract_vars e, map_lustre_ty rename_contract_vars ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> rename_contract_vars e) expr_list)
 
@@ -1963,6 +2009,8 @@ let rec constants_to_calls: ident list -> expr -> expr
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | TypeAscription (p, e, ty) ->
+    TypeAscription (p, r e, map_lustre_ty r ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     

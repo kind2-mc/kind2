@@ -974,6 +974,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
+  | TypeAscription (pos, e, ty) ->
+    let vars, e = r map e in
+    vars, TypeAscription (pos, e, ty)
   | Call(pos, ty_args, id, expr_list) ->
     let vars, expr_list' = desugar_expr_list map expr_list in
     vars, Call(pos, ty_args, id, expr_list')
@@ -1127,7 +1130,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
 
-  and mk_fresh_subrange_constraint source info map pos node_id expr expr_type =
+  (* If `force_prop` is set to `true`, Kind 2 will treat the generated properties as non-candidate *)
+  and mk_fresh_subrange_constraint ?(force_prop = false) source info map pos node_id expr expr_type =
     let range_exprs = mk_range_expr info.context node_id expr_type expr in
     let gids, warnings = List.map (fun (range_expr, is_original) ->
       i := !i + 1;
@@ -1138,7 +1142,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
       let range_nexpr, gids1, warnings = normalize_expr info node_id map range_expr in 
       let gids2 = { (empty ()) with
-        subrange_constraints = [(source, info.contract_scope, is_original, pos, name, output_expr)];
+        subrange_constraints = [(source, info.contract_scope, is_original || force_prop, pos, name, output_expr)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_nexpr, None)]; }
       in
       union gids1 gids2, warnings) 
@@ -2275,8 +2279,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | Some (Map (_, kt, vt)) -> 
       let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
       let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids'', warnings'' = mk_fresh_subrange_constraint Local info map pos node_id expr2 kt in 
-      let gids''', warnings''' = mk_fresh_subrange_constraint Local info map pos node_id expr3 vt in  
+      let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
+      let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
       let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in 
       let warnings = warnings @ warnings' @ warnings'' @ warnings''' in
       gids,  warnings 
@@ -2316,7 +2320,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids1, warnings1 = match AH.find_type_annotation expr1 with 
     | Some ty -> 
       let gids, warnings =  mk_fresh_refinement_type_constraint Local info map pos node_id expr2 ty in
-      let gids', warnings' = mk_fresh_subrange_constraint Local info map pos node_id expr2 ty in  
+      let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
       union gids gids', warnings @ warnings'
     | None -> empty (), [] 
     in
@@ -2457,9 +2461,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | TypeAscription (pos, expr, ty) -> 
     let nexpr, gids1, warnings1 = normalize_expr ?guard info node_id map expr in 
     let gids2, warnings2 =  mk_fresh_refinement_type_constraint Local info map pos node_id expr ty in
-    let gids3, warnings3 = mk_fresh_subrange_constraint Local info map pos node_id expr ty in  
-    let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> Result.get_ok in
-    TypeAscription (pos, nexpr, ty), union (union gids1 gids2) gids3, warnings1 @ warnings2 @ warnings3 
+    let gids3, warnings3 = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr ty in  
+    nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2 @ warnings3 
   | AnyOp _ -> assert false (* desugared earlier in pipeline *)
   | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, ps, id_expr_list) ->
@@ -2556,6 +2559,7 @@ and expand_node_calls_in_place info node_id var count expr =
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)
+  | TypeAscription (p, e, ty) -> A.TypeAscription (p, r e, ty)
   | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
   | GroupExpr (p, k, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
