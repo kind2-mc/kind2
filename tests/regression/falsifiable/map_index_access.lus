@@ -1,0 +1,7 @@
+type Nat = subtype { x: int | x >= 0 };
+type Nat2 = subrange [0, *] of int;
+
+node N(inp: map<[Nat, Nat2], int>;) returns (out: int) 
+let
+  out = inp['(-1, -1)];
+tel
