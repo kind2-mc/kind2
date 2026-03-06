@@ -2615,7 +2615,7 @@ let generate_slice_obs node kind2_sys param dirname =
 (* Generate a certificate for the frontend translation / simplification phases
    as a system in native input. To be verified, this certificate is expected to
    be fed back to Kind 2. *)
-let generate_frontend_obs node kind2_sys dirname =
+let generate_frontend_obs node kind2_sys dirname certif_dirname =
 
   (* Time statistics *)
   Stat.start_timer Stat.certif_frontend_time;
@@ -2693,7 +2693,7 @@ let generate_frontend_obs node kind2_sys dirname =
   let names_jkind = names_jkind [] in
 
   (* Export JKind system in SMT-LIB2 format *)
-  export_system dirname jkind_defs_f names_jkind jkind_sys "JKind";
+  export_system certif_dirname jkind_defs_f names_jkind jkind_sys "JKind";
 
 
   let jkind_defs_path = Filename.concat dirname jkind_defs_f in
@@ -2702,7 +2702,7 @@ let generate_frontend_obs node kind2_sys dirname =
     same_inputs_jkind kind2_sys lustre_vars (TS.state_vars kind2_sys) in
   
   (* Export Observer system in SMT-LIB2 format for use in proof *)
-  export_obs_system dirname obs_defs_f 
+  export_obs_system certif_dirname obs_defs_f 
     names_obs names_kind2 names_jkind same_inputs_term;
 
 
@@ -2733,7 +2733,6 @@ let generate_frontend_obs node kind2_sys dirname =
 
 
 let generate_frontend_certificates sys dirname =
-
   assert(is_fec sys);
 
   KEvent.set_module `Certif;
@@ -2768,7 +2767,7 @@ let generate_frontend_certificates sys dirname =
 
 
   let obs_phi_path = Filename.concat dirname obs_phi_f in
-  
+
   (* definitions to use for the checks *)
   let smt2_definitions =
     [kind2_defs_f; jkind_defs_f; obs_defs_f; obs_phi_f]
@@ -2921,7 +2920,7 @@ let generate_smt2_certificates input sys =
   let gen_frontend =
     if InputSystem.is_lustre_input input then
       try
-        generate_frontend_obs input sys dirname |> ignore;
+        generate_frontend_obs input sys dirname dirname |> ignore;
         true
       with Failure s ->
         KEvent.log L_warn "%s@.(No frontend observer)" s;
@@ -2951,7 +2950,6 @@ let generate_smt2_certificates input sys =
   if not (is_fec sys) && call_frontend && gen_frontend then begin
     certify_observer (Filename.concat dirname "FEC.kind2") "frontend"
   end
-
 (* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_slicing_certificates input sys param =
 
@@ -2986,29 +2984,34 @@ let generate_slicing_certificates input sys param =
 
 
 (* Remove temporary files for certificates and intermediate certificates *)
-  let generate_all_proofs uid input sys =
+let generate_all_proofs uid input sys =
     
   Proof.set_proof_logic (TS.get_logic sys);
 
   Hashtbl.clear solver_actlits;
-
-  let dirname =
+  let base_dirname =  
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else begin
       Flags.output_dir () |> mk_dir ;
-      Filename.concat (Flags.output_dir ())
-        ("certificates." ^ string_of_int uid)
+      (Flags.output_dir ())
     end
   in
-  create_dir dirname;
+  let certif_dirname =
+      Filename.concat (base_dirname)
+        ("certificates." ^ string_of_int uid)
+  in
+    let proof_dirname =
+      Filename.concat (base_dirname)
+        ("proofs." ^ string_of_int uid)
+  in
+  create_dir certif_dirname;
+  create_dir proof_dirname;
 
   if not (is_fec sys) then begin
 
     let cert_inv =
       try
-        let cert_inv = generate_split_certificates sys dirname in
-
-
+        let cert_inv = generate_split_certificates sys certif_dirname in
 
         (cert_inv)
       
@@ -3017,11 +3020,12 @@ let generate_slicing_certificates input sys param =
         KEvent.stat Stat.[ (certif_stats_title, certif_stats) ];
         raise e
     in
-    Proof.construct_kind_2_proof dirname cert_inv.base cert_inv.induction cert_inv.implication cert_inv.k;
+    Format.printf "Generating proof...\n\n";
+    Proof.construct_kind_2_proof proof_dirname cert_inv.base cert_inv.induction cert_inv.implication cert_inv.k;
      let gen_frontend =
       if InputSystem.is_lustre_input input then
         try
-          generate_frontend_obs input sys dirname |> ignore;
+          generate_frontend_obs input sys base_dirname certif_dirname |> ignore;
           true
         with Failure s ->
           KEvent.log L_warn "%s@ No frontend observer." s;
@@ -3048,27 +3052,24 @@ let generate_slicing_certificates input sys param =
     in
 
     if gen_frontend then 
-    rerun_kind2_on_fec dirname else ();
+    rerun_kind2_on_fec base_dirname else ();
     Printf.printf "Generated split certificates\n";
-    
-
   end
 else begin
 
-  
   let frontend_inv =
-    generate_frontend_certificates sys dirname
+    generate_frontend_certificates sys certif_dirname
   in
-
+  Format.printf "Generating frontend proof...\n\n";
   Proof.construct_frontend_proof
-    dirname
+    proof_dirname
     frontend_inv.base
     frontend_inv.induction
     frontend_inv.implication
     frontend_inv.k;
 
-
-  Proof.construct_safety_proof dirname;
+  Format.printf "Generating safety proof...\n\n";
+  Proof.construct_safety_proof proof_dirname;
   KEvent.stat Stat.[certif_stats_title, certif_stats];
 
 

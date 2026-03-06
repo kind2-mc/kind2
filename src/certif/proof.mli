@@ -27,5 +27,3 @@ val construct_kind_2_proof:   string -> string -> string -> string -> int -> uni
 val construct_frontend_proof: string -> string -> string -> string -> int -> unit
 
 val construct_safety_proof: string -> unit
-
-val generate_cpc_proof: string -> HStringSExpr.t list

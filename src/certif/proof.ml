@@ -41,7 +41,7 @@ let cvc5_proof_args () =
 let cvc5_proof_cmd () =
   String.concat " " (Flags.Smt.cvc5_bin () :: cvc5_proof_args ())
 
-let proofname_cpc = "proof.cpc"
+let proofname_cpc = "safety_proof.cpc"
 let frontend_proofname_cpc = "frontend_proof.cpc"
 
 type cpc_step = HS.t
@@ -216,15 +216,14 @@ let get_last_step_name steps =
   find_last steps
 
 
-let generate_cpc_proof smt_file =
-  let out_file = String.sub smt_file 0 ((String.length smt_file) - 5)  ^ ".cpc" in
+let generate_cpc_proof dirname smt_file =
   let cmd =
-  Printf.sprintf "%s %s" (cvc5_proof_cmd ()) smt_file
+    Printf.sprintf "%s %s" (cvc5_proof_cmd ()) smt_file
   in
   let (in_ch, _, _) =
     Unix.open_process_full cmd (Unix.environment ())
   in
-  cpc_proof_from_chan out_file in_ch
+  cpc_proof_from_chan dirname in_ch
 
   let mk_k_ind_proof_step_kind_2 k = 
     
@@ -322,38 +321,36 @@ let pp_print_frontend_proof fmt defs base_steps induction_steps implication_step
 
 let construct_kind_2_proof dirname base induction implication k = 
 
-    let base_k2 = generate_cpc_proof base in
-    let induction_k2 = generate_cpc_proof induction in
-    let implication_k2 =generate_cpc_proof implication in
+  let base_k2 = generate_cpc_proof (dirname ^ "/base.cpc") base in
+  let induction_k2 = generate_cpc_proof (dirname ^ "/induction.cpc") induction in
+  let implication_k2 =generate_cpc_proof (dirname ^ "/implication.cpc") implication in
 
 
-    let (defs, base_steps) = get_proof_defs base_k2 in
-    let (_, induction_steps) = get_proof_defs induction_k2 in
-    let (_, implication_steps) = get_proof_defs implication_k2 in
-    
- let oc = open_out (dirname ^ "/kind_2_proof.cpc") in
+  let (defs, base_steps) = get_proof_defs base_k2 in
+  let (_, induction_steps) = get_proof_defs induction_k2 in
+  let (_, implication_steps) = get_proof_defs implication_k2 in
+
+  let oc = open_out (dirname ^ "/kind_2_proof.cpc") in
   let fmt = Format.formatter_of_out_channel oc in
-    Format.printf "%s\n" dirname ;
   pp_print_safety_proof fmt defs base_steps induction_steps implication_steps k
 
 
 
 
-  let construct_frontend_proof dirname base induction implication k = 
+let construct_frontend_proof dirname base induction implication k = 
 
-    let base_jkind = generate_cpc_proof base in
-    let induction_jkind =generate_cpc_proof induction in
-    let implication_jkind =generate_cpc_proof implication in
+  let base_jkind = generate_cpc_proof (dirname ^ "/frontend_base.cpc") base in
+  let induction_jkind =generate_cpc_proof (dirname ^ "/frontend_induction.cpc") induction in
+  let implication_jkind =generate_cpc_proof (dirname ^ "/frontend_implication.cpc") implication in
 
-    let (defs, base_steps) = get_proof_defs base_jkind  in
-    let (_, induction_steps) = get_proof_defs induction_jkind in
-    let (_, implication_steps) = get_proof_defs implication_jkind in
-    let induction_steps = remove_kind_2_defs induction_steps in
-    let implication_steps = remove_kind_2_defs implication_steps in
-    
- let oc = open_out (dirname ^ "/frontend_proof.cpc") in
+  let (defs, base_steps) = get_proof_defs base_jkind  in
+  let (_, induction_steps) = get_proof_defs induction_jkind in
+  let (_, implication_steps) = get_proof_defs implication_jkind in
+  let induction_steps = remove_kind_2_defs induction_steps in
+  let implication_steps = remove_kind_2_defs implication_steps in
+  
+  let oc = open_out (dirname ^ "/frontend_proof.cpc") in
   let fmt = Format.formatter_of_out_channel oc in
-    Format.printf "%s\n" dirname ;
   pp_print_frontend_proof fmt defs base_steps induction_steps implication_steps k
 
 let parse_cpc_file (filename : string) : cpc_step list =
@@ -386,7 +383,8 @@ let parse_cpc_file (filename : string) : cpc_step list =
     ] in
     
     let final_proof = List.concat [kind_2_proof; frontend_proof; final_steps] in
-     let oc = open_out (dirname ^ "/proof.cpc") in
+    let safety_proof_path = dirname ^ "/" ^ proofname_cpc in 
+    let oc = open_out safety_proof_path in
     let fmt = Format.formatter_of_out_channel oc in
-      Format.printf "%s\n" dirname ;
-    Format.fprintf fmt "%a" pp_cpc_proof final_proof
+    Format.fprintf fmt "%a" pp_cpc_proof final_proof;
+    Format.printf "Final CPC proof written to %s\n" safety_proof_path
