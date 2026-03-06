@@ -1,0 +1,9 @@
+function Id<T>(x:T) returns (y:T);
+let
+  y = x;
+tel
+
+function N() returns (z: int);
+let
+  z = (3 : subtype { x: int | x=Id@<int>(3) });
+tel
