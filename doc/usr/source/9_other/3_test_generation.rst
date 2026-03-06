@@ -149,8 +149,9 @@ executable version of the model to check whether it crashes and whether it
 respects the specification.
 
 For convenience, Kind 2 offers a feature, 
-a :ref:`contract monitor <contract-monitor>`, which checks whether the output
-produced by the executable for a given test case respects the contract.
+a :ref:`contract monitor <contract_monitor>`, which
+checks whether the output produced by the executable for
+a given test case respects the contract.
 
 The contract monitor reads the input values of the test case that are fed
 to the System Under Test (SUT), along with the output values returned by the

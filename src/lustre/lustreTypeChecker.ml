@@ -113,6 +113,8 @@ type error_kind = Unknown of string
   | ClockMismatchInMerge
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
+  | TempOperatorInFuncInterface of NI.t
+  | NoIndexAccessInArrayLength of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -226,6 +228,12 @@ let error_message kind = match kind with
   | CallRequiresExplicitAnnotation id -> 
     Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
       HString.pp_print_hstring id
+  | TempOperatorInFuncInterface node_id -> 
+    Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
+      NI.pp_print_node_id_user_name node_id
+  | NoIndexAccessInArrayLength ty -> 
+    Format.asprintf "Index access is not supported in array length in type %a"
+      LA.pp_print_lustre_type ty
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -953,9 +961,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    R.ok (LA.Map (pos, kt, vt), e, [])
+    let* kt, warnings1 = check_type_well_formed ctx Local nname false kt in 
+    let* vt, warnings2 = check_type_well_formed ctx Local nname false vt in 
+    R.ok (LA.Map (pos, kt, vt), e, warnings1 @ warnings2)
   | LA.EmptySet (pos, Some ty) -> 
-    R.ok (LA.Set (pos, ty), e, [])
+    let* ty, warnings = check_type_well_formed ctx Local nname false ty in 
+    R.ok (LA.Set (pos, ty), e, warnings)
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1109,7 +1120,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) -> (
     let* b_ty, b_expr, warnings = infer_type_expr ctx nname b_expr in
-    check_array_size_expr ctx nname sup_expr >>
+    check_array_size_expr ctx nname b_ty sup_expr >>
     R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr), warnings)
   )
   | LA.StructUpdate (pos, ue, i_or_ls, e) ->
@@ -1716,8 +1727,8 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
       (R.ok (LA.TypedConst (pos, i, exp, ty), warnings))
       (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
 
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
-  = fun pos ctx
+and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
+  = fun pos ctx is_function
         (node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
         ->
   Debug.parse "TC declaration node: %a {" NI.pp_print_node_id_user_name node_name;
@@ -1762,6 +1773,27 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
     let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
       (List.map extract_ret_ctx output_vars)
     in
+    (* No temporal operators in function interface *)
+    let check_ty_for_temp_operators_or_node_calls ty = 
+      let ty = expand_type_syn ctx ty in
+      let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+      match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+      | Some pos -> type_error pos (TempOperatorInFuncInterface node_name)  
+      | None -> 
+        let contains_node_call = LH.fold_lustre_ty (expr_contains_node_call ctx_plus_ops_and_ips) false (||) ty in 
+        if contains_node_call then 
+          type_error pos (TempOperatorInFuncInterface node_name) 
+        else
+          R.ok ()
+    in
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _, _) -> 
+      check_ty_for_temp_operators_or_node_calls ty
+    ) input_vars) else R.ok ()
+    in
+    let* _ = if is_function then R.seq_ (List.map (fun (_, _, ty, _) -> 
+      check_ty_for_temp_operators_or_node_calls ty
+    ) output_vars) else R.ok ()
+    in
     Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
       pp_print_tc_context ctx_plus_ops_and_ips;
     (* Type check the contract *)
@@ -1790,9 +1822,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (LA.node
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* e, warnings2 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
-            let* ty, warnings3 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings2 @ warnings3)
+            let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
@@ -2196,8 +2228,8 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (LA.FreeType (pos, i), add_ty_decl ctx' i)
 
-and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _)->
+and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
+  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _) is_func ->
   Debug.parse
     "Extracting type of node declaration: %a"
     NI.pp_print_node_id_user_name node_id
@@ -2208,7 +2240,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
     let ctx = add_node_param_attr ctx node_id ip in
     let ctx = add_ty_vars_node ctx node_id ps in
     let* fun_ty, warnings = build_node_fun_ty pos ctx node_id ps ip op in
-    let ctx = add_ty_node ctx node_id fun_ty in 
+    let ctx = add_ty_node ctx node_id fun_ty is_func in 
     R.ok (ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
@@ -2299,9 +2331,11 @@ and tc_ctx_of_declaration: (LA.t * tc_context * [> warning] list) -> LA.declarat
     | LA.ConstDecl (s, const_decl) -> 
       let* const_decl, ctx, warnings = tc_ctx_const_decl ctx' Global None const_decl in 
       R.ok (decls @ [LA.ConstDecl (s, const_decl)], ctx, warnings)
-    | LA.NodeDecl ({LA.start_pos=pos}, node_decl) 
+    | LA.NodeDecl ({LA.start_pos=pos}, node_decl) as decl -> 
+      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl false in 
+      R.ok (decls @ [decl], ctx, warnings)
     | LA.FuncDecl ({LA.start_pos=pos}, node_decl) as decl ->
-      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl in 
+      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl true in 
       R.ok (decls @ [decl], ctx, warnings)
     | LA.ContractNodeDecl ({LA.start_pos=pos} as s, contract_decl) ->
       let* ctx, warnings = tc_ctx_of_contract_node_decl pos ctx' contract_decl in 
@@ -2347,8 +2381,80 @@ and check_const_integer_expr: tc_context -> NI.t option -> string -> LA.expr -> 
       type_error (LH.pos_of_expr e) (ExpectedIntegerExpression ty)
   | Error err -> Error err
 
-and check_array_size_expr ctx nname e =
-  check_const_integer_expr ctx nname "array size expression" e
+and check_no_index_access ctx nname ty e =
+  let r = check_no_index_access ctx nname ty in
+  match e with
+  | LA.IndexAccess (p, _, _, _) -> type_error p (NoIndexAccessInArrayLength ty)
+  | Ident (_, id) -> (
+    match lookup_const ctx id with 
+    | None (* Not a constant *) 
+    | Some (LA.Ident _, _, _) -> R.ok () (* Free constant *)
+    | Some (e, _, _) -> r e (* Defined constant *)
+  )
+  | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> R.ok ()
+  | EmptyMap (_, Some (kt, vt)) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) kt >>
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) vt
+  | EmptySet (_, Some ty') ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | When (_, e, _)
+  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
+  | AnyOp (_, (_, _, ty'), e) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
+  | ChooseOp (_, (_, _, ty'), e) ->
+    LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2)
+  | CompOp (_, _, e1, e2) ->
+    r e1 >> r e2
+  | TernaryOp (_, _, e1, e2, e3) ->
+    r e1 >> r e2 >> r e3
+  | Call (_, tys, _, l) ->
+    let check_ty = LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) in
+    Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map r l)
+  | GroupExpr (_, _, l) ->
+    Res.seq_ (List.map r l)
+  | Merge (_, _, l) ->
+    Res.seq_ (List.map (fun (_, x) -> r x) l)
+  | RestartEvery (_, _, l, e) ->
+    r e >> Res.seq_ (List.map r l)
+  | Activate (_, _, c, re, l) ->
+    r c >> r re >> Res.seq_ (List.map r l)
+  | Condact (_, e, re, _, l1, l2) ->
+    r e >> r re >> Res.seq_ (List.map r (l1 @ l2))
+  | RecordExpr (_, _, tys, ie) ->
+    let check_ty = LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) in
+    Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map (fun (_, e) -> r e) ie)
+  | StructUpdate (_, e1, li, Some e2) ->
+    r e1 >>
+    Res.seq_ (List.map (function
+        | LA.Label _ -> R.ok ()
+        | LA.MapIndex (_, e)
+        | LA.SetIndex (_, e)
+        | LA.GenericIndex (_, e)
+        | LA.Index (_, e) -> r e
+      ) li) >>
+    r e2
+  | StructUpdate (_, e1, li, None) ->
+    r e1 >>
+    Res.seq_ (List.map (function
+        | LA.Label _ -> R.ok ()
+        | LA.MapIndex (_, e)
+        | LA.SetIndex (_, e)
+        | LA.GenericIndex (_, e)
+        | LA.Index (_, e) -> r e
+      ) li)
+  | Pre (_, e) ->
+    r e
+  | Arrow (_, e1, e2) ->
+    r e1 >> r e2
+
+
+
+
+and check_array_size_expr ctx nname ty e =
+  check_const_integer_expr ctx nname "array size expression" e >> 
+  check_no_index_access ctx nname ty e
 
 (* Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
@@ -2439,8 +2545,12 @@ and expr_contains_set_binop ctx ni expr =
   | Activate (_, _, e1, e2, expr_list) -> 
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
-  | AnyOp (_, (_, _, _), e) -> r e 
-  | ChooseOp (_, (_, _, _), e) -> r e 
+  | AnyOp (_, (_, _, ty), e) -> 
+    LH.fold_lustre_ty r false (||) ty || 
+    r e
+  | ChooseOp (_, (_, _, ty), e) -> 
+    LH.fold_lustre_ty r false (||) ty || 
+    r e
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
@@ -2470,7 +2580,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
   | LA.ArrayType (p, (b_ty, s)) -> (
-    let* _ = check_array_size_expr ctx nname s in
+    let* _ = check_array_size_expr ctx nname ty s in
     let* b_ty, warnings = check_type_well_formed ctx src nname is_const b_ty in 
     R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
   )
@@ -2479,7 +2589,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant or refinement type argument" e 
+      check_expr_is_constant ctx "type of constant" e 
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
@@ -2719,12 +2829,12 @@ let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> er
   | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in  
+    let* node_decl, warnings = check_type_node_decl pos global_ctx false node_decl in  
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.NodeDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.FuncDecl (span, node_decl):: rest ->
     let { LA.start_pos = pos } = span in
-    let* node_decl, warnings = check_type_node_decl pos global_ctx node_decl in 
+    let* node_decl, warnings = check_type_node_decl pos global_ctx true node_decl in 
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.FuncDecl (span, node_decl) :: decls, warnings @ warnings2)
   | LA.ContractNodeDecl (span, contract_decl) :: rest ->

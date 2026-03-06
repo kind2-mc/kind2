@@ -206,12 +206,6 @@ Source files live in subdirectory [SMTSolver]
   ContractChecker
 }
 
-{2:compil Lustre to Rust}
-
-{!modules:
-  LustreToRust
-}
-
 {2:testgen Test generation}
 
 {!modules:

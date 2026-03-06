@@ -44,16 +44,6 @@ val log_testcase: 'a t -> Scope.t list list -> Model.t -> Numeral.t -> unit
     in [t]. *)
 val log_deadlock: 'a t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 
-(** Logs the top level XML glue file. *)
-val log_test_glue_file:
-  string ->
-  string ->
-  (string * (Lib.position * int) list * (string * Lib.position * int) list) ->
-  string ->
-  string list ->
-  unit
-
-
 
 (* 
    Local Variables:

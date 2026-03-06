@@ -900,38 +900,6 @@ let slice_to_abstraction_and_property
   )
 
 
-let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
-fun sys top_scope target ->
-  match sys with
-  | Lustre (main_subs, _, _) ->
-    LustreToRust.implem_to_rust target (
-      fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
-    ) (S.find_subsystem_of_list main_subs top_scope).S.source
-  | Moxi _ ->
-    Format.printf "can't compile from MoXI input: unsupported"
-  | Native _ ->
-    Format.printf "can't compile from native input: unsupported"
-  | Horn _ ->
-    Format.printf "can't compile from horn clause input: unsupported"
-
-let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
-  string *
-  (Lib.position * int) list *
-  (string * Lib.position * int) list
-) =
-fun sys top_scope target ->
-  match sys with
-  | Lustre (main_subs, _, _) ->
-    LustreToRust.oracle_to_rust target (
-      fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
-    ) (S.find_subsystem_of_list main_subs top_scope).S.source
-  | Moxi _ ->
-    failwith "can't compile from MoXI input: unsupported"
-  | Native _ ->
-    failwith "can't compile from native input: unsupported"
-  | Horn _ ->
-    failwith "can't compile from horn clause input: unsupported"
-
 let contract_gen_param (type s): s t -> Scope.t -> (A.param * (Scope.t -> N.t)) =
 fun sys -> fun top ->
   match sys with

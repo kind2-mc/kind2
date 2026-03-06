@@ -533,32 +533,6 @@ module RunContractGen: PostAnalysis = struct
     )
 end
 
-(** Rust generation.
-Compiles lustre as Rust. *)
-module RunRustGen: PostAnalysis = struct
-  let name = "rustgen"
-  let title = "rust generation"
-  let is_active () = Flags.lus_compile ()
-  let run in_sys param _ _ =
-    KEvent.log L_note
-      "Compilation to Rust is still a rather experimental feature:@ \
-      in particular, arrays are not supported." ;
-    let top = (Analysis.info_of_param param).Analysis.top in
-    let target = Flags.subdir_for top in
-    (* Creating directories if needed. *)
-    Flags.output_dir () |> mk_dir ;
-    mk_dir target ;
-    (* Implementation directory. *)
-    let target = Format.sprintf "%s/%s" target Paths.implem in
-    let node_id = InputSystem.get_node_id in_sys top in
-    KEvent.log_uncond
-      "  Compiling node '%a' to Rust in '%s'."
-      HString.pp_print_hstring (NI.get_user_name node_id) target ;
-    InputSystem.compile_to_rust in_sys top target ;
-    KEvent.log_uncond "  Done compiling." ;
-    Ok ()
-end
-
 (** Invariant print.
 Prints invariants used in the proof. *)
 module RunInvPrint: PostAnalysis = struct
@@ -942,7 +916,6 @@ let post_analysis = [
   (module RunSliceCertif: PostAnalysis) ;
   (module RunContractGen: PostAnalysis) ;
   (module RunTestGen: PostAnalysis) ;
-  (module RunRustGen: PostAnalysis) ;
   (module RunAssumptionGen: PostAnalysis) ;
   (module RunMCS: PostAnalysis) ;
 ]

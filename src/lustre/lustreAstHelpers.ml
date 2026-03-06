@@ -2038,3 +2038,9 @@ let pos_of_type ty = match ty with
   | TupleType (p, _)  | RecordType (p, _, _)  
   | RefinementType (p, _, _) -> p
 
+let rec find_type_annotation e = match e with 
+| StructUpdate (_, e, _, _) -> find_type_annotation e
+| EmptySet (_, ta) -> ta
+| EmptyMap (p, Some (kt, vt)) -> Some (Map (p, kt, vt))
+| _ -> None
+

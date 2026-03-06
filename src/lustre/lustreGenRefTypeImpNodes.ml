@@ -90,10 +90,38 @@ let rec expr_contains_mode_ref expr =
   | AnyOp (_, _, _) | ChooseOp (_, _, _)
     -> false
 
-let mk_generated_env_contract_eqs ctx base_contract = 
+let mk_generated_env_contract_eqs ctx node_id base_contract =
   let* res = R.seq (List.map (fun ci -> 
     match ci with
-    | A.GhostConst _ | GhostVars _ -> R.ok (Some (ci, GI.empty ()))
+    (* Ghost constant definitions are converted into ghost variable definitions
+       because the definition may include constant inputs from the original contract
+       that become outputs in the generated contract. This avoids failures when
+       the constant definition includes outputs that are not constant in the new
+       generated contract.
+    *)
+    | A.GhostConst (TypedConst (pos, id, exp, ty)) -> (
+      let ci =
+        A.GhostVars (pos, GhostVarDec (pos, [(pos, id, ty)]), exp)
+      in
+      R.ok (Some (ci, GI.empty ()))
+    )
+    | A.GhostConst (UntypedConst (pos, id, exp)) -> (
+      let contract_ctx =
+        Chk.tc_ctx_of_contract ~ignore_modes:true ctx Ghost node_id (pos, base_contract)
+        |> unwrap |> (fun (_, ctx, _) -> ctx)
+      in
+      let ty =
+        match Ctx.lookup_const contract_ctx id with
+        | Some (_, Some ty, _) -> ty
+        | _ -> assert false
+      in
+      let ci =
+        A.GhostVars (pos, GhostVarDec (pos, [(pos, id, ty)]), exp)
+      in
+      R.ok (Some (ci, GI.empty ()))
+    )
+    | A.GhostConst (FreeConst _)
+    | A.GhostVars _ -> R.ok (Some (ci, GI.empty ()))
     | A.Assume (pos, name, b, expr) ->
       if expr_contains_mode_ref expr then mk_error pos EnvRealizabilityCheckModeRefAssumption else
       R.ok (Some (A.Guarantee (pos, name, b, expr), GI.empty ()))
@@ -145,7 +173,10 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
 
 let contract_node_decl_to_contracts
 = fun ctx (node_id, params, inputs, outputs, (pos, base_contract)) -> 
-  let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
+  let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs [] in
+  let* contract', gids =
+    mk_generated_env_contract_eqs contract_ctx node_id base_contract
+  in
   let gen_node_id = NI.mk_node_id ~node_type:Environment (NI.get_name node_id) in
   let inputs2, outputs2 = mk_swapped_inputs_and_outputs ctx inputs outputs in
   (* We generate a contract representing this contract's inputs/environment *)
@@ -159,9 +190,12 @@ let contract_node_decl_to_contracts
   else R.ok ([], ctx, gids)
 
 let node_decl_to_contracts 
-= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) ->
+= fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
-  let* contract', gids = mk_generated_env_contract_eqs ctx base_contract in
+  let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs locals in
+  let* contract', gids =
+    mk_generated_env_contract_eqs contract_ctx node_id base_contract
+  in
   let locals_as_outputs = List.map (fun local_decl -> match local_decl with 
     | A.NodeConstDecl (pos, FreeConst (_, id, ty)) 
     | A.NodeConstDecl (pos, TypedConst (_, id, _, ty)) ->  Some (pos, id, ty, A.ClockTrue)
@@ -183,7 +217,7 @@ let node_decl_to_contracts
     let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
       R.ok ([environment], ctx, gids)
     else R.ok([], ctx, gids)
   else
@@ -191,12 +225,12 @@ let node_decl_to_contracts
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated nodes *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment |> unwrap in
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([environment; contract], ctx, gids)
     else 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract |> unwrap in
+      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([contract], ctx, gids)
 
 (* NOTE: If "ty" is a refinement type that includes a constant with
@@ -233,7 +267,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else node_decl 
       in
-      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx node_decl false in
       let decls = List.map (fun decl -> A.NodeDecl (span, decl)) decls in
       R.ok (
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
@@ -245,7 +279,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
-      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl in
+      let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl true in
       let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
       R.ok (
         A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 

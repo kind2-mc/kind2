@@ -146,17 +146,6 @@ val is_lustre_input : _ t -> bool
 
 val is_moxi_input : _ t -> bool
 
-(** Compiles a system (scope) to Rust to the folder specified as a crate. *)
-val compile_to_rust : _ t -> Scope.t -> string -> unit
-
-(** Compiles a system (scope) to Rust as an oracle to the folder specified as
-a crate. *)
-val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
-  string *
-  (Lib.position * int) list *
-  (string * Lib.position * int) list
-)
-
 (** Parameter for contract generation. *)
 val contract_gen_param : _ t -> Scope.t -> (Analysis.param * (Scope.t -> LustreNode.t))
 

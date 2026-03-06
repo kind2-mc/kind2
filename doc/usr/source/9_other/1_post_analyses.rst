@@ -7,7 +7,6 @@ Post-analysis treatments are flag-activated Kind 2 features that are not
 directly related to verification. The current post-analysis treatments available are
 
 * certification,
-* compilation to Rust,
 * test generation,
 * contract generation,
 * assumption generation,
@@ -57,8 +56,6 @@ treatment are:
 | Treatment             | Conditions                                    | Notes                                  |
 +-----------------------+-----------------------------------------------+----------------------------------------+
 | certification         | last analysis proved the system safe          | will fail if node is partially defined |
-+-----------------------+-----------------------------------------------+----------------------------------------+
-| compilation to Rust   |                                               |                                        |
 +-----------------------+-----------------------------------------------+----------------------------------------+
 | test generation       | system has a contract with more than one mode |                                        |
 |                       | and the last analysis proved the system safe  |                                        |

@@ -241,9 +241,6 @@ val check_subproperties : unit -> bool
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
 
-(** Activates compilation to Rust. *)
-val lus_compile : unit -> bool
-
 (** Activates transformation that pushes pre expressions *)
 val lus_push_pre : unit -> bool
 
@@ -299,6 +296,7 @@ module Smt : sig
 
   type itp_solver = [
     | `cvc5_QE
+    | `Bitwuzla_SMTLIB
     | `MathSAT_SMTLIB
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB

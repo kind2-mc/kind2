@@ -1,0 +1,8 @@
+node N() returns (out: int)
+let
+tel
+
+function f (inp: int) returns (out: subtype { x: int | x > N() })
+let
+  out = inp;
+tel

@@ -551,12 +551,6 @@ Factored to avoid clashes. *)
 module Paths : sig
   (** Test generation files path. *)
   val testgen : string
-
-  (** Test generation oracle path. *)
-  val oracle : string
-
-  (** Rust generation path. *)  
-  val implem : string
 end
 
 (** Reserved identifiers. *)
