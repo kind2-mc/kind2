@@ -877,8 +877,8 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
     The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
     a boolean. *)
-let rec unify_types pos ctx ty1 ty2 = 
-  let r = unify_types pos ctx in
+let rec unify_types pos ctx is_type_ascription ty1 ty2 = 
+  let r = unify_types pos ctx is_type_ascription in
   let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
   match ty1, ty2 with 
@@ -896,7 +896,12 @@ let rec unify_types pos ctx ty1 ty2 =
     then 
       let* maps = R.seq (List.map2 r ftys1 ftys2) in 
       R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
-    else type_error pos (IlltypedCall (ty1, ty2)) 
+    else (
+      if is_type_ascription then 
+        type_error pos (UnificationFailed (ty1, ty2)) 
+      else
+        type_error pos (IlltypedCall (ty1, ty2)) 
+    )
   | GroupType (_, tys), t
   | t, GroupType (_, tys) when List.length tys = 1 ->
     r t (List.hd tys)
@@ -924,13 +929,16 @@ let rec unify_types pos ctx ty1 ty2 =
   | LA.SBitVector _, LA.SBitVector _
   | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty 
   | ty1, ty2 -> 
-    type_error pos (IlltypedCall (ty1, ty2))
+    if is_type_ascription then 
+      type_error pos (UnificationFailed (ty1, ty2)) 
+    else
+      type_error pos (IlltypedCall (ty1, ty2)) 
 
 
-let infer_poly_node_type pos ctx node_ty arg_inf_tys = 
+let infer_poly_node_type pos ctx is_type_ascription node_ty arg_inf_tys = 
   match node_ty with 
   | LA.TArr (_, ty1, _) -> 
-    let* substitution = unify_types pos ctx ty1 arg_inf_tys in 
+    let* substitution = unify_types pos ctx is_type_ascription ty1 arg_inf_tys in 
     let substitution = StringMap.bindings substitution in
     R.ok (LH.apply_type_subst_in_type substitution node_ty, substitution)
   | _ -> assert false
@@ -1080,7 +1088,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           in
           let* ty, type_args = match ty_args with 
           | [] -> (* Do type inference *) 
-            let* substitution = unify_types pos ctx ty inf_record_type in 
+            let* substitution = unify_types pos ctx false ty inf_record_type in 
             let substitution = StringMap.bindings substitution in
             let ty = LH.apply_type_subst_in_type substitution ty in
             let* inferred_type_args = R.seq (List.map (fun ty_var -> 
@@ -1341,7 +1349,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | [] -> 
         (* Infer type arguments  *)
         let* arg_inf_tys, arg_exprs, warnings2 = infer_type_node_args pos ctx arg_exprs nname in
-        let* node_ty, substitution = infer_poly_node_type pos ctx node_ty arg_inf_tys in 
+        let is_type_ascription = NI.get_node_type node_id = TypeAscription in
+        let* node_ty, substitution = infer_poly_node_type pos ctx is_type_ascription node_ty arg_inf_tys in 
         let ty_vars = match lookup_node_ty_vars ctx node_id with 
         | None -> [] 
         | Some ty_vars -> ty_vars 
@@ -1370,8 +1379,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
         (check_constant_args ctx node_id arg_exprs >> 
         (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
-      else
-        (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
+      else (
+        Format.printf "got here\n";
+        match NI.get_node_type node_id with 
+        | TypeAscription -> (type_error pos (UnificationFailed (exp_arg_tys, given_arg_tys)))
+        | _ -> (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))
+      )
     )
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))

@@ -85,7 +85,6 @@ fun ctx node_name fun_ids expr ->
     let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
     let op = pos, op_id, mono, A.ClockTrue in
     let eq = A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, op_id)]), A.Ident (pos, ip_id))) in
-    let func_decl = A.FuncDecl (span, (node_id, false, Transparent, [], [ip], [op], [], [eq], None)) in
     (* The generated function might be polymorphic, so we find all the needed type variables *)
     (*!! Test the polymorphic case! *)
     let ty_params = 
@@ -94,6 +93,7 @@ fun ctx node_name fun_ids expr ->
       |> Ctx.SI.elements
     in 
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
+    let func_decl = A.FuncDecl (span, (node_id, false, Transparent, ty_params, [ip], [op], [], [eq], None)) in
     Call (pos, ty_args, node_id, [e]), func_decl :: gen_nodes1 @ gen_nodes2 
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
