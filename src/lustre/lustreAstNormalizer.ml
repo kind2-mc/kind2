@@ -2464,16 +2464,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
-  | TypeAscription (pos, expr, ty) as e -> 
-    Format.printf "Processing ascription %a\n"
-      A.pp_print_expr e;
-    let nexpr, gids1, warnings1 = normalize_expr ?guard info node_id map expr in 
-    let gids2, warnings2 =  mk_fresh_refinement_type_constraint Local info map pos node_id expr ty in
-    let gids3, warnings3 = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr ty in  
-    Format.printf "gids3: %a\n"
-      pp_print_generated_identifiers gids3;
-    nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2 @ warnings3 
-    (*nexpr, union gids1 gids2, warnings1 @ warnings2*)
+  | TypeAscription _ -> assert false (* desugared earlier in pipeline *)
   | AnyOp _ -> assert false (* desugared earlier in pipeline *)
   | ChooseOp _ -> assert false (* desugared earlier in pipeline *)
   | RecordExpr (pos, id, ps, id_expr_list) ->

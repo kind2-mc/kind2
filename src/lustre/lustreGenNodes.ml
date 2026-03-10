@@ -28,6 +28,7 @@ fun pos node_id node_type ->
   let name = match node_type with 
   | Any -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") 
   | Choose -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".choose_") 
+  | TypeAscription -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".type_ascription_")
   | _ -> assert false
   in
   let name = HString.concat2 name pos in
@@ -73,6 +74,27 @@ and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.de
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
+  | TypeAscription (pos, e, ty) ->
+    let e, gen_nodes1 = rec_call e in
+    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+    let span = { A.start_pos = pos; A.end_pos = pos; } in
+    let node_id = mk_fresh_fn_name pos node_name TypeAscription in
+    let ip_id = HString.mk_hstring "inp" in 
+    let op_id = HString.mk_hstring "op" in
+    let ip = pos, ip_id, ty, A.ClockTrue, false in
+    let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
+    let op = pos, op_id, mono, A.ClockTrue in
+    let eq = A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, op_id)]), A.Ident (pos, ip_id))) in
+    let func_decl = A.FuncDecl (span, (node_id, false, Transparent, [], [ip], [op], [], [eq], None)) in
+    (* The generated function might be polymorphic, so we find all the needed type variables *)
+    (*!! Test the polymorphic case! *)
+    let ty_params = 
+      Ctx.SI.union (Ctx.ty_vars_of_type ctx node_name ty) 
+                   (Ctx.ty_vars_of_expr ctx node_name e)
+      |> Ctx.SI.elements
+    in 
+    let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
+    Call (pos, ty_args, node_id, [e]), func_decl :: gen_nodes1 @ gen_nodes2 
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
@@ -228,10 +250,6 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
-  | TypeAscription (pos, e, ty) ->
-    let e, gen_nodes1 = rec_call e in
-    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
-    TypeAscription (pos, e, ty), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
@@ -322,7 +340,7 @@ fun ctx node_name fun_ids ni ->
   | AnnotMain _ -> ni, []
     
 
-let desugar_any_ops: Ctx.tc_context -> A.declaration list -> A.declaration list = 
+let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list = 
 fun ctx decls -> 
   let fun_ids = List.filter_map 
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _)) -> Some id | _ -> None)

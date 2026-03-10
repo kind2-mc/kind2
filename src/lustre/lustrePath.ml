@@ -1132,6 +1132,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | DefinedConstant -> "Global constant (defined)"
     | FreeConstant -> "Global constant (free)"
     | Choose -> "'Choose' operator"
+    | TypeAscription -> "Type ascription operator"
   in
   
   (* Remove first dimension from index *)
