@@ -239,8 +239,8 @@ structure:
 
 It contains as many proofs (at the root) as there are relevant analysis
 performed by Kind 2 (for modular and compositional reasoning). To make sure
-that the proof is an actual proof, one needs to call the Ethos checker on the
-generated output, together with the correct signatures:
+that the safety proof is an actual proof, one needs to call the Ethos checker on the
+generated output, ``safety_prooc.cpc`` , together with the correct signatures:
 
 .. code-block:: none
 
@@ -287,7 +287,8 @@ A proof system is formally defined in CPC through *signatures*, which contain
 a definition of the system's language together with axioms and proof rules. The
 proof system used by cvc5 is defined over a number of signatures, which are
 included in its source code distribution. Those relevant to this work include
-signatures for ???
+the base signatures ``Cpc.eo`` and more advanced signatures ``CpcExpert.eo``,
+as well as the signatures required to create a safety proof ``Safety.eo``.
 
 cvc5's proof system is extended with an additional signature (``Safety.eo``) for
 *k*\ -inductive reasoning, invariance and safety.  This signature also specifies
