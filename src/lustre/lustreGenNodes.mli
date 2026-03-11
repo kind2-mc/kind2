@@ -20,4 +20,4 @@
 (* Generate nodes/functions for any operators, choose operators, and type ascriptions *)
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
-                         LustreAst.declaration list
+                         LustreAst.declaration list 

@@ -1380,7 +1380,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         (check_constant_args ctx node_id arg_exprs >> 
         (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
       else (
-        Format.printf "got here\n";
         match NI.get_node_type node_id with 
         | TypeAscription -> (type_error pos (UnificationFailed (exp_arg_tys, given_arg_tys)))
         | _ -> (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys)))

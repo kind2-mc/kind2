@@ -157,8 +157,6 @@ let rec expr_contains_call = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
-  | TypeAscription (_, e, ty) ->
-    fold_lustre_ty expr_contains_call false (||) ty || expr_contains_call e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
@@ -173,6 +171,7 @@ let rec expr_contains_call = function
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
+  | TypeAscription _ 
     -> true
 
 let rec expr_contains_id id = function
