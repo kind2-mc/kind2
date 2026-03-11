@@ -97,6 +97,7 @@ fun ctx node_name fun_ids expr ->
     Call (pos, ty_args, node_id, [e]), func_decl :: gen_nodes1 @ gen_nodes2 
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
+    let expr1, gen_nodes = rec_call expr1 in
     let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = 
@@ -148,7 +149,7 @@ fun ctx node_name fun_ids expr ->
         name
     | _ -> assert false
     in
-    A.Call(pos, ty_vars, name, inputs_call), ty_gen_nodes @ [generated_node]
+    A.Call(pos, ty_vars, name, inputs_call), gen_nodes @ ty_gen_nodes @ [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
@@ -419,6 +420,8 @@ fun ctx decls ->
       | None -> assert false in (* Must have a contract *)
       let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ gen_nodes in
       decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
-    | _ -> decl :: decls
+    | ConstDecl _ -> decl :: decls (*!! Handle this case *)
+    | TypeDecl _ -> decl :: decls (*!! Handle this case *)
+    | NodeParamInst _ -> decl :: decls
   ) [] decls in 
   decls

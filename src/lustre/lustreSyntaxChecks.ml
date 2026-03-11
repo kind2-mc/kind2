@@ -72,7 +72,6 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
-  | TypeAscriptionAnyChoose of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -128,9 +127,6 @@ let error_message kind = match kind with
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
-  | TypeAscriptionAnyChoose e -> 
-    Format.asprintf "type ascription %a not supported in any or choose operator"
-      LA.pp_print_expr e
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -1092,10 +1088,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      let* _ = match LAH.expr_contains_type_ascription e with 
-      | Some e -> syntax_error pos (TypeAscriptionAnyChoose e)
-      | None -> Res.ok ()
-      in
       let warnings1 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e' *)
