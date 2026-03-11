@@ -287,8 +287,7 @@ A proof system is formally defined in CPC through *signatures*, which contain
 a definition of the system's language together with axioms and proof rules. The
 proof system used by cvc5 is defined over a number of signatures, which are
 included in its source code distribution. Those relevant to this work include
-the base signatures ``Cpc.eo`` and more advanced signatures ``CpcExpert.eo``,
-as well as the signatures required to create a safety proof ``Safety.eo``.
+the base signatures ``Cpc.eo`` and more advanced signatures ``CpcExpert.eo``.
 
 cvc5's proof system is extended with an additional signature (``Safety.eo``) for
 *k*\ -inductive reasoning, invariance and safety.  This signature also specifies
