@@ -3,4 +3,5 @@ type Nat = subrange [0, *] of int;
 node N () returns (m: int)
 let
   m = (-3: Nat);
+  check m = (m - 0 + m - m);
 tel

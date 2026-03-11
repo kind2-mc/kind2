@@ -1124,14 +1124,12 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
       let nexpr = A.Ident (pos, name) in
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
-      let ref_type_nexpr, _gids1, warnings = normalize_expr info node_id map ref_type_expr in 
-      (*let gids1 = { gids1 with refinement_type_constraints = []; 
-                               subrange_constraints = [] } in*)
+      let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
       let gids2 = { (empty ()) with
         refinement_type_constraints = [(source, pos, name, output_expr)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
       in
-      (*union gids1*) gids2, warnings 
+      union gids1 gids2, warnings 
     ) ref_type_exprs |> List.split
     in
     List.fold_left union (empty ()) gids, List.flatten warnings
@@ -1752,7 +1750,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
           let tis, gids_list, warnings = (
             List.map (
               fun (pos, i, ty) -> 
-                (*let ty, gids1, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in*)
+                let ty, gids1, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in
                 let new_id = StringMap.find i info.interpretation in
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   let gids2, warnings2 = 
@@ -1763,7 +1761,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
                   in
                   (pos, i, ty),
                   union gids1 (union gids2 gids3), 
-                  (*warnings1 @*) warnings2 @ warnings3
+                  warnings1 @ warnings2 @ warnings3
                 else (pos, i, ty), gids1, []
             )
             tis |> Lib.split3
