@@ -4025,13 +4025,11 @@ let solver_dependent_actions solver =
         ) ;
         if
           Certif.proof () && not (
-            (* major=1 && minor=0 && patch>=3 && patch<=9 ||
-            major=1 && minor=1 && patch=0 *)
-             major=1 && minor=3 && patch>=2
+             major>=1 && minor>=3 && patch>=2
           )
         then (
           Log.log L_error
-            "Eunoia proof production requires cvc5 >= 1.3.2. Found \
+            "Cpc proof production requires cvc5 >= 1.3.2. Found \
              version: %d.%d.%d"
             major minor patch;
           raise UnsupportedSolver) ;
