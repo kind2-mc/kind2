@@ -4025,7 +4025,11 @@ let solver_dependent_actions solver =
         ) ;
         if
           Certif.proof () && not (
-             major>=1 && minor>=3 && patch>=2
+            (major == 1 && minor == 3 && patch >=2 )
+            ||
+            (major == 1 && minor > 3) 
+            ||
+            (major > 1)
           )
         then (
           Log.log L_error
