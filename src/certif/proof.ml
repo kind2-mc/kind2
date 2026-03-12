@@ -41,8 +41,15 @@ let cvc5_proof_args () =
 let cvc5_proof_cmd () =
   String.concat " " (Flags.Smt.cvc5_bin () :: cvc5_proof_args ())
 
-let proofname_cpc = "safety_proof.cpc"
+let safety_proofname_cpc = "safety_proof.cpc"
+let kind_2_proofname_cpc = "kind_2_proof.cpc"
+let base_proofname_cpc = "base.cpc"
+let induction_proofname_cpc = "induction.cpc"
+let implication_proofname_cpc = "implication.cpc"
 let frontend_proofname_cpc = "frontend_proof.cpc"
+let frontend_base_proofname_cpc = "frontend_base.cpc"
+let frontend_induction_proofname_cpc = "frontend_induction.cpc"
+let frontend_implication_proofname_cpc = "frontend_implication.cpc"
 
 type cpc_step = HS.t
 
@@ -321,16 +328,16 @@ let pp_print_frontend_proof fmt defs base_steps induction_steps implication_step
 
 let construct_kind_2_proof dirname base induction implication k = 
 
-  let base_k2 = generate_cpc_proof (dirname ^ "/base.cpc") base in
-  let induction_k2 = generate_cpc_proof (dirname ^ "/induction.cpc") induction in
-  let implication_k2 =generate_cpc_proof (dirname ^ "/implication.cpc") implication in
+  let base_k2 = generate_cpc_proof (Filename.concat dirname base_proofname_cpc) base in
+  let induction_k2 = generate_cpc_proof (Filename.concat dirname induction_proofname_cpc) induction in
+  let implication_k2 =generate_cpc_proof (Filename.concat dirname implication_proofname_cpc) implication in
 
 
   let (defs, base_steps) = get_proof_defs base_k2 in
   let (_, induction_steps) = get_proof_defs induction_k2 in
   let (_, implication_steps) = get_proof_defs implication_k2 in
 
-  let oc = open_out (dirname ^ "/kind_2_proof.cpc") in
+  let oc = open_out (Filename.concat dirname kind_2_proofname_cpc) in
   let fmt = Format.formatter_of_out_channel oc in
   pp_print_safety_proof fmt defs base_steps induction_steps implication_steps k
 
@@ -339,9 +346,9 @@ let construct_kind_2_proof dirname base induction implication k =
 
 let construct_frontend_proof dirname base induction implication k = 
 
-  let base_jkind = generate_cpc_proof (dirname ^ "/frontend_base.cpc") base in
-  let induction_jkind =generate_cpc_proof (dirname ^ "/frontend_induction.cpc") induction in
-  let implication_jkind =generate_cpc_proof (dirname ^ "/frontend_implication.cpc") implication in
+  let base_jkind = generate_cpc_proof (Filename.concat dirname frontend_base_proofname_cpc) base in
+  let induction_jkind =generate_cpc_proof (Filename.concat dirname frontend_induction_proofname_cpc) induction in
+  let implication_jkind =generate_cpc_proof (Filename.concat dirname frontend_implication_proofname_cpc) implication in
 
   let (defs, base_steps) = get_proof_defs base_jkind  in
   let (_, induction_steps) = get_proof_defs induction_jkind in
@@ -349,7 +356,7 @@ let construct_frontend_proof dirname base induction implication k =
   let induction_steps = remove_kind_2_defs induction_steps in
   let implication_steps = remove_kind_2_defs implication_steps in
   
-  let oc = open_out (dirname ^ "/frontend_proof.cpc") in
+  let oc = open_out (Filename.concat dirname frontend_proofname_cpc) in
   let fmt = Format.formatter_of_out_channel oc in
   pp_print_frontend_proof fmt defs base_steps induction_steps implication_steps k
 
@@ -368,8 +375,8 @@ let parse_cpc_file (filename : string) : cpc_step list =
 
 
   let construct_safety_proof dirname =
-    let kind_2_proof = parse_cpc_file (dirname ^"/kind_2_proof.cpc") in
-    let frontend_proof = parse_cpc_file (dirname^"/frontend_proof.cpc") in
+    let kind_2_proof = parse_cpc_file (dirname ^"/" ^ kind_2_proofname_cpc) in
+    let frontend_proof = parse_cpc_file (dirname^"/" ^ frontend_proofname_cpc) in
 
     let (defs, frontend_steps) = get_proof_defs frontend_proof  in
     let (_, jkind_defs) = factor_jkind_defs defs in 
@@ -383,7 +390,7 @@ let parse_cpc_file (filename : string) : cpc_step list =
     ] in
     
     let final_proof = List.concat [kind_2_proof; frontend_proof; final_steps] in
-    let safety_proof_path = dirname ^ "/" ^ proofname_cpc in 
+    let safety_proof_path = Filename.concat dirname safety_proofname_cpc in 
     let oc = open_out safety_proof_path in
     let fmt = Format.formatter_of_out_channel oc in
     Format.fprintf fmt "%a" pp_cpc_proof final_proof;

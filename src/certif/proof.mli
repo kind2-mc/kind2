@@ -18,9 +18,7 @@
 (** Set the logic used by the proof generations mechanism *)
 val set_proof_logic : TermLib.logic -> unit
 
-val proofname_cpc : string
-
-val frontend_proofname_cpc : string
+val safety_proofname_cpc : string
 
 val construct_kind_2_proof:   string -> string -> string -> string -> int -> unit
 
