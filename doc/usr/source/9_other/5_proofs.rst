@@ -35,7 +35,7 @@ collecting cvc5's own proofs and assembling them to form an overall proof that
 can be efficiently verified by the Ethos proof checker.
 
 
-.. figure:: ./certif_process.png
+.. figure:: ./certif_process_cpc.png
    :alt: Certification process
    :align: center
 

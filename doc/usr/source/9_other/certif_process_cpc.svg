@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1029" viewBox="0 0 2048 1029">
+  <defs>
+    <style>
+      .bg { fill: #ececec; }
+      .box { fill: #ececec; stroke: #000; stroke-width: 4; }
+      .round { fill: #ececec; stroke: #000; stroke-width: 8; }
+      .line { fill: none; stroke: #000; stroke-width: 4; stroke-linecap: square; stroke-linejoin: miter; }
+      .dash { fill: none; stroke: #000; stroke-width: 4; stroke-dasharray: 16 14; stroke-linecap: round; stroke-linejoin: miter; }
+      .sans { font-family: Arial, Helvetica, sans-serif; fill: #000; font-weight: 400; }
+      .serifb { font-family: Georgia, "Times New Roman", serif; fill: #000; font-weight: 700; }
+      .serif { font-family: Georgia, "Times New Roman", serif; fill: #000; font-weight: 400; }
+    </style>
+
+    <marker id="arrow" viewBox="0 0 12 12" refX="9" refY="6"
+        markerWidth="12" markerHeight="12"
+        orient="auto" markerUnits="strokeWidth">
+
+        <path d="M2,3 L10,6 L2,9 Z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2048" height="1029"/>
+
+  <!-- Lustre document -->
+  <path d="M2 232
+           L223 232
+           L252 232
+           L279 255
+           L279 407
+           L2 407
+           Z"
+        fill="#f4f4f4" stroke="#000" stroke-width="4"/>
+  <path d="M223 232 L223 268 L279 268" fill="none" stroke="#000" stroke-width="4"/>
+  <path d="M223 232 C243 237,257 248,279 268" fill="none" stroke="#000" stroke-width="4"/>
+
+  <text x="80" y="312" class="sans" font-size="44">Lustre</text>
+  <text x="10" y="359" class="sans" font-size="34">%PROPERTY</text>
+  <text x="240" y="359" class="sans" font-size="34">P</text>
+
+  <!-- JKind frontend -->
+  <rect x="403" y="4" rx="24" ry="24" width="319" height="178" class="round"/>
+  <text x="490" y="78" class="serifb" font-size="46">JKind</text>
+  <text x="460" y="136" class="serifb" font-size="46">frontend</text>
+
+  <!-- Kind 2 -->
+  <rect x="403" y="232" rx="24" ry="24" width="319" height="176" class="round"/>
+  <text x="489" y="333" class="serifb" font-size="46">Kind 2</text>
+
+  <!-- Obs Eq -->
+  <rect x="910" y="14" width="329" height="177" class="box"/>
+  <text x="1007" y="115" class="sans" font-size="44">Obs Eq</text>
+
+  <!-- Safety Certificate -->
+  <rect x="910" y="229" width="329" height="177" class="box"/>
+  <text x="1011" y="303" class="sans" font-size="43">Safety</text>
+  <text x="978" y="359" class="sans" font-size="43">Certificate</text>
+
+  <!-- Kind 2 core -->
+  <rect x="1364" y="13" rx="24" ry="24" width="199" height="176" class="round"/>
+  <text x="1403" y="95" class="serifb" font-size="37">Kind 2</text>
+  <text x="1427" y="140" class="serifb" font-size="37">core</text>
+
+  <!-- Front end Certificate -->
+  <rect x="1718" y="14" width="330" height="177" class="box"/>
+  <text x="1787" y="90" class="sans" font-size="45">Front end</text>
+  <text x="1780" y="143" class="sans" font-size="45">Certificate</text>
+
+  <!-- CVC5 -->
+  <rect x="1468" y="220" rx="26" ry="26" width="312" height="189" class="round"/>
+  <path d="M1517 274 L1733 274" fill="none" stroke="#e58700" stroke-width="6"/>
+  <path d="M1504 359 L1721 359" fill="none" stroke="#e58700" stroke-width="6"/>
+  <path d="M1517 274 L1512 301" fill="none" stroke="#e58700" stroke-width="6"/>
+  <path d="M1504 359 L1509 333" fill="none" stroke="#e58700" stroke-width="6"/>
+  <path d="M1733 274 L1728 300" fill="none" stroke="#e58700" stroke-width="6"/>
+  <path d="M1721 359 L1726 333" fill="none" stroke="#e58700" stroke-width="6"/>
+  <text x="1518" y="342" font-family="Arial, Helvetica, sans-serif" font-size="73" font-style="italic" font-weight="700" fill="#58a7c7" stroke="#87aeb2" stroke-width="1.2">CVC5</text>
+
+  <!-- Proof boxes -->
+  <rect x="1237" y="508" width="154" height="153" class="box"/>
+  <rect x="1441" y="508" width="154" height="153" class="box"/>
+  <rect x="1800" y="509" width="153" height="151" class="box"/>
+
+  <text x="1262" y="597" class="sans" font-size="42">Proof</text>
+  <text x="1465" y="597" class="sans" font-size="42">Proof</text>
+  <text x="1824" y="597" class="sans" font-size="42">Proof</text>
+  <text x="1669" y="597" class="sans" font-size="58">…</text>
+
+  <!-- Label -->
+  <text x="720" y="574" class="serif" font-size="40">CPC proofs of subgoals</text>
+  <text x="840" y="625" class="serif" font-size="40">(unsatisfiability)</text>
+
+  <!-- brace -->
+  <path d="M1201 460
+           C1181 460,1172 473,1172 504
+           L1172 547
+           C1172 570,1164 584,1149 591
+           C1164 597,1172 611,1172 635
+           L1172 678
+           C1172 709,1181 722,1201 722"
+        fill="none" stroke="#000" stroke-width="4"/>
+
+  <!-- Ethos checker -->
+  <rect x="929" y="808" rx="24" ry="24" width="279" height="179" class="round"/>
+  <text x="1003" y="880" class="serifb" font-size="42">Ethos</text>
+  <text x="983" y="940" class="serifb" font-size="42">checker</text>
+
+  <!-- Safety CPC proof -->
+  <rect x="1386" y="812" width="329" height="177" class="box"/>
+  <text x="1490" y="887" class="sans" font-size="44">Safety</text>
+  <text x="1450" y="946" class="sans" font-size="44">CPC proof</text>
+
+  <!-- Connectors -->
+  <path class="dash" d="M140 232 L140 92 L401 92" marker-end="url(#arrow)"/>
+  <path class="line" d="M279 320 L402 320" marker-end="url(#arrow)"/>
+
+  <path class="dash" d="M722 58 L907 58" marker-end="url(#arrow)"/>
+  <path class="line" d="M722 288 L810 288 L810 127 L907 127" marker-end="url(#arrow)"/>
+  <path class="line" d="M722 344 L907 344" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M1239 102 L1360 102" marker-end="url(#arrow)"/>
+  <path class="line" d="M1563 102 L1714 102" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M1882 191 L1882 319 L1782 319" marker-end="url(#arrow)"/>
+  <path class="line" d="M1239 318 L1464 318" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M1616 409 L1318 509" marker-end="url(#arrow)"/>
+  <path class="line" d="M1616 409 L1524 507" marker-end="url(#arrow)"/>
+  <path class="line" d="M1616 409 L1858 508" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M1315 661 L1315 736 L1876 736 L1876 660"/>
+  <path class="line" d="M1518 661 L1518 736"/>
+  <path class="line" d="M1580 736 L1580 808" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M1386 900 L1212 900" marker-end="url(#arrow)"/>
+</svg>
