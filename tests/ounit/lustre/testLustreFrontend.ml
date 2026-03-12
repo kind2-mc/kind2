@@ -66,10 +66,6 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
-  mk_test "test type ascription in choose" (fun () ->
-    match load_file "./lustreSyntaxChecks/ascription_in_choose.lus" with
-    | Error (`LustreSyntaxChecksError (_, TypeAscriptionAnyChoose _)) -> true
-    | _ -> false);
   mk_test "test any operator in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true

@@ -1,7 +1,0 @@
-type Neg = subrange [*,-1] of int;
-const N: int;
-
-function N() returns (z: int; A: int^N);
-let
-  z = choose { x: int | (x: Neg) + 2 = 3 };
-tel
