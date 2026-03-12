@@ -89,7 +89,7 @@ signature (included  in the Kind 2 distribution), and the Ethos checker
 for the final proof checking phase.
 
 Ethos checker
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 A bash script to download and build the Ethos checker is distributed with Kind 2:
 
