@@ -387,4 +387,4 @@ let parse_cpc_file (filename : string) : cpc_step list =
     let oc = open_out safety_proof_path in
     let fmt = Format.formatter_of_out_channel oc in
     Format.fprintf fmt "%a" pp_cpc_proof final_proof;
-    Format.printf "Final CPC proof written to %s\n" safety_proof_path
+    Format.printf "Final Safety CPC proof written to %s\n" safety_proof_path
