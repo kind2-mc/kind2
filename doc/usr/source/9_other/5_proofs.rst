@@ -265,11 +265,13 @@ the following line will be displayed:
 
 When the bash script is used and the proof does not contain a proof of safety,
 the following line will be displayed
+
 .. code-block:: none
 
    ; WARNING: Safety proof missing
 
-And the proof may still be correct.
+The proof may be correct, but this warning tells you that it does not actually
+represent a proof of safety.
 
 Contents of certificates
 ------------------------
