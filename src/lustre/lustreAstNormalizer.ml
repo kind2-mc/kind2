@@ -1319,8 +1319,8 @@ and normalize_ghost_declaration source info node_id map = function
   | FreeConst (pos, id, ty) -> 
     let gids1, warnings1 = (mk_fresh_subrange_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty) in 
     let gids2, warnings2 = mk_fresh_refinement_type_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty in
-    let ty, gids3, warnings2 = normalize_ty ~id:(Some id) info (Some node_id) map ty in
-    FreeConst (pos, id, ty), union (union gids1 gids2) gids3, warnings1 @ warnings2
+    let ty, gids3, warnings3 = normalize_ty ~id:(Some id) info (Some node_id) map ty in
+    FreeConst (pos, id, ty), union (union gids1 gids2) gids3, warnings1 @ warnings2 @ warnings3
 
 and normalize_node info map
     (node_id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
