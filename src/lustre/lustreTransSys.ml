@@ -2219,7 +2219,13 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           let function_ufs, function_constraints_at_0 =
             match comp_type with
             | Function { uf_symbols } when options.add_functional_constraints -> (
-              let function_ufs = SVM.bindings uf_symbols |> List.map snd in
+              let function_ufs =
+                undefined_outputs |> List.map (fun sv ->
+                  match SVM.find_opt sv uf_symbols with
+                  | Some uf -> uf
+                  | None -> assert false
+                )
+              in
               let constraints =
                 let term_0_of svar =
                   Var.mk_state_var_instance svar Numeral.zero
