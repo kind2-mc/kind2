@@ -1046,12 +1046,13 @@ let root_and_leaves_of_contracts
     roots
     ({ N.outputs;
        N.calls;
+       N.props;
        N.contract } as node) =
 
   (* Slice everything from node *)
   let node_sliced = 
     slice_all_of_node
-      ~keep_props:false
+      ~keep_props:true
       ~keep_contracts:true
       ~keep_asserts:false
       node 
@@ -1063,6 +1064,7 @@ let root_and_leaves_of_contracts
     | None ->
       roots_of_contract ~with_sofar_var:(not is_top) contract
       |> SVS.union (roots_of_inlined_calls calls)
+      |> SVS.union (roots_of_props props)
       |> SVS.elements
     | Some r ->
       SVS.elements r

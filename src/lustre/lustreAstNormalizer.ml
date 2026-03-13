@@ -1669,11 +1669,11 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         in
         ContractCall (pos, (NI.mk_node_id cref), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
-        let source = if is_extern then Input else Ghost in
+        let source = if is_extern then Local else Ghost in
         let ndecl, map, warnings = normalize_ghost_declaration source info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
       | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
-        let source = if is_extern then Input else Ghost in
+        let source = if is_extern then Local else Ghost in
         let items = match lhs with | A.GhostVarDec (_, items) -> items in
         let lhs_arity = List.length items in
         let rhs_arity = match expr with
