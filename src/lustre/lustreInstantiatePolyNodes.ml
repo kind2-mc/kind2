@@ -28,12 +28,9 @@ let merge_decls decls gen_decls =
     | Some (i, _) -> i
     | None -> assert false
   in
-  let gen_after = Array.make (List.length decls) [] in
-  List.iter (fun g ->
-    let i = find_base_index g in
-    gen_after.(i) <- g :: gen_after.(i)
-  ) gen_decls;
-  List.concat (List.mapi (fun i decl -> decl :: List.rev gen_after.(i)) decls)
+  let with_base_index = List.map (fun g -> (find_base_index g, g)) gen_decls in
+  let same_index_decls i = List.filter (fun (j, _) -> j = i) with_base_index |> List.map snd in
+  List.concat (List.mapi (fun i decl -> decl :: same_index_decls i) decls)
 
 let instantiate_type_variables_ni 
 = fun ctx node_id ty_args ni  -> match ni with 
