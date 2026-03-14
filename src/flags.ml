@@ -4033,7 +4033,7 @@ let solver_dependent_actions solver =
           )
         then (
           Log.log L_error
-            "Cpc proof production requires cvc5 >= 1.3.2. Found \
+            "CPC proof production requires cvc5 >= 1.3.2. Found \
              version: %d.%d.%d"
             major minor patch;
           raise UnsupportedSolver) ;
