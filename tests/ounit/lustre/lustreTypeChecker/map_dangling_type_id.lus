@@ -2,5 +2,6 @@ type T = int;
 
 node N() returns (m: map<T,R>);
 let
+  m = any@<map<T,R>>;
 tel
 

@@ -1,5 +1,6 @@
 node N(m1: map<int,int>; m2: map<int,bool>) returns (r: bool); 
 (*@contract assume "A" m2[m1[0]]; *) 
 let 
+  r = any@<bool>;
   check true;
 tel

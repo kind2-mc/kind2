@@ -5,6 +5,13 @@ node N  (sc_x: int; x1: bool^N; x2: [int, int]; x3: [int, int]^N; x4: [map<[int,
 returns (sc_y: int; y1: bool^N; y2: [int, int]; y3: [int, int]^N; y4: [map<[int, int], bool>, map<[int, int], bool>];
          y5: map<int, bool>; y6: set<int>)
 let
+  sc_y = any@<int>;
+  y1 = any@<bool^N>;
+  y2 = any@<[int, int]>;
+  y3 = any@<[int, int]^N>;
+  y4 = any@<[map<[int, int], bool>, map<[int, int], bool>]>;
+  y5 = any@<map<int, bool>>;
+  y6 = any@<set<int>>;
   check sc_x = sc_y;
   check x2 = y2;
   check x1 = y1;

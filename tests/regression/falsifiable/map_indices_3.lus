@@ -10,6 +10,7 @@ const M: subtype {x : int | x > 3};
 
 node N(m: M) returns (A: int^N^M; s: Set);
 let
+  A = any@<int^N^M>;
   s = map[]@<M,bool>;
   check m in s;
 tel

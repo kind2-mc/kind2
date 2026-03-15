@@ -35,6 +35,7 @@ tel
 node N(x: UserType2<real>) returns (y: UserType2<real>; w:int; l: Loc_int; z: R<real>);
 let
   y = x;
+  w = any@<int>;
   z = R@<real> { f1 = x; f2 = true };
   l = Loc_int { x=1; y=2 };
   check y = x;

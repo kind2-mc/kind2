@@ -1,7 +1,6 @@
 type y_t = { a: int; b: real };
 
 node y (const a: bool) returns (b: int);
-
 -- Local constant declarations
 const c : int = 1; d : int = 2;
 const r : y_t =  y_t { b = 3.0; a = 1 };
@@ -14,7 +13,7 @@ var t : y_t;
     y_l: int;
     m: real;
 let
-
+  b = any@<int>;
   -- (Constant) stream definitions 
   e = 1;
   (f) = 2;

@@ -17,7 +17,7 @@ let
     y2 = pre oscillate(true);
   tel
 
-  
+  p3 = any@<bool>;
 tel;
 
 node counter2(x: int) returns (y: int; z: int);

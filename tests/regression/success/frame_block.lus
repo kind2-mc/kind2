@@ -17,6 +17,8 @@ let
       y2 = counter(0);
     fi
   tel
+  y4 = any@<int>;
+  p3 = any@<bool>;
 tel
 
 node counter(x: int) returns (y: int);

@@ -1,5 +1,6 @@
 node Bad<T>() returns (out: T)
 let
+  out = any@<T>;
 tel
 
 node N() returns (out: int)
