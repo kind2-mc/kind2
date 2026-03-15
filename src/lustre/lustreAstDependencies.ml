@@ -35,7 +35,6 @@ module LA = LustreAst
 module LH = LustreAstHelpers
 module SI = LA.SI
 module NI = NodeId
-module GI = GeneratedIdentifiers
 
 type error_kind = Unknown of string
   | IdentifierRedeclared of HString.t
@@ -606,22 +605,7 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
                             
-let mk_graph_gids: GI.t NI.Map.t -> dependency_analysis_data =
-  fun gids ->
-  NI.Map.fold (fun node_id gid acc ->
-    let node_name = NI.get_internal_name node_id in
-    let node_refs = List.flatten
-      (List.map (fun (_q_vars, _sc, _lhs, expr, _source) -> get_node_call_from_expr expr) gid.GI.equations)
-    in
-    let ad = List.fold_left (fun g (nr, p) ->
-      union_dependency_analysis_data g
-        (connect_g_pos (singleton_dependency_analysis_data node_prefix nr p) node_name Lib.dummy_pos))
-      empty_dependency_analysis_data node_refs
-    in
-    union_dependency_analysis_data acc ad
-  ) gids empty_dependency_analysis_data
-
-let mk_graph_decls: LA.t -> GI.t NI.Map.t -> dependency_analysis_data
+let mk_graph_decls: LA.t -> dependency_analysis_data 
   = let mk_graph: LA.declaration -> dependency_analysis_data = function
       | TypeDecl (_, tydecl) -> mk_graph_type_decl tydecl 
       | ConstDecl (_, cdecl) -> mk_graph_const_decl cdecl
@@ -629,10 +613,8 @@ let mk_graph_decls: LA.t -> GI.t NI.Map.t -> dependency_analysis_data
       | FuncDecl ({LA.start_pos = pos}, ndecl) -> mk_graph_node_decl pos ndecl
       | ContractNodeDecl ({LA.start_pos = pos}, cdecl) -> mk_graph_contract_decl pos cdecl
       | NodeParamInst  _ -> Lib.todo __LOC__ in
-    fun decls gids ->
-    let ad_decls = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph decls) in
-    let ad_gids = mk_graph_gids gids in
-    union_dependency_analysis_data ad_decls ad_gids
+    fun decls ->
+    List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph decls)
 (** Builds a dependency graph for top-level types and constant defintions (for type 1 analysis) 
    and nodes and contracts (for type 2 analysis)
    See Note {Types of dependency analysis} for more information about different kinds of
@@ -1150,12 +1132,12 @@ let sort_and_check_contract_eqns: dependency_analysis_data
       of the output streams. *)
 
 
-let sort_declarations: LA.t -> GI.t NI.Map.t -> ((LA.t * LA.ident list), [> error]) result
-  = fun decls gids ->
+let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
+  = fun decls ->
   (* 1. make an id :-> decl map  *)
   let* decl_map = mk_decl_map IMap.empty decls in
   (* 2. build a dependency graph *)
-  let ad = mk_graph_decls decls gids in
+  let ad = mk_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   let* sorted_ids = (try (R.ok (G.topological_sort ad.graph_data)) with
    | G.CyclicGraphException ids ->
@@ -1458,7 +1440,7 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> 
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)
 
 let sort_globals decls =
-  let* (sorted_decls, _) = sort_declarations decls NI.Map.empty in
+  let* (sorted_decls, _) = sort_declarations decls in
   Debug.parse "Sorting types and constants declarations done.
     \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls;
@@ -1466,10 +1448,10 @@ let sort_globals decls =
 (** Returns a topological order to resolve forward references 
     of global constants and type definitions. *)  
 
-let sort_and_check_nodes_contracts decls gids =
+let sort_and_check_nodes_contracts decls =
   (* Step 1. Sort the declarations according in their dependency order
      This rules out the cases where we have recursive node or contract definitions *)
-  let* (sorted_decls, toplevel_nodes) = sort_declarations decls gids in
+  let* (sorted_decls, toplevel_nodes) = sort_declarations decls in
   Debug.parse "Sorting functions, nodes and contracts done.
     \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls;

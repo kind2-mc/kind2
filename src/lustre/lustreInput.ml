@@ -169,7 +169,7 @@ let type_check declarations =
     let node_contract_src = LDN.desugar_any_ops inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
-    let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src NodeId.Map.empty in
+    let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
