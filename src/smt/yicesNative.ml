@@ -102,6 +102,7 @@ let smtlib_string_sexpr_conv =
        s_div = HString.mk_hstring "/";
        s_minus = HString.mk_hstring "-";
        s_index = HString.mk_hstring "_";
+       s_as = HString.mk_hstring "as";
        s_int_to_bv = HString.mk_hstring "int_to_bv";
        s_extract = HString.mk_hstring "extract";
        s_signext = HString.mk_hstring "sign_extend";

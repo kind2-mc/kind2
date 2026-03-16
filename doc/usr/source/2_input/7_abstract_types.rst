@@ -15,22 +15,3 @@ and returns an output of type ``T`` equal to the input.
     let
         y = x;
     tel
-
-In Kind 2, all abstract types have infinite domains. 
-As a result, assumptions that constrain an abstract type 
-to a finite domain are inconsistent (such an example is shown in the following code block). 
-
-.. code-block::
-
-    type T;
-    function id_T (x: T) returns (y: T);
-    con
-        assume forall (x: T) (forall (y: T) x = y);
-    noc
-    let
-        y = x;
-    tel
-
-
-Thus, users should exercise caution with assumptions involving 
-quantification over variables with abstract types.
