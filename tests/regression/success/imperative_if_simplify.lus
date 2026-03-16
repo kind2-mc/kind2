@@ -1,9 +1,9 @@
-node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+node test(x: int) returns (y1, y2, y3: int; p: bool);
 let 
-  --p1 = (y1 = 1);
-  --p2 = (y2 = 3);
-  p3 = (y3 = 6);
-  --%PROPERTY p3;
+  y1 = any@<int>;
+  y2 = any@<int>;
+  p = (y3 = 6);
+  --%PROPERTY p;
   
   if (true)
   then 

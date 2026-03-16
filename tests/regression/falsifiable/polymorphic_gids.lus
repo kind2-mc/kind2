@@ -1,11 +1,16 @@
 node M<T> () returns (y1, y2: T)
 let
+  y1 = any@<T>;
+  y2 = any@<T>;
 tel
 
 node N<T> (c: bool;) returns (y1, y2: T)
 let
   if c then 
     y1, y2 = M@<T>();
+  else 
+    y1 = any@<T>;
+    y2 = any@<T>;
   fi
 tel
 

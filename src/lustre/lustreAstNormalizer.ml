@@ -1899,14 +1899,19 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
-and mk_fresh_call ?(inlined=false) info (id : NI.t) map pos cond restart args defaults =
+and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
+  let inlined = vmap <> [] in
   let call_ctx, gids1 =
     match info.call_context with
     | [] -> None, empty ()
     | c :: cs -> (
       let conj =
+        let c = if inlined then AH.apply_subst_in_expr vmap c else c in
         List.fold_left
-          (fun acc c' -> A.BinaryOp (dpos, A.And, c', acc)) c cs
+          (fun acc c' ->
+            let c' = if inlined then AH.apply_subst_in_expr vmap c' else c' in
+            A.BinaryOp (dpos, A.And, c', acc))
+          c cs
       in
       let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
       assert (warnings = []);
@@ -2035,7 +2040,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       else
         (info, [], empty())
     in
-    let handle_call inlined args =
+    let handle_call vmap args =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
@@ -2044,11 +2049,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (combine_args_with_const info args flags)
       in
       let nexpr, gids2 =
-        mk_fresh_call ~inlined info id map pos cond restart nargs None
+        mk_fresh_call ~vmap info id map pos cond restart nargs None
       in
       nexpr, union gids1 gids2, warnings
     in
-    if (is_inlinable && vmap <> [])
+    if (vmap <> [])
     then (
       let nargs, gids1, warnings1 = normalize_list
         (fun arg -> normalize_expr ?guard info node_id map arg)
@@ -2061,12 +2066,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let args =
         List.map (fun a -> AH.apply_subst_in_expr vmap a) args
       in
-      let _, gids3, warnings3 = handle_call true args in
+      let _, gids3, warnings3 = handle_call vmap args in
       nexpr, union_list [gids0; gids1; gids2; gids3],
       warnings1 @ warnings2 @ warnings3
     )
     else (
-      handle_call false args
+      handle_call vmap args
     )
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = NI.Map.find id info.node_is_input_const in

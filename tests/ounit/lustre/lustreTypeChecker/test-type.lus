@@ -91,7 +91,7 @@ let
 
   -- Must fail: forward reference to a node
   xu = Y(xt);
-
+  xv = any@<v>;
   -- Must fail: reference to a nonexistent node
   -- xv = Z(xt);
 tel

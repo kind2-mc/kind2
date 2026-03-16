@@ -1,0 +1,6 @@
+const M: int;
+
+function N() returns (A: int^M);
+let
+  check true;
+tel

@@ -87,21 +87,11 @@ can be assigned as follows:
 Tuples
 ------
 
-The JSON format does not support tuples by default.
-However, Kind2 extends the JSON syntax so that tuples can be easily expressed.
+The JSON format does not support tuples by default, 
+so the emelents of the tuple must be named by their index in a JSON object.
 
 For instance, a variable ``t`` of type ``[int, bool, real]``
 can be assigned as follows:
-
-.. code-block:: none
-
-  [
-    {
-      "t": ("36", false, "5.0")
-    }
-  ]
-
-An alternative syntax using a JSON object is allowed in case you want to produce a valid JSON file:
 
 .. code-block:: json
 

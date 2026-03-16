@@ -19,5 +19,6 @@ let
     out2 = inp2;
     out3 = inp3;
     out4 = inp4;
+    out5 = any@<map<R, R>>;
     out6 = inp6;
 tel

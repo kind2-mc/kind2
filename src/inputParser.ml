@@ -195,7 +195,11 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
     with Not_an_input str -> (* If it is not a record, it must be a tuple *)
       begin match record_to_tuple lst with
       | None -> raise (Not_an_input str)
-      | Some lst -> read_val scope name indexes arr_indexes (`Tuple lst)
+      | Some lst -> lst |> List.mapi (
+            fun i json ->
+            read_val scope name ((LustreIndex.TupleIndex i)::indexes) arr_indexes json
+          )
+          |> List.flatten 
       end
     end
   | `List lst -> lst |>
@@ -203,12 +207,6 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
       fun i json ->
       let new_index = LustreIndex.ArrayVarIndex (LustreExpr.mk_int_expr Numeral.one) in
       read_val scope name (new_index::indexes) (i::arr_indexes) json
-    )
-    |> List.flatten
-  | `Tuple lst -> lst |>
-    List.mapi (
-      fun i json ->
-      read_val scope name ((LustreIndex.TupleIndex i)::indexes) arr_indexes json
     )
     |> List.flatten
   | json ->
@@ -291,7 +289,15 @@ let read_vars ?(only_inputs=true) scope json =
 
 (* Parse a JSON input file *)
 let read_json_file ?(only_inputs=true) top_scope_index filename =
-  Yojson.Safe.from_file filename |> to_list
+  let json =
+    try Yojson.Safe.from_file filename with
+    | Yojson.Json_error msg ->
+        failwith
+          (Format.asprintf
+             "Error reading %s: the file is not valid JSON.\n\n%s"
+             filename msg)
+  in
+  json |> to_list
   |> List.map (read_vars ~only_inputs:only_inputs top_scope_index) |> List.flatten |> group_by_var
 
 

@@ -58,6 +58,7 @@ node n (x, y, z, w: t; blah:int) returns (ok: bool; ok2:int);
 *)
 let
   ok = x = A or x = B or x = C;
+  ok2 = any@<int>;
   --%PROPERTY ok;
   --%PROPERTY x = y or x = z or x = w or y = z or y = w;
 tel

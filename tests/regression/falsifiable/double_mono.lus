@@ -1,11 +1,16 @@
 node M<T1, T2> () returns (y1: T1; y2: T2)
 let
+  y1 = any@<T1>;
+  y2 = any@<T2>;
 tel
 
 node N<T> (c: bool;) returns (y1: T; y2: int)
 let
   if c then 
     y1, y2 = M@<T, int>();
+  else 
+    y1 = any@<T>; 
+    y2 = any@<int>;
   fi
 
   check y2 + 3 < 4;

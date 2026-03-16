@@ -1,4 +1,5 @@
 node N(i:bool) returns (out:bool);
 let
   x = i;
+  out = any@<bool>;
 tel

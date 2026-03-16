@@ -11,7 +11,7 @@ type Bad<T> = struct {
   val: int;
 };
 
-node N(s1:Stack<bool>) returns (s2:Stack<int>; b: Bad<bool>; z1,z2:int);
+node N(s1:Stack<bool>) returns (s2:Stack<int>; b: Bad<bool>;);
 let
   s2 = Stack {  
     items = 2^MAX_SIZE;

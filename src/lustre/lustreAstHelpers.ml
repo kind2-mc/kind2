@@ -2089,3 +2089,11 @@ let rec find_type_annotation e = match e with
 | EmptySet (_, ta) -> ta
 | EmptyMap (p, Some (kt, vt)) -> Some (Map (p, kt, vt))
 | _ -> None
+
+(* Return the node_id of a declaration if it is a node/func/contract decl *)
+let node_id_of_decl = function
+  | NodeDecl (_, (id, _, _, _, _, _, _, _, _))
+  | FuncDecl (_, (id, _, _, _, _, _, _, _, _))
+  | ContractNodeDecl (_, (id, _, _, _, _)) -> Some id
+  | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> None
+

@@ -2,5 +2,6 @@ const N: int;
 
 node top(x: int) returns (y: int);
 let
+  y = any@<int>;
   N = x;
 tel
