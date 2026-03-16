@@ -698,7 +698,7 @@ and compile_ast_type
     StringMap.find ident cstate.type_alias 
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
-    X.singleton [X.AbstractTypeIndex ident] Type.t_int
+    X.singleton X.empty_index (Type.mk_abstr ident)
   | A.RecordType (_, _, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let i = HString.string_of_hstring i in
