@@ -33,3 +33,6 @@ val jkind_vars_of_kind2_statevar :
 
 (** Return a transition system extracted from a call to jKind. *)
 val get_jkind_transsys : string -> TransSys.t
+
+(** Identifier for jKind nodes*)
+val jkind_id : string

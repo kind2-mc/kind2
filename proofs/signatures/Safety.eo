@@ -59,7 +59,7 @@
         (eo::define ((j (eo::add k -1)))
           (eo::ite (eo::is_eq j 0)
             (and (P 0) (T 0 1))
-            (and (unroll_with T P j) (P j) (T j k))
+            (and (unroll_with T P j) (and (P j) (T j k)))
           )
         )
       )
@@ -77,11 +77,16 @@
 )
 
 ;; Rule for k-induction principle
-(declare-rule k-induction ((I StatePred) (T TransPred) (P StatePred) (k Int))
-  :premises ((=> (base I T P k) false) (=> (step T P k) false))
+(declare-rule k-induction ((I StatePred) (T TransPred) (P StatePred) (k Int) (B Bool) (S Bool))
+  :premises (B S)
   :args (I T P k)
+  :requires (
+    (B (=> (base I T P k) false))
+    (S (=> (step T P k) false))
+  )
   :conclusion (Invariant I T P)
 )
+
 
 (declare-rule invariant-implies
   ((I StatePred) (T TransPred) (P1 StatePred) (P2 StatePred))

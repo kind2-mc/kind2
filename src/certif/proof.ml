@@ -17,18 +17,14 @@
 *)
 
 open Lib
-open Format
 
+module Ids = ReservedIds
+module JP = JkindParser
 module HS = HStringSExpr
-module H  = HString
-module HM = HString.HStringMap
-module SMT : SolverDriver.S = GenericSMTLIBDriver
 
 (* Hard coded options *)
-
-let debug = List.mem "certif" (Flags.debug ())
-let compact = not debug
-let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
+let global_logic = ref `None
+let set_proof_logic l = global_logic := l
 
 (* disable the preprocessor and tell cvc5 to dump proofs *)
 let cvc5_proof_args () =
@@ -37,1008 +33,365 @@ let cvc5_proof_args () =
       "--lang=smt2";
       "--simplification=none";
       "--dump-proofs";
-      "--proof-format=lfsc";
+      "--proof-format-mode=cpc";
     ]
-  in
-  let args =
-    if Flags.Certif.smaller_holes () then
-      "--proof-granularity=theory-rewrite" :: "--lfsc-expand-trust" :: args
-    else args
-  in
-  let args =
-    if Flags.Certif.flatten_proof () then "--lfsc-flatten" :: args else args
   in
   List.rev args
 
 let cvc5_proof_cmd () =
   String.concat " " (Flags.Smt.cvc5_bin () :: cvc5_proof_args ())
 
+let safety_proofname_cpc = "safety_proof.cpc"
+let kind_2_proofname_cpc = "kind_2_proof.cpc"
+let base_proofname_cpc = "base.cpc"
+let induction_proofname_cpc = "induction.cpc"
+let implication_proofname_cpc = "implication.cpc"
+let frontend_proofname_cpc = "frontend_proof.cpc"
+let frontend_base_proofname_cpc = "frontend_base.cpc"
+let frontend_induction_proofname_cpc = "frontend_induction.cpc"
+let frontend_implication_proofname_cpc = "frontend_implication.cpc"
 
-let get_cvc5_version () =
-  let cmd = Flags.Smt.cvc5_bin () ^ " --version" in
-  let s = syscall cmd in
-  let n = String.index s '\n' in
-  let start = 8 in
-  String.sub s start (n - start)
+type cpc_step = HS.t
 
-(* LFSC symbols *)
+let pp_cpc_proof fmt pf =
+  List.iter (fun s -> HS.pp_print_sexpr fmt s; Format.fprintf fmt "@.") pf
 
-let s_declare = H.mk_hstring "declare"
-let s_define = H.mk_hstring "define"
-
-(* let s_iff = H.mk_hstring "iff" *)
-(* let s_true = H.mk_hstring "true" *)
-
-let s_trust = H.mk_hstring "trust"
-
-(* let s_term = H.mk_hstring "term" *)
-
-(* let s_eq = H.mk_hstring "=" *)
-
-(* let s_apply = H.mk_hstring "apply" *)
-
-let s_check = H.mk_hstring "check"
-let s_ascr = H.mk_hstring ":"
-(* let s_lambda = H.mk_hstring "#" *)
-let s_at = H.mk_hstring "@"
-let s_hole = H.mk_hstring "_"
-
-
-let s_unsat = H.mk_hstring "unsat"
-let s_sat = H.mk_hstring "sat"
-let s_unknown = H.mk_hstring "unknown"
-
-
-let global_logic = ref `None
-
-let set_proof_logic l = global_logic := l
-let s_invariant = H.mk_hstring "invariant"
-let s_kinduction = H.mk_hstring "kinduction"
-let s_induction = H.mk_hstring "induction_proof_1"
-let s_base = H.mk_hstring "base_proof_1"
-let s_implication = H.mk_hstring "implication_proof_1"
-let obs_induction = H.mk_hstring "induction_proof_2"
-let obs_base = H.mk_hstring "base_proof_2"
-let obs_implication = H.mk_hstring "implication_proof_2"
-let s_invariant_implies = H.mk_hstring "invariant-implies"
-let s_obs_eq = H.mk_hstring "obs_eq"
-let s_inv_obs = H.mk_hstring "inv+obs"
-let s_weak_obs_eq = H.mk_hstring "weak_obs_eq"
-let s_safe = H.mk_hstring "safe"
-
-let proof_inv_name = H.mk_hstring "proof_inv"
-let proof_obs_name = H.mk_hstring "proof_obs"
-let proof_obs_eq_name = H.mk_hstring "proof_obs_eq"
-let proof_safe_name = H.mk_hstring "proof_safe"
-  
-let proofname = "proof.lfsc"
-let frontend_proofname = "frontend_proof.lfsc"
-let trustfname = "trusted.lfsc"
-
-
-let hstring_of_int i = H.mk_hstring (string_of_int i)
-
-
-let hole = HS.Atom s_hole
-
-(* LFSC types (sexpressions) *)
-type lfsc_type = HS.t
-
-(* LFSC terms (sexpressions) *)
-type lfsc_term = HS.t
-
-
-(* Type of LFSC declarations *)
-type lfsc_decl = {
-  decl_symb : H.t;
-  decl_type : lfsc_type;
-}
-
-(* Type of LFSC definitions *)
-type lfsc_def = {
-  def_symb : H.t;
-  def_body : lfsc_term;
-}
-
-(* Type of LFSC lemmas *)
-type lfsc_lem = {
-  lem_symb : H.t;
-  lem_ty: lfsc_type;
-  lem_body : lfsc_term;
-}
-
-(* Comparison for equality of declarations *)
-(* let equal_decl d1 d2 =
-  H.equal d1.decl_symb d2.decl_symb &&
-  HS.equal d1.decl_type d2.decl_type *)
-
-(* Comparison for equality of definitions *)
-(* let equal_def d1 d2 =
-  let def_ty_eq ot1 ot2 =
-    match (ot1, ot2) with Some t1, Some t2 -> HS.equal t1 t2 | _, _ -> true
+let parse_cpc_from_lexbuf lexbuf =
+  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
+  let commands =
+    match sexps with
+    | [HS.List xs] -> xs
+    | xs -> xs 
   in
-  H.equal d1.def_symb d2.def_symb
-  && def_ty_eq d1.def_ty d2.def_ty
-  && HS.equal d1.def_body d2.def_body *)
-(* add args if needed *)
+  commands
 
-(* Type of contexts for proofs *)
-type cvc5_proof_context = {
-  lfsc_decls : lfsc_decl list;
-  lfsc_defs : lfsc_def list;
-}
+let cpc_proof_from_chan prefix in_ch =
 
-(* Empty context *)
-let mk_empty_proof_context () = {
-  lfsc_decls = [];
-  lfsc_defs = [];
-}
+  let lexbuf = Lexing.from_channel in_ch in
+  let first_line = input_line in_ch in
+  if String.trim first_line <> "unsat"
+  then failwith "Expected 'unsat' at beginning of CPC proof";
 
-(* The type of a proof returned by cvc5 *)
-type cvc5_proof = {
-  proof_context : cvc5_proof_context;
-  proof_temps : lfsc_def list;
-  proof_hyps : lfsc_decl list;
-  proof_lems : lfsc_lem list;
-  proof_type : lfsc_type option;
-  proof_term : lfsc_term;
-}
-
-(* Create an empty proof from a context *)
-let mk_empty_proof ctx = {
-  proof_context = ctx;
-  proof_temps = [];
-  proof_hyps = [];
-  proof_lems = [];
-  proof_type = None;
-  proof_term = HS.List [];
-}
+  let sexps = parse_cpc_from_lexbuf lexbuf in
+  let oc = open_out prefix in
+  let fmt = Format.formatter_of_out_channel oc in
+  List.iter (fun s -> Format.fprintf fmt "%a@." HS.pp_print_sexpr s) sexps;
+  close_out oc;
+  (* Format.printf "Outputted file: %s@." prefix; *)
+  sexps
 
 
-(**********************************)
-(* Printing LFSC terms and proofs *)
-(**********************************)
+let s_define = HString.mk_hstring "define"
+let s_declare_const = HString.mk_hstring "declare-const"
+let s_assume = HString.mk_hstring "assume"
+let s_assume_push = HString.mk_hstring "assume-push"
+let s_step = HString.mk_hstring "step"
 
-(* print an LFSC type *)
-let print_type =
-  if compact then HS.pp_print_sexpr_indent_compact 0
-  else HS.pp_print_sexpr_indent 0
+let is_global_name (s : HString.t) : bool =
+  let name = HString.string_of_hstring s in
+  not (String.length name > 0 && name.[0] = '@')
 
-(* print an LFSC term *)
-let print_term =
-  if compact then HS.pp_print_sexpr_indent_compact 0
-  else HS.pp_print_sexpr_indent 0
-
-
-(* print an LFSC declarations *)
-let print_decl fmt { decl_symb; decl_type } =
-  fprintf fmt "@[<hov 1>(declare@ %a@ %a)@]"
-    H.pp_print_hstring decl_symb print_type decl_type
+let is_global_def = function
+  | HS.List (HS.Atom kw :: HS.Atom name :: _) ->
+      (HString.equal kw (s_define)
+      && is_global_name name) 
+      || HString.equal kw (s_declare_const)
+  | _ -> false
 
 
-(* Print an LFSC definition with type information *)
-let print_def fmt { def_symb; def_body } =
-  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
-    def_symb
-    print_term def_body
+let is_local_def = function
+  | HS.List (HS.Atom kw :: HS.Atom name :: _) ->
+      HString.equal kw (HString.mk_hstring "define")
+      && not (is_global_name name)
+  | _ -> false
 
-(* Print an LFSC lemma with type information *)
-let print_lem fmt { lem_symb; lem_ty; lem_body } =
-  fprintf fmt "@[<hov 1>(check@ @[<hov 1>(: %a %a)@])@]" print_type lem_ty
-    print_term lem_body;
-  fprintf fmt "@.";
-  fprintf fmt "@[<hov 1>(declare@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
-    lem_symb print_term lem_ty
-
-(* Print a proof context *)
-let print_context fmt { lfsc_decls; lfsc_defs } =
-  List.iter (fprintf fmt "%a@." print_decl) (List.rev lfsc_decls);
-  fprintf fmt "@.";
-  List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
-  fprintf fmt "@."
-
-(* Print only definitions of a proof context *)
-(* let print_defs fmt { lfsc_defs } =
-  List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
-  fprintf fmt "@." *)
-
-(* Print extra declarations/definitions of a context.
-   [print_delta_context ctx_old fmt ctx_new] prints the elements of [ctx_new]
-   that do not appear in [ctx_old]. *)
-let print_delta_context { lfsc_decls = old_decls; lfsc_defs = old_defs } fmt
-    { lfsc_decls; lfsc_defs } =
-  List.iter
-    (fun d ->
-      if
-        not (List.exists (fun od -> H.equal od.decl_symb d.decl_symb) old_decls)
-      then fprintf fmt "%a@." print_decl d)
-    (List.rev lfsc_decls);
-  List.iter
-    (fun dl ->
-      if
-        not (List.exists (fun odl -> H.equal odl.def_symb dl.def_symb) old_defs)
-      then fprintf fmt "%a\n@." print_def dl)
-    lfsc_defs
+let normalize_step = function
+  | HS.List (HS.Atom kw :: tl)
+      when HString.equal kw s_assume ->
+        HS.List (HS.Atom s_assume_push :: tl)
+  | sexpr -> sexpr
 
 
-(* Print the type of an hypothesis with its name *)
-let rec print_hyps_type ty fmt = function
-  | [] -> print_type fmt ty
-  | { decl_symb; decl_type } :: rhyps ->
-    fprintf fmt "@[<hov 0>(! %a@ %a@ %a)@]"
-      H.pp_print_hstring decl_symb
-      print_type decl_type
-      (print_hyps_type ty) rhyps
-
-(* Print a proof term type with an ascription if it's specified *)
-let print_proof_type hyps fmt = function
-  | None -> ()
-  | Some t -> fprintf fmt ": @[<hov 0>%a@]@ " (print_hyps_type t) hyps
-
-(* Print a proof term as lambda abstraction over its hypostheses *)
-let rec print_proof_term term fmt = function
-  | [] -> print_term fmt term
-  | { decl_symb; _ } :: rhyps ->
-    fprintf fmt "@[<hov 0>(\\ %a@ %a)@]"
-      H.pp_print_hstring decl_symb
-      (print_proof_term term) rhyps
+let get_proof_defs (proof : cpc_step list) =
+  let rec aux (acc_global_defs, acc_steps) = function
+    | sexpr :: tl when is_global_def sexpr ->
+        aux (sexpr :: acc_global_defs, acc_steps) tl
+    | sexpr :: tl when is_local_def sexpr ->
+        aux (acc_global_defs, sexpr :: acc_steps) tl
+     | sexpr :: tl ->
+        let sexpr = normalize_step sexpr in
+        aux (acc_global_defs, sexpr :: acc_steps) tl
+    | [] ->
+        (List.rev acc_global_defs, List.rev acc_steps)
+  in
+  aux ([], []) proof
 
 
-(* Print an LFSC proof *)
-let print_proof ?(context = false) name fmt
-    {
-      proof_context;
-      proof_temps;
-      proof_hyps;
-      proof_lems;
-      proof_type;
-      proof_term;
-    } =
-  if context then print_context fmt proof_context;
-  fprintf fmt "@.";
-  List.iter (fprintf fmt "%a@." print_def) (List.rev proof_temps);
-  fprintf fmt "@.";
-  List.iter (fprintf fmt "%a@." print_decl) (List.rev proof_hyps);
-  fprintf fmt "@.";
-  List.iter (fprintf fmt "%a@." print_lem) (List.rev proof_lems);
-  fprintf fmt "@.";
-  fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(%a%a)@])@]"
-    (H.string_of_hstring name)
-    (print_proof_type proof_hyps)
-    proof_type
-    (print_proof_term proof_term)
-    proof_hyps
+let is_jkind_name (s : HString.t) =
+  let n = HString.string_of_hstring s in
+  String.starts_with ~prefix: JP.jkind_id n
+  || String.starts_with ~prefix:"%f" n
+
+let is_jkind_decl = function
+  | HS.List [HS.Atom kw; HS.Atom name; _]
+    when HString.equal kw (HString.mk_hstring "declare-const") ->
+      is_jkind_name name
+  | _ -> false
 
 
-(*********************************)
-(* Parsing LFSC proofs from cvc5 *)
-(*********************************)
+let factor_jkind_defs (proof : cpc_step list) =
+  let rec aux (acc_k2_global_defs) = function
+    | sexpr :: tl when sexpr |> is_jkind_decl->
+       (acc_k2_global_defs, sexpr :: tl)
+    | sexpr :: tl ->
+        aux (sexpr :: acc_k2_global_defs) tl
+    | [] ->
+        (acc_k2_global_defs, [])
+  in
+  aux ([]) proof
 
+  let is_kind_2_def_name (s : HString.t) =
+    let open ReservedIds in
+  
+    let n = HString.string_of_hstring s in
+    let result =
+    ((String.starts_with ~prefix: init_uf_string n) && 
+    (not (String.starts_with ~prefix: (Ids.init_uf_string ^ "_" ^ JP.jkind_id) n)))
+    ||
+    ((String.starts_with ~prefix: trans_uf_string n) && 
+    (not (String.starts_with ~prefix: (Ids.trans_uf_string ^ "_" ^ JP.jkind_id) n)))
 
-(* Apply a substitution top to bottom in an LFSC expression *)
-(* let rec apply_subst sigma sexp =
-  let open HS in
-  try List.find (fun (s,_) -> HS.equal sexp s) sigma |> snd
-  with Not_found ->
-    match sexp with
-    | List l ->
-      let l' = List.rev_map (apply_subst sigma) l |> List.rev in
-      if List.for_all2 (==) l l' then sexp
-      else List l'
-    | Atom _ -> sexp *)
-
-let rec subst_atom sigma = function
-  | HS.Atom a -> (
-    match HM.find_opt a sigma with
-    | Some s -> HS.Atom s
-    | None -> HS.Atom a
-  )
-  | HS.List l -> HS.List (List.map (subst_atom sigma) l)
-
-(* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
-let rec extract_trusts acc = let open HS in
-  function
-  | List [Atom a; f] when a == s_trust -> f :: acc
-  | Atom _ -> acc
-  | List l -> extract_trusts_list acc l
-                
-and extract_trusts_list acc =
-  function
-  | [] -> acc
-  | x :: r -> extract_trusts_list (extract_trusts acc x) r 
-
-
-let trusted = ref []
-
-let register_trusts f = trusted := extract_trusts !trusted f
-
-let log_trusted ~frontend dirname =
-  if Flags.Certif.log_trust () && !trusted <> [] then begin
-
-    let o_flags =
-      if frontend then [Open_wronly; Open_append; Open_text]
-      else [Open_wronly; Open_creat; Open_trunc; Open_text]
     in
-    let trust_file = Filename.concat dirname trustfname in
-    let trust_chan = open_out_gen o_flags 0o666 trust_file in
-    let trust_fmt = formatter_of_out_channel trust_chan in
+
+    (* Format.printf "%B :: %s" result n; *)
+    result
+  let is_kind_2_def = function 
+  
+  | HS.List (HS.Atom kw :: HS.Atom name :: _)
+     when HString.equal kw (HString.mk_hstring "define") ->
+      (* Format.printf "CHecking if its a kind 2 def (true-ish) (kw = %a): %a\n"  HString.pp_print_hstring kw HS.pp_print_sexpr step; *)
+      is_kind_2_def_name name
+  | _ -> 
+      (* Format.printf "CHecking if its a kind 2 def (false by struct): %a\n"  HS.pp_print_sexpr step; *)
+      false
+
+  let remove_kind_2_defs (proof : cpc_step list) =
+  let rec aux (acc) = function
+    | sexpr :: tl when sexpr |> is_kind_2_def->
+       aux acc tl
+    | sexpr :: tl ->
+        aux (sexpr :: acc) tl
+    | [] ->
+        List.rev acc
+  in
+  aux ([]) proof
+let get_first_assm steps= 
+
+ let rec aux = function
+    | [] ->
+        failwith "Couldn't find the first assume-push"
+
+    | (HS.List (HS.Atom kw :: HS.Atom _ :: assm :: _)):: _    
+        when HString.equal kw (s_assume_push) ->
+        assm
+    | _ :: rest ->
+      aux rest
+    in
+    aux steps
+      
+      (* failwith (Format.asprintf "Unexpected format of assume-push:  %a"  HS.pp_print_sexpr s)  *)
+
+   
     
-    KEvent.log L_warn
-      "%s proof contains %d trusted assumptions.@."
-      (if frontend then "Frontend" else "Invariance")
-      (List.length !trusted);
-    fprintf trust_fmt ";; Trusted assumptions in %s proof\n@."
-      (if frontend then "frontend" else "invariance");
-    List.iter
-      (fprintf trust_fmt
-         "(check (: @[<hov 2>(th_holds %a)@]@\n  \
-          ;; Replace the following by an actual proof@\n  \
-          change_me@\n\
-          ))@\n@." (HS.pp_print_sexpr_indent 0))
-      !trusted;
 
-    close_out trust_chan
+let get_last_step_name steps =
+  let rec find_last = function
+    | [] ->
+        failwith "Empty proof: no steps"
 
-  end
+    | [HS.List (HS.Atom kw :: HS.Atom id :: _)]
+      when HString.equal kw (s_step) ->
+        id
 
+    | [sexpr] ->
+        failwith ("Last SExpr is not a step: " ^
+                  (Format.asprintf "%a" HS.pp_print_sexpr sexpr))
 
-exception ProofParseError of string
-
-let extract_proof_type = function
-  | HS.List [ HS.Atom ascr; ty; term ] when ascr = s_ascr -> (ty, term)
-  | t ->
-      raise
-        (ProofParseError ("Could not extract type of " ^ HS.string_of_sexpr t))
+    | _ :: tl ->
+        find_last tl
+  in
+  find_last steps
 
 
-(* Parse a proof from cvc5 and return a set of substitutions renaming temporary
-   variables. *)
-let rec create_substitution prefix =
-  let open HS in
-  function
-  | List [ Atom dec; Atom s; _ ] :: r
-    when dec == s_declare
-         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      create_substitution prefix r
-  | List [ Atom dec; Atom s; _ ] :: r when dec == s_declare ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      HM.add s s' (create_substitution prefix r)
-  | List [ Atom def; Atom s; _ ] :: r
-    when def == s_define
-         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      create_substitution prefix r
-  | List [ Atom def; Atom s; _ ] :: r when def == s_define ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      HM.add s s' (create_substitution prefix r)
-  | List [ Atom check; _ ] :: List [ _; Atom s; _ ] :: r when check == s_check
-    ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      HM.add s s' (create_substitution prefix r)
-  | [ List (Atom check :: _) ] when check == s_check -> HM.empty
-  | s ->
-      failwith
-        (asprintf "pre_parse_proof: Unexpected proof:\n%a@."
-           HS.pp_print_sexpr_list s)
+let generate_cpc_proof dirname smt_file =
+  let cmd =
+    Printf.sprintf "%s %s" (cvc5_proof_cmd ()) smt_file
+  in
+  let (in_ch, _, _) =
+    Unix.open_process_full cmd (Unix.environment ())
+  in
+  cpc_proof_from_chan dirname in_ch
+
+  let mk_k_ind_proof_step_kind_2 k = 
+    
+    let str = "(step k_ind_proof_kind_2 (Invariant I1 T1 PHI1) :rule k-induction 
+       :premises (base_proof_kind_2 induction_proof_kind_2) :args (I1 T1 PHI1 " ^ (string_of_int k) ^ "))" in
+    HS.List (Lexing.from_string (str) |> parse_cpc_from_lexbuf )
 
 
-(***********************)
-(* Parsing proof terms *)
-(***********************)
-
-(* Parse a proof from cvc5, returns a [!cvc_proof] object *)
-let rec parse_proof acc =
-  let open HS in
-  let ctx = acc.proof_context in
-  function
-  | List [ Atom dec; Atom s; t ] :: r
-    when dec == s_declare
-         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      let ctx =
-        if List.exists (fun decl -> H.equal decl.decl_symb s) ctx.lfsc_decls
-        then ctx
-        else
-          let decl = { decl_symb = s; decl_type = t } in
-          { ctx with lfsc_decls = decl :: ctx.lfsc_decls }
-      in
-      parse_proof { acc with proof_context = ctx } r
-  | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      let hyp = { decl_symb = s; decl_type = t } in
-      parse_proof
-        { acc with proof_hyps = hyp :: acc.proof_hyps; proof_context = ctx }
-        r
-  | List [ Atom def; Atom s; b ] :: r
-    when def == s_define
-         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      let ctx =
-        if List.exists (fun def -> H.equal def.def_symb s) ctx.lfsc_defs then
-          ctx
-        else
-          let def = { def_symb = s; def_body = b } in
-          { ctx with lfsc_defs = def :: ctx.lfsc_defs }
-      in
-      parse_proof { acc with proof_context = ctx } r
-  | List [ Atom def; Atom s; b ] :: r when def == s_define ->
-      let temp = { def_symb = s; def_body = b } in
-      parse_proof
-        { acc with proof_temps = temp :: acc.proof_temps; proof_context = ctx }
-        r
-  | List [ Atom check; p ] :: List [ _; Atom s; _ ] :: r when check == s_check
-    ->
-      let ty, p = extract_proof_type p in
-      let lem = { lem_symb = s; lem_ty = ty; lem_body = p } in
-      parse_proof
-        { acc with proof_lems = lem :: acc.proof_lems; proof_context = ctx }
-        r
-  | [ List (Atom check :: [ pterm ]) ] when check == s_check ->
-      let ctx = { ctx with lfsc_defs = List.rev ctx.lfsc_defs } in
-      if Flags.Certif.log_trust () then register_trusts pterm;
-      let ty, pterm =
-        if Flags.Certif.flatten_proof () then
-          let r = extract_proof_type pterm in
-          (Some (fst r), snd r)
-        else (None, pterm)
-      in
-      { acc with proof_context = ctx; proof_type = ty; proof_term = pterm }
-  | s ->
-      failwith
-        (asprintf "parse_proof: Unexpected proof:\n%a@." HS.pp_print_sexpr_list
-           s)
+  let mk_k_ind_proof_step_jkind k = 
+    let str = "(step k_ind_proof_jkind (Invariant IO TO PHIO) :rule k-induction
+       :premises (base_proof_jkind induction_proof_jkind) :args (IO TO PHIO " ^ (string_of_int k) ^ "))" in
+    HS.List (Lexing.from_string (str) |> parse_cpc_from_lexbuf )
 
 
-(* Parse a proof from cvc5 from one that start with [(check ...]. *)
-let parse_proof_check ctx = parse_proof (mk_empty_proof ctx)
+  let hardcoded_steps = [
+    (
+      "proof_inv", 
+      "(step proof_inv (Invariant I1 T1 P1) :rule invariant-implies
+       :premises (k_ind_proof_kind_2 implication_proof_kind_2) :args (I1 T1 PHI1 P1))"
+    );
+    (
+      "proof_obs",
+      "(step proof_obs (Invariant IO TO PO) :rule invariant-implies
+       :premises (k_ind_proof_jkind implication_proof_jkind) :args (IO TO PHIO PO))"
+    );
+    (
+      "proof_obs_eq",
+      "(step proof_obs_eq (Weak_Obs_Eq I1 T1 P1 I2 T2 P2) :rule weak-obs-eq
+       :premises (proof_obs) :args (I1 T1 P1 I2 T2 P2 same_inputs))"
+    );
+    (
+      "proof_safe",
+      "(step proof_safe (Safe I1 T1 P1) :rule inv-and-obs
+       :premises (proof_inv proof_obs_eq) :args (I1 T1 P1 I2 T2 P2))"
+    );
+  ]
+let rec hardoced_lookup step_name = function
+  | (step, formula) :: rest -> if (String.equal step step_name) then formula else (hardoced_lookup step_name rest)
+  | [] -> "" 
+
+let mk_hardcoded_step step_name = 
+  HS.List (Lexing.from_string (hardoced_lookup step_name hardcoded_steps) |> parse_cpc_from_lexbuf )
 
 
-(* Parse a proof from cvc5 from a channel. cvc5 returns the proof after
-   displaying [unsat] on the channel. *)
-let proof_from_chan ctx prefix in_ch =
+let mk_step_pop_dyn name last_step_id assm =
+  HS.List [
+    HS.Atom (HString.mk_hstring "step-pop");
+    HS.Atom (HString.mk_hstring name);
+    HS.List [
+      HS.Atom (HString.mk_hstring "=>");
+      assm;
+      HS.Atom (HString.mk_hstring "false");
+    ];
+    HS.Atom (HString.mk_hstring ":rule");
+    HS.Atom (HString.mk_hstring "scope");
+    HS.Atom (HString.mk_hstring ":premises");
+    HS.List [ HS.Atom last_step_id ];
+  ]
+let pp_print_safety_proof fmt defs base_steps induction_steps implication_steps k =
+    Format.fprintf fmt "%a" pp_cpc_proof defs;
+    Format.fprintf fmt ";; Base proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof base_steps;
+    Format.fprintf fmt ";; base_proof_k2\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "base_proof_kind_2" (get_last_step_name base_steps) (get_first_assm base_steps))] ;
+    Format.fprintf fmt ";; Induction proof \n";
+    Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
+    Format.fprintf fmt ";; induction_proof_k2 \n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "induction_proof_kind_2" (get_last_step_name induction_steps) (get_first_assm induction_steps))] ;
+    Format.fprintf fmt ";; k_ind_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_k_ind_proof_step_kind_2 k )];
+    Format.fprintf fmt ";; implication_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
+    Format.fprintf fmt ";; impl_rule \n" ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "implication_proof_kind_2" (get_last_step_name implication_steps) (get_first_assm implication_steps))]; 
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_hardcoded_step "proof_inv")]
 
-  let lexbuf = Lexing.from_channel in_ch in
-  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
-  let open HS in
+
+let pp_print_frontend_proof fmt defs base_steps induction_steps implication_steps k =
+    Format.fprintf fmt "%a" pp_cpc_proof defs;
+    Format.fprintf fmt ";; Base proof (Observer)\n";
+    Format.fprintf fmt "%a" pp_cpc_proof base_steps;
+    Format.fprintf fmt ";; base_proof_jkind\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "base_proof_jkind" (get_last_step_name base_steps) (get_first_assm base_steps))] ;
+    Format.fprintf fmt ";; Induction proof (Observer) \n";
+    Format.fprintf fmt "%a" pp_cpc_proof induction_steps;
+    Format.fprintf fmt ";; induction_proof_jkind \n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "induction_proof_jkind" (get_last_step_name induction_steps) (get_first_assm induction_steps))] ;
+    Format.fprintf fmt ";; k_ind_proof\n";
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_k_ind_proof_step_jkind k )];
+    Format.fprintf fmt ";; implication_proof (Observer)\n";
+    Format.fprintf fmt "%a" pp_cpc_proof implication_steps;
+    Format.fprintf fmt ";; impl_rule \n" ;
+    Format.fprintf fmt "%a" pp_cpc_proof [(mk_step_pop_dyn "implication_proof_jkind" (get_last_step_name implication_steps) (get_first_assm implication_steps))]
+
+
+let construct_kind_2_proof dirname base induction implication k = 
+
+  let base_k2 = generate_cpc_proof (Filename.concat dirname base_proofname_cpc) base in
+  let induction_k2 = generate_cpc_proof (Filename.concat dirname induction_proofname_cpc) induction in
+  let implication_k2 =generate_cpc_proof (Filename.concat dirname implication_proofname_cpc) implication in
+
+
+  let (defs, base_steps) = get_proof_defs base_k2 in
+  let (_, induction_steps) = get_proof_defs induction_k2 in
+  let (_, implication_steps) = get_proof_defs implication_k2 in
+
+  let oc = open_out (Filename.concat dirname kind_2_proofname_cpc) in
+  let fmt = Format.formatter_of_out_channel oc in
+  pp_print_safety_proof fmt defs base_steps induction_steps implication_steps k
+
+
+
+
+let construct_frontend_proof dirname base induction implication k = 
+
+  let base_jkind = generate_cpc_proof (Filename.concat dirname frontend_base_proofname_cpc) base in
+  let induction_jkind =generate_cpc_proof (Filename.concat dirname frontend_induction_proofname_cpc) induction in
+  let implication_jkind =generate_cpc_proof (Filename.concat dirname frontend_implication_proofname_cpc) implication in
+
+  let (defs, base_steps) = get_proof_defs base_jkind  in
+  let (_, induction_steps) = get_proof_defs induction_jkind in
+  let (_, implication_steps) = get_proof_defs implication_jkind in
+  let induction_steps = remove_kind_2_defs induction_steps in
+  let implication_steps = remove_kind_2_defs implication_steps in
   
-  match sexps with
-  
-    | [Atom a] when a == s_sat || a == s_unknown ->
-      failwith (sprintf "Certificate cannot be checked by smt solver (%s)@."
-                  (H.string_of_hstring a))
+  let oc = open_out (Filename.concat dirname frontend_proofname_cpc) in
+  let fmt = Format.formatter_of_out_channel oc in
+  pp_print_frontend_proof fmt defs base_steps induction_steps implication_steps k
 
-    | [Atom a] ->
-      failwith (sprintf "No proofs, instead got:\n%s@." (H.string_of_hstring a))
-
-    | Atom u :: proof when u == s_unsat ->
-
-      let sigma = create_substitution prefix proof in
-      parse_proof_check ctx (List.map (subst_atom sigma) proof)
-
-    | _ ->
-      failwith (asprintf "No proofs, instead got:\n%a@."
-                  HS.pp_print_sexpr_list sexps)
-
-
-
-(* Call cvc5 in proof production mode on an SMT2 file and return the proof *)
-let proof_from_file ctx prefix f =
-  let cmd = cvc5_proof_cmd () ^ " " ^ f in
-  (* Format.eprintf "CMD: %s@." cmd ; *)
-  let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
-  try
-    let proof = proof_from_chan ctx prefix ic in
-    ignore(Unix.close_process_full (ic, oc, err));
-    proof
-  with Failure _ as e ->
-    KEvent.log L_fatal "Could not parse cvc5 proof.";
-    (match Unix.close_process_full (ic, oc, err) with
-     | Unix.WEXITED 0 -> ()
-     | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       KEvent.log L_fatal "cvc5 crashed with exit code %d." i);
-    raise e
-
-
-(******************************************)
-(* Parsing context from dummy lfsc proofs *)
-(******************************************)
-
-(* Parse a context from a dummy proof used only for tracing *)
-let rec parse_context ctx =
-  let open HS in
-  function
-  | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      if Lib.string_starts_with (H.string_of_hstring s) "cvc." then
-        let decl = { decl_symb = s; decl_type = t } in
-        parse_context { ctx with lfsc_decls = decl :: ctx.lfsc_decls } r
-      else parse_context ctx r
-  | List [ Atom def; Atom s; b ] :: r when def == s_define ->
-      let def = { def_symb = s; def_body = b } in
-      parse_context { ctx with lfsc_defs = def :: ctx.lfsc_defs } r
-  | [ List (Atom check :: _) ] when check == s_check ->
-      { ctx with lfsc_defs = List.rev ctx.lfsc_defs }
-  | s ->
-      failwith
-        (asprintf "parse_context: Unexpected proof:\n%a@."
-           HS.pp_print_sexpr_list s)
-
-
-(* Parse a context from a dummy proof check used only for tracing *)
-let parse_context_dummy = parse_context (mk_empty_proof_context ())
-
-
-(* Parse a context from a channel. The goal is trivial because the file
-   contains "(assert false)" but we care about the hypotheses to recontruct the
-   LFSC definitions inlined by cvc5. *)
-let context_from_chan in_ch =
-
-  let lexbuf = Lexing.from_channel in_ch in
-  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
-  let open HS in
-  
-  match sexps with
-  
-    | [Atom a] when a == s_sat || a == s_unknown ->
-      failwith (sprintf "Certificate cannot be checked by smt solver (%s)@."
-                  (H.string_of_hstring a))
-
-    | [Atom a] ->
-      failwith (sprintf "No proofs, instead got:\n%s@." (H.string_of_hstring a))
-
-    | Atom u :: dummy_proof when u == s_unsat ->
-
-      parse_context_dummy dummy_proof
-
-    | _ ->
-      failwith (asprintf "No proofs, instead got:\n%a@."
-                  HS.pp_print_sexpr_list sexps)
-
-
-
-(* Call cvc5 on a file that contains only tracing information and parse the
-   dummy proof to extract the context (declarations and definitions). *)
-let context_from_file f =
-  let cmd = cvc5_proof_cmd () ^ " " ^ f in
-  let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
-  try
-    let ctx = context_from_chan ic in
-    (* printf "Parsed context:\n%a@." print_context ctx; *)
-    ignore(Unix.close_process_full (ic, oc, err));
-    ctx
-  with Failure _ as e ->
-    KEvent.log L_fatal "Could not parse cvc5 context.";
-    (match Unix.close_process_full (ic, oc, err) with
-     | Unix.WEXITED 0 -> ()
-     | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       KEvent.log L_fatal "cvc5 crashed with exit code %d." i);
-    raise e
-
-(* Merge two contexts. Note: this is a shallow operation that returns `ctx1`
-   with `ctx2` decls/defs whose symbol is not in `ctx1` ignoring types/
-   bodies. *)
-let merge_contexts ctx1 ctx2 =
-  let decl_pred acc decl =
-    if List.exists (fun decl' -> H.equal decl'.decl_symb decl.decl_symb) acc
-    then acc
-    else decl :: acc
+let parse_cpc_file (filename : string) : cpc_step list =
+  let ic = open_in filename in
+  let lexbuf = Lexing.from_channel ic in
+  let steps =
+    try
+      parse_cpc_from_lexbuf lexbuf
+    with e ->
+      close_in ic;
+      raise e
   in
-  let def_pred acc def =
-    if List.exists (fun def' -> H.equal def'.def_symb def.def_symb) acc then acc
-    else def :: acc
-  in
-  {
-    lfsc_decls =
-      List.rev
-        (List.fold_left decl_pred (List.rev ctx1.lfsc_decls) ctx2.lfsc_decls);
-    lfsc_defs =
-      List.rev
-        (List.fold_left def_pred (List.rev ctx1.lfsc_defs) ctx2.lfsc_defs);
-  }
-
-(* Intersect two contexts. Note: this is a shallow operation that removes decls/
-   defs in `ctx1` whose symbol appear in `ctx2` ignoring types/bodies. *)
-let intersect_contexts ctx1 ctx2 =
-  let decl_pred decl =
-    List.exists
-      (fun decl' -> H.equal decl'.decl_symb decl.decl_symb)
-      ctx2.lfsc_decls
-  in
-  let def_pred def =
-    List.exists (fun def' -> H.equal def'.def_symb def.def_symb) ctx2.lfsc_defs
-  in
-  {
-    lfsc_decls = List.filter decl_pred ctx1.lfsc_decls;
-    lfsc_defs = List.filter def_pred ctx1.lfsc_defs;
-  }
-
-(* Pretty-print a sort *)
-let rec pp_print_sort ppf t =
-  let t = SMT.interpr_type t in
-  (* Print array types with an abstract sort *)
-  match Type.node_of_type t with
-  | Type.Array (te, ti) ->
-    if Flags.Arrays.smt () then
-      Format.fprintf ppf "(Array %a %a)" pp_print_sort ti pp_print_sort te
-    else
-      Format.fprintf ppf "(cvc.FArray %a %a)" pp_print_sort ti pp_print_sort te
-  | Abstr s -> Format.pp_print_string ppf ("cvc." ^ s)
-  | UBV i | BV i -> Format.fprintf ppf "(BitVec %d)" i
-  | _ -> Type.pp_print_type ppf t
-
-(* Return a string representation of a sort *)
-let string_of_sort = string_of_t pp_print_sort
-
-(* Generate a simple context with custom indexing of variables to avoid index
-   clashes between proofs generated by cvc5 *)
-let context_from_vars vars =
-  let to_decl i v =
-    let rec sexp_of_sort arg_sorts res_sort =
-      match arg_sorts with
-      | [] -> HS.Atom (H.mk_hstring (string_of_sort res_sort))
-      | arg_sort :: arg_sorts ->
-          HS.List
-            [
-              HS.Atom (H.mk_hstring "arrow");
-              HS.Atom (H.mk_hstring (string_of_sort arg_sort));
-              sexp_of_sort arg_sorts res_sort;
-            ]
-    in
-    let symb = UfSymbol.name_of_uf_symbol v in
-    let arg_sorts = UfSymbol.arg_type_of_uf_symbol v in
-    let res_sort = UfSymbol.res_type_of_uf_symbol v in
-    let sort =
-      HS.List
-        [
-          HS.Atom (H.mk_hstring "var");
-          HS.Atom (H.mk_hstring (string_of_int i));
-          sexp_of_sort arg_sorts res_sort;
-        ]
-    in
-    {
-      def_symb = H.mk_hstring ("cvc." ^ symb);
-      def_body = sort;
-    }
-  in
-  { (mk_empty_proof_context ()) with lfsc_defs = List.mapi to_decl vars }
-
-let context_from_file f =
-  Stat.start_timer Stat.certif_cvc5_time;
-  let c = context_from_file f in
-  Stat.record_time Stat.certif_cvc5_time;
-  c
-  
-let proof_from_file prefix f =
-  Stat.start_timer Stat.certif_cvc5_time;
-  let p = proof_from_file prefix f in
-  Stat.record_time Stat.certif_cvc5_time;
-  p
-  
-
-
-open Certificate
-
-
-(* Write a proof to the formatter. The proof is given a name [pname] and a
-   [type]. The Boolean [check] is used to tell that if LFSC should check this
-   proof (its not necessary if the proof is reused in another check). *)
-let write_proof_and_check fmt ?(check=true) pname ptype pterm =
-
-  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]@.@."
-    H.pp_print_hstring pname
-    print_type ptype
-    print_term pterm;
-
-  if check then
-    fprintf fmt "@[<hov 1>(check@ %a@])@]@.@."
-      H.pp_print_hstring pname
-
-
-
-(* Write a proof of invariance by k-induction using the proof of its subcases
-   and a certificate constructed by Kind 2. See [!Certificate.invariant]. *)
-let write_inv_proof fmt ?(check=true)
-    (s_implication, s_base, s_induction) name_proof c =
-  let open HS in
-
-  (* LFSC atoms for formulas *)
-  let a_k = List [Atom (H.mk_hstring "int"); Atom (hstring_of_int c.k)] in
-  let a_init = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.init)) in
-  let a_trans = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.trans)) in
-  let a_prop = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.prop)) in
-  let a_phi = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.phi)) in
-
-  (* LFSC commands to construct the proof *)
-  let a_invariant = Atom s_invariant in
-  let a_invariant_implies = Atom s_invariant_implies in
-  let a_kinduction = Atom s_kinduction in
-
-  (* Prior LFSC proofs *)
-  let proof_implication = Atom s_implication in
-  let proof_base = Atom s_base in
-  let proof_induction = Atom s_induction in
-
-  let pterm =
-    List [a_invariant_implies; a_init; a_trans; a_phi; a_prop;
-          proof_implication;
-
-          List [a_kinduction; a_k; a_init; a_trans; a_phi;
-                hole; hole; proof_base; proof_induction ]
-         ] in
-  let ptype = List [a_invariant; a_init; a_trans; a_prop] in
-
-  write_proof_and_check fmt ~check name_proof ptype pterm
-
-(* Write a proof of weak observational equivalence using the proof ob
-   invariance of the observer. *)
-let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof i a b c d =
-  
-  let open HS in
-
-  (* LFSC atoms for formulas *)
-  let a_init_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.init)) in
-  let a_trans_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.trans)) in
-  let a_prop_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.prop)) in
-
-  let a_init_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.init)) in
-  let a_trans_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.trans)) in
-  let a_prop_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.prop)) in
-
-
-  (* LFSC commands to construct the proof *)
-  let a_obs_eq = Atom s_obs_eq in
-  let a_weak_obs_eq = Atom s_weak_obs_eq in
-  let a_same_inputs = Atom (H.mk_hstring "cvc.same_inputs") in
-
-  (* named prood of obsercational equivalence *)
-  let proof_obs = Atom proof_obs_name in
-
-  let pterm = 
-    List [a_obs_eq;
-          a_init_1; a_trans_1; a_prop_1;
-          a_init_2; a_trans_2; a_prop_2;
-          a; b; c; d;
-          a_same_inputs; proof_obs]
-  in
-
-  let ptype =
-    List [a_weak_obs_eq;
-          a_init_1; a_trans_1; a_prop_1;
-          a_init_2; a_trans_2; a_prop_2]
-  in
-
-  write_proof_and_check fmt ~check name_proof ptype pterm  
-
-
-(* Write a proof of safety using the proof of invariance and the proof of weak
-   observational equivalence. *)
-let write_safe_proof fmt ?(check=true) kind2_s jkind_s =
-  let open HS in
-
-  (* LFSC atoms for formulas *)
-  let a_init = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.init)) in
-  let a_trans = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.trans)) in
-  let a_prop = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.prop)) in
-
-  let a_init' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.init)) in
-  let a_trans' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.trans)) in
-  let a_prop' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.prop)) in
-
-  (* LFSC commands to construct the proof *)
-  let a_inv_obs = Atom s_inv_obs in
-  let a_safe = Atom s_safe in
-
-  (* Prior LFSC proofs *)
-  let proof_inv = Atom proof_inv_name in
-  let proof_obs_eq = Atom proof_obs_eq_name in
-
-  let pterm =
-    List [a_inv_obs;
-          a_init; a_trans; a_prop;
-          a_init'; a_trans'; a_prop';
-          proof_inv; proof_obs_eq]
-  in
-  let ptype = List [a_safe; a_init; a_trans; a_prop] in
-  
-  write_proof_and_check fmt ~check proof_safe_name ptype pterm  
-  
-
-(* Generate the LFSC proof of invariance for the original properties and write
-   it in the file [!proofname]. *)
-let generate_inv_proof inv =
-
-  let proof_file = Filename.concat inv.dirname proofname in
-  let proof_chan = open_out proof_file in
-  let proof_fmt = formatter_of_out_channel proof_chan in
-
-  set_margin proof_fmt;
-
-  fprintf proof_fmt
-    ";;------------------------------------------------------------------\n\
-     ;; LFSC proof produced by %s %s and\n\
-     ;; %s\n\
-     ;; from original problem %s\n\
-     ;;------------------------------------------------------------------\n@."
-    Version.package_name Version.version
-    (get_cvc5_version ())
-    (Flags.input_file ());
-
-  Debug.certif "Declaring variables for LFSC contexts";
-
-  let ctx_vars = context_from_vars inv.kind2_system.names.vars in
-
-  Debug.certif "Extracting LFSC contexts from cvc5 proofs";
-  
-  let ctx_k2 = context_from_file inv.for_system.smt2_lfsc_trace_file in
-  fprintf proof_fmt ";; System generated by Kind 2\n@.%a\n@."
-  print_context (merge_contexts ctx_vars ctx_k2);
-
-  let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n@.%a\n@."
-  (print_delta_context ctx_k2) ctx_phi;
-
-  let ctx = ctx_phi
-            |> merge_contexts ctx_k2
-            |> merge_contexts ctx_vars
-  in
-  
-  Debug.certif "Extracting LFSC proof of base case from cvc5";
-  let base_proof = proof_from_file ctx "inv.base" inv.base in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) base_proof.proof_context;
-  fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
-    (print_proof s_base) base_proof;
-
-  Debug.certif
-    "Extracting LFSC proof of inductive case from cvc5";
-  let induction_proof = proof_from_file ctx "inv.ind" inv.induction in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) induction_proof.proof_context;
-  fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
-    (print_proof s_induction) induction_proof;
-
-  Debug.certif
-    "Extracting LFSC proof of implication from cvc5";
-  let implication_proof = proof_from_file ctx "inv.imp" inv.implication in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) implication_proof.proof_context;
-  fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
-    (print_proof s_implication) implication_proof;
-
-  fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
-  write_inv_proof proof_fmt
-    (s_implication, s_base, s_induction) proof_inv_name inv;
-  
-  close_out proof_chan;
-  (* Show which file contains the proof *)
-  Debug.certif "LFSC proof written in %s" proof_file;
-
-  log_trusted ~frontend:false inv.dirname;
-
-  let decl_syms = List.map (fun decl -> decl.decl_symb) ctx.lfsc_decls in
-  let def_syms = List.map (fun def -> def.def_symb) ctx.lfsc_defs in
-  decl_syms @ def_syms
-
-
-let get_itp_binders ctx =
-  let is_sym sym lfsc_def =
-    match lfsc_def.def_symb with
-    | sym' when H.equal sym' (H.mk_hstring sym) -> true
-    | _ -> false
-  in
-  let i = List.find (is_sym "cvc.IO") ctx.lfsc_defs in
-  let t = List.find (is_sym "cvc.TO") ctx.lfsc_defs in
-  let p = List.find (is_sym "cvc.PO") ctx.lfsc_defs in
-  let s_lambda = H.mk_hstring "lambda" in
-  let rec find_lambda_binders n =
-    let open HS in
-    function
-    | List (Atom at :: _ :: _ :: [ r ]) when at == s_at ->
-        find_lambda_binders n r
-    | List (List [ Atom lam; i; _ ] :: [ r ]) when lam == s_lambda ->
-        i :: (if n == 1 then [] else find_lambda_binders (n - 1) r)
-    | _ -> []
-  in
-  let error f =
-    raise
-      (ProofParseError
-         ("Could not parse " ^ f ^ " definition in the proof generated by cvc5"))
-  in
-  let a =
-    match find_lambda_binders 1 i.def_body with
-    | [ a ] -> a
-    | _ -> error "cvc.IO"
-  in
-  let b, c =
-    match find_lambda_binders 2 t.def_body with
-    | [ b; c ] -> (b, c)
-    | _ -> error "cvc.TO"
-  in
-  let d =
-    match find_lambda_binders 1 p.def_body with
-    | [ d ] -> d
-    | _ -> error "cvc.PO"
-  in
-  (a, b, c, d)
-
-
-(* Generate the LFSC proof of safey by producing an intermediate proofs of
-   observational equivalence for the frontend. The proof is written in the file
-   [!frontend_proofname]. *)
-let generate_frontend_proof inv =
-  let proof_file = Filename.concat inv.dirname frontend_proofname in
-  let proof_chan = open_out proof_file in
-  let proof_fmt = formatter_of_out_channel proof_chan in
-
-  set_margin proof_fmt;
-
-  fprintf proof_fmt
-    ";;------------------------------------------------------------------\n\
-     ;; LFSC proof produced by %s %s and\n\
-     ;; %s\n\
-     ;; for frontend observational equivalence and safety\n\
-     ;; (depends on proof.lfsc)\n\
-     ;;------------------------------------------------------------------\n@."
-    Version.package_name Version.version
-    (get_cvc5_version ()) ;
-
-  let ctx_vars =
-    context_from_vars (inv.kind2_system.names.vars @ inv.jkind_system.names.vars)
-  in
-
-  let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
-  let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
-
-  fprintf proof_fmt ";; System generated by JKind\n@.%a\n@."
-  print_context (intersect_contexts (merge_contexts ctx_vars ctx_obs) ctx_jk);
-
-  fprintf proof_fmt ";; System generated for Observer\n@.%a\n@."
-  (print_delta_context (merge_contexts ctx_vars ctx_jk)) ctx_obs;
-
-  let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
-  (print_delta_context (merge_contexts ctx_jk ctx_obs)) ctx_phi;
-
-  let ctx_k2 = context_from_file inv.kind2_system.smt2_lfsc_trace_file in
-
-  let ctx = ctx_phi
-            |> merge_contexts ctx_obs
-            |> merge_contexts ctx_jk
-            |> merge_contexts ctx_k2
-            |> merge_contexts ctx_vars
-  in
-  
-  Debug.certif
-    "Extracting LFSC frontend proof of base case from cvc5";
-  let base_proof = proof_from_file ctx "front.base" inv.base in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) base_proof.proof_context;
-  fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
-    (print_proof obs_base) base_proof;
-
-  Debug.certif
-    "Extracting LFSC frontend proof of inductive case from cvc5";
-  let induction_proof = proof_from_file ctx "front.ind" inv.induction in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) induction_proof.proof_context;
-  fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
-    (print_proof obs_induction) induction_proof;
-
-  Debug.certif
-    "Extracting LFSC frontend proof of implication from cvc5";
-  let implication_proof = proof_from_file ctx "front.imp" inv.implication in
-  fprintf proof_fmt ";; Additional symbols@.%a@."
-    (print_delta_context ctx) implication_proof.proof_context;
-  fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
-    (print_proof obs_implication) implication_proof;
-
-  fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
-  write_inv_proof proof_fmt ~check:false
-    (obs_implication, obs_base, obs_induction) proof_obs_name inv;
-
-  fprintf proof_fmt ";; Proof of observational equivalence\n@.";
-  let a, b, c, d = get_itp_binders ctx in
-  write_obs_eq_proof proof_fmt ~check:true proof_obs_name proof_obs_eq_name inv
-    a b c d;
-
-  close_out proof_chan;
-
-  (* Show which file contains the proof *)
-  Debug.certif "LFSC proof written in %s" proof_file;
-
-  log_trusted ~frontend:true inv.dirname
+  close_in ic;
+  steps
+
+
+  let construct_safety_proof dirname =
+    let kind_2_proof = parse_cpc_file (dirname ^"/" ^ kind_2_proofname_cpc) in
+    let frontend_proof = parse_cpc_file (dirname^"/" ^ frontend_proofname_cpc) in
+
+    let (defs, frontend_steps) = get_proof_defs frontend_proof  in
+    let (_, jkind_defs) = factor_jkind_defs defs in 
+    let trimmed_jkind_defs = remove_kind_2_defs jkind_defs in
+    let frontend_proof = trimmed_jkind_defs @ frontend_steps in
+      let final_steps = [
+          (mk_hardcoded_step "proof_obs");
+          (mk_hardcoded_step "proof_obs_eq");
+          (mk_hardcoded_step "proof_safe");
+
+    ] in
+    
+    let final_proof = List.concat [kind_2_proof; frontend_proof; final_steps] in
+    let safety_proof_path = Filename.concat dirname safety_proofname_cpc in 
+    let oc = open_out safety_proof_path in
+    let fmt = Format.formatter_of_out_channel oc in
+    Format.fprintf fmt "%a" pp_cpc_proof final_proof;
+    Format.printf "Final Safety CPC proof written to %s\n" safety_proof_path

@@ -1443,7 +1443,7 @@ module Certif = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates (intermediate) certificates in the SMT-LIB 2 format and@ \
-      produces proofs in the LFSC format.\
+      produces proofs in the CPC format.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1472,51 +1472,12 @@ module Certif = struct
     (Arg.Bool (fun b -> proof := b))
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Produce LFSC proofs.@ Default: %a@]"
+        "@[<v>Produce CPC proofs.@ Default: %a@]"
         fmt_bool proof_default
     )
 
   let certif () = !certif
   let proof () = !proof
-
-  let smaller_holes_default = false
-  let smaller_holes = ref smaller_holes_default
-  let _ = add_spec
-    "--smaller_holes"
-    (bool_arg smaller_holes)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Generate proofs with smaller trust holes.@ Substantially \
-         increases the size of the proof.@ Default: %a@]"
-        fmt_bool smaller_holes_default
-    )
-  let smaller_holes () = !smaller_holes
-
-  let flatten_proof_default = false
-  let flatten_proof = ref flatten_proof_default
-  let _ = add_spec
-    "--flatten_proof"
-    (bool_arg flatten_proof)
-    (fun fmt ->
-        Format.fprintf fmt
-          "@[<v>Breakdown proofs into smaller steps, where each step is checked \
-          independently.@ Substantially reduces LFSC memory footprint. @ \
-          Default:%a@]"
-          fmt_bool smaller_holes_default)
-  let flatten_proof () = !flatten_proof
-
-  let log_trust_default = false
-  let log_trust = ref log_trust_default
-  let _ = add_spec
-    "--log_trust"
-    (bool_arg log_trust)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Log trusted parts of the proof in a separate file \
-         for users to fill.@ Default: %a@]"
-        fmt_bool log_trust_default
-    )
-  let log_trust () = !log_trust
 
   type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
   let mink_of_string = function
@@ -4064,12 +4025,15 @@ let solver_dependent_actions solver =
         ) ;
         if
           Certif.proof () && not (
-            major=1 && minor=0 && patch>=3 && patch<=9 ||
-            major=1 && minor=1 && patch=0
+            (major == 1 && minor == 3 && patch >=2 )
+            ||
+            (major == 1 && minor > 3) 
+            ||
+            (major > 1)
           )
         then (
           Log.log L_error
-            "LFSC proof production requires cvc5 >= 1.0.3 and <= 1.1.0. Found \
+            "CPC proof production requires cvc5 >= 1.3.2. Found \
              version: %d.%d.%d"
             major minor patch;
           raise UnsupportedSolver) ;
