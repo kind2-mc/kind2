@@ -80,8 +80,8 @@ fun ctx node_name fun_ids expr ->
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos; } in
     let node_id = mk_fresh_fn_name pos node_name TypeAscription in
-    let ip_id = HString.mk_hstring "inp" in 
-    let op_id = HString.mk_hstring "op" in
+    let ip_id = HString.mk_hstring ".inp" in 
+    let op_id = HString.mk_hstring ".op" in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
     let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
     let op = pos, op_id, mono, A.ClockTrue in
@@ -95,13 +95,30 @@ fun ctx node_name fun_ids expr ->
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let ty = Ctx.expand_type_syn ctx ty in
     let is_const = AH.fold_lustre_ty AH.expr_is_const true (&&) ty in
+    let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
+    (* Global constants don't need to be passed as arguments to generated nodes *)
+    let inputs = List.filter (fun i -> 
+      match Ctx.lookup_const ctx i with 
+        | Some (_, _, Ctx.Global) -> false 
+        | _ -> true
+    ) inputs in 
+    let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
+    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
+      | Some ty -> 
+        let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
+        p, inp, ty, cl, is_const 
+      | None -> assert false
+    ) inputs in
+
+
     let decl =
       if is_const then 
-        A.FuncDecl (span, (node_id, false, Transparent, ty_params, [ip], [op], [], [eq], None)) 
+        A.FuncDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
       else 
-        A.NodeDecl (span, (node_id, false, Transparent, ty_params, [ip], [op], [], [eq], None)) 
+        A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
     in 
-    Call (pos, ty_args, node_id, [e]), decl :: gen_nodes1 @ gen_nodes2 
+    Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let expr1, gen_nodes = rec_call expr1 in
