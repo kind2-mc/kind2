@@ -1129,8 +1129,8 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | Type -> "Type"
     | Component -> "Node"
     | Any -> "'Any' operator"
-    | DefinedConstant -> "Global constant (defined)"
-    | FreeConstant -> "Global constant (free)"
+    | DefinedConstant -> "Global constant"
+    | FreeConstant -> "Global constant"
     | Choose -> "'Choose' operator"
   in
   

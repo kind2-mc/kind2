@@ -252,8 +252,8 @@ let pp_print_core_data in_sys param sys fmt cpd =
       | Type -> "Type"
       | Component -> "Node"
       | Any -> "'Any' operator"
-      | DefinedConstant -> "Global constant (defined)"
-      | FreeConstant -> "Global constant (free)"
+      | DefinedConstant -> "Global constant"
+      | FreeConstant -> "Global constant"
       | Choose -> "'Choose' operator")
     NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;
