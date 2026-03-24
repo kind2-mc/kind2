@@ -1,5 +1,5 @@
-Tuple types
-==================
+Tuples
+======
 
 Tuples are constructed with the syntax ``'(x1, ..., xn)`` and destructed with the syntax ``t[idx]``, 
 where ``idx`` is some concrete natural number that is in range (with ``0``-based indexing).
