@@ -259,7 +259,10 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       (match type_to_contract p id ty ps with 
       | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
       | None -> R.ok (acc_decls, acc_ctx, acc_gids))
-    | A.TypeDecl (_, FreeType _)
+    | A.TypeDecl (_, FreeType (p, id)) ->
+      (match type_to_contract p id (A.Int (p)) [] with 
+      | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
+      | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.ConstDecl (_, UntypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
     | A.NodeDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
       (* Add main annotations to imported nodes *)
