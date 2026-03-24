@@ -1,4 +1,4 @@
-node N(x: int) returns (y: int); 
+node N(x: int) returns (); 
 let 
     check forall (z: history(z)) true;  
 tel

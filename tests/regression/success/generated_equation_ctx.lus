@@ -2,7 +2,11 @@ node imported W(b: bool) returns (a: int; r: bool);
 
 node main(c : bool) returns (t: int; a: int; b: bool);
 let
+  t = any@<int>;
   if c then
     a, b = W(t = 34);
+  else
+    a = any@<int>;
+    b = any@<bool>;
   fi
 tel

@@ -65,7 +65,7 @@ let
   t = s.items[s.top_pos];
 tel
 
-node N(s1:Stack<int>) returns (s2:Stack<int>; z1,z2:int);
+node N(s1:Stack<int>) returns (s2:Stack<int>);
 let
 
   s2 = push(pop(s1), 3);

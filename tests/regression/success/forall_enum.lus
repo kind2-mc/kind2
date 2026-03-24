@@ -6,5 +6,6 @@ type R = struct {
 
 node N() returns (y:int);
 let
+  y = any@<int>;
   check forall (x: R) (x.f=E1 or x.f=E2);
 tel

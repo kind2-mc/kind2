@@ -8,7 +8,6 @@ let
 tel
 
 node y (const a: bool) returns (b: int);
-
 -- Local constant declarations
 const c : int = 1; d: int = 2;
 
@@ -22,6 +21,7 @@ var t : y_t;
     q: bool;
     g, h, i: real;
 let
+  b = any@<int>;
 
   -- (Constant) stream definitions 
   e = 1;

@@ -1,4 +1,5 @@
 
 node M() returns (A: int^(0 -> 1));
 let
+  A = any@<int^(0 -> 1)>;
 tel

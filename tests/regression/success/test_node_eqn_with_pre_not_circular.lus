@@ -14,6 +14,7 @@ var q: int;
 let
    q = pre p;
    p = pre q;
+   y = any@<int>;
 tel
 
 
