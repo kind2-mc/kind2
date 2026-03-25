@@ -176,7 +176,7 @@ let constants_to_calls new_func_ids decls =
 let rec ty_contains_gids ctx ni ty = 
   let r = ty_contains_gids ctx ni in
   match ty with  
-  | A.RefinementType (_, (p, id, ty), e) ->
+  | A.RefinementType (_, (_, id, ty), e) ->
     let ctx = Ctx.add_ty ctx id ty in
     (r ty) || (Chk.expr_contains_set_binop ctx ni e)
   | A.ArrayType (_, (ty, e)) -> 
