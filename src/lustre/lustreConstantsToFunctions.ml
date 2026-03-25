@@ -173,8 +173,39 @@ let constants_to_calls new_func_ids decls =
 (* Returns true iff the type contains some expression that would induce generated 
    identifiers. In this context, the only way to induce generated identifiers 
    is from set binary operations (union/intersection) *)
-let ty_contains_gids ctx ni ty =
-  AH.fold_lustre_ty (Chk.expr_contains_set_binop ctx ni) false (||) ty
+let rec ty_contains_gids ctx ni ty = 
+  let r = ty_contains_gids ctx ni in
+  match ty with  
+  | A.RefinementType (_, (p, id, ty), e) ->
+    let ctx = Ctx.add_ty ctx id ty in
+    (r ty) || (Chk.expr_contains_set_binop ctx ni e)
+  | A.ArrayType (_, (ty, e)) -> 
+    (r ty) || (Chk.expr_contains_set_binop ctx ni e) 
+  | A.History (_, id) -> (
+    match Ctx.lookup_ty ctx id with 
+    | None -> false 
+    | Some ty -> r ty
+  )
+  | A.TupleType (_, tys)  
+  | A.GroupType (_, tys) -> 
+    List.fold_left (||) false (List.map r tys)
+  | A.RecordType (_, _, tis) -> 
+    let tys = List.map (fun (_, _, ty) -> ty) tis in 
+    List.fold_left (||) false (List.map r tys)
+  | A.Set (_, ty) -> r ty
+  | A.Map (_, ty1, ty2)
+  | A.TArr (_, ty1, ty2) ->
+    (r ty1) || (r ty2)
+  | A.IntRange (_, e1_opt, e2_opt) -> (
+    match e1_opt, e2_opt with 
+    | None, None -> false 
+    | None, Some e 
+    | Some e, None -> Chk.expr_contains_set_binop ctx ni e 
+    | Some e1, Some e2 -> (Chk.expr_contains_set_binop ctx ni e1) || (Chk.expr_contains_set_binop ctx ni e2)
+    )
+  | A.AbstractType _ | A.EnumType _  
+  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ 
+  | A.UserType _ -> false 
 
 (* Convert free constants to imported functions without args if there are (will be) associated 
    generated identifiers *)
