@@ -19,24 +19,16 @@
 (** Set the logic used by the proof generations mechanism *)
 val set_proof_logic : TermLib.logic -> unit
 
-(** The file to store the LFSC proof of the properties. *)
-val proofname : string
+(** Filename of the final proof of safety *)
+val safety_proofname_cpc : string
 
-(** The file to store the LFSC proof the frontend *)
-val frontend_proofname : string
+(** Creates the kind 2 CPC proofs of base, induction , and implication. 
+Also outputs the combined "Safety CPC" proof of Kind 2 *)
+val construct_kind_2_proof:   string -> string -> string -> string -> int -> unit
 
-(** The file to store the LFSC trusted formulas. *)
-val trustfname : string
+(** Creates the frontend (JKind) CPC proofs of base, induction , and implication. 
+Also outputs the combined "Safety CPC" proof of the frontend  *)
+val construct_frontend_proof: string -> string -> string -> string -> int -> unit
 
-(** Generate the LFSC proof of invariance for the original properties and write
-    it in the file [!proofname]. *)
-val generate_inv_proof : Certificate.invariant -> HString.t list
-
-(** Generate the LFSC proof of safey by producing an intermediate proofs of
-    observational equivalence for the frontend. The proof is written in the file
-    [!frontend_proofname]. *)
-val generate_frontend_proof : Certificate.invariant -> unit
-
-(** Write a proof of safety using the proof of invariance and the proof of weak
-    observational equivalence. **)
-val write_safe_proof : Format.formatter -> ?check:bool -> Certificate.system -> Certificate.system -> unit
+(** Combines the kind 2 and frontend safety CPC proofs into one proof of Safety in Safety CPC*)
+val construct_safety_proof: string -> unit

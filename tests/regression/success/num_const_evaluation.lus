@@ -3,6 +3,7 @@ const M: int = 1;
 
 node main() returns (ok: bool);
 let 
+  ok = any@<bool>;
   check "EQ" M = 1;
   check "LTE" M <= 1;
   check "GTE" M >= 1;

@@ -20,5 +20,6 @@ var x2: int;
 let 
   x1 = s2(n);
   x2 = s3(n);
+  x = any@<bool>;
   check x1 = x2;
 tel

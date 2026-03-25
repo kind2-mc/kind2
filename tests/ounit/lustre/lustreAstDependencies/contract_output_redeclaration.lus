@@ -9,4 +9,5 @@ node N(x:int) returns (y,z: int);
 *)
 let
   y = x + 1;
+  z = any@<int>;
 tel

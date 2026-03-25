@@ -1,4 +1,6 @@
 node irrelevant_array_variable() returns (y: int^3; x:int);
 let
+  y = any@<int^3>;
+  x = any@<int>;
   check x>0;
 tel;

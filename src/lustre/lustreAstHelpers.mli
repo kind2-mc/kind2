@@ -214,3 +214,5 @@ val pos_of_type: lustre_type -> Lib.position
 
 val find_type_annotation: expr -> lustre_type option
 (** `find_type_annotation e` recurses down `StructUpdates` to find the leaf-level type annotation, if one exists *)
+
+val node_id_of_decl: declaration -> NodeId.t option

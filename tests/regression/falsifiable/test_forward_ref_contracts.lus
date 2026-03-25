@@ -4,6 +4,7 @@ node mod_real(x, y: real;)returns( z: real );
         assume pre (abs_real(z)) < abs_real(y);
         guarantee abs_real(z) < abs_real(y); *)
 let
+  z = any@<real>;
 tel
 
 node abs_real (x: real) returns(y:real);

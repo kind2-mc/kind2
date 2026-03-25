@@ -70,6 +70,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
     | _ -> false);
+  mk_test "test undefined output" (fun () ->
+    match load_file "./lustreSyntaxChecks/undefined_output.lus" with
+    | Error (`LustreSyntaxChecksError (_, UndefinedOutput _)) -> true
+    | _ -> false);
   mk_test "test any operator in contract import" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_contract_import.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true

@@ -7,7 +7,7 @@ type Stack<T> = struct {
   top_pos: Index;
 };
 
-node N(s1:Stack<bool>) returns (s2:Stack<int>; z1,z2:int);
+node N(s1:Stack<bool>) returns (s2:Stack<int>;);
 let
   s2 = Stack@<int, int> {  
     items = 2^MAX_SIZE;

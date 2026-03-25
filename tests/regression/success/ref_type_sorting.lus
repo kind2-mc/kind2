@@ -1,5 +1,6 @@
 node M(x: int) returns (out: bool)
 let
+  out = any@<bool>;
 tel
 
 contract C(x: int | M(x)) returns (y: int);

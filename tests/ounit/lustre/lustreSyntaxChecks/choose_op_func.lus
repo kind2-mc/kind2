@@ -1,5 +1,6 @@
 node n(x: int) returns (y: int);
 let
+  y = any@<int>;
 tel
 
 function f() returns (y: int);

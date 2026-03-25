@@ -15,5 +15,6 @@ let
   else 
     y1 = 6;
   fi
-  
+  p1 = any@<bool>;
+  p3 = any@<bool>;
 tel

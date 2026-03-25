@@ -16,12 +16,12 @@ as in the following examples.
 
     node SwapIntBool(x: Pair<int; bool>) returns (y: Pair <bool; int>)
     let
-        y = {x.%1, x.%0};
+        y = '(x[1], x[0]);
     tel
 
     node SwapGeneric<T; U>(x: Pair<T; U>) returns (y: Pair <U; T>)
     let
-        y = {x.%1, x.%0};
+        y = '(x[1], x[0]);
     tel
 
 In other words, ``Pair`` (or any other user-defined polymorphic type) can 

@@ -81,6 +81,9 @@ type expr_of_string_sexpr_conv =
     (* String constant for indexed (underscore) operator *)
     s_index : HString.t;
 
+    (* String constant for as operator *)
+    s_as : HString.t;
+
     (* String constant for int_to_bv operator *)
     s_int_to_bv : HString.t;
 
@@ -193,6 +196,23 @@ let rec gen_bound_vars_of_string_sexpr
          (string_of_t HStringSExpr.pp_print_sexpr e))
 
 
+(* Normalize abstract type constant names to our convention *)
+let normalize_abstract_const_name type_name smt_name =
+  let s = HString.string_of_hstring smt_name in
+  (* Try to extract a number from the SMT name *)
+  let num =
+    let regexp = Str.regexp "[0-9]+" in
+    try
+      (* Find the first occurrence of one or more digits *)
+      let _ = Str.search_forward regexp s 0 in
+      let matched = Str.matched_string s in
+      int_of_string matched
+    with
+    | _ -> failwith ("Invalid abstract type value: " ^ s)
+  in
+  HString.mk_hstring (type_name ^ "." ^ string_of_int num)
+
+
 (* Convert a string S-expression to an expression 
 
    This function is generic, and also used from {!YicesDriver} *)
@@ -203,6 +223,7 @@ let gen_expr_of_string_sexpr'
        s_div; 
        s_minus;
        s_index;
+       s_as;
        s_int_to_bv;
        s_extract;
        s_signext;
@@ -362,6 +383,25 @@ let gen_expr_of_string_sexpr'
       Term.mk_bv bv
 
     )
+    (* Parse (as const type) *)
+    | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom c; HStringSExpr.Atom ty]
+      when s == s_as ->
+
+      (* Parse the type *)
+      let typ = conv.type_of_sexpr (HStringSExpr.Atom ty) in
+
+      (* Normalize name for abstract types *)
+      let c' = match Type.node_of_type typ with
+        | Type.Abstr type_name -> normalize_abstract_const_name type_name c
+        | _ -> c
+      in
+
+      (* Create a UF symbol for the constant *)
+      let uf = UfSymbol.mk_uf_symbol (HString.string_of_hstring c') [] typ in
+
+      (* Return the constant *)
+      Term.mk_uf uf []
+
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
 
@@ -950,13 +990,25 @@ let const_of_smtlib_atom b t =
                           (HString.string_of_hstring t))
                         []
                     with Not_found -> 
-                    Debug.smtexpr
+                    (* Try to handle abstract type constants *)
+                    let s = HString.string_of_hstring t in
+                    if String.contains s '!' then
+                      (* Looks like an abstract constant, try to normalize *)
+                      let type_name, normalized = 
+                        (* z3 style: S!val!0 *)
+                        let parts = String.split_on_char '!' s in
+                        match parts with
+                        | [type_name; "val"; num] -> type_name, type_name ^ "." ^ num
+                        | _ -> "Unknown", s
+                      in
+                      let typ = if type_name = "Unknown" then Type.t_int else Type.mk_abstr type_name in
+                      let uf = UfSymbol.mk_uf_symbol normalized [] typ in
+                      Term.mk_uf uf []
+                    else
+                      (Debug.smtexpr
                         "const_of_smtlib_token %s failed" 
                         (HString.string_of_hstring t);
-
-                    (* Cannot convert to an expression *)
-                    (* raise Not_found *)
-                    failwith "Invalid constant symbol in S-expression"
+                      failwith "Invalid constant symbol in S-expression")
   in
 
   Debug.smtexpr 
@@ -985,12 +1037,17 @@ let rec type_of_smtlib_sexpr = function
     let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
     Type.mk_array te ti
   | HStringSExpr.List [_; HStringSExpr.Atom si; HStringSExpr.Atom se] when si == s_bitvector -> Type.mk_bv (HString.string_of_hstring se |> int_of_string)
-  | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 
-    raise
-      (Invalid_argument 
-         (Format.asprintf 
-            "Sort %a not supported" 
-            HStringSExpr.pp_print_sexpr s))
+  | HStringSExpr.Atom s -> 
+    (* Try to create an abstract type *)
+    let name = HString.string_of_hstring s in
+    if name.[0] = '|' && name.[String.length name - 1] = '|' then
+      (* SMTLIB allows quoting of identifiers with |, remove them *)
+      Type.mk_abstr (String.sub name 1 (String.length name - 2))
+    else
+      Type.mk_abstr name
+  | HStringSExpr.List _ -> 
+    (* Cannot convert to a type *)
+    failwith "Invalid S-expression for type"
 
 
 (* Conversions for SMTLIB *)
@@ -1002,6 +1059,7 @@ let smtlib_string_sexpr_conv =
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
     s_index = HString.mk_hstring "_";
+    s_as = HString.mk_hstring "as";
     s_int_to_bv = HString.mk_hstring "int_to_bv";
     s_extract = HString.mk_hstring "extract";
     s_signext = HString.mk_hstring "sign_extend";

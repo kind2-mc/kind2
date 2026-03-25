@@ -1,6 +1,6 @@
 const Ids: int^2;
 
-node N() returns (ok: bool)
+node N() returns ()
 let
   check Ids[0]=0;
 tel
