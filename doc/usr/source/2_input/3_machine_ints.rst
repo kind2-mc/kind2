@@ -4,35 +4,35 @@
 Machine Integers
 ================
 
-Kind2 supports both signed and unsigned versions of C-style machine integers of width 8, 16, 32, and 64. 
+Kind2 supports both signed and unsigned versions of C-style machine integers. 
 
 Declarations
 ------------
 
-Machine integer variables can be declared as global, local, or as input/ouput of nodes. Signed machine integers are declared as type ``intN`` and unsigned machine integers are declared as type ``uintN`` where N is the width (8, 16, 32, or 64).
+Machine integer variables can be declared as global, local, or as input/ouput of nodes. Signed machine integers are declared as type ``sint<N>`` and unsigned machine integers are declared as type ``uint<N>`` where N is the width (some concrete positive integer).
 
 The following
 
 .. code-block::
 
-   x : uint8;
-   y : int16;
+   x : uint<8>;
+   y : sint<17>;
 
-declares a variable ``x`` of type unsigned machine integer of width 8, and variable ``y`` of type signed machine integer of width 16.
+declares a variable ``x`` of type unsigned machine integer of width 8, and variable ``y`` of type signed machine integer of width 17.
 
 Values
 ------
 
-Machine integers values can be constructed using implicit conversion functions applied to integer literals. The implicit conversion functions are of the form ``uintN`` for unsigned machine integers and ``intN`` for signed machine integers.
+Machine integers values can be constructed using implicit conversion functions applied to integer literals. The implicit conversion functions are of the form ``uint@<N>`` for unsigned machine integers and ``sint@<N>`` for signed machine integers.
 
 The following
 
 .. code-block::
 
-   x = uint8 27;
-   y = int16 -5012;
+   x = uint@<8> 27;
+   y = sint@<17> -5012;
 
-defines ``x`` to have value ``27``, and ``y`` to have value ``-5012``, given that ``x`` is a variable of type ``uint8`` and ``y`` is a variable of type ``int16``.
+defines ``x`` to have value ``27``, and ``y`` to have value ``-5012``, given that ``x`` is a variable of type ``uint<8>`` and ``y`` is a variable of type ``sint@<17>``.
 
 Semantics
 ---------
@@ -40,40 +40,40 @@ Semantics
 Machine integers of width ``x`` represent binary numbers of size ``x``.
 Signed machine integers are represented using 2's complement.
 
-The bounds of machine integers are specified here for convenience:
+The bounds of selected machine integers are specified here for convenience:
 
 .. code-block::
 
-   uint8  : 0 to 255
-   uint16 : 0 to 65535
-   uint32 : 0 to 4294967295
-   uint64 : 0 to 18446744073709551615
-   int8   : -128 to 127
-   int16  : -32768 to 32767
-   int32  : -2147483648 to 2147483647
-   int64  : -9223372036854775808 to 9223372036854775807
+   uint<8>  : 0 to 255
+   uint<16> : 0 to 65535
+   uint<32> : 0 to 4294967295
+   uint<64> : 0 to 18446744073709551615
+   int<8>   : -128 to 127
+   int<16>  : -32768 to 32767
+   int<32>  : -2147483648 to 2147483647
+   int<64>  : -9223372036854775808 to 9223372036854775807
 
 When the conversion functions are used for literals that are out of this range, they are converted to a machine integer that is in range using the modulo operation, as in C. For instance, in the following
 
 .. code-block::
 
-   x = uint8 256;
-   y = int16 32768;
+   x = uint<8> 256;
+   y = sint<16> 32768;
 
-``x`` evaluates to ``0`` and ``y`` to ``-3268``, given that ``x`` is a variable of type ``uint8`` and ``y`` is a variable of type ``int16``.
+``x`` evaluates to ``0`` and ``y`` to ``-3268``, given that ``x`` is a variable of type ``uint<8>`` and ``y`` is a variable of type ``sint<16>``.
 
 Conversions are allowed between machine integers of different widths, as long as both types are either signed or unsigned. Values remain unchanged when converted from a smaller to a larger width; values are adjusted modulo the range of the destination type when converted from larger to smaller width. The following code illustrates this.
 
 .. code-block::
 
-   a : int8;
-   b : int16;
-   c : uint16;
-   d : uint8;
-   a = int8 120;
-   b = int16 a; -- b == int16 120
-   c = uint16 300;
-   d = uint8 c; -- c == uint8 44
+   a : sint<8>;
+   b : sint<16>;
+   c : uint<16>;
+   d : uint<8>;
+   a = sint<8> 120;
+   b = sint<16> a; -- b == sint<16> 120
+   c = uint<16> 300;
+   d = uint<8> c; -- c == uint<8> 44
 
 Operations
 ----------
@@ -89,19 +89,19 @@ return a machine integer with the same sign and same width as the input(s).
 
 .. code-block::
 
-   a, a1, a2 : uint8;
-   b : uint16;
-   c : uint32;
-   d : uint64;
-   e, f : int8;
-   a1 = (uint8 5);
-   a2 = (uint8 22);
+   a, a1, a2 : uint<8>;
+   b : uint<16>;
+   c : uint<32>;
+   d : uint<64>;
+   e, f : sint<8>;
+   a1 = (uint@<8> 5);
+   a2 = (uint@<8> 22);
    a = a1 + a2;
-   b = (uint16 20) * (uint16 200);
-   c = (uint32 500) div (uint32 5);
-   d = (uint64 25) mod (uint64 10);
-   e = (int8 -5) + (- (int8 10));
-   f = (int8 10) - (int8 -5);
+   b = (uint@<16> 20) * (uint@<16> 200);
+   c = (uint@<32> 500) div (uint@<32> 5);
+   d = (uint@<64> 25) mod (uint@<64> 10);
+   e = (sint@<8> -5) + (- (sint@<8> 10));
+   f = (sint@<8> 10) - (sint@<8> -5);
 
 Logical Operations
 ^^^^^^^^^^^^^^^^^^
@@ -110,12 +110,12 @@ Conjunction (``&&``), disjunction (``||``), and negation (``!``) are performed i
 
 .. code-block::
 
-   a, b, b1, b2, c : uint8;
-   a = (uint8 0) && (uint8 45); --a = (uint8 0)
-   b1 = (uint8 255);
-   b2 = (uint8 45);
-   b = b1 && b2; --b = (uint8 45)
-   c = !(uint8 0); --c = (uint8 255)
+   a, b, b1, b2, c : uint<8>;
+   a = (uint@<8> 0) && (uint@<8> 45); --a = (uint@<8> 0)
+   b1 = (uint@<8> 255);
+   b2 = (uint@<8> 45);
+   b = b1 && b2; --b = (uint@<8> 45)
+   c = !(uint@<8> 0); --c = (uint@<8> 255)
 
 Shift Operations
 ^^^^^^^^^^^^^^^^
@@ -129,9 +129,9 @@ A left shift is equivalent to multiplication by 2, and a right shift is equivale
 .. code-block::
 
    a, b, c : bool;
-   a = (uint8 0) lsh (uint8 10) = (uint8 0); --true
-   b = (uint8 255) rsh (uint8 12) = (uint8 255); --true
-   c = (int8 -1) lsh (uint8 1) = (int8 -2); --true
+   a = (uint@<8> 0) lsh (uint@<8> 10) = (uint@<8> 0); --true
+   b = (uint@<8> 255) rsh (uint@<8> 12) = (uint@<8> 255); --true
+   c = (sint@<8> -1) lsh (uint@<8> 1) = (sint@<8> -2); --true
 
 Comparison Operations
 ^^^^^^^^^^^^^^^^^^^^^
@@ -141,7 +141,7 @@ The following comparison operations are all binary: ``>``, ``<``, ``>=``, ``<=``
 .. code-block::
 
    a : bool;
-   a = (int8 -12) < (int8 12); --true
+   a = (sint@<8> -12) < (sint@<8> 12); --true
 
 Limitations
 -----------
