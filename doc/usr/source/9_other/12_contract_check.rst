@@ -19,8 +19,9 @@ To check the contracts of nodes and functions, run:
   kind2 --enable CONTRACTCK <lustre_file>
 
 You can specify a particular node or function to analyze using 
-``--lus_main <node_name>``, and a specific refinement type using 
-``--lus_main_type <type_name>``.
+``--lus_main <node_name>``, a specific refinement type using
+``--lus_main_type <type_name>``, or a specific constant using
+``--lus_main_const <const_name>``.
 
 If Kind 2 is able to prove some contract *unrealizable*
 and the ``--print_deadlock`` flag is true,

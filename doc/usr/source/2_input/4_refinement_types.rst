@@ -168,8 +168,9 @@ Kind 2 performs three types of realizability checks:
 3. Individual refinement types, i.e., that a global refinement type declaration is realizable
 
 You can specify a particular node or function to analyze using 
-``--lus_main <node_name>``, and a specific refinement type using 
-``--lus_main_type <type_name>``.
+``--lus_main <node_name>``, a specific refinement type using
+``--lus_main_type <type_name>``, or a specific constant using
+``--lus_main_const <const_name>``.
 
 Structured types
 ----------------

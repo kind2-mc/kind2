@@ -62,6 +62,9 @@ let pp_print_node_id_input_name ppf { name; } =
 let pp_print_node_id_user_name ppf { user_name; } = 
   Format.fprintf ppf "%a" HString.pp_print_hstring user_name
 
+let pp_print_node_id_internal_name ppf { internal_name; } =
+  Format.fprintf ppf "%a" HString.pp_print_hstring internal_name
+
 let mk_node_id ?(node_type=Component) ?(monomorphization = []) ?user_name name = 
   let user_name = Option.value user_name ~default:name in
   let internal_name = 
