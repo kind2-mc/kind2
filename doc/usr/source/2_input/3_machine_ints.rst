@@ -143,6 +143,35 @@ The following comparison operations are all binary: ``>``, ``<``, ``>=``, ``<=``
    a : bool;
    a = (sint@<8> -12) < (sint@<8> 12); --true
 
+Cast Operations
+^^^^^^^^^^^^^^^
+
+In addition to casts to signed and unsigned integers, signed and unsigned integers can also be casted to mathematical integers
+with the ``int`` cast operator.
+
+.. code-block::
+
+   a : sint<8>;
+   b : uint<8>;
+   c : int;
+   d : int;
+   c = int a;
+   d = int b;
+
+Concise Syntax
+^^^^^^^^^^^^^^
+
+For signed and unsigned machine integers of widths 8, 16, 32, and 64, we support the concise syntax of ``intN``
+for signed integers and ``uintN`` for unsigned integers (where ``N`` is 8, 16, 32, or 64). 
+This syntax works for both types and cast operators.
+
+.. code-block::
+  
+   a : int8;
+   b : uint8;
+   a = int8 0;
+   b = uint8 0;
+
 Limitations
 -----------
 
