@@ -42,20 +42,17 @@ type out = {
   names: symbols;       (** names for I, T, P and PHI *)
   dirname : string;     (** Directory where certificates and proofs are
                             produced *)
-  proofname : string;    (** Name for the final LFSC proof *)
+  proofname : string;    (** Name for the final CPC proof *)
 
   base : string;        (** File name for base case check *)
   induction : string;   (** File name for inductive case check *)
   implication : string; (** File name for implication of property check *)
-  dummy_trace : string; (** File name for dummy file to trace function
-                            definitions in LFSC *)
 }
 
 
 type system = {
   names : symbols;
   smt2_file : string;
-  smt2_lfsc_trace_file : string;
 }
 
 type invariant = {
@@ -63,7 +60,6 @@ type invariant = {
   name : string;
   dirname : string;
   phi_file : string;
-  phi_lfsc_trace_file : string;
   base : string;        (** File name for base case check *)
   induction : string;   (** File name for inductive case check *)
   implication : string; (** File name for implication of property check *)

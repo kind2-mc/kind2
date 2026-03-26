@@ -340,6 +340,7 @@ let string_of_symbol = function
   | `BVCONCAT -> "concat"
   | `BVSIGNEXT i -> "(_ sign_extend " ^ (Numeral.string_of_numeral i) ^ ")"
   | `BVZEROEXT i -> "(_ zero_extend " ^ (Numeral.string_of_numeral i) ^ ")"
+  | `UF sym -> UfSymbol.string_of_uf_symbol sym
   | _ -> failwith "string_of_symbol"
 
 

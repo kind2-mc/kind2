@@ -183,8 +183,9 @@ let gen_const_functions ctx decls =
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
     | A.ConstDecl (s, A.FreeConst (_, id, ty)) -> 
       let ctx = Ctx.add_ty ctx id ty in
-      if ty_contains_gids ctx None ty then 
-        (* Only generate a function if necessary (we need it to handle generated identifiers *)
+      if ty_contains_gids ctx None ty || List.mem `CONTRACTCK (Flags.enabled ()) then
+        (* Generate a function for free constants when necessary to preserve generated identifiers,
+           and for realizability checking of free constants. *)
         let p = s.start_pos in
         let node_type = NI.FreeConstant in
         let node_id = NI.mk_node_id ~node_type id in
@@ -209,7 +210,17 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.remove_const acc_ctx id in
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
-        acc_decls @ [A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))],
+        let func_decl1 =
+          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))
+        in
+        (if List.mem `CONTRACTCK (Flags.enabled ()) then
+          let func_decl2 =
+            let node_id = NI.mk_node_id ~node_type:NI.FreeConstant id in
+            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))
+          in
+          acc_decls @ [func_decl1; func_decl2]
+        else
+          acc_decls @ [func_decl1]),
         (* Constants with definitions don't appear in `new_func_ids` because their 
            references don't need to be converted to calls (these constants are inlined) *)
         acc_new_func_ids,

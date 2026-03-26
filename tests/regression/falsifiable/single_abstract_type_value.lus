@@ -1,0 +1,10 @@
+type T;
+function id_T (x: T) returns (y: T);
+con
+    assume forall (v1: T) (forall (v2: T) v1 = v2);
+noc
+let
+    y = x;
+    check "P1" exists (v: T) y = v;
+    check "P2" exists (v1: T) exists (v2: T) v1 <> v2;
+tel

@@ -147,6 +147,9 @@ val add_input_file : string -> bool
 (** Main node in Lustre file *)
 val lus_main : unit -> string option
 
+(** Main constant identifier in Lustre file *)
+val lus_main_const : unit -> string option
+
 (** Main type alias in Lustre file *)
 val lus_main_type : unit -> string option
 
@@ -548,15 +551,6 @@ module Certif : sig
 
   (** Proof production. *)
   val proof : unit -> bool
-
-  (** Reduce the size of trusted holes. *)
-  val smaller_holes : unit -> bool
-
-  (** Breakdown proof into smaller steps. *)
-  val flatten_proof : unit -> bool
-
-  (** Log trusted parts of proofs. *)
-  val log_trust : unit -> bool
 
   (** Minimization stragegy for k *)
   val mink : unit -> mink
