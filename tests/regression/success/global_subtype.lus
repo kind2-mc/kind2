@@ -1,0 +1,6 @@
+const R: subtype {x: int | x = x + 1} ;
+
+node N () returns () 
+let
+  check true;
+tel
