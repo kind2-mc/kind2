@@ -271,6 +271,7 @@ and push_pre is_guarded pos =
   | Pre _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
+  | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function
@@ -308,6 +309,10 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
     let e2' = simplify_expr ~ind_vars ~is_guarded:true ctx e2 in
     Arrow (pos, e1', e2')
+  | LA.TypeAscription (pos, e, ty) ->
+    let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
+    let ty' = inline_constants_of_lustre_type ~ind_vars ctx ty in
+    LA.TypeAscription (pos, e', ty')
   | LA.BinaryOp (pos, bop, e1, e2) ->
      let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
      let e2' = simplify_expr ~ind_vars ~is_guarded ctx e2 in

@@ -269,6 +269,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
+    | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
   in aux expr
 
 and ast_contains p ast =
@@ -289,6 +290,7 @@ and ast_contains p ast =
     | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
     | A.Arrow (_,e1,e2) -> aux e1 || aux e2
+    | A.TypeAscription (_, e, _) -> aux e
     | A.GroupExpr (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)

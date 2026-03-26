@@ -23,6 +23,7 @@ type node_type =
   | Type (* Generated imported node for refinement type realizability checking *)
   | Any (* Generated for node corresponding to an 'any' operator *)
   | Choose (* Generated for node corresponding to a 'choose' operator *)
+  | TypeAscription (* Generated for node corresponding to a type ascription operator *)
   | DefinedConstant (* Defined global constant converted to function without args *)
   | FreeConstant (* Free global constant converted to function without args *)
  
@@ -44,6 +45,7 @@ let pp_print_node_type ppf node_type =
       | Contract -> ".contract_"
       | Type -> ".type_"
       | Any -> ".any_"
+      | TypeAscription -> ".type_ascription_"
       | FreeConstant -> ".free_constant_"
       | DefinedConstant -> ".def_constant_"
       | Choose -> ".choose_")

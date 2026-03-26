@@ -1,0 +1,5 @@
+node N(x,y: int) returns (z: int);
+let
+  z = (x : subtype { v: int | v < y });
+  check z < y;
+tel

@@ -438,6 +438,8 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
       let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
       merge_types t1 t2
+    | TypeAscription (_, e, _) ->
+      interpret_expr_by_type node_id ctx ty_ctx ty proj e
     | RecordProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
@@ -552,6 +554,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
+  | TypeAscription (_, e, _) -> interpret_int_expr node_id ctx ty_ctx proj e
 
 and interpret_int_unary_expr node_id ctx ty_ctx op proj e =
   let (l, r) = interpret_int_expr node_id ctx ty_ctx proj e in
