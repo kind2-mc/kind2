@@ -9,7 +9,7 @@ Kind2 supports both signed and unsigned versions of C-style machine integers.
 Declarations
 ------------
 
-Machine integer variables can be declared as global, local, or as input/ouput of nodes. Signed machine integers are declared as type ``sint<N>`` and unsigned machine integers are declared as type ``uint<N>`` where N is the width (some concrete positive integer).
+Machine integer variables can be declared as global, local, or as input/ouput of nodes. Signed machine integers are declared as type ``sint<N>`` and unsigned machine integers are declared as type ``uint<N>`` where ``N`` is the width (some concrete positive integer).
 
 The following
 
@@ -48,10 +48,10 @@ The bounds of selected machine integers are specified here for convenience:
    uint<16> : 0 to 65535
    uint<32> : 0 to 4294967295
    uint<64> : 0 to 18446744073709551615
-   int<8>   : -128 to 127
-   int<16>  : -32768 to 32767
-   int<32>  : -2147483648 to 2147483647
-   int<64>  : -9223372036854775808 to 9223372036854775807
+   sint<8>   : -128 to 127
+   sint<16>  : -32768 to 32767
+   sint<32>  : -2147483648 to 2147483647
+   sint<64>  : -9223372036854775808 to 9223372036854775807
 
 When the conversion functions are used for literals that are out of this range, they are converted to a machine integer that is in range using the modulo operation, as in C. For instance, in the following
 
