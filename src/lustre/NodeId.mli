@@ -25,6 +25,7 @@ type t
 val mk_node_id: ?node_type:node_type -> ?monomorphization:int list -> ?user_name:HString.t -> HString.t -> t
 val pp_print_node_id_input_name: Format.formatter -> t -> unit
 val pp_print_node_id_user_name: Format.formatter -> t -> unit
+val pp_print_node_id_internal_name: Format.formatter -> t -> unit
 val hash: t -> int 
 val equal: t -> t -> bool 
 val compare: t -> t -> int

@@ -2944,6 +2944,24 @@ module Global = struct
   let lus_main () = !lus_main
  
 
+  let lus_main_const_default = None
+
+  let lus_main_const = ref lus_main_const_default
+  let _ = add_spec
+    "--lus_main_const"
+    (Arg.String (fun str -> lus_main_const := Some str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> is a constant identifier from the Lustre input file@ \
+          Designate a constant declaration for which the corresponding generated function@ \
+          is the top function for the analysis@ \
+          Default: all constant declarations \
+        "
+    )
+  let lus_main_const () = !lus_main_const
+
+
   let lus_main_type_default = None
 
   let lus_main_type = ref lus_main_type_default
@@ -3720,6 +3738,7 @@ let check_reach = Global.check_reach
 let check_nonvacuity = Global.check_nonvacuity
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
+let lus_main_const = Global.lus_main_const
 let lus_main_type = Global.lus_main_type
 let debug = Global.debug
 let debug_log = Global.debug_log

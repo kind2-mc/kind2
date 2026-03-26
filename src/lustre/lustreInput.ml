@@ -314,24 +314,26 @@ let of_channel only_parse in_ch =
     let result =
       let* (ctx, gids, decls, toplevel_nodes, _) = type_check declarations in
       let nodes, globals = LNG.compile ctx gids decls in
+      let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ()) in
       let main_nodes = match Flags.lus_main () with
         | Some s -> 
           let s_ident = LustreIdent.mk_string_ident s in (
-          try 
-            let main_lustre_node =  LN.node_of_input_name s_ident nodes in 
+          try
+            let node_id = NI.mk_node_id ~node_type:Component (HString.mk_hstring s) in
+            let main_lustre_node =  LN.node_of_node_id node_id nodes in 
             (* If checking realizability, then 
               we are actually checking realizability of Kind 2-generated imported nodes representing 
               the (1) the main node's contract instrumented with type info and 
                   (2) the main node's enviornment, if environment checking is enabled *)
             let main_nodes = 
-              if (not main_lustre_node.is_extern) && List.mem `CONTRACTCK (Flags.enabled ()) then 
+              if (not main_lustre_node.is_extern) && contractck_enabled then 
                 let node_id = NI.mk_node_id ~node_type:Contract (HString.mk_hstring s) in 
                 let _ = LN.node_of_node_id node_id nodes in
                 [node_id]
-              else [NI.mk_node_id (HString.mk_hstring s)] 
+              else [node_id] 
             in
             let main_nodes = 
-              if (Flags.Contracts.check_environment ()) && List.mem `CONTRACTCK (Flags.enabled ()) then
+              if (Flags.Contracts.check_environment ()) && contractck_enabled then
                 let node_id = NI.mk_node_id ~node_type:Environment (HString.mk_hstring s) in 
                 let _ = LN.node_of_node_id node_id nodes in
                 node_id :: main_nodes 
@@ -348,18 +350,65 @@ let of_channel only_parse in_ch =
             raise (NoMainNode msg)
         )
         | None -> (
-          match LustreNode.get_main_annotated_nodes nodes with
-          | (_ :: _ as node_names) -> node_names
-          | [] ->
-            match toplevel_nodes with
-            | [] -> raise (NoMainNode "No node defined in input model")
-            | _ -> toplevel_nodes |> List.map (fun s -> NI.mk_node_id s)
+          match contractck_enabled, Flags.lus_main_const (), Flags.lus_main_type () with
+          | true, None, None
+          | false, None, _ -> (
+            match LustreNode.get_main_annotated_nodes nodes with
+            | (_ :: _ as node_names) -> node_names
+            | [] ->
+              match toplevel_nodes with
+              | [] -> raise (NoMainNode "No node defined in input model")
+              | _ -> toplevel_nodes |> List.map (fun s -> NI.mk_node_id s)
+          )
+          | _ -> []
+        )
+      in
+      let main_nodes = match Flags.lus_main_const () with
+        | Some s ->
+          let s_ident = LustreIdent.mk_string_ident s in (
+          try 
+            let node_id =
+              if contractck_enabled then
+                (* Constants with definitions are treated as free constants
+                   when checking realizability. *)
+                NI.mk_node_id ~node_type:FreeConstant (HString.mk_hstring s)
+              else
+                NI.mk_node_id ~node_type:DefinedConstant (HString.mk_hstring s)
+            in
+            let _ = LN.node_of_node_id node_id nodes in
+            node_id :: main_nodes
+          (* User-specified main constant in command-line input might not exist *)
+          with Not_found -> 
+            let msg =
+              Format.asprintf "No %s '%a' found in input"
+                (if contractck_enabled then "free constant" else "defined constant")
+                (LustreIdent.pp_print_ident false) s_ident
+            in
+            raise (NoMainNode msg)
+          )
+        | None -> (
+          match contractck_enabled, Flags.lus_main (), Flags.lus_main_type () with
+          | true, None, None -> (
+            List.fold_left (fun acc n ->
+              if NI.get_node_type n.LustreNode.node_id = FreeConstant then
+                n.LustreNode.node_id :: acc
+              else acc
+            ) main_nodes nodes
+          )
+          | false, None, _ -> (
+            List.fold_left (fun acc n ->
+              if NI.get_node_type n.LustreNode.node_id = DefinedConstant then
+                n.LustreNode.node_id :: acc
+              else acc
+            ) main_nodes nodes
+          )
+          | _ -> main_nodes
         )
       in
       let main_nodes = match Flags.lus_main_type () with
         | Some s -> 
           let s_ident = LustreIdent.mk_string_ident s in 
-          if not (List.mem `CONTRACTCK (Flags.enabled ())) then
+          if not contractck_enabled then
             let msg =
               Format.asprintf "Option --lus_main_type can only be used when realizability checking is enabled (--enable CONTRACTCK)"
             in
@@ -367,10 +416,8 @@ let of_channel only_parse in_ch =
           else (
             try 
               let node_id = NI.mk_node_id ~node_type:Type (HString.mk_hstring s) in
-              let _ = LN.node_of_node_id node_id nodes in  
-              match Flags.lus_main () with 
-              | Some _ -> node_id :: main_nodes
-              | None -> [node_id]
+              let _ = LN.node_of_node_id node_id nodes in
+              node_id :: main_nodes
             (* User-specified type alias in command-line input might not exist *)
             with Not_found -> 
               let msg =
@@ -379,14 +426,8 @@ let of_channel only_parse in_ch =
               in
               raise (NoMainNode msg)
           )
-        | None -> main_nodes in
-      let defined_const_funcs = List.filter_map (fun n -> 
-      if NI.get_node_type n.LustreNode.node_id = DefinedConstant then 
-         Some n.LustreNode.node_id 
-      else 
-        None
-      ) nodes in 
-      let main_nodes = main_nodes @ defined_const_funcs in 
+        | None -> main_nodes
+      in
       Ok (nodes, globals, main_nodes)
     in
 
