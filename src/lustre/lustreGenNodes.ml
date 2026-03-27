@@ -25,9 +25,11 @@ let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t =
 fun pos node_id node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
+  let nname = NI.get_name node_id in
   let name = match node_type with 
-  | Any -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".any_") 
-  | Choose -> HString.concat2 (NI.get_name node_id) (HString.mk_hstring ".choose_") 
+  | Any -> HString.concat2 nname (HString.mk_hstring ".any_") 
+  | Choose -> HString.concat2 nname (HString.mk_hstring ".choose_") 
+  | TypeAscription -> HString.concat2 nname (HString.mk_hstring ".type_ascription_")
   | _ -> assert false
   in
   let name = HString.concat2 name pos in
@@ -73,8 +75,53 @@ and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.de
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
+  | TypeAscription (pos, e, ty) ->
+    let e, gen_nodes1 = rec_call e in
+    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+    let span = { A.start_pos = pos; A.end_pos = pos; } in
+    let node_id = mk_fresh_fn_name pos node_name TypeAscription in
+    let ip_id = HString.mk_hstring ".inp" in 
+    let op_id = HString.mk_hstring ".op" in
+    let ip = pos, ip_id, ty, A.ClockTrue, false in
+    let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
+    let op = pos, op_id, mono, A.ClockTrue in
+    let eq = A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, op_id)]), A.Ident (pos, ip_id))) in
+    (* The generated function might be polymorphic, so we find all the needed type variables *)
+    let ty_params = 
+      Ctx.SI.union (Ctx.ty_vars_of_type ctx node_name ty) 
+                   (Ctx.ty_vars_of_expr ctx node_name e)
+      |> Ctx.SI.elements
+    in 
+    let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
+    let ty = Ctx.expand_type_syn ctx ty in
+    let is_const = AH.fold_lustre_ty AH.expr_is_const true (&&) ty in
+    let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
+    (* Global constants don't need to be passed as arguments to generated nodes *)
+    let inputs = List.filter (fun i -> 
+      match Ctx.lookup_const ctx i with 
+        | Some (_, _, Ctx.Global) -> false 
+        | _ -> true
+    ) inputs in 
+    let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
+    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
+      | Some ty -> 
+        let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
+        p, inp, ty, cl, is_const 
+      | None -> assert false
+    ) inputs in
+
+
+    let decl =
+      if is_const then 
+        A.FuncDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
+      else 
+        A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
+    in 
+    Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
+    let expr1, gen_nodes = rec_call expr1 in
     let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = 
@@ -126,7 +173,7 @@ fun ctx node_name fun_ids expr ->
         name
     | _ -> assert false
     in
-    A.Call(pos, ty_vars, name, inputs_call), ty_gen_nodes @ [generated_node]
+    A.Call(pos, ty_vars, name, inputs_call), gen_nodes @ ty_gen_nodes @ [generated_node]
 
   | Ident _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
@@ -318,7 +365,7 @@ fun ctx node_name fun_ids ni ->
   | AnnotMain _ -> ni, []
     
 
-let desugar_any_ops: Ctx.tc_context -> A.declaration list -> A.declaration list = 
+let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list = 
 fun ctx decls -> 
   let fun_ids = List.filter_map 
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _)) -> Some id | _ -> None)
@@ -353,7 +400,7 @@ fun ctx decls ->
       let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes1 @ List.flatten gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
-      decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
+      decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))] 
     | A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
       let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
@@ -379,7 +426,9 @@ fun ctx decls ->
       ) locals |> List.split in
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes in
+      let gen_nodes = 
+        List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes 
+      in
       decls @ gen_nodes @ gen_nodes2 @ [A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))]
     | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
       let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
@@ -396,7 +445,7 @@ fun ctx decls ->
       | Some contract -> contract
       | None -> assert false in (* Must have a contract *)
       let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ gen_nodes in
-      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))]
-    | _ -> decl :: decls
+      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))] 
+    | decl -> decl :: decls
   ) [] decls in 
   decls

@@ -1,0 +1,29 @@
+type Neg = subrange [*,-1] of int;
+const N: int;
+
+type T2<T> = subtype { x: T | x = pre x };
+
+node M<T>(inp: T) returns (out: T)
+let
+  // Should fail (with the given monomorphization)
+  out = (inp: T2<T>);
+  check inp = out;
+tel
+
+node N(inp: int) returns (z: int; z2: int; A: int^N; z3: subtype { x: int | (x: Neg) < 0 }; z4: int);
+let
+  // Type ascription proof obligation should succeed
+  z2 = if inp < 0 then (inp: Neg) otherwise -1*inp; 
+
+  // Should all fail
+  z = choose { x: int | (x: Neg) + 2 = 3 };
+  z3 = (0: Neg);
+  A[i] = (i: Neg);
+  z4 = M(inp);
+
+  // Should all succeed
+  check exists (i: int) (i: Neg) = 3;
+  check z = 1;
+  check z2 <= 0;
+  check z4 = inp;
+tel

@@ -76,6 +76,7 @@ let rec expr_contains_mode_ref expr =
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> r e1 || r e2
+  | TypeAscription (_, e, _) -> r e
   | TernaryOp (_, _, e1, e2, e3)
     -> r e1 || r e2 || r e3
   | GroupExpr (_, _, expr_list)
