@@ -260,7 +260,7 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
       | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.TypeDecl (_, FreeType (p, id)) ->
-      (match type_to_contract p id (A.Int (p)) [] with 
+      (match type_to_contract p id (A.AbstractType  (p, id)) [] with 
       | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
       | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.ConstDecl (_, UntypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
