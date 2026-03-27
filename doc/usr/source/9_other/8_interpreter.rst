@@ -100,3 +100,14 @@ can be assigned as follows:
       "t": { "0":"36", "1": false, "2":"5.0" }
     }
   ]
+
+Alternatively, a tuple can be expressed as a JSON array.
+
+.. code-block:: json
+
+  [
+    {
+      "t": [ "36", false, "5.0" ]
+    }
+  ]
+
