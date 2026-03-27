@@ -101,7 +101,7 @@ can be assigned as follows:
     }
   ]
 
-Alternatively, a tuple can be expressed as a JSON array.
+Alternatively, a tuple can be expressed using a JSON array.
 
 .. code-block:: json
 
