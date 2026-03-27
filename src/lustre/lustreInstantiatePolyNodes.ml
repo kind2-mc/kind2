@@ -390,6 +390,10 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
     ctx, gids, Arrow (p, expr1, expr2), decls1 @ decls2, node_decls_map 
+  | TypeAscription (p, expr, ty) ->
+    let ctx, gids, expr, decls1, node_decls_map = rec_call expr in
+    let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
+    ctx, gids, TypeAscription (p, expr, ty), decls1 @ decls2, node_decls_map
   | StructUpdate (p, expr1, lois, Some expr2) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 

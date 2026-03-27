@@ -329,6 +329,7 @@ let pp_print_realizability_result_pt
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
+      | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
       | Choose -> "'Choose' operator")
@@ -571,6 +572,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
+      | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
       | Choose -> "'Choose' operator")
@@ -594,6 +596,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | Type -> "Type"
       | Component -> "Contract of imported node"
       | Any -> "'Any' operator"
+      | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
       | Choose -> "'Choose' operator")

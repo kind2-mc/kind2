@@ -137,6 +137,8 @@ type expr =
   | Arrow of position * expr * expr
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
+  (* Type ascription *)
+  | TypeAscription of position * expr * lustre_type
 
 (** A Lustre type *)
 and lustre_type =
@@ -643,6 +645,13 @@ let rec pp_print_expr ppf =
       pp_print_expr e
       idx1 
       idx2
+
+    | TypeAscription (p, e, ty) -> 
+      Format.fprintf ppf 
+      "%a(%a : %a)"
+      ppos p 
+      pp_print_expr e 
+      pp_print_lustre_type ty
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =

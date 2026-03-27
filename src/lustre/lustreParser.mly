@@ -1232,6 +1232,9 @@ pexpr(Q):
     c = ident;
     l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
+
+  (* Type ascription *) 
+  | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
