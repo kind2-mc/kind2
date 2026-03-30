@@ -214,8 +214,9 @@ let gen_const_functions ctx decls =
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
     | A.ConstDecl (s, A.FreeConst (_, id, ty)) -> 
       let ctx = Ctx.add_ty ctx id ty in
-      if ty_contains_gids ctx None ty || List.mem `CONTRACTCK (Flags.enabled ()) then
-        (* Generate a function for free constants when necessary to preserve generated identifiers,
+      let contains_gids = ty_contains_gids ctx None ty in
+      if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then
+        (* Generate a function for free constants when the type includes generated identifiers,
            and for realizability checking of free constants. *)
         let p = s.start_pos in
         let node_type = NI.FreeConstant in
@@ -225,9 +226,20 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.remove_const acc_ctx id in
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
-        acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))],
-        id :: acc_new_func_ids, 
-        acc_ctx
+        let acc_decls =
+          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))]
+        in
+        let acc_decls, acc_new_func_ids =
+          (* If type does not contain generated identifiers, and we are only generating
+             an imported function for realizability checking, then we don't need to
+             convert references to this constant to calls, so we keep original declaration,
+             and we don't include the id in new_func_ids *)
+          if not contains_gids then
+            acc_decls @ [decl], acc_new_func_ids
+          else
+            acc_decls, id :: acc_new_func_ids
+        in
+        acc_decls, acc_new_func_ids, acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
     | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 

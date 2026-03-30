@@ -50,10 +50,13 @@ let term_partition vars_of_term var_lst term_lst =
 
 
 let rec get_conjucts term =
-  match Term.destruct term with
-  | Term.T.App (s, args) when s == Symbol.s_and ->
-     List.map get_conjucts args |> List.flatten
-  | _ -> [term]
+  if Term.is_forall term || Term.is_exists term then
+    [term]
+  else
+    match Term.destruct term with
+    | Term.T.App (s, args) when s == Symbol.s_and ->
+      List.map get_conjucts args |> List.flatten
+    | _ -> [term]
 
 
 (*
