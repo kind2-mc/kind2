@@ -1,0 +1,19 @@
+
+type Nat = subrange [0,*] of int;
+
+type T = int;
+
+const R: int;
+
+const N: subtype {x: int | x >= R} ;
+
+function imported f(x: int) returns (y: int);
+(*@contract
+  guarantee y > R;
+*)
+
+node M() returns (x: int);
+let
+  x = N + 1;
+  check x>1;
+tel

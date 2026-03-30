@@ -1,0 +1,9 @@
+
+type Nat = subrange [0,*] of int;
+
+const R: subtype {s: set<int> | s = {1,2,3}};
+
+function imported f(x: int) returns (y: int);
+(*@contract
+  guarantee y in R;
+*)
