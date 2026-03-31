@@ -1933,6 +1933,23 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
   let gids2 = { (empty ()) with calls = [call] } in
   nexpr, union gids1 gids2
 
+(* Update constraints from type annotations to take call_context into account (to interoperate correctly 
+   with lazy operators). Alternatively, we could generate a type ascription and handle it more generically. 
+   However, for a type ascription (for example) of the form { 1 }@<Nat>, we can instantiate the type constraint 
+   over the singleton (here, 1 >= 0) rather than generating a universally quantified assumpion 
+   (here, forall x. x in s => x >= 0). *)
+and add_call_ctx_to_constraints pos gids call_ctx = 
+  let refinement_type_constraints = List.map (fun (s, p, id, e) -> 
+    s, p, id, A.BinaryOp (pos, A.Impl, call_ctx, e)  
+  ) gids.refinement_type_constraints in 
+  let subrange_constraints = List.map (fun (s, cs, is_original, p, id, e) -> 
+    s, cs, is_original, p, id, A.BinaryOp (pos, A.Impl, call_ctx, e)  
+  ) gids.subrange_constraints in 
+  let equations = List.map (fun (qv, cs, lhs, e, s) -> 
+    qv, cs, lhs, A.BinaryOp (pos, A.Impl, call_ctx, e), s
+  ) gids.equations in
+  { gids with refinement_type_constraints; subrange_constraints; equations; } 
+
 and expand_node_call info node_id expr var count =
   let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
@@ -2296,6 +2313,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | None -> empty (), []
     | _ -> assert false (* Type annotation must be `Map` type, enforced by the parser *) 
     in
+    let gids1 = match info.call_context with 
+    | [] -> gids1 
+    | e :: es -> 
+      let call_ctx = List.fold_left (fun acc e -> 
+        A.BinaryOp (pos, A.And, acc, e) 
+      ) e es in 
+      add_call_ctx_to_constraints pos gids1 call_ctx 
+    in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)
@@ -2332,6 +2357,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
       union gids gids', warnings @ warnings'
     | None -> empty (), [] 
+    in
+    let gids1 = match info.call_context with 
+    | [] -> gids1 
+    | e :: es -> 
+      let call_ctx = List.fold_left (fun acc e -> 
+        A.BinaryOp (pos, A.And, acc, e) 
+      ) e es in 
+      add_call_ctx_to_constraints pos gids1 call_ctx 
     in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 

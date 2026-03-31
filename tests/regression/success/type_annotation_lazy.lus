@@ -1,0 +1,7 @@
+type Nat = subrange [0, *] of int;
+
+node N (b: bool) returns (out: map<int, int>;)
+let
+  out = if (false and b) then map[-1 := -1]@<Nat,Nat> otherwise map[1 := 1]@<Nat,Nat>;
+  check 1 in out;
+tel
