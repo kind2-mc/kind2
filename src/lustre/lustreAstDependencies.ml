@@ -53,7 +53,7 @@ let error_message error = match error with
   | ContractDependencyOnCurrentOutput ids -> "Contract assumption or import argument cannot depend on "
     ^ "current values of output parameters but found: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
-  | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
+  | CyclicDependency ids -> "Potential Cyclic dependency detected in definition of identifiers: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids)
 
 type error = [
