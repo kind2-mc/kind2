@@ -210,6 +210,49 @@ let rec expr_contains_id id = function
     expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
 
+let expr_contains_id_under_pre id expr =
+  let rec r under_pre = function
+    | Ident (_, id2) -> under_pre && id = id2
+    | EmptyMap (_, None) | EmptySet (_, None)
+    | ModeRef (_, _) | Const (_, _) -> false
+    | EmptyMap (_, Some (kt, vt)) ->
+      fold_lustre_ty (r under_pre) false (||) kt ||
+      fold_lustre_ty (r under_pre) false (||) vt
+    | EmptySet (_, Some ty) -> fold_lustre_ty (r under_pre) false (||) ty
+    | RecordProject (_, e, _) | UnaryOp (_, _, e)
+    | ConvOp (_, _, e) | When (_, e, _) | Extract (_, e, _, _)
+    | StructUpdate (_, e, _, None) ->
+      r under_pre e
+    | Pre (_, e) ->
+      r true e
+    | TypeAscription (_, e, ty) ->
+      fold_lustre_ty (r under_pre) false (||) ty || r under_pre e
+    | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+    | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2) ->
+      r under_pre e1 || r under_pre e2
+    | TernaryOp (_, _, e1, e2, e3) ->
+      r under_pre e1 || r under_pre e2 || r under_pre e3
+    | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list) ->
+      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+    | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list) ->
+      List.fold_left (fun acc (_, e) -> acc || r under_pre e) false expr_list
+    | Activate (_, _, e1, e2, expr_list) ->
+      r under_pre e1 || r under_pre e2 ||
+      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+    | AnyOp (_, (_, id2, ty), e) | ChooseOp (_, (_, id2, ty), e) ->
+      if id = id2 then false
+      else fold_lustre_ty (r under_pre) false (||) ty || r under_pre e
+    | Quantifier (_, _, tis, e) ->
+      if List.exists (fun (_, id2, _) -> id = id2) tis then false else r under_pre e
+    | Condact (_, e1, e2, _, expr_list, expr_list2) ->
+      r under_pre e1 || r under_pre e2 ||
+      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list ||
+      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list2
+    | RestartEvery (_, _, expr_list, e) ->
+      r under_pre e || List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+  in
+  r false expr
+
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e

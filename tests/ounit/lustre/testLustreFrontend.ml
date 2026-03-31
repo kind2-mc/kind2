@@ -803,6 +803,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test refinement bound variable under pre" (fun () ->
+    match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementBoundVariableUnderPre _)) -> true
+    | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
