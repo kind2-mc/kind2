@@ -2539,7 +2539,8 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
   match expr with
-  | LA.BinaryOp (_, (Union | Intersection | Plus | Times), e, _) -> 
+  | LA.CompOp (_, Eq, e, _)
+  | BinaryOp (_, (Union | Intersection | Plus | Times), e, _) ->
   (* We call this function before relabeling Plus/Times to Union/Intersection *)
     let ty, _, _ = infer_type_expr ctx None e |> Result.get_ok in
     type_contains_map_or_set ctx ty 
