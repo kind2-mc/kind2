@@ -416,7 +416,24 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { A.IntRange (mk_pos $startpos, l, u) }
+    { 
+      let p = mk_pos $startpos in 
+      let id = HString.mk_hstring "id" in (
+      match l, u with 
+      | Some l, Some u -> 
+        let l = A.CompOp (p, A.Lte, l, A.Ident (p, id)) in 
+        let u = A.CompOp (p, A.Lte, A.Ident (p, id), u) in 
+        let e = A.BinaryOp (p, A.And, l, u) in 
+        A.RefinementType (p, (p, id, A.Int p), e) 
+      | Some l, None -> 
+        let l = A.CompOp (p, A.Lte, l, A.Ident (p, id)) in 
+        A.RefinementType (p, (p, id, A.Int p), l) 
+      | None, Some u -> 
+        let u = A.CompOp (p, A.Lte, A.Ident (p, id), u) in 
+        A.RefinementType (p, (p, id, A.Int p), u) 
+      | None, None -> A.Int p
+      ) 
+    }
   | SET; LT; ty = lustre_type; GT; 
     { A.Set (mk_pos $startpos, ty) }
   | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT

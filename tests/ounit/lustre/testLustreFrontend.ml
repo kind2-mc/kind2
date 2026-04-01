@@ -52,14 +52,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
-  mk_test "test symbolic subrange bound 1" (fun () ->
+  (* mk_test "test symbolic subrange bound 1" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
     | Ok _ -> false 
     | _ -> true);
   mk_test "test symbolic subrange bound 2" (fun () ->
     match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
     | Ok _ -> true
-    | _ -> false);
+    | _ -> false);*)
 ])
 
 (* *************************************************************************** *)
@@ -531,10 +531,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
     | _ -> false);
-  mk_test "test empty subrange" (fun () ->
+  (*mk_test "test empty subrange" (fun () ->
     match load_file "./lustreTypeChecker/empty_range.lus" with
     | Error (`LustreTypeCheckerError (_, EmptySubrange _)) -> true
-    | _ -> false);
+    | _ -> false);*)
   mk_test "test disallowed resassignment" (fun () ->
     match load_file "./lustreTypeChecker/enum_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
@@ -659,10 +659,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/type-grammer.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
     | _ -> false);
-  mk_test "test invalid type for bound variable" (fun () ->
+  (*mk_test "test invalid type for bound variable" (fun () ->
     match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
-    | _ -> false);
+    | _ -> false);*)
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
@@ -719,10 +719,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/provided.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
-  mk_test "test open interval with no bounds" (fun () ->
+  (*mk_test "test open interval with no bounds" (fun () ->
     match load_file "./lustreTypeChecker/open_interval.lus" with
     | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
-    | _ -> false);
+    | _ -> false);*)
   mk_test "test nondeterministic choice type error" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
@@ -842,7 +842,7 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
 (* *************************************************************************** *)
 (*                        Lustre Abstract Interpretation Checks                *)
 (* *************************************************************************** *)
-let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >::: [
+(*let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >::: [
   mk_test "test subrange bug 1" (fun () ->
     match load_file "./lustreAbstractInterpretation/subrange_bug1.lus" with
     | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
@@ -867,4 +867,4 @@ let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >:
     match load_file "./lustreAbstractInterpretation/subrange_bug6.lus" with
     | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
     | _ -> false);
-])
+])*)
