@@ -676,8 +676,8 @@ let check_opacity pos node_id contract is_ext = function
   | Transparent when is_ext -> syntax_error pos (TransparentWithoutBody node_id)
   | _ -> Ok ()
 
-(** Used for contract syntax checks that do not walk types for OQV. *)
-let skip_oqv_on_ty _ _ = Ok []
+(* Empty check *)
+let empty_ty_check _ _ = Ok []
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
@@ -777,7 +777,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
       (* Locals are not visible in contracts *)
       build_local_ctx ctx [] inputs outputs
     in
-    check_contract false ctx common_contract_checks skip_oqv_on_ty c
+    check_contract false ctx common_contract_checks empty_ty_check c
   | None -> Ok ([])) in
   let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
@@ -813,7 +813,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* warnings2 = (match contract with
   | Some (p, c) -> no_stateful_contract_imports ctx c
-    >> check_contract false ctx function_contract_checks skip_oqv_on_ty (p, c)
+    >> check_contract false ctx function_contract_checks empty_ty_check (p, c)
   | None -> Ok []) in 
   let* warnings3 = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
@@ -829,7 +829,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   in
    (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
-    let* warnings = (check_contract true ctx common_contract_checks skip_oqv_on_ty contract) in
+    let* warnings = (check_contract true ctx common_contract_checks empty_ty_check contract) in
     (Ok (warnings, decl))
 
 and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
@@ -1244,6 +1244,7 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
   let* warnings3 =
     match contract with
     | Some c ->
+      (* Locals are not visible in contracts, so use io ctx *)
       check_contract false ctx_io (ovq_check_expr inlinable_funcs) oqv_on_ty c
     | None -> Ok ([])
   in
