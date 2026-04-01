@@ -214,6 +214,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
     | _ -> false);
+  mk_test "refinement bound var under set passed to non-inlinable function" (fun () ->
+    match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
