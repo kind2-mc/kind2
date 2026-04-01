@@ -1,0 +1,7 @@
+const S12: subtype {s: set<int> | s = {1, 2}};
+
+node main() returns (r: bool);
+let
+  r = 1 in S12;
+  check r;
+tel

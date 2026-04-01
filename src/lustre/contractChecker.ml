@@ -192,21 +192,24 @@ let check_contract_realizability in_sys sys =
   in
 
   let vars_of_term term =
-    match Term.destruct term with
-    | Term.T.App (s, args) when
-      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
-      -> ( (* Case of a node call *)
-      let ufs = Symbol.uf_of_symbol s in
-      match UFM.find_opt ufs call_output_args with
-      | None -> Term.vars_of_term term
-      | Some (s, k) -> (
-        Lib.list_slice args s (s+k-1)
-        |> List.fold_left
-          (fun acc t -> VS.union acc (Term.vars_of_term t))
-          VS.empty
+    if Term.is_forall term || Term.is_exists term then
+      Term.vars_of_term term
+    else
+      match Term.destruct term with
+      | Term.T.App (s, args) when
+        (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
+        -> ( (* Case of a node call *)
+        let ufs = Symbol.uf_of_symbol s in
+        match UFM.find_opt ufs call_output_args with
+        | None -> Term.vars_of_term term
+        | Some (s, k) -> (
+          Lib.list_slice args s (s+k-1)
+          |> List.fold_left
+            (fun acc t -> VS.union acc (Term.vars_of_term t))
+            VS.empty
+        )
       )
-    )
-    | _ -> Term.vars_of_term term
+      | _ -> Term.vars_of_term term
   in
 
   realizability_check

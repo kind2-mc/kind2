@@ -225,7 +225,7 @@ val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (
 
 
 val expr_contains_set_binop: tc_context -> NI.t option -> LA.expr -> bool 
-(** `expr_contains_set_binop e` returns true iff `e` contains some set union or set intersection operator *)
+(** `expr_contains_set_binop e` returns true iff `e` contains set equality, set union or set intersection *)
 
 (* 
    Local Variables:
