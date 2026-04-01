@@ -676,6 +676,9 @@ let check_opacity pos node_id contract is_ext = function
   | Transparent when is_ext -> syntax_error pos (TransparentWithoutBody node_id)
   | _ -> Ok ()
 
+(** Used for contract syntax checks that do not walk types for OQV. *)
+let skip_oqv_on_ty _ _ = Ok []
+
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
   let* warnings_decls = Res.seq (List.map (check_declaration ctx) ast) in 
@@ -774,7 +777,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
       (* Locals are not visible in contracts *)
       build_local_ctx ctx [] inputs outputs
     in
-    check_contract false ctx common_contract_checks c
+    check_contract false ctx common_contract_checks skip_oqv_on_ty c
   | None -> Ok ([])) in
   let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
@@ -810,7 +813,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* warnings2 = (match contract with
   | Some (p, c) -> no_stateful_contract_imports ctx c
-    >> check_contract false ctx function_contract_checks (p, c)
+    >> check_contract false ctx function_contract_checks skip_oqv_on_ty (p, c)
   | None -> Ok []) in 
   let* warnings3 = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
@@ -826,7 +829,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   in
    (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
-    let* warnings = (check_contract true ctx common_contract_checks contract) in
+    let* warnings = (check_contract true ctx common_contract_checks skip_oqv_on_ty contract) in
     (Ok (warnings, decl))
 
 and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
@@ -907,17 +910,11 @@ and no_assert_in_frame_init pos = function
 
 
 and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
-  ?tc_ctx:Ctx.tc_context option ->
-  ?oqv_inlinable_funcs:NI.Set.t option ->
+  (context -> LA.lustre_type -> ([> warning] list, 'a) result) ->
   LA.contract -> ([> warning] list, 'a) result 
-= fun is_contract_node ctx f ?(tc_ctx=None) ?(oqv_inlinable_funcs=None) (_, contract) ->
+= fun is_contract_node ctx f oqv_on_ty (_, contract) ->
   let ctx = build_contract_ctx ctx contract in
   let check_list e = Res.seq (List.map (check_expr ctx f) e) in
-  let oqv_on_ty ctx ty =
-    match oqv_inlinable_funcs with
-    | None -> Ok []
-    | Some ifuncs -> oqv_check_type tc_ctx ifuncs false ctx ty
-  in
   let check_contract_item ctx f = function
     | LA.Assume (_, _, _, e) -> check_expr ctx f e
     | Guarantee (_, _, _, e) -> check_expr ctx f e
@@ -1196,11 +1193,8 @@ and oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty =
     let* ws = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs under_ams ctx) ty_args) in
     Ok (List.flatten ws)
   | LA.History (_, id) -> (
-      match tc_ctx with
-      | Some tcx -> (
-          match Ctx.lookup_ty tcx id with
-          | Some ty' -> oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty'
-          | None -> Ok [])
+      match Ctx.lookup_ty tc_ctx id with
+      | Some ty' -> oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty'
       | None -> Ok [])
   | LA.IntRange (_, lo, hi) ->
     let check_part e_opt =
@@ -1215,73 +1209,73 @@ and oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty =
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
 
-let oqv_check_inputs tc_ctx inlinable_funcs base_ctx inputs =
+let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* ws =
-    Res.seq (List.map (fun (_, _, ty, _, _) -> oqv_check_type tc_ctx inlinable_funcs false base_ctx ty) inputs)
+    Res.seq (List.map (fun (_, _, ty, _, _) -> oqv_on_ty base_ctx ty) inputs)
   in
   Ok (List.flatten ws)
 
-let oqv_check_outputs tc_ctx inlinable_funcs base_ctx outputs =
+let oqv_check_outputs oqv_on_ty base_ctx outputs =
   let* ws =
-    Res.seq (List.map (fun (_, _, ty, _) -> oqv_check_type tc_ctx inlinable_funcs false base_ctx ty) outputs)
+    Res.seq (List.map (fun (_, _, ty, _) -> oqv_on_ty base_ctx ty) outputs)
   in
   Ok (List.flatten ws)
 
-let oqv_check_locals tc_ctx inlinable_funcs base_ctx locals =
+let oqv_check_locals oqv_on_ty base_ctx locals =
   let* ws =
     Res.seq
       (List.map
          (function
            | LA.NodeConstDecl (_, FreeConst (_, _, ty))
            | LA.NodeConstDecl (_, TypedConst (_, _, _, ty)) ->
-             oqv_check_type tc_ctx inlinable_funcs false base_ctx ty
+             oqv_on_ty base_ctx ty
            | LA.NodeConstDecl (_, UntypedConst _) -> Ok []
            | LA.NodeVarDecl (_, (_, _, ty, _)) ->
-             oqv_check_type tc_ctx inlinable_funcs false base_ctx ty)
+             oqv_on_ty base_ctx ty)
          locals)
   in
   Ok (List.flatten ws)
 
-let oqv_check_node_decl inlinable_funcs ctx tc_ctx_opt (_, _, _, _, inputs, outputs, locals, items, contract) =
+let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
   let ctx_io = build_local_ctx ctx [] inputs outputs in
-  let* w_in = oqv_check_inputs tc_ctx_opt inlinable_funcs ctx_io inputs in
-  let* w_out = oqv_check_outputs tc_ctx_opt inlinable_funcs ctx_io outputs in
+  let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
+  let* w_in = oqv_check_inputs oqv_on_ty ctx_io inputs in
+  let* w_out = oqv_check_outputs oqv_on_ty ctx_io outputs in
   let* warnings1 =
     match contract with
     | Some c ->
-      check_contract false ctx_io (ovq_check_expr inlinable_funcs)
-        ~tc_ctx:tc_ctx_opt ~oqv_inlinable_funcs:(Some inlinable_funcs) c
+      check_contract false ctx_io (ovq_check_expr inlinable_funcs) oqv_on_ty c
     | None -> Ok ([])
   in
   let ctx_full = build_local_ctx ctx locals inputs outputs in
-  let* w_loc = oqv_check_locals tc_ctx_opt inlinable_funcs ctx_full locals in
+  let* w_loc = oqv_check_locals oqv_on_ty ctx_full locals in
   let* warnings2 =
     check_items
       (build_local_ctx ctx_full locals [] [])
-      ~tc_ctx:tc_ctx_opt
+      ~tc_ctx:(Some tc_ctx)
       (ovq_check_expr inlinable_funcs)
       items
   in
   Ok (w_in @ w_out @ warnings1 @ w_loc @ warnings2)
 
-let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx_opt (_, _, inputs, outputs, contract) =
+let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outputs, contract) =
   let ctx_io = build_local_ctx ctx [] inputs outputs in
-  let* w_in = oqv_check_inputs tc_ctx_opt inlinable_funcs ctx_io inputs in
-  let* w_out = oqv_check_outputs tc_ctx_opt inlinable_funcs ctx_io outputs in
+  let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
+  let* w_in = oqv_check_inputs oqv_on_ty ctx_io inputs in
+  let* w_out = oqv_check_outputs oqv_on_ty ctx_io outputs in
   let* w_co =
-    check_contract true ctx_io (ovq_check_expr inlinable_funcs)
-      ~tc_ctx:tc_ctx_opt ~oqv_inlinable_funcs:(Some inlinable_funcs) contract
+    check_contract true ctx_io (ovq_check_expr inlinable_funcs) oqv_on_ty contract
   in
   Ok (w_in @ w_out @ w_co)
 
 let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> ([> warning] list, [> error]) result
 = fun inlinable_funcs ctx tc_ctx -> function
   | NodeDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
+    oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
   | FuncDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
+    oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
   | ContractNodeDecl (_, decl) ->
-    oqv_check_contract_node_decl inlinable_funcs ctx (Some tc_ctx) decl
+    oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx decl
   | _ -> Ok []
 
 let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
