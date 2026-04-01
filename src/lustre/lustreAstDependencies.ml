@@ -124,10 +124,15 @@ type contract_summary = (LA.ident list) NodeId.Map.t
 type dependency_analysis_data =
   { graph_data: G.t            (* How are the ids related  *)
   ; graph_data2: G.t           (* Relation of ids where imported node outputs depend on all inputs *)
+  (* Make map here that is managed along with graphs that maps edges to whether they were caused by a call to an imported node*)
+  (* Need to find out where edges are made *)
   ; id_pos_data: id_pos_map    (* Where do the Id's appear*)
   ; csummary: contract_summary (* What symbols does the contract export *)
   ; nsummary: node_summary     (* Node summaries  *)
   ; nsummary2: node_summary    (* Node summaries where imported node outputs depend on all inputs *)
+  (* MAYBE it will be useful at summary-time to have an attribute that 
+  tells you whether that node is imported or not*)
+  
   }
 (** The store for memoizing the lustre program dependencies  *)
 
@@ -222,6 +227,8 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
     ; nsummary = NodeId.Map.union (fun _ _ v2 -> Some v2) ns1 ns2
     ; nsummary2 = NodeId.Map.union (fun _ _ v2 -> Some v2) n1 n2 }
 
+(*This function will need to be extended so taht when it is called for a connection caused by an imported node call, we keep that
+information in the depencendy analysis data structure *)
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p ->
     { ad with graph_data = G.connect ad.graph_data i
@@ -234,7 +241,7 @@ let connect_g_pos_biased is_connected ad i p =
   else
     { ad with graph_data = G.connect ad.graph_data i
     ; id_pos_data = add_pos ad.id_pos_data i p }
-
+(* Whenever we modify graph we need to keep the edge map up to date *)
 let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
   fun ad i -> {ad with
     graph_data = G.remove_vertex ad.graph_data i;
@@ -924,7 +931,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      let* g_e = mk_graph_expr2 m e in
      let g_ty = mk_graph_type ty in
      R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
-
+    (* Need to identify whether the call is to an imported node, and then mark it as such *)
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
@@ -1339,12 +1346,13 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations";
+  Debug.parse "\n\n\nNODE ITEMS: %a\nEND\n\n\n" (Format.pp_print_list ~pp_sep:Format.pp_print_newline LA.pp_print_node_item) eqns;
   let* ad = mk_graph_node_items m eqns in
   (try (R.ok (G.topological_sort ad.graph_data)) with
     | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with
         | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-        | Some p -> graph_error p (CyclicDependency ids))
+        | Some p -> Debug.parse "Cyclic Dependency from node equations"; graph_error p (CyclicDependency ids))
   >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
 
