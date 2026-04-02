@@ -1,4 +1,3 @@
---type Neg = subrange [*,-1] of int;
 type Neg = subtype { x: int | x <= -1 };
 const N: int;
 

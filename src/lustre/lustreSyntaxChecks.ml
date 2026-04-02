@@ -873,10 +873,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       let* warnings3 = (check_items ctx ~tc_ctx f nis) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
-    | AnnotProperty (_, _, e, _) -> 
-        Format.printf "Checking property %a\n"
-          LA.pp_print_expr e;
-        (check_expr ctx f e)
+    | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ([])
   in
   (* Check for duplicate properties *)
