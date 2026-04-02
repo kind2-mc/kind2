@@ -629,11 +629,11 @@ let compile_contract_item map count scope kind pos name expr =
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
 
-let create_uf_symbols node_id inputs undefined_outputs =
+let create_uf_symbols node_id inputs outputs =
   let type_of = StateVar.type_of_state_var in
   let input_types = List.map type_of (X.values inputs) in
 
-  undefined_outputs
+  X.values outputs
   |> List.fold_left (
     fun uf_symbols output ->
       let uf_name =
@@ -2771,16 +2771,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   let comp_type =
     if is_function then
-      let undefined_outputs =
-        let defined_svars = List.fold_left
-          (fun set ((sv,_),_) -> SVS.add sv set) SVS.empty equations
-        in
-        let is_undefined svar = SVS.mem svar defined_svars |> not in
-        List.filter is_undefined (X.values outputs)
-      in
-      N.Function { uf_symbols = 
-        create_uf_symbols node_id inputs undefined_outputs
-      }
+      N.Function { uf_symbols = create_uf_symbols node_id inputs outputs}
     else
       N.Node
   in
