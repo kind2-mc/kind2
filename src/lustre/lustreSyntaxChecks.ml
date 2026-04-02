@@ -867,7 +867,10 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       let* warnings3 = (check_items ctx ~tc_ctx f nis) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
-    | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
+    | AnnotProperty (_, _, e, _) -> 
+        Format.printf "Checking property %a\n"
+          LA.pp_print_expr e;
+        (check_expr ctx f e)
     | AnnotMain _ -> Ok ([])
   in
   (* Check for duplicate properties *)
@@ -1112,6 +1115,8 @@ and check_expr_list ctx f l =
 
 let ovq_check_expr inlinable_funcs ctx = function
 | LA.Call (pos, _, node_id, args) ->
+    Format.printf "Processing call to %a\n"
+      NI.pp_print_node_id_internal_name node_id;
   let inlinable_funcs = 
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 

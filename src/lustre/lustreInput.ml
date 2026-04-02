@@ -168,6 +168,9 @@ let type_check declarations =
     (* Step 6. Desugar nondeterministic choice operators *)
     let node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
+    Format.printf "%a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") node_contract_src;
+
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
@@ -220,6 +223,10 @@ let type_check declarations =
     let const_inlined_type_and_consts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_type_and_consts in
     let const_inlined_nodes_and_contracts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
+    Format.printf "decls: %a\n"
+      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
+
+    Format.printf "About to check for non-inlinable func stuff\n"; 
     (* Step 18. Check no quantified variable in argument of non-inlinable function *)
     let inlinable_funcs =
       LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts

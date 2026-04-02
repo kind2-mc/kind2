@@ -94,7 +94,19 @@ fun ctx node_name fun_ids expr ->
     in 
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let ty = Ctx.expand_type_syn ctx ty in
-    let is_const = AH.fold_lustre_ty AH.expr_is_const true (&&) ty in
+    (*!! Maybe too strong, just check for pre or arrow? *)
+    (*!! This is the case, but also something wrong with inlinable functions check, 
+         because type ascription with temporal type will generate a node which is not inlinable, 
+         and we can apply it to a quantified variable *) 
+    (*!! Inlinable functions check is being appleid to declarations before processing, so type ascriptions not yet 
+         desugared, so either we need to update this check to work with type ascriptions, or 
+         we need to apply the check after desugaring *)
+    let is_const e = 
+      match AH.has_pre_or_arrow e with 
+      | Some _ -> false 
+      | None -> not (Ctx.expr_contains_node_call ctx e)
+    in 
+    let is_const = AH.fold_lustre_ty is_const true (&&) ty in
     let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
     (* Global constants don't need to be passed as arguments to generated nodes *)
     let inputs = List.filter (fun i -> 

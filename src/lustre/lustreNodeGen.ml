@@ -1064,6 +1064,8 @@ and compile_ast_expr
   
   and compile_group_expr bounds mk expr_list =
     let over_exprs = fun (i, accum) expr ->
+      Format.printf "%a\n"  
+        A.pp_print_expr expr;
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
       let over_expr = fun j e a -> X.add (mk j i) e a in
       (succ i, X.fold over_expr compiled_expr accum)
