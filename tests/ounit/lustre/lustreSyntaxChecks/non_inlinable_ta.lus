@@ -1,0 +1,6 @@
+type Temp = subtype { x: int | x > pre x };
+
+node N () returns (A: int^N)
+let
+  check forall (i: int) (i: Temp) > 0;
+tel

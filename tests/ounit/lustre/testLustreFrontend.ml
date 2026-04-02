@@ -66,6 +66,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test non-inlinable type ascription 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/non_inlinable_type_ascription.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInTypeAscription _)) -> true
+    | _ -> false);
+  mk_test "test non-inlinable type ascription 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/non_inlinable_type_ascription_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInTypeAscription _)) -> true
+    | _ -> false);
   mk_test "test any operator in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true

@@ -52,6 +52,8 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | QuantifiedVariableInTypeAscription of HString.t 
+  | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
   | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
@@ -106,6 +108,10 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in an argument of a non-inlinable type ascription"
+  | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a non-inlinable type ascription"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | IllegalAnyOp variant -> "Illegal `any` operator; "
@@ -1113,10 +1119,8 @@ and check_expr_list ctx f l =
   let* warnings = Res.seq (List.map (check_expr ctx f) l) in 
   Ok(List.flatten warnings)
 
-let ovq_check_expr inlinable_funcs ctx = function
+let ovq_check_expr inlinable_funcs tc_ctx ctx = function
 | LA.Call (pos, _, node_id, args) ->
-    Format.printf "Processing call to %a\n"
-      NI.pp_print_node_id_internal_name node_id;
   let inlinable_funcs = 
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
@@ -1142,6 +1146,37 @@ let ovq_check_expr inlinable_funcs ctx = function
   in
   let check = List.map over_vars (LA.SI.elements vars) in
   List.fold_left (>>) (Ok []) check
+| LA.TypeAscription (pos, expr, ty) -> 
+  let args = [expr] in 
+  let ty = Ctx.expand_type_syn tc_ctx ty in
+  let is_const e = 
+    match LAH.has_pre_or_arrow e with 
+    | Some _ -> false 
+    | None -> not (Ctx.expr_contains_node_call tc_ctx e)
+  in 
+  let is_inlinable = LAH.fold_lustre_ty is_const true (&&) ty in 
+  let vars =
+    List.fold_left
+      (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
+      LA.SI.empty
+      args
+  in
+  let over_vars j =
+    let found_quant_in_non_inlinable =
+      StringMap.mem j ctx.quant_vars && not is_inlinable
+    in
+    let found_symbolic_index_in_non_inlinable =
+      StringMap.mem j ctx.symbolic_array_indices &&
+      not is_inlinable
+    in
+    (match found_quant_in_non_inlinable, found_symbolic_index_in_non_inlinable with
+    | true, _ -> syntax_error pos (QuantifiedVariableInTypeAscription j)
+    | _, true -> syntax_error pos (SymbolicArrayIndexInTypeAscription j)
+    | false, false -> Ok [])
+  in
+  let check = List.map over_vars (LA.SI.elements vars) in
+  List.fold_left (>>) (Ok []) check
+
 | _ -> Ok []
 
 let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
@@ -1152,34 +1187,34 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
         (* Locals are not visible in contracts *)
         build_local_ctx ctx [] inputs outputs
       in
-      check_contract false ctx (ovq_check_expr inlinable_funcs) c
+      check_contract false ctx (ovq_check_expr inlinable_funcs tc_ctx) c
     | None -> Ok ([])
   in
   let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 =
     check_items
       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
-      ~tc_ctx
-      (ovq_check_expr inlinable_funcs)
+      ~tc_ctx:(Some tc_ctx)
+      (ovq_check_expr inlinable_funcs tc_ctx)
       items
   in
   Ok (warnings1 @ warnings2)
 
-let oqv_check_contract_node_decl inlinable_funcs ctx (_, _, inputs, outputs, contract) =
+let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outputs, contract) =
   let ctx = build_local_ctx ctx [] inputs outputs in
   let* warnings =
-    check_contract true ctx (ovq_check_expr inlinable_funcs) contract
+    check_contract true ctx (ovq_check_expr inlinable_funcs tc_ctx) contract
   in
   Ok warnings
 
 let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> ([> warning] list, [> error]) result
 = fun inlinable_funcs ctx tc_ctx -> function
   | NodeDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
+    oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
   | FuncDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
+    oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
   | ContractNodeDecl (_, decl) ->
-    oqv_check_contract_node_decl inlinable_funcs ctx decl
+    oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx decl
   | _ -> Ok []
 
 let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =

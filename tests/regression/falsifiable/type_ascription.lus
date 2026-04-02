@@ -1,4 +1,5 @@
-type Neg = subrange [*,-1] of int;
+--type Neg = subrange [*,-1] of int;
+type Neg = subtype { x: int | x <= -1 };
 const N: int;
 
 type T2<T> = subtype { x: T | x = pre x };
