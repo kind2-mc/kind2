@@ -1146,12 +1146,12 @@ let ovq_check_expr inlinable_funcs tc_ctx ctx = function
 | LA.TypeAscription (pos, expr, ty) -> 
   let args = [expr] in 
   let ty = Ctx.expand_type_syn tc_ctx ty in
-  let is_const e = 
+  let is_inlinable_e e = 
     match LAH.has_pre_or_arrow e with 
     | Some _ -> false 
     | None -> not (Ctx.expr_contains_node_call tc_ctx e)
   in 
-  let is_inlinable = LAH.fold_lustre_ty is_const true (&&) ty in 
+  let is_inlinable = LAH.fold_lustre_ty is_inlinable_e true (&&) ty in 
   let vars =
     List.fold_left
       (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
