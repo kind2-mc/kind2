@@ -1669,11 +1669,9 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         in
         ContractCall (pos, (NI.mk_node_id cref), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
-        let source = if is_extern then Local else Ghost in
-        let ndecl, map, warnings = normalize_ghost_declaration source info node_id map decl in
+        let ndecl, map, warnings = normalize_ghost_declaration Ghost info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
       | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
-        let source = if is_extern then Local else Ghost in
         let items = match lhs with | A.GhostVarDec (_, items) -> items in
         let lhs_arity = List.length items in
         let rhs_arity = match expr with
@@ -1753,10 +1751,10 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
                 let new_id = StringMap.find i info.interpretation in
                 if Ctx.type_contains_subrange info.context ty || Ctx.type_contains_ref info.context ty then
                   let gids2, warnings2 = 
-                    mk_fresh_refinement_type_constraint source info map pos (Some node_id) (A.Ident (pos, new_id)) ty 
+                    mk_fresh_refinement_type_constraint Ghost info map pos (Some node_id) (A.Ident (pos, new_id)) ty 
                   in
                   let gids3, warnings3 = 
-                    mk_fresh_subrange_constraint source info map pos (Some node_id) (A.Ident (p, new_id)) ty
+                    mk_fresh_subrange_constraint Ghost info map pos (Some node_id) (A.Ident (p, new_id)) ty
                   in
                   (pos, i, ty),
                   union gids1 (union gids2 gids3), 

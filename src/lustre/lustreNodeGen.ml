@@ -2662,7 +2662,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | GI.Input -> Some N.Assumption, None
       | Local -> None, Some Property.Body
       | Output -> Some N.Guarantee, None
-      | Ghost -> if is_extern then None, None else Some N.Guarantee, Some Property.Contract
+      | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
     in match constraint_kind, generated_source with
       | Some N.Assumption, _ ->
         let name = create_constraint_name rexpr in
