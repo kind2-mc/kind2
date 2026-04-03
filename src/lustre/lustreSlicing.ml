@@ -1041,6 +1041,7 @@ let root_and_leaves_of_impl
 
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
+(*!! TODO: Slice props generated from body/implementation *)
 let root_and_leaves_of_contracts
     is_top
     roots

@@ -2611,35 +2611,35 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         pos, NI.get_internal_name node_id
       ) contract_scope in
       let sv = H.find !map.state_var (mk_ident id) in
-      let constraint_kind = match source with
-        | GI.Input -> Some N.Assumption
-        | Local -> None
-        | Output -> Some N.Guarantee
-        | Ghost -> Some N.Guarantee
+      let constraint_kind, generated_source = match source with
+        | GI.Input -> Some N.Assumption, None
+        | Local -> None, Some Property.Body
+        | Output -> Some N.Guarantee, None
+        | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
       in
       if is_original then
         let scope =
           List.map (fun (i, s) -> i, HString.string_of_hstring s) contract_scope
         in
-        match constraint_kind with
-        | Some N.Assumption ->
+        match constraint_kind, generated_source with
+        | Some N.Assumption, _ ->
           let name = create_constraint_name rexpr in
           let contract_sv = C.mk_svar pos ac (Some name) sv scope in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
-        | Some N.Guarantee ->
+        | Some N.Guarantee, _ ->
           let name = create_constraint_name rexpr in
           let contract_sv = C.mk_svar pos gc (Some name) sv scope in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
-        | None ->
+        | None, Some gen_src ->
           let name = create_constraint_name rexpr in
-          let src = Property.Generated (Some pos, [sv]) in
+          let src = Property.Generated (Some pos, [sv], gen_src) in
           a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
         | _ -> assert false
       else
         let name = create_constraint_name rexpr in
-        let src = Property.Generated (Some pos, [sv]) in
+        let src = Property.Generated (Some pos, [sv], Property.Body) in
         let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
     in
@@ -2658,25 +2658,25 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
     let sv = H.find !map.state_var (mk_ident id) in
-    let constraint_kind = match source with
-      | GI.Input -> Some N.Assumption
-      | Local -> None
-      | Output -> Some N.Guarantee
-      | Ghost -> Some N.Guarantee
-    in match constraint_kind with
-      | Some N.Assumption ->
+    let constraint_kind, generated_source = match source with
+      | GI.Input -> Some N.Assumption, None
+      | Local -> None, Some Property.Body
+      | Output -> Some N.Guarantee, None
+      | Ghost -> if is_extern then None, None else Some N.Guarantee, Some Property.Contract
+    in match constraint_kind, generated_source with
+      | Some N.Assumption, _ ->
         let name = create_constraint_name rexpr in
         let contract_sv = C.mk_svar pos ac (Some name) sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
         contract_sv :: a, ac + 1, g, gc, p
-      | Some N.Guarantee ->
+      | Some N.Guarantee, _ ->
         let name = create_constraint_name rexpr in
         let contract_sv = C.mk_svar pos gc (Some name) sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
         a, ac, (contract_sv, false) :: g, gc + 1, p
-      | None ->
+      | None, Some gen_src ->
         let name = create_constraint_name rexpr in
-        let src = Property.Generated (Some pos, [sv]) in
+        let src = Property.Generated (Some pos, [sv], gen_src) in
         a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
       | _ -> assert false
   in

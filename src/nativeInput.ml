@@ -266,7 +266,7 @@ let prop_source_of_sexpr prop_term = function
 
   | [HS.Atom c; HS.List svs] when c == s_gen ->
     let vars = List.map state_var_of_atom svs in
-    Property.Generated (None, vars)
+    Property.Generated (None, vars, Body)
 
   | [HS.Atom c; HS.Atom scopedprop] ->
     let p, scope =
@@ -649,7 +649,7 @@ let pp_pos ppf pos =
 
 let pp_print_prop_source sys ppf = function 
   | Property.PropAnnot pos -> Format.fprintf ppf ":user@ %a" pp_pos pos
-  | Property.Generated (_, state_vars) ->
+  | Property.Generated (_, state_vars, _) ->
     Format.fprintf ppf ":generated@ (@[<v>%a@])"
     (pp_print_list (pp_print_state_var sys) "@ ") state_vars  
   | Property.Instantiated (scope, prop) ->
