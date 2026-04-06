@@ -2284,29 +2284,17 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr = A.Ident (pos, name) in
     nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2
   | StructUpdate (pos, expr1, [A.MapIndex (_, expr2)], Some expr3) as expr ->
-    let gids1, warnings1 = match AH.find_type_annotation expr1 with 
-    | Some (Map (_, kt, vt)) -> 
-      let gids, warnings = mk_fresh_refinement_type_constraint Local info map pos node_id expr2 kt in 
-      let gids', warnings' = mk_fresh_refinement_type_constraint Local info map pos node_id expr3 vt in  
-      let gids'', warnings'' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 kt in 
-      let gids''', warnings''' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr3 vt in  
-      let gids = List.fold_left union (empty ()) [gids; gids'; gids''; gids'''] in 
-      let warnings = warnings @ warnings' @ warnings'' @ warnings''' in
-      gids,  warnings 
-    | None -> empty (), []
-    | _ -> assert false (* Type annotation must be `Map` type, enforced by the parser *) 
-    in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)
-    let nexpr1, gids2, _ = normalize_expr info node_id map expr1 in 
-    let nexpr2, gids3, _ = normalize_expr info node_id map expr2 in 
-    let nexpr3, gids4, _ = normalize_expr info node_id map expr3 in 
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
+    let nexpr3, gids3, _ = normalize_expr info node_id map expr3 in 
     (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
        while supplying the guard, but ignore all other outputs *)
-    let _, _, warnings2 = normalize_expr ?guard info node_id map expr1 in 
-    let _, _, warnings3 = normalize_expr ?guard info node_id map expr2 in 
-    let _, _, warnings4 = normalize_expr ?guard info node_id map expr3 in 
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings3 = normalize_expr ?guard info node_id map expr3 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
@@ -2318,30 +2306,23 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     (* Use base types *)
     let kt = Chk.expand_type_syn_reftype_history_subrange info.context kt |> Result.get_ok in
     let vt = Chk.expand_type_syn_reftype_history_subrange info.context vt |> Result.get_ok in
-    let gids5 = { (empty ()) with   
+    let gids4 = { (empty ()) with   
       map_element_updates = [ name1, nexpr1, nexpr2, nexpr3, name2, kt, vt ]; 
       locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
     } in 
     let nexpr = A.Ident (pos, name1) in 
-    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4; gids5] in 
-    nexpr, gids, warnings1 @ warnings2 @ warnings3 @ warnings4
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
+    nexpr, gids, warnings1 @ warnings2 @ warnings3 
     | StructUpdate (pos, expr1, [A.SetIndex (_, expr2)], None) as expr ->
-    let gids1, warnings1 = match AH.find_type_annotation expr1 with 
-    | Some ty -> 
-      let gids, warnings =  mk_fresh_refinement_type_constraint Local info map pos node_id expr2 ty in
-      let gids', warnings' = mk_fresh_subrange_constraint ~force_prop:true Local info map pos node_id expr2 ty in  
-      union gids gids', warnings @ warnings'
-    | None -> empty (), [] 
-    in
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)
-    let nexpr1, gids2, _ = normalize_expr info node_id map expr1 in 
-    let nexpr2, gids3, _ = normalize_expr info node_id map expr2 in 
+    let nexpr1, gids1, _ = normalize_expr info node_id map expr1 in 
+    let nexpr2, gids2, _ = normalize_expr info node_id map expr2 in 
     (* Hacky: to generate correct user-facing warnings, we call normalize_expr 
        while supplying the guard, but ignore all other outputs *)
-    let _, _, warnings2 = normalize_expr ?guard info node_id map expr1 in 
-    let _, _, warnings3 = normalize_expr ?guard info node_id map expr2 in 
+    let _, _, warnings1 = normalize_expr ?guard info node_id map expr1 in 
+    let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_update") in 
@@ -2352,13 +2333,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in 
     (* Use base types *)
     let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> Result.get_ok in
-    let gids4 = { (empty ()) with   
+    let gids3 = { (empty ()) with   
       set_insertions = [ name1, nexpr1, nexpr2, name2, ty ]; 
       locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
     } in 
     let nexpr = A.Ident (pos, name1) in 
-    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
-    nexpr, gids, warnings1 @ warnings2 @ warnings3
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
+    nexpr, gids, warnings1 @ warnings2 
 
   | RecordProject (pos, expr, i) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in

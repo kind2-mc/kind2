@@ -1,5 +1,5 @@
 node N(x: int) returns (y: set<int>);
 let
-  y = { x }@<bool>;
+  y = { }@<bool>;
   check x in y;
 tel
