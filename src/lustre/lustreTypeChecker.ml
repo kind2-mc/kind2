@@ -237,7 +237,7 @@ let error_message kind = match kind with
       LA.pp_print_lustre_type ty
   | RefinementBoundVariableUnderPre id ->
     "Refinement type bound variable '" ^ HString.string_of_hstring id
-    ^ "' cannot appear under 'pre' when the bound type descends from an array, map, or set type"
+    ^ "' cannot appear under 'pre' when the bound variable's type descends from an array, map, or set type"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
