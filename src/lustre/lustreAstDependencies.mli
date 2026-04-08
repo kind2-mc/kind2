@@ -52,6 +52,7 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of LA.SI.t
   | CyclicDependency of HString.t list
+  | ImportedCyclicDependency of (HString.t list * NodeId.t)
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -59,8 +60,9 @@ type error = [
 
 val error_message: error_kind -> string
 (** Returns an message describing the error kind *)
+type node_summary_entry = { imported: bool ; dependencies : ((int list) IntMap.t)}
 
-type node_summary = ((int list) IntMap.t) NodeId.Map.t
+type node_summary = node_summary_entry NodeId.Map.t
 
 val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 

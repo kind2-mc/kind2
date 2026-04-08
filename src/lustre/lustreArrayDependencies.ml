@@ -144,7 +144,8 @@ and process_lhs ctx ns proj expr = function
   | _ :: tail -> process_lhs ctx ns (proj + 1) expr tail
   | [] -> R.ok (G.empty, StringMap.empty, 0, 0)
 
-and process_expr ind_vars ctx ns proj indices expr =
+and process_expr :  HString.t list option -> Ctx.tc_context -> AD.node_summary -> int -> index list -> A.expr -> (G.t, 'a) result
+  = fun ind_vars ctx ns proj indices expr ->
   let r expr = process_expr ind_vars ctx ns proj indices expr in
   match expr with
   (* Identifiers *)
@@ -240,7 +241,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Node calls *)
   | Call (_, _, i, es) ->
     let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in
-    let node_map = NodeId.Map.find i ns in
+    let node_map = (NodeId.Map.find i ns).dependencies in
     let dep_args = AD.IntMap.find proj node_map in
     List.fold_left (fun acc idx ->
         match List.nth_opt arg_vars idx with
@@ -264,7 +265,10 @@ let extract_unknown ids =
   | [] -> None
   | unk :: _ -> Some unk
 
-let rec check_inductive_array_dependencies ctx ns = function
+let rec check_inductive_array_dependencies: TypeCheckerContext.tc_context
+  -> LustreAstDependencies.node_summary
+  -> LustreAst.t
+  -> (unit, [> error]) result = fun ctx ns  -> function
   | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl)) :: tail ->
     check_node_decl ctx ns decl
     >> check_inductive_array_dependencies ctx ns tail
