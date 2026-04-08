@@ -74,7 +74,6 @@ module A = LustreAst
 module NI = NodeId
 module AH = LustreAstHelpers
 module AIC = LustreAstInlineConstants
-module AI = LustreAbstractInterpretation
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
@@ -153,7 +152,6 @@ let clear_cache () =
 
 type info = {
   context : Ctx.tc_context;
-  abstract_interp_context : LustreAbstractInterpretation.context;
   (* (Index variable type * array type) StringMap.t *)
   inductive_variables : (LustreAst.lustre_type * LustreAst.lustre_type) StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
@@ -310,13 +308,14 @@ let new_contract_reference () =
 (** Extract array size from an index type (IntRange or RefinementType).
     Returns Some for IntRange with concrete bounds, None otherwise. *)
 let extract_array_size_opt = function
-  | A.IntRange (_, lb, ub) -> (
+  (*!! Convert to refinement type? *)
+  (*| A.IntRange (_, lb, ub) -> (
       match lb, ub with
       | Some (A.Const (_, A.Num l)), Some (A.Const (_, A.Num u)) ->
         let lv = int_of_string (HString.string_of_hstring l) in
         let uv = int_of_string (HString.string_of_hstring u) in
         Some (uv - lv + 1)
-      | _, _ -> None)
+      | _, _ -> None)*)
   | _ -> None
 
 let extract_array_size t =
@@ -324,15 +323,9 @@ let extract_array_size t =
   | Some s -> s
   | None -> assert false
 
-(** Build index type [0, size-1] for one dimension. Uses IntRange if size is
-    concrete, RefinementType otherwise. *)
+(** Build index type [0, size-1] for one dimension. *)
 let mk_index_type pos size_expr =
   match size_expr with
-  | A.Const (_, A.Num n) ->
-    let nv = int_of_string (HString.string_of_hstring n) in
-    let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
-    let upper = A.Const (pos, A.Num (HString.mk_hstring (string_of_int (nv - 1)))) in
-    A.IntRange (pos, Some zero, Some upper)
   | _ ->
     let id = HString.mk_hstring "_" in
     let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
@@ -418,6 +411,7 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
+(*!! Keep? *)
 let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
@@ -429,54 +423,6 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let u = A.CompOp (dpos, A.Lte, expr, A.Ident(dpos, last_value)) in
       [A.BinaryOp (dpos, A.And, l, u), true]
     )
-    | A.IntRange (_, l, u) when mk_range ->
-      let original_ty, _, _ = Chk.infer_type_expr ctx node_id expr |> unwrap in
-      let original_ty = Chk.expand_type_syn_reftype_history ctx original_ty |> unwrap in
-      let user_prop, is_original = match original_ty with
-        | A.IntRange (_, l', u') ->
-          let eval_int_expr_opt expr = match expr with 
-            | Some expr -> Some (AIC.eval_int_expr ctx expr)
-            | None -> None
-          in
-          let is_original =
-            let (l, u) = eval_int_expr_opt l, eval_int_expr_opt u in
-            let (l', u') = eval_int_expr_opt l', eval_int_expr_opt u' in
-            (match (l, u, l', u') with
-            | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
-            | Some (Ok l), None, Some (Ok l'), None -> l = l'
-            | None, Some (Ok u), None, Some (Ok u') -> u = u'
-            | None, None, None, None -> true
-            | _ -> false)
-          in
-          (* Don't add properties from original type information if they match 
-             the current type or if we are generating type ascription constraints 
-             (with a type ascription, we only want the constraints directly from the ascription, 
-             not from inferred types) *)
-          let user_prop = if is_original || force_prop then []
-            else
-              match l', u' with 
-                | Some l', Some u' ->
-                  let l' = A.CompOp (dpos, A.Lte, l', expr) in
-                  let u' = A.CompOp (dpos, A.Lte, expr, u') in
-                  [A.BinaryOp (dpos, A.And, l', u'), true]
-                | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
-                | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
-                | None, None -> [(A.Const (dpos, A.True)), true]
-          in
-          user_prop, is_original 
-        | A.Int _ -> [], false 
-        | _ -> assert false
-      in (match l, u with 
-        | Some l, Some u -> 
-          let l = A.CompOp (dpos, A.Lte, l, expr) in
-          let u = A.CompOp (dpos, A.Lte, expr, u) in
-          [A.BinaryOp (dpos, A.And, l, u), is_original] @ user_prop
-        | Some l, None -> 
-          [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
-        | None, Some u -> 
-          [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
-        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
-      )
     | A.ArrayType (_, (ty, upper_bound)) ->
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in
@@ -728,11 +674,9 @@ let add_step_counter info =
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info (node_id : NI.t option) id =
-  let ty = (match AI.get_type info.abstract_interp_context node_id id, 
-                  Ctx.lookup_ty info.context id |> get with
-  | _, (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
-  | Some ty, _ -> ty
-  | None, ty -> ty)
+  let ty = (match Ctx.lookup_ty info.context id |> get with
+  | (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
+  | ty -> ty)
   in
   Ctx.expand_type_syn info.context ty
 
@@ -1051,7 +995,6 @@ let get_inlinable_func_decls inlinable_funcs decls =
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   let info = { context = ctx;
-    abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
@@ -2645,6 +2588,6 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | Int _ | History _ | Bool _ | Real _ | IntRange _ 
+  | Int _ | History _ | Bool _ | Real _  
   | UserType _ | AbstractType _ 
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
