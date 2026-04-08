@@ -791,16 +791,13 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"PropAnnot\"%a"
         lnum cnum pp_print_fname fname
-    | Property.Generated (pos, _, gen_src) -> (
+    | Property.Generated (pos, _, _) -> (
         match pos with
-        | None -> 
-          Format.asprintf " source=\"Generated(%a)\"" 
-            Property.pp_print_generated_source gen_src
+        | None -> " source=\"Generated\"" 
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
-          Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated(%a)\"%a"
+          Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
             lnum cnum pp_print_fname fname
-            Property.pp_print_generated_source gen_src
     )
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
@@ -1157,15 +1154,14 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
     | Property.NonVacuityCheck (pos, scope) -> print_attributes pos scope "NonVacuityCheck"
-    | Property.Generated (pos, _, gen_src) -> (
+    | Property.Generated (pos, _, _) -> (
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
           Format.fprintf ppf
-            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated(%a)\",@,"
+            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
-            Property.pp_print_generated_source gen_src
     )
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
