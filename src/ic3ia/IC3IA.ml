@@ -948,7 +948,7 @@ let main fwd slice_to_prop prop in_sys param sys =
       (* Instantiated properties are only included in the transition system *)
       | Assumption _ -> sys
       (* An instantiated var, local sofar var, is involved. *)
-      | Generated (None, _) -> sys
+      | Generated (None, _, _) -> sys
         (* Currently, only generated properties with an associated position were already
            present in the original input system *)
       | _ -> fst (InputSystem.trans_sys_of_analysis ~slice_to_prop:prop in_sys param)

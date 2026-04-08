@@ -1,0 +1,22 @@
+type Pos = subtype { x: int | x >= 1 }; 
+
+contract C () returns (out: int);
+let
+  var l: Pos = 0;
+  const c: Pos = 0;
+  guarantee true;
+tel
+
+function imported F() returns (x: int);
+con
+  var l: Pos = 0;
+  const c: Pos = 0;
+  guarantee x>l;
+noc
+
+node N() returns (z: int);
+let
+  z = F();
+  check "P1" z>0;
+tel
+

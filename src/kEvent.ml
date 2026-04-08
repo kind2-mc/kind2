@@ -791,13 +791,16 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"PropAnnot\"%a"
         lnum cnum pp_print_fname fname
-    | Property.Generated (pos, _) -> (
+    | Property.Generated (pos, _, gen_src) -> (
         match pos with
-        | None -> " source=\"Generated\""
+        | None -> 
+          Format.asprintf " source=\"Generated(%a)\"" 
+            Property.pp_print_generated_source gen_src
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
-          Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
-          lnum cnum pp_print_fname fname
+          Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated(%a)\"%a"
+            lnum cnum pp_print_fname fname
+            Property.pp_print_generated_source gen_src
     )
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
@@ -1154,14 +1157,15 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
     | Property.NonVacuityCheck (pos, scope) -> print_attributes pos scope "NonVacuityCheck"
-    | Property.Generated (pos, _) -> (
+    | Property.Generated (pos, _, gen_src) -> (
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
           Format.fprintf ppf
-            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
+            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated(%a)\",@,"
             pp_print_fname fname lnum cnum
+            Property.pp_print_generated_source gen_src
     )
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
