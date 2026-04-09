@@ -1805,7 +1805,7 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
           List.map (function
             | Type.IntRange (_, Some j) ->
               Numeral.string_of_numeral j
-            | _ -> "null"
+            | _ -> assert false
           )
         )
       | _ ->
@@ -1814,7 +1814,7 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
         List.map (function
           | Type.IntRange (_, Some j) ->
             Numeral.string_of_numeral j
-          | _ -> "null"
+          | _ -> assert false
         )
     in
     Format.fprintf ppf
