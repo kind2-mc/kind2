@@ -1730,7 +1730,7 @@ let pp_print_stream_values_json clock ty ppf l =
       pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
 
-let rec pp_print_type_json field ppf stream_type =
+let rec pp_print_type_json ?state_var ?model field ppf stream_type =
   match (Type.node_of_type stream_type) with
   | Type.Bool
   | Type.Int
@@ -1793,13 +1793,29 @@ let rec pp_print_type_json field ppf stream_type =
   | Type.Array _ -> (
     let base_type = Type.last_elem_type_of_array stream_type in
     let sizes =
-      Type.all_index_types_of_array stream_type |>
-      List.map Type.node_of_type |>
-      List.map (function
-        | Type.IntRange (_, Some j) ->
-          Numeral.string_of_numeral j
-        | _ -> "null"
-      )
+      match state_var, model with
+      | Some sv, Some m when SVT.mem m sv ->
+        let stream_values = SVT.find m sv in
+        (match stream_values with
+        | Model.Map map :: _ ->
+          Model.dimension_of_map map |> List.map string_of_int
+        | _ -> 
+          Type.all_index_types_of_array stream_type |>
+          List.map Type.node_of_type |>
+          List.map (function
+            | Type.IntRange (_, Some j) ->
+              Numeral.string_of_numeral j
+            | _ -> "null"
+          )
+        )
+      | _ ->
+        Type.all_index_types_of_array stream_type |>
+        List.map Type.node_of_type |>
+        List.map (function
+          | Type.IntRange (_, Some j) ->
+            Numeral.string_of_numeral j
+          | _ -> "null"
+        )
     in
     Format.fprintf ppf
         "\"type\" : \"array\",@,\
@@ -1853,7 +1869,7 @@ let pp_print_stream_json node model clock ppf (index, state_var) =
        @]@,}\
       "
       pp_print_stream_ident_json (index, state_var)
-      (pp_print_type_json "type") stream_type
+      (pp_print_type_json ~state_var ~model "type") stream_type
       (pp_print_stream_prop_json node) state_var
       (function ppf ->
          if stream_values = [] then
