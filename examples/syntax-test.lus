@@ -135,12 +135,17 @@ returns
 
 -- Local variable declarations are optional
 let 
--- Node equations are optional
+-- Node equations are not optional
+  x = any@<k>;
+  y = any@<[int, [bool, real]]>;
+  z = any@<[int, [bool, real]]>;
+  u = any@<i2>;
+  v = any@<int>;
 tel;
 
 type y_t = { a: int; b: real };
 
-node y (const a: bool) returns (b: int);
+node y (const a: bool) returns ();
 
 -- Local constant declarations
 const c : int = 1; d : int = 2;
@@ -198,7 +203,7 @@ var t : int;
 let t = n; tel;
 
 -- External contract definition
-contract countSpec(trigger: bool; val: int) returns (count: int ; error: bool) ;
+contract countSpec(trigger: bool; val: int) returns (count: int ; ) ;
 let
   assume val >= 0;
   var initVal: int = val -> pre(initVal);
@@ -215,9 +220,9 @@ let
 tel
 
 -- Partially defined node with imported contract
-node my_count (trigger: bool; val: int) returns (count: int ; error: bool) ;
+node my_count (trigger: bool; val: int) returns (count: int ;) ;
 con
-  import countSpec(trigger, val) returns (count, error);
+  import countSpec(trigger, val) returns (count);
 noc
 let
   count = (if trigger then 1 else 0) + (val -> pre count) ;
@@ -543,12 +548,12 @@ const
   unknown: int;
 type T;
 const c_T: T;
-node N (const n: int) returns (x: int);
-
+node N (const n: int) returns (x: int) 
 -- Array of fixed size determined by node input 
 var V: T^(2*n);
 let
   V = c_T^(2*n); -- Local variables must have definitions
+  x = any@<int>; 
 tel;
 
 
@@ -596,8 +601,6 @@ let tel;
 
 -- Section 6
 
-node N4 (U, V, W: int) returns (X: int; Y: real); let tel;
-
 node x61 (C: bool; E, E1: int; F, F1: real) returns (X: int; Y: real);
 let 
   -- (X, Y) = if C then (E, F) else (E1, F1);
@@ -637,7 +640,7 @@ let
   e4 = if g then a else e -> f;
 tel
 
-node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
+node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3;);
 let
    e = [e1, e2, e3];
 tel
@@ -848,6 +851,15 @@ let
   l2 = any@<int>;
 
   z = y + l1 + l2;
+tel
+
+-- ------------------------------------------------------------
+-- type ascription 
+-- ------------------------------------------------------------
+type Nat = subrange [0, *] of int;
+node M3() returns (z:int);
+let
+  z = (3: Nat);
 tel
 
 -- ------------------------------------------------------------
