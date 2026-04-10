@@ -2111,7 +2111,7 @@ let mk_multiprop_obs_unsliced unsliced_sys =
       |> Seq.mapi (fun i eq ->
         { Property.prop_name =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int i);
-          prop_source = Property.Generated (None, []);
+          prop_source = Property.Generated (None, [], Body);
           prop_term = eq;
           prop_status = Property.PropUnknown;
           prop_kind = Invariant;
@@ -2146,7 +2146,7 @@ let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
         incr cpt;
         { Property.prop_name =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
-          prop_source = Property.Generated (None, []);
+          prop_source = Property.Generated (None, [], Body);
           prop_term = eq;
           prop_status = Property.PropUnknown; 
           prop_kind = Invariant; }

@@ -1234,7 +1234,7 @@ and normalize_declaration info map = function
     Some (A.ConstDecl (p, UntypedConst (p2, id, expr))), map, warnings
   | decl -> Some decl, map, []
 
-and normalize_node_contract info (node_id : NI.t) map cref inputs outputs (id, _, ivars, ovars, body) =
+and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outputs (id, _, ivars, ovars, body) =
   (* Normalize types *)
   let ivars, gids1, warnings1 = List.map (fun (p, id, ty, cl, c) -> 
     let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
@@ -1305,25 +1305,30 @@ and normalize_node_contract info (node_id : NI.t) map cref inputs outputs (id, _
     let vars = List.map (fun (p,id,ty,_) -> (p,id,ty)) ovars in
     add_ref_type_constraints info map Output (Some node_id) vars
   in
-  let nbody, gids7, _, warnings3 = normalize_contract info node_id map ivars ovars body in
+  let nbody, gids7, _, warnings3 = normalize_contract info node_id map is_extern ivars ovars body in
   let gids = List.fold_left union (empty ()) [union_list gids1; union_list gids2; gids3; gids4; gids5; gids6; gids7] in
   nbody, gids, 
   List.flatten (warnings1 @ warnings2) @ warnings3 @ warnings4 @ warnings5 @ warnings6 @ warnings7, 
   StringMap.empty
 
-and normalize_ghost_declaration info node_id map = function
+and normalize_ghost_declaration source info node_id map = function
   | A.UntypedConst (pos, id, expr) ->
     let new_id = StringMap.find id info.interpretation in
-    let nexpr, map, warnings = normalize_expr ?guard:None info (Some node_id) map expr in
-    A.UntypedConst (pos, new_id, nexpr), map, warnings
+    let nexpr, gids, warnings = normalize_expr ?guard:None info (Some node_id) map expr in
+    A.UntypedConst (pos, new_id, nexpr), gids, warnings
   | TypedConst (pos, id, expr, ty) ->
-    let ty, map1, warnings1 = normalize_ty ~id:(Some id) info (Some node_id) map ty in
+    let gids1, warnings1 = (mk_fresh_subrange_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty) in 
+    let gids2, warnings2 = mk_fresh_refinement_type_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty in
+    let ty, gids3, warnings3 = normalize_ty ~id:(Some id) info (Some node_id) map ty in
     let new_id = StringMap.find id info.interpretation in
-    let nexpr, map2, warnings2 = normalize_expr ?guard:None info (Some node_id) map expr in
-    A.TypedConst (pos, new_id, nexpr, ty), union map1 map2, warnings1 @ warnings2
+    let nexpr, gids4, warnings4 = normalize_expr ?guard:None info (Some node_id) map expr in
+    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
+    A.TypedConst (pos, new_id, nexpr, ty), gids, warnings1 @ warnings2 @ warnings3 @ warnings4 
   | FreeConst (pos, id, ty) -> 
-    let ty, map, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in
-    FreeConst (pos, id, ty), map, warnings
+    let gids1, warnings1 = (mk_fresh_subrange_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty) in 
+    let gids2, warnings2 = mk_fresh_refinement_type_constraint source info map pos (Some node_id) (A.Ident (pos, id)) ty in
+    let ty, gids3, warnings3 = normalize_ty ~id:(Some id) info (Some node_id) map ty in
+    FreeConst (pos, id, ty), union (union gids1 gids2) gids3, warnings1 @ warnings2 @ warnings3
 
 and normalize_node info map
     (node_id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
@@ -1378,7 +1383,7 @@ and normalize_node info map
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
       let ncontracts, gids, interpretation, warnings =
-        normalize_contract info node_id map inputs outputs contract
+        normalize_contract info node_id map is_extern inputs outputs contract
       in
       (Some ncontracts), gids, interpretation, warnings
     | None -> None, empty (), StringMap.empty, []
@@ -1588,7 +1593,7 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info node_id map ivars ovars (p, items) =
+and normalize_contract info node_id map is_extern ivars ovars (p, items) =
   let gids = ref (empty ()) in
   let warnings = ref [] in
   let result = ref [] in
@@ -1660,7 +1665,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
         in
         let called_node = NI.Map.find name info.contract_calls_info in
         let (_, normalized_call), gids2, warnings2, interp = 
-          normalize_node_contract info name map cref ninputs noutputs called_node
+          normalize_node_contract info name map is_extern cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
         let warnings = warnings1 @ warnings2 in
@@ -1672,7 +1677,7 @@ and normalize_contract info node_id map ivars ovars (p, items) =
         in
         ContractCall (pos, (NI.mk_node_id cref), ty_args, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
-        let ndecl, map, warnings = normalize_ghost_declaration info node_id map decl in
+        let ndecl, map, warnings = normalize_ghost_declaration Ghost info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
       | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
         let items = match lhs with | A.GhostVarDec (_, items) -> items in
