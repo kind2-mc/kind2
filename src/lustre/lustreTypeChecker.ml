@@ -115,7 +115,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
   | NoIndexAccessInArrayLength of tc_type
-  | RefinementBoundVariableUnderPre of HString.t
+  | RefinementBoundVariableUnsupported of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -235,9 +235,9 @@ let error_message kind = match kind with
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
       LA.pp_print_lustre_type ty
-  | RefinementBoundVariableUnderPre id ->
+  | RefinementBoundVariableUnsupported id ->
     "Refinement type bound variable '" ^ HString.string_of_hstring id
-    ^ "' cannot appear under 'pre' when the bound variable's type descends from an array, map, or set type"
+    ^ "' cannot appear under 'pre' or '->' when the refinement type is part of a non-basic (nested) type"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -2594,7 +2594,7 @@ and expr_contains_set_binop ctx ni expr =
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
-  let rec check_type_well_formed_rec has_array_map_or_set ty = match ty with
+  let rec check_type_well_formed_rec is_nested ty = match ty with
   | LA.Map (p, kt, vt) ->
     let* _ = check_map_type p ctx kt in 
     let* kt, warnings1 = check_type_well_formed_rec true kt in
@@ -2604,12 +2604,12 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     let* ty, warnings = check_type_well_formed_rec true ty in 
     R.ok (LA.Set (p, ty), warnings)
   | LA.TArr (p, arg_ty, res_ty) ->
-    let* arg_ty, warnings1 = check_type_well_formed_rec has_array_map_or_set arg_ty in
-    let* res_ty, warnings2 = check_type_well_formed_rec has_array_map_or_set res_ty in 
+    let* arg_ty, warnings1 = check_type_well_formed_rec true arg_ty in
+    let* res_ty, warnings2 = check_type_well_formed_rec true res_ty in 
     R.ok (LA.TArr (p, arg_ty, res_ty), warnings1 @ warnings2)
   | LA.RecordType (p, id, idTys) ->
       let* idTys, warnings = (R.seq (List.map (fun (p, id, ty) -> 
-        let* ty, warnings = check_type_well_formed_rec has_array_map_or_set ty in 
+        let* ty, warnings = check_type_well_formed_rec true ty in 
         R.ok ((p, id, ty), warnings)
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
@@ -2619,7 +2619,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
   )
   | LA.RefinementType (p, (p2, i, ty), e) ->
-    let* ty, warnings1 = check_type_well_formed_rec has_array_map_or_set ty in
+    let* ty, warnings1 = check_type_well_formed_rec is_nested ty in
     let ctx = add_ty ctx i ty in
     let* _ = (if is_const then 
       let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
@@ -2627,8 +2627,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     else R.ok ()) in
     let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
     let* _ =
-      if has_array_map_or_set && LH.expr_contains_id_under_pre i e
-      then type_error p2 (RefinementBoundVariableUnderPre i)
+      if is_nested && LH.expr_contains_id_under_pre_or_arrow i e
+      then type_error p2 (RefinementBoundVariableUnsupported i)
       else R.ok ()
     in
     let* _ = check_ref_type_assumptions ctx src nname i e in 
@@ -2640,12 +2640,12 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     R.ok (LA.RefinementType (p, (p2, i, ty), e), warnings1 @ warnings2 @ warnings3)
   | LA.TupleType (p, tys) ->
     let* tys, warnings = 
-      R.seq (List.map (check_type_well_formed_rec has_array_map_or_set) tys) |> R.map List.split 
+      R.seq (List.map (check_type_well_formed_rec true ) tys) |> R.map List.split 
     in
     R.ok (LA.TupleType (p, tys), List.flatten warnings)
   | LA.GroupType (p, tys) ->
     let* tys, warnings = 
-      R.seq (List.map (check_type_well_formed_rec has_array_map_or_set) tys) |> R.map List.split 
+      R.seq (List.map (check_type_well_formed_rec true ) tys) |> R.map List.split 
     in 
     R.ok (LA.GroupType (p, tys), List.flatten warnings)
   | LA.UserType (pos, ty_args, i) ->
@@ -2654,7 +2654,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       (* Check that we are passing the correct number of type arguments *)
       let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
       let ty = expand_type_syn ctx ty in
-      check_type_well_formed_rec has_array_map_or_set ty
+      check_type_well_formed_rec is_nested ty
     else (
       match nname with 
       | None -> type_error pos (UndeclaredType i)

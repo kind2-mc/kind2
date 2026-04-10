@@ -100,7 +100,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 
   | NoIndexAccessInArrayLength of tc_type
-  | RefinementBoundVariableUnderPre of HString.t
+  | RefinementBoundVariableUnsupported of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

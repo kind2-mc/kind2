@@ -210,46 +210,58 @@ let rec expr_contains_id id = function
     expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
 
-let expr_contains_id_under_pre id expr =
-  let rec r under_pre = function
-    | Ident (_, id2) -> under_pre && id = id2
+let expr_contains_id_under_pre_or_arrow id expr =
+  let rec r under_pre_or_arrow = function
+    | Ident (_, id2) -> under_pre_or_arrow && id = id2
+    | Arrow (_, e1, e2) -> 
+      r true e1 || r true e2
+    | Pre (_, e) ->
+      r true e
+
     | EmptyMap (_, None) | EmptySet (_, None)
     | ModeRef (_, _) | Const (_, _) -> false
     | EmptyMap (_, Some (kt, vt)) ->
-      fold_lustre_ty (r under_pre) false (||) kt ||
-      fold_lustre_ty (r under_pre) false (||) vt
-    | EmptySet (_, Some ty) -> fold_lustre_ty (r under_pre) false (||) ty
+      fold_lustre_ty (r under_pre_or_arrow) false (||) kt ||
+      fold_lustre_ty (r under_pre_or_arrow) false (||) vt
+    | EmptySet (_, Some ty) -> fold_lustre_ty (r under_pre_or_arrow) false (||) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | When (_, e, _) | Extract (_, e, _, _)
     | StructUpdate (_, e, _, None) ->
-      r under_pre e
-    | Pre (_, e) ->
-      r true e
+      r under_pre_or_arrow e
     | TypeAscription (_, e, ty) ->
-      fold_lustre_ty (r under_pre) false (||) ty || r under_pre e
+      fold_lustre_ty (r under_pre_or_arrow) false (||) ty || r under_pre_or_arrow e
     | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
-    | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2) ->
-      r under_pre e1 || r under_pre e2
+    | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) ->
+      r under_pre_or_arrow e1 || r under_pre_or_arrow e2
     | TernaryOp (_, _, e1, e2, e3) ->
-      r under_pre e1 || r under_pre e2 || r under_pre e3
-    | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list) ->
-      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+      r under_pre_or_arrow e1 || r under_pre_or_arrow e2 || r under_pre_or_arrow e3
+    | Call (_, tys, _, expr_list) -> 
+      List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list || 
+      List.fold_left (fun acc ty -> 
+        fold_lustre_ty (r under_pre_or_arrow) acc (||) ty
+      ) false tys
+    | GroupExpr (_, _, expr_list) ->
+      List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list
     | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list) ->
-      List.fold_left (fun acc (_, e) -> acc || r under_pre e) false expr_list
+      List.fold_left (fun acc (_, e) -> acc || r under_pre_or_arrow e) false expr_list
     | Activate (_, _, e1, e2, expr_list) ->
-      r under_pre e1 || r under_pre e2 ||
-      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+      r under_pre_or_arrow e1 || r under_pre_or_arrow e2 ||
+      List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list
     | AnyOp (_, (_, id2, ty), e) | ChooseOp (_, (_, id2, ty), e) ->
       if id = id2 then false
-      else fold_lustre_ty (r under_pre) false (||) ty || r under_pre e
+      else fold_lustre_ty (r under_pre_or_arrow) false (||) ty || r under_pre_or_arrow e
     | Quantifier (_, _, tis, e) ->
-      if List.exists (fun (_, id2, _) -> id = id2) tis then false else r under_pre e
+      if List.exists (fun (_, id2, _) -> id = id2) tis then false else 
+        r under_pre_or_arrow e || 
+        List.fold_left (fun acc ty -> 
+          fold_lustre_ty (r under_pre_or_arrow) acc (||) ty
+        ) false (List.map (fun (_, _, ty) -> ty) tis) 
     | Condact (_, e1, e2, _, expr_list, expr_list2) ->
-      r under_pre e1 || r under_pre e2 ||
-      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list ||
-      List.fold_left (fun acc x -> acc || r under_pre x) false expr_list2
+      r under_pre_or_arrow e1 || r under_pre_or_arrow e2 ||
+      List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list ||
+      List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list2
     | RestartEvery (_, _, expr_list, e) ->
-      r under_pre e || List.fold_left (fun acc x -> acc || r under_pre x) false expr_list
+      r under_pre_or_arrow e || List.fold_left (fun acc x -> acc || r under_pre_or_arrow x) false expr_list
   in
   r false expr
 

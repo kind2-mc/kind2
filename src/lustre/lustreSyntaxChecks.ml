@@ -100,7 +100,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "'"
   | QuantifiedVariableInPre var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
-  | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable '"
+  | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable or refinement type bound variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
@@ -1157,15 +1157,15 @@ and ovq_check_expr inlinable_funcs ctx = function
 (* Check types for quantified variables in calls to non-inlinable functions. 
    In particular, refinement type bound variables that refer to array/map/set elements 
    are treated as quantified because they will be quantified in the generated properties *)
-and oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty =
+and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   let ovq = ovq_check_expr inlinable_funcs in
   match ty with
   | LA.RefinementType (_, (_, i, inner_ty), e) ->
     let ctx_here =
-      if under_ams then ctx_add_quant_var ctx i (Some inner_ty) else ctx
+      if is_nested then ctx_add_quant_var ctx i (Some inner_ty) else ctx
     in
     let* warnings1 = check_expr ctx_here ovq e in
-    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs under_ams ctx_here inner_ty in
+    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs is_nested ctx_here inner_ty in
     Ok (warnings1 @ warnings2)
   | LA.ArrayType (_, (b_ty, sz)) ->
     let* warnings1 = check_expr ctx ovq sz in
@@ -1178,23 +1178,23 @@ and oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty =
   | LA.Set (_, t) ->
     oqv_check_type tc_ctx inlinable_funcs true ctx t
   | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
-    let* warnings1 = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs under_ams ctx) tys) in
+    let* warnings1 = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs true ctx) tys) in
     Ok (List.flatten warnings1)
   | LA.RecordType (_, _, tis) ->
     let* warnings1 =
-      Res.seq (List.map (fun (_, _, t) -> oqv_check_type tc_ctx inlinable_funcs under_ams ctx t) tis)
+      Res.seq (List.map (fun (_, _, t) -> oqv_check_type tc_ctx inlinable_funcs true ctx t) tis)
     in
     Ok (List.flatten warnings1)
   | LA.TArr (_, a, r) ->
-    let* warnings1 = oqv_check_type tc_ctx inlinable_funcs under_ams ctx a in
-    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs under_ams ctx r in
+    let* warnings1 = oqv_check_type tc_ctx inlinable_funcs true ctx a in
+    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs true ctx r in
     Ok (warnings1 @ warnings2)
   | LA.UserType (_, ty_args, _) ->
-    let* warnings1 = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs under_ams ctx) ty_args) in
+    let* warnings1 = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs is_nested ctx) ty_args) in
     Ok (List.flatten warnings1)
   | LA.History (_, id) -> (
       match Ctx.lookup_ty tc_ctx id with
-      | Some ty' -> oqv_check_type tc_ctx inlinable_funcs under_ams ctx ty'
+      | Some ty' -> oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty'
       | None -> Ok [])
   | LA.IntRange (_, lo, hi) ->
     let check_part e_opt =

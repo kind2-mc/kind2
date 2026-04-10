@@ -46,7 +46,7 @@ val expr_contains_call : expr -> bool
 val expr_contains_id : ident -> expr -> bool
 (** Checks if the expression contains a particular identifier *)
 
-val expr_contains_id_under_pre : ident -> expr -> bool
+val expr_contains_id_under_pre_or_arrow : ident -> expr -> bool
 (** Checks if the expression contains a particular identifier under a `pre` *)
 
 val type_arity : lustre_type -> int * int
