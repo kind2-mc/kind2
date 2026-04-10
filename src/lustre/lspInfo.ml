@@ -50,27 +50,29 @@ let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } tyd 
   | LustreAst.FreeType (p, id) -> print p id []
 
 
-let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
-  function
-  | LustreAst.FreeConst (_, id, _)
-  | LustreAst.UntypedConst (_, id, _)
-  | LustreAst.TypedConst (_, id, _, _) ->
-      let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-      let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
-      Format.fprintf ppf
-        ",@.{@[<v 1>@,\
-         \"objectType\" : \"lsp\",@,\
-         \"source\" : \"lsp\",@,\
-         \"kind\" : \"constDecl\",@,\
-         \"name\" : \"%a\",@,\
-         %a\"startLine\" : %d,@,\
-         \"startColumn\" : %d,@,\
-         \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@."
-        HString.pp_print_hstring id
-        pp_print_fname_json file
-        slnum scnum
-        elnum ecnum
+let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } decl =
+  let id, type_str = match decl with
+    | LustreAst.FreeConst (_, id, _) -> id, "paramDecl"
+    | LustreAst.UntypedConst (_, id, _) 
+    | LustreAst.TypedConst (_, id, _, _) -> id, "constDecl"
+  in
+    let file, slnum, scnum = Lib.file_row_col_of_pos spos in
+    let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+    Format.fprintf ppf
+      ",@.{@[<v 1>@,\
+        \"objectType\" : \"lsp\",@,\
+        \"source\" : \"lsp\",@,\
+        \"kind\" : \"%s\",@,\
+        \"name\" : \"%a\",@,\
+        %a\"startLine\" : %d,@,\
+        \"startColumn\" : %d,@,\
+        \"endLine\" : %d,@,\
+        \"endColumn\" : %d@]@.}@."
+      type_str
+      HString.pp_print_hstring id
+      pp_print_fname_json file
+      slnum scnum
+      elnum ecnum
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     (node_id, imported, _, _, _, _, _, _, contract) =
