@@ -325,6 +325,7 @@ let extract_array_size t =
 
 (** Build index type [0, size-1] for one dimension. *)
 let mk_index_type pos size_expr =
+  (*!! Using int ranges for array types with concrete bounds *)
   match size_expr with
   | _ ->
     let id = HString.mk_hstring "_" in
