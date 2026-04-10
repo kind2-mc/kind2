@@ -61,13 +61,14 @@ let error_message error = match error with
     let imported_node_name = NI.get_user_name imported_id in
 
     let helping_message = match imported_node_type with 
-    | Any -> "Cyclic dependency is likely caused by the use of the any operator" 
+      | Any -> "Cyclic dependency is likely caused by the use of the any operator" 
+      | Choose -> "Cyclic dependency is likely caused by the use of the any operator" 
+      | _ ->  "Cyclic dependency is likely caused by a call to the imported node " 
+        ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
 
-    | Choose -> "Cyclic dependency is likely caused by the use of the any operator" 
-    | _ ->  "Cyclic dependency is likely caused by a call to the imported node " 
-    ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
     "Potential Cyclic dependency detected in definition of identifiers: "
-    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ " (Hint: " ^ helping_message ^ ")"
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ 
+    " (Hint: " ^ helping_message ^ ")"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -114,21 +115,6 @@ module EdgeMap = Map.Make(struct
       HString.compare t1 t2
 end)
 
-let pp_edge ppf e =
-  let src = G.get_source_vertex e in
-  let dst = G.get_target_vertex e in
-  Format.fprintf ppf "%a -> %a"
-    HString.pp_print_hstring src
-    HString.pp_print_hstring dst
-
-let pp_edge_with_flag ppf (e, b) =
-  Format.fprintf ppf "%a : %a" pp_edge e NodeId.pp_print_node_id_user_name b
-
-let pp_edge_map ppf m =
-  Format.fprintf ppf "@[<v>Imported Edge Map:@,";
-  Lib.pp_print_list pp_edge_with_flag "@," ppf (EdgeMap.bindings m);
-  Format.fprintf ppf "@]@."
-
 type id_pos_map = (Lib.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
@@ -166,17 +152,12 @@ type contract_summary = (LA.ident list) NodeId.Map.t
 type dependency_analysis_data =
   { graph_data: G.t            (* How are the ids related  *)
   ; graph_data2: G.t           (* Relation of ids where imported node outputs depend on all inputs *)
-  ; imported_edge_map: NodeId.t EdgeMap.t
-  ; this_imported: NodeId.t option
-  (* Make map here that is managed along with graphs that maps edges to whether they were caused by a call to an imported node*)
-  (* Need to find out where edges are made *)
+  ; imported_edge_map: NodeId.t EdgeMap.t (* Cites which edges are cause by which imported nodes *)
+  ; this_imported: NodeId.t option (* Cites the imported node that is included in this graph, if any *)
   ; id_pos_data: id_pos_map    (* Where do the Id's appear*)
   ; csummary: contract_summary (* What symbols does the contract export *)
   ; nsummary: node_summary     (* Node summaries  *)
   ; nsummary2: node_summary    (* Node summaries where imported node outputs depend on all inputs *)
-  (* MAYBE it will be useful at summary-time to have an attribute that 
-  tells you whether that node is imported or not*)
-  
   }
 (** The store for memoizing the lustre program dependencies  *)
 
@@ -288,8 +269,6 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
     ; nsummary = NodeId.Map.union (fun _ _ v2 -> Some v2) ns1 ns2
     ; nsummary2 = NodeId.Map.union (fun _ _ v2 -> Some v2) n1 n2 }
 
-(*This function will need to be extended so taht when it is called for a connection caused by an imported node call, we keep that
-information in the depencendy analysis data structure *)
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p ->
     let gd2 = G.connect ad.graph_data2 i in
@@ -307,16 +286,23 @@ let connect_g_pos_biased is_connected ad i p =
   else
     { ad with graph_data = G.connect ad.graph_data i
     ; id_pos_data = add_pos ad.id_pos_data i p }
-(* Whenever we modify graph we need to keep the edge map up to date *)
-let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
+
+  let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
   fun ad i -> 
     let new_edge_map = List.fold_left 
         (fun map (src, tgt) -> 
           if HString.equal src i || HString.equal tgt i 
             then EdgeMap.remove (G.mk_edge src tgt) map 
-        else map) ad.imported_edge_map (G.to_edge_list (G.get_edges ad.graph_data2)) in
+        else map) ad.imported_edge_map (G.to_edge_list (G.get_edges ad.graph_data2)) 
+    in
+    let new_imported = 
+      match ad.this_imported with 
+      | Some id -> if HString.equal (NI.get_user_name id) i then None else ad.this_imported
+      | None -> None 
+    in
     {ad with
     imported_edge_map = new_edge_map;
+    this_imported = new_imported;
     graph_data = G.remove_vertex ad.graph_data i;
     graph_data2 = G.remove_vertex ad.graph_data2 i}
                       
@@ -1004,7 +990,6 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      let* g_e = mk_graph_expr2 m e in
      let g_ty = mk_graph_type ty in
      R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
-    (* Need to identify whether the call is to an imported node, and then mark it as such *)
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
@@ -1442,9 +1427,7 @@ let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t op
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations";
-  Debug.parse "\n\n\nNODE ITEMS: %a\nEND\n\n\n" (Format.pp_print_list ~pp_sep:Format.pp_print_newline LA.pp_print_node_item) eqns;
   let* ad = mk_graph_node_items m eqns in
-  Debug.parse "NEW>>>>>>>> Generated graph eqn with %a \n\n and Edges: %a" pp_print_analysis_data ad pp_edge_map ad.imported_edge_map;
   (try (R.ok (G.topological_sort ad.graph_data)) with
     | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with
