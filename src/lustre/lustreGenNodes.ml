@@ -94,8 +94,6 @@ fun ctx node_name fun_ids expr ->
     in 
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let ty = Ctx.expand_type_syn ctx ty in
-    let no_node_call_e e = not (Ctx.expr_contains_node_call ctx e) in 
-    let no_node_call = AH.fold_lustre_ty no_node_call_e true (&&) ty in
     let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
     (* Global constants don't need to be passed as arguments to generated nodes *)
     let inputs = List.filter (fun i -> 
@@ -112,12 +110,6 @@ fun ctx node_name fun_ids expr ->
       | None -> assert false
     ) inputs in
     let decl =
-      if no_node_call then 
-        (* We are allowing temporal operators in the interface here. While we disallow temporal operators 
-           in function interfaces for user input, the restriction is for realizability checking, which is not relevant here 
-           (the user cannot perform a realizability check of a component generated here) *)
-        A.FuncDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
-      else 
         A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
     in 
     Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 

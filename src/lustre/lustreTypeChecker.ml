@@ -1802,9 +1802,6 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
     in
     (* No temporal operators in function interface *)
     let check_ty_for_temp_operators_or_node_calls ty = 
-      (* We have fewer restrictions for type ascriptions because users cannot 
-         check their realizability *)
-      if NI.get_node_type node_name = TypeAscription then R.ok () else 
       let ty = expand_type_syn ctx ty in
       let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
       match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 

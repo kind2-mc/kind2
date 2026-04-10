@@ -593,6 +593,8 @@ let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
+  (*!!| TypeAscription (pos, _, ty) -> 
+    LAH.fold_lustre_ty (no_temporal_operator decl_ctx) (R.ok []) y ty*)
   | _ -> Ok []
 
 let no_stateful_contract_imports ctx contract =
