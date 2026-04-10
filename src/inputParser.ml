@@ -213,7 +213,7 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
     )
     |> List.flatten
     )
-    with Not_an_input str -> (* If it is not an array, it must be a tuple *)
+    with Not_an_input _ -> (* If it is not an array, it must be a tuple *)
       lst |> List.mapi (
             fun i json ->
             read_val scope name ((LustreIndex.TupleIndex i)::indexes) arr_indexes  json
