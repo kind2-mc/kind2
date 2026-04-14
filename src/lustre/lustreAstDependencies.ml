@@ -61,12 +61,12 @@ let error_message error = match error with
     let imported_node_name = NI.get_user_name imported_id in
 
     let helping_message = match imported_node_type with 
-      | Any -> "Cyclic dependency is likely caused by the use of the any operator" 
-      | Choose -> "Cyclic dependency is likely caused by the use of the choose operator" 
+      | Any -> "Cyclic dependency is likely caused by the use of the 'any' operator" 
+      | Choose -> "Cyclic dependency is likely caused by the use of the 'choose' operator" 
       | _ ->  "Cyclic dependency is likely caused by a call to the imported node " 
         ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
 
-    "Potential Cyclic dependency detected in definition of identifiers: "
+    "Potential cyclic dependency detected in definition of identifiers: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ 
     " (Hint: " ^ helping_message ^ ")"
 
