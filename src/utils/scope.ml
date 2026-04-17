@@ -64,6 +64,8 @@ module Set = Set.Make (Scope)
 
 module Map = Map.Make (Scope)
 
+module Hashtbl = Hashtbl.Make (Scope)
+
 (* Construct a scope from a list of identifiers 
 
    Simply return the list for now, later do some smarter things. *)

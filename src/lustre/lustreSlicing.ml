@@ -491,11 +491,11 @@ let state_var_dependencies
 (* Order equations of node topologically by their dependencies to have leaf
    equations first, and set the map of outputs to the inputs they depend on *)
 let order_equations
-    init
-    output_input_deps
-    ({ N.inputs; N.outputs; N.equations } as node) =
+    _init
+    _output_input_deps
+    ({ (*N.inputs; N.outputs;*) N.equations } as _node) =
 
-  let dependencies =
+  (*let dependencies =
     state_var_dependencies' init output_input_deps node []
   in
 
@@ -524,9 +524,11 @@ let order_equations
   (* Dependency of output variables on input variables *)
   let output_input_dep = 
     output_input_dep_of_dependencies dependencies inputs outputs
-  in
+  in*)
 
-  equations', deps, output_input_dep
+  let deps = [] in
+  let output_input_dep = D.empty in
+  equations, deps, output_input_dep
 
           
 (* ********************************************************************** *)
@@ -546,6 +548,7 @@ let rec contract_proof_obligation = function
   | Property.PropAnnot _ 
   | Property.Candidate None 
   | Property.NonVacuityCheck _
+  | Property.TerminationCheck _
   | Property.Assumption _
   | Property.Guarantee _
   | Property.GuaranteeOneModeActive _
@@ -718,6 +721,7 @@ let add_roots_of_asserts asserts roots =
    Call this function with *)
 let rec slice_nodes
     preserve_sig
+    process_calls
     init_slicing_of_node
     nodes
     accum = 
@@ -792,6 +796,7 @@ let rec slice_nodes
       (* Continue with next nodes *)
       slice_nodes
         preserve_sig
+        process_calls
         init_slicing_of_node
         nodes
         (node_sliced :: accum)
@@ -804,6 +809,7 @@ let rec slice_nodes
 
       slice_nodes
         preserve_sig
+        process_calls
         init_slicing_of_node
         nodes
         accum
@@ -812,7 +818,8 @@ let rec slice_nodes
     (* State variable is not a leaf, need to add all dependencies *)
     | (state_var :: roots', 
        leaves, 
-       ({ N.equations = equations_in_coi;
+       ({ N.node_id;
+          N.equations = equations_in_coi;
           N.calls = calls_in_coi;
           N.locals = locals_in_coi } as node_sliced),
        ({ N.equations = equations_not_in_coi; 
@@ -835,7 +842,20 @@ let rec slice_nodes
                (* State variable is an output of the called node? *)
                D.exists
                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                 call_outputs))
+                 call_outputs)
+            
+               &&
+
+               (* It is not a recursive call to itself *)
+               not (NodeId.equal node_id call_node_id)
+
+               &&
+
+               (* It is not a call to a mutually recursive function that
+                  is already in the stack *)
+               not (List.exists (fun (_, _, {N.node_id = id_in_stack}, _) ->
+                      NodeId.equal id_in_stack call_node_id) tl)
+            )
             calls_not_in_coi
         in
 
@@ -848,6 +868,7 @@ let rec slice_nodes
            be possible with the current format. *)
         slice_nodes
           preserve_sig
+          process_calls
           init_slicing_of_node
           nodes
           accum
@@ -1001,6 +1022,7 @@ let rec slice_nodes
         (* Continue with modified sliced node and roots *)
         slice_nodes
           preserve_sig
+          process_calls
           init_slicing_of_node
           nodes
           accum
@@ -1143,6 +1165,7 @@ let slice_to_abstraction'
 
     slice_nodes
       preserve_sig
+      false
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
@@ -1180,9 +1203,28 @@ let slice_to_abstraction
     if reduce_to_coi then (fun _ _ -> None) else no_slice
   in
   slice_to_abstraction'
-    ~preserve_sig:preserve_sig analysis roots subsystem
+    ~preserve_sig analysis roots subsystem
 
+let slice_node_to_abstraction node =
   
+  let nodes' =
+    let roots = (fun _ _ -> None) in
+    let preserve_sig = true in
+    let process_calls = true in
+
+    slice_nodes
+      preserve_sig
+      process_calls
+      (fun _ -> assert false)
+      [node]
+      []
+      [root_and_leaves_of_contracts false roots node]
+  in
+  match nodes' with
+  | [node] -> node
+  | _ -> assert false
+
+
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction_and_property

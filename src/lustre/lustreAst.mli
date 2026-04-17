@@ -285,6 +285,8 @@ type contract_call = position * NI.t * lustre_type list * expr list * ident list
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
 
+type decreases_clause = position * expr
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -294,6 +296,7 @@ type contract_node_equation =
   | Mode of contract_mode
   | ContractCall of contract_call
   | AssumptionVars of contract_assump_vars
+  | Decreases of decreases_clause
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
@@ -360,7 +363,7 @@ type declaration =
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl
+  | FuncDecl of span * node_decl * bool (* whether the function is recursive *)
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 

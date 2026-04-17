@@ -100,6 +100,7 @@ let mk_span start_pos end_pos =
 %token OPAQUE
 %token TRANSPARENT
 %token IMPORTED
+%token REC
 %token NODE
 %token FUNCTION
 %token RETURNS
@@ -136,6 +137,7 @@ let mk_span start_pos end_pos =
 %token ENSURE
 %token WEAKLY
 %token ASSUMP_VARS
+%token DECREASES
 
 (* Token for assertions *)
 %token ASSERT
@@ -260,6 +262,10 @@ opacity_modifier:
   | TRANSPARENT { A.Transparent }
   | { A.Default }
 
+rec_modifier:
+  | REC { true }
+  | { false }
+
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl: 
   | d = const_decl { List.map 
@@ -276,10 +282,10 @@ decl:
     let (l, e) = def in
     [A.NodeDecl ( mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r) )]
   }
-  | opac = opacity_modifier ; FUNCTION ; decl = node_decl ; def = node_def {
+  | opac = opacity_modifier ; FUNCTION ; is_rec = rec_modifier; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), is_rec)]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -287,7 +293,7 @@ decl:
   }
   | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r), false)]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
@@ -565,6 +571,12 @@ assumption_vars:
     A.AssumptionVars (mk_pos $startpos, ids)
   }
 
+decreases_clause:
+  DECREASES ; e = expr; SEMICOLON
+  {
+    A.Decreases (mk_pos $startpos, e)
+  }
+
 contract_item:
   | e = contract_ghost_vars { e }
   | c = contract_ghost_const { c }
@@ -573,6 +585,7 @@ contract_item:
   | m = mode_equation { m }
   | i = contract_import { i }
   | a = assumption_vars { a }
+  | d = decreases_clause { d }
 
 contract_in_block:
   | c = nonempty_list(contract_item) { c }

@@ -904,7 +904,8 @@ let contract_node_equation_has_pre_or_arrow = function
 | GhostConst decl -> const_decl_has_pre_or_arrow decl
 | GhostVars (_, _, e)
 | Assume (_, _, _, e)
-| Guarantee (_, _, _, e) -> has_pre_or_arrow e
+| Guarantee (_, _, _, e) 
+| Decreases (_, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->
   List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
   |> some_of_list
@@ -2087,7 +2088,10 @@ let pos_of_type ty = match ty with
 (* Return the node_id of a declaration if it is a node/func/contract decl *)
 let node_id_of_decl = function
   | NodeDecl (_, (id, _, _, _, _, _, _, _, _))
-  | FuncDecl (_, (id, _, _, _, _, _, _, _, _))
+  | FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
   | ContractNodeDecl (_, (id, _, _, _, _)) -> Some id
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> None
 
+let is_recursive_function = function
+  | FuncDecl (_, _, true) -> true
+  | _ -> false

@@ -95,6 +95,9 @@ and prop_source =
   | NonVacuityCheck of (Lib.position * Scope.t)
   (** Non-vacuity check *)
 
+  | TerminationCheck of Lib.position
+  (** Termination check *)
+
   | Candidate of prop_source option
   (** User supplied candidate invariant *)
 

@@ -169,7 +169,9 @@ let type_check declarations =
     let node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
-    let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
+    let* (sorted_node_contract_decls, toplevel_nodes, scc_map, node_summary) =
+      AD.sort_and_check_nodes_contracts node_contract_src
+    in
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
@@ -247,12 +249,13 @@ let type_check declarations =
       gids,
       normalized_decls,
       toplevel_nodes,
+      scc_map,
       warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6)
     )
   in
   match tc_res with
   | Error e -> Error e
-  | Ok (c, g, d, toplevel, warnings) -> 
+  | Ok (c, g, d, toplevel, scc_map, warnings) -> 
     let warnings =
       List.map
         (fun warning -> fail_or_warn warning)
@@ -261,7 +264,7 @@ let type_check declarations =
     let warning = List.fold_left (>>) (Ok ()) warnings in
     Debug.parse "Type checking done";
     Debug.parse "========\n%a\n==========\n" LA.pp_print_program d;
-    warning >> Ok (c, g, d, toplevel, warnings)
+    warning >> Ok (c, g, d, toplevel, scc_map, warnings)
    (*  *)
 
 
@@ -312,8 +315,10 @@ let of_channel only_parse in_ch =
   )
   else (
     let result =
-      let* (ctx, gids, decls, toplevel_nodes, _) = type_check declarations in
-      let nodes, globals = LNG.compile ctx gids decls in
+      let* (ctx, gids, decls, toplevel_nodes, scc_map, _) =
+        type_check declarations
+      in
+      let nodes, globals = LNG.compile ctx gids scc_map decls in
       let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ()) in
       let main_nodes = match Flags.lus_main () with
         | Some s -> 

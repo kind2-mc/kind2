@@ -822,6 +822,10 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"NonVacuityCheck\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
+    | Property.TerminationCheck pos ->
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" source=\"Termination\"%a"
+          lnum cnum pp_print_fname fname
   in
 
   " isCandidate=\"" ^ (string_of_bool (Property.is_candidate prop.Property.prop_source)) 
@@ -1165,6 +1169,11 @@ let prop_attributes_json ppf trans_sys prop_name =
     )
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
+    | Property.TerminationCheck pos ->
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.fprintf ppf
+          "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Termination\",@,"
+          pp_print_fname fname lnum cnum
   in
 
   Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"

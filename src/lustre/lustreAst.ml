@@ -275,6 +275,8 @@ type contract_call = position * NI.t * lustre_type list * expr list * ident list
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
 
+type decreases_clause = position * expr
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -284,6 +286,7 @@ type contract_node_equation =
   | Mode of contract_mode
   | ContractCall of contract_call
   | AssumptionVars of contract_assump_vars
+  | Decreases of decreases_clause
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
@@ -330,7 +333,7 @@ type declaration =
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl
+  | FuncDecl of span * node_decl * bool (* whether the function is recursive *)
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 
@@ -1120,6 +1123,12 @@ let pp_print_contract_guarantee ppf (_, n, s, e) =
       ^ "\"")
     pp_print_expr e
 
+
+let pp_print_decreases_clause ppf (_, e) =
+  Format.fprintf
+    ppf
+    "@[<hv 3>decreases@ %a;@]"
+    pp_print_expr e
     
 let pp_print_contract_require ppf (_, n, e) =
   Format.fprintf
@@ -1183,6 +1192,7 @@ let pp_print_contract_item fmt = function
   | Mode m -> pp_print_contract_mode fmt m
   | ContractCall call -> pp_print_contract_call fmt call
   | AssumptionVars vars -> pp_print_contract_assump_vars fmt vars
+  | Decreases e -> pp_print_decreases_clause fmt e
 
 
 let pp_print_contract fmt contract =
@@ -1216,22 +1226,23 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
        pp_print_contract e
     
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, (n, ext, opac, p, i, o, l, e, r)
+  _, (n, ext, opac, p, i, o, l, e, r), is_rec
 ) =
     if e = [] then
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s%s %a%t@ \
+        "@[<hv>@[<hv 2>%s%s%s%s %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
         %a@?@]@?"
-        (if is_fun then "function" else "node")
-        (if ext then " imported" else "")
         (match opac with
          | Default -> ""
          | Opaque -> "opaque "
          | Transparent -> "transparent "
         )
+        (if is_rec then "rec " else "")
+        (if is_fun then "function" else "node")
+        (if ext then " imported" else "")
         HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
@@ -1268,10 +1279,10 @@ let pp_print_declaration ppf = function
   | ConstDecl (_, c) -> pp_print_const_decl ppf c
 
   | NodeDecl (span, decl) ->
-    pp_print_node_or_fun_decl false ppf (span, decl)
+    pp_print_node_or_fun_decl false ppf (span, decl, false)
 
-  | FuncDecl (span, decl) ->
-    pp_print_node_or_fun_decl true ppf (span, decl)
+  | FuncDecl (span, decl, is_rec) ->
+    pp_print_node_or_fun_decl true ppf (span, decl, is_rec)
 
   | ContractNodeDecl (_, decl) ->
     pp_print_contract_node_decl ppf decl

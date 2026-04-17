@@ -556,7 +556,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
     let items' = inline_constants_of_node_items ctx' items in
      ctx, (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
-  | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract))) ->
+  | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract), is_rec)) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
     let contract' = match contract with
@@ -565,7 +565,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     in
     let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
     let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
+     ctx, (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract'), is_rec))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, contract)))) ->
      ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, inline_constants_of_contract ctx contract))))
   | e -> (ctx, e)

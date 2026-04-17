@@ -265,7 +265,7 @@ let extract_unknown ids =
   | unk :: _ -> Some unk
 
 let rec check_inductive_array_dependencies ctx ns = function
-  | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl)) :: tail ->
+  | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl, _)) :: tail ->
     check_node_decl ctx ns decl
     >> check_inductive_array_dependencies ctx ns tail
   | _ :: tail ->

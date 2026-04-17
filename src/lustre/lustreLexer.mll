@@ -254,6 +254,7 @@ let keyword_table = mk_hashtbl [
   "transparent", TRANSPARENT ;
   "opaque", OPAQUE ;
   "imported", IMPORTED ;
+  "rec", REC ;
   "node", NODE ;
   "function", FUNCTION ;
   "returns", RETURNS ;
@@ -330,6 +331,7 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
+  "decreases", DECREASES;
 
   "with", WITH ;
   ]

@@ -740,7 +740,7 @@ module BmcKind = struct
     )
   let ind_print_cex () = !ind_print_cex
 
-  let compress_default = true
+  let compress_default = false
   let compress = ref compress_default
   let _ = add_spec
     "--ind_compress"
@@ -3314,7 +3314,7 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `IC3QE; `IC3IA ; `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3QE; (*`IC3IA ;*) `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
@@ -3326,7 +3326,7 @@ module Global = struct
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3QE ; `IC3IA ;
+    `BMC ; `IND ; `IND2 ; `IC3QE ; (*`IC3IA ;*)
     `INVGEN ; `INVGENOS ;
     (* `INVGENINT ; *) `INVGENINTOS ; `INVGENMACHOS ;
     (* `INVGENREAL ; *) `INVGENREALOS ;
@@ -3433,7 +3433,7 @@ module Global = struct
     | `On -> "on"
     | `Off -> "off"
     | `Experimental -> "experimental"
-  let slice_nodes_default = `On
+  let slice_nodes_default = `Off
   let slice_nodes = ref slice_nodes_default
   let _ = add_spec
     "--slice_nodes"

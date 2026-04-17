@@ -164,6 +164,7 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
+  is_rec_func : bool;
   call_context : LustreAst.expr list;
 }
 
@@ -269,7 +270,7 @@ let compute_node_input_constant_mask decls =
   | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
-  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
+  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _), _) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
   | _ -> map
@@ -1038,7 +1039,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
   List.fold_left
     (fun acc decl ->
      match decl with
-     | A.FuncDecl (_, nd) ->
+     | A.FuncDecl (_, nd, _) ->
        let (id, _, _, _, _, _, _, _, _) = nd in
        if NI.Set.mem id inlinable_funcs then
          NI.Map.add id nd acc
@@ -1061,6 +1062,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
+    is_rec_func = false;
     call_context = [] }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
@@ -1213,9 +1215,10 @@ and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.NodeDecl(span, normal_decl)), map, warnings
-  | FuncDecl (span, decl) ->
+  | FuncDecl (span, decl, is_rec) ->
+    let info = { info with is_rec_func = is_rec } in
     let normal_decl, map, warnings = normalize_node info map decl in
-    Some (A.FuncDecl (span, normal_decl)), map, warnings
+    Some (A.FuncDecl (span, normal_decl, is_rec)), map, warnings
   | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
     let ctx = Chk.add_io_node_ctx info.context id ps ips ops in
     let info = { info with context = ctx } in
@@ -1617,6 +1620,8 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
+      | Decreases (pos, expr) -> 
+        Decreases (pos, expr), empty (), [], StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
@@ -1907,7 +1912,7 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
 and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
   let call_ctx, gids1 =
-    match info.call_context with
+    match (if info.is_rec_func then info.call_context else []) with
     | [] -> None, empty ()
     | c :: cs -> (
       let conj =

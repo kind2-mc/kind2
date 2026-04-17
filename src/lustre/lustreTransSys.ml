@@ -51,6 +51,23 @@ let default_settings = {
   slice_to_prop = None
 }
 
+module NodeInstance = struct
+  
+  type t = NI.t * int NI.Map.t
+
+  let equal (node_id1, num_unrollings1) (node_id2, num_unrollings2) =
+    (NodeId.equal node_id1 node_id2) &&
+    (NI.Map.equal Int.equal num_unrollings1 num_unrollings2)
+
+  let compare (node_id1, num_unrollings1) (node_id2, num_unrollings2) =
+    let cmp_id = NodeId.compare node_id1 node_id2 in
+    if cmp_id <> 0 then cmp_id
+    else NI.Map.compare Int.compare num_unrollings1 num_unrollings2
+
+end
+
+module NodeInstanceMap = Map.Make(NodeInstance)
+
 (*
 (* Hash map from node scopes to their index for fresh state variables.
    Used to make sure fresh state variables are indeed fresh after a restart,
@@ -65,8 +82,17 @@ let index_of_scope s =
   curr
 *)
 
+let node_num_id = ref 0
+let get_node_num_id () =
+  let res = ! node_num_id in
+  node_num_id := 1 + !node_num_id ;
+  res
+
+let get_rec_tag id = Format.asprintf "rec_%d" id
+
 (* Transition system and information needed when calling it *)
 type node_def = {
+
   (* Node the transition system was created from *)
   node : LustreNode.t;
 
@@ -366,6 +392,56 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
         prop_kind = Invariant ; }
   )
 
+let bounded_check call_pos caller_rf =
+  let prop_name =
+    Format.asprintf "bounded_check%a" pp_print_line_and_column call_pos
+  in
+  let prop_term =
+    let caller_rf_term =
+      E.base_term_of_expr TransSys.prop_base caller_rf
+    in
+    Term.mk_leq [Term.mk_num Numeral.zero; caller_rf_term]
+  in
+  let prop_status = P.PropUnknown in
+  let prop_source = P.TerminationCheck call_pos in
+  { P.prop_name ;
+    P.prop_source ;
+    P.prop_term ;
+    P.prop_status ;
+    prop_kind = Invariant 
+  }
+
+let decrease_check call_pos svar_map caller_rf callee_rf =
+  let prop_name =
+    Format.asprintf "decrease_check%a" pp_print_line_and_column call_pos
+  in
+  let prop_term =
+    let callee_rf_term =
+      E.base_term_of_expr TransSys.prop_base callee_rf
+    in
+    let caller_rf_term =
+      E.base_term_of_expr TransSys.prop_base caller_rf
+    in
+    Term.mk_lt [
+      callee_rf_term |> lift_term svar_map; 
+      caller_rf_term
+    ]
+  in
+  let prop_status = P.PropUnknown in
+  let prop_source = P.TerminationCheck call_pos in
+  { P.prop_name ;
+    P.prop_source ;
+    P.prop_term ;
+    P.prop_status ;
+    prop_kind = Invariant
+  }
+
+(* The termination checks of a contract as properties. *) 
+
+let termination_checks call_pos svar_map caller_rf callee_rf =
+  [bounded_check call_pos caller_rf;
+   decrease_check call_pos svar_map caller_rf callee_rf]
+
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
 [ a => ( g and /\ {r_i => e_i} ) ]. *)
@@ -642,7 +718,7 @@ let register_call_bound globals map_up sv =
 
    This factors out node calls with or without an activation
    condition *)
-let call_terms_of_node_call mk_fresh_state_var globals
+let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
@@ -657,6 +733,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
     { init_uf_symbol  ;
       trans_uf_symbol ;
       node = {
+        N.comp_type;
         N.inputs    ;
         N.oracles   ;
         N.outputs   ;
@@ -832,7 +909,17 @@ let call_terms_of_node_call mk_fresh_state_var globals
     )
   in
 
-  let node_props = node_assume_props @ node_props in
+  let func_termination_props =
+    match caller_comp_type, comp_type with
+    | N.Function { rec_info = Some (caller_id, caller_rf) },
+      N.Function { rec_info = Some (callee_id, callee_rf) } when caller_id = callee_id -> (
+      termination_checks
+        call_pos state_var_map_up caller_rf callee_rf
+    )
+    | _ -> []
+  in
+
+  let node_props = node_assume_props @ func_termination_props @ node_props in
 
   let node_props =
     match call_context with
@@ -969,7 +1056,9 @@ let add_call_context call_context init_term trans_term =
    transition relation *)
 let rec constraints_of_node_calls 
   mk_fresh_state_var
-    globals
+  globals
+  comp_type
+  num_unrollings_map
   trans_sys_defs
   node_locals
   node_init_flags
@@ -999,7 +1088,12 @@ let rec constraints_of_node_calls
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
-      try I.Map.find (NI.get_internal_name call_node_id |> I.of_hstring) trans_sys_defs 
+      let num_unrollings =
+        match NI.Map.find_opt call_node_id num_unrollings_map with
+        | Some nu -> nu
+        | None -> assert false
+      in
+      try NodeInstanceMap.find (call_node_id, num_unrollings) trans_sys_defs
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
     in
@@ -1021,6 +1115,7 @@ let rec constraints_of_node_calls
       call_terms_of_node_call
         mk_fresh_state_var
         globals
+        comp_type
         node_call
         node_locals
         node_props
@@ -1053,6 +1148,8 @@ let rec constraints_of_node_calls
     constraints_of_node_calls 
       mk_fresh_state_var
       globals
+      comp_type
+      num_unrollings_map
       trans_sys_defs
       node_locals
       node_init_flags
@@ -1072,7 +1169,12 @@ let rec constraints_of_node_calls
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
-      try I.Map.find (NI.get_internal_name call_node_id |> I.of_hstring) trans_sys_defs 
+      let num_unrollings =
+        match NI.Map.find_opt call_node_id num_unrollings_map with
+        | Some nu -> nu
+        | None -> assert false
+      in
+      try NodeInstanceMap.find (call_node_id, num_unrollings) trans_sys_defs
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
     in
@@ -1081,7 +1183,8 @@ let rec constraints_of_node_calls
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
-        mk_fresh_state_var globals node_call node_locals node_props node_hist_svars node_crt_svars node_def
+        mk_fresh_state_var globals comp_type node_call node_locals
+        node_props node_hist_svars node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1128,6 +1231,8 @@ let rec constraints_of_node_calls
     constraints_of_node_calls 
       mk_fresh_state_var
       globals
+      comp_type
+      num_unrollings_map
       trans_sys_defs
       node_locals
       node_init_flags
@@ -1155,9 +1260,15 @@ let rec constraints_of_node_calls
     (* Get generated transition system of callee *)
     let { node = { N.inputs; }; trans_sys; init_flags } as node_def =
 
+      let num_unrollings =
+        match NI.Map.find_opt call_node_id num_unrollings_map with
+        | Some nu -> nu
+        | None -> assert false
+      in
+
       try 
 
-        I.Map.find (NI.get_internal_name call_node_id |> I.of_hstring) trans_sys_defs 
+      NodeInstanceMap.find (call_node_id, num_unrollings) trans_sys_defs
 
       (* Fail if transition system for node not found *)
       with Not_found -> assert false
@@ -1268,6 +1379,7 @@ let rec constraints_of_node_calls
       call_terms_of_node_call
         mk_fresh_state_var
         globals
+        comp_type
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
@@ -1532,6 +1644,8 @@ let rec constraints_of_node_calls
     constraints_of_node_calls
       mk_fresh_state_var
       globals
+      comp_type
+      num_unrollings_map
       trans_sys_defs
       node_locals
       (init_flags @ node_init_flags)
@@ -1776,10 +1890,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   (* Stateful variable must have an equational constraint *)
   (* If we are doing experimental slicing the let binding optimization is
      skipped and this is not relevant *)
-  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
-    when
-      (Flags.slice_nodes () != `Experimental) &&
-      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
+  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -1799,95 +1910,6 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     (* Add terms of equation *)
     constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
-
-  (* Can define state variable with a let binding *)
-  (* Let binding optimization is not performed when experimental slicing is
-     performed *)
-  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl
-    when ( Flags.slice_nodes () != `Experimental )
-    ->
-
-    if transfer_defs then (
-    (* TODO: Factor out and optimize this code *)
-    (*if not (E.is_var expr) then ( *)
-      (* We update the let dependencies *)
-      let add_dependency sv acc =
-        let old =
-          try SVM.find sv acc
-          with Not_found -> SVS.empty
-        in
-        SVM.add sv (SVS.add state_var old) acc
-      in
-      let svs_in_expr { E.expr_init; E.expr_step } =
-        let aux t = Term.state_vars_of_term t in
-        let bt expr = E.base_term_of_expr Numeral.zero expr in
-        SVS.union (aux (bt expr_init)) (aux (bt expr_step))
-      in
-      let lets_dependencies =
-        SVS.fold add_dependency (svs_in_expr expr) lets_dependencies
-      in
-
-      (* We must transfer the defs of this state variable
-      to all the state variables that depend on it or one of its dependencies *)
-      let dependencies =
-        try SVM.find state_var lets_dependencies
-        with Not_found -> SVS.empty
-      in
-      let dependencies = SVS.add state_var dependencies in
-      let defs = N.get_state_var_defs state_var |> fun (x, y) -> x @ y in
-      let add_defs_to_sv sv =
-        (* These state var defs are dependencies, so ?is_dep is 'true' here *)
-        List.iter (fun def -> N.add_state_var_def ~is_dep:true sv def) defs
-      in
-      let depends_on_this_sv expr =
-        SVS.inter dependencies (svs_in_expr expr)
-        |> SVS.is_empty |> not
-      in
-      let transfer_defs_to_eq_if_needed ((sv,_),eq) =
-        if not (StateVar.equal_state_vars sv state_var) && depends_on_this_sv eq
-        then add_defs_to_sv sv
-      in
-      List.iter transfer_defs_to_eq_if_needed node.N.equations
-    ) ;
-
-    (* Let binding for stateless variable, in closure form *)
-    let let_closure =
-      Term.mk_let
-        (if init then
-            (* Binding for the variable at the base instant only *)
-            [(E.base_var_of_state_var TransSys.init_base state_var,
-              E.base_term_of_expr TransSys.init_base expr_init)]
-          else
-            (* Binding for the variable at the current instant *)
-            (E.cur_var_of_state_var TransSys.trans_base state_var,
-            E.cur_term_of_expr TransSys.trans_base expr_step) ::
-            (if
-              (* Does the state variable occur at the previous
-                instant? *)
-              try
-              Term.state_vars_at_offset_of_term
-                Numeral.(TransSys.trans_base |> pred)
-                (Term.mk_and terms)
-              |> SVS.mem state_var
-              with Invalid_argument _ -> true
-
-            then
-              ((* Definition must not contain a [pre] operator, otherwise we'd
-                  have a double [pre]. The state variable is not stateless in
-                  this case, and we should not be here. *)
-                assert (not (E.has_pre_var E.base_offset expr));
-                (* Binding for the variable at the previous instant *)
-                [(E.pre_var_of_state_var TransSys.trans_base state_var,
-                  E.pre_term_of_expr TransSys.trans_base expr_step)])
-            else (* No binding for the variable at the previous instant
-                    necessary *)
-              [])
-            )
-    in
-
-    (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2058,11 +2080,11 @@ let rec trans_sys_of_node' options globals top_name analysis_param
   | [] -> trans_sys_defs
 
   (* Create transition system for top node *)
-  | node_id :: tl ->
+  | ((node_id, num_unrollings) as node_instance) :: tl ->
 
     (* Transition system for node has been created and added to
        accumulator meanwhile? *)
-    if I.Map.mem (NI.get_internal_name node_id |> I.of_hstring) trans_sys_defs then
+    if NodeInstanceMap.mem node_instance trans_sys_defs then
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
@@ -2073,18 +2095,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
     else
 
       (* Node to create a transition system for *)
-      let { N.init_flag;
-            N.inputs;
-            N.oracles;
-            N.outputs;
-            N.locals;
-            N.equations;
-            N.calls;
-            N.asserts;
-            N.props;
-            N.history_svars;
-            N.contract;
-            N.comp_type } as node =
+      let node =
 
         try 
 
@@ -2102,8 +2113,42 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
       in
         
-      (* Scope of node name *)
-      let scope = [I.string_of_ident true (NI.get_internal_name node_id |> I.of_hstring)] in
+      let reached_limit =
+        match NI.Map.find_opt node_id num_unrollings with
+        | Some n -> n >= 1
+        | None -> false
+      in
+
+      let { N.init_flag;
+            N.inputs;
+            N.oracles;
+            N.outputs;
+            N.locals;
+            N.equations;
+            N.calls;
+            N.asserts;
+            N.props;
+            N.history_svars;
+            N.contract;
+            N.comp_type } as node =
+
+        if reached_limit then
+          S.slice_node_to_abstraction node
+        else
+          node
+      in
+
+      let scope, suffix =
+        let base_scope =
+          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+        in
+        if N.is_recursive node && not (NI.Map.is_empty num_unrollings) then
+          let node_num_id = get_node_num_id () in
+          let rec_tag = get_rec_tag node_num_id in
+          rec_tag :: base_scope, Format.sprintf "_%s" rec_tag
+        else
+          base_scope, ""
+      in
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
@@ -2148,29 +2193,65 @@ let rec trans_sys_of_node' options globals top_name analysis_param
          Collect only the nodes to add here, thus we can eliminate
          duplicates from tl'. A node may need to appear in both tl'
          and tl. *)
-      let tl' = 
+      let tl', num_unrollings_map = 
+
+        let num_unrollings' =
+          if N.is_recursive node then
+            let num_unrollings_node =
+              match NI.Map.find_opt node_id num_unrollings with
+              | Some n -> n
+              | None -> 0
+            in
+            NI.Map.add node_id (num_unrollings_node + 1) num_unrollings
+          else
+            num_unrollings
+        in
 
         List.fold_left 
-          (fun accum { N.call_node_id } -> 
+          (fun (accum, nu_map) { N.call_node_id } -> 
+
+             let called_node =
+               N.node_of_node_id call_node_id nodes
+             in
+
+             let num_unrollings'' =
+               if N.is_recursive node && N.is_recursive called_node then
+                 num_unrollings'
+               else
+                 num_unrollings
+             in
+
+             let nu_map = NI.Map.add call_node_id num_unrollings'' nu_map in
+
+             let reached_limit =
+               match NI.Map.find_opt call_node_id num_unrollings'' with
+               | Some n -> n >= 2
+               | None -> false
+             in
+
              if 
+               reached_limit ||
 
                (* Transition system for node created? *)
-               I.Map.mem (NI.get_internal_name call_node_id |> I.of_hstring) trans_sys_defs || 
+               NodeInstanceMap.mem (call_node_id, num_unrollings'') trans_sys_defs || 
 
-               (* Node already pushed to stack before this node? *)
-               List.exists (NI.equal call_node_id) accum
+               (* Node with current number of unrollings already pushed to
+                  stack before this node? *)
+               List.exists
+                 (fun e -> NodeInstance.equal e (call_node_id, num_unrollings''))
+                 accum
 
              then 
 
                (* Continue with stack unchanged *)
-               accum
+               accum, nu_map
 
              else
 
                (* Push node to top of stack *)
-               call_node_id :: accum)
+               (call_node_id, num_unrollings'') :: accum, nu_map)
 
-          []
+          ([], NI.Map.empty)
           calls
 
       in
@@ -2198,7 +2279,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             output_input_dep
             nodes
             definition_set
-            (tl' @ node_id :: tl)
+            (tl' @ (node_id, num_unrollings) :: tl)
 
         (* All transitions systems of called nodes have been
            created *)
@@ -2298,7 +2379,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
               (*Want to be in else branch with new interpreter param mode*)
-              match analysis_param, A.param_scope_is_abstract analysis_param scope with
+              match analysis_param, (reached_limit || A.param_scope_is_abstract analysis_param scope) with
               | A.ContractMonitor _, _ 
               | _, false ->  
                 (*First is assertions, second are proof obligations, want contract to go in proof obligation*)
@@ -2457,6 +2538,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             constraints_of_node_calls
               mk_fresh_state_var
               globals
+              comp_type
+              num_unrollings_map
               trans_sys_defs
               []  (* No lifted locals *)
               [init_flag]
@@ -2604,7 +2687,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order initial state equations by dependency and
              generate terms *)
-          let (init_terms, definition_set), svar_dep_init, node_output_input_dep_init =
+          let (init_terms, definition_set), _, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations
@@ -2619,7 +2702,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let (trans_terms, definition_set ), svar_dep_trans, node_output_input_dep_trans =
+          let (trans_terms, definition_set ), _, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations node
@@ -2631,6 +2714,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
              by collecting the variables in the cone of influence of
              all assume and assert expressions
           *)
+          (* TODO: Review
           let constrained_svars =
             let roots = (* assume and assert state variables *)
               List.map snd asserts |> SVS.of_list
@@ -2649,17 +2733,18 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 if SVS.mem sv roots then SVS.union svars deps else svars
               )
               SVS.empty
-          in
+          in*)
 
           (* This is currently used for path compression when the equivalence
              relation is based on equal states modulo inputs.
              TODO: Refine this set to consider only inputs _temporally_ constrained.
              This should be enough to ensure existence of equal state successors.
           *)
-          let unconstrained_inputs =
-            SVS.diff
+          let unconstrained_inputs = SVS.of_list (D.values inputs)
+            (*TODO: Review
+              SVS.diff
               (SVS.of_list (D.values inputs))
-              constrained_svars
+              constrained_svars*)
           in
 
           (* ****************************************************** *)
@@ -2812,14 +2897,15 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               signature_state_vars
           in
 
-            (* Create uninterpreted symbol for initial state predicate *)
+          (* Create uninterpreted symbol for initial state predicate *)
           let init_uf_symbol = 
             UfSymbol.mk_uf_symbol
               (Format.asprintf
-                 "%s_%a_%d"
+                 "%s_%a_%d%s"
                  Ids.init_uf_string
                  HString.pp_print_hstring (NI.get_internal_name node_id)
-                 (A.info_of_param analysis_param).A.uid)
+                 (A.info_of_param analysis_param).A.uid
+                 suffix)
               (List.map Var.type_of_var init_formals)
               Type.t_bool
           in
@@ -2848,10 +2934,11 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           let trans_uf_symbol = 
             UfSymbol.mk_uf_symbol
               (Format.asprintf
-                 "%s_%a_%d"
+                 "%s_%a_%d%s"
                  Ids.trans_uf_string
                  HString.pp_print_hstring (NI.get_internal_name node_id)
-                 (A.info_of_param analysis_param).A.uid)
+                 (A.info_of_param analysis_param).A.uid
+                 suffix)
               (List.map Var.type_of_var trans_formals)
               Type.t_bool
           in
@@ -2876,7 +2963,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* Create transition system *)
           let trans_sys, _ = 
             TransSys.mk_trans_sys 
-              [NI.get_internal_name node_id |> HString.string_of_hstring]
+              scope
               None (* instance_state_var *)
               init_flag
               (* [] *) (* global_state_vars *)
@@ -2904,8 +2991,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             globals
             top_name
             analysis_param
-            (I.Map.add 
-              (NI.get_internal_name node_id |> I.of_hstring)
+            (NodeInstanceMap.add 
+               node_instance
                { node;
                  trans_sys;
                  init_uf_symbol;
@@ -2953,7 +3040,7 @@ let trans_sys_of_nodes
 
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
 
-  let { SubSystem.source = { N.node_id = top_name; } } as subsystem' =
+  let { SubSystem.source = { N.node_id = top_name } } as subsystem' =
 
   if options.slice_nodes != `Experimental then
     let preserve_sig, slice_nodes =
@@ -2985,14 +3072,14 @@ let trans_sys_of_nodes
         globals
         top_name
         analysis_param
-        I.Map.empty
+        NodeInstanceMap.empty
         [] 
         nodes
         Term.TermSet.empty
-        [top_name]
+        [(top_name, NI.Map.empty)]
 
       (* Return the transition system of the top node *)
-      |> I.Map.find ((NI.get_internal_name top_name) |> I.of_hstring)
+      |> NodeInstanceMap.find (top_name, NI.Map.empty)
 
     (* Transition system must have been created *)
     with Not_found -> assert false

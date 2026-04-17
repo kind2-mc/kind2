@@ -311,7 +311,7 @@ let build_global_ctx (decls:LustreAst.t) =
       but this type information is not needed for syntax checks for now *)
     | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
       ctx_add_node acc (NI.get_internal_name node_id) ()
-    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
+    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _), _) ->
       ctx_add_func acc (NI.get_internal_name node_id) ()
     | _ -> acc
   in
@@ -324,7 +324,8 @@ let build_global_ctx (decls:LustreAst.t) =
     | GhostVars (_, _, e)
     | Assume (_, _, _, e) ->
       (stateful || has_stateful_op ctx e, imports)
-    | Guarantee (_, _, _, e) ->
+    | Guarantee (_, _, _, e)
+    | Decreases (_, e) ->
       (stateful || has_stateful_op ctx e, imports)
     | Mode (_, _, reqs, enss) ->
       let req_or_ens_has_stateful_op req_ens_lst =
@@ -715,7 +716,7 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
-  | FuncDecl (span, decl) -> check_func_decl ctx span decl
+  | FuncDecl (span, decl, is_rec) -> check_func_decl ctx span decl is_rec
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
@@ -784,13 +785,13 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   items) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
-and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
   in
   let decl = LA.FuncDecl
-    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract), is_rec)
   in
   let composed_items_checks ctx e =
     (no_calls_to_node "functions" ctx e)
@@ -938,6 +939,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       )
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
+    | Decreases (_, e) -> check_expr ctx f e
   in
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
@@ -1171,7 +1173,7 @@ let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> (
 = fun inlinable_funcs ctx tc_ctx -> function
   | NodeDecl (_, decl) ->
     oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
-  | FuncDecl (_, decl) ->
+  | FuncDecl (_, decl, _) ->
     oqv_check_node_decl inlinable_funcs ctx (Some tc_ctx) decl
   | ContractNodeDecl (_, decl) ->
     oqv_check_contract_node_decl inlinable_funcs ctx decl

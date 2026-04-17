@@ -2046,6 +2046,7 @@ and tc_ctx_contract_eqn: tc_context -> NI.t -> LA.contract_node_equation -> (LA.
   | Assume _ -> R.ok (eqn, ctx, [])
   | Guarantee _ -> R.ok (eqn, ctx, [])
   | AssumptionVars _ -> R.ok (eqn, ctx, [])
+  | Decreases _ -> R.ok (eqn, ctx, [])
   | Mode (pos, name, _, _) -> R.ok (eqn, add_ty ctx name (Bool pos), []) 
   | ContractCall (_, cc, _, _, _) ->
     match (lookup_contract_exports ctx cc) with
@@ -2109,7 +2110,10 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       R.ok (LA.Assume (pos, id, b, e), warnings)
     | Guarantee (pos, id, b, e) -> 
       let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
-      R.ok (LA.Guarantee (pos, id, b, e), warnings) 
+      R.ok (LA.Guarantee (pos, id, b, e), warnings)
+    | Decreases (pos, e) ->
+      let* e, warnings = check_type_expr ctx (Some nname) e (Int pos) in
+      R.ok (LA.Decreases (pos, e), warnings)
     | Mode (pos, id, reqs, ensures) ->
       let* reqs, warnings1 = R.seq (List.map (fun (a, b, e)  -> 
         let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
@@ -2361,7 +2365,7 @@ and tc_ctx_of_declaration: (LA.t * tc_context * [> warning] list) -> LA.declarat
     | LA.NodeDecl ({LA.start_pos=pos}, node_decl) as decl -> 
       let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl false in 
       R.ok (decls @ [decl], ctx, warnings)
-    | LA.FuncDecl ({LA.start_pos=pos}, node_decl) as decl ->
+    | LA.FuncDecl ({LA.start_pos=pos}, node_decl, _) as decl ->
       let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl true in 
       R.ok (decls @ [decl], ctx, warnings)
     | LA.ContractNodeDecl ({LA.start_pos=pos} as s, contract_decl) ->
@@ -2861,11 +2865,11 @@ let rec type_check_group: tc_context -> LA.t ->  (LA.t * [> warning] list, [> er
     let* node_decl, warnings = check_type_node_decl pos global_ctx false node_decl in  
     let* decls, warnings2 = type_check_group global_ctx rest in 
     R.ok (LA.NodeDecl (span, node_decl) :: decls, warnings @ warnings2)
-  | LA.FuncDecl (span, node_decl):: rest ->
+  | LA.FuncDecl (span, node_decl, is_rec):: rest ->
     let { LA.start_pos = pos } = span in
     let* node_decl, warnings = check_type_node_decl pos global_ctx true node_decl in 
     let* decls, warnings2 = type_check_group global_ctx rest in 
-    R.ok (LA.FuncDecl (span, node_decl) :: decls, warnings @ warnings2)
+    R.ok (LA.FuncDecl (span, node_decl, is_rec) :: decls, warnings @ warnings2)
   | LA.ContractNodeDecl (span, contract_decl) :: rest ->
     let* contract_decl, warnings = check_type_contract_decl global_ctx contract_decl in 
     let* decls, warnings2 = type_check_group global_ctx rest in 

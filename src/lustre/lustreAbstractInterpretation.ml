@@ -210,7 +210,7 @@ and interpret_contract (node_id: NI.t) ctx ty_ctx contract =
 and interpret_contract_eqn (node_id: NI.t) ctx ty_ctx = function
   | LA.GhostConst _ -> empty_context
   | Assume _ | Guarantee _ | Mode _
-  | ContractCall _ | AssumptionVars _ -> empty_context
+  | ContractCall _ | AssumptionVars _ | Decreases _ -> empty_context
   | GhostVars (_, (GhostVarDec (_, tis)), rhs) ->
   let eqns =
     List.init (Ctx.arity_of_expr ty_ctx rhs) (fun p -> rhs, p)
@@ -231,7 +231,7 @@ and interpret_decl ty_ctx gids = function
   | LA.TypeDecl _
   | ConstDecl _ -> empty_context
   | NodeDecl (_, decl)
-  | FuncDecl (_, decl) -> interpret_node ty_ctx gids decl
+  | FuncDecl (_, decl, _) -> interpret_node ty_ctx gids decl
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
 

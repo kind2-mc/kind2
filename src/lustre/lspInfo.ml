@@ -115,7 +115,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     elnum ecnum
 
 let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
-    (node_id, imported, _, _, _, _, _, _, _) =
+    (node_id, imported, _, _, _, _, _, _, _) is_rec =
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf
@@ -125,12 +125,13 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"kind\" : \"function\",@,\
      \"name\" : \"%a\",@,\
      \"imported\" : \"%b\",@,\
+     \"recursive\" : \"%b\",@,\
      %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
     NodeId.pp_print_node_id_user_name node_id
-    imported pp_print_fname_json file slnum scnum
+    imported is_rec pp_print_fname_json file slnum scnum
     elnum ecnum
 
 let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
@@ -160,8 +161,8 @@ let print_ast_info ctx declarations =
       | LustreAst.ConstDecl (span, const_decl) ->
           lsp_const_decl_json !Lib.log_ppf span const_decl
       | LustreAst.NodeDecl (span, node) -> lsp_node_json !Lib.log_ppf span node
-      | LustreAst.FuncDecl (span, func) ->
-          lsp_function_json !Lib.log_ppf span func
+      | LustreAst.FuncDecl (span, func, is_rec) ->
+          lsp_function_json !Lib.log_ppf span func is_rec
       | LustreAst.ContractNodeDecl (span, contract) ->
           lsp_contract_json !Lib.log_ppf span contract
       | _ -> ())
