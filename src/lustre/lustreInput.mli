@@ -148,3 +148,6 @@ val ast_of_file : string -> (LustreAst.t, [> error]) result
    indent-tabs-mode: nil
    End: 
 *)
+
+val property_eq_map : LustreAst.expr LustreNodeGen.PropertyMap.t ref
+
