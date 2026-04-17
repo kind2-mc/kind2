@@ -2654,8 +2654,8 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-  let create_constraint_name rexpr = 
-    Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+  let create_constraint_name_pos (pos : position)= 
+    Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
     let sv = H.find !map.state_var (mk_ident id) in
@@ -2664,19 +2664,18 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | Local -> None, Some Property.Body
       | Output -> Some N.Guarantee, None
       | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
-    in match constraint_kind, generated_source with
+    in
+    let name = create_constraint_name_pos pos in
+    match constraint_kind, generated_source with
       | Some N.Assumption, _ ->
-        let name = create_constraint_name rexpr in
         let contract_sv = C.mk_svar pos ac (Some name) sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
         contract_sv :: a, ac + 1, g, gc, p
       | Some N.Guarantee, _ ->
-        let name = create_constraint_name rexpr in
         let contract_sv = C.mk_svar pos gc (Some name) sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
         a, ac, (contract_sv, false) :: g, gc + 1, p
       | None, Some gen_src ->
-        let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv], gen_src) in
         a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
       | _ -> assert false
