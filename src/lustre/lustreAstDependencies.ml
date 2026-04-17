@@ -1232,7 +1232,10 @@ let topological_sort_with_rec_funs decl_map ad =
             if LH.is_recursive_function decl then acc
             else
               let cycle =
-                match G.extract_cycle ad.graph_data (List.hd scc) with
+                let scc_subgraph =
+                  G.sub_graph ad.graph_data (G.from_vertex_list scc)
+                in
+                match G.extract_cycle scc_subgraph (List.hd scc) with
                 | Some cycle -> cycle
                 | None -> assert false
               in

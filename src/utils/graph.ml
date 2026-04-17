@@ -87,6 +87,9 @@ module type S = sig
   val to_vertex_list: vertices -> vertex list
   (** Returns a list of vertex  *)
 
+  val from_vertex_list: vertex list -> vertices
+  (** Returns a set of vertices from a list of vertex *)
+
   val get_edges: t -> edges
   (** get all edges in the graph *)
 
@@ -376,9 +379,8 @@ module Make (Ord: OrderedType) = struct
       let rec find_cycle ((_, edges) as g) current seen =
         if List.mem current seen then seen
         else
-          let (_, next) =
-            ESet.find_first (fun e -> is_vertex_source e current) edges
-          in
+          let current_edges = ESet.filter (fun e -> is_vertex_source e current) edges in
+          let (_, next) = ESet.choose current_edges in
           find_cycle g next (current :: seen)
       in
       let cycle = List.rev (find_cycle g v []) @ [v] in
@@ -518,6 +520,9 @@ module Make (Ord: OrderedType) = struct
 
   let to_vertex_list: vertices -> vertex list = VSet.elements
   (** returns a list of vertex *)
+
+  let from_vertex_list: vertex list -> vertices = VSet.of_list
+  (** Returns a set of vertices from a list of vertex *)
 
   let to_edge_list = ESet.elements
   (** returns a list of vertex *)
