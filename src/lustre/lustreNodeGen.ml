@@ -1813,7 +1813,7 @@ and compile_node_io cstate ctx node_id params inputs outputs =
   { cstate with
     node_io = NI.Map.add node_id (inputs, outputs, !map) cstate.node_io }
 
-and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_id ext params inputs outputs locals items contract =
+and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_id ext params locals items contract =
   let gids = NI.Map.find node_id gids_map in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
@@ -3011,12 +3011,12 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract), is_rec) -> (
-    let cstate = compile_node_decl scc_map gids true is_rec opac cstate ctx i ext params inputs outputs locals items contract in
+  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), is_rec) -> (
+    let cstate = compile_node_decl scc_map gids true is_rec opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
-  | A.NodeDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let cstate = compile_node_decl scc_map gids false false opac cstate ctx i ext params inputs outputs locals items contract in
+  | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
+    let cstate = compile_node_decl scc_map gids false false opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
   this is necessary because each unique call to a contract node must be 

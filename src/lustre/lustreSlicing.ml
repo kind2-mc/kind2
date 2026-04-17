@@ -327,58 +327,6 @@ let rec node_state_var_dependencies' init output_input_deps
         (SVM.fold (fun sv ind a ->
               (sv, add_dep_to_parents state_var ind parents) :: a
             ) children_not_visited ((state_var, parents) :: tl))
-
-
-(* Given an association list of state variables to the set of the
-   state variables they depend on, return the state variables in
-   toplogical order 
-
-   There must be no cyclic dependencies, otherwise this function will
-   loop forever. *)
-let rec order_state_vars accum seen = function
-
-  (* All variables in the accumulator *)
-  | [] -> accum
-
-  (* Skip if state variable is already in the accumulator *)
-  | (h, _) :: tl when List.exists (StateVar.equal_state_vars h) accum ->
-    order_state_vars accum seen tl
-
-  (* State variable and the variables it depends on *)
-  | (h, d) :: tl -> 
-    
-
-    (* All dependencies of state variables, except themselves, in the
-       accumulator? *)
-    if
-      SVM.for_all
-        (fun sv _ -> List.exists (StateVar.equal_state_vars sv) accum) d
-      || List.exists (StateVar.equal_state_vars h) seen
-
-    then
-
-      (* Add state variable to accumulator and continue *)
-      order_state_vars (h :: accum) [] tl
-      
-    else
-
-      (* Push all dependent variables to the top of the stack *)
-      let tl' = 
-        SVM.fold
-          (fun sv _ a ->
-             try 
-               (* Find dependencies of state variable *)
-               (List.find 
-                  (fun (sv', _) -> StateVar.equal_state_vars sv sv')
-                  tl) :: a
-             (* All dependent state variables must be in stack *)
-             with Not_found -> assert false)
-          d
-          ((h, d) :: tl)
-      in
-
-      (* Must add dependent state variables to accumulator first *)
-      order_state_vars accum (h :: seen) tl'
       
       
 (* Compute dependencies of outputs on inputs 
@@ -486,49 +434,6 @@ let state_var_dependencies
   in
 
   deps, output_input_dep
-
-
-(* Order equations of node topologically by their dependencies to have leaf
-   equations first, and set the map of outputs to the inputs they depend on *)
-let order_equations
-    _init
-    _output_input_deps
-    ({ (*N.inputs; N.outputs;*) N.equations } as _node) =
-
-  (*let dependencies =
-    state_var_dependencies' init output_input_deps node []
-  in
-
-  let deps =
-    List.map
-     (fun (sv, deps) ->
-       (sv, SVM.fold (fun sv' _ acc -> SVS.add sv' acc) deps SVS.empty)
-     )
-     dependencies
-  in
-
-  (* Order state variables by dependencies *)
-  let state_vars_ordered = order_state_vars [] [] dependencies in
-
-  (* Order equations by state variables *)
-  let equations' = List.fold_left (fun a sv ->
-      (* Find equations of state variable and add to accumulator.
-         There may be more than one equation per state variable if the state
-         variable is an array. *)
-        List.fold_left (fun a (((sv', _), _) as e) -> 
-            if StateVar.equal_state_vars sv sv' then e :: a else a
-          ) a equations
-      ) [] state_vars_ordered 
-  in
-
-  (* Dependency of output variables on input variables *)
-  let output_input_dep = 
-    output_input_dep_of_dependencies dependencies inputs outputs
-  in*)
-
-  let deps = [] in
-  let output_input_dep = D.empty in
-  equations, deps, output_input_dep
 
           
 (* ********************************************************************** *)
