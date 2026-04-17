@@ -46,6 +46,7 @@ module type Sig = sig
     | F_pt    (** Plain text *)
     | F_xml   (** XML *)
     | F_json  (** JSON *)
+    | F_jsonc (** Continuous JSON object stream *)
     | F_relay (** Relayed *) 
 
   (** Returns the log format *)
@@ -62,6 +63,14 @@ module type Sig = sig
 
   (** Set log format to JSON *)
   val set_log_format_json : unit -> unit
+
+  (** Set log format to continuous JSON *)
+  val set_log_format_jsonc : unit -> unit
+
+  (** Print the separator between JSON objects 
+  (could be nothing for continuous json, or comma 
+  for standard json) *)
+  val print_json_sep : Format.formatter -> unit
 
   (** Relay log messages to invariant manager, takes printing function as
       argument for relay messages. *)

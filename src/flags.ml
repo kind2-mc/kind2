@@ -3662,6 +3662,15 @@ let check_nonvacuity_default = true
     (fun fmt -> Format.fprintf fmt "Output in JSON format")
   let log_format_json () = Log.get_log_format () = Log.F_json
 
+
+  (* JSON continuous log. *)
+  let _ = add_format_spec
+    "-jsonc"
+    (Arg.Unit (fun () ->
+         Log.set_log_format_jsonc ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Output in continuous JSON format")
+
   (** ************************************************************ **)
 
   (* Colored output *)
@@ -3882,7 +3891,7 @@ let parse_clas specs anon_action =
             Global.print_help () ;
             Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
           )
-          | Log.F_xml | Log.F_json -> (
+          | Log.F_xml | Log.F_json | Log.F_jsonc -> (
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
@@ -3897,7 +3906,7 @@ let parse_clas specs anon_action =
               "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
               fmt_flag spec error
           )
-          | Log.F_xml | Log.F_json -> (
+          | Log.F_xml | Log.F_json | F_jsonc -> (
             let flag, _, _ = spec in
             Log.log L_error "Error on flag '%s': %s" flag error
           )
@@ -3914,7 +3923,7 @@ let parse_clas specs anon_action =
           | Log.F_xml -> (
             Log.log L_error "Bad argument:@ @[<v>%s@]@." expl
           )
-          | Log.F_json -> (
+          | Log.F_json | F_jsonc -> (
             Log.log L_error "Bad argument: %s" expl
           )
         );
