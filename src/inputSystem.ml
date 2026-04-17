@@ -1177,6 +1177,11 @@ let prefix_system (type s) (input_system : s t) prefix : s t = match input_syste
         } in
 
         Scope.Hashtbl.add new_global_map new_scope new_sub;
+
+        sub.subsystems |> List.iter (fun scope ->
+          if not (Scope.Hashtbl.mem new_global_map scope) then
+            rename (Scope.Hashtbl.find root.map scope) |> ignore
+        );
         
         new_sub
       in
