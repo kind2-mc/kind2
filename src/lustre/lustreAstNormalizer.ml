@@ -164,7 +164,6 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
-  is_rec_func : bool;
   call_context : LustreAst.expr list;
 }
 
@@ -1062,7 +1061,6 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
-    is_rec_func = false;
     call_context = [] }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
@@ -1216,7 +1214,6 @@ and normalize_declaration info map = function
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.NodeDecl(span, normal_decl)), map, warnings
   | FuncDecl (span, decl, is_rec) ->
-    let info = { info with is_rec_func = is_rec } in
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.FuncDecl (span, normal_decl, is_rec)), map, warnings
   | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
