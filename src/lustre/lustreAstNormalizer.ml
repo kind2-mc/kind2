@@ -1912,7 +1912,7 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
 and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
   let call_ctx, gids1 =
-    match (if info.is_rec_func then info.call_context else []) with
+    match info.call_context with
     | [] -> None, empty ()
     | c :: cs -> (
       let conj =
