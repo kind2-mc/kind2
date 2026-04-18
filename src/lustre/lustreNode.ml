@@ -1277,10 +1277,6 @@ let stateful_vars_of_node
     List.exists (function E.Unbound _ -> true | _ -> false) bounds
   in
 
-  (* TODO: Check whether we can replace this with other solution *)
-  let local_vars =
-    List.map D.values locals |> List.flatten
-  in
   (* Input, oracle, and output variables are always stateful
 
      This includes state variables from requires, ensures and
@@ -1289,7 +1285,6 @@ let stateful_vars_of_node
     add_to_svs
       SVS.empty
       ((D.values inputs)
-       @ local_vars
        @ (D.values outputs)
        @ oracles)
   in

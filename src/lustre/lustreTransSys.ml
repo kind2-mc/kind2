@@ -1890,7 +1890,10 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   (* Stateful variable must have an equational constraint *)
   (* If we are doing experimental slicing the let binding optimization is
      skipped and this is not relevant *)
-  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl ->
+  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
+    when
+      (Flags.slice_nodes () != `Experimental) &&
+      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -1910,6 +1913,95 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     (* Add terms of equation *)
     constraints_of_equations_wo_arrays transfer_defs node
       eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
+
+  (* Can define state variable with a let binding *)
+  (* Let binding optimization is not performed when experimental slicing is
+     performed *)
+  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl
+    when ( Flags.slice_nodes () != `Experimental )
+    ->
+
+    if transfer_defs then (
+    (* TODO: Factor out and optimize this code *)
+    (*if not (E.is_var expr) then ( *)
+      (* We update the let dependencies *)
+      let add_dependency sv acc =
+        let old =
+          try SVM.find sv acc
+          with Not_found -> SVS.empty
+        in
+        SVM.add sv (SVS.add state_var old) acc
+      in
+      let svs_in_expr { E.expr_init; E.expr_step } =
+        let aux t = Term.state_vars_of_term t in
+        let bt expr = E.base_term_of_expr Numeral.zero expr in
+        SVS.union (aux (bt expr_init)) (aux (bt expr_step))
+      in
+      let lets_dependencies =
+        SVS.fold add_dependency (svs_in_expr expr) lets_dependencies
+      in
+
+      (* We must transfer the defs of this state variable
+      to all the state variables that depend on it or one of its dependencies *)
+      let dependencies =
+        try SVM.find state_var lets_dependencies
+        with Not_found -> SVS.empty
+      in
+      let dependencies = SVS.add state_var dependencies in
+      let defs = N.get_state_var_defs state_var |> fun (x, y) -> x @ y in
+      let add_defs_to_sv sv =
+        (* These state var defs are dependencies, so ?is_dep is 'true' here *)
+        List.iter (fun def -> N.add_state_var_def ~is_dep:true sv def) defs
+      in
+      let depends_on_this_sv expr =
+        SVS.inter dependencies (svs_in_expr expr)
+        |> SVS.is_empty |> not
+      in
+      let transfer_defs_to_eq_if_needed ((sv,_),eq) =
+        if not (StateVar.equal_state_vars sv state_var) && depends_on_this_sv eq
+        then add_defs_to_sv sv
+      in
+      List.iter transfer_defs_to_eq_if_needed node.N.equations
+    ) ;
+
+    (* Let binding for stateless variable, in closure form *)
+    let let_closure =
+      Term.mk_let
+        (if init then
+            (* Binding for the variable at the base instant only *)
+            [(E.base_var_of_state_var TransSys.init_base state_var,
+              E.base_term_of_expr TransSys.init_base expr_init)]
+          else
+            (* Binding for the variable at the current instant *)
+            (E.cur_var_of_state_var TransSys.trans_base state_var,
+            E.cur_term_of_expr TransSys.trans_base expr_step) ::
+            (if
+              (* Does the state variable occur at the previous
+                instant? *)
+              try
+              Term.state_vars_at_offset_of_term
+                Numeral.(TransSys.trans_base |> pred)
+                (Term.mk_and terms)
+              |> SVS.mem state_var
+              with Invalid_argument _ -> true
+
+            then
+              ((* Definition must not contain a [pre] operator, otherwise we'd
+                  have a double [pre]. The state variable is not stateless in
+                  this case, and we should not be here. *)
+                assert (not (E.has_pre_var E.base_offset expr));
+                (* Binding for the variable at the previous instant *)
+                [(E.pre_var_of_state_var TransSys.trans_base state_var,
+                  E.pre_term_of_expr TransSys.trans_base expr_step)])
+            else (* No binding for the variable at the previous instant
+                    necessary *)
+              [])
+            )
+    in
+
+    (* Start with singleton lists of let-bound terms *)
+    constraints_of_equations_wo_arrays transfer_defs node
+      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
