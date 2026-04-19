@@ -23,6 +23,65 @@
 
 (** {1 Dependency order} *)
 
+(** Return equations of node in topological order of their dependencies 
+
+    [order_equations i d n] takes as input a Lustre node [n] and an
+    association list [d] of node names to a map from output indexes to
+    the list of input indexes the output variable depends on. Return
+    the equations of [n] ordered such that each equation comes after
+    the equations defining the variables occurring on its right-hand.
+
+    Along with the list of equations, it returns a list and a map.
+    The list contains pairs consisting of a variable and a set of
+    variables the first variable depends on.
+    The map is such that for each output identified by its position
+    indicates which positions in the inputs it depends on.
+    The input parameter [d] must contain such a map for
+    each called node.
+
+    If the flag [i] is true, consider the equations for the inital
+    state only, otherwise consider the equations for post-initial
+    states only. 
+
+    Fail with a parse error if a variable definition is cyclic, that
+    is, the variable on the left-hand side of the equation occurs in
+    the definition of a variable on the right-hand side. 
+
+    For the detection of cycles also consider definitions of called nodes
+    by using the map of outputs to their dependent inputs. If in the node
+    {[node N (i: t) returns (o: t)]}
+    the output [o] depends on the input [i], then the node call [N(x)]
+    must not occur in the definition of [x]. If the output [o] does not
+    depend on the input [i], [N(x)] may occur in the definition of [x].
+
+    In particular, if a node is viewed as its contract only, the
+    implemention is omitted and node calls never cause cycles in
+    defintions. One could argue that since the implementation is not
+    known, the outputs should depend on all inputs, but this might
+    trigger spurious cycles. We view this more as a realizability
+    issue and we could implement separately a check if a node as
+    specified by its contract can be implemented without introducing a
+    depency on the inputs.
+
+    Array typed variables are not considered in the cycle detection,
+    and this may lead to actual cycles not rejected. This is
+    difficult, because we would need to consider each occurrence of an
+    array typed variable together with its indexes. Then we would need
+    to compare indexes if a state variable occurs on a path with the
+    same index. A syntactic comparison would again miss some cycles,
+    and we would need to evaluate the indexes for a precise
+    comparison. This is probably too much effort for what it is worth. *)
+val order_equations : bool -> (
+  NodeId.t * (
+    LustreIndex.index list LustreIndex.t *
+    LustreIndex.index list LustreIndex.t
+  )
+) list ->
+LustreNode.t ->
+LustreNode.equation list *
+(StateVar.t * StateVar.StateVarSet.t) list *
+LustreIndex.index list LustreIndex.t
+
 (** Return the set of dependencies of each state variable
 
     [state_var_dependencies i d n] takes as input a Lustre node [n] and

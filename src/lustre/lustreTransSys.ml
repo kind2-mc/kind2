@@ -2166,7 +2166,7 @@ let constraints_of_equations node init stateful_vars terms equations definition_
 
 
 let rec trans_sys_of_node' options globals top_name analysis_param
-  trans_sys_defs nodes definition_set = function
+  trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
   | [] -> trans_sys_defs
@@ -2180,7 +2180,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals top_name analysis_param trans_sys_defs
+        options globals top_name analysis_param trans_sys_defs output_input_dep
         nodes definition_set tl
 
     (* Transition system has not been created *)
@@ -2368,6 +2368,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             top_name
             analysis_param
             trans_sys_defs
+            output_input_dep
             nodes
             definition_set
             (tl' @ (node_id, num_unrollings) :: tl)
@@ -2776,24 +2777,28 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               stateful_vars
           in
 
-          let (init_terms, definition_set) =
-            constraints_of_equations
-              node
-              true
-              stateful_vars
-              init_terms
-              equations
-              definition_set
+          (* Order initial state equations by dependency and
+             generate terms *)
+          let (init_terms, definition_set), _, node_output_input_dep_init =
+            S.order_equations true output_input_dep node
+              |> (fun (e, sv_d, io_d) ->
+               constraints_of_equations
+                node
+                true
+                stateful_vars
+                init_terms
+                (List.rev e)
+                definition_set
+                , sv_d, io_d)
           in
 
-          let (trans_terms, definition_set) =
-            constraints_of_equations
-              node
-              false
-              stateful_vars
-              trans_terms
-              equations
-              definition_set
+          (* Order transition relation equations by dependency and
+             generate terms *)
+          let (trans_terms, definition_set ), _, node_output_input_dep_trans =
+            S.order_equations false output_input_dep node
+              |> (fun (e, sv_d, io_d) ->
+               constraints_of_equations node
+                    false stateful_vars trans_terms (List.rev e) definition_set, sv_d, io_d)
           in
 
           (* We compute an overapproximation of the set of variables
@@ -3092,6 +3097,9 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                  definition_set;
               }
                trans_sys_defs)
+            ((node_id, 
+              (node_output_input_dep_init, node_output_input_dep_trans))
+             :: output_input_dep)
             nodes
             definition_set
             tl
@@ -3157,6 +3165,7 @@ let trans_sys_of_nodes
         top_name
         analysis_param
         NodeInstanceMap.empty
+        [] 
         nodes
         Term.TermSet.empty
         [(top_name, NI.Map.empty)]
