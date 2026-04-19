@@ -719,7 +719,6 @@ let add_roots_of_asserts asserts roots =
    Call this function with *)
 let rec slice_nodes
     preserve_sig
-    process_calls
     init_slicing_of_node
     nodes
     accum = 
@@ -794,7 +793,6 @@ let rec slice_nodes
       (* Continue with next nodes *)
       slice_nodes
         preserve_sig
-        process_calls
         init_slicing_of_node
         nodes
         (node_sliced :: accum)
@@ -807,7 +805,6 @@ let rec slice_nodes
 
       slice_nodes
         preserve_sig
-        process_calls
         init_slicing_of_node
         nodes
         accum
@@ -866,7 +863,6 @@ let rec slice_nodes
            be possible with the current format. *)
         slice_nodes
           preserve_sig
-          process_calls
           init_slicing_of_node
           nodes
           accum
@@ -1020,7 +1016,6 @@ let rec slice_nodes
         (* Continue with modified sliced node and roots *)
         slice_nodes
           preserve_sig
-          process_calls
           init_slicing_of_node
           nodes
           accum
@@ -1163,7 +1158,6 @@ let slice_to_abstraction'
 
     slice_nodes
       preserve_sig
-      false
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
@@ -1208,11 +1202,9 @@ let slice_node_to_abstraction node =
   let nodes' =
     let roots = (fun _ _ -> None) in
     let preserve_sig = true in
-    let process_calls = true in
 
     slice_nodes
       preserve_sig
-      process_calls
       (fun _ -> assert false)
       [node]
       []
