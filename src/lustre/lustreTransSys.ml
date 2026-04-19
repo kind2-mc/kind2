@@ -2779,7 +2779,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order initial state equations by dependency and
              generate terms *)
-          let (init_terms, definition_set), _, node_output_input_dep_init =
+          let (init_terms, definition_set), svar_dep_init, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations
@@ -2794,7 +2794,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let (trans_terms, definition_set ), _, node_output_input_dep_trans =
+          let (trans_terms, definition_set ), svar_dep_trans, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations node
@@ -2806,7 +2806,6 @@ let rec trans_sys_of_node' options globals top_name analysis_param
              by collecting the variables in the cone of influence of
              all assume and assert expressions
           *)
-          (* TODO: Review
           let constrained_svars =
             let roots = (* assume and assert state variables *)
               List.map snd asserts |> SVS.of_list
@@ -2825,18 +2824,17 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 if SVS.mem sv roots then SVS.union svars deps else svars
               )
               SVS.empty
-          in*)
+          in
 
           (* This is currently used for path compression when the equivalence
              relation is based on equal states modulo inputs.
              TODO: Refine this set to consider only inputs _temporally_ constrained.
              This should be enough to ensure existence of equal state successors.
           *)
-          let unconstrained_inputs = SVS.of_list (D.values inputs)
-            (*TODO: Review
-              SVS.diff
+          let unconstrained_inputs =
+            SVS.diff
               (SVS.of_list (D.values inputs))
-              constrained_svars*)
+              constrained_svars
           in
 
           (* ****************************************************** *)

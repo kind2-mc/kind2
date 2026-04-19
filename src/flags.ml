@@ -740,7 +740,7 @@ module BmcKind = struct
     )
   let ind_print_cex () = !ind_print_cex
 
-  let compress_default = false
+  let compress_default = true
   let compress = ref compress_default
   let _ = add_spec
     "--ind_compress"
