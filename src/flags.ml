@@ -3314,7 +3314,7 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `IC3QE; (*`IC3IA ;*) `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3QE; `IC3IA ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
@@ -3326,7 +3326,7 @@ module Global = struct
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3QE ; (*`IC3IA ;*)
+    `BMC ; `IND ; `IND2 ; `IC3QE ; `IC3IA ;
     `INVGEN ; `INVGENOS ;
     (* `INVGENINT ; *) `INVGENINTOS ; `INVGENMACHOS ;
     (* `INVGENREAL ; *) `INVGENREALOS ;
