@@ -2609,29 +2609,29 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let* kt, warnings1 = check_type_well_formed_rec true kt in
       let* vt, warnings2 = check_type_well_formed_rec true vt in 
       R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
-    | LA.Set (p, ty) -> 
-      let* ty, warnings = check_type_well_formed_rec true ty in 
-      R.ok (LA.Set (p, ty), warnings)
+    | LA.Set (p, ty') -> 
+      let* ty', warnings = check_type_well_formed_rec true ty' in 
+      R.ok (LA.Set (p, ty'), warnings)
     | LA.TArr (p, arg_ty, res_ty) ->
       let* arg_ty, warnings1 = check_type_well_formed_rec true arg_ty in
       let* res_ty, warnings2 = check_type_well_formed_rec true res_ty in 
       R.ok (LA.TArr (p, arg_ty, res_ty), warnings1 @ warnings2)
     | LA.RecordType (p, id, idTys) ->
-      let* idTys, warnings = (R.seq (List.map (fun (p, id, ty) -> 
-        let* ty, warnings = check_type_well_formed_rec true ty in 
-        R.ok ((p, id, ty), warnings)
+      let* idTys, warnings = (R.seq (List.map (fun (p, id, ty') -> 
+        let* ty', warnings = check_type_well_formed_rec true ty' in 
+        R.ok ((p, id, ty'), warnings)
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
     | LA.ArrayType (p, (b_ty, s)) -> (
-      let* _ = check_array_size_expr ctx nname ty s in
+      let* _ = check_array_size_expr ctx nname ty' s in
       let* b_ty, warnings = check_type_well_formed_rec true b_ty in 
       R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
     )
-    | LA.RefinementType (p, (p2, i, ty), e) ->
-      let* ty, warnings1 = check_type_well_formed_rec is_nested ty in
-      let ctx = add_ty ctx i ty in
+    | LA.RefinementType (p, (p2, i, ty'), e) ->
+      let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
+      let ctx = add_ty ctx i ty' in
       let* _ = (if is_const then 
-        let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
+        let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
         check_expr_is_constant ctx "type of constant" e 
       else R.ok ()) in
       let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
@@ -2641,7 +2641,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         then [mk_warning p (UnusedBoundVariableWarning i)] 
         else []
       in
-      R.ok (LA.RefinementType (p, (p2, i, ty), e), warnings1 @ warnings2 @ warnings3)
+      R.ok (LA.RefinementType (p, (p2, i, ty'), e), warnings1 @ warnings2 @ warnings3)
     | LA.TupleType (p, tys) ->
       let* tys, warnings = 
         R.seq (List.map (check_type_well_formed_rec true ) tys) |> R.map List.split 
@@ -2656,9 +2656,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       if (member_ty_syn ctx i || member_u_types ctx i)
       then 
         (* Check that we are passing the correct number of type arguments *)
-        let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
-        let ty = expand_type_syn ctx ty in
-        check_type_well_formed_rec is_nested ty
+        let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
+        let ty' = expand_type_syn ctx ty' in
+        check_type_well_formed_rec is_nested ty'
       else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
@@ -2667,7 +2667,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           | Some ty_vars, _ 
           | _, Some ty_vars -> 
             if (List.mem i ty_vars) 
-            then R.ok (ty, [])
+            then R.ok (ty', [])
             else type_error pos (UndeclaredType i)
           | None, None -> 
             type_error pos (UndeclaredType i)
@@ -2709,7 +2709,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
       )
     | Bool _ | Int _ | Real _
-    | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty, [])
+    | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
   in
   check_type_well_formed_rec false ty
 (** Does it make sense to have this type i.e. is it inhabited? 
