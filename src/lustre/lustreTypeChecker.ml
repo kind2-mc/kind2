@@ -116,6 +116,7 @@ type error_kind = Unknown of string
   | TempOperatorInFuncInterface of NI.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type 
+  | NestedTypeNodeCall of LustreAst.lustre_type 
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -237,6 +238,9 @@ let error_message kind = match kind with
       LA.pp_print_lustre_type ty
   | NestedTypeTemporal ty ->
     Format.asprintf "Operators 'pre' and '->' not supported under nested type %a"
+      LA.pp_print_lustre_type ty
+  | NestedTypeNodeCall ty ->
+    Format.asprintf "Node call not supported under nested type %a"
       LA.pp_print_lustre_type ty
 
 type warning_kind = 
@@ -2596,12 +2600,17 @@ and expr_contains_set_binop ctx ni expr =
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
   let rec check_type_well_formed_rec is_nested ty' = 
-    let* _ = match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
-    | Some p -> 
+    let* _ = 
       if is_nested then 
-        type_error p (NestedTypeTemporal ty)
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+        | Some p -> 
+          type_error p (NestedTypeTemporal ty)
+        | None -> 
+          if LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) ty 
+          then 
+            type_error (LH.pos_of_type ty) (NestedTypeNodeCall ty) 
+          else R.ok ()
       else R.ok ()
-    | None -> R.ok () 
     in
     match ty' with
     | LA.Map (p, kt, vt) ->
