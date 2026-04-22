@@ -1,7 +1,4 @@
-node H(inp: int) returns (out: int)
-let
-  out = any@<int>;
-tel
+function imported H(inp: int) returns (out: int)
 
 node N (inp: set<subtype {x: [int, int] |  H(x[0]) >= 0}>) returns (out: set<[int,int]>)
 let

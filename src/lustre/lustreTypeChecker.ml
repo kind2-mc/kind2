@@ -987,11 +987,18 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    let* kt, warnings1 = check_type_well_formed ctx Local nname false kt in 
-    let* vt, warnings2 = check_type_well_formed ctx Local nname false vt in 
-    R.ok (LA.Map (pos, kt, vt), e, warnings1 @ warnings2)
+    let* map_ty, warnings = check_type_well_formed ctx Local nname false (LA.Map (pos, kt, vt)) in 
+    let kt, vt = match map_ty with 
+    | LA.Map (_, kt, vt) -> kt, vt 
+    | _ -> assert false 
+    in
+    R.ok (LA.Map (pos, kt, vt), e, warnings)
   | LA.EmptySet (pos, Some ty) -> 
-    let* ty, warnings = check_type_well_formed ctx Local nname false ty in 
+    let* set_ty, warnings = check_type_well_formed ctx Local nname false (LA.Set (pos, ty)) in 
+    let ty = match set_ty with 
+    | LA.Set (_, ty) -> ty 
+    | _ -> assert false 
+    in
     R.ok (LA.Set (pos, ty), e, warnings)
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
@@ -2602,13 +2609,13 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
   let rec check_type_well_formed_rec is_nested ty' = 
     let* _ = 
       if is_nested then 
-        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty' with 
         | Some p -> 
           type_error p (NestedTypeTemporal ty)
         | None -> 
-          if LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) ty 
+          if LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) ty' 
           then 
-            type_error (LH.pos_of_type ty) (NestedTypeNodeCall ty) 
+            type_error (LH.pos_of_type ty') (NestedTypeNodeCall ty) 
           else R.ok ()
       else R.ok ()
     in
@@ -2653,12 +2660,12 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.RefinementType (p, (p2, i, ty'), e), warnings1 @ warnings2 @ warnings3)
     | LA.TupleType (p, tys) ->
       let* tys, warnings = 
-        R.seq (List.map (check_type_well_formed_rec true ) tys) |> R.map List.split 
+        R.seq (List.map (check_type_well_formed_rec true) tys) |> R.map List.split 
       in
       R.ok (LA.TupleType (p, tys), List.flatten warnings)
     | LA.GroupType (p, tys) ->
       let* tys, warnings = 
-        R.seq (List.map (check_type_well_formed_rec true ) tys) |> R.map List.split 
+        R.seq (List.map (check_type_well_formed_rec is_nested) tys) |> R.map List.split 
       in 
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
