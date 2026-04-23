@@ -589,12 +589,10 @@ let no_calls_to_node scope ctx = function
   | AnyOp (pos, _, _) -> syntax_error pos (IllegalAnyOp scope)
   | _ -> Ok ()
 
-let no_temporal_operator decl_ctx expr =
+let rec no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
-  (*!!| TypeAscription (pos, _, ty) -> 
-    LAH.fold_lustre_ty (no_temporal_operator decl_ctx) (R.ok []) y ty*)
   | _ -> Ok []
 
 let no_stateful_contract_imports ctx contract =
@@ -1000,12 +998,17 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | ConvOp (_, _, e)
     | When (_, e, _)
     | Extract (_, e, _, _)
-    | Pre (_, e)
-    | TypeAscription (_, e, _) -> check_expr ctx f e
+    | Pre (_, e) -> 
+      check_expr ctx f e 
+    | TypeAscription (_, e, ty) -> 
+      (*!! Might need to add context... *)
+      check_expr ctx f e >>
+      LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty
     | Quantifier (_, _, vars, e) ->
       let over_vars (warnings, ctx) (_, i, ty) = 
+        let* warnings1 = LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty in
         let* warnings2 = check_ty_quantified_var ctx f ty in
-        Res.ok (warnings @ warnings2, ctx_add_quant_var ctx i (Some ty))
+        Res.ok (warnings @ warnings1 @ warnings2, ctx_add_quant_var ctx i (Some ty))
       in
       let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
       let* _ = check_quantified_vars ctx vars in
@@ -1098,16 +1101,23 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        Ok (warnings1 @ warnings2 @ warnings3)
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
+      let* warnings1 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty in
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      let warnings1 = 
+      let warnings2 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e' *)
         if not (LAH.expr_contains_id i e) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
         else []
       in
-      let* warnings2 = (check_expr extn_ctx f e) in
-      Ok (warnings1 @ warnings2)
+      let* warnings3 = (check_expr extn_ctx f e) in
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | EmptyMap (_, Some (kt, vt)) -> 
+      let* warnings1 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) kt in
+      let* warnings2 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) vt in
+      Res.ok (warnings1 @ warnings2) 
+    | EmptySet (_, Some ty) -> 
+      LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty 
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
   in
   let* warnings1 = res in 
