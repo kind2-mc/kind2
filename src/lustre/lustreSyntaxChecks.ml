@@ -948,30 +948,26 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
-(* The syntax checks performed by this function are currently redundant,  
-   since they are subsumed by the check/requirement that bound variable refinement 
-   type predicates must be constant expressions. However, this requirement 
-   may be lifted in the future, and in that case, we would want these checks to be applied. *)
-and check_ty_quantified_var ctx f = function 
+and check_ty ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
   let ctx = ctx_add_quant_var ctx i (Some ty) in
   check_expr ctx f expr
 | GroupType (_, tys) 
 | TupleType (_, tys) -> 
-  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) tys) in 
+  let* warnings = Res.seq (List.map (check_ty ctx f) tys) in 
   Res.ok (List.flatten warnings)
 | Map (_, ty1, ty2) 
 | TArr (_, ty1, ty2) -> 
-  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) [ty1; ty2]) in 
+  let* warnings = Res.seq (List.map (check_ty ctx f) [ty1; ty2]) in 
   Res.ok (List.flatten warnings)
 | Set (_, ty) -> 
-  check_ty_quantified_var ctx f ty
+  check_ty ctx f ty
 | ArrayType (_, (ty, expr)) -> 
-  let* warnings1 = check_ty_quantified_var ctx f ty in 
+  let* warnings1 = check_ty ctx f ty in 
   let* warnings2 = check_expr ctx f expr in 
   Res.ok (warnings1 @ warnings2)
 | RecordType (_, _, tis) -> 
-  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty_quantified_var ctx f ty) tis) in 
+  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
 | Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
@@ -1000,15 +996,14 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> 
       check_expr ctx f e 
-    | TypeAscription (_, e, ty) -> 
-      (*!! Might need to add context... *)
-      check_expr ctx f e >>
-      LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty
+    | TypeAscription (_, e, ty) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_ty ctx f ty in
+      Res.ok (warnings1 @ warnings2)
     | Quantifier (_, _, vars, e) ->
       let over_vars (warnings, ctx) (_, i, ty) = 
-        let* warnings1 = LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty in
-        let* warnings2 = check_ty_quantified_var ctx f ty in
-        Res.ok (warnings @ warnings1 @ warnings2, ctx_add_quant_var ctx i (Some ty))
+        let* warnings2 = check_ty ctx f ty in
+        Res.ok (warnings @ warnings2, ctx_add_quant_var ctx i (Some ty))
       in
       let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
       let* _ = check_quantified_vars ctx vars in
@@ -1101,7 +1096,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        Ok (warnings1 @ warnings2 @ warnings3)
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
-      let* warnings1 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty in
+      let* warnings1 = check_ty ctx f ty in 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
       let warnings2 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
@@ -1113,11 +1108,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings3 = (check_expr extn_ctx f e) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | EmptyMap (_, Some (kt, vt)) -> 
-      let* warnings1 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) kt in
-      let* warnings2 =  LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) vt in
+      let* warnings1 = check_ty ctx f kt in
+      let* warnings2 = check_ty ctx f vt in 
       Res.ok (warnings1 @ warnings2) 
     | EmptySet (_, Some ty) -> 
-      LAH.fold_lustre_ty (check_expr ctx f) (Res.ok []) (>>) ty 
+      check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
   in
   let* warnings1 = res in 
