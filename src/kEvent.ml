@@ -669,9 +669,30 @@ let progress_pt mdl level k =
     pp_print_kind_module mdl
     k
  *)
+let prop_expr_map_pt level trans_sys prop_status_kind = 
+  (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@{<b>Expressions of properties@}:@,%a%a@,%a@]@."
+    Pretty.print_line ()
+    Pretty.print_line ()
+    (pp_print_list (fun ppf (name, _, _) -> (
+      let property = TransSys.property_of_name trans_sys name in
+      let sexpr = match property.prop_expr with
+        | Some e -> e
+        | None -> "unknown"
+      in
+        Format.fprintf ppf "@[<h>@{<blue_b>%s@}: %s@]" name sexpr
+
+    ))
+    "@,")
+    prop_status_kind
+    Pretty.print_double_line ()
+
+
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_pt level prop_status_kind =
+let prop_status_pt level trans_sys prop_status_kind =
+  prop_expr_map_pt level trans_sys prop_status_kind;
   (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
@@ -1572,7 +1593,7 @@ let log_execution_path level input_sys full_contract trans_sys path  =
 (* Output summary of status of properties *)
 let log_prop_status level trans_sys prop_status_kind =
   match get_log_format () with 
-    | F_pt -> prop_status_pt level prop_status_kind
+    | F_pt -> prop_status_pt level trans_sys prop_status_kind
     | F_xml -> prop_status_xml level trans_sys prop_status_kind
     | F_json -> prop_status_json level trans_sys prop_status_kind
     | F_relay -> ()
