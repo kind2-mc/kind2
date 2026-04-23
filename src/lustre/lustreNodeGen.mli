@@ -19,9 +19,6 @@
   
   @author Andrew Marmaduke *)
 
-module PropertyMap : sig
-  include Map.S with type key = HString.t
-end
 
 val compile : TypeCheckerContext.tc_context
 -> GeneratedIdentifiers.t NodeId.Map.t

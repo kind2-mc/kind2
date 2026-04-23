@@ -149,5 +149,3 @@ val ast_of_file : string -> (LustreAst.t, [> error]) result
    End: 
 *)
 
-val property_eq_map : LustreAst.expr LustreNodeGen.PropertyMap.t ref
-
