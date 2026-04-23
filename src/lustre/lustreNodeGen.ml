@@ -47,11 +47,6 @@ module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
 
-module PropertyMap = Map.Make(struct
-  type t = HString.t
-  let compare = HString.compare
-end)
-
 type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
@@ -656,13 +651,13 @@ let create_uf_symbols node_id inputs outputs =
   ) SVM.empty
 
 let rec compile ctx gids decls =
-  let over_decls (pm, cstate) decl = compile_declaration cstate gids ctx decl pm in
-  let (property_map, output) = List.fold_left over_decls (PropertyMap.empty, (empty_compiler_state ())) decls in 
+  let over_decls cstate decl = compile_declaration cstate gids ctx decl in
+  let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
     
   in 
-  property_map, output.nodes,
+  output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
       G.global_constraints = output.global_constraints }
@@ -1709,7 +1704,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids_map is_function opac cstate ctx node_id ext params inputs outputs locals items contract pm =
+and compile_node_decl gids_map is_function opac cstate ctx node_id ext params inputs outputs locals items contract =
   let gids = NI.Map.find node_id gids_map in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
@@ -2660,11 +2655,11 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
-  in let (pm, (assumes, guarantees, props)) =
+  in let (assumes, guarantees, props) =
   let create_constraint_name_pos (pos : position)= 
     Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
-  let over_ref_type_constraints (pm, (a, ac, g, gc, p)) (source, pos, id, rexpr) =
+  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
     let sv = H.find !map.state_var (mk_ident id) in
     let constraint_kind, generated_source = match source with
       | GI.Input -> Some N.Assumption, None
@@ -2673,28 +2668,27 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
     in
     let name = create_constraint_name_pos pos in
-    let pm = PropertyMap.add (HString.mk_hstring name) rexpr pm in
     let srexpr = A.string_of_expr rexpr in
     match constraint_kind, generated_source with
       | Some N.Assumption, _ ->
         let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
-        (pm, (contract_sv :: a, ac + 1, g, gc, p))
+        (contract_sv :: a, ac + 1, g, gc, p)
       | Some N.Guarantee, _ ->
         let contract_sv = C.mk_svar pos gc (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
-        (pm, (a, ac, (contract_sv, false) :: g, gc + 1, p))
+        (a, ac, (contract_sv, false) :: g, gc + 1, p)
       | None, Some gen_src ->
         let src = Property.Generated (Some pos, [sv], gen_src) in
-        (pm, (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p))
+        (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
       | _ -> assert false
   in
-  let (pm, (assumes, _, guarantees, _, props)) = 
+  let (assumes, _, guarantees, _, props) = 
     List.fold_left over_ref_type_constraints
-    (pm, (assumes, List.length assumes, guarantees, List.length guarantees, props))
+    (assumes, List.length assumes, guarantees, List.length guarantees, props)
     gids.GI.refinement_type_constraints
   in
-  (pm, (assumes, guarantees, props))
+  (assumes, guarantees, props)
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
@@ -2839,9 +2833,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     assumption_svars;
     history_svars;
   } in 
-  (pm, { cstate with
+  { cstate with
     nodes = node :: cstate.nodes;
-  })
+  }
 
 
 and compile_const_decl cstate ctx map is_local scope = function
@@ -2925,25 +2919,25 @@ and compile_type_decl pos ctx cstate = function
       type_alias }
 
 and compile_declaration: compiler_state -> GI.t NI.Map.t -> Ctx.tc_context ->
-                         A.declaration -> A.expr PropertyMap.t -> (A.expr PropertyMap.t * compiler_state)
-= fun cstate gids ctx decl pm ->
+                         A.declaration -> compiler_state
+= fun cstate gids ctx decl ->
 (*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)
   match decl with
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
-    (pm, compile_type_decl pos ctx cstate type_rhs)
+    compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps None) in
-    (pm, compile_const_decl cstate ctx empty_map false [] const_decl )
+    compile_const_decl cstate ctx empty_map false [] const_decl
   | A.FuncDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let (pm, cstate) = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract pm in
-    (pm, { cstate with local_constants = StringMap.empty })
+    let cstate = compile_node_decl gids true opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   | A.NodeDecl (_, (nname, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let (pm, cstate) = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract pm in
-    (pm, { cstate with local_constants = StringMap.empty })
+    let cstate = compile_node_decl gids false opac cstate ctx nname ext params inputs outputs locals items contract in
+    { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
-  | A.ContractNodeDecl _ -> (pm, cstate)
+  | A.ContractNodeDecl _ -> cstate
   | A.NodeParamInst _ -> assert false
 
   

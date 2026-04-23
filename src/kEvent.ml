@@ -670,32 +670,8 @@ let progress_pt mdl level k =
     k
  *)
 
- let pp_print_property_map ppf m =
-  let pp_binding ppf (k, v) =
-    Format.fprintf ppf 
-      "@[<h>@{<blue_b>%a@}: %a@]"
-      HString.pp_print_hstring k
-      LustreAst.pp_print_expr v
-  in
-  Lib.pp_print_list
-    pp_binding
-    ("@,")
-    ppf
-    (LustreNodeGen.PropertyMap.bindings m);
-  Format.fprintf ppf "@]@."
-
-let prop_map_pt level property_map=
-  let property_map = !LustreInput.property_eq_map in
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Equations of generated properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    pp_print_property_map property_map
-    Pretty.print_double_line ()
 (* Pretty-print a list of properties and their status *)
 let prop_status_pt level prop_status_kind =
-  prop_map_pt level ();
   (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
