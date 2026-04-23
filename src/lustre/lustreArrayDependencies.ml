@@ -144,7 +144,7 @@ and process_lhs ctx ns proj expr = function
   | _ :: tail -> process_lhs ctx ns (proj + 1) expr tail
   | [] -> R.ok (G.empty, StringMap.empty, 0, 0)
 
-and process_expr ind_vars ctx ns proj indices expr =
+and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   let r expr = process_expr ind_vars ctx ns proj indices expr in
   match expr with
   (* Identifiers *)
@@ -240,7 +240,7 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Node calls *)
   | Call (_, _, i, es) ->
     let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in
-    let node_map = NodeId.Map.find i ns in
+    let node_map = (NodeId.Map.find i ns).dependencies in
     let dep_args = AD.IntMap.find proj node_map in
     List.fold_left (fun acc idx ->
         match List.nth_opt arg_vars idx with

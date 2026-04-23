@@ -28,6 +28,11 @@ test_cases = {
 # Where to find the regression tests
 regression_dir = Path("regression").absolute()
 
+# Extra files to test with a fixed expected result, as (path, expected) pairs
+extra_files = [
+    (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
+]
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -47,7 +52,6 @@ return_codes = (
 
 expected_to_code = {expected: code for expected, code in return_codes}
 code_to_expected = {code: expected for expected, code in return_codes}
-
 
 def pytest_collect_file(parent, file_path: Path):
     try:
@@ -77,6 +81,17 @@ class LustreFile(pytest.File):
                 case=case,
                 case_name=case_name,
             )
+
+
+# Make `extra_files` visible (they may be outside the `tests` directory)
+def pytest_collection_modifyitems(session, items):
+    extra_items = []
+    for extra_path, expected in extra_files:
+        collector = LustreFile.from_parent(session, path=extra_path, expected=expected)
+        for item in collector.collect():
+            item._nodeid = f"examples/{extra_path.name}::{item.name}"
+            extra_items.append(item)
+    items[:] = extra_items + items
 
 
 class LustreException(Exception): ...

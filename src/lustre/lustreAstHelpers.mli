@@ -212,7 +212,4 @@ val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 val pos_of_type: lustre_type -> Lib.position 
 (** `pos_of_type ty` returns the position of `ty` *)
 
-val find_type_annotation: expr -> lustre_type option
-(** `find_type_annotation e` recurses down `StructUpdates` to find the leaf-level type annotation, if one exists *)
-
 val node_id_of_decl: declaration -> NodeId.t option

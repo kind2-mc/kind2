@@ -534,11 +534,38 @@ let order_equations
 (* ********************************************************************** *)
 
 
+(* Return state variables from properties *)
+let roots_of_props props =
+  List.map (fun (sv, _, _, _) -> sv) props
+  |> SVS.of_list
+
+let rec contract_proof_obligation = function
+  | Property.Generated (_, _, Property.Contract) -> true
+  | Property.Candidate (Some s) -> contract_proof_obligation s
+  | Property.Generated (_, _, Property.Body) 
+  | Property.PropAnnot _ 
+  | Property.Candidate None 
+  | Property.NonVacuityCheck _
+  | Property.Assumption _
+  | Property.Guarantee _
+  | Property.GuaranteeOneModeActive _
+  | Property.GuaranteeModeImplication _
+  | Property.Instantiated _ ->
+    false
+
+let  filter_props_contract props =
+  List.filter (fun (_, _, src, _) -> contract_proof_obligation src) props
+
+let roots_of_props_contract props =
+  filter_props_contract props |> roots_of_props
+
+
 (* Initially empty node for slicing *)
 let slice_all_of_node 
     ?(keep_props = true)
     ?(keep_contracts = true)
     ?(keep_asserts = true)
+    ?(for_contract = false)
     { N.node_id;
       N.is_extern;
       N.opacity;
@@ -574,7 +601,11 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
-    N.props = if keep_props then props else [];
+    N.props =
+      if not keep_props then []
+      else if for_contract then
+        filter_props_contract props
+      else props;
     N.contract = if keep_contracts then contract else None;
     N.is_main;
     N.comp_type;
@@ -639,12 +670,6 @@ let add_roots_of_equation roots ((_,bnds), expr) =
   (E.state_vars_of_expr expr
    |> SVS.union (state_vars_of_bounds bnds)
    |> SVS.elements) @ roots
-
-
-(* Return state variables from properties *)
-let roots_of_props props =
-  List.map (fun (sv, _, _, _) -> sv) props
-  |> SVS.of_list
 
 (* Return state variables from contracts *)
 let roots_of_contract ?(with_sofar_var=true) = function
@@ -1046,14 +1071,16 @@ let root_and_leaves_of_contracts
     roots
     ({ N.outputs;
        N.calls;
+       N.props;
        N.contract } as node) =
 
   (* Slice everything from node *)
   let node_sliced = 
     slice_all_of_node
-      ~keep_props:false
+      ~keep_props:true
       ~keep_contracts:true
       ~keep_asserts:false
+      ~for_contract:true
       node 
   in
     
@@ -1063,6 +1090,7 @@ let root_and_leaves_of_contracts
     | None ->
       roots_of_contract ~with_sofar_var:(not is_top) contract
       |> SVS.union (roots_of_inlined_calls calls)
+      |> SVS.union (roots_of_props_contract props)
       |> SVS.elements
     | Some r ->
       SVS.elements r

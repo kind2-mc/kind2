@@ -960,38 +960,38 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
+  (* Empty map *)
+  | MAP; LSQBRACKET; RSQBRACKET;
+    ta = map_type_annotation
+  { A.EmptyMap (mk_pos $startpos, Some ta) }
+
   (* Map literals *)
   | MAP LSQBRACKET 
-    updates = separated_list(SEMICOLON, assign); 
+    updates = separated_nonempty_list(SEMICOLON, assign); 
     RSQBRACKET 
-    ta = option(map_type_annotation)
   {
-    match ta, updates with 
-    | None, [] -> 
-      let pos = mk_pos $startpos in 
-      fail_at_position pos "Empty map must have a type annotation"
-    | ta, updates -> 
-      List.fold_left (fun acc (e2, e3) -> 
-        A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], Some e3) 
-      )  (A.EmptyMap (mk_pos $startpos, ta)) updates 
+    List.fold_left (fun acc (e2, e3) -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.MapIndex (mk_pos $startpos, e2)], Some e3) 
+    )  (A.EmptyMap (mk_pos $startpos, None)) updates 
   }
+
+  (* Empty set *)
+  | LCURLYBRACKET 
+    RCURLYBRACKET 
+    ta = type_annotation; 
+  { A.EmptySet (mk_pos $startpos, Some ta) }
 
   (* Set literals *)
   | LCURLYBRACKET 
-    elements = separated_list(COMMA, expr);
+    elements = separated_nonempty_list(COMMA, expr);
     RCURLYBRACKET 
-    ta = option(type_annotation); 
   {
-    match ta, elements with 
-    | None, [] -> 
-      let pos = mk_pos $startpos in 
-      fail_at_position pos "Empty set must have a type annotation"
-    | ta, elements -> 
-      List.fold_left (fun acc e -> 
-        A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
-      ) (A.EmptySet (mk_pos $startpos, ta)) elements
+    List.fold_left (fun acc e -> 
+      A.StructUpdate (mk_pos $startpos, acc, [A.SetIndex (mk_pos $startpos, e)], None) 
+    ) (A.EmptySet (mk_pos $startpos, None)) elements
   }
 
+  (* Map element updates *)
   | e1 = pexpr(Q); 
     LSQBRACKET; 
     updates = separated_nonempty_list(SEMICOLON, assign); 

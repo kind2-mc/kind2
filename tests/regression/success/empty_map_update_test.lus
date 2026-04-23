@@ -1,6 +1,6 @@
 node N () returns (out: map<int, int>) 
 let
-  out = map[1 := 2; 3 := 4]@<int, int>;
+  out = map[1 := 2; 3 := 4];
   check 1 in out;
   check 3 in out;
   check forall (i: int) i <> 1 and i <> 3 => not (i in out);
