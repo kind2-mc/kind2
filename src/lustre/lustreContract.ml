@@ -27,12 +27,13 @@ type svar = {
   pos: position ;
   num: int ;
   name: string option;
+  src_expr: string;
   svar: SVar.t ;
   scope: (position * string) list ;
 }
 
-let mk_svar pos num name svar scope = {
-  pos ; num ; name ; svar ; scope
+let mk_svar pos num name svar scope src_expr = {
+  pos ; num ; name ; svar ; scope ; src_expr
 }
 
 (** Returns the position of the svar *)

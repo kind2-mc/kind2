@@ -630,7 +630,8 @@ let compile_contract_item map count scope kind pos name expr =
       | Some name -> Some (HString.string_of_hstring name)
       | None -> None
     in
-    let contract_sv = C.mk_svar pos count name state_var scope in
+    let sexpr = LustreAst.string_of_expr expr in
+    let contract_sv = C.mk_svar pos count name state_var scope sexpr in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
 
@@ -2180,7 +2181,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in
-      sv, name, src, kind
+      sv, name, src, kind, expr
     in List.map op node_props
 
   in let asserts =
@@ -2623,6 +2624,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | Output -> Some N.Guarantee, None
         | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
       in
+      let srexpr = A.string_of_expr rexpr in
       if is_original then
         let scope =
           List.map (fun (i, s) -> i, HString.string_of_hstring s) contract_scope
@@ -2630,24 +2632,24 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
           let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos ac (Some name) sv scope in
+          let contract_sv = C.mk_svar pos ac (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee, _ ->
           let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos gc (Some name) sv scope in
+          let contract_sv = C.mk_svar pos gc (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None, Some gen_src ->
           let name = create_constraint_name rexpr in
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+          a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
         | _ -> assert false
       else
         let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv], Property.Body) in
         let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+        a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints
@@ -2672,19 +2674,19 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     in
     let name = create_constraint_name_pos pos in
     let pm = PropertyMap.add (HString.mk_hstring name) rexpr pm in
-
+    let srexpr = A.string_of_expr rexpr in
     match constraint_kind, generated_source with
       | Some N.Assumption, _ ->
-        let contract_sv = C.mk_svar pos ac (Some name) sv [] in
+        let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
         (pm, (contract_sv :: a, ac + 1, g, gc, p))
       | Some N.Guarantee, _ ->
-        let contract_sv = C.mk_svar pos gc (Some name) sv [] in
+        let contract_sv = C.mk_svar pos gc (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
         (pm, (a, ac, (contract_sv, false) :: g, gc + 1, p))
       | None, Some gen_src ->
         let src = Property.Generated (Some pos, [sv], gen_src) in
-        (pm, (a, ac, g, gc, (sv, name, src, Property.Invariant) :: p))
+        (pm, (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p))
       | _ -> assert false
   in
   let (pm, (assumes, _, guarantees, _, props)) = 

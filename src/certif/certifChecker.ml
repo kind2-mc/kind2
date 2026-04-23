@@ -2115,6 +2115,7 @@ let mk_multiprop_obs_unsliced unsliced_sys =
           prop_term = eq;
           prop_status = Property.PropUnknown;
           prop_kind = Invariant;
+          prop_expr = None;
         })
       |> List.of_seq
 
@@ -2149,7 +2150,8 @@ let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
           prop_source = Property.Generated (None, [], Body);
           prop_term = eq;
           prop_status = Property.PropUnknown; 
-          prop_kind = Invariant; }
+          prop_kind = Invariant; 
+          prop_expr = None;}
       ) props_eqs in
 
   let others_obs =
@@ -2160,7 +2162,8 @@ let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
           prop_source = Property.Candidate None ;
           prop_term = eq;
           prop_status = Property.PropUnknown; 
-          prop_kind = Invariant; }
+          prop_kind = Invariant; 
+          prop_expr = None;}
         ) others_eqs in
 
   props_obs @ others_obs

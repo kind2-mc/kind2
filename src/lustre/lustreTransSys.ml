@@ -214,6 +214,7 @@ let property_of_expr
   prop_name
   prop_status
   prop_source
+  src_expr
   { E.expr_step; E.expr_init }
 =
 
@@ -229,7 +230,7 @@ let property_of_expr
   in
 
   (* Return property *)
-  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind ; P.prop_expr = src_expr}
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -268,12 +269,14 @@ let non_vacuity_check scope name pos requires props =
       ) s name Lib.pp_print_line_and_column pos 
     in
     let guard = conj_of requires in
+    let sexprs = (List.map (fun { C.src_expr } -> (src_expr)) requires) in
     property_of_expr
       ~prop_kind:(P.Reachable None) 
       false
       name
       P.PropUnknown
       (P.NonVacuityCheck (pos, scope))
+      (Some (sexprs |> String.concat " and "))
       (E.mk_not guard)
     :: props
   | _ ->
@@ -297,12 +300,13 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   let prop_status = P.PropUnknown in
   (* Creates a property for a guarantee. *)
   let guarantee_of_svar ({ C.svar ; C.pos } as sv, is_cand) =
-    E.mk_var svar
-    |> property_of_expr
+    property_of_expr
       is_cand
       (C.prop_name_of_svar sv "guarantee" "")
       prop_status
       (P.Guarantee (pos, scope))
+      (Some sv.src_expr)
+      (E.mk_var svar)
   in
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
@@ -321,6 +325,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
                 (C.prop_name_of_svar sv name ".ensure")
                 prop_status
                 (P.GuaranteeModeImplication (pos, scope))
+                (Some sv.src_expr)
             ) :: acc
           ) acc
         in
@@ -337,7 +342,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
 (* The assumptions of a contract as properties. *)
 let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
   assumes |> List.map (
-    fun { C.pos ; C.name ; C.svar } ->
+    fun { C.pos ; C.name ; C.svar ; C.src_expr} ->
       let prop_term =
         Var.mk_state_var_instance svar TransSys.prop_base
         |> Term.mk_var
@@ -363,7 +368,8 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
         P.prop_source ;
         P.prop_term ;
         P.prop_status ;
-        prop_kind = Invariant ; }
+        prop_kind = Invariant ; 
+        P.prop_expr = Some src_expr}
   )
 
 (* Builds the abstraction of a node given its contract.
@@ -411,7 +417,7 @@ let one_mode_active scope { C.modes } =
       modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
       (* Building property. *)
       |> property_of_expr false name
-          P.PropUnknown (P.GuaranteeOneModeActive (pos, scope))
+          P.PropUnknown (P.GuaranteeOneModeActive (pos, scope)) None
     in
     [prop]
   )
@@ -790,7 +796,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
       | _ -> Flags.check_subproperties () && not (Flags.modular ())
     )
     |> List.fold_left (
-      fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
+      fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
 
         (* Lift name of property *)
         let prop_name =
@@ -818,7 +824,8 @@ let call_terms_of_node_call mk_fresh_state_var globals
           P.prop_source ;
           P.prop_term ;
           P.prop_status ;
-          P.prop_kind ; } :: a
+          P.prop_kind ; 
+          P.prop_expr} :: a
     ) node_props
   in
 
@@ -2676,7 +2683,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
             (* Iterate over each property annotation *)
             List.map (
-              fun (state_var, prop_name, prop_source, prop_kind) -> 
+              fun (state_var, prop_name, prop_source, prop_kind, prop_expr) -> 
 
               (* Property is just the state variable *)
               let prop_term =
@@ -2689,7 +2696,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 P.prop_source; 
                 P.prop_term;
                 P.prop_status;
-                P.prop_kind; }
+                P.prop_kind; 
+                P.prop_expr = Some (LustreAst.string_of_expr prop_expr)}
             ) props
               
             (* Add to existing properties *)

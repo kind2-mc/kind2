@@ -619,6 +619,7 @@ let add_as_candidate os_invs sys =
       prop_term = t ;
       prop_status = PropUnknown ;
       prop_kind = Invariant ;
+      prop_expr = None;
     }
   in
   let props = List.map create_candidate os_invs in

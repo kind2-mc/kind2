@@ -1369,7 +1369,18 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
-(* Return current kind of property *)
+
+(* Return current status of property *)
+let get_prop_expr trans_sys p = 
+
+  try 
+
+    (property_of_name trans_sys p).P.prop_expr
+
+  with Not_found -> None
+
+
+  (* Return current kind of property *)
 let get_prop_kind trans_sys p = 
   (property_of_name trans_sys p).P.prop_kind
 
@@ -1453,6 +1464,14 @@ let get_prop_status_and_kind_all_nocands t =
   List.fold_left (fun acc -> function
       | { P.prop_source = P.Candidate _ } -> acc
       | { P.prop_name; P.prop_status; P.prop_kind } -> (prop_name, prop_status, prop_kind) :: acc
+    ) [] t.properties
+  |> List.rev
+
+(* Return current status and kind of all properties *)
+let get_prop_status_and_kind_and_expr_all_nocands t = 
+  List.fold_left (fun acc -> function
+      | { P.prop_source = P.Candidate _ } -> acc
+      | { P.prop_name; P.prop_status; P.prop_kind ; P.prop_term } -> (prop_name, prop_status, prop_kind, prop_term) :: acc
     ) [] t.properties
   |> List.rev
 

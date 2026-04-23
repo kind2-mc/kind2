@@ -56,6 +56,10 @@ type t = {
   prop_term : Term.t ;
   (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
 
+  prop_expr : string option;
+  (* Expression of property *)
+  
+
   mutable prop_status : prop_status ;
   (** Current status *)
 }

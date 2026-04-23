@@ -1196,7 +1196,11 @@ let prop_attributes_json ppf trans_sys prop_name =
 
   Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
       (string_of_bool (Property.is_candidate prop.Property.prop_source));
-
+  (match prop.Property.prop_expr with 
+  | Some expr -> 
+  Format.fprintf ppf "\"expr\" : \"%s\",@,"
+      expr
+  | None -> ());
   get_attributes prop.Property.prop_source
 
 
@@ -1331,18 +1335,12 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       | Property.Invariant -> "counterExample"
       | Property.Reachable _ -> "witness"
     in
-    let prop_eq_map = !LustreInput.property_eq_map in
-    let de_scoped_name = HString.mk_hstring (List.hd (List.rev ((String.split_on_char '.' prop)))) in
-    let expr = (match LustreNodeGen.PropertyMap.find_opt de_scoped_name prop_eq_map with
-                | Some expr -> Format.asprintf "%a" LustreAst.pp_print_expr expr
-                | None -> "unknown") in
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf
       ",@.{@[<v 1>@,\
         \"objectType\" : \"property\",@,\
         \"name\" : \"%s\",@,\
-        \"expr\" : \"%s\",@,\
         %t\
         \"runtime\" : {\
           \"unit\" : \"sec\", \
@@ -1359,7 +1357,6 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         @]@.}@.\
       "
       (Lib.escape_json_string prop)
-      expr
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with
