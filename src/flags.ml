@@ -3671,6 +3671,9 @@ let check_nonvacuity_default = true
        ))
     (fun fmt -> Format.fprintf fmt "Output in continuous JSON format")
 
+    let log_format_jsonc () = Log.get_log_format () = Log.F_jsonc
+
+
   (** ************************************************************ **)
 
   (* Colored output *)
@@ -3755,6 +3758,9 @@ let exit_code_mode = Global.exit_code_mode
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
+
+let log_format_jsonc = Global.log_format_jsonc
+
 let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall

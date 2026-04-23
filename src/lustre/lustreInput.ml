@@ -175,7 +175,7 @@ let type_check declarations =
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Provide lsp info if option is enabled *)
-    if Flags.log_format_json () && Flags.Lsp.lsp () then
+    if (Flags.log_format_json () || Flags.log_format_jsonc ()) && Flags.Lsp.lsp () then
       LspInfo.print_ast_info global_ctx declarations;
 
     (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)

@@ -445,7 +445,7 @@ let pp_print_realizability_result_json
   in
   Format.fprintf 
     fmt
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
     \"objectType\" : \"realizabilityCheck\",@,\
     \"runtime\" : {\
       \"unit\" : \"sec\", \
@@ -455,6 +455,7 @@ let pp_print_realizability_result_json
     \"result\" : \"%s\"%t\
     @]@.}@.\
   "
+  Log.print_json_sep
   (Stat.get_float Stat.analysis_time)
   (Realizability.result_to_string result)
   pp_print_additional_info
@@ -614,7 +615,7 @@ let pp_print_satisfiability_result_json fmt result =
   Stat.update_time Stat.analysis_time ;
   Format.fprintf 
     fmt
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
     \"objectType\" : \"satisfiabilityCheck\",@,\
     \"runtime\" : {\
       \"unit\" : \"sec\", \
@@ -624,6 +625,7 @@ let pp_print_satisfiability_result_json fmt result =
     \"result\" : \"%s\"\
     @]@.}@.\
   "
+  Log.print_json_sep
   (Stat.get_float Stat.analysis_time)
   (satisfiability_result_to_string result)
 
