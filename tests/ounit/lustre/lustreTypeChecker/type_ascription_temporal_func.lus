@@ -1,0 +1,6 @@
+type T = subtype {x: int | x > pre x};
+
+function F() returns (out: int)
+let
+  out = (1: T);
+tel

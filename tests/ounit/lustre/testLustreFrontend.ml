@@ -475,6 +475,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test type ascription with temporal operator in context of function" (fun () ->
+    match load_file "./lustreTypeChecker/type_ascription_temporal_func.lus" with
+    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncTypeAscription)) -> true
+    | _ -> false);
   mk_test "test map dangling type identifier" (fun () ->
     match load_file "./lustreTypeChecker/map_dangling_type_id.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true

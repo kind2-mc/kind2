@@ -589,7 +589,7 @@ let no_calls_to_node scope ctx = function
   | AnyOp (pos, _, _) -> syntax_error pos (IllegalAnyOp scope)
   | _ -> Ok ()
 
-let rec no_temporal_operator decl_ctx expr =
+let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
