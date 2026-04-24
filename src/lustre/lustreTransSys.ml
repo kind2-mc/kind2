@@ -343,6 +343,8 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
 let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
   assumes |> List.map (
     fun { C.pos ; C.name ; C.svar ; C.src_expr} ->
+      (* Want to carry the real src expr from before normalization step 
+         and use it in place of C.src_expr *)
       let prop_term =
         Var.mk_state_var_instance svar TransSys.prop_base
         |> Term.mk_var

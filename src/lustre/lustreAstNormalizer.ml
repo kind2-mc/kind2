@@ -1614,6 +1614,12 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
+        (* This may be the original expr *)
+        (* Here is where we have access to original exprs, so we have to make association here *)
+        (* Not only keep exprs of properties, but assumptions as well *)
+        (* Will need to move away from using property as carrier for expr data, we need assumptions too *)
+        (* Each map will  be associated with one lustre node *)
+        (* Put map in GI.t, then pass to LN.t *)
         let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
