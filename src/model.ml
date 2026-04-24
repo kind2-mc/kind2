@@ -92,8 +92,12 @@ let pp_print_term ppf term =
 
 
 let pp_print_term ppf term =
+      
   if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
-    Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
+        if Flags.log_format_json () || Flags.log_format_ijson () then
+          Format.fprintf ppf "%a" pp_print_term term
+        else
+          Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
   else pp_print_term ppf term
 
 
