@@ -107,7 +107,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
-    ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
+    ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to functions, not nodes"
   | IllegalAnyOp variant -> "Illegal `any` operator; "
     ^ variant ^ " cannot contain `any` operators. Maybe you meant to use `choose`?"
   | NodeCallInConstant id -> "Illegal node call, 'any'/'choose' operator, or type ascription in definition of constant '" ^ HString.string_of_hstring id ^ "'"
@@ -1071,8 +1071,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | StructUpdate (_, e1, l, e2) ->
       let* warnings1 = match l with 
       | [LA.SetIndex (_, e)] ->  
-        (no_temporal_operator "set literals" e)
+        no_calls_to_node "set literals" ctx e >> 
+        no_temporal_operator "set literals" e
       | [LA.MapIndex (_, e)] ->  
+        no_calls_to_node "map literals" ctx e >> 
+        no_calls_to_node "map literals" ctx (Option.get e2) >> 
         let* warnings = (no_temporal_operator "map literals" e) in
         let* warnings' = (no_temporal_operator "map literals" (Option.get e2)) in 
         Res.ok (warnings @ warnings')
