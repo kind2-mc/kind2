@@ -66,6 +66,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test temporal set literal" (fun () ->
+    match load_file "./lustreSyntaxChecks/set_literal_temporal.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
   mk_test "test any operator in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true

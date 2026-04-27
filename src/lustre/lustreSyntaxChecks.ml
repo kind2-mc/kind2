@@ -1069,8 +1069,17 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = (check_expr ctx f e2) in
       Ok (warnings1 @ warnings2)
     | StructUpdate (_, e1, l, e2) ->
-      let* warnings1 = (check_expr ctx f e1) in 
-      let* warnings2 = match e2 with 
+      let* warnings1 = match l with 
+      | [LA.SetIndex (_, e)] ->  
+        (no_temporal_operator "set literals" e)
+      | [LA.MapIndex (_, e)] ->  
+        let* warnings = (no_temporal_operator "map literals" e) in
+        let* warnings' = (no_temporal_operator "map literals" (Option.get e2)) in 
+        Res.ok (warnings @ warnings')
+      | _ -> Res.ok [] 
+      in
+      let* warnings2 = (check_expr ctx f e1) in 
+      let* warnings3 = match e2 with 
       | Some e2 -> check_expr ctx f e2 
       | None -> Res.ok [] 
       in
@@ -1086,8 +1095,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
           | LA.Ident (_, _) -> None 
           | _ -> Some e) l
        in
-       let* warnings3 = check_expr_list ctx f l in 
-       Ok (warnings1 @ warnings2 @ warnings3)
+       let* warnings4 = check_expr_list ctx f l in 
+       Ok (warnings1 @ warnings2 @ warnings3 @ warnings4)
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
       let extn_ctx = ctx_add_local ctx i (Some ty) in

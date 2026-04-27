@@ -1,0 +1,6 @@
+node N() returns (out: set<int>)
+let
+  out = { pre 1 };
+
+  check true -> (1 in out);
+tel
