@@ -52,6 +52,8 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | QuantifiedVariableInTypeAscription of HString.t 
+  | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
   | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
@@ -106,6 +108,10 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
+  | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | IllegalAnyOp variant -> "Illegal `any` operator; "
@@ -957,30 +963,26 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings)
 
-(* The syntax checks performed by this function are currently redundant,  
-   since they are subsumed by the check/requirement that bound variable refinement 
-   type predicates must be constant expressions. However, this requirement 
-   may be lifted in the future, and in that case, we would want these checks to be applied. *)
-and check_ty_quantified_var ctx f = function 
+and check_ty ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
   let ctx = ctx_add_quant_var ctx i (Some ty) in
   check_expr ctx f expr
 | GroupType (_, tys) 
 | TupleType (_, tys) -> 
-  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) tys) in 
+  let* warnings = Res.seq (List.map (check_ty ctx f) tys) in 
   Res.ok (List.flatten warnings)
 | Map (_, ty1, ty2) 
 | TArr (_, ty1, ty2) -> 
-  let* warnings = Res.seq (List.map (check_ty_quantified_var ctx f) [ty1; ty2]) in 
+  let* warnings = Res.seq (List.map (check_ty ctx f) [ty1; ty2]) in 
   Res.ok (List.flatten warnings)
 | Set (_, ty) -> 
-  check_ty_quantified_var ctx f ty
+  check_ty ctx f ty
 | ArrayType (_, (ty, expr)) -> 
-  let* warnings1 = check_ty_quantified_var ctx f ty in 
+  let* warnings1 = check_ty ctx f ty in 
   let* warnings2 = check_expr ctx f expr in 
   Res.ok (warnings1 @ warnings2)
 | RecordType (_, _, tis) -> 
-  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty_quantified_var ctx f ty) tis) in 
+  let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
 | Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
@@ -1007,11 +1009,15 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | ConvOp (_, _, e)
     | When (_, e, _)
     | Extract (_, e, _, _)
-    | Pre (_, e)
-    | TypeAscription (_, e, _) -> check_expr ctx f e
+    | Pre (_, e) -> 
+      check_expr ctx f e 
+    | TypeAscription (_, e, ty) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_ty ctx f ty in
+      Res.ok (warnings1 @ warnings2)
     | Quantifier (_, _, vars, e) ->
       let over_vars (warnings, ctx) (_, i, ty) = 
-        let* warnings2 = check_ty_quantified_var ctx f ty in
+        let* warnings2 = check_ty ctx f ty in
         Res.ok (warnings @ warnings2, ctx_add_quant_var ctx i (Some ty))
       in
       let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
@@ -1105,16 +1111,23 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        Ok (warnings1 @ warnings2 @ warnings3)
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
+      let* warnings1 = check_ty ctx f ty in 
       let extn_ctx = ctx_add_local ctx i (Some ty) in
-      let warnings1 = 
+      let warnings2 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e' *)
         if not (LAH.expr_contains_id i e) && not (i = HString.mk_hstring "_")
         then [mk_warning pos (UnusedBoundVariableWarning i)] 
         else []
       in
-      let* warnings2 = (check_expr extn_ctx f e) in
-      Ok (warnings1 @ warnings2)
+      let* warnings3 = (check_expr extn_ctx f e) in
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | EmptyMap (_, Some (kt, vt)) -> 
+      let* warnings1 = check_ty ctx f kt in
+      let* warnings2 = check_ty ctx f vt in 
+      Res.ok (warnings1 @ warnings2) 
+    | EmptySet (_, Some ty) -> 
+      check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
   in
   let* warnings1 = res in 
@@ -1125,7 +1138,7 @@ and check_expr_list ctx f l =
   let* warnings = Res.seq (List.map (check_expr ctx f) l) in 
   Ok(List.flatten warnings)
 
-and ovq_check_expr inlinable_funcs ctx = function
+and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 | LA.Call (pos, _, node_id, args) ->
   let inlinable_funcs = 
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
@@ -1152,13 +1165,44 @@ and ovq_check_expr inlinable_funcs ctx = function
   in
   let check = List.map over_vars (LA.SI.elements vars) in
   List.fold_left (>>) (Ok []) check
+| LA.TypeAscription (pos, expr, ty) -> 
+  let args = [expr] in 
+  let ty = Ctx.expand_type_syn tc_ctx ty in
+  let is_inlinable_e e = 
+    match LAH.has_pre_or_arrow e with 
+    | Some _ -> false 
+    | None -> not (Ctx.expr_contains_node_call tc_ctx e)
+  in 
+  let is_inlinable = LAH.fold_lustre_ty is_inlinable_e true (&&) ty in 
+  let vars =
+    List.fold_left
+      (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
+      LA.SI.empty
+      args
+  in
+  let over_vars j =
+    let found_quant_in_non_inlinable =
+      StringMap.mem j ctx.quant_vars && not is_inlinable
+    in
+    let found_symbolic_index_in_non_inlinable =
+      StringMap.mem j ctx.symbolic_array_indices &&
+      not is_inlinable
+    in
+    (match found_quant_in_non_inlinable, found_symbolic_index_in_non_inlinable with
+    | true, _ -> syntax_error pos (QuantifiedVariableInTypeAscription j)
+    | _, true -> syntax_error pos (SymbolicArrayIndexInTypeAscription j)
+    | false, false -> Ok [])
+  in
+  let check = List.map over_vars (LA.SI.elements vars) in
+  List.fold_left (>>) (Ok []) check
+
 | _ -> Ok []
 
 (* Check types for quantified variables in calls to non-inlinable functions. 
    In particular, refinement type bound variables that refer to array/map/set elements 
    are treated as quantified because they will be quantified in the generated properties *)
 and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
-  let ovq = ovq_check_expr inlinable_funcs in
+  let ovq = ovq_check_expr inlinable_funcs tc_ctx in
   match ty with
   | LA.RefinementType (_, (_, i, inner_ty), e) ->
     let ctx_here =
@@ -1245,7 +1289,7 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
     match contract with
     | Some c ->
       (* Locals are not visible in contracts, so use io ctx *)
-      check_contract false ctx_io (ovq_check_expr inlinable_funcs) oqv_on_ty c
+      check_contract false ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty c
     | None -> Ok ([])
   in
   let ctx_full = build_local_ctx ctx locals inputs outputs in
@@ -1254,7 +1298,7 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
     check_items
       (build_local_ctx ctx_full locals [] [])
       ~tc_ctx:(Some tc_ctx)
-      (ovq_check_expr inlinable_funcs)
+      (ovq_check_expr inlinable_funcs tc_ctx)
       items
   in
   Ok (warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
@@ -1265,7 +1309,7 @@ let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outpu
   let* warnings1 = oqv_check_inputs oqv_on_ty ctx_io inputs in
   let* warnings2 = oqv_check_outputs oqv_on_ty ctx_io outputs in
   let* warnings3 =
-    check_contract true ctx_io (ovq_check_expr inlinable_funcs) oqv_on_ty contract
+    check_contract true ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty contract
   in
   Ok (warnings1 @ warnings2 @ warnings3)
 

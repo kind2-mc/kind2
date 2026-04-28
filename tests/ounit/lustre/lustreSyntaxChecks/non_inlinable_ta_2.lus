@@ -1,0 +1,7 @@
+type Temp = subtype { x: int | x > pre x };
+const N: int;
+
+node N () returns (A: int^N)
+let
+  A[i] = (i: Temp);
+tel
