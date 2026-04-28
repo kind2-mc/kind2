@@ -1038,6 +1038,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
   List.fold_left
     (fun acc decl ->
      match decl with
+     | A.NodeDecl (_, nd) (* Type ascription nodes are inlinable *)
      | A.FuncDecl (_, nd) ->
        let (id, _, _, _, _, _, _, _, _) = nd in
        if NI.Set.mem id inlinable_funcs then
