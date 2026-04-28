@@ -400,7 +400,7 @@ let build_equation_ctx ctx tc_ctx = function
             (* Chase type aliases if we have proper type context *)
             let ty = match tc_ctx with 
             | Some tc_ctx -> 
-              LustreTypeChecker.expand_type_syn_reftype_history_subrange tc_ctx ty |> unwrap 
+              LustreTypeChecker.expand_type_syn_reftype_history tc_ctx ty |> unwrap 
             | None -> ty 
             in
             (match ty with
@@ -699,7 +699,7 @@ and check_ty_node_calls i ty =
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Set (_, ty) -> check_ty_node_calls i ty
-    | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
+    | Bool _ | Int _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
@@ -967,7 +967,7 @@ and check_ty_quantified_var ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty_quantified_var ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
-| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
+| Int _ | Bool _ | SBitVector _ | UBitVector _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
 

@@ -52,13 +52,6 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
-  subrange_constraints : (source
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)

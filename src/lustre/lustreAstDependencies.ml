@@ -274,16 +274,6 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | EnumType (pos, _, evals) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (Lib.flip (singleton_dependency_analysis_data const_prefix) pos) evals)   
-  | IntRange (_, e1, e2) -> 
-    let g1 = match e1 with
-      | None -> empty_dependency_analysis_data
-      | Some e1 -> mk_graph_expr e1
-    in
-    let g2 = match e2 with
-      | None -> empty_dependency_analysis_data
-      | Some e2 -> mk_graph_expr e2
-    in
-    union_dependency_analysis_data g1 g2
   | UserType (pos, ty_args, i) -> (
     let usr_g = singleton_dependency_analysis_data ty_prefix i pos in
     List.fold_left union_dependency_analysis_data usr_g (List.map mk_graph_type ty_args)
@@ -446,7 +436,7 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _ 
+  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _  
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
 (** Extracts all the node calls from a type *)
 

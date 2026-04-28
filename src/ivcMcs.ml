@@ -139,7 +139,6 @@ let rec unannot_pos = function
   | A.Int _ -> A.Int dpos
   | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
   | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
-  | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
   | A.Real _ -> A.Real dpos
   | A.UserType (_,ps,id) -> A.UserType (dpos,ps,id)
   | A.AbstractType (_, id) -> A.AbstractType (dpos,id)
