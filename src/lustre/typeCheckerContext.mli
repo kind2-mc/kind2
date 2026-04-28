@@ -278,8 +278,6 @@ val type_contains_enum : tc_context -> LA.lustre_type -> bool
 val type_contains_ref : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
 
-val type_contains_ref : tc_context -> LA.lustre_type -> bool
-
 val type_contains_enum_reftype : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains an EnumType or RefinementType *)
 
