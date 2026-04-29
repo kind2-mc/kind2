@@ -389,7 +389,6 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-(*!! Keep? *)
 let rec mk_enum_expr ?(mk_enum=true) ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
