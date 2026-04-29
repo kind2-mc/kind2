@@ -114,6 +114,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
+  | TempOperatorInFuncTypeAscription 
   | NoIndexAccessInArrayLength of tc_type
 
 type error = [
@@ -231,6 +232,7 @@ let error_message kind = match kind with
   | TempOperatorInFuncInterface node_id -> 
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
+  | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
       LA.pp_print_lustre_type ty
@@ -1319,6 +1321,32 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
+    let* _ = if NI.get_node_type node_id = TypeAscription then 
+      let is_function = match nname with 
+      | None -> false 
+      | Some nname -> not (node_id_is_node ctx nname)
+      in 
+      let called_node_ty = lookup_node_ty ctx node_id in 
+      let input_type = match called_node_ty with 
+      | Some (LA.TArr (_, ty, _)) -> 
+        expand_type_syn ctx ty
+      | _ -> assert false 
+      in
+      if is_function then 
+        let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine input_type with 
+        | Some pos -> type_error pos TempOperatorInFuncTypeAscription  
+        | None -> 
+          let contains_node_call = LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) input_type in 
+          if contains_node_call then 
+            type_error pos TempOperatorInFuncTypeAscription 
+          else
+            R.ok ()
+      else 
+        R.ok ()
+    else 
+      R.ok () 
+    in
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
        guesses in the case that ty_args contains refinement types. This rules out 

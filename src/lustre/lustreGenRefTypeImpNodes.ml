@@ -192,6 +192,7 @@ let contract_node_decl_to_contracts
 
 let node_decl_to_contracts 
 = fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
+  if NI.get_node_type node_id = TypeAscription then R.ok ([], ctx, NI.Map.empty) else
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs locals in
   let* contract', gids =
@@ -260,7 +261,10 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
       (match type_to_contract p id ty ps with 
       | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
       | None -> R.ok (acc_decls, acc_ctx, acc_gids))
-    | A.TypeDecl (_, FreeType _)
+    | A.TypeDecl (_, FreeType (p, id)) ->
+      (match type_to_contract p id (A.AbstractType  (p, id)) [] with 
+      | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)
+      | None -> R.ok (acc_decls, acc_ctx, acc_gids))
     | A.ConstDecl (_, UntypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
     | A.NodeDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as node_decl)) ->
       (* Add main annotations to imported nodes *)

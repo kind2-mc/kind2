@@ -107,6 +107,12 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
       else
         set, contracts
     )
+    (* A type ascription *) 
+    | A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) -> 
+      if NI.get_node_type id = NI.TypeAscription then
+        NI.Set.add id set, contracts 
+      else 
+        set, contracts
     | _ -> set, contracts
   )
   (NI.Set.empty, NI.Map.empty)

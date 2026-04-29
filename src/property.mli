@@ -60,6 +60,7 @@ type t = {
   (** Current status *)
 }
 
+and generated_source = Contract | Body
 
 (** Source of a property *)
 and prop_source =
@@ -67,7 +68,7 @@ and prop_source =
   | PropAnnot of Lib.position
   (** Property is from an annotation *)
 
-  | Generated of Lib.position option * StateVar.t list
+  | Generated of Lib.position option * StateVar.t list * generated_source
   (** Property was generated, for example, from a subrange constraint *)
 
   | Instantiated of Scope.t * t
@@ -114,6 +115,8 @@ val pp_print_prop_quiet : Format.formatter -> t -> unit
 
 (** Pretty-prints a property. *)
 val pp_print_property : Format.formatter -> t -> unit
+
+val pp_print_generated_source : Format.formatter -> generated_source -> unit
 
 (** Return [true] if the status of the property is known *)
 val prop_status_known : prop_status -> bool

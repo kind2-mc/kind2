@@ -66,6 +66,8 @@ type t =
 
   }
 
+and generated_source = Contract | Body
+
 (* Source of a property *)
 and prop_source =
 
@@ -73,7 +75,7 @@ and prop_source =
   | PropAnnot of position
 
   (* Property was generated, for example, from a subrange constraint *)
-  | Generated of position option * StateVar.t list
+  | Generated of position option * StateVar.t list * generated_source
 
   (* Property is an instance of a property in a called node.
 
@@ -128,12 +130,18 @@ let pp_print_prop_status_pt ppf = function
 
 let pp_print_prop_status = pp_print_prop_status_pt
 
+let pp_print_generated_source ppf = function 
+  | Body -> Format.fprintf ppf "Body"
+  | Contract -> Format.fprintf ppf "Contract"
+
 let pp_print_prop_source ppf = function
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
-  | Generated (_, []) ->
-     Format.fprintf ppf "generated"
+  | Generated (_, [], Contract) ->
+     Format.fprintf ppf "generated (from contract)"
+  | Generated (_, [], Body) ->
+     Format.fprintf ppf "generated (from body)"
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
   | Candidate _ ->
@@ -310,7 +318,7 @@ let get_prop_status { prop_status } = prop_status
 
 let rec get_pos_from_prop_source src = match src with 
   | PropAnnot pos
-  | Generated ((Some pos), _)
+  | Generated ((Some pos), _, _)
   | Assumption (pos,_) 
   | Guarantee (pos,  _) 
   | GuaranteeOneModeActive(pos,_) 
@@ -318,7 +326,7 @@ let rec get_pos_from_prop_source src = match src with
   | NonVacuityCheck (pos , _) -> 
     Some pos
   | Candidate (None)
-  | Generated (None, _) ->  
+  | Generated (None, _, _) ->  
     None
   | Candidate (Some psource) -> get_pos_from_prop_source psource
   | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
