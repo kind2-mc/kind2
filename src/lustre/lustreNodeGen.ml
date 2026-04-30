@@ -63,7 +63,6 @@ type identifier_maps = {
   usr_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
   res_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
   expr : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t; 
-  (* this may give exprs that associate with guarantees, likely will still need to go sooner *)
   array_literal_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   source : LustreNode.state_var_source StateVar.StateVarHashtbl.t;
   bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
