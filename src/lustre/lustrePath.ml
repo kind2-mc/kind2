@@ -694,12 +694,14 @@ let node_path_of_subsystems
   (* Map from scopes to constants (empty scope = global scope) *)
   let const_map =
     let constants =
-      List.fold_left (fun acc (_, vt) ->
-        let l =
-          (D.bindings vt)
-          |> List.map (fun (i,v) -> (i, Var.state_var_of_state_var_instance v))
-        in
-        List.rev_append l acc
+      List.fold_left (fun acc (_, vt, is_generated) ->
+        if is_generated then acc
+        else
+          let l =
+            (D.bindings vt)
+            |> List.map (fun (i,v) -> (i, Var.state_var_of_state_var_instance v))
+          in
+          List.rev_append l acc
       ) [] globals.LustreGlobals.free_constants
       |> List.rev
     in
