@@ -101,6 +101,8 @@ type error_kind = Unknown of string
   | TempOperatorInFuncInterface of NodeId.t 
   | TempOperatorInFuncTypeAscription 
   | NoIndexAccessInArrayLength of tc_type
+  | NestedTypeTemporal of LustreAst.lustre_type 
+  | NestedTypeNodeCall of LustreAst.lustre_type 
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

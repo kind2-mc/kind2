@@ -214,6 +214,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
     | _ -> false);
+  mk_test "node call in nested type" (fun () ->
+    match load_file "./lustreSyntaxChecks/nested_type_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeNodeCall _)) -> true
+    | _ -> false);
+  mk_test "refinement bound var under set passed to non-inlinable function" (fun () ->
+    match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -798,6 +806,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test bound variable with refinement type 3" (fun () ->
     match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test refinement bound variable under pre" (fun () ->
+    match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
     | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
