@@ -618,7 +618,7 @@ let expand_tuple pos lhs rhs =
   expand_tuple' pos [] []
     (X.bindings lhs) (X.bindings rhs)
 
-let compile_contract_item map count scope kind pos name expr =
+let compile_contract_item gids map count scope kind pos name expr =
     let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
@@ -626,7 +626,11 @@ let compile_contract_item map count scope kind pos name expr =
       | Some name -> Some (HString.string_of_hstring name)
       | None -> None
     in
-    let sexpr = LustreAst.string_of_expr expr in
+    let sexpr =
+      let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+      try LustreAst.string_of_expr (GI.StringMap.find key gids.GI.expr_source_map)
+      with Not_found -> LustreAst.string_of_expr expr
+    in
     let contract_sv = C.mk_svar pos count name state_var scope sexpr in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
@@ -1606,11 +1610,11 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       let id' = HString.string_of_hstring id in
       let reqs = List.mapi
         (fun i (p, n, e) -> 
-          compile_contract_item map (i + 1) contract_scope N.Require p n e)
+          compile_contract_item gids map (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
         (fun i (p, n, e) -> 
-          compile_contract_item map (i + 1) contract_scope N.Ensure p n e)
+          compile_contract_item gids map (i + 1) contract_scope N.Ensure p n e)
         enss in
       let contract_scope =
         List.map (fun (_, i) -> HString.string_of_hstring i) contract_scope
@@ -1691,7 +1695,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.assume_count in
       map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item map (i + 1) contract_scope kind pos name expr
+      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
     in List.map over_assumes assumes
   in
   let guarantees = 
@@ -1699,7 +1703,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.guarantee_count in
       map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item map (i + 1) contract_scope kind pos name expr
+      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
     in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
@@ -2158,6 +2162,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
+      let src_expr =
+        let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+        try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+      in
       let name, src =
         match name_opt with
         | None -> assert false (* Prop named in LustreAstNormalizer *)
@@ -2177,7 +2185,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in
-      sv, name, src, kind, expr
+      sv, name, src, kind, src_expr
     in List.map op node_props
 
   in let asserts =

@@ -94,6 +94,7 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
+  expr_source_map: LustreAst.expr StringMap.t;
   history_vars: HString.t StringMap.t;
 }
 

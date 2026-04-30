@@ -94,6 +94,7 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t;
+  expr_source_map: LustreAst.expr StringMap.t;
   history_vars: HString.t StringMap.t;
 }
 
@@ -141,6 +142,7 @@ let union ids1 ids2 = {
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
+    expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
 
@@ -170,5 +172,6 @@ let empty () = {
   equations = [];
   nonvacuity_props = StringSet.empty;
   array_literal_vars = StringSet.empty;
+  expr_source_map = StringMap.empty;
   history_vars = StringMap.empty;
 }
