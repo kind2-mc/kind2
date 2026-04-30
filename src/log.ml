@@ -194,19 +194,20 @@ let print_json_sep ppf = match get_log_format () with
 | _ -> assert false
 
 let printf_json_string mdl level s = 
+    let sep_printer = (if !first_log_flag then
+         (first_log_flag := false; (fun fmt -> ()))
+       else
+         print_json_sep
+      ) in
   (ignore_or_fprintf level)
     !log_ppf
-    ( (if !first_log_flag || get_log_format () == F_ijson then
-         (first_log_flag := false; "")
-       else
-         ",@."
-      ) ^^
-      "{@[<v 1>@," ^^
+      ("%t{@[<v 1>@," ^^
       "\"objectType\" : \"log\",@," ^^
       "\"level\" : \"%s\",@," ^^
       "\"source\" : \"%s\",@," ^^
       "\"value\" : @[<h>\"%s\"@]" ^^
       "@]@.}@.")
+    sep_printer
     (string_of_log_level level)
     (short_name_of_kind_module mdl) s
 
@@ -237,15 +238,15 @@ let parse_log_json level pos msg =
         "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
     with Invalid_argument _ -> ()
   in
+  let sep_printer = (if !first_log_flag then
+         (first_log_flag := false; (fun fmt -> ()))
+       else
+         print_json_sep
+      ) in
   let file = file_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
-    ( (if !first_log_flag || get_log_format () == F_ijson then
-         (first_log_flag := false; "")
-       else
-         ",@."
-      ) ^^
-      "{@[<v 1>@,\
+    (  "%t{@[<v 1>@,\
        \"objectType\" : \"log\",@,\
        \"level\" : \"%s\",@,\
        \"source\" : \"parse\",@,\
@@ -255,6 +256,7 @@ let parse_log_json level pos msg =
        @]@.}@.\
       "
     )
+    sep_printer
     (string_of_log_level level)
     pp_print_fname file
     pp_print_line_col pos (Lib.escape_json_string msg)
