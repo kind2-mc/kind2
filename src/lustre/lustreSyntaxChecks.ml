@@ -284,7 +284,9 @@ function
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
     false l
 
-| Match _ -> failwith "Match expressions not yet implemented"
+| Match (_, e, arms) ->
+  has_stateful_op ctx e ||
+  List.fold_left (fun acc (_, body) -> acc || has_stateful_op ctx body) false arms
 
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
@@ -678,7 +680,9 @@ let rec expr_only_supported_in_merge observer expr =
     if observer then Ok ()
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (_, e, arms) ->
+    r observer e >>
+    Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -994,7 +998,10 @@ and check_ty ctx f = function
 | Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
-| ADT _ -> failwith "ADTs not yet implemented"
+| ADT (_, _, cons) ->
+  let tys = List.map snd cons |> List.flatten in
+  let* warnings = Res.seq (List.map (check_ty ctx f) tys) in
+  Res.ok (List.flatten warnings)
 
 
 
@@ -1137,7 +1144,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
-    | Match _ -> failwith "Match expressions not yet implemented"
+    | Match (_, e, arms) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_expr_list ctx f (List.map snd arms) in
+      Ok (warnings1 @ warnings2)
   in
   let* warnings1 = res in
   let* warnings2 = check expr in
@@ -1261,7 +1271,10 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   | LA.Int _ | LA.Bool _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
-  | LA.ADT _ -> failwith "ADTs not yet implemented"
+  | LA.ADT (_, _, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    let* warnings = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs is_nested ctx) tys) in
+    Ok (List.flatten warnings)
 
 let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* warnings1 =

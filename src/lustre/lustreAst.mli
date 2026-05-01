@@ -110,6 +110,9 @@ type group_expr =
 
 type access_kind = Array | Map | Tuple | Unknown
 
+(** Pattern for match expressions *)
+type pattern = Pat of position * ident * pattern list
+
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
@@ -177,7 +180,7 @@ and expr =
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
   (* Pattern matching on ADT values *)
-  | Match of position * expr * (ident * ident list * expr) list
+  | Match of position * expr * (pattern * expr) list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

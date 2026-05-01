@@ -93,10 +93,13 @@ type group_expr =
   | ArrayExpr (* Array expression *)
 
 type access_kind =
-  | Array 
-  | Map 
+  | Array
+  | Map
   | Tuple
   | Unknown
+
+(** Pattern for match expressions *)
+type pattern = Pat of position * ident * pattern list
 
 (** A Lustre expression *)
 type expr =
@@ -140,7 +143,7 @@ type expr =
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
   (* Pattern matching on ADT values *)
-  | Match of position * expr * (ident * ident list * expr) list
+  | Match of position * expr * (pattern * expr) list
 
 (** A Lustre type *)
 and lustre_type =
@@ -356,8 +359,15 @@ let pp_print_clock_expr ppf = function
     Format.fprintf ppf "when %a(%a)" pp_print_ident c pp_print_ident s
 
 
+let rec pp_print_pattern ppf = function
+  | Pat (_, c, []) -> HString.pp_print_hstring ppf c
+  | Pat (_, c, pats) ->
+    Format.fprintf ppf "%a(%a)"
+      HString.pp_print_hstring c
+      (pp_print_list pp_print_pattern ", ") pats
+
 (* Pretty-print a Lustre expression *)
-let rec pp_print_expr ppf = 
+and pp_print_expr ppf = 
 
   let ppos ppf p =
     Format.ifprintf ppf "%a" pp_print_position p
@@ -657,16 +667,10 @@ let rec pp_print_expr ppf =
       pp_print_lustre_type ty
 
     | Match (_, e, arms) ->
-      let pp_arm ppf (ctor, vars, body) =
-        if vars = [] then
-          Format.fprintf ppf "| %a -> %a"
-            HString.pp_print_hstring ctor
-            pp_print_expr body
-        else
-          Format.fprintf ppf "| %a(%a) -> %a"
-            HString.pp_print_hstring ctor
-            (pp_print_list HString.pp_print_hstring ", ") vars
-            pp_print_expr body
+      let pp_arm ppf (pat, body) =
+        Format.fprintf ppf "| %a --> %a"
+          pp_print_pattern pat
+          pp_print_expr body
       in
       Format.fprintf ppf "match %a with %a end"
         pp_print_expr e

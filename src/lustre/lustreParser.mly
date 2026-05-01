@@ -373,9 +373,10 @@ type_decl:
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
   (* Definition of an algebraic datatype *)
-  | DATATYPE; l = ident_list; EQUALS; option(BAR); cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
-     { List.map (fun e ->
-           A.AliasType (mk_pos $startpos, e, [],
+  | DATATYPE; l = ident_list; p = option(decl_static_params); EQUALS; option(BAR); cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
+     { let p = match p with | None -> [] | Some p -> p in 
+       List.map (fun e ->
+           A.AliasType (mk_pos $startpos, e, p,
                         A.ADT (mk_pos $startpos, e, cs))) l }
 
   (* A record type, can only be defined as alias *)
@@ -493,12 +494,16 @@ adt_constructor:
   | n = ident { (n, []) }
   | n = ident; LPAREN; tys = separated_nonempty_list(COMMA, lustre_type); RPAREN { (n, tys) }
 
-(* A single arm of a match expression: (Ctor -> e) or (Ctor(x, y) -> e) *)
+(* A pattern in a match arm *)
+pat:
+  | i = ident 
+    { A.Pat (mk_pos $startpos, i, []) }
+  | c = ident; LPAREN; ps = separated_nonempty_list(COMMA, pat); RPAREN
+    { A.Pat (mk_pos $startpos, c, ps) }
+
+(* A single arm of a match expression *)
 match_arm:
-  | BAR; ctor = ident; CASE; e = expr; 
-    { (ctor, [], e) }
-  | BAR; ctor = ident; LPAREN; vars = separated_nonempty_list(COMMA, ident); RPAREN; CASE; e = expr; 
-    { (ctor, vars, e) }
+  | BAR; p = pat; CASE; e = expr { (p, e) }
 
 
 (* ********************************************************************** *)
