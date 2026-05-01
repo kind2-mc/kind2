@@ -1930,7 +1930,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* (State Variables for) Generated Refinement Type Constraints        *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _) =
+    let over_generated_locals glocals (_, _, id, _, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -2664,18 +2664,40 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-  let create_constraint_name_pos (pos : position)= 
-    Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
+  let create_constraint_name_pos node_id (pos : position)= 
+    match NI.get_node_type node_id with
+    | NI.TypeAscription -> ""
+    | _ -> Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
-  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
+  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
     let sv = H.find !map.state_var (mk_ident id) in
     let constraint_kind, generated_source = match source with
-      | GI.Input -> Some N.Assumption, None
-      | Local -> None, Some Property.Body
-      | Output -> Some N.Guarantee, None
-      | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
+    | GI.Input -> Some N.Assumption, None
+    | Local -> None, Some Property.Body
+    | Output -> Some N.Guarantee, None
+    | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
+  in
+  let name = create_constraint_name_pos node_id pos in
+  let global_teas = 
+    List.fold_left (fun acc (_,gds) -> NI.Map.union (fun _ a _ -> Some a) acc gds.GeneratedIdentifiers.type_ascription_exprs) NI.Map.empty (NI.Map.bindings gids_map) 
+  in
+  let replace_expr = match node_id_opt with
+  | Some nid -> NI.Map.find_opt nid global_teas
+  | None -> None
+  in
+
+  let rexpr = match node_id_opt, replace_expr with
+    | Some nid, Some expr ->
+      (* Format.printf "Found type ascription with a mapped RHS for %a: %a\n" NI.pp_print_node_id_input_name nid A.pp_print_expr expr ; *)
+      LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+    | Some nid, None -> 
+      (* Format.printf "Didn't find mapped type ascription for %a. \n" NI.pp_print_node_id_input_name nid;
+      Format.printf "Map: %a\n" pp_map global_teas; *)
+      rexpr
+    | None, _ ->
+      (* Format.printf "No node_id_opt for this refinement constraint\n"; *)
+      rexpr
     in
-    let name = create_constraint_name_pos pos in
     let srexpr = A.string_of_expr rexpr in
     match constraint_kind, generated_source with
       | Some N.Assumption, _ ->

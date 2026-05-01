@@ -218,7 +218,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
-  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr, _) =
     Format.fprintf ppf "(%a, %a, %a, %a)"
       pp_print_source source
       Lib.pp_print_position pos
@@ -1131,7 +1131,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
       let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
       let gids2 = { (empty ()) with
-        refinement_type_constraints = [(source, pos, name, output_expr)];
+        refinement_type_constraints = [(source, pos, name, output_expr, node_id)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
       in
       union gids1 gids2, warnings 
@@ -2071,6 +2071,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       in
       let nexpr, gids2 =
         mk_fresh_call ~vmap info id map pos cond restart nargs None
+      in
+      let gids2 = 
+        if NI.get_node_type id = NI.TypeAscription && args <> [] then
+          let original_expr = List.hd args in
+          { gids2 with type_ascription_exprs = NI.Map.add id original_expr gids2.type_ascription_exprs }
+        else
+          gids2
       in
       nexpr, union gids1 gids2, warnings
     in
