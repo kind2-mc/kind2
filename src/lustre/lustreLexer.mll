@@ -223,6 +223,7 @@ let keyword_table = mk_hashtbl [
 
   (* Types *)
   "type", TYPE ;
+  "datatype", DATATYPE ;
   "int", INT ;
   "uint", UINT ; 
   "sint", SINT ;
@@ -491,6 +492,7 @@ rule token = parse
   | '/' { DIV }
   | '*' { MULT }
   | "->" { ARROW }
+  | "-->" { CASE }
   | "&&" { BVAND }
   | "||" { BVOR }
   | "!" { BVNOT }

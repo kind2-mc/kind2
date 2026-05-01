@@ -1007,6 +1007,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, expr_list' = desugar_expr_list map expr_list in
     StringSet.union vars1 vars2,
     RestartEvery (pos, ident, expr_list', e')
+  | Match _ -> failwith "Match expressions not yet implemented"
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
         expr_list
@@ -2534,6 +2535,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

@@ -248,6 +248,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
         | None -> acc)
       empty_
       dep_args
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let extract_unknown ids =
   let unknowns =

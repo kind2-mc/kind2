@@ -64,6 +64,7 @@ let pos_of_expr = function
   | EmptyMap (pos, _)
   | EmptySet (pos, _)
   | TypeAscription (pos, _, _)
+  | Match (pos, _, _)
   -> pos
 
 (* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
@@ -181,8 +182,9 @@ let rec expr_contains_call = function
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
-  | TypeAscription _ 
+  | TypeAscription _
     -> true
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let rec expr_contains_id id = function
   | Ident (_, id2) -> id = id2
@@ -216,9 +218,10 @@ let rec expr_contains_id id = function
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) -> 
-    expr_contains_id id e || 
+  | RestartEvery (_, _, expr_list, e) ->
+    expr_contains_id id e ||
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
@@ -282,6 +285,7 @@ let rec substitute_naive (var:HString.t) t = function
     TypeAscription (pos, substitute_naive var t e, map_lustre_ty (substitute_naive var t) ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -343,6 +347,7 @@ let rec apply_subst_in_expr sigma = function
     TypeAscription (pos, apply_subst_in_expr sigma e, map_lustre_ty (apply_subst_in_expr sigma) ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 
 (* Type level substitutions at the expression level *)
@@ -412,6 +417,7 @@ let rec apply_type_subst_in_expr
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | TypeAscription (pos, e, ty) ->
     TypeAscription (pos, apply_type_subst_in_expr sigma e, apply_type_subst_in_type sigma ty)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 
 (* Same as apply_subst_in_type, but the substitution occurs at the type level *)
@@ -573,6 +579,7 @@ let rec has_unguarded_pre ung = function
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 
 let has_unguarded_pre e =
@@ -668,6 +675,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn false e2 in
     u1 || u2
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let has_unguarded_pre_no_warn e =
   has_unguarded_pre_no_warn true e 
@@ -784,6 +792,7 @@ let rec has_pre_or_arrow = function
     | res -> res
   )
   | Arrow (pos, _, _) -> Some pos
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 (*
 (** Returns identifiers under a last operator *)
@@ -995,6 +1004,7 @@ let rec vars_of_node_calls_h obs =
     SI.union (vars obs e) (fold_lustre_ty (vars obs) SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
@@ -1046,6 +1056,7 @@ let rec vars_without_node_call_ids: expr -> iset =
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let rec calls_of_expr: expr -> NI.Set.t =
   function
@@ -1093,6 +1104,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | TypeAscription (_, e, ty) ->
     NI.Set.union (calls_of_expr e) (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
@@ -1142,6 +1154,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
@@ -1326,7 +1339,8 @@ let rec replace_with_constants: expr -> expr =
     TypeAscription (p, replace_with_constants e, map_lustre_ty replace_with_constants ty)
 
   (* Node calls *)
-  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es) 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -1417,8 +1431,9 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     TypeAscription (p, abstract_pre_subexpressions e, map_lustre_ty abstract_pre_subexpressions ty)
 
   (* Node calls *)
-  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es) 
-                 
+  | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es)
+  | Match _ -> failwith "Match expressions not yet implemented"
+
 let rec replace_idents locals1 locals2 expr = 
   let r = replace_idents locals1 locals2 in 
   match expr with
@@ -1494,16 +1509,17 @@ let rec replace_idents locals1 locals2 expr =
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) -> 
-    StructUpdate (p, r e1, 
+  | StructUpdate (p, e1, li, None) ->
+    StructUpdate (p, r e1,
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)
-             ) li, 
+             ) li,
     None)
+  | Match _ -> failwith "Match expressions not yet implemented"
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1913,6 +1929,7 @@ let hash depth_limit expr =
       | TypeAscription (_, e, _) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (30, e_hash)
+      | Match _ -> failwith "Match expressions not yet implemented"
   in
   r 0 expr
 
@@ -1984,6 +2001,7 @@ let rec rename_contract_vars = function
     TypeAscription (pos, rename_contract_vars e, map_lustre_ty rename_contract_vars ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> rename_contract_vars e) expr_list)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let name_of_prop pos name k =
   match name with 
@@ -2077,16 +2095,17 @@ let rec constants_to_calls: ident list -> expr -> expr
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) -> 
-    StructUpdate (p, r e1, 
+  | StructUpdate (p, e1, li, None) ->
+    StructUpdate (p, r e1,
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)
-             ) li, 
+             ) li,
     None)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let pos_of_type ty = match ty with
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)

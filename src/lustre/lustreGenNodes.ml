@@ -274,6 +274,7 @@ fun ctx node_name fun_ids expr ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
     Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

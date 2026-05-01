@@ -915,6 +915,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Temporal operators *)
   | Pre (_, e) -> call e
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
@@ -988,6 +989,7 @@ let rec expr_contains_node_call ctx expr =
     || List.fold_left (fun acc x -> acc || r x) false expr_list
   | AnyOp (_, _, _) -> true 
   | ChooseOp (_, _, _) -> false
-  | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) -> 
-    node_id_is_node ctx ni  
+  | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) ->
+    node_id_is_node ctx ni
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 

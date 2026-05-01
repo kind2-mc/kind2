@@ -472,12 +472,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ) (ctx, gids, [], decls1 @ decls2, node_decls_map) exprs in 
     ctx, gids, Activate (p, id, expr1, expr2, exprs), decls, node_decls_map
   | RestartEvery (p, id, exprs, expr) ->
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in
+    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr ->
+      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls, node_decls_map) exprs in 
+    ) (ctx, gids, [], decls, node_decls_map) exprs in
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 

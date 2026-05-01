@@ -284,17 +284,19 @@ function
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
     false l
 
+| Match _ -> failwith "Match expressions not yet implemented"
+
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
-  match e2 with 
-  | Some e2 -> has_stateful_op ctx e2 
-  | None -> false 
+  match e2 with
+  | Some e2 -> has_stateful_op ctx e2
+  | None -> false
   ||
   List.fold_left
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
-      | GenericIndex (_, e) 
+      | GenericIndex (_, e)
       | MapIndex (_, e)
       | SetIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
@@ -676,6 +678,7 @@ let rec expr_only_supported_in_merge observer expr =
     if observer then Ok ()
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -1134,9 +1137,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
+    | Match _ -> failwith "Match expressions not yet implemented"
   in
-  let* warnings1 = res in 
-  let* warnings2 = check expr in 
+  let* warnings1 = res in
+  let* warnings2 = check expr in
   Ok (warnings1 @ warnings2)
 
 and check_expr_list ctx f l =

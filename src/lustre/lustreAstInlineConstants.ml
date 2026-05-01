@@ -272,6 +272,7 @@ and push_pre is_guarded pos =
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function

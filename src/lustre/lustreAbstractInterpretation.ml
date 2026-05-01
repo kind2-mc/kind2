@@ -557,6 +557,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | TypeAscription (_, e, _) -> interpret_int_expr node_id ctx ty_ctx proj e
+  | Match _ -> failwith "Match expressions not yet implemented"
 
 and interpret_int_unary_expr node_id ctx ty_ctx op proj e =
   let (l, r) = interpret_int_expr node_id ctx ty_ctx proj e in

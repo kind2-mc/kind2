@@ -1422,6 +1422,7 @@ and compile_ast_expr
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
+  | A.Match _ -> failwith "Match expressions not yet implemented"
 
 and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in

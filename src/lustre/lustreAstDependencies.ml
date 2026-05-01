@@ -501,6 +501,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 (** Returns all the node calls from an expression *)
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -812,8 +813,9 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           (SI.elements result); *)
         result
       | None -> SI.empty)
+  | Match _ -> failwith "Match expressions not yet implemented"
 
-(** get all the variables and flatten node calls using 
+(** get all the variables and flatten node calls using
     the node summary for an expression *)
              
 (* We use a contract_node_equation option map. In this map, every identifier is associated

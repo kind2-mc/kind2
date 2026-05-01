@@ -1,5 +1,5 @@
 (* This file is part of the Kind 2 model checker.
-
+lustrepars
    Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
@@ -66,6 +66,7 @@ let mk_span start_pos end_pos =
       
 (* Tokens for types *)
 %token TYPE
+%token DATATYPE
 %token INT
 %token UINT
 %token SINT
@@ -216,6 +217,7 @@ let mk_span start_pos end_pos =
 %token HASH
 %token MATCH
 %token END
+%token CASE 
 
 (* Token for end of file marker *)
 %token EOF
@@ -223,6 +225,7 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
+%right CASE
 %nonassoc ELSE OTHERWISE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -369,8 +372,8 @@ type_decl:
            A.AliasType (mk_pos $startpos, e, [],
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
-  (* Definition of an algebraic datatype (leading BAR makes it unambiguous) *)
-  | TYPE; l = ident_list; EQUALS; BAR; cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
+  (* Definition of an algebraic datatype *)
+  | DATATYPE; l = ident_list; EQUALS; option(BAR); cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
      { List.map (fun e ->
            A.AliasType (mk_pos $startpos, e, [],
                         A.ADT (mk_pos $startpos, e, cs))) l }
@@ -492,9 +495,9 @@ adt_constructor:
 
 (* A single arm of a match expression: (Ctor -> e) or (Ctor(x, y) -> e) *)
 match_arm:
-  | BAR; ctor = ident; ARROW; e = expr; 
+  | BAR; ctor = ident; CASE; e = expr; 
     { (ctor, [], e) }
-  | BAR; ctor = ident; LPAREN; vars = separated_nonempty_list(COMMA, ident); RPAREN; ARROW; e = expr; 
+  | BAR; ctor = ident; LPAREN; vars = separated_nonempty_list(COMMA, ident); RPAREN; CASE; e = expr; 
     { (ctor, vars, e) }
 
 
@@ -1256,7 +1259,7 @@ pexpr(Q):
   (* Type ascription *)
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
 
-  (* Pattern matching on ADT values: match(e) (Ctor -> e1) (Ctor(x, y) -> e2) *)
+  (* Pattern matching on ADT values *)
   | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
     { A.Match (mk_pos $startpos, e, arms) }
     

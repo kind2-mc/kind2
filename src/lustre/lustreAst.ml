@@ -757,7 +757,7 @@ and pp_print_lustre_type ppf = function
           HString.pp_print_hstring name
           (pp_print_list pp_print_lustre_type ", ") tys
     in
-    Format.fprintf ppf "| %a"
+    Format.fprintf ppf "%a"
       (pp_print_list pp_ctor " | ") constructors
 
 (* Pretty-print a typed identifier *)
@@ -1289,6 +1289,10 @@ let pp_print_node_or_fun_decl is_fun ppf (
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
+
+  | TypeDecl (_, (AliasType (_, _, _, ADT _) as t)) -> 
+
+    Format.fprintf ppf "datatype %a;" pp_print_type_decl t
 
   | TypeDecl (_, t) -> 
 

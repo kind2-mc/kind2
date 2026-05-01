@@ -366,8 +366,9 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es1) >>  Res.seq_ (List.map (check_clocks clock) es2)
     | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
-    | When (pos, e, c) -> 
+    | When (pos, e, c) ->
       check_clocks clock e >> clocks_match_result pos c clock
+    | LA.Match _ -> failwith "Match expressions not yet implemented"
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
     result = function
@@ -411,8 +412,9 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
     | Activate (_, _, e1, e2, es) -> 
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
-    | RestartEvery (_, _, es, e) -> 
+    | RestartEvery (_, _, es, e) ->
       Res.seq_ (List.map check_merge es) >> check_merge e
+    | LA.Match _ -> failwith "Match expressions not yet implemented"
   in
   check_merge e
 
@@ -581,7 +583,7 @@ let rec infer_const_attr ctx exp =
   | ChooseOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
-  | RestartEvery (_, i, _, _) 
+  | RestartEvery (_, i, _, _)
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -592,6 +594,7 @@ let rec infer_const_attr ctx exp =
     )
     | _ -> [err]
   )
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -815,6 +818,7 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.TypeAscription (pos, e, ty))
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
@@ -1432,6 +1436,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
   )
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1537,27 +1542,28 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   | IndexAccess (pos, _, _, _)
-  | TypeAscription (pos, _, _) 
+  | TypeAscription (pos, _, _)
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
-  | Condact (pos, _, _, _, _, _) 
-  | Activate (pos, _, _, _, _) 
-  | Merge (pos, _, _) 
-  | RestartEvery (pos, _, _, _) 
-  | Arrow (pos, _, _) 
-  | GroupExpr (pos, _, _) 
-  | StructUpdate (pos, _, _, _) 
-  | RecordExpr (pos, _, _, _) 
-  | Pre (pos, _) 
-  | When (pos, _, _) 
+  | Condact (pos, _, _, _, _, _)
+  | Activate (pos, _, _, _, _)
+  | Merge (pos, _, _)
+  | RestartEvery (pos, _, _, _)
+  | Arrow (pos, _, _)
+  | GroupExpr (pos, _, _)
+  | StructUpdate (pos, _, _, _)
+  | RecordExpr (pos, _, _, _)
+  | Pre (pos, _)
+  | When (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
-(** Type checks an expression and returns [ok] 
- * if the expected type is the given type [tc_type]  
+(** Type checks an expression and returns [ok]
+ * if the expected type is the given type [tc_type]
  * returns an [Error of string] otherwise *)
 
 (* Convert the GenericIndex to one of the other indices based on the inferred type of ue *)
@@ -2522,6 +2528,7 @@ and check_no_index_access ctx nname ty e =
     r e1 >> r e2
   | TypeAscription (_, e, ty') ->
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2630,9 +2637,10 @@ and expr_contains_set_binop ctx ni expr =
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
     List.fold_left (fun acc x -> acc || r x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) -> 
-    r e || 
+  | RestartEvery (_, _, expr_list, e) ->
+    r e ||
     List.fold_left (fun acc x -> acc || r x) false expr_list
+  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
