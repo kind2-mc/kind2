@@ -153,9 +153,10 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
-  | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
-  | A.Set (_, ty) -> Set (dpos, ty)
-  | A.ADT _ -> failwith "ADTs not yet implemented"
+  | A.Map (_, ty1, ty2) -> Map (dpos, unannot_pos ty1, unannot_pos ty2)
+  | A.Set (_, ty) -> Set (dpos, unannot_pos ty)
+  | A.ADT (_, id, cons) -> 
+    A.ADT (dpos, id, List.map (fun (id, tys) -> id, List.map unannot_pos tys) cons)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin

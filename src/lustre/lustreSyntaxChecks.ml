@@ -693,7 +693,8 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_ty_node_calls i ty = 
   match ty with 
-    | LA.RefinementType (_, _, e) ->
+    | LA.RefinementType (_, (_, _, ty), e) ->
+      check_ty_node_calls i ty >>
       if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
@@ -708,9 +709,11 @@ and check_ty_node_calls i ty =
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Set (_, ty) -> check_ty_node_calls i ty
+    | ADT (_, _, cons) -> 
+      let tys = List.map snd cons |> List.flatten in 
+      Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
-    | ADT _ -> failwith "ADTs not yet implemented"
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function

@@ -299,9 +299,9 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
+  | ADT (p, id, cons) -> failwith "ADTs not yet implemented"
   | Bool _ | Int _ | IntRange _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map = 
   let ctx, gids_map, decls, glocals, node_decls_map = GI.StringMap.fold (fun id ty (ctx, gids_map, acc_decls, acc_glocals, acc_node_decls_map) -> 

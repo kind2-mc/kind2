@@ -90,7 +90,11 @@ let rec fold_lustre_ty f init op ty =
   | ArrayType (_, (ty, e))
   | RefinementType (_, (_, _, ty), e) ->
     op (r ty) (f e)
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (_, _, cons) -> 
+    let tys = List.map snd cons |> List.flatten in 
+    List.fold_left (fun acc ty -> 
+      op acc (r ty) 
+    ) init tys
 
 (* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
 let rec map_lustre_ty f ty = 
@@ -111,7 +115,8 @@ let rec map_lustre_ty f ty =
     RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
   | RefinementType (p1, (p2, id, ty), e) ->
     RefinementType (p1, (p2, id, r ty), f e)
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (p, id, cons) -> 
+    ADT (p, id, List.map (fun (id, tys) -> id, List.map r tys) cons)
 
 (* `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
 let rec contains_subtype_satisfying p ty = 
@@ -136,7 +141,9 @@ let rec contains_subtype_satisfying p ty =
     List.exists (fun (_, _, ty) -> r ty) tis
   | RefinementType (_, (_, _, ty'), _) ->
     p ty || r ty'
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (_, _, cons) -> 
+    let tys = List.map snd cons |> List.flatten in
+    p ty || List.exists r tys
 
 let type_arity ty =
   let inner_types = function
@@ -1169,8 +1176,9 @@ let rec vars_of_type = function
   | History (_, id) -> SI.singleton id 
   | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
-  | ADT _ -> failwith "ADTs not yet implemented"
-
+  | ADT (_, _, cons) -> 
+    let tys = List.map snd cons |> List.flatten in 
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
 
 let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
