@@ -211,9 +211,11 @@ let mk_span start_pos end_pos =
 
 (* Other tokens *)
 %token ANY
-%token CHOOSE 
+%token CHOOSE
 %token WITH
 %token HASH
+%token MATCH
+%token END
 
 (* Token for end of file marker *)
 %token EOF
@@ -487,6 +489,13 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 adt_constructor:
   | n = ident { (n, []) }
   | n = ident; LPAREN; tys = separated_nonempty_list(COMMA, lustre_type); RPAREN { (n, tys) }
+
+(* A single arm of a match expression: (Ctor -> e) or (Ctor(x, y) -> e) *)
+match_arm:
+  | BAR; ctor = ident; ARROW; e = expr; 
+    { (ctor, [], e) }
+  | BAR; ctor = ident; LPAREN; vars = separated_nonempty_list(COMMA, ident); RPAREN; ARROW; e = expr; 
+    { (ctor, vars, e) }
 
 
 (* ********************************************************************** *)
@@ -1244,8 +1253,12 @@ pexpr(Q):
     l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
 
-  (* Type ascription *) 
+  (* Type ascription *)
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
+
+  (* Pattern matching on ADT values: match(e) (Ctor -> e1) (Ctor(x, y) -> e2) *)
+  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
+    { A.Match (mk_pos $startpos, e, arms) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }

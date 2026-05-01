@@ -2635,4 +2635,4 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Int _ | History _ | Bool _ | Real _ | IntRange _
   | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
-  | ADT _ -> failwith "ADT types not yet implemented"
+  | ADT _ -> failwith "ADTs not yet implemented"

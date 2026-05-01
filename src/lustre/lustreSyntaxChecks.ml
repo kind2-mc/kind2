@@ -710,7 +710,7 @@ and check_ty_node_calls i ty =
     | Set (_, ty) -> check_ty_node_calls i ty
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
-    | ADT _ -> failwith "ADT types not yet implemented"
+    | ADT _ -> failwith "ADTs not yet implemented"
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
@@ -988,7 +988,7 @@ and check_ty ctx f = function
 | Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
-| ADT _ -> failwith "ADT types not yet implemented"
+| ADT _ -> failwith "ADTs not yet implemented"
 
 
 
@@ -1254,7 +1254,7 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   | LA.Int _ | LA.Bool _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
-  | LA.ADT _ -> failwith "ADT types not yet implemented"
+  | LA.ADT _ -> failwith "ADTs not yet implemented"
 
 let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* warnings1 =

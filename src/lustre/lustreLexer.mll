@@ -332,6 +332,8 @@ let keyword_table = mk_hashtbl [
   "assumption_vars", ASSUMP_VARS;
 
   "with", WITH ;
+  "match", MATCH ;
+  "end", END ;
   ]
 
     

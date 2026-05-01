@@ -414,7 +414,7 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     
   | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty
-  | ADT _ -> failwith "ADT types not yet implemented"
+  | ADT _ -> failwith "ADTs not yet implemented"
 
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation

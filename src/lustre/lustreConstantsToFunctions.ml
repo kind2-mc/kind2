@@ -206,7 +206,7 @@ let rec ty_contains_gids ctx ni ty =
   | A.AbstractType _ | A.EnumType _
   | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
   | A.UserType _ -> false
-  | A.ADT _ -> failwith "ADT types not yet implemented"
+  | A.ADT _ -> failwith "ADTs not yet implemented"
 
 (* Convert free constants to imported functions without args if there are (will be) associated 
    generated identifiers *)

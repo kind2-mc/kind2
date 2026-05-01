@@ -155,7 +155,7 @@ let rec unannot_pos = function
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
   | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
   | A.Set (_, ty) -> Set (dpos, ty)
-  | A.ADT _ -> failwith "ADT types not yet implemented"
+  | A.ADT _ -> failwith "ADTs not yet implemented"
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin

@@ -176,6 +176,8 @@ and expr =
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
+  (* Pattern matching on ADT values *)
+  | Match of position * expr * (ident * ident list * expr) list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
