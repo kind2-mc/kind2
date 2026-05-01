@@ -303,3 +303,6 @@ val ty_vars_of_type: tc_context -> NI.t -> LA.lustre_type -> SI.t
 
 val expr_contains_node_call: tc_context -> LA.expr -> bool
 (** [expr_contains_node_call ctx expr] returns true iff `expr` contains a node (NOT a function) call *)
+
+val node_id_is_node: tc_context -> NI.t -> bool
+(** [node_id_is_node ctx node_id] returns true iff `node_id` refers to a node (NOT a function) *)

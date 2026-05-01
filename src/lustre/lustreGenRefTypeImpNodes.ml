@@ -192,6 +192,7 @@ let contract_node_decl_to_contracts
 
 let node_decl_to_contracts 
 = fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
+  if NI.get_node_type node_id = TypeAscription then R.ok ([], ctx, NI.Map.empty) else
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs locals in
   let* contract', gids =

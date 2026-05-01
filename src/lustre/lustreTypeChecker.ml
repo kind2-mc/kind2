@@ -114,7 +114,10 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
+  | TempOperatorInFuncTypeAscription 
   | NoIndexAccessInArrayLength of tc_type
+  | NestedTypeTemporal of LustreAst.lustre_type 
+  | NestedTypeNodeCall of LustreAst.lustre_type 
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -231,8 +234,15 @@ let error_message kind = match kind with
   | TempOperatorInFuncInterface node_id -> 
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
+  | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
+      LA.pp_print_lustre_type ty
+  | NestedTypeTemporal ty ->
+    Format.asprintf "Operators 'pre' and '->' not supported under nested type %a"
+      LA.pp_print_lustre_type ty
+  | NestedTypeNodeCall ty ->
+    Format.asprintf "Node call not supported under nested type %a"
       LA.pp_print_lustre_type ty
 
 type warning_kind = 
@@ -979,11 +989,18 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    let* kt, warnings1 = check_type_well_formed ctx Local nname false kt in 
-    let* vt, warnings2 = check_type_well_formed ctx Local nname false vt in 
-    R.ok (LA.Map (pos, kt, vt), e, warnings1 @ warnings2)
+    let* map_ty, warnings = check_type_well_formed ctx Local nname false (LA.Map (pos, kt, vt)) in 
+    let kt, vt = match map_ty with 
+    | LA.Map (_, kt, vt) -> kt, vt 
+    | _ -> assert false 
+    in
+    R.ok (LA.Map (pos, kt, vt), e, warnings)
   | LA.EmptySet (pos, Some ty) -> 
-    let* ty, warnings = check_type_well_formed ctx Local nname false ty in 
+    let* set_ty, warnings = check_type_well_formed ctx Local nname false (LA.Set (pos, ty)) in 
+    let ty = match set_ty with 
+    | LA.Set (_, ty) -> ty 
+    | _ -> assert false 
+    in
     R.ok (LA.Set (pos, ty), e, warnings)
   | LA.RecordProject (pos, e, fld) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
@@ -1333,6 +1350,32 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
+    let* _ = if NI.get_node_type node_id = TypeAscription then 
+      let is_function = match nname with 
+      | None -> false 
+      | Some nname -> not (node_id_is_node ctx nname)
+      in 
+      let called_node_ty = lookup_node_ty ctx node_id in 
+      let input_type = match called_node_ty with 
+      | Some (LA.TArr (_, ty, _)) -> 
+        expand_type_syn ctx ty
+      | _ -> assert false 
+      in
+      if is_function then 
+        let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine input_type with 
+        | Some pos -> type_error pos TempOperatorInFuncTypeAscription  
+        | None -> 
+          let contains_node_call = LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) input_type in 
+          if contains_node_call then 
+            type_error pos TempOperatorInFuncTypeAscription 
+          else
+            R.ok ()
+      else 
+        R.ok ()
+    else 
+      R.ok () 
+    in
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
        guesses in the case that ty_args contains refinement types. This rules out 
@@ -1754,6 +1797,8 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
       (R.ok (LA.TypedConst (pos, i, exp, ty), warnings))
       (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
 
+and combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None 
+
 and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> (LA.node_decl * [> warning] list, [> error]) result
   = fun pos ctx is_function
         (node_name, is_extern, opacity, params, input_vars, output_vars, ldecls, items, contract)
@@ -1803,7 +1848,6 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
     (* No temporal operators in function interface *)
     let check_ty_for_temp_operators_or_node_calls ty = 
       let ty = expand_type_syn ctx ty in
-      let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
       match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty with 
       | Some pos -> type_error pos (TempOperatorInFuncInterface node_name)  
       | None -> 
@@ -2589,113 +2633,129 @@ and expr_contains_set_binop ctx ni expr =
     List.fold_left (fun acc x -> acc || r x) false expr_list
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
-  = fun ctx src nname is_const ty -> match ty with
-  | LA.Map (p, kt, vt) ->
-    let* _ = check_map_type p ctx kt in 
-    let* kt, warnings1 = check_type_well_formed ctx src nname is_const kt in
-    let* vt, warnings2 = check_type_well_formed ctx src nname is_const vt in 
-    R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
-  | LA.Set (p, ty) -> 
-    let* ty, warnings = check_type_well_formed ctx src nname is_const ty in 
-    R.ok (LA.Set (p, ty), warnings)
-  | LA.TArr (p, arg_ty, res_ty) ->
-    let* arg_ty, warnings1 = check_type_well_formed ctx src nname is_const arg_ty in
-    let* res_ty, warnings2 = check_type_well_formed ctx src nname is_const res_ty in 
-    R.ok (LA.TArr (p, arg_ty, res_ty), warnings1 @ warnings2)
-  | LA.RecordType (p, id, idTys) ->
-      let* idTys, warnings = (R.seq (List.map (fun (p, id, ty) -> 
-        let* ty, warnings = check_type_well_formed ctx src nname is_const ty in 
-        R.ok ((p, id, ty), warnings)
+  = fun ctx src nname is_const ty ->
+  let rec check_type_well_formed_rec is_nested ty' = 
+    let* _ = 
+      if is_nested then 
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine ty' with 
+        | Some p -> 
+          type_error p (NestedTypeTemporal ty)
+        | None -> 
+          if LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) ty' 
+          then 
+            type_error (LH.pos_of_type ty') (NestedTypeNodeCall ty) 
+          else R.ok ()
+      else R.ok ()
+    in
+    match ty' with
+    | LA.Map (p, kt, vt) ->
+      let* _ = check_map_type p ctx kt in 
+      let* kt, warnings1 = check_type_well_formed_rec true kt in
+      let* vt, warnings2 = check_type_well_formed_rec true vt in 
+      R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
+    | LA.Set (p, ty') -> 
+      let* ty', warnings = check_type_well_formed_rec true ty' in 
+      R.ok (LA.Set (p, ty'), warnings)
+    | LA.TArr (p, arg_ty, res_ty) ->
+      let* arg_ty, warnings1 = check_type_well_formed_rec true arg_ty in
+      let* res_ty, warnings2 = check_type_well_formed_rec true res_ty in 
+      R.ok (LA.TArr (p, arg_ty, res_ty), warnings1 @ warnings2)
+    | LA.RecordType (p, id, idTys) ->
+      let* idTys, warnings = (R.seq (List.map (fun (p, id, ty') -> 
+        let* ty', warnings = check_type_well_formed_rec true ty' in 
+        R.ok ((p, id, ty'), warnings)
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
-  | LA.ArrayType (p, (b_ty, s)) -> (
-    let* _ = check_array_size_expr ctx nname ty s in
-    let* b_ty, warnings = check_type_well_formed ctx src nname is_const b_ty in 
-    R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
-  )
-  | LA.RefinementType (p, (p2, i, ty), e) ->
-    let* ty, warnings1 = check_type_well_formed ctx src nname is_const ty in
-    let ctx = add_ty ctx i ty in
-    let* _ = (if is_const then 
-      let ctx = add_const ctx i (LA.Ident (p, i)) ty Local in
-      check_expr_is_constant ctx "type of constant" e 
-    else R.ok ()) in
-    let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
-    let* _ = check_ref_type_assumptions ctx src nname i e in 
-    let warnings3 = 
-      if not (LH.expr_contains_id i e) 
-      then [mk_warning p (UnusedBoundVariableWarning i)] 
-      else []
-    in
-    R.ok (LA.RefinementType (p, (p2, i, ty), e), warnings1 @ warnings2 @ warnings3)
-  | LA.TupleType (p, tys) ->
-    let* tys, warnings = 
-      R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) |> R.map List.split 
-    in
-    R.ok (LA.TupleType (p, tys), List.flatten warnings)
-  | LA.GroupType (p, tys) ->
-    let* tys, warnings = 
-      R.seq (List.map (check_type_well_formed ctx src nname is_const) tys) |> R.map List.split 
-    in 
-    R.ok (LA.GroupType (p, tys), List.flatten warnings)
-  | LA.UserType (pos, ty_args, i) ->
-    if (member_ty_syn ctx i || member_u_types ctx i)
-    then 
-      (* Check that we are passing the correct number of type arguments *)
-      let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
-      let ty = expand_type_syn ctx ty in
-      check_type_well_formed ctx src nname is_const ty
-    else (
-      match nname with 
-      | None -> type_error pos (UndeclaredType i)
-      | Some nname -> 
-        match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
-        | Some ty_vars, _ 
-        | _, Some ty_vars -> 
-          if (List.mem i ty_vars) 
-          then R.ok (ty, [])
-          else type_error pos (UndeclaredType i)
-        | None, None -> 
-          type_error pos (UndeclaredType i)
+    | LA.ArrayType (p, (b_ty, s)) -> (
+      let* _ = check_array_size_expr ctx nname ty' s in
+      let* b_ty, warnings = check_type_well_formed_rec true b_ty in 
+      R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
     )
-  (* Allow subranges with symbolic bounds; they will be desugared in lustreFlattenRefinementTypes *) 
-  | LA.IntRange (p, e1, e2) -> (
-    match e1, e2 with
-    | None, None -> type_error p IntervalMustHaveBound
-    | Some e, None -> (
-      let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-      let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
-      match inf_ty with 
-      | LA.Int _ -> R.ok (LA.IntRange (p, Some e, None), warnings)
-      | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
-    )
-    | None, Some e -> (
-      let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-      let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
-      match inf_ty with 
-      | LA.Int _ -> R.ok (LA.IntRange (p, None, Some e), warnings)
-      | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
-    )
-    | Some e1, Some e2 ->
-      let* inf_ty1, e1, warnings1 = infer_type_expr ctx nname e1 in 
-      let* inf_ty2, e2, warnings2 = infer_type_expr ctx nname e2 in 
-      let* inf_ty1 = expand_type_syn_reftype_history_subrange ctx inf_ty1 in
-      let* inf_ty2 = expand_type_syn_reftype_history_subrange ctx inf_ty2 in
-      match inf_ty1, inf_ty2 with 
-      | LA.Int _, Int _ -> (
-        match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with 
-        | Ok v1, Ok v2 -> 
-          if v1 > v2 then type_error p (EmptySubrange (v1, v2)) 
-          else Ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
-        | _ -> R.ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
+    | LA.RefinementType (p, (p2, i, ty'), e) ->
+      let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
+      let ctx = add_ty ctx i ty' in
+      let* _ = (if is_const then 
+        let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
+        check_expr_is_constant ctx "type of constant" e 
+      else R.ok ()) in
+      let* e, warnings2 = check_type_expr ctx nname e (Bool p) in
+      let* _ = check_ref_type_assumptions ctx src nname i e in 
+      let warnings3 = 
+        if not (LH.expr_contains_id i e) 
+        then [mk_warning p (UnusedBoundVariableWarning i)] 
+        else []
+      in
+      R.ok (LA.RefinementType (p, (p2, i, ty'), e), warnings1 @ warnings2 @ warnings3)
+    | LA.TupleType (p, tys) ->
+      let* tys, warnings = 
+        R.seq (List.map (check_type_well_formed_rec true) tys) |> R.map List.split 
+      in
+      R.ok (LA.TupleType (p, tys), List.flatten warnings)
+    | LA.GroupType (p, tys) ->
+      let* tys, warnings = 
+        R.seq (List.map (check_type_well_formed_rec is_nested) tys) |> R.map List.split 
+      in 
+      R.ok (LA.GroupType (p, tys), List.flatten warnings)
+    | LA.UserType (pos, ty_args, i) ->
+      if (member_ty_syn ctx i || member_u_types ctx i)
+      then 
+        (* Check that we are passing the correct number of type arguments *)
+        let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
+        let ty' = expand_type_syn ctx ty' in
+        check_type_well_formed_rec is_nested ty'
+      else (
+        match nname with 
+        | None -> type_error pos (UndeclaredType i)
+        | Some nname -> 
+          match lookup_node_ty_vars ctx nname, lookup_contract_ty_vars ctx nname with 
+          | Some ty_vars, _ 
+          | _, Some ty_vars -> 
+            if (List.mem i ty_vars) 
+            then R.ok (ty', [])
+            else type_error pos (UndeclaredType i)
+          | None, None -> 
+            type_error pos (UndeclaredType i)
       )
-      | LA.Int _, inf_ty -> 
-        type_error (LH.pos_of_expr e2) (ExpectedIntegerExpression inf_ty)
-      | inf_ty, _ -> 
-        type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
-    )
-  | Bool _ | Int _ | Real _
-  | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty, [])
+    (* Allow subranges with symbolic bounds; they will be desugared in lustreFlattenRefinementTypes *) 
+    | LA.IntRange (p, e1, e2) -> (
+      match e1, e2 with
+      | None, None -> type_error p IntervalMustHaveBound
+      | Some e, None -> (
+        let* inf_ty, e, warnings = infer_type_expr ctx nname e in
+        let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
+        match inf_ty with 
+        | LA.Int _ -> R.ok (LA.IntRange (p, Some e, None), warnings)
+        | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
+      )
+      | None, Some e -> (
+        let* inf_ty, e, warnings = infer_type_expr ctx nname e in
+        let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
+        match inf_ty with 
+        | LA.Int _ -> R.ok (LA.IntRange (p, None, Some e), warnings)
+        | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
+      )
+      | Some e1, Some e2 ->
+        let* inf_ty1, e1, warnings1 = infer_type_expr ctx nname e1 in 
+        let* inf_ty2, e2, warnings2 = infer_type_expr ctx nname e2 in 
+        let* inf_ty1 = expand_type_syn_reftype_history_subrange ctx inf_ty1 in
+        let* inf_ty2 = expand_type_syn_reftype_history_subrange ctx inf_ty2 in
+        match inf_ty1, inf_ty2 with 
+        | LA.Int _, Int _ -> (
+          match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with 
+          | Ok v1, Ok v2 -> 
+            if v1 > v2 then type_error p (EmptySubrange (v1, v2)) 
+            else Ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
+          | _ -> R.ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
+        )
+        | LA.Int _, inf_ty -> 
+          type_error (LH.pos_of_expr e2) (ExpectedIntegerExpression inf_ty)
+        | inf_ty, _ -> 
+          type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
+      )
+    | Bool _ | Int _ | Real _
+    | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
+  in
+  check_type_well_formed_rec false ty
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        

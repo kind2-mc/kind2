@@ -42,6 +42,7 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of SI.t
   | CyclicDependency of HString.t list
+  | ImportedCyclicDependency of (HString.t list * NI.t) 
 
 let error_message error = match error with
   | Unknown s -> s
@@ -55,6 +56,19 @@ let error_message error = match error with
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids)
+  | ImportedCyclicDependency (ids, imported_id) -> 
+    let imported_node_type = NI.get_node_type imported_id in
+    let imported_node_name = NI.get_user_name imported_id in
+
+    let helping_message = match imported_node_type with 
+      | Any -> "Cyclic dependency is likely caused by the use of the 'any' operator" 
+      | Choose -> "Cyclic dependency is likely caused by the use of the 'choose' operator" 
+      | _ ->  "Cyclic dependency is likely caused by a call to the imported node " 
+        ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
+
+    "Potential cyclic dependency detected in definition of identifiers: "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ 
+    " (Hint: " ^ helping_message ^ ")"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -87,11 +101,25 @@ module IntMap = struct
              end))
   (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)            
 end
+module EdgeMap = Map.Make(struct
+  type t = G.edge
+
+  let compare e1 e2 =
+    let s1 = G.get_source_vertex e1 in
+    let s2 = G.get_source_vertex e2 in
+    let c = HString.compare s1 s2 in
+    if c <> 0 then c
+    else
+      let t1 = G.get_target_vertex e1 in
+      let t2 = G.get_target_vertex e2 in
+      HString.compare t1 t2
+end)
 
 type id_pos_map = (Lib.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
-type node_summary = ((int list) IntMap.t) NodeId.Map.t
+type node_summary_entry = { imported: bool ; dependencies : ((int list) IntMap.t)}
+type node_summary = node_summary_entry NodeId.Map.t
 (** The node summary contains the positions of the input streams 
     of a node that are used in their current value for each output stream. 
 
@@ -124,6 +152,8 @@ type contract_summary = (LA.ident list) NodeId.Map.t
 type dependency_analysis_data =
   { graph_data: G.t            (* How are the ids related  *)
   ; graph_data2: G.t           (* Relation of ids where imported node outputs depend on all inputs *)
+  ; imported_edge_map: NodeId.t EdgeMap.t (* Cites which edges are cause by which imported nodes *)
+  ; this_imported: NodeId.t option (* Cites the imported node that is included in this graph, if any *)
   ; id_pos_data: id_pos_map    (* Where do the Id's appear*)
   ; csummary: contract_summary (* What symbols does the contract export *)
   ; nsummary: node_summary     (* Node summaries  *)
@@ -134,17 +164,25 @@ type dependency_analysis_data =
 
 (** {1 Pretty Printing } *)
 let pp_print_node_summary ppf m =
-  let pp_print_val ppf m =
-    Lib.pp_print_list (fun ppf (i, b) ->
-        Format.fprintf ppf "(%a:%a)"
-          Format.pp_print_int i
-          (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
-      ppf (IntMap.bindings m) in
-  Lib.pp_print_list (fun ppf (i, b) ->
-      Format.fprintf ppf "(%a->%a)"
-        NI.pp_print_node_id_user_name i
-        pp_print_val b
-    ) ", " ppf (NodeId.Map.bindings m)  
+  let pp_print_dependencies ppf deps =
+    Lib.pp_print_list
+      (fun ppf (i, b) ->
+         Format.fprintf ppf "(%a:%a)"
+           Format.pp_print_int i
+           (Lib.pp_print_list Format.pp_print_int ", ") b)
+      ", "
+      ppf
+      (IntMap.bindings deps)
+  in
+  Lib.pp_print_list
+    (fun ppf (i, entry) ->
+       Format.fprintf ppf "(%a -> {imported=%b; dependencies=%a})"
+         NI.pp_print_node_id_user_name i
+         entry.imported
+         pp_print_dependencies entry.dependencies)
+    ", "
+    ppf
+    (NodeId.Map.bindings m)  
 (** Pretty print the node summary  *)
 
 let pp_print_contract_summary ppf m  =
@@ -178,6 +216,8 @@ let empty_contract_summary: contract_summary = NodeId.Map.empty
 let empty_dependency_analysis_data =
   { graph_data = G.empty
   ; graph_data2 = G.empty
+  ; imported_edge_map = EdgeMap.empty
+  ; this_imported = None
   ; id_pos_data = IMap.empty
   ; csummary = empty_contract_summary
   ; nsummary = empty_node_summary
@@ -207,16 +247,23 @@ let singleton_dependency_analysis_data: HString.t -> LA.ident -> Lib.position ->
   fun prefix i p ->
     { graph_data = G.singleton (HString.concat2 prefix i)
     ; graph_data2 = G.singleton (HString.concat2 prefix i)
+    ; imported_edge_map = EdgeMap.empty
+    ; this_imported = None
     ; id_pos_data = singleton_pos (HString.concat2 prefix i) p
     ; csummary  = empty_contract_summary
     ; nsummary = empty_node_summary
     ; nsummary2 = empty_node_summary } 
 
 let union_dependency_analysis_data : dependency_analysis_data -> dependency_analysis_data -> dependency_analysis_data = 
-  fun { graph_data = g1; graph_data2 = gg1; id_pos_data = pos_m1; csummary = cs1; nsummary = ns1; nsummary2 = n1 }
-      { graph_data = g2; graph_data2 = gg2; id_pos_data = pos_m2; csummary = cs2; nsummary = ns2; nsummary2 = n2 }
-  -> { graph_data = G.union g1 g2
+  fun { graph_data = g1; graph_data2 = gg1; imported_edge_map = em1 ; this_imported = imp1; id_pos_data = pos_m1; csummary = cs1; nsummary = ns1; nsummary2 = n1 }
+      { graph_data = g2; graph_data2 = gg2; imported_edge_map = em2 ; this_imported = imp2; id_pos_data = pos_m2; csummary = cs2; nsummary = ns2; nsummary2 = n2 }
+  -> let imp =  match imp1, imp2 with 
+      | Some v, _ -> Some v 
+      | None, x -> x in
+     { graph_data = G.union g1 g2
     ; graph_data2 = G.union gg1 gg2
+    ; imported_edge_map = EdgeMap.union (fun _ _ e2 -> Some e2) em1 em2
+    ; this_imported = imp
     ; id_pos_data = union_pos pos_m1 pos_m2
     ; csummary = NodeId.Map.union (fun _ _ v2 -> Some v2) cs1 cs2
     ; nsummary = NodeId.Map.union (fun _ _ v2 -> Some v2) ns1 ns2
@@ -224,9 +271,14 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
 
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p ->
+    let gd2 = G.connect ad.graph_data2 i in
+    let imported_edges = match ad.this_imported with 
+    | Some id -> (List.fold_left (fun map v -> EdgeMap.add (G.mk_edge i v) id map) EdgeMap.empty (G.children gd2 i))
+    | None -> EdgeMap.empty in
     { ad with graph_data = G.connect ad.graph_data i
-    ; graph_data2 = G.connect ad.graph_data2 i
-    ; id_pos_data = add_pos ad.id_pos_data i p }
+    ; graph_data2 = gd2
+    ; id_pos_data = add_pos ad.id_pos_data i p 
+    ; imported_edge_map = EdgeMap.union (fun _ _ v2 -> Some v2) ad.imported_edge_map imported_edges}
 
 let connect_g_pos_biased is_connected ad i p =
   if is_connected then
@@ -235,8 +287,22 @@ let connect_g_pos_biased is_connected ad i p =
     { ad with graph_data = G.connect ad.graph_data i
     ; id_pos_data = add_pos ad.id_pos_data i p }
 
-let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
-  fun ad i -> {ad with
+  let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
+  fun ad i -> 
+    let new_edge_map = List.fold_left 
+        (fun map (src, tgt) -> 
+          if HString.equal src i || HString.equal tgt i 
+            then EdgeMap.remove (G.mk_edge src tgt) map 
+        else map) ad.imported_edge_map (G.to_edge_list (G.get_edges ad.graph_data2)) 
+    in
+    let new_imported = 
+      match ad.this_imported with 
+      | Some id -> if HString.equal (NI.get_user_name id) i then None else ad.this_imported
+      | None -> None 
+    in
+    {ad with
+    imported_edge_map = new_edge_map;
+    this_imported = new_imported;
     graph_data = G.remove_vertex ad.graph_data i;
     graph_data2 = G.remove_vertex ad.graph_data2 i}
                       
@@ -724,7 +790,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     let arg_vars = List.map r es in
     (* guaranteed not to throw an exception by lustreSyntaxChecks *)
     let node_map = NodeId.Map.find i m in
-    (match IntMap.find_opt proj node_map with
+    (match IntMap.find_opt proj node_map.dependencies with
       | Some dep_args ->
       (*  Format.eprintf "dependent_args: %a @." 
           (Lib.pp_print_list Format.pp_print_int ",")
@@ -924,29 +990,39 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      let* g_e = mk_graph_expr2 m e in
      let g_ty = mk_graph_type ty in
      R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
-
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
-         let sum_bds = IntMap.bindings summary in
+         let sum_bds = IntMap.bindings summary.dependencies in
          let* gs = R.seq (List.map (mk_graph_expr2 m) es) in
          let ip_gs = List.concat gs in
          (* For each output stream, return the associated graph of the input expression 
             whose current value it depends on. If the output stream does not depend on 
             any input stream's current value, return an empty graph. *)
-         R.ok (List.map (fun (_, b) ->
-             if List.length b = 0
-             then empty_dependency_analysis_data
-             else
-              List.fold_left
-                union_dependency_analysis_data
-                empty_dependency_analysis_data
-                (List.map (fun idx -> match List.nth_opt ip_gs idx with
-                  | Some data -> data
-                  | None -> empty_dependency_analysis_data)
-                  b)
-           ) sum_bds))
+        R.ok (
+         List.map
+           (fun (_, b) ->
+              let g =
+                if List.length b = 0 then
+                  empty_dependency_analysis_data
+                else
+                  List.fold_left
+                    union_dependency_analysis_data
+                    empty_dependency_analysis_data
+                    (List.map
+                       (fun idx ->
+                          match List.nth_opt ip_gs idx with
+                          | Some data -> data
+                          | None -> empty_dependency_analysis_data)
+                       b)
+              in
+              let summary_imported = if summary.imported then Some i else None in
+              let imp = match summary_imported, g.this_imported with 
+                | Some v, _ -> Some v
+                | None, x -> x in
+              { g with this_imported = imp})
+           sum_bds))
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.
@@ -1222,7 +1298,7 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
         (0, IntMap.empty) critical_ips
       |> snd)
     in
-    NodeId.Map.add i ns s
+    NodeId.Map.add i {imported = imported; dependencies = ns} s
   else
     let cricital_ips = if connect_imported then
         (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips)
@@ -1230,11 +1306,13 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
       else []
     in
     NodeId.Map.add i
-      ((List.fold_left
-        (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m))
-        (0, IntMap.empty)
-        ops)
-      |> snd)
+      { imported = imported; dependencies = (
+        (List.fold_left
+          (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m))
+          (0, IntMap.empty)
+          ops)
+        |> snd)
+      }
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
@@ -1336,6 +1414,16 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
   | _ :: items -> mk_graph_node_items m items
 (** Traverse all the node items to make a dependency graph  *)
 
+let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t option = fun map -> 
+  let rec helper = fun prev -> function 
+    | [] -> None
+    | curr :: rest -> let edge = G.mk_edge prev curr in 
+        if EdgeMap.mem edge map then Some (EdgeMap.find edge map) else helper curr rest   
+  in
+  function
+  | [] -> None
+  | id :: rest -> helper id rest
+
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations";
@@ -1344,7 +1432,12 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
     | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with
         | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-        | Some p -> graph_error p (CyclicDependency ids))
+        | Some p -> 
+          let error = match check_for_imported_in_cycle ad.imported_edge_map ids with 
+          | Some id ->
+            ImportedCyclicDependency (ids,id)
+          | None -> CyclicDependency ids in
+          graph_error p error)
   >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
 

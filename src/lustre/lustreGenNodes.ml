@@ -94,7 +94,6 @@ fun ctx node_name fun_ids expr ->
     in 
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let ty = Ctx.expand_type_syn ctx ty in
-    let is_const = AH.fold_lustre_ty AH.expr_is_const true (&&) ty in
     let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
     (* Global constants don't need to be passed as arguments to generated nodes *)
     let inputs = List.filter (fun i -> 
@@ -110,12 +109,7 @@ fun ctx node_name fun_ids expr ->
         p, inp, ty, cl, is_const 
       | None -> assert false
     ) inputs in
-
-
     let decl =
-      if is_const then 
-        A.FuncDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
-      else 
         A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
     in 
     Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 
