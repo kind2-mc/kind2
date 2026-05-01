@@ -70,6 +70,7 @@ fun ctx node_name fun_ids ty ->
     let ty, gen_nodes1 = r ty in
     let e, gen_nodes2 = desugar_expr ctx node_name fun_ids e in
     RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 

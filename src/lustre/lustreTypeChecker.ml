@@ -494,10 +494,11 @@ let rec infer_const_attr ctx exp =
       | Some e, None -> r e 
       | Some e1, Some e2 -> combine (r e1) (r e2)
      )
-    | LA.AbstractType _ | LA.EnumType _  
-    | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
+    | LA.AbstractType _ | LA.EnumType _
+    | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
     | LA.UserType _ -> [R.ok ()]
-  in 
+    | LA.ADT _ -> failwith "ADT types not yet implemented"
+  in
   match exp with
   | LA.Ident (_, i) ->
     let res =
@@ -2577,8 +2578,9 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
      this will be caught by `check_type_well_formed`, which recursively checks 
      the map key and value types for wellformedness. *)
   else R.ok () 
-| AbstractType _ | Bool _ | Int _ | IntRange _ 
-| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| AbstractType _ | Bool _ | Int _ | IntRange _
+| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
+| ADT _ -> failwith "ADT types not yet implemented"
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -2754,6 +2756,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       )
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
+    | ADT _ -> failwith "ADT types not yet implemented"
   in
   check_type_well_formed_rec false ty
 (** Does it make sense to have this type i.e. is it inhabited? 

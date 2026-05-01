@@ -133,7 +133,8 @@ type lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  
+  | ADT of position * ident * (ident * lustre_type list) list
+
 (** A Lustre expression *)
 and expr =
   (* Identifiers *)

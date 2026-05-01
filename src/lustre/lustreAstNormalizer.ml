@@ -2632,6 +2632,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | Int _ | History _ | Bool _ | Real _ | IntRange _ 
-  | UserType _ | AbstractType _ 
+  | Int _ | History _ | Bool _ | Real _ | IntRange _
+  | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
+  | ADT _ -> failwith "ADT types not yet implemented"

@@ -708,6 +708,7 @@ let rec type_contains_subrange ctx = function
   )
   | Bool _ | Int _ | Real _ | EnumType _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let rec type_contains_enum_or_subrange ctx = function
   | LA.IntRange _
@@ -733,6 +734,7 @@ let rec type_contains_enum_or_subrange ctx = function
   )
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
   let rec type_contains_ref ctx = function
   | LA.RefinementType _ -> true
@@ -756,6 +758,7 @@ let rec type_contains_enum_or_subrange ctx = function
   )
   | Bool _ | Int _ | Real _  | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let type_contains_ref_or_subrange ctx ty =
   type_contains_ref ctx ty || type_contains_subrange ctx ty
@@ -784,6 +787,7 @@ let rec type_contains_enum_subrange_reftype ctx = function
   )
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let rec type_contains_abstract ctx = function
   | LA.UserType (_, ty_args, id) -> 
@@ -807,6 +811,7 @@ let rec type_contains_abstract ctx = function
     | _ -> assert false)
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let rec type_contains_map_or_set ctx = function
   | LA.Map _ 
@@ -830,6 +835,7 @@ let rec type_contains_map_or_set ctx = function
   )
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
@@ -853,8 +859,9 @@ let rec type_contains_array ctx = function
   )
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  | ADT _ -> failwith "ADT types not yet implemented"
 
-let rec ty_vars_of_expr ctx node_name expr = 
+let rec ty_vars_of_expr ctx node_name expr =
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
   | LA.Call (_, tys, _, es) -> 
@@ -939,8 +946,9 @@ and ty_vars_of_type ctx node_name ty =
       if List.mem id tvars then SI.singleton id
       else SI.empty
   )
-  | History _ | Int _ | Bool _ | IntRange _ | Real _  | EnumType _ 
+  | History _ | Int _ | Bool _ | IntRange _ | Real _  | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 
 let node_id_is_node = fun ctx node_id -> 

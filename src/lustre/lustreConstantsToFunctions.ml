@@ -203,9 +203,10 @@ let rec ty_contains_gids ctx ni ty =
     | Some e, None -> Chk.expr_contains_set_binop ctx ni e 
     | Some e1, Some e2 -> (Chk.expr_contains_set_binop ctx ni e1) || (Chk.expr_contains_set_binop ctx ni e2)
     )
-  | A.AbstractType _ | A.EnumType _  
-  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ 
-  | A.UserType _ -> false 
+  | A.AbstractType _ | A.EnumType _
+  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
+  | A.UserType _ -> false
+  | A.ADT _ -> failwith "ADT types not yet implemented"
 
 (* Convert free constants to imported functions without args if there are (will be) associated 
    generated identifiers *)

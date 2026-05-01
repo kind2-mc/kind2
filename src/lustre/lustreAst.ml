@@ -156,10 +156,11 @@ and lustre_type =
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
   | History of position * ident
-  | TArr of position * lustre_type * lustre_type 
+  | TArr of position * lustre_type * lustre_type
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
+  | ADT of position * ident * (ident * lustre_type list) list
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -730,6 +731,16 @@ and pp_print_lustre_type ppf = function
   | History (_, i) ->
     Format.fprintf ppf
       "history(%a)" (pp_print_ident) i
+  | ADT (_, _, constructors) ->
+    let pp_ctor ppf (name, tys) =
+      if tys = [] then HString.pp_print_hstring ppf name
+      else
+        Format.fprintf ppf "%a(%a)"
+          HString.pp_print_hstring name
+          (pp_print_list pp_print_lustre_type ", ") tys
+    in
+    Format.fprintf ppf "| %a"
+      (pp_print_list pp_ctor " | ") constructors
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (_, s, t) = 

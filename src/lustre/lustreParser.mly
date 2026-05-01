@@ -367,6 +367,12 @@ type_decl:
            A.AliasType (mk_pos $startpos, e, [],
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
+  (* Definition of an algebraic datatype (leading BAR makes it unambiguous) *)
+  | TYPE; l = ident_list; EQUALS; BAR; cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
+     { List.map (fun e ->
+           A.AliasType (mk_pos $startpos, e, [],
+                        A.ADT (mk_pos $startpos, e, cs))) l }
+
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
      { List.map 
@@ -475,7 +481,12 @@ refinement_type:
 *)
 
 (* An enum type (V6) *)
-enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
+
+(* A single constructor of an algebraic datatype *)
+adt_constructor:
+  | n = ident { (n, []) }
+  | n = ident; LPAREN; tys = separated_nonempty_list(COMMA, lustre_type); RPAREN { (n, tys) }
 
 
 (* ********************************************************************** *)

@@ -87,9 +87,10 @@ let rec fold_lustre_ty f init op ty =
   | Map (_, kt, vt) -> op (r kt) (r vt)
   | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
   | Set (_, ty) -> r ty
-  | ArrayType (_, (ty, e)) 
-  | RefinementType (_, (_, _, ty), e) -> 
+  | ArrayType (_, (ty, e))
+  | RefinementType (_, (_, _, ty), e) ->
     op (r ty) (f e)
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 (* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
 let rec map_lustre_ty f ty = 
@@ -108,8 +109,9 @@ let rec map_lustre_ty f ty =
     TupleType (p, List.map r tys)
   | RecordType (p, id, tis) -> 
     RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
-  | RefinementType (p1, (p2, id, ty), e) -> 
+  | RefinementType (p1, (p2, id, ty), e) ->
     RefinementType (p1, (p2, id, r ty), f e)
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 (* `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
 let rec contains_subtype_satisfying p ty = 
@@ -132,8 +134,9 @@ let rec contains_subtype_satisfying p ty =
   | RecordType (_, _, tis) -> 
     p ty || 
     List.exists (fun (_, _, ty) -> r ty) tis
-  | RefinementType (_, (_, _, ty'), _) -> 
+  | RefinementType (_, (_, _, ty'), _) ->
     p ty || r ty'
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 let type_arity ty =
   let inner_types = function
@@ -1164,8 +1167,9 @@ let rec vars_of_type = function
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
+  | ADT _ -> failwith "ADT types not yet implemented"
 
 
 let rec defined_vars_with_pos = function
@@ -2076,13 +2080,14 @@ let rec constants_to_calls: ident list -> expr -> expr
              ) li, 
     None)
 
-let pos_of_type ty = match ty with 
+let pos_of_type ty = match ty with
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
-  | IntRange (p, _, _) | EnumType (p, _, _) | AbstractType (p, _) 
-  | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _) 
-  | ArrayType (p, (_, _)) | TArr (p, _, _) | GroupType (p, _)  
-  | TupleType (p, _)  | RecordType (p, _, _)  
-  | RefinementType (p, _, _) -> p
+  | IntRange (p, _, _) | EnumType (p, _, _) | AbstractType (p, _)
+  | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _)
+  | ArrayType (p, (_, _)) | TArr (p, _, _) | GroupType (p, _)
+  | TupleType (p, _)  | RecordType (p, _, _)
+  | RefinementType (p, _, _)
+  | ADT (p, _, _) -> p
 
 (* Return the node_id of a declaration if it is a node/func/contract decl *)
 let node_id_of_decl = function

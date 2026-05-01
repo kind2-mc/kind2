@@ -802,6 +802,7 @@ and compile_ast_type
   | A.History _
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
+  | A.ADT _ -> failwith "ADT types not yet implemented"
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
 and vars_of_quant cstate ctx map avars =

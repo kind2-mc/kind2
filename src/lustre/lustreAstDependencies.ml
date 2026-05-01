@@ -363,9 +363,10 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | Set (_, ty) -> mk_graph_type ty
   | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  | RefinementType (_, (_, i, ty), e) -> 
-    let g_expr = remove (mk_graph_expr e) i in (* `i` shadows global constants *)
-    union_dependency_analysis_data (mk_graph_type ty) g_expr 
+  | RefinementType (_, (_, i, ty), e) ->
+    let g_expr = remove (mk_graph_expr e) i in
+    union_dependency_analysis_data (mk_graph_type ty) g_expr
+  | ADT _ -> failwith "ADT types not yet implemented"
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -512,8 +513,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _ 
+  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | ADT _ -> failwith "ADT types not yet implemented"
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
