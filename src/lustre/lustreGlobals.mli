@@ -27,8 +27,8 @@ type state_var_bounds = (LustreExpr.expr LustreExpr.bound_or_fixed list)
 
 type t = 
   { 
-    free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
-    (** Free constants *)
+    free_constants : (LustreIdent.t * Var.t LustreIndex.t * bool) list;
+    (** Free constants: ident, variable index, is_generated *)
 
     state_var_bounds : state_var_bounds;
     (** Register bounds of state variables for later use *)

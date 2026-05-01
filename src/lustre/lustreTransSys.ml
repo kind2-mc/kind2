@@ -2565,7 +2565,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           let global_consts =
             (* Format.eprintf "Global constants: %d@." *)
             (*   (List.length globals.G.free_constants); *)
-            List.fold_left (fun acc (_, vt) ->
+            List.fold_left (fun acc (_, vt, _) ->
                 D.fold (fun _ v acc ->
                     (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
                     v :: acc) vt acc
