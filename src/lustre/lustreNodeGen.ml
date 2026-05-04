@@ -802,7 +802,7 @@ and compile_ast_type
   | A.History _
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
-  | A.ADT _ -> failwith "ADTs not yet implemented"
+  | A.ADT _ -> assert false
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
 and vars_of_quant cstate ctx map avars =
@@ -1422,7 +1422,7 @@ and compile_ast_expr
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
-  | A.Match _ -> failwith "Match expressions not yet implemented"
+  | A.Match _ -> assert false
 
 and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in
