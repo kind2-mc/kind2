@@ -75,6 +75,7 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
+  | DuplicatePatternVariable of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -136,6 +137,8 @@ let error_message kind = match kind with
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | DuplicatePatternVariable id -> "Variable '"
+    ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -1005,6 +1008,19 @@ and check_ty ctx f = function
 
 
 
+and check_pattern_no_duplicates pat =
+  let rec collect = function
+    | LA.Pat (pos, id, []) -> [(pos, id)]
+    | LA.Pat (_, _, pats) -> List.concat_map collect pats
+  in
+  let rec check seen = function
+    | [] -> Ok ()
+    | (pos, id) :: rest ->
+      if List.mem id seen then syntax_error pos (DuplicatePatternVariable id)
+      else check (id :: seen) rest
+  in
+  check [] (collect pat)
+
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let lazy_ite ctx e =
@@ -1145,6 +1161,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
     | Match (_, e, arms) ->
+      let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates pat) arms) in
       let* warnings1 = check_expr ctx f e in
       let* warnings2 = check_expr_list ctx f (List.map snd arms) in
       Ok (warnings1 @ warnings2)

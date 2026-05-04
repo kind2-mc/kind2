@@ -56,6 +56,7 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
+  | DuplicatePatternVariable of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
