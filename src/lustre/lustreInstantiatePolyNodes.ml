@@ -299,7 +299,15 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
-  | ADT (p, id, cons) -> failwith "ADTs not yet implemented"
+  | ADT (p, id, cons) ->
+    let ctx, gids, cons, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_cons, acc_decls, acc_node_decls_map) (cname, tys) ->
+      let ctx, gids, tys, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_tys, acc_decls, acc_node_decls_map) ty ->
+        let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids node_id acc_node_decls_map ty in
+        ctx, gids, acc_tys @ [ty], decls @ acc_decls, node_decls_map
+      ) (ctx, gids, [], acc_decls, acc_node_decls_map) tys in
+      ctx, gids, acc_cons @ [(cname, tys)], decls, node_decls_map
+    ) (ctx, gids, [], [], node_decls_map) cons in
+    ctx, gids, ADT (p, id, cons), decls, node_decls_map
   | Bool _ | Int _ | IntRange _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
 
@@ -478,7 +486,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) exprs in
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (p, e, arms) ->
+    let ctx, gids, e, decls1, node_decls_map = rec_call e in
+    let ctx, gids, arms, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_arms, acc_decls, acc_node_decls_map) (pat, arm_e) ->
+      let ctx, gids, arm_e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arm_e in
+      ctx, gids, acc_arms @ [(pat, arm_e)], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls1, node_decls_map) arms in
+    ctx, gids, Match (p, e, arms), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 
