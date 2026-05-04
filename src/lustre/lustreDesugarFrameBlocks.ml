@@ -166,7 +166,11 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li,
     e2)
-  | A.Match _ -> failwith "Match expressions not yet implemented"
+  | A.Match (p, e, arms) ->
+    A.Match (p, r e,
+      List.combine
+        (List.map fst arms)
+        (List.map r (List.map snd arms)))
 
 (** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)
