@@ -272,7 +272,9 @@ and push_pre is_guarded pos =
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (p, e, arms) ->
+    let arms' = List.map (fun (pat, body) -> (pat, r body)) arms in
+    Match (p, r e, arms')
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function
@@ -366,11 +368,15 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     Quantifier (pos, q, tis, e')
-  | EmptySet (pos, Some ty) -> 
+  | EmptySet (pos, Some ty) ->
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
-  | EmptyMap (pos, Some (kt, vt)) -> 
-    EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
+  | EmptyMap (pos, Some (kt, vt)) ->
+    EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt,
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
+  | Match (pos, e, arms) ->
+    let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
+    let arms' = List.map (fun (pat, body) -> (pat, simplify_expr ~ind_vars ~is_guarded ctx body)) arms in
+    Match (pos, e', arms')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
@@ -413,9 +419,12 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     let expr' = simplify_expr ~ind_vars ctx expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
+  | ADT (pos, name, cons) ->
+    let cons' = List.map (fun (ctor, tys) ->
+        (ctor, List.map (inline_constants_of_lustre_type ~ind_vars ctx) tys)) cons in
+    ADT (pos, name, cons')
   | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
