@@ -366,7 +366,12 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RefinementType (_, (_, i, ty), e) ->
     let g_expr = remove (mk_graph_expr e) i in
     union_dependency_analysis_data (mk_graph_type ty) g_expr
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (_, name, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+      (List.map mk_graph_type tys) in
+    (* ADTs can be recursive; strip the self-reference so it doesn't appear as a cycle *)
+    remove deps (HString.concat2 ty_prefix name)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -501,7 +506,9 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    get_node_call_from_expr e
+    @ List.flatten (List.map (fun (_, body) -> get_node_call_from_expr body) arms)
 (** Returns all the node calls from an expression *)
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -516,7 +523,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
   | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (_, _, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    List.map extract_node_calls_type tys |> List.flatten
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
@@ -813,7 +822,16 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           (SI.elements result); *)
         result
       | None -> SI.empty)
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (_, e, arms) ->
+    let rec pat_bound_vars = function
+      | LA.Pat (_, i, []) -> SI.singleton i
+      | LA.Pat (_, _, pats) -> SI.flatten (List.map pat_bound_vars pats)
+    in
+    let arm_vars = List.fold_left (fun acc (pat, body) ->
+        SI.union acc (SI.diff (r body) (pat_bound_vars pat))
+      ) SI.empty arms
+    in
+    SI.union (r e) arm_vars
 
 (** get all the variables and flatten node calls using
     the node summary for an expression *)
