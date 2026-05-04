@@ -90,7 +90,8 @@ let rec expr_contains_mode_ref expr =
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _)
   | AnyOp (_, _, _) | ChooseOp (_, _, _)
     -> false
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (_, e, arms) ->
+    r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
 
 let mk_generated_env_contract_eqs ctx node_id base_contract =
   let* res = R.seq (List.map (fun ci -> 
