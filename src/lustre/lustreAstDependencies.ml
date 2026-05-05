@@ -1045,6 +1045,27 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
                 | None, x -> x in
               { g with this_imported = imp})
            sum_bds))
+  | LA.Match (_, e, arms) ->
+    let* g_scrut = mk_graph_expr2 m e in
+    let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
+    let arm_exprs = List.map snd arms in
+    let* arm_gs = R.seq (List.map (mk_graph_expr2 m) arm_exprs) in
+    (try
+      let gs' =
+        List.tl arm_gs |> List.fold_left (fun acc gs' ->
+          List.map2 union_dependency_analysis_data acc gs'
+        ) (List.hd arm_gs)
+      in
+      R.ok (List.map (fun g -> union_dependency_analysis_data g_scrut g) gs')
+    with Invalid_argument _ ->
+      let len = List.hd arm_gs |> List.length in
+      let egs = List.combine (List.tl arm_exprs) (List.tl arm_gs) in
+      match List.find_opt (fun (_, l) -> List.length l <> len) egs with
+      | None -> assert false
+      | Some (bad_e, _) ->
+        let fst = List.hd arm_exprs in
+        graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, bad_e))
+    )
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.
