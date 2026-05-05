@@ -1892,16 +1892,26 @@ and normalize_equation info node_id map = function
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
 and abstract_expr ?guard force info (node_id : NI.t option) map expr = 
+  Format.printf "Abstracting %a\n"
+    A.pp_print_expr expr;
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
+    (*Format.printf "%a\n"
+      Ctx.pp_print_tc_context info.context;*)
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    else (
+      (*!! 3. Inferring type of normalized (from (1)) call_context. 
+              But from variable naming, expr is seemingly assumed to be
+              unnormalized. Note we also have nexpr, but use expr here. 
+              By updating (1) to use an unnormalized expr, we avoid this. *)
+      Format.printf "Inferring type of %a\n"
+        A.pp_print_expr expr;
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty ) in 
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
@@ -1919,6 +1929,8 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
             A.BinaryOp (dpos, A.And, c', acc))
           c cs
       in
+      (*!! 2. We call abstract_expr on call_context, which (before my change in (1)) was already normalized. *)
+      let info = { info with call_context = [] } in (* I added this line, otherwise there is an infinite loop if the current expression (which we got from call_context) contains a call. I don't know if this works in general. *)
       let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
@@ -2013,7 +2025,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, _, id, args) ->
+  | Call (pos, _, id, args) as e ->
+    Format.printf "Processing call %a\n"
+      A.pp_print_expr e;
     let is_inlinable = NI.Map.mem id info.inlinable_funcs in
     let info, vmap, gids0 =
       if is_inlinable then (* Only generate variables if inlinable *)
@@ -2054,6 +2068,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
         (combine_args_with_const info args flags)
       in
+      Format.printf "nargs to call: %a\n"
+        (Lib.pp_print_list A.pp_print_expr ", ") nargs;
       let nexpr, gids2 =
         mk_fresh_call ~vmap info id map pos cond restart nargs None
       in
@@ -2438,10 +2454,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings
   | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
-    let info2 = { info with call_context = nexpr1 :: info.call_context } in
+    (*!! 1. call_context is normalized. I commented out the original line of code and am recording 
+            the unnormalized expr. *)
+    (*let info2 = { info with call_context = nexpr1 :: info.call_context } in*)
+    let info2 = { info with call_context = expr1 :: info.call_context } in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info2 node_id map expr2 in
+    (*!! 1. Notice here we are not using normalized expressions. I think this was intentional, as we will normalize later. *)
     let info3 = { info with call_context =
-      A.UnaryOp (AH.pos_of_expr expr1, Not, nexpr1) :: info.call_context }
+      A.UnaryOp (AH.pos_of_expr expr1, Not, expr1) :: info.call_context }
     in
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info3 node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
