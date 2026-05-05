@@ -272,7 +272,8 @@ let rec minimize_node_call_args ue lst expr =
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
-    | A.Match _ -> failwith "Match expressions not yet implemented"
+    | A.Match (p, e, arms) ->
+      A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms)
   in aux expr
 
 and ast_contains p ast =
@@ -311,7 +312,8 @@ and ast_contains p ast =
     | A.RestartEvery (_,_,es,e) ->
       List.map aux (e::es)
       |> List.exists (fun x -> x)
-    | A.Match _ -> failwith "Match expressions not yet implemented"
+    | A.Match (_,e,arms) ->
+      aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
   in
   aux ast
 
