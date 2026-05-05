@@ -1891,17 +1891,21 @@ and normalize_equation info node_id map = function
     in
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
-and abstract_expr ?guard force info (node_id : NI.t option) map expr = 
+and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr = 
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    let ty =
+      match ty with
+      | Some ty -> ty
+      | None when expr_has_inductive_var ivars expr ->
+        (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
+      | None ->
+        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+    in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
@@ -1919,7 +1923,14 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
             A.BinaryOp (dpos, A.And, c', acc))
           c cs
       in
-      let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
+      let nexpr, gids, warnings =
+        (* `conj` is a conjunction of normalized boolean expressions.
+           It may contain internal variables whose types are not present in
+           the typing context, which can cause type inference to fail.
+           We therefore explicitly annotate the type.
+        *)
+        abstract_expr ~ty:(A.Bool dummy_pos) false info (Some id) map conj
+      in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
       | None -> assert false

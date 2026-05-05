@@ -1,0 +1,14 @@
+
+function imported P(a: int) returns (r: bool);
+
+function imported f(a: int) returns (b: int);
+con
+  assume not P(a);
+  guarantee b > a;
+noc
+
+node N(x: int) returns (y: int);
+let
+  y = if P(x) then 1 otherwise f(x);
+  check "P1" not P(x) => y>x;
+tel
