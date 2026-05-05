@@ -958,8 +958,13 @@ let contract_has_pre_or_arrow (_, l) =
 
 let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i
 
+let starts_with_uppercase id =
+  let s = HString.string_of_hstring id in
+  String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z'
+
 let rec pat_bound_vars = function
-  | Pat (_, id, []) -> SI.singleton id
+  | Pat (_, id, []) ->
+    if starts_with_uppercase id then SI.empty else SI.singleton id
   | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
 let vars_of_clock_expr: clock_expr -> iset = function

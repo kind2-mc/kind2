@@ -76,6 +76,7 @@ type error_kind = Unknown of string
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
+  | ConstructorNotCapitalized of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -139,6 +140,8 @@ let error_message kind = match kind with
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
   | DuplicatePatternVariable id -> "Variable '"
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
+  | ConstructorNotCapitalized id -> "Constructor '"
+    ^ HString.string_of_hstring id ^ "' must start with an uppercase letter"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -692,6 +695,10 @@ let check_opacity pos node_id contract is_ext = function
   | Transparent when is_ext -> syntax_error pos (TransparentWithoutBody node_id)
   | _ -> Ok ()
 
+let starts_with_uppercase id =
+  let s = HString.string_of_hstring id in
+  String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z'
+
 (* Empty check *)
 let empty_ty_check _ _ = Ok []
 
@@ -719,8 +726,11 @@ and check_ty_node_calls i ty =
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Set (_, ty) -> check_ty_node_calls i ty
-    | ADT (_, _, cons) -> 
-      let tys = List.map snd cons |> List.flatten in 
+    | ADT (pos, _, cons) ->
+      let* () = Res.seq_ (List.map (fun (ctor, _) ->
+        if starts_with_uppercase ctor then Ok ()
+        else syntax_error pos (ConstructorNotCapitalized ctor)) cons) in
+      let tys = List.map snd cons |> List.flatten in
       Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
@@ -1010,7 +1020,8 @@ and check_ty ctx f = function
 
 and check_pattern_no_duplicates pat =
   let rec collect = function
-    | LA.Pat (pos, id, []) -> [(pos, id)]
+    | LA.Pat (pos, id, []) ->
+      if starts_with_uppercase id then [] else [(pos, id)]
     | LA.Pat (_, _, pats) -> List.concat_map collect pats
   in
   let rec check seen = function
