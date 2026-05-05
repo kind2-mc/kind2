@@ -1909,7 +1909,8 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
               From the (pre-existing) variable naming, `expr` was seemingly assumed to be
               unnormalized to begin with. Note we also have `nexpr`, but used `expr` here. 
               By updating (1) to use an unnormalized expr, we avoid inferring the type of a 
-              normalized expression. *)
+              normalized expression, and so we do not throw an exception trying to infer the type 
+              of a generated name (e.g. `121_call`). *)
       Format.printf "Inferring type of %a\n"
         A.pp_print_expr expr;
       Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty ) in 
@@ -1932,7 +1933,7 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
       in
       (*!! 2. We call abstract_expr on call_context, which (before my change in (1)) was already normalized, 
               but now is not normalized. *)
-      let info = { info with call_context = [] } in (* !! 2. I added this line, otherwise there is an infinite loop if the current expression (which we got from call_context) contains a call. I don't know if this works in general. *)
+      let info = { info with call_context = [] } in (* !! 2. I added this line, otherwise there is an infinite loop if the current expression (which we got from call_context) contains a call. I don't know if this works in general -- is the rest of the call_context still relevant here? Maybe we shouldn't throw out all of it, but only part? *)
       let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
@@ -2456,7 +2457,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings
   | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
-    (*!! 1. call_context is normalized. I commented out the original line of code and am recording 
+    (*!! 1. call_context was normalized. I commented out the original line of code and am recording 
             the unnormalized expr. I think this is OK, as we will normalize later (see other comments). *)
     (*let info2 = { info with call_context = nexpr1 :: info.call_context } in*)
     let info2 = { info with call_context = expr1 :: info.call_context } in
