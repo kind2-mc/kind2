@@ -1905,10 +1905,11 @@ and abstract_expr ?guard force info (node_id : NI.t option) map expr =
     let ty = if expr_has_inductive_var ivars expr then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
     else (
-      (*!! 3. Inferring type of normalized (from (1)) call_context. 
-              But from variable naming, expr is seemingly assumed to be
-              unnormalized. Note we also have nexpr, but use expr here. 
-              By updating (1) to use an unnormalized expr, we avoid this. *)
+      (*!! 3. Inferring type of call_context, which used to be normalized but now is not. 
+              From the (pre-existing) variable naming, `expr` was seemingly assumed to be
+              unnormalized to begin with. Note we also have `nexpr`, but used `expr` here. 
+              By updating (1) to use an unnormalized expr, we avoid inferring the type of a 
+              normalized expression. *)
       Format.printf "Inferring type of %a\n"
         A.pp_print_expr expr;
       Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty ) in 
@@ -1929,8 +1930,9 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
             A.BinaryOp (dpos, A.And, c', acc))
           c cs
       in
-      (*!! 2. We call abstract_expr on call_context, which (before my change in (1)) was already normalized. *)
-      let info = { info with call_context = [] } in (* I added this line, otherwise there is an infinite loop if the current expression (which we got from call_context) contains a call. I don't know if this works in general. *)
+      (*!! 2. We call abstract_expr on call_context, which (before my change in (1)) was already normalized, 
+              but now is not normalized. *)
+      let info = { info with call_context = [] } in (* !! 2. I added this line, otherwise there is an infinite loop if the current expression (which we got from call_context) contains a call. I don't know if this works in general. *)
       let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
@@ -2455,12 +2457,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
     (*!! 1. call_context is normalized. I commented out the original line of code and am recording 
-            the unnormalized expr. *)
+            the unnormalized expr. I think this is OK, as we will normalize later (see other comments). *)
     (*let info2 = { info with call_context = nexpr1 :: info.call_context } in*)
     let info2 = { info with call_context = expr1 :: info.call_context } in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info2 node_id map expr2 in
-    (*!! 1. Notice here we are not using normalized expressions. I think this was intentional, as we will normalize later. *)
     let info3 = { info with call_context =
+      (*A.UnaryOp (AH.pos_of_expr expr1, Not, nexpr1) :: info.call_context }*)
       A.UnaryOp (AH.pos_of_expr expr1, Not, expr1) :: info.call_context }
     in
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info3 node_id map expr3 in
