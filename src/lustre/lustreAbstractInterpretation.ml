@@ -453,7 +453,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
         | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
         | EnumType _ | TArr _ | RefinementType _ | History _ | Map _ | Set _
         | SBitVector _ | UBitVector _ -> assert false
-        | ADT _ -> failwith "ADTs not yet implemented")
+        | ADT _ -> assert false)
     | IndexAccess (_, e, idx, _) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
@@ -501,7 +501,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       | UserType _ | AbstractType _ | TupleType _ | GroupType _ | ArrayType _
       | EnumType _ | TArr _ | RefinementType _ | History _
       | Set _ | Map _ | SBitVector _ | UBitVector _ -> assert false
-      | ADT _ -> failwith "ADTs not yet implemented")
+      | ADT _ -> assert false)
   | IndexAccess (_, e, idx, _) -> (match infer e with
     | ArrayType (_, (t, _)) -> extract_bounds_from_type t
     | Map (_, _, t) -> extract_bounds_from_type t
@@ -557,7 +557,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | TypeAscription (_, e, _) -> interpret_int_expr node_id ctx ty_ctx proj e
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match _ -> (None, None)
 
 and interpret_int_unary_expr node_id ctx ty_ctx op proj e =
   let (l, r) = interpret_int_expr node_id ctx ty_ctx proj e in
