@@ -835,6 +835,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
+  mk_test "test unbound ADT constructor in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unbound_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test match scrutinee is not an ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
+    | _ -> false);
+  mk_test "test unequal match arm types" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
+    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

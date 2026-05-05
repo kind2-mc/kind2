@@ -116,8 +116,12 @@ type error_kind = Unknown of string
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
   | NoIndexAccessInArrayLength of tc_type
-  | NestedTypeTemporal of LustreAst.lustre_type 
-  | NestedTypeNodeCall of LustreAst.lustre_type 
+  | NestedTypeTemporal of LustreAst.lustre_type
+  | NestedTypeNodeCall of LustreAst.lustre_type
+  | UnboundConstructor of HString.t
+  | ConstructorArityMismatch of HString.t * int * int
+  | MatchScrutineeNotADT of tc_type
+  | UnequalMatchArmTypes of tc_type * tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -244,6 +248,16 @@ let error_message kind = match kind with
   | NestedTypeNodeCall ty ->
     Format.asprintf "Node call not supported under nested type %a"
       LA.pp_print_lustre_type ty
+  | UnboundConstructor id ->
+    "Unbound constructor '" ^ HString.string_of_hstring id ^ "'"
+  | ConstructorArityMismatch (id, expected, got) ->
+    "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
+    string_of_int expected ^ " argument(s) but got " ^ string_of_int got
+  | MatchScrutineeNotADT ty ->
+    "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+  | UnequalMatchArmTypes (ty1, ty2) ->
+    "Expected equal types in match arms but found " ^
+    string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -368,7 +382,9 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
     | When (pos, e, c) ->
       check_clocks clock e >> clocks_match_result pos c clock
-    | LA.Match _ -> failwith "Match expressions not yet implemented"
+    | LA.Match (_, e, arms) ->
+      check_clocks clock e >>
+      Res.seq_ (List.map (fun (_, arm_e) -> check_clocks clock arm_e) arms)
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
     result = function
@@ -414,7 +430,9 @@ let no_mismatched_clock is_bool e =
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
     | RestartEvery (_, _, es, e) ->
       Res.seq_ (List.map check_merge es) >> check_merge e
-    | LA.Match _ -> failwith "Match expressions not yet implemented"
+    | LA.Match (_, e, arms) ->
+      check_merge e >>
+      Res.seq_ (List.map (fun (_, arm_e) -> check_merge arm_e) arms)
   in
   check_merge e
 
@@ -499,7 +517,9 @@ let rec infer_const_attr ctx exp =
     | LA.AbstractType _ | LA.EnumType _
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
     | LA.UserType _ -> [R.ok ()]
-    | LA.ADT _ -> failwith "ADTs not yet implemented"
+    | LA.ADT (_, _, cons) ->
+      let tys = List.concat_map snd cons in
+      List.fold_left combine [R.ok ()] (List.map r2 tys)
   in
   match exp with
   | LA.Ident (_, i) ->
@@ -594,7 +614,8 @@ let rec infer_const_attr ctx exp =
     )
     | _ -> [err]
   )
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -818,7 +839,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.TypeAscription (pos, e, ty))
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (pos, e, arms) ->
+    let* e = call e in
+    let* arms = R.seq (List.map (fun (pat, arm_e) ->
+      let* arm_e = call arm_e in
+      R.ok (pat, arm_e)
+    ) arms) in
+    R.ok (LA.Match (pos, e, arms))
 
 let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
@@ -1436,7 +1463,64 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
   )
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (pos, scrutinee, arms) ->
+    let rec bind_pattern_ty ctx field_ty pat =
+      let adt_opt = match field_ty with
+        | LA.ADT _ -> Some field_ty
+        | LA.UserType (_, ty_args, id) -> lookup_ty_syn ctx id ty_args
+        | _ -> None
+      in 
+      match pat with
+      | LA.Pat (pos, id, []) ->
+        let s = HString.string_of_hstring id in
+        let is_constructor = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' in
+        if is_constructor then (
+          match adt_opt with
+          | Some (LA.ADT (_, _, adt_cons)) ->
+            (match List.assoc_opt id adt_cons with
+            | Some [] -> R.ok ctx
+            | Some field_tys ->
+              type_error pos (ConstructorArityMismatch (id, List.length field_tys, 0))
+            | None -> type_error pos (UnboundConstructor id)
+            )
+          | _ -> type_error pos (UnboundConstructor id)
+        ) else
+          R.ok (add_ty ctx id field_ty)
+      | LA.Pat (pos, ctor, sub_pats) ->
+        (match adt_opt with
+        | Some (LA.ADT (_, _, adt_cons)) ->
+          (match List.assoc_opt ctor adt_cons with
+          | None -> type_error pos (UnboundConstructor ctor)
+          | Some field_tys ->
+            if List.length sub_pats <> List.length field_tys then
+              type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length sub_pats))
+            else
+              R.seq_chain (fun ctx (ft, sp) -> bind_pattern_ty ctx ft sp)
+                ctx (List.combine field_tys sub_pats)
+          )
+        | _ -> type_error pos (MatchScrutineeNotADT field_ty)
+        )
+    in
+    let* scrut_ty, scrutinee, warnings1 = infer_type_expr ctx nname scrutinee in
+    let scrut_adt_opt = match scrut_ty with
+      | LA.ADT _ -> Some scrut_ty
+      | LA.UserType (_, ty_args, id) -> lookup_ty_syn ctx id ty_args
+      | _ -> None
+    in
+    (match scrut_adt_opt with
+    | Some (LA.ADT _) ->
+      let* arm_tys, arms', warnings = R.seq (List.map (fun (pat, arm_body) ->
+        let* arm_ctx = bind_pattern_ty ctx scrut_ty pat in
+        let* arm_ty, arm_body, warnings = infer_type_expr arm_ctx nname arm_body in
+        R.ok (arm_ty, (pat, arm_body), warnings)
+      ) arms) |> R.map Lib.split3 in
+      let main_ty = List.hd arm_tys in
+      R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys))
+        (R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings))
+        (let second = List.nth arm_tys 1 in
+         type_error pos (UnequalMatchArmTypes (main_ty, second)))
+    | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
+    )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1555,12 +1639,12 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | RecordExpr (pos, _, _, _)
   | Pre (pos, _)
   | When (pos, _, _)
+  | LA.Match (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
 
 (** Type checks an expression and returns [ok]
  * if the expected type is the given type [tc_type]
@@ -2528,7 +2612,8 @@ and check_no_index_access ctx nname ty e =
     r e1 >> r e2
   | TypeAscription (_, e, ty') ->
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    r e >> Res.seq_ (List.map (fun (_, arm_e) -> r arm_e) arms)
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2587,7 +2672,7 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
   else R.ok () 
 | AbstractType _ | Bool _ | Int _ | IntRange _
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
-| ADT _ -> failwith "ADTs not yet implemented"
+| ADT _ -> type_error pos (UnsupportedMapType ty)
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -2640,7 +2725,8 @@ and expr_contains_set_binop ctx ni expr =
   | RestartEvery (_, _, expr_list, e) ->
     r e ||
     List.fold_left (fun acc x -> acc || r x) false expr_list
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
@@ -2708,11 +2794,13 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
       if (member_ty_syn ctx i || member_u_types ctx i)
-      then 
+      then (
         (* Check that we are passing the correct number of type arguments *)
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
-        let ty' = expand_type_syn ctx ty' in
-        check_type_well_formed_rec is_nested ty'
+        let expanded = expand_type_syn ctx ty' in
+        match expanded with
+        | LA.UserType _ -> R.ok (ty', [])  (* ADT-backed: stop here to avoid infinite recursion *)
+        | _ -> check_type_well_formed_rec is_nested expanded)
       else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
@@ -2762,9 +2850,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | inf_ty, _ -> 
           type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
       )
+    | ADT _
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
-    | ADT _ -> failwith "ADTs not yet implemented"
   in
   check_type_well_formed_rec false ty
 (** Does it make sense to have this type i.e. is it inhabited? 

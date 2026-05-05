@@ -179,9 +179,13 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
   | UserType (_, ty_args, i) as ty -> (
     match IMap.find_opt i (ctx.ty_syns) with
     | None -> ty
-    | Some ty -> (
-      match ty with
-      | UserType (_, _, uid) when uid = i -> ty
+    (* TODO: Here (and in lustreFlattenRefinementTypes.ml), we *may*
+       want to do one level of expansion, or else ADTs are never(?) 
+       inspected since they will be referenced by a type alias. *)
+    | Some inner -> (
+      match inner with
+      | ADT _ -> ty
+      | UserType (_, _, uid) when uid = i -> inner
       | _ -> (
         let ty_vars =
           match IMap.find_opt i (ctx.ty_ty_vars) with
@@ -189,8 +193,8 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
           | None -> []
         in
         let sigma = List.combine ty_vars ty_args in
-        let ty = LustreAstHelpers.apply_type_subst_in_type sigma ty in
-        expand_type_syn ctx ty
+        let inner = LustreAstHelpers.apply_type_subst_in_type sigma inner in
+        expand_type_syn ctx inner
       )
     )
   )
@@ -703,12 +707,15 @@ let rec type_contains_subrange ctx = function
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_subrange ctx ty
     | None -> assert false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_subrange ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let rec type_contains_enum_or_subrange ctx = function
   | LA.IntRange _
@@ -729,12 +736,15 @@ let rec type_contains_enum_or_subrange ctx = function
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_enum_or_subrange ctx ty
     | None -> assert false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ctx ty) false tys
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
   let rec type_contains_ref ctx = function
   | LA.RefinementType _ -> true
@@ -753,12 +763,15 @@ let rec type_contains_enum_or_subrange ctx = function
       | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_ref ctx ty
     | None -> false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
   | Bool _ | Int _ | Real _  | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let type_contains_ref_or_subrange ctx ty =
   type_contains_ref ctx ty || type_contains_subrange ctx ty
@@ -782,18 +795,22 @@ let rec type_contains_enum_subrange_reftype ctx = function
       | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_enum_subrange_reftype ctx ty
     | None -> assert false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ctx ty) false tys
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let rec type_contains_abstract ctx = function
-  | LA.UserType (_, ty_args, id) -> 
-    (match lookup_ty_syn ctx id ty_args with 
-    | Some (AbstractType _) 
-    | None -> true 
+  | LA.UserType (_, ty_args, id) ->
+    (match lookup_ty_syn ctx id ty_args with
+    | Some (AbstractType _)
+    | None -> true
+    | Some (ADT _) -> false
     | Some ty -> type_contains_abstract ctx ty)
   | RefinementType (_, (_, _, ty), _) -> type_contains_abstract ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
@@ -805,13 +822,15 @@ let rec type_contains_abstract ctx = function
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
-  | History (_, id) -> 
-    (match lookup_ty ctx id with 
+  | History (_, id) ->
+    (match lookup_ty ctx id with
     | Some ty -> type_contains_abstract ctx ty
     | _ -> assert false)
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let rec type_contains_map_or_set ctx = function
   | LA.Map _ 
@@ -830,12 +849,15 @@ let rec type_contains_map_or_set ctx = function
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_map_or_set ctx ty
     | None -> false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_map_or_set ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
@@ -854,12 +876,15 @@ let rec type_contains_array ctx = function
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> false
     | Some ty -> type_contains_array ctx ty
     | None -> false
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 let rec ty_vars_of_expr ctx node_name expr =
   let call = ty_vars_of_expr ctx node_name in match expr with 
@@ -915,13 +940,15 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Temporal operators *)
   | Pre (_, e) -> call e
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
   match ty with
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
+    | Some (ADT _) -> SI.empty
     | Some ty -> ty_vars_of_type ctx node_name ty
     | None -> SI.empty
   )
@@ -947,9 +974,11 @@ and ty_vars_of_type ctx node_name ty =
       if List.mem id tvars then SI.singleton id
       else SI.empty
   )
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map snd cons in
+    List.fold_left (fun acc ty -> SI.union acc (ty_vars_of_type ctx node_name ty)) SI.empty tys
   | History _ | Int _ | Bool _ | IntRange _ | Real _  | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
-  | ADT _ -> failwith "ADTs not yet implemented"
 
 
 let node_id_is_node = fun ctx node_id -> 
@@ -991,5 +1020,6 @@ let rec expr_contains_node_call ctx expr =
   | ChooseOp (_, _, _) -> false
   | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) ->
     node_id_is_node ctx ni
-  | LA.Match _ -> failwith "Match expressions not yet implemented"
+  | LA.Match (_, e, arms) ->
+    r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
 
