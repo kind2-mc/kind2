@@ -23,9 +23,10 @@ module GI = GeneratedIdentifiers
 module NI = NodeId
 
 let rec flatten_ref_type ctx ty = match ty with
-  | A.UserType (pos, ty_args, str) -> 
-    let ty = TypeCheckerContext.lookup_ty_syn ctx str ty_args in 
-    (match ty with 
+  | A.UserType (pos, ty_args, str) ->
+    let ty = TypeCheckerContext.lookup_ty_syn ctx str ty_args in
+    (match ty with
+    | Some (A.ADT _) -> A.UserType (pos, ty_args, str)
     | Some ty -> flatten_ref_type ctx ty
     | None -> A.UserType (pos, ty_args, str))
   | RecordType (pos, id, tis) -> 
@@ -114,7 +115,7 @@ let rec flatten_ref_type ctx ty = match ty with
       ) exprs
     | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
-    | ADT _ -> failwith "ADTs not yet implemented"
+    | ADT _ -> [] (* TODO: Handle this. *)
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
@@ -151,7 +152,9 @@ let rec flatten_ref_type ctx ty = match ty with
         A.BinaryOp (pos, A.And, A.CompOp (pos, A.Lte, lb, bound_var), A.CompOp (pos, A.Lte, bound_var, ub))))
   | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
-  | ADT _ -> failwith "ADTs not yet implemented"
+  | ADT (pos, name, cons) ->
+    let cons = List.map (fun (ctor, tys) -> ctor, List.map (flatten_ref_type ctx) tys) cons in
+    ADT (pos, name, cons)
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -217,7 +220,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | Match _ -> failwith "Match expressions not yet implemented"
+  | Match (p, e, arms) ->
+    Match (p, rec_call e, List.map (fun (pat, arm_e) -> (pat, rec_call arm_e)) arms)
 
 let flatten_ref_types_item ctx item = 
   match item with 
