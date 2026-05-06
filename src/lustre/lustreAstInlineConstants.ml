@@ -275,6 +275,8 @@ and push_pre is_guarded pos =
   | Match (p, e, arms) ->
     let arms' = List.map (fun (pat, body) -> (pat, r body)) arms in
     Match (p, r e, arms')
+  | ADTTerm (p, ctor, args) ->
+    ADTTerm (p, ctor, List.map r args)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function

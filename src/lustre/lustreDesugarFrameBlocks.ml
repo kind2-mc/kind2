@@ -171,6 +171,8 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
       List.combine
         (List.map fst arms)
         (List.map r (List.map snd arms)))
+  | A.ADTTerm (p, ctor, args) ->
+    A.ADTTerm (p, ctor, List.map r args)
 
 (** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)

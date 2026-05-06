@@ -509,6 +509,8 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Match (_, e, arms) ->
     get_node_call_from_expr e
     @ List.flatten (List.map (fun (_, body) -> get_node_call_from_expr body) arms)
+  | LA.ADTTerm (_, _, args) ->
+    List.flatten (List.map get_node_call_from_expr args)
 (** Returns all the node calls from an expression *)
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -832,6 +834,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
       ) SI.empty arms
     in
     SI.union (r e) arm_vars
+  | ADTTerm (_, _, args) ->
+    SI.flatten (List.map r args)
 
 (** get all the variables and flatten node calls using
     the node summary for an expression *)
