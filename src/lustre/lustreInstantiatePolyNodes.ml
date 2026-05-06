@@ -493,6 +493,12 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_arms @ [(pat, arm_e)], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls1, node_decls_map) arms in
     ctx, gids, Match (p, e, arms), decls, node_decls_map
+  | ADTTerm (p, ctor, args) ->
+    let ctx, gids, args, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_args, acc_decls, acc_node_decls_map) arg ->
+      let ctx, gids, arg, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arg in
+      ctx, gids, acc_args @ [arg], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], [], node_decls_map) args in
+    ctx, gids, ADTTerm (p, ctor, args), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 

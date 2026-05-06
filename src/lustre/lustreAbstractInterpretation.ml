@@ -558,6 +558,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | TypeAscription (_, e, _) -> interpret_int_expr node_id ctx ty_ctx proj e
   | Match _ -> (None, None)
+  | ADTTerm _ -> (None, None)
 
 and interpret_int_unary_expr node_id ctx ty_ctx op proj e =
   let (l, r) = interpret_int_expr node_id ctx ty_ctx proj e in

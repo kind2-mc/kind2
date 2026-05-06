@@ -1008,6 +1008,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     StringSet.union vars1 vars2,
     RestartEvery (pos, ident, expr_list', e')
   | Match _ -> assert false
+  | ADTTerm _ -> assert false
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
         expr_list
@@ -2536,6 +2537,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
   | Match _ -> assert false
+  | ADTTerm _ -> assert false
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

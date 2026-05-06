@@ -1423,6 +1423,7 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
   | A.Match _ -> assert false
+  | A.ADTTerm _ -> assert false
 
 and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in
