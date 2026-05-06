@@ -941,7 +941,14 @@ pexpr(Q):
   | e = choose_expr { e }
 
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
+  | s = ident 
+    { 
+      let str = HString.string_of_hstring s in 
+      if str.[0] >= 'A' && str.[0] <= 'Z' then 
+        A.ADTTerm (mk_pos $startpos, s, []) 
+      else 
+        A.Ident (mk_pos $startpos, s) 
+    } 
 
   (* A mode reference. *)
   | DOUBLE_COLON ; mode_ref = separated_nonempty_list(DOUBLE_COLON, ident) {
@@ -1301,7 +1308,11 @@ node_call:
     a = separated_list(COMMA, expr); 
     RPAREN 
     { 
-      A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
+      let str = HString.string_of_hstring s in
+      if str.[0] >= 'A' && str.[0] <= 'Z' then  
+       A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
+      else 
+       A.ADTTerm (mk_pos $startpos, s, a) 
     }
 
 
