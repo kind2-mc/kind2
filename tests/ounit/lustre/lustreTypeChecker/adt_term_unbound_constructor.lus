@@ -1,0 +1,6 @@
+datatype Color = Red | Green | Blue;
+
+node n (x: int) returns (c: Color);
+let
+  c = Purple;
+tel

@@ -1310,9 +1310,9 @@ node_call:
     { 
       let str = HString.string_of_hstring s in
       if str.[0] >= 'A' && str.[0] <= 'Z' then  
-       A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
+        A.ADTTerm (mk_pos $startpos, s, a) 
       else 
-       A.ADTTerm (mk_pos $startpos, s, a) 
+        A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
     }
 
 

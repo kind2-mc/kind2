@@ -271,6 +271,20 @@ let lookup_variants: tc_context -> LA.ident -> LA.ident list option
   = fun ctx i -> IMap.find_opt i (ctx.enum_vars)
 (** Lookup the variants for an enumeration type name *)
 
+let lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type list) option
+  = fun ctx ctor ->
+  IMap.fold (fun ty_name ty acc ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      (match ty with
+      | LA.ADT (_, _, cons) ->
+        (match List.assoc_opt ctor cons with
+        | Some field_tys -> Some (ty_name, field_tys)
+        | None -> None)
+      | _ -> None)
+  ) ctx.ty_syns None
+
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
 (** add a type synonym in the typing context *)
@@ -942,6 +956,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
   | LA.Match (_, e, arms) ->
     SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
+  | LA.ADTTerm (_, _, args) ->
+    SI.flatten (List.map call args)
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
@@ -1022,4 +1038,6 @@ let rec expr_contains_node_call ctx expr =
     node_id_is_node ctx ni
   | LA.Match (_, e, arms) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
+  | LA.ADTTerm (_, _, args) ->
+    List.fold_left (fun acc e -> acc || r e) false args
 

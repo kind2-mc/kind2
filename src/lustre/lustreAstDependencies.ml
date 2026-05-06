@@ -1070,6 +1070,9 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
         let fst = List.hd arm_exprs in
         graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, bad_e))
     )
+  | LA.ADTTerm (_, _, args) ->
+    let* gs = R.seq (List.map (mk_graph_expr2 m) args) in
+    R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs)]
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.

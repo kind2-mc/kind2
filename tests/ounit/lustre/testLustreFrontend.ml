@@ -851,6 +851,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
     | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
     | _ -> false);
+  mk_test "test unbound ADT constructor in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

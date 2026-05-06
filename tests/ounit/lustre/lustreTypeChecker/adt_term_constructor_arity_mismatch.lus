@@ -1,0 +1,6 @@
+datatype IntOption = None | Some(int);
+
+node n (x: int) returns (r: IntOption);
+let
+  r = Some(x, x);
+tel
