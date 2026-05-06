@@ -106,7 +106,6 @@ type error_kind = Unknown of string
   | UnboundConstructor of HString.t
   | ConstructorArityMismatch of HString.t * int * int
   | MatchScrutineeNotADT of tc_type
-  | UnequalMatchArmTypes of tc_type * tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

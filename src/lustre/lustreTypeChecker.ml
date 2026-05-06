@@ -121,7 +121,6 @@ type error_kind = Unknown of string
   | UnboundConstructor of HString.t
   | ConstructorArityMismatch of HString.t * int * int
   | MatchScrutineeNotADT of tc_type
-  | UnequalMatchArmTypes of tc_type * tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -255,9 +254,6 @@ let error_message kind = match kind with
     string_of_int expected ^ " argument(s) but got " ^ string_of_int got
   | MatchScrutineeNotADT ty ->
     "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
-  | UnequalMatchArmTypes (ty1, ty2) ->
-    "Expected equal types in match arms but found " ^
-    string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1527,7 +1523,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys))
         (R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings))
         (let second = List.nth arm_tys 1 in
-         type_error pos (UnequalMatchArmTypes (main_ty, second)))
+         type_error pos (ExpectedType (second, main_ty)))
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ctor, args) ->
