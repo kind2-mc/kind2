@@ -58,6 +58,7 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
   | ConstructorNotCapitalized of HString.t
+  | UpperCaseIdentifier of HString.t * string
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

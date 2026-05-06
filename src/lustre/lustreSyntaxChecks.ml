@@ -77,6 +77,7 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
   | ConstructorNotCapitalized of HString.t
+  | UpperCaseIdentifier of HString.t * string
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -142,8 +143,17 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
   | ConstructorNotCapitalized id -> "Constructor '"
     ^ HString.string_of_hstring id ^ "' must start with an uppercase letter"
+  | UpperCaseIdentifier (id, kind) -> "Identifier '"
+    ^ HString.string_of_hstring id ^ "' is a " ^ kind
+    ^ " and must not start with an uppercase letter (reserved for ADT constructors)"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
+
+let check_not_uppercase pos id kind =
+  let s = HString.string_of_hstring id in
+  if String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' then
+    syntax_error pos (UpperCaseIdentifier (id, kind))
+  else Ok ()
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -742,9 +752,15 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
-      | LA.FreeConst (_, i, ty) -> check_ty_node_calls i ty >> Res.ok [] 
-      | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
-      | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
+      | LA.FreeConst (pos, i, ty) ->
+        check_not_uppercase pos i "global constant"
+        >> check_ty_node_calls i ty >> Res.ok []
+      | UntypedConst (pos, i, e) ->
+        check_not_uppercase pos i "global constant"
+        >> check_const_expr_decl i ctx e
+      | TypedConst (pos, i, e, ty) ->
+        check_not_uppercase pos i "global constant"
+        >> check_ty_node_calls i ty >> check_const_expr_decl i ctx e
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -784,19 +800,30 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
+and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result
 = fun ctx local -> match local with
-  | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
-  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
-  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
-  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
-  | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
+  | LA.NodeConstDecl (_, FreeConst (pos, i, _)) ->
+    check_not_uppercase pos i "local constant"
+    >> Ok ([])
+  | LA.NodeConstDecl (_, UntypedConst (pos, i, e)) ->
+    check_not_uppercase pos i "local constant"
+    >> check_const_expr_decl i ctx e
+  | LA.NodeConstDecl (_, TypedConst (pos, i, e, _)) ->
+    check_not_uppercase pos i "local constant"
+    >> check_const_expr_decl i ctx e
+  | NodeVarDecl (_, (pos, i, _, LA.ClockTrue)) ->
+    check_not_uppercase pos i "local variable"
+    >> Ok ([])
+  | NodeVarDecl (_, (pos, i, _, _)) ->
+    check_not_uppercase pos i "local variable"
+    >> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
-  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
+  check_not_uppercase span.start_pos (NI.get_user_name node_id) "node"
+  >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
   >> (if ext then (Res.ok []) else (outputs_exactly_one_definition outputs items))
   >> (Res.seq_ (List.map check_input_items inputs))
@@ -836,7 +863,8 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
     let* warnings2 = (no_temporal_operator "function contracts" e) in 
     Ok (warnings1 @ warnings2)
   in
-  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
+  check_not_uppercase span.start_pos (NI.get_user_name node_id) "function"
+  >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
@@ -857,7 +885,8 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-   (Res.seq_ (List.map check_input_items inputs))
+  check_not_uppercase span.start_pos (NI.get_user_name id) "contract"
+  >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
     let* warnings = (check_contract true ctx common_contract_checks empty_ty_check contract) in
     (Ok (warnings, decl))
