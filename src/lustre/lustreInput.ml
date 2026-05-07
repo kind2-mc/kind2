@@ -48,6 +48,7 @@ module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
 module LCF = LustreConstantsToFunctions
+module LDAT = LustreDesugarADTs
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -178,7 +179,12 @@ let type_check declarations =
     if Flags.log_format_json () && Flags.Lsp.lsp () then
       LspInfo.print_ast_info global_ctx declarations;
 
-    (* Step 9. Generate imported nodes associated with refinement types if realizability checking is enabled *)
+    (* Step 9. Desugar non-recursive ADTs to record types *)
+    let const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx =
+      LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
+    in
+
+    (* Step 10. Generate imported nodes associated with refinement types if realizability checking is enabled *)
     let* sorted_node_contract_decls, global_ctx, gids = 
       if List.mem `CONTRACTCK (Flags.enabled ()) 
       then 

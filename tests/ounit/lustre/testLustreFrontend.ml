@@ -859,6 +859,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
     | _ -> false);
+  mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

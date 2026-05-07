@@ -366,12 +366,13 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RefinementType (_, (_, i, ty), e) ->
     let g_expr = remove (mk_graph_expr e) i in
     union_dependency_analysis_data (mk_graph_type ty) g_expr
-  | ADT (_, name, cons) ->
+  | ADT (_, _name, cons) ->
     let tys = List.map snd cons |> List.flatten in
     let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
       (List.map mk_graph_type tys) in
-    (* ADTs can be recursive; strip the self-reference so it doesn't appear as a cycle *)
-    remove deps (HString.concat2 ty_prefix name)
+    deps
+    (* for future: ADTs can be recursive; strip the self-reference so it doesn't appear as a cycle *)
+    (*remove deps (HString.concat2 ty_prefix name)*)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)

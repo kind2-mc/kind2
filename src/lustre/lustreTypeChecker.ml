@@ -121,6 +121,8 @@ type error_kind = Unknown of string
   | UnboundConstructor of HString.t
   | ConstructorArityMismatch of HString.t * int * int
   | MatchScrutineeNotADT of tc_type
+  | UnequalMatchArmTypes of tc_type * tc_type
+  | DuplicateConstructor of HString.t * HString.t * HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -248,12 +250,18 @@ let error_message kind = match kind with
     Format.asprintf "Node call not supported under nested type %a"
       LA.pp_print_lustre_type ty
   | UnboundConstructor id ->
-    "Unbound constructor '" ^ HString.string_of_hstring id ^ "'"
+    "Could not resolve constructor '" ^ HString.string_of_hstring id ^ "'"
   | ConstructorArityMismatch (id, expected, got) ->
     "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
     string_of_int expected ^ " argument(s) but got " ^ string_of_int got
   | MatchScrutineeNotADT ty ->
     "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+  | UnequalMatchArmTypes (ty1, ty2) ->
+    "Match arm types do not agree: found " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | DuplicateConstructor (ctor, ty1, ty2) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
+    ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
+    ^ HString.string_of_hstring ty2 ^ "'"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -1522,8 +1530,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let main_ty = List.hd arm_tys in
       R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys))
         (R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings))
-        (let second = List.nth arm_tys 1 in
-         type_error pos (ExpectedType (second, main_ty)))
+        (let second = List.find (fun ty ->
+            match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
+          ) arm_tys in
+         type_error pos (UnequalMatchArmTypes (main_ty, second)))
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ctor, args) ->
@@ -2873,7 +2883,14 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | inf_ty, _ -> 
           type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
       )
-    | ADT _
+    | ADT (pos, new_ty_name, ctors) ->
+      let* _ = R.seq_ (List.map (fun (ctor, _) ->
+        match lookup_constructor ctx ctor with
+        | Some (existing_ty_name, _) ->
+          type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
+        | None -> R.ok ()
+      ) ctors) in
+      R.ok (ty', [])
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
   in
