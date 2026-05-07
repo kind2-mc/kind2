@@ -864,27 +864,10 @@ let slice_to_abstraction_and_property
     (* Slice Lustre subnode to property term *)
     | Lustre (main_subs, globals, ast) ->
 
-      let vars = match prop'.Property.prop_source with
-        | Property.Assumption _ ->
-          TransSys.state_vars trans_sys' |> SVar.StateVarSet.of_list
-        | _ ->
-          Term.state_vars_of_term prop'.Property.prop_term
-      in
-
-      let is_prop'_instantiated =
-        match prop'.Property.prop_source with
-        | Property.Instantiated _ -> true
-        | _ -> false
-      in
-
       let subsystem' =
         let sub = S.find_subsystem_of_list main_subs scope in
-        if is_prop'_instantiated then
-          LustreSlicing.slice_to_abstraction
-            (Flags.slice_nodes () == `On) analysis' sub
-        else
-          LustreSlicing.slice_to_abstraction_and_property
-            analysis' vars sub
+        LustreSlicing.slice_to_abstraction_and_property
+          analysis' prop' sub
       in
 
       Lustre ([subsystem'], globals, ast)

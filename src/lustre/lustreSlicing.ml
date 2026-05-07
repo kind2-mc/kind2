@@ -1186,14 +1186,24 @@ let slice_to_abstraction
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction_and_property
-  ?(preserve_sig = false) analysis vars subsystem
+  ?(preserve_sig = false) analysis prop subsystem
 =
-  let roots { N.contract } is_impl =
-    if is_impl then
-      Some vars
-    else
-      (* Always include at least roots of contract *)
-      Some (roots_of_contract_ass contract) 
+  let roots =
+    match prop.Property.prop_source with
+    | Property.Instantiated _
+    | Property.Assumption _ -> (fun _ _ -> None)
+    | _ -> (
+      let vars =
+        Term.state_vars_of_term prop.Property.prop_term
+      in
+      fun { N.contract } is_impl -> (
+        if is_impl then
+          Some vars
+        else
+          (* Always include at least roots of contract *)
+          Some (roots_of_contract_ass contract)
+        )
+    )
   in
   slice_to_abstraction'
     ~preserve_sig:preserve_sig analysis roots subsystem

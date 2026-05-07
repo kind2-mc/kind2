@@ -2962,11 +2962,8 @@ let trans_sys_of_nodes
       S.slice_to_abstraction
         ~preserve_sig (slice_nodes == `On) analysis_param subsystem'
     | Some prop ->
-      let vars =
-        Term.state_vars_of_term prop.P.prop_term
-      in
       S.slice_to_abstraction_and_property
-        ~preserve_sig analysis_param vars subsystem'
+        ~preserve_sig analysis_param prop subsystem'
   else
     subsystem'
   in
