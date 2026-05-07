@@ -1528,12 +1528,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         R.ok (arm_ty, (pat, arm_body), warnings)
       ) arms) |> R.map Lib.split3 in
       let main_ty = List.hd arm_tys in
-      R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys))
-        (R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings))
-        (let second = List.find (fun ty ->
-            match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
-          ) arm_tys in
-         type_error pos (UnequalMatchArmTypes (main_ty, second)))
+      let* all_equal = R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys) in
+      if all_equal then
+        R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings)
+      else
+        let second = List.find (fun ty ->
+          match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
+        ) arm_tys in
+        type_error pos (UnequalMatchArmTypes (main_ty, second))
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ctor, args) ->
@@ -2937,6 +2939,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 
   (* Lustre V6 features *)
   | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
+      Format.printf "COMPARING UTs\n";
     if List.length ty_args1 = List.length ty_args2
     then (
       let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 
@@ -2976,6 +2979,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
         (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
     else
       R.ok false
+  | ADT (_, n1, _), ADT (_, n2, _) -> R.ok (n1 = n2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
