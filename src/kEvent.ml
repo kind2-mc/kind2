@@ -288,6 +288,17 @@ let all_stats () =
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
 (* Pretty-print kind module for plain text output *)
+
+let name_wrapper s =
+  let re =
+    Str.regexp "^\\(TypeAscription\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
+  if Str.string_match re s 0 then
+    let kind = Str.matched_group 1 s in
+    let loc = Str.matched_group 2 s in
+    kind ^ "[" ^ loc ^"]"
+  else
+    s
+
 let pp_print_kind_module_pt =
   pp_print_kind_module
 
@@ -324,6 +335,7 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
+    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -404,7 +416,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      prop
+      (name_wrapper prop)
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -516,7 +528,6 @@ let execution_path_pt level input_sys trans_sys path full_contract=
       %a@]@.")
     (pp_print_path_pt ~full_contract input_sys trans_sys) path
 
-
 (* Output cex for a property as plain text *)
 let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
@@ -563,7 +574,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        prop
+        (name_wrapper prop)
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -635,7 +646,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text prop
+      div_by_zero_text (name_wrapper prop)
       |> printf_pt L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -670,15 +681,6 @@ let progress_pt mdl level k =
     k
  *)
 
-let name_wrapper s =
-  let re =
-    Str.regexp "^\\(TypeAscription\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
-  if Str.string_match re s 0 then
-    let kind = Str.matched_group 1 s in
-    let loc = Str.matched_group 2 s in
-    kind ^ "[" ^ loc ^"]"
-  else
-    s
 let prop_expr_map_pt level trans_sys prop_status_kind = 
   (ignore_or_fprintf level)
     !log_ppf
@@ -698,23 +700,7 @@ let prop_expr_map_pt level trans_sys prop_status_kind =
     prop_status_kind
     Pretty.print_double_line ()
 
-
-
-(* Pretty-print a list of properties and their status *)
-let prop_status_pt level trans_sys prop_status_kind =
-  prop_expr_map_pt level trans_sys prop_status_kind;
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    (pp_print_list 
-       (fun ppf ((p, s, k)) -> 
-          Format.fprintf 
-            ppf
-            "@[<h>@{<blue_b>%s@}: %a@]"
-            (name_wrapper p)
-            (function ppf -> (function
+let pp_print_status_of_prop = (function ppf -> (function
                   | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"
 
@@ -798,11 +784,55 @@ let prop_status_pt level trans_sys prop_status_kind =
                       ((Property.length_of_cex cex) - 1)
                 )
               )
+
+(* Pretty-print a list of properties and their status *)
+let prop_status_pt level trans_sys prop_status_kind =
+  prop_expr_map_pt level trans_sys prop_status_kind;
+  (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
+    Pretty.print_line ()
+    Pretty.print_line ()
+    (pp_print_list 
+       (fun ppf ((p, s, k)) -> 
+          Format.fprintf 
+            ppf
+            "@[<h>@{<blue_b>%s@}: %a@]"
+            (name_wrapper p)
+            pp_print_status_of_prop
             (s, k))
        "@,")
     prop_status_kind
     Pretty.print_double_line ()
           
+let prop_status_with_expr_pt level trans_sys prop_status_kind =
+
+  let pp_property_block ppf (name, status, kind) =
+    let property = TransSys.property_of_name trans_sys name in
+    let sexpr =
+      match property.prop_expr with
+      | Some e -> e
+      | None -> "unknown"
+    in
+   Format.fprintf
+      ppf
+      "@[<v>@{<blue_b>%s@}: %a@,\
+      @[<v 2>  expression:@,\
+      %s@]@]"
+      (name_wrapper name)
+      pp_print_status_of_prop
+      (status, kind)
+      sexpr
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@{<b>Properties@}:@,%a%a@,%a@]@."
+    Pretty.print_line ()
+    Pretty.print_line ()
+    (pp_print_list pp_property_block "@,@,")
+    prop_status_kind
+    Pretty.print_double_line ()
 
 (* ********************************************************************** *)
 (* XML specific functions                                                 *)
@@ -1391,7 +1421,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text prop
+      div_by_zero_text (name_wrapper prop)
       |> printf_json mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
