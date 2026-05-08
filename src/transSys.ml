@@ -1501,15 +1501,15 @@ let get_prop_status_all_unknown t =
 let get_ctr t = t.ctr_state_var
 
 
-(** Returns true iff sys has at least one real (not candidate) property. *)
-let has_real_properties { properties } =
-  List.exists
-    (fun p ->
-      match p.P.prop_source with
-      | P.Candidate _ -> false
-      | _ -> true
-    )
-    properties
+let rec is_non_candidate_property p =
+  match p.P.prop_source with
+  | P.Candidate _ -> false
+  | P.Instantiated (_, p) -> is_non_candidate_property p
+  | _ -> true
+
+(** Returns true iff sys has at least one non-candidate property. *)
+let has_non_candidate_property { properties } =
+  List.exists is_non_candidate_property properties
 
 let rec set_subsystem_properties t scope ps =
   let aux (t, instances) =

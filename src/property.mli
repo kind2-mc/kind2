@@ -75,7 +75,7 @@ and prop_source =
   | Generated of Lib.position option * StateVar.t list * generated_source
   (** Property was generated, for example, from a subrange constraint *)
 
-  | Instantiated of Scope.t * t
+  | Instantiated of (Scope.t * Lib.position) * t
   (** Property is an instance of a property in a called node.
 
      Reference the instantiated property by the [scope] of the subsystem and

@@ -811,9 +811,10 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
         (* Property is instantiated *)
         let prop_source =
-          match p.P.prop_source with
-          | P.Candidate src -> P.Candidate src
-          | _ -> P.Instantiated (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring), p)
+          let called_scope =
+            I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)
+          in
+          P.Instantiated ((called_scope, call_pos), p)
         in
 
         (* Property status is unknown *)
@@ -2972,11 +2973,8 @@ let trans_sys_of_nodes
       S.slice_to_abstraction
         ~preserve_sig (slice_nodes == `On) analysis_param subsystem'
     | Some prop ->
-      let vars =
-        Term.state_vars_of_term prop.P.prop_term
-      in
       S.slice_to_abstraction_and_property
-        ~preserve_sig analysis_param vars subsystem'
+        ~preserve_sig analysis_param prop subsystem'
   else
     subsystem'
   in
