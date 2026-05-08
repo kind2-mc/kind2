@@ -669,6 +669,16 @@ let progress_pt mdl level k =
     pp_print_kind_module mdl
     k
  *)
+
+let name_wrapper s =
+  let re =
+    Str.regexp "^\\(TypeAscription\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
+  if Str.string_match re s 0 then
+    let kind = Str.matched_group 1 s in
+    let loc = Str.matched_group 2 s in
+    kind ^ "[" ^ loc ^"]"
+  else
+    s
 let prop_expr_map_pt level trans_sys prop_status_kind = 
   (ignore_or_fprintf level)
     !log_ppf
@@ -681,7 +691,7 @@ let prop_expr_map_pt level trans_sys prop_status_kind =
         | Some e -> e
         | None -> "unknown"
       in
-        Format.fprintf ppf "@[<h>@{<blue_b>%s@}: %s@]" name sexpr
+        Format.fprintf ppf "@[<h>@{<blue_b>%s@}: %s@]" (name_wrapper name) sexpr
 
     ))
     "@,")
@@ -703,7 +713,7 @@ let prop_status_pt level trans_sys prop_status_kind =
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
-            p
+            (name_wrapper p)
             (function ppf -> (function
                   | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"

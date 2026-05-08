@@ -1710,6 +1710,9 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
 
 and compile_node_decl gids_map is_function opac cstate ctx node_id ext params inputs outputs locals items contract =
   let gids = NI.Map.find node_id gids_map in
+  let global_teas = 
+    List.fold_left (fun acc (_,gds) -> NI.Map.union (fun _ a _ -> Some a) acc gds.GeneratedIdentifiers.type_ascription_exprs) NI.Map.empty (NI.Map.bindings gids_map) 
+  in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
@@ -2666,7 +2669,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in let (assumes, guarantees, props) =
   let create_constraint_name_pos node_id (pos : position)= 
     match NI.get_node_type node_id with
-    | NI.TypeAscription -> ""
     | _ -> Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
@@ -2678,9 +2680,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
   in
   let name = create_constraint_name_pos node_id pos in
-  let global_teas = 
-    List.fold_left (fun acc (_,gds) -> NI.Map.union (fun _ a _ -> Some a) acc gds.GeneratedIdentifiers.type_ascription_exprs) NI.Map.empty (NI.Map.bindings gids_map) 
-  in
   let replace_expr = match node_id_opt with
   | Some nid -> NI.Map.find_opt nid global_teas
   | None -> None

@@ -27,25 +27,9 @@ fun pos node_id node_type ->
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let nname = NI.get_name node_id in
   let name = match node_type with 
-  | Any -> HString.concat2 nname (HString.mk_hstring ".any_") 
-  | Choose -> HString.concat2 nname (HString.mk_hstring ".choose_") 
-  | TypeAscription -> HString.concat2 nname (HString.mk_hstring ".type_ascription_")
-  | _ -> assert false
-  in
-  let name = HString.concat2 name pos in
-  NI.mk_node_id ~node_type ~user_name:name name
-
-
-
-let mk_fresh_fn_name_alt: Lib.position -> NI.t -> NI.node_type -> NI.t = 
-fun pos node_id node_type -> 
-  let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
-  let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
-  let nname = NI.get_name node_id in
-  let name = match node_type with 
   | Any -> HString.concat2 (HString.concat2 nname (HString.mk_hstring ".any_")) pos
   | Choose -> HString.concat2 (HString.concat2 nname (HString.mk_hstring ".choose_")) pos
-  | TypeAscription -> HString.mk_hstring (Format.asprintf "TypeAscription[%a]" HString.pp_print_hstring pos)
+  | TypeAscription -> HString.mk_hstring (Format.asprintf "TypeAscription%a" HString.pp_print_hstring pos)
   | _ -> assert false
   in
   NI.mk_node_id ~node_type ~user_name:name name
