@@ -68,9 +68,6 @@ let disc_enum_name type_name =
   HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
 let ctor_variant_name type_name ctor = ctor 
-  (*HString.mk_hstring ("_adt_"
-    ^ HString.string_of_hstring type_name ^ "_tag_"
-    ^ HString.string_of_hstring ctor)*)
 
 let payload_field_name type_name ctor i = 
   HString.mk_hstring (

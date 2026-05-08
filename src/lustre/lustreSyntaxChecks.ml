@@ -187,6 +187,7 @@ type context = {
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
+  pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t; }
 
@@ -198,6 +199,7 @@ let empty_ctx () = {
     consts = StringMap.empty;
     locals = StringMap.empty;
     quant_vars = StringMap.empty;
+    pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
   }
@@ -228,6 +230,10 @@ let ctx_add_local ctx i ty = {
 
 let ctx_add_quant_var ctx i ty = {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars
+  }
+
+let ctx_add_pattern_var ctx i ty = {
+    ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
   }
 
 let ctx_add_array_index ctx i ty = {
@@ -552,6 +558,7 @@ let no_a_dangling_identifier ctx pos i =
     StringMap.mem i ctx.free_consts;
     StringMap.mem i ctx.locals;
     StringMap.mem i ctx.quant_vars;
+    StringMap.mem i ctx.pattern_vars;
     StringMap.mem i ctx.array_indices;
     StringMap.mem i ctx.symbolic_array_indices; ]
   in
@@ -1207,8 +1214,20 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates pat) arms) in
       let* warnings1 = check_expr ctx f e in
-      let* warnings2 = check_expr_list ctx f (List.map snd arms) in
-      Ok (warnings1 @ warnings2)
+      let pat_vars pat =
+        let rec collect = function
+          | LA.Pat (_, id, []) -> if starts_with_uppercase id then [] else [id]
+          | LA.Pat (_, _, pats) -> List.concat_map collect pats
+        in collect pat
+      in
+      let* warnings2 = Res.seq (List.map (fun (pat, body) ->
+        let ctx' = List.fold_left
+          (fun c v -> ctx_add_pattern_var c v None)
+          ctx (pat_vars pat)
+        in
+        check_expr ctx' f body
+      ) arms) in
+      Ok (warnings1 @ List.flatten warnings2)
     | ADTTerm (_, _, args) -> check_expr_list ctx f args
   in
   let* warnings1 = res in
