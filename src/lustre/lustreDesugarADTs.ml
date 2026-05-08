@@ -185,51 +185,65 @@ let desugar_adt_term pos adt_map info ctor args =
 let tag_of pos info scrut =
   LA.RecordProject (pos, scrut, info.disc_field)
 
-(* Substitute all pattern-variable bindings introduced by a flat pattern
-   into a body expression, replacing each variable with the appropriate
-   field projection of the scrutinee. *)
-let substitute_pattern_vars pos info ctor sub_pats scrut body =
-  let ctor_fields =
-    match HStringMap.find_opt ctor info.ctor_fields with
-    | Some fs -> fs
-    | None -> []
-  in
-  List.fold_left2 (fun acc_body (fname, _) (LA.Pat (_, var, _)) ->
-    let is_ctor s = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' in
-    if is_ctor (HString.string_of_hstring var) then
-      (* Constructor pattern nested inside — not supported for non-recursive ADTs *)
-      acc_body
-    else
-      (* Variable pattern: substitute var with the field projection *)
-      LH.substitute_naive var (LA.RecordProject (pos, scrut, fname)) acc_body
-  ) body ctor_fields sub_pats
+let is_ctor_name s = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z'
 
-(* Desugar a single match arm into a (condition, body) pair.
-   For a constructor arm, the condition is [scrut.tag = ctor_idx] and
-   the body has pattern variables substituted by field projections.
-   For a catch-all, there is no condition. *)
-let desugar_arm pos info scrut pat body =
-  let LA.Pat (_, name, sub_pats) = pat in
-  let s = HString.string_of_hstring name in
-  let is_ctor = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' in
-  if is_ctor then
+let adt_info_of_type adt_map ty =
+  match ty with
+  | LA.UserType (_, _, name) -> HStringMap.find_opt name adt_map
+  | LA.ADT (_, name, _) -> HStringMap.find_opt name adt_map
+  | _ -> None
+
+(* Recursively collect the conjunction of tag equality conditions and the
+   variable->field-projection substitutions imposed by a (possibly nested)
+   constructor pattern.  Returns (conditions, substitutions). *)
+let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub_pats)) =
+  if is_ctor_name (HString.string_of_hstring name) then
     let ctor = name in
     let variant =
       match HStringMap.find_opt ctor info.ctor_variant with
       | Some v -> v
       | None -> assert false
     in
-    let cond =
-      LA.CompOp (pos, LA.Eq,
-        tag_of pos info scrut,
-        LA.Ident (pos, variant))
+    let outer_cond =
+      LA.CompOp (pos, LA.Eq, tag_of pos info scrut, LA.Ident (pos, variant))
     in
-    let body = substitute_pattern_vars pos info ctor sub_pats scrut body in
-    (Some cond, body)
+    let ctor_fields =
+      match HStringMap.find_opt ctor info.ctor_fields with
+      | Some fs -> fs
+      | None -> []
+    in
+    let sub_conds, sub_subs =
+      List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
+        let field_expr = LA.RecordProject (pos, scrut, fname) in
+        let LA.Pat (_, sub_name, _) = sub_pat in
+        if is_ctor_name (HString.string_of_hstring sub_name) then
+          match adt_info_of_type adt_map ftype with
+          | Some sub_info ->
+            let (c, s) = collect_pattern_constraints pos adt_map sub_info field_expr sub_pat in
+            (conds @ c, subs @ s)
+          | None -> (conds, subs)
+        else
+          (conds, subs @ [(sub_name, field_expr)])
+      ) ([], []) ctor_fields sub_pats
+    in
+    (outer_cond :: sub_conds, sub_subs)
   else
-    (* Variable/catch-all pattern: bind [name] to the whole scrutinee *)
-    let body = LH.substitute_naive name scrut body in
-    (None, body)
+    ([], [(name, scrut)])
+
+(* Desugar a single match arm into a (condition, body) pair.
+   The condition is a conjunction of all tag equality constraints imposed by
+   the pattern (including nested constructor sub-patterns).  Pattern variables
+   are substituted by field projections throughout the body. *)
+let desugar_arm pos adt_map info scrut pat body =
+  let (conds, subs) = collect_pattern_constraints pos adt_map info scrut pat in
+  let body =
+    List.fold_left (fun b (var, expr) -> LH.substitute_naive var expr b) body subs
+  in
+  match conds with
+  | [] -> (None, body)
+  | first :: rest ->
+    let cond = List.fold_left (fun acc c -> LA.BinaryOp (pos, LA.And, acc, c)) first rest in
+    (Some cond, body)
 
 (* Build a nested ITE from a list of (condition option, body) pairs.
    The last arm acts as the else branch regardless of its condition. *)
@@ -299,7 +313,7 @@ and desugar_expr adt_map ctx e =
     | None -> assert false
     | Some info ->
       let desugared_arms =
-        List.map (fun (pat, body) -> desugar_arm pos info scrut pat body) arms
+        List.map (fun (pat, body) -> desugar_arm pos adt_map info scrut pat body) arms
       in
       build_ite pos desugared_arms)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ -> e
