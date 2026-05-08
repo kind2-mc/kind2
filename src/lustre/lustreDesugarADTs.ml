@@ -253,7 +253,7 @@ let rec build_ite pos arms =
   | (None, _) :: _ -> assert false (* More cases after a catch-all *)
   | [(_, body)] -> body (* Last case must always cover all cases so far uncovered *)
   | (Some cond, body) :: rest ->
-    LA.TernaryOp (pos, LA.Ite, cond, body, build_ite pos rest)
+    LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)
 
 let rec desugar_type adt_map ctx ty =
   let r = desugar_type adt_map ctx in
