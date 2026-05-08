@@ -2612,8 +2612,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-    let create_constraint_name rexpr = 
-      Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+    let create_constraint_name prefix pos = 
+      (* Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr *)
+      Format.asprintf "@[<h>%s%a@]" prefix pp_print_line_and_column pos
+ 
     in
     let over_subrange_constraints
       (a, ac, g, gc, p)
@@ -2636,22 +2638,22 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         in
         match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
-          let name = create_constraint_name rexpr in
+          let name = create_constraint_name "Assumption" pos in
           let contract_sv = C.mk_svar pos ac (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee, _ ->
-          let name = create_constraint_name rexpr in
+          let name = create_constraint_name "Guarantee" pos in
           let contract_sv = C.mk_svar pos gc (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None, Some gen_src ->
-          let name = create_constraint_name rexpr in
+          let name = create_constraint_name "Generated" pos in
           let src = Property.Generated (Some pos, [sv], gen_src) in
           a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
         | _ -> assert false
       else
-        let name = create_constraint_name rexpr in
+        let name = create_constraint_name "Generated" pos in
         let src = Property.Generated (Some pos, [sv], Property.Body) in
         let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
