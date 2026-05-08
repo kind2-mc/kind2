@@ -690,7 +690,7 @@ let keep_inline_call c prop =
       match prop.Property.prop_source with
       | Property.Instantiated ((_, pos), prop') ->
         pos = c.N.call_pos || check prop'
-      | Property.Assumption (_, (s, p)) when p = c.N.call_pos -> true
+      | Property.Assumption (_, (_, p)) when p = c.N.call_pos -> true
       | _ -> false
     in
     check prop
