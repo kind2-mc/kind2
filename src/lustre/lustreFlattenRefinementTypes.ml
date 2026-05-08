@@ -220,8 +220,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | Match (p, e, arms) ->
-    Match (p, rec_call e, List.map (fun (pat, arm_e) -> (pat, rec_call arm_e)) arms)
+  | Match (p, e, arms, ty_opt) ->
+    Match (p, rec_call e, List.map (fun (pat, arm_e) -> (pat, rec_call arm_e)) arms, ty_opt)
   | ADTTerm (p, ctor, args) ->
     ADTTerm (p, ctor, List.map rec_call args)
 

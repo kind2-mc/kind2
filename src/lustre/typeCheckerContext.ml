@@ -954,7 +954,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Temporal operators *)
   | Pre (_, e) -> call e
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
   | LA.ADTTerm (_, _, args) ->
     SI.flatten (List.map call args)
@@ -1036,7 +1036,7 @@ let rec expr_contains_node_call ctx expr =
   | ChooseOp (_, _, _) -> false
   | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) ->
     node_id_is_node ctx ni
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
   | LA.ADTTerm (_, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args

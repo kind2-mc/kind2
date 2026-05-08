@@ -62,20 +62,19 @@ type adt_info = {
 type adt_map = adt_info HStringMap.t
 
 let disc_field_name type_name =
-  HString.mk_hstring ("_adt_" ^ HString.string_of_hstring type_name ^ "_tag")
+  HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
 let disc_enum_name type_name =
-  HString.mk_hstring ("_adt_" ^ HString.string_of_hstring type_name ^ "_tag")
+  HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
-let ctor_variant_name type_name ctor =
-  HString.mk_hstring ("_adt_"
+let ctor_variant_name type_name ctor = ctor 
+  (*HString.mk_hstring ("_adt_"
     ^ HString.string_of_hstring type_name ^ "_tag_"
-    ^ HString.string_of_hstring ctor)
+    ^ HString.string_of_hstring ctor)*)
 
-let payload_field_name type_name ctor i =
-  HString.mk_hstring ("_adt_"
-    ^ HString.string_of_hstring type_name ^ "_"
-    ^ HString.string_of_hstring ctor ^ "_"
+let payload_field_name type_name ctor i = 
+  HString.mk_hstring (
+    HString.string_of_hstring ctor ^ "_"
     ^ string_of_int i)
 
 let build_adt_info type_name ctors =
@@ -240,8 +239,8 @@ let desugar_arm pos info scrut pat body =
 let rec build_ite pos arms =
   match arms with
   | [] -> assert false
-  | [(_, body)] -> body
-  | (None, body) :: _ -> body  (* catch-all arm: becomes the else *) (*!!??*)
+  | (None, _) :: _ -> assert false (* More cases after a catch-all *)
+  | [(_, body)] -> body (* Last case must always cover all cases so far uncovered *)
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.Ite, cond, body, build_ite pos rest)
 
@@ -290,18 +289,14 @@ and desugar_expr adt_map ctx e =
       match HStringMap.find_opt ty_name adt_map with
       | None -> e
       | Some info -> desugar_adt_term pos adt_map info ctor args)
-  | LA.Match (pos, scrut, arms) ->
+  | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
     let scrut = r scrut in
     let arms = List.map (fun (pat, body) -> (pat, r body)) arms in
-    (* Determine the ADT type from the first constructor pattern *) (*!! bad *)
-    let is_ctor s = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' in
-    let adt_info_opt =
-      List.find_map (fun (LA.Pat (_, c, _), _) ->
-        if is_ctor (HString.string_of_hstring c) then
-          Option.bind (Ctx.lookup_constructor ctx c)
-            (fun (ty_name, _) -> HStringMap.find_opt ty_name adt_map)
-        else None
-      ) arms
+    let adt_info_opt = match scrut_ty_opt with
+      | Some (LA.UserType (_, _, name)) -> HStringMap.find_opt name adt_map
+      | Some (LA.ADT (_, name, _)) -> HStringMap.find_opt name adt_map
+      | Some _ -> None 
+      | None -> assert false
     in
     (match adt_info_opt with
     | None -> assert false

@@ -507,7 +507,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     get_node_call_from_expr e
     @ List.flatten (List.map (fun (_, body) -> get_node_call_from_expr body) arms)
   | LA.ADTTerm (_, _, args) ->
@@ -825,7 +825,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           (SI.elements result); *)
         result
       | None -> SI.empty)
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     let rec pat_bound_vars = function
       | LA.Pat (_, i, []) -> SI.singleton i
       | LA.Pat (_, _, pats) -> SI.flatten (List.map pat_bound_vars pats)
@@ -1050,7 +1050,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
                 | None, x -> x in
               { g with this_imported = imp})
            sum_bds))
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     let* g_scrut = mk_graph_expr2 m e in
     let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
     let arm_exprs = List.map snd arms in

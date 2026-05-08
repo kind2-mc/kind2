@@ -1273,7 +1273,7 @@ pexpr(Q):
 
   (* Pattern matching on ADT values *)
   | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
-    { A.Match (mk_pos $startpos, e, arms) }
+    { A.Match (mk_pos $startpos, e, arms, None) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }

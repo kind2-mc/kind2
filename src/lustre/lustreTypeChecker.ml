@@ -386,7 +386,7 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
     | When (pos, e, c) ->
       check_clocks clock e >> clocks_match_result pos c clock
-    | LA.Match (_, e, arms) ->
+    | LA.Match (_, e, arms, _) ->
       check_clocks clock e >>
       Res.seq_ (List.map (fun (_, arm_e) -> check_clocks clock arm_e) arms)
     | LA.ADTTerm (_, _, args) ->
@@ -436,7 +436,7 @@ let no_mismatched_clock is_bool e =
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
     | RestartEvery (_, _, es, e) ->
       Res.seq_ (List.map check_merge es) >> check_merge e
-    | LA.Match (_, e, arms) ->
+    | LA.Match (_, e, arms, _) ->
       check_merge e >>
       Res.seq_ (List.map (fun (_, arm_e) -> check_merge arm_e) arms)
     | LA.ADTTerm (_, _, args) ->
@@ -622,7 +622,7 @@ let rec infer_const_attr ctx exp =
     )
     | _ -> [err]
   )
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
   | LA.ADTTerm (_, _, args) ->
     List.concat_map r args
@@ -849,13 +849,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.TypeAscription (pos, e, ty))
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
-  | LA.Match (pos, e, arms) ->
+  | LA.Match (pos, e, arms, ty_opt) ->
     let* e = call e in
     let* arms = R.seq (List.map (fun (pat, arm_e) ->
       let* arm_e = call arm_e in
       R.ok (pat, arm_e)
     ) arms) in
-    R.ok (LA.Match (pos, e, arms))
+    R.ok (LA.Match (pos, e, arms, ty_opt))
   | LA.ADTTerm (pos, ctor, args) ->
     let* args = R.seq (List.map call args) in
     R.ok (LA.ADTTerm (pos, ctor, args))
@@ -1476,7 +1476,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
   )
-  | LA.Match (pos, scrutinee, arms) ->
+  | LA.Match (pos, scrutinee, arms, _) ->
     let rec bind_pattern_ty ctx field_ty pat =
       let adt_opt = match field_ty with
         | LA.ADT _ -> Some field_ty
@@ -1530,7 +1530,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let main_ty = List.hd arm_tys in
       let* all_equal = R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys) in
       if all_equal then
-        R.ok (main_ty, LA.Match (pos, scrutinee, arms'), warnings1 @ List.flatten warnings)
+        R.ok (main_ty, LA.Match (pos, scrutinee, arms', Some scrut_ty), warnings1 @ List.flatten warnings)
       else
         let second = List.find (fun ty ->
           match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
@@ -1669,7 +1669,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | RecordExpr (pos, _, _, _)
   | Pre (pos, _)
   | When (pos, _, _)
-  | LA.Match (pos, _, _)
+  | LA.Match (pos, _, _, _)
   | LA.ADTTerm (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
@@ -2643,7 +2643,7 @@ and check_no_index_access ctx nname ty e =
     r e1 >> r e2
   | TypeAscription (_, e, ty') ->
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     r e >> Res.seq_ (List.map (fun (_, arm_e) -> r arm_e) arms)
   | LA.ADTTerm (_, _, args) ->
     Res.seq_ (List.map r args)
@@ -2758,7 +2758,7 @@ and expr_contains_set_binop ctx ni expr =
   | RestartEvery (_, _, expr_list, e) ->
     r e ||
     List.fold_left (fun acc x -> acc || r x) false expr_list
-  | LA.Match (_, e, arms) ->
+  | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
   | LA.ADTTerm (_, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
@@ -2939,7 +2939,6 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 
   (* Lustre V6 features *)
   | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
-      Format.printf "COMPARING UTs\n";
     if List.length ty_args1 = List.length ty_args2
     then (
       let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 

@@ -90,7 +90,7 @@ let rec expr_contains_mode_ref expr =
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _)
   | AnyOp (_, _, _) | ChooseOp (_, _, _)
     -> false
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
   | ADTTerm (_, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args

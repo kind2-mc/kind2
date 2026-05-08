@@ -64,7 +64,7 @@ let pos_of_expr = function
   | EmptyMap (pos, _)
   | EmptySet (pos, _)
   | TypeAscription (pos, _, _)
-  | Match (pos, _, _)
+  | Match (pos, _, _, _)
   | ADTTerm (pos, _, _)
   -> pos
 
@@ -185,7 +185,7 @@ let rec expr_contains_call = function
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
   | TypeAscription _
     -> true
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     expr_contains_call e ||
     List.fold_left (fun acc (_, arm_e) -> acc || expr_contains_call arm_e) false arms
   | ADTTerm (_, _, args) ->
@@ -226,7 +226,7 @@ let rec expr_contains_id id = function
   | RestartEvery (_, _, expr_list, e) ->
     expr_contains_id id e ||
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     expr_contains_id id e ||
     List.fold_left (fun acc (_, arm_e) -> acc || expr_contains_id id arm_e) false arms
   | ADTTerm (_, _, args) ->
@@ -593,7 +593,7 @@ let rec has_unguarded_pre ung = function
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     let u = has_unguarded_pre ung e in
     List.fold_left (fun acc (_, arm_e) -> acc || has_unguarded_pre ung arm_e) u arms
   | ADTTerm (_, _, args) ->
@@ -692,7 +692,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn false e2 in
     u1 || u2
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     let u = has_unguarded_pre_no_warn ung e in
     List.fold_left (fun acc (_, arm_e) -> acc || has_unguarded_pre_no_warn ung arm_e) u arms
   | ADTTerm (_, _, args) ->
@@ -813,7 +813,7 @@ let rec has_pre_or_arrow = function
     | res -> res
   )
   | Arrow (pos, _, _) -> Some pos
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     has_pre_or_arrow e
     |> unwrap_or (fun _ ->
       List.map (fun (_, arm_e) -> has_pre_or_arrow arm_e) arms
@@ -1041,7 +1041,7 @@ let rec vars_of_node_calls_h obs =
     SI.union (vars obs e) (fold_lustre_ty (vars obs) SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     SI.union (vars obs e)
       (SI.flatten (List.map (fun (pat, arm_e) ->
         SI.diff (vars obs arm_e) (pat_bound_vars pat)) arms))
@@ -1098,7 +1098,7 @@ let rec vars_without_node_call_ids: expr -> iset =
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     SI.union (vars e)
       (SI.flatten (List.map (fun (pat, arm_e) ->
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
@@ -1151,7 +1151,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | TypeAscription (_, e, ty) ->
     NI.Set.union (calls_of_expr e) (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty)
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     NI.Set.union (calls_of_expr e)
       (NI.Set.flatten (List.map (fun (_, arm_e) -> calls_of_expr arm_e) arms))
   | ADTTerm (_, _, args) ->
@@ -1205,7 +1205,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     SI.union (vars e)
       (SI.flatten (List.map (fun (pat, arm_e) ->
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
@@ -1396,9 +1396,9 @@ let rec replace_with_constants: expr -> expr =
 
   (* Node calls *)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map replace_with_constants es)
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     Match (pos, replace_with_constants e,
-           List.map (fun (pat, arm_e) -> (pat, replace_with_constants arm_e)) arms)
+           List.map (fun (pat, arm_e) -> (pat, replace_with_constants arm_e)) arms, ty_opt)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map replace_with_constants args)
 
@@ -1492,9 +1492,9 @@ let rec abstract_pre_subexpressions: expr -> expr = function
 
   (* Node calls *)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map abstract_pre_subexpressions es)
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     Match (pos, abstract_pre_subexpressions e,
-           List.map (fun (pat, arm_e) -> (pat, abstract_pre_subexpressions arm_e)) arms)
+           List.map (fun (pat, arm_e) -> (pat, abstract_pre_subexpressions arm_e)) arms, ty_opt)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map abstract_pre_subexpressions args)
 
@@ -1583,14 +1583,14 @@ let rec replace_idents locals1 locals2 expr =
               | SetIndex (p, e) -> SetIndex (p, r e)
              ) li,
     None)
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     let arms = List.map (fun (pat, arm_e) ->
       let bound = pat_bound_vars pat in
       let locals = List.combine locals1 locals2 in
       let l1, l2 = List.filter (fun (i, _) -> not (SI.mem i bound)) locals |> List.split in
       (pat, replace_idents l1 l2 arm_e)
     ) arms in
-    Match (pos, r e, arms)
+    Match (pos, r e, arms, ty_opt)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map r args)
 (** For every identifier, if that identifier is position n in locals1,
@@ -2002,7 +2002,7 @@ let hash depth_limit expr =
       | TypeAscription (_, e, _) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (30, e_hash)
-      | Match (_, e, arms) ->
+      | Match (_, e, arms, _) ->
         let e_hash = r (depth + 1) e in
         let arms_hash = List.map (fun (_, arm_e) -> r (depth + 1) arm_e) arms in
         Hashtbl.hash (31, e_hash, arms_hash)
@@ -2080,9 +2080,9 @@ let rec rename_contract_vars = function
     TypeAscription (pos, rename_contract_vars e, map_lustre_ty rename_contract_vars ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> rename_contract_vars e) expr_list)
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     Match (pos, rename_contract_vars e,
-           List.map (fun (pat, arm_e) -> (pat, rename_contract_vars arm_e)) arms)
+           List.map (fun (pat, arm_e) -> (pat, rename_contract_vars arm_e)) arms, ty_opt)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map rename_contract_vars args)
 
@@ -2188,13 +2188,13 @@ let rec constants_to_calls: ident list -> expr -> expr
               | SetIndex (p, e) -> SetIndex (p, r e)
              ) li,
     None)
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     let arms = List.map (fun (pat, arm_e) ->
       let bound = pat_bound_vars pat in
       let new_func_ids' = List.filter (fun i -> not (SI.mem i bound)) new_func_ids in
       (pat, constants_to_calls new_func_ids' arm_e)
     ) arms in
-    Match (pos, r e, arms)
+    Match (pos, r e, arms, ty_opt)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map r args)
 

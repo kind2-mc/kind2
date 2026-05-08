@@ -166,11 +166,12 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li,
     e2)
-  | A.Match (p, e, arms) ->
+  | A.Match (p, e, arms, ty_opt) ->
     A.Match (p, r e,
       List.combine
         (List.map fst arms)
-        (List.map r (List.map snd arms)))
+        (List.map r (List.map snd arms)),
+      ty_opt)
   | A.ADTTerm (p, ctor, args) ->
     A.ADTTerm (p, ctor, List.map r args)
 

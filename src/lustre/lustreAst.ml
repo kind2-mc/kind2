@@ -145,7 +145,7 @@ type expr =
   (* ADT constructor application *)
   | ADTTerm of position * ident * expr list
   (* Pattern matching on ADT values *)
-  | Match of position * expr * (pattern * expr) list
+  | Match of position * expr * (pattern * expr) list * lustre_type option
 
 (** A Lustre type *)
 and lustre_type =
@@ -676,7 +676,7 @@ and pp_print_expr ppf =
         HString.pp_print_hstring c
         (pp_print_list pp_print_expr ",@ ") args
 
-    | Match (_, e, arms) ->
+    | Match (_, e, arms, _) ->
       let pp_arm ppf (pat, body) =
         Format.fprintf ppf "| %a --> %a"
           pp_print_pattern pat

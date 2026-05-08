@@ -486,13 +486,13 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) exprs in
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map
-  | Match (p, e, arms) ->
+  | Match (p, e, arms, ty_opt) ->
     let ctx, gids, e, decls1, node_decls_map = rec_call e in
     let ctx, gids, arms, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_arms, acc_decls, acc_node_decls_map) (pat, arm_e) ->
       let ctx, gids, arm_e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arm_e in
       ctx, gids, acc_arms @ [(pat, arm_e)], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls1, node_decls_map) arms in
-    ctx, gids, Match (p, e, arms), decls, node_decls_map
+    ctx, gids, Match (p, e, arms, ty_opt), decls, node_decls_map
   | ADTTerm (p, ctor, args) ->
     let ctx, gids, args, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_args, acc_decls, acc_node_decls_map) arg ->
       let ctx, gids, arg, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arg in

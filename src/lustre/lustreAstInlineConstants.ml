@@ -272,9 +272,9 @@ and push_pre is_guarded pos =
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
-  | Match (p, e, arms) ->
+  | Match (p, e, arms, ty_opt) ->
     let arms' = List.map (fun (pat, body) -> (pat, r body)) arms in
-    Match (p, r e, arms')
+    Match (p, r e, arms', ty_opt)
   | ADTTerm (p, ctor, args) ->
     ADTTerm (p, ctor, List.map r args)
 
@@ -375,10 +375,10 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   | EmptyMap (pos, Some (kt, vt)) ->
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt,
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
     let arms' = List.map (fun (pat, body) -> (pat, simplify_expr ~ind_vars ~is_guarded ctx body)) arms in
-    Match (pos, e', arms')
+    Match (pos, e', arms', ty_opt)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)

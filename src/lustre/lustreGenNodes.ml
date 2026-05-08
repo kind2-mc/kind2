@@ -279,13 +279,13 @@ fun ctx node_name fun_ids expr ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
     Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
-  | Match (pos, e, arms) ->
+  | Match (pos, e, arms, ty_opt) ->
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun (pat, arm_e) ->
       let arm_e, gen_nodes = rec_call arm_e in
       (pat, arm_e), gen_nodes
     ) arms |> List.split in
-    Match (pos, e, arms), gen_nodes1 @ List.flatten gen_nodes2
+    Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
   | ADTTerm (pos, ctor, args) ->
     let args, gen_nodes = List.map rec_call args |> List.split in
     ADTTerm (pos, ctor, args), List.flatten gen_nodes

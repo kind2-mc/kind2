@@ -300,7 +300,7 @@ function
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
     false l
 
-| Match (_, e, arms) ->
+| Match (_, e, arms, _) ->
   has_stateful_op ctx e ||
   List.fold_left (fun acc (_, body) -> acc || has_stateful_op ctx body) false arms
 
@@ -699,7 +699,7 @@ let rec expr_only_supported_in_merge observer expr =
     if observer then Ok ()
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
-  | Match (_, e, arms) ->
+  | Match (_, e, arms, _) ->
     r observer e >>
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, args) -> r_list observer args
@@ -1204,7 +1204,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
     | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
-    | Match (_, e, arms) ->
+    | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates pat) arms) in
       let* warnings1 = check_expr ctx f e in
       let* warnings2 = check_expr_list ctx f (List.map snd arms) in
