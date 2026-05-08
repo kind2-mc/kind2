@@ -817,8 +817,7 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
    Format.fprintf
       ppf
       "@[<v>@{<blue_b>%s@}: %a@,\
-      @[<v 2>  expression:@,\
-      %s@]@]"
+      @[<v 2>  expression: %s@]@]"
       (name_wrapper name)
       pp_print_status_of_prop
       (status, kind)
@@ -827,7 +826,7 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@{<b>Properties@}:@,%a%a@,%a@]@."
+    "@[<v>%a@{<b>Summary of Properties@}:@,%a%a@,%a@]@."
     Pretty.print_line ()
     Pretty.print_line ()
     (pp_print_list pp_property_block "@,@,")
