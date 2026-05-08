@@ -165,6 +165,7 @@ type info = {
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
   call_context : LustreAst.expr list;
+  inlined_expr_ctx : bool;
 }
 
 let pp_print_generated_identifiers ppf gids =
@@ -1038,6 +1039,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
   List.fold_left
     (fun acc decl ->
      match decl with
+     | A.NodeDecl (_, nd) (* Type ascription nodes are inlinable *)
      | A.FuncDecl (_, nd, _) ->
        let (id, _, _, _, _, _, _, _, _) = nd in
        if NI.Set.mem id inlinable_funcs then
@@ -1061,7 +1063,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
-    call_context = [] }
+    call_context = [];
+    inlined_expr_ctx = false }
   in 
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1892,17 +1895,21 @@ and normalize_equation info node_id map = function
     in
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
-and abstract_expr ?guard force info (node_id : NI.t option) map expr = 
+and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr = 
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    let ty =
+      match ty with
+      | Some ty -> ty
+      | None when expr_has_inductive_var ivars expr ->
+        (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
+      | None ->
+        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+    in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
@@ -1920,7 +1927,14 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
             A.BinaryOp (dpos, A.And, c', acc))
           c cs
       in
-      let nexpr, gids, warnings = abstract_expr false info (Some id) map conj in
+      let nexpr, gids, warnings =
+        (* `conj` is a conjunction of normalized boolean expressions.
+           It may contain internal variables whose types are not present in
+           the typing context, which can cause type inference to fail.
+           We therefore explicitly annotate the type.
+        *)
+        abstract_expr ~ty:(A.Bool dummy_pos) false info (Some id) map conj
+      in
       assert (warnings = []);
       match AH.id_of_expr nexpr with
       | None -> assert false
@@ -2060,22 +2074,33 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       in
       nexpr, union gids1 gids2, warnings
     in
-    if (vmap <> [])
+    (* Once a call is inlined, we inline the remaining calls in the body of
+     * the inlined function as well. Otherwise, calls inside the inlined
+     * function body may be duplicated. A check in LustreAstNormalizer ensures
+     * all calls within an inlined function are inlinable.
+     *)
+    let should_inline = vmap <> [] || info.inlined_expr_ctx in
+    if should_inline
     then (
+      assert (is_inlinable);
       let nargs, gids1, warnings1 = normalize_list
         (fun arg -> normalize_expr ?guard info node_id map arg)
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
+      let inlined_info = { info with inlined_expr_ctx = true } in
       let nexpr, gids2, warnings2 =
-        normalize_expr ?guard info node_id map expr
+        normalize_expr ?guard inlined_info node_id map expr
       in
-      let args =
-        List.map (fun a -> AH.apply_subst_in_expr vmap a) args
-      in
-      let _, gids3, warnings3 = handle_call vmap args in
-      nexpr, union_list [gids0; gids1; gids2; gids3],
-      warnings1 @ warnings2 @ warnings3
+      if info.inlined_expr_ctx then
+        nexpr, union_list [gids0; gids1; gids2], warnings1 @ warnings2
+      else
+        let args =
+          List.map (fun a -> AH.apply_subst_in_expr vmap a) args
+        in
+        let _, gids3, warnings3 = handle_call vmap args in
+        nexpr, union_list [gids0; gids1; gids2; gids3],
+        warnings1 @ warnings2 @ warnings3
     )
     else (
       handle_call vmap args

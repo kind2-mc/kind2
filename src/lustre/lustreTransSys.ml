@@ -882,9 +882,10 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
 
         (* Property is instantiated *)
         let prop_source =
-          match p.P.prop_source with
-          | P.Candidate src -> P.Candidate src
-          | _ -> P.Instantiated (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring), p)
+          let called_scope =
+            I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)
+          in
+          P.Instantiated ((called_scope, call_pos), p)
         in
 
         (* Property status is unknown *)
@@ -2733,7 +2734,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           let global_consts =
             (* Format.eprintf "Global constants: %d@." *)
             (*   (List.length globals.G.free_constants); *)
-            List.fold_left (fun acc (_, vt) ->
+            List.fold_left (fun acc (_, vt, _) ->
                 D.fold (fun _ v acc ->
                     (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
                     v :: acc) vt acc
@@ -3141,11 +3142,8 @@ let trans_sys_of_nodes
       S.slice_to_abstraction
         ~preserve_sig (slice_nodes == `On) analysis_param subsystem'
     | Some prop ->
-      let vars =
-        Term.state_vars_of_term prop.P.prop_term
-      in
       S.slice_to_abstraction_and_property
-        ~preserve_sig analysis_param vars subsystem'
+        ~preserve_sig analysis_param prop subsystem'
   else
     subsystem'
   in

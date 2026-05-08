@@ -1,6 +1,6 @@
 const C: int;
 
-node M() returns (out: int) 
+function M() returns (out: int) 
 let 
   out = C; 
 tel

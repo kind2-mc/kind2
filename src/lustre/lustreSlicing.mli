@@ -163,7 +163,7 @@ val slice_node_to_abstraction : LustreNode.t -> LustreNode.t
 
 val slice_to_abstraction_and_property :
     ?preserve_sig:bool ->
-    Analysis.param -> StateVar.StateVarSet.t ->
+    Analysis.param -> Property.t ->
     LustreNode.t SubSystem.t ->
     LustreNode.t SubSystem.t 
 

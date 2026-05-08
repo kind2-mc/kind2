@@ -278,10 +278,13 @@ let print_nodes_and_globals nodes globals =
   ^^ "All State Variables: [@[<hv>%a@]];@ \n\n"
   ^^ "===============================================\n")
   (pp_print_list
-    (pp_print_pair
-      (LustreIdent.pp_print_ident true)
-      (LustreIndex.pp_print_index_trie true Var.pp_print_var)
-      " = ")
+    (fun ppf (id, vt, _) ->
+      pp_print_pair
+        (LustreIdent.pp_print_ident true)
+        (LustreIndex.pp_print_index_trie true Var.pp_print_var)
+        " = "
+        ppf
+        (id, vt))
     ";@ ") globals.LG.free_constants
   (pp_print_list
     (pp_print_pair

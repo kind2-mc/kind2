@@ -71,7 +71,7 @@ type compiler_state = {
   nodes : LustreNode.t list;
   node_io : (StateVar.t X.t * StateVar.t X.t * identifier_maps) NI.Map.t;
   type_alias : Type.t LustreIndex.t StringMap.t;
-  free_constants : (HString.t option * HString.t * Var.t LustreIndex.t) list;
+  free_constants : (HString.t option * HString.t * Var.t LustreIndex.t * bool) list;
   local_constants : LustreAst.expr StringMap.t;
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
@@ -657,9 +657,8 @@ let rec compile ctx gids scc_map decls =
   let over_decls_2 cstate decl = compile_declaration_phase2 cstate gids ctx scc_map decl in
   let output = List.fold_left over_decls_2 output decls in
   let free_constants = output.free_constants
-    |> List.map (fun (_, id, v) -> mk_ident id, v)
-    
-  in 
+    |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
+  in
   output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
@@ -853,7 +852,7 @@ and compile_ast_expr
       H.find !map.array_index ident
     with Not_found ->
     try
-      let (_, _, var) = List.find (fun (n, i, _) -> match (n, !map.node_name) with
+      let (_, _, var, _) = List.find (fun (n, i, _, _) -> match (n, !map.node_name) with
         | Some n, Some n' -> n = n' && i = id_str
         | None, _ -> i = id_str
         | _ -> false)
@@ -1920,7 +1919,7 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
     List.fold_left
       (fun cstate (id, ty) ->
         let g = A.FreeConst (dummy_pos, id, ty) in
-        compile_const_decl cstate ctx map true (node_scope @ ["res"]) g
+        compile_const_decl ~is_generated:true cstate ctx map true (node_scope @ ["res"]) g
       )
       cstate
       gids.GI.free_constants
@@ -2892,7 +2891,7 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
   }
 
 
-and compile_const_decl cstate ctx map is_local scope = function
+and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = function
   | A.FreeConst (p, i, ty) -> (
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
@@ -2940,7 +2939,7 @@ and compile_const_decl cstate ctx map is_local scope = function
       else cstate.global_constraints
     in
     { cstate with
-      free_constants = (!map.node_name, i, vt) :: cstate.free_constants;
+      free_constants = (!map.node_name, i, vt, is_generated) :: cstate.free_constants;
       global_constraints
     }
   )
