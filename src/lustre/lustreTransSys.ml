@@ -636,7 +636,13 @@ let register_call_bound globals map_up sv =
     ) bounds in
   StateVar.StateVarHashtbl.add globals.G.state_var_bounds sv bounds
 
-
+let add_call_context_to_prop call_context prop =
+  match call_context with
+  | None -> prop
+  | Some sv -> (
+    let v = Var.mk_state_var_instance sv TransSys.prop_base in
+    { prop with P.prop_term = Term.mk_implies [Term.mk_var v; prop.P.prop_term] }
+  )
 
 (* Return term and lifted property for node call 
 
@@ -815,11 +821,15 @@ let call_terms_of_node_call mk_fresh_state_var globals
         let prop_status = P.PropUnknown in
 
         (* Create and append property *)
-        { P.prop_name ;
-          P.prop_source ;
-          P.prop_term ;
-          P.prop_status ;
-          P.prop_kind ; } :: a
+        let prop =
+          { P.prop_name ;
+            P.prop_source ;
+            P.prop_term ;
+            P.prop_status ;
+            P.prop_kind ; }
+        in
+        (add_call_context_to_prop call_context prop) :: a
+
     ) node_props
   in
 
@@ -829,23 +839,16 @@ let call_terms_of_node_call mk_fresh_state_var globals
     | None -> []
     | Some contract -> (
       subrequirements_of_contract
-        call_pos (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)) call_node_id state_var_map_up contract
+        call_pos
+        (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring))
+        call_node_id
+        state_var_map_up
+        contract
+      |> List.map (add_call_context_to_prop call_context)
     )
   in
 
   let node_props = node_assume_props @ node_props in
-
-  let node_props =
-    match call_context with
-    | None -> node_props
-    | Some sv -> (
-      let v = Var.mk_state_var_instance sv TransSys.prop_base in
-      node_props |> List.map (fun p ->
-        let prop_term = Term.mk_implies [Term.mk_var v; p.P.prop_term] in
-        { p with prop_term }
-      )
-    )
-  in
 
   let node_assumes =
     if node_assume_props = [] then None
