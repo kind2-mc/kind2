@@ -859,11 +859,20 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       check_struct_items ctx struct_items
         >> (expr_only_supported_in_merge false e)
         >> check_expr ctx' f e
-    | LA.IfBlock (_, e, l1, l2)
-    | LA.WhenBlock (_, e, l1, l2) -> 
+    | LA.IfBlock (_, e, l1, l2) ->
       let* warnings1 = check_expr ctx f e in 
       let* warnings2 = (check_items ctx ~tc_ctx f l1) in 
       let* warnings3 = (check_items ctx ~tc_ctx f l2) in 
+      Ok (warnings1 @ warnings2 @ warnings3)
+    | LA.WhenBlock (_, e, l1, l2) ->
+      let lazy_when ctx e =
+        (no_calls_to_node "a branch of a when block" ctx e)
+        >> (no_temporal_operator "branches of a when block" e)
+        >> (f ctx e)
+      in
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = (check_items ctx ~tc_ctx lazy_when l1) in
+      let* warnings3 = (check_items ctx ~tc_ctx lazy_when l2) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
