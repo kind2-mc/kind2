@@ -447,7 +447,8 @@ let rec find_var_def_count id = function
       | LA.StructDef (_, vars)
         -> List.map (find_var_def_count_lhs id) vars) |> 
            List.flatten)
-  | LA.IfBlock (_, _, l1, l2) ->
+  | LA.IfBlock (_, _, l1, l2)
+  | LA.WhenBlock (_, _, l1, l2) ->
     let x1 = List.map (find_var_def_count id) l1 |> 
              List.flatten in
     let x2 = List.map (find_var_def_count id) l2 |> 
@@ -858,7 +859,8 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       check_struct_items ctx struct_items
         >> (expr_only_supported_in_merge false e)
         >> check_expr ctx' f e
-    | LA.IfBlock (_, e, l1, l2) -> 
+    | LA.IfBlock (_, e, l1, l2)
+    | LA.WhenBlock (_, e, l1, l2) -> 
       let* warnings1 = check_expr ctx f e in 
       let* warnings2 = (check_items ctx ~tc_ctx f l1) in 
       let* warnings3 = (check_items ctx ~tc_ctx f l2) in 

@@ -243,6 +243,7 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
+  | WhenBlock of position * expr * node_item list * node_item list
   | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
@@ -980,6 +981,17 @@ and pp_print_node_item ppf = function
 
   | IfBlock (_, e, l1, l2) -> 
     Format.fprintf ppf "if %a then %a else  %a fi"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+      (pp_print_list pp_print_node_item " ") l2
+
+  | WhenBlock (_, e, l1, []) -> 
+    Format.fprintf ppf "when %a then %a end"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+
+  | WhenBlock (_, e, l1, l2) -> 
+    Format.fprintf ppf "when %a then %a else %a end"  
       pp_print_expr e 
       (pp_print_list pp_print_node_item " ") l1
       (pp_print_list pp_print_node_item " ") l2

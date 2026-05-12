@@ -1964,6 +1964,15 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
         R.ok (LA.IfBlock (pos, e, l1, l2), warnings1 @ List.flatten warnings2 @ List.flatten warnings3)
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
+  | LA.WhenBlock (pos, e, l1, l2) ->
+    let* guard_type, e, warnings1 = infer_type_expr ctx (Some nname) e in
+    (match guard_type with
+      | Bool _ ->
+        let* l1, warnings2 = R.seq (List.map (do_item ctx nname) l1) |> R.map List.split in
+        let* l2, warnings3 = R.seq (List.map (do_item ctx nname) l2) |> R.map List.split in
+        R.ok (LA.WhenBlock (pos, e, l1, l2), warnings1 @ List.flatten warnings2 @ List.flatten warnings3)
+      | e_ty -> type_error pos (ExpectedBooleanExpression e_ty)
+    )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
     let vars' = List.map snd vars in
     let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars')) in

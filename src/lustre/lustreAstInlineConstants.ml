@@ -487,6 +487,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (IfBlock _) :: _ 
   | (FrameBlock _) :: _ ->
     assert false
+  | (WhenBlock _) :: _ ->
+    assert false
   | (AnnotProperty (pos, n, e, k)) :: items ->
     (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items

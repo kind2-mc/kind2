@@ -168,6 +168,7 @@ let mk_span start_pos end_pos =
 %token ELSIF
 %token OTHERWISE
 %token FI
+%token END
 %token FRAME
 
 (* Tokens for relations *)
@@ -744,6 +745,7 @@ check:
 
 node_item:
   | i = node_if_block { i }
+  | i = node_when_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -781,6 +783,39 @@ node_if_block:
     block = elsif_list
     FI;
     { A.IfBlock(mk_pos $startpos, e, l, block) }
+
+
+when_elsif_list:
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+  { [A.WhenBlock(mk_pos $startpos, e, l1, [])] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+    ELSE;
+      l2 = nonempty_list(node_item);
+  { [A.WhenBlock(mk_pos $startpos, e, l1, l2)] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item); 
+    l2 = when_elsif_list;
+    { [A.WhenBlock(mk_pos $startpos, e, l1, l2)] }
+
+node_when_block:
+  | WHEN; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, []) }
+  | WHEN; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    ELSE; 
+      l2 = nonempty_list(node_item);
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
+  | WHEN; e = expr; THEN;
+    l = nonempty_list(node_item);
+    block = when_elsif_list
+    END;
+    { A.WhenBlock(mk_pos $startpos, e, l, block) }
+
 
 
 
