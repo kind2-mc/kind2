@@ -34,6 +34,7 @@
 module LA = LustreAst
 module LH = LustreAstHelpers
 module Ctx = TypeCheckerContext
+module LG = LustreGlobals
 module HStringMap = HString.HStringMap
 
 type adt_info = {
@@ -458,10 +459,25 @@ let update_context adt_map ctx =
     Ctx.add_ty_syn acc_ctx type_name record_ty
   ) adt_map ctx
 
+(* Convert internal adt_map to the simplified LustreGlobals.adt_map for downstream use. *)
+let to_globals_adt_map adt_map =
+  HStringMap.map (fun info ->
+    let ctor_fields = HStringMap.map (fun fields ->
+      List.map (fun (fname, ftype) ->
+        let field_kind = match adt_info_of_type adt_map ftype with
+          | Some sub_info -> LG.AdtFieldNested sub_info.type_name
+          | None -> LG.AdtFieldPlain
+        in
+        (fname, field_kind)
+      ) fields
+    ) info.ctor_fields in
+    { LG.disc_field = info.disc_field; LG.ctor_fields }
+  ) adt_map
+
 let desugar_adts ctx type_and_const_decls node_and_contract_decls =
   let adt_map = build_adt_map type_and_const_decls in
   if HStringMap.is_empty adt_map then
-    (type_and_const_decls, node_and_contract_decls, ctx)
+    (type_and_const_decls, node_and_contract_decls, ctx, LG.HStringMap.empty)
   else
     let type_and_const_decls =
       List.concat_map (fun decl ->
@@ -480,4 +496,5 @@ let desugar_adts ctx type_and_const_decls node_and_contract_decls =
       List.map (desugar_declaration adt_map ctx) node_and_contract_decls
     in
     let ctx = update_context adt_map ctx in
-    (type_and_const_decls, node_and_contract_decls, ctx)
+    let globals_adt_map = to_globals_adt_map adt_map in
+    (type_and_const_decls, node_and_contract_decls, ctx, globals_adt_map)
