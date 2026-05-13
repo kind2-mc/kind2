@@ -853,7 +853,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test unbound ADT constructor in term position" (fun () ->
     match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
-    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
   mk_test "test ADT constructor arity mismatch in term position" (fun () ->
     match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with

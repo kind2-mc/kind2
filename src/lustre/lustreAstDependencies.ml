@@ -800,17 +800,17 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Node calls *)
   | Call (_, _, i, es) ->
-    (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
-    Format.eprintf "call: %a @." HString.pp_print_hstring i;  *)
     let arg_vars = List.map r es in
-    (* guaranteed not to throw an exception by lustreSyntaxChecks *)
-    let node_map = NodeId.Map.find i m in
-    (match IntMap.find_opt proj node_map.dependencies with
+    (match NodeId.Map.find_opt i m with
+    | None ->
+      (* Constructor call: treat arguments as plain dependencies *)
+      List.fold_left SI.union SI.empty arg_vars
+    | Some node_map ->
+      (match IntMap.find_opt proj node_map.dependencies with
       | Some dep_args ->
       (*  Format.eprintf "dependent_args: %a @." 
           (Lib.pp_print_list Format.pp_print_int ",")
           dep_args; *)
-         
         let result = List.fold_left (fun acc idx ->
             match List.nth_opt arg_vars idx with
             
@@ -824,7 +824,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           (Lib.pp_print_list HString.pp_print_hstring ",")
           (SI.elements result); *)
         result
-      | None -> SI.empty)
+      | None -> SI.empty))
   | Match (_, e, arms, _) ->
     let rec pat_bound_vars = function
       | LA.Pat (_, i, []) -> SI.singleton i
@@ -1019,7 +1019,10 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with
-      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
+      | None ->
+        (* Constructor call: single output depending on all arguments *)
+        let* gs = R.seq (List.map (mk_graph_expr2 m) es) in
+        R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs)]
       | Some summary ->
          let sum_bds = IntMap.bindings summary.dependencies in
          let* gs = R.seq (List.map (mk_graph_expr2 m) es) in

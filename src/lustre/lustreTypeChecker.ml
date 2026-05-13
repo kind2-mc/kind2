@@ -1009,9 +1009,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   = fun ctx nname e -> match e with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
-    (match (lookup_ty ctx i) with
-    | None -> type_error pos (UnboundIdentifier i) 
-    | Some ty -> R.ok (ty, e, []))
+    (match lookup_constructor ctx i with
+    | Some _ -> infer_type_expr ctx nname (LA.ADTTerm (pos, i, []))
+    | None ->
+      match (lookup_ty ctx i) with
+      | None -> type_error pos (UnboundIdentifier i)
+      | Some ty -> R.ok (ty, e, []))
   | LA.ModeRef (pos, ids) ->      
     let lookup_mode_ty ctx (ids:HString.t list) =
       match ids with
@@ -1395,6 +1398,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
+    let name = NI.get_name node_id in
+    match ty_args, lookup_constructor ctx name with
+    | [], Some _ -> 
+      infer_type_expr ctx nname (LA.ADTTerm (pos, name, arg_exprs))
+    | _ ->
     let* _ = if NI.get_node_type node_id = TypeAscription then 
       let is_function = match nname with 
       | None -> false 
@@ -1485,8 +1493,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       in 
       match pat with
       | LA.Pat (pos, id, []) ->
-        let s = HString.string_of_hstring id in
-        let is_constructor = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z' in
+        let is_constructor = Option.is_some (lookup_constructor ctx id) in
         if is_constructor then (
           match adt_opt with
           | Some (LA.ADT (_, _, adt_cons)) ->

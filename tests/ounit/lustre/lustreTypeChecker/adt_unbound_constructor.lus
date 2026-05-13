@@ -4,7 +4,7 @@ node N (c: Color) returns (r: bool);
 let
   r = match c with
     | Red --> true
-    | Purple --> false
+    | Purple (f) --> false
     | Blue --> false
   end;
 tel

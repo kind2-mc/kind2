@@ -185,8 +185,6 @@ let desugar_adt_term pos adt_map info ctor args =
 let tag_of pos info scrut =
   LA.RecordProject (pos, scrut, info.disc_field)
 
-let is_ctor_name s = String.length s > 0 && s.[0] >= 'A' && s.[0] <= 'Z'
-
 let adt_info_of_type adt_map ty =
   match ty with
   | LA.UserType (_, _, name) -> HStringMap.find_opt name adt_map
@@ -197,7 +195,7 @@ let adt_info_of_type adt_map ty =
    variable->field-projection substitutions imposed by a (possibly nested)
    constructor pattern.  Returns (conditions, substitutions). *)
 let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub_pats)) =
-  if is_ctor_name (HString.string_of_hstring name) then
+  if HStringMap.mem name info.ctor_variant then
     let ctor = name in
     let variant =
       match HStringMap.find_opt ctor info.ctor_variant with
@@ -216,13 +214,11 @@ let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr = LA.RecordProject (pos, scrut, fname) in
         let LA.Pat (_, sub_name, _) = sub_pat in
-        if is_ctor_name (HString.string_of_hstring sub_name) then
-          match adt_info_of_type adt_map ftype with
-          | Some sub_info ->
-            let (c, s) = collect_pattern_constraints pos adt_map sub_info field_expr sub_pat in
-            (conds @ c, subs @ s)
-          | None -> (conds, subs)
-        else
+        match adt_info_of_type adt_map ftype with
+        | Some sub_info when HStringMap.mem sub_name sub_info.ctor_variant ->
+          let (c, s) = collect_pattern_constraints pos adt_map sub_info field_expr sub_pat in
+          (conds @ c, subs @ s)
+        | _ ->
           (conds, subs @ [(sub_name, field_expr)])
       ) ([], []) ctor_fields sub_pats
     in
@@ -250,7 +246,7 @@ let desugar_arm pos adt_map info scrut pat body =
 let rec build_ite pos arms =
   match arms with
   | [] -> assert false
-  | (None, _) :: _ -> assert false (* More cases after a catch-all *)
+  | (None, _) :: _ :: _ -> assert false (* More cases after a catch-all; will be caught by later redundancy checks *)
   | [(_, body)] -> body (* Last case must always cover all cases so far uncovered *)
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)

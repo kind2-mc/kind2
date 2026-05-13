@@ -941,14 +941,7 @@ pexpr(Q):
   | e = choose_expr { e }
 
   (* An identifier *)
-  | s = ident 
-    { 
-      let str = HString.string_of_hstring s in 
-      if str.[0] >= 'A' && str.[0] <= 'Z' then 
-        A.ADTTerm (mk_pos $startpos, s, []) 
-      else 
-        A.Ident (mk_pos $startpos, s) 
-    } 
+  | s = ident { A.Ident (mk_pos $startpos, s) }
 
   (* A mode reference. *)
   | DOUBLE_COLON ; mode_ref = separated_nonempty_list(DOUBLE_COLON, ident) {
@@ -1302,18 +1295,12 @@ pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
       
 (* A node or function call *)
 node_call:
-  | s = ident; 
+  | s = ident;
     ty_args = call_static_params;
-    LPAREN; 
-    a = separated_list(COMMA, expr); 
-    RPAREN 
-    { 
-      let str = HString.string_of_hstring s in
-      if str.[0] >= 'A' && str.[0] <= 'Z' then  
-        A.ADTTerm (mk_pos $startpos, s, a) 
-      else 
-        A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
-    }
+    LPAREN;
+    a = separated_list(COMMA, expr);
+    RPAREN
+    { A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) }
 
 
 (* An array slice *)
