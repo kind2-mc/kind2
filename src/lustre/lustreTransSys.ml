@@ -931,6 +931,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       N.Function { rec_info = Some (callee_id, callee_rf) } when caller_id = callee_id -> (
       termination_checks
         call_pos state_var_map_up caller_rf callee_rf
+      |> List.map (add_call_context_to_prop call_context)
     )
     | _ -> []
   in
