@@ -163,7 +163,7 @@ fun ctx node_name fun_ids expr ->
         let name = mk_fresh_fn_name pos node_name Choose in
         A.FuncDecl (span, 
         (name, true, A.Opaque, ty_params, inputs,
-        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)), false), 
+        [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract)), { is_lemma = false; is_rec = false }), 
         name
     | _ -> assert false
     in

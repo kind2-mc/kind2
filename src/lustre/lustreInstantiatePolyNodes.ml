@@ -153,14 +153,14 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     ctx, gids, pnname, [], node_decls_map   
   (* Creating new polymorphic instantiation *) 
   | None ->
-    let span, is_function, is_rec, is_contract, ext, opac, ips, ops, locs, nis, c =
+    let span, is_function, func_attrs, is_contract, ext, opac, ips, ops, locs, nis, c =
       match NI.Map.find node_id node_decls_map with
-      | (A.FuncDecl (span, (_, ext, opac, _, ips, ops, locs, nis, c), is_rec), _) ->
-        span, true, is_rec, false, ext, opac, ips, ops, locs, nis, c
+      | (A.FuncDecl (span, (_, ext, opac, _, ips, ops, locs, nis, c), func_attrs), _) ->
+        span, true, func_attrs, false, ext, opac, ips, ops, locs, nis, c
       | (A.NodeDecl (span, (_, ext, opac, __FUNCTION__, ips, ops, locs, nis, c)), _) ->
-        span, false, false, false, ext, opac, ips, ops, locs, nis, c
+        span, false, {is_lemma = false; is_rec = false}, false, ext, opac, ips, ops, locs, nis, c
       | (A.ContractNodeDecl (span, (_, _, ips, ops, c)), _) ->
-        span, false, false, true, false, A.Default, ips, ops, [], [], Some c
+        span, false, {is_lemma = false; is_rec = false}, true, false, A.Default, ips, ops, [], [], Some c
       | _ -> assert false
     in
     let nis = List.filter (fun ni -> match ni with 
@@ -205,7 +205,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         let ctx = Ctx.add_node_param_attr ctx pnname ips in 
         let node_ty = build_node_fun_ty span.start_pos ips ops in
         Ctx.add_ty_vars_node (Ctx.add_ty_node ctx pnname node_ty true) pnname ps, 
-        A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c), is_rec)
+        A.FuncDecl (span, (pnname, ext, opac, ps, ips, ops, locs, nis, c), func_attrs)
       else if is_contract then 
         let c = Option.get c in
         let ctx = Ctx.add_ty_vars_contract ctx pnname ps in

@@ -101,6 +101,7 @@ let mk_span start_pos end_pos =
 %token TRANSPARENT
 %token IMPORTED
 %token REC
+%token LEMMA
 %token NODE
 %token FUNCTION
 %token RETURNS
@@ -286,7 +287,13 @@ decl:
   | opac = opacity_modifier ; FUNCTION ; is_rec = rec_modifier; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), is_rec)]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), { is_lemma = false; is_rec })]
+  }
+  | LEMMA; decl = lemma_decl ; def = node_def {
+    let (n, p, i, r) = decl in
+    let o = [mk_pos $startpos, HString.mk_hstring "_", A.Bool (mk_pos $startpos), A.ClockTrue] in
+    let (l, e) = def in
+    [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -294,7 +301,7 @@ decl:
   }
   | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r), false)]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r), { is_lemma = false; is_rec = false })]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
@@ -499,6 +506,16 @@ node_decl:
   r = option(contract_spec); 
   {
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
+  }
+
+lemma_decl:
+| n = ident;
+  p = loption(decl_static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  option(SEMICOLON);
+  r = option(contract_spec); 
+  {
+    (NI.mk_node_id n, p, List.flatten i, r)
   }
 
 (* A node definition (locals + body). *)
@@ -854,6 +871,13 @@ node_equation:
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
+
+  | nc = node_call SEMICOLON {
+    let pos = mk_pos $startpos in
+    let lhs_id = HString.mk_hstring "_" in
+    let lhs = A.StructDef (pos, [A.SingleIdent (pos, lhs_id)]) in
+    A.Equation (pos, lhs, nc)
+  }
 
 
 left_side:

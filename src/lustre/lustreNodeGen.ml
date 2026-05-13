@@ -3011,7 +3011,7 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), is_rec) -> (
+  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec }) -> (
     let cstate = compile_node_decl scc_map gids true is_rec opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   )

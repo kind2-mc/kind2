@@ -1553,7 +1553,7 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   = fun ad ->
   function
   | [] -> ad
-  | LA.FuncDecl (_, ndecl, is_rec) :: decls ->
+  | LA.FuncDecl (_, ndecl, { is_rec }) :: decls ->
     let ns = mk_node_summary false ad.nsummary ndecl is_rec in
     let ns_conn = mk_node_summary true ad.nsummary2 ndecl is_rec in
     generate_summaries {ad with 

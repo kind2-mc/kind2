@@ -255,6 +255,7 @@ let keyword_table = mk_hashtbl [
   "opaque", OPAQUE ;
   "imported", IMPORTED ;
   "rec", REC ;
+  "lemma", LEMMA ;
   "node", NODE ;
   "function", FUNCTION ;
   "returns", RETURNS ;

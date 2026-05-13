@@ -329,12 +329,17 @@ type span = {
   end_pos : position;
 }
 
+type func_attrs = {
+  is_rec : bool;
+  is_lemma : bool;
+}
+
 (* A declaration as parsed *)
 type declaration = 
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl * bool (* whether the function is recursive *)
+  | FuncDecl of span * node_decl * func_attrs
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 
@@ -1238,7 +1243,7 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
        pp_print_contract e
     
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, (n, ext, opac, p, i, o, l, e, r), is_rec
+  _, (n, ext, opac, p, i, o, l, e, r), func_attrs
 ) =
     if e = [] then
       Format.fprintf ppf
@@ -1247,13 +1252,23 @@ let pp_print_node_or_fun_decl is_fun ppf (
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
         %a@?@]@?"
-        (match opac with
-         | Default -> ""
-         | Opaque -> "opaque "
-         | Transparent -> "transparent "
+        (if func_attrs.is_lemma then
+          ""
+        else
+          (match opac with
+          | Default -> ""
+          | Opaque -> "opaque "
+          | Transparent -> "transparent "
+          )
         )
-        (if is_rec then "rec " else "")
-        (if is_fun then "function" else "node")
+        (if not func_attrs.is_lemma && func_attrs.is_rec then
+          "rec " else ""
+        )
+        (if is_fun then
+          (if func_attrs.is_lemma then "lemma" else "function")
+        else 
+          "node"
+        )
         (if ext then " imported" else "")
         HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
@@ -1291,10 +1306,10 @@ let pp_print_declaration ppf = function
   | ConstDecl (_, c) -> pp_print_const_decl ppf c
 
   | NodeDecl (span, decl) ->
-    pp_print_node_or_fun_decl false ppf (span, decl, false)
+    pp_print_node_or_fun_decl false ppf (span, decl, {is_lemma = false; is_rec = false})
 
-  | FuncDecl (span, decl, is_rec) ->
-    pp_print_node_or_fun_decl true ppf (span, decl, is_rec)
+  | FuncDecl (span, decl, func_attrs) ->
+    pp_print_node_or_fun_decl true ppf (span, decl, func_attrs)
 
   | ContractNodeDecl (_, decl) ->
     pp_print_contract_node_decl ppf decl

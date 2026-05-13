@@ -2096,5 +2096,5 @@ let node_id_of_decl = function
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> None
 
 let is_recursive_function = function
-  | FuncDecl (_, _, true) -> true
+  | FuncDecl (_, _, {is_rec = true}) -> true
   | _ -> false

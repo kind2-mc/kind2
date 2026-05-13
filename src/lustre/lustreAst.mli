@@ -358,13 +358,18 @@ type span = {
   end_pos : position;
 }
 
+type func_attrs = {
+  is_rec : bool;
+  is_lemma : bool;
+}
+
 (** A declaration of a type, a constant, a node, a function or an
     instance of a parametric node *)
 type declaration =
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl * bool (* whether the function is recursive *)
+  | FuncDecl of span * node_decl * func_attrs
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 

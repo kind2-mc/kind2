@@ -234,7 +234,7 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let acc_decls =
-          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), false)]
+          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })]
         in
         let acc_decls, acc_new_func_ids =
           (* If type does not contain generated identifiers, and we are only generating
@@ -261,12 +261,12 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let func_decl1 =
-          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None), false)
+          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None), { is_lemma = false; is_rec = false })
         in
         (if List.mem `CONTRACTCK (Flags.enabled ()) then
           let func_decl2 =
             let node_id = NI.mk_node_id ~node_type:NI.FreeConstant id in
-            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), false)
+            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })
           in
           acc_decls @ [func_decl1; func_decl2]
         else

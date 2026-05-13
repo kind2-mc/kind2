@@ -102,7 +102,7 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
       set, NI.Map.add id contract_node_decl contracts
     )
     (* A non-imported non-recursive function *)
-    | A.FuncDecl (_, (id, false, opac, [], _, outputs, locals, items, contract), false) -> (
+    | A.FuncDecl (_, (id, false, opac, [], _, outputs, locals, items, contract), { is_lemma = false; is_rec = false }) -> (
       if is_inlinable set contracts ctx opac contract outputs locals items then
         NI.Set.add id set, contracts
       else

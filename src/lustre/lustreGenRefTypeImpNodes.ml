@@ -278,16 +278,16 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
         NI.Map.merge GI.union_keys2 gids acc_gids
       )
-    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl), is_rec) ->
+    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl), func_attrs) ->
       (* Add main annotations to imported functions *)
       let func_decl = 
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
       let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl true in
-      let decls = List.map (fun decl -> A.FuncDecl (span, decl, false)) decls in
+      let decls = List.map (fun decl -> A.FuncDecl (span, decl, { is_lemma = false; is_rec = false })) decls in
       R.ok (
-        A.FuncDecl(span, func_decl, is_rec) :: decls @ acc_decls, acc_ctx, 
+        A.FuncDecl(span, func_decl, func_attrs) :: decls @ acc_decls, acc_ctx, 
         NI.Map.merge GI.union_keys2 gids acc_gids
       )
     | A.ContractNodeDecl (span, contract_node_decl) -> 
