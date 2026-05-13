@@ -891,6 +891,43 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
    y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
 
 
+When blocks
+^^^^^^^^^^^
+Kind 2 also supports ``when`` blocks, which are similar in structure to ``if``
+statements but use *lazy* branch semantics, like ``if ... then ... otherwise ...``
+expressions.
+
+.. code-block:: none
+
+   when condition1 then
+      y1 = expr1;
+      y2 = expr2;
+   elsif condition2 then
+      y1 = expr3;
+      y2 = expr4;
+   else
+      y1 = expr5;
+      y2 = expr6;
+   end
+
+At each step, only the selected branch is evaluated.
+In particular, branch expressions that are not selected are not evaluated.
+This is useful when one branch relies on assumptions that do not hold in other
+cases.
+
+As for ``if`` blocks, ``when`` blocks are statement-level syntax sugar.
+For each assigned variable, the block above corresponds to nested lazy
+``if ... then ... otherwise ...`` expressions.
+
+Current restrictions for ``when`` blocks are:
+
+* Branch expressions cannot contain temporal operators (for example ``pre`` or
+  ``->``).
+* Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+* ``if`` blocks cannot be nested inside ``when`` blocks, and ``when`` blocks
+  cannot be nested inside ``if`` blocks.
+
+
 Frame conditions
 ^^^^^^^^^^^^^^^^
 Kind 2 also has support for code blocks with frame conditions. At the beginning of the block

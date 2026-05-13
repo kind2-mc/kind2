@@ -380,7 +380,7 @@ let get_inline_func_expr inlinable_funcs name args =
         | TupleStructItem _ | TupleSelection _ | FieldSelection _
         | ArraySliceStructItem _ -> assert false (* unreachable *)
       )
-      | IfBlock _ | FrameBlock _ ->
+      | IfBlock _ | WhenBlock _ | FrameBlock _ ->
         assert false (* desugared earlier in pipeline *)
       | Body (Assert _) | AnnotMain _ | AnnotProperty _ ->
         assert false (* rejected earlier in pipeline *)
@@ -1487,6 +1487,7 @@ and normalize_item info node_id map = function
     [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
   | IfBlock _ 
+  | WhenBlock _
   | FrameBlock _ -> 
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []

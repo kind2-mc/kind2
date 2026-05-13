@@ -129,6 +129,11 @@ let remove_mult_assign_from_ni ctx ni =
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
         [A.IfBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
 
+      | WhenBlock (pos, e, l1, l2) ->
+        let nis1, gids1 = List.map (helper ctx) l1 |> List.split in
+        let nis2, gids2 = List.map (helper ctx) l2 |> List.split in
+        [A.WhenBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
+
       | FrameBlock (pos, vars, nes, nis) -> 
         let nes = List.map (fun x -> A.Body x) nes in 
         let nis1, gids1 = List.map (helper ctx) nes |> List.split in
@@ -154,6 +159,7 @@ let remove_mult_assign_from_ni ctx ni =
 
 let desugar_node_item ctx ni = match ni with
   | A.IfBlock _ 
+  | A.WhenBlock _
   | A.FrameBlock _ -> 
     remove_mult_assign_from_ni ctx ni 
   | _ -> ni, GI.empty ()

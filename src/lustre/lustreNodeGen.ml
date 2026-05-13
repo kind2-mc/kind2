@@ -2204,6 +2204,7 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main) 
       | A.IfBlock _ 
+      | A.WhenBlock _
       | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
            (in lustreRemoveMultAssign.ml, lustreDesugarIfBlocks.ml, and 

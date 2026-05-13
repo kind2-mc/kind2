@@ -347,6 +347,11 @@ fun ctx node_name fun_ids ni ->
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
     let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
     A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
+  | WhenBlock (pos, cond, nis1, nis2) ->
+    let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
+    let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
+    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
     let nes, gen_nodes1 = List.map rec_call nes |> List.split in

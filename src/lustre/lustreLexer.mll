@@ -298,6 +298,7 @@ let keyword_table = mk_hashtbl [
   "otherwise", OTHERWISE;
   "elsif", ELSIF ;
   "fi", FI ;
+  "end", END ;
   "frame", FRAME ;
 
   (* Arithmetic operators *)
