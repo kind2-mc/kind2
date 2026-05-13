@@ -13,7 +13,7 @@ tel
 node N(inp: int) returns (z: int; z2: int; A: int^N; z3: subtype { x: int | (x: Neg) < 0 }; z4: int);
 let
   // Type ascription proof obligation should succeed
-  z2 = if inp < 0 then (inp: Neg) otherwise -1*inp; 
+  z2 = when inp < 0 then (inp: Neg) else -1*inp; 
 
   // Should all fail
   z = choose { x: int | (x: Neg) + 2 = 3 };

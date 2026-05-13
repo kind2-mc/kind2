@@ -11,6 +11,6 @@ tel
 
 node N() returns (B: int^N);
 let
-   B[i] = if i=0 then 0 otherwise AddOne(i);
+   B[i] = when i=0 then 0 else AddOne(i);
    check "P1" exists (i: Pos) i+1=AddOne(i);
 tel
