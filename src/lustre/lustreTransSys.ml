@@ -195,9 +195,10 @@ let lift_prop_name node_name pos prop_name =
     (fun ppf prop_name ->
        Format.fprintf
          ppf
-         "%s%a.%s"
+         "%s%a%t%s"
          node_name
          pp_print_pos pos
+         StringGlobals.pp_print_scope_sep
          prop_name)
     prop_name
 
@@ -259,13 +260,13 @@ let non_vacuity_check scope name pos requires props =
   match requires with
   | { C.scope = s } :: _ ->
     let name =
-      Format.asprintf "%a%s%a" (
+      Format.asprintf "%a%s%trequires%a" (
         pp_print_list (
           fun fmt (pos, call) ->
-            Format.fprintf fmt "%s%a."
-              call Lib.pp_print_line_and_column pos
+            Format.fprintf fmt "%s%a%t"
+              call Lib.pp_print_line_and_column pos StringGlobals.pp_print_scope_sep
         ) ""
-      ) s name Lib.pp_print_line_and_column pos 
+      ) s name StringGlobals.pp_print_scope_sep Lib.pp_print_line_and_column pos 
     in
     let guard = conj_of requires in
     property_of_expr
@@ -318,7 +319,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
               E.mk_var svar |> E.mk_impl guard
               |> property_of_expr
                 candidate
-                (C.prop_name_of_svar sv name ".ensure")
+                (C.prop_name_of_svar sv name (Format.asprintf "%tensure" StringGlobals.pp_print_scope_sep))
                 prop_status
                 (P.GuaranteeModeImplication (pos, scope))
             ) :: acc
@@ -346,15 +347,17 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
       let prop_name =
         match name with
         | None -> (
-          Format.asprintf "%a%a.assume%a"
+          Format.asprintf "%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
             pp_print_line_and_column call_pos
+            StringGlobals.pp_print_scope_sep
             pp_print_line_and_column pos
         )
         | Some n -> (
-          Format.asprintf "%a%a.%s"
+          Format.asprintf "%a%a%t%s"
             NI.pp_print_node_id_user_name node_id
-            pp_print_line_and_column call_pos n
+            pp_print_line_and_column call_pos 
+            StringGlobals.pp_print_scope_sep n
         )
       in
       let prop_status = P.PropUnknown in
