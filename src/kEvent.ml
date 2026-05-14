@@ -815,7 +815,7 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
       | None -> "unknown"
     in
   let pp_expr ppf sexpr = if Log.get_short_log_output () then () 
-                          else Format.fprintf ppf "@,@[<v 2>  %s@]@]" sexpr in
+                          else Format.fprintf ppf "@,@[<v 2>  %s@]@]@," sexpr in
    Format.fprintf
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
@@ -831,7 +831,7 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
     "@[<v>%a@{<b>Summary of Properties@}:@,%a%a@,%a@]@."
     Pretty.print_line ()
     Pretty.print_line ()
-    (pp_print_list pp_property_block "@,@,")
+    (pp_print_list pp_property_block "@,")
     prop_status_kind
     Pretty.print_double_line ()
 
