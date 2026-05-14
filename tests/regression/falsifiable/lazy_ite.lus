@@ -6,7 +6,7 @@ noc
 
 node N(x: int) returns (y: int);
 let
-  y = if x >= 0 then f(x) otherwise f(x) - 1;
+  y = when x >= 0 then f(x) else f(x) - 1;
   check "P1" x = 0 ==> y = f(x);
   check "P2" x < 0 ==> y = f(x) - 1;
 tel
