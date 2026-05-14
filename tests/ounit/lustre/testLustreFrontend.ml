@@ -864,7 +864,15 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "Uninitialized node item inside frame block 2" (fun () ->
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
-    | _ -> false);  
+    | _ -> false);
+  mk_test "If block outside frame block missing else branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_else.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingElseBranchError)) -> true
+    | _ -> false);
+  mk_test "If block outside frame block variable missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
