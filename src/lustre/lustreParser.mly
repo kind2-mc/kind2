@@ -1341,7 +1341,7 @@ typed_idents:
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
   | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr;
-    (* Pair each identifier with the type *)
+    (* Concise refinement type syntax *)
     { 
       match l with 
         | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
@@ -1358,6 +1358,13 @@ quantified_typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type_or_history
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr
+    (* Concise refinement type syntax *)
+    {
+      match l with
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
 
 (* A list of lists of typed identifiers *)
 typed_idents_list:
