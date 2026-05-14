@@ -9,6 +9,6 @@ noc
 
 node N(x: int) returns (y: int);
 let
-  y = if P(x) then 1 otherwise f(x);
+  y = when P(x) then 1 else f(x);
   check "P1" not P(x) => y>x;
 tel
