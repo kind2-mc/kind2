@@ -225,7 +225,7 @@ let mk_span start_pos end_pos =
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
 %right CASE
-%nonassoc ELSE OTHERWISE
+%nonassoc ELSE 
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
