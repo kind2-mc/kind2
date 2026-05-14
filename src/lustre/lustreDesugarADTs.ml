@@ -45,11 +45,8 @@ type adt_info = {
   (* name of the generated enum type for the discriminant *)
   disc_enum : HString.t;
 
-  (* ordered list of enum variant names, one per constructor *)
+  (* ordered list of constructor names, also used as enum variant names *)
   ctor_variants : HString.t list;
-
-  (* constructor name -> enum variant name *)
-  ctor_variant : HString.t HStringMap.t;
 
   (* constructor name -> ordered list of (payload_field_name, field_type) *)
   ctor_fields : (HString.t * LA.lustre_type) list HStringMap.t;
@@ -67,26 +64,17 @@ let disc_field_name type_name =
 let disc_enum_name type_name =
   HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
-let ctor_variant_name type_name ctor = ctor 
-
-let payload_field_name type_name ctor i = 
-  HString.mk_hstring (
-    HString.string_of_hstring ctor ^ "_"
-    ^ string_of_int i)
+let payload_field_name ctor i =
+  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ string_of_int i)
 
 let build_adt_info type_name ctors =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_enum_name type_name in
-  let ctor_variants = List.map (fun (c, _) -> ctor_variant_name type_name c) ctors in
-  let ctor_variant =
-    List.fold_left (fun m (c, _) ->
-      HStringMap.add c (ctor_variant_name type_name c) m
-    ) HStringMap.empty ctors
-  in
+  let ctor_variants = List.map fst ctors in
   let ctor_fields =
     List.fold_left (fun m (ctor, field_types) ->
       let fields =
-        List.mapi (fun j ty -> (payload_field_name type_name ctor j, ty)) field_types
+        List.mapi (fun j ty -> (payload_field_name ctor j, ty)) field_types
       in
       HStringMap.add ctor fields m
     ) HStringMap.empty ctors
@@ -100,7 +88,7 @@ let build_adt_info type_name ctors =
         else (Hashtbl.add seen (HString.string_of_hstring fname) (); true))
     ) ctors
   in
-  { type_name; disc_field; disc_enum; ctor_variants; ctor_variant; ctor_fields; all_payload_fields }
+  { type_name; disc_field; disc_enum; ctor_variants; ctor_fields; all_payload_fields }
 
 (* Collect all ADT type declarations from a program into an adt_map. *)
 let build_adt_map decls =
@@ -154,12 +142,7 @@ let rec default_val pos adt_map ty =
    Fields for the selected constructor are filled from `args`; all other
    payload fields receive junk default values. *)
 let desugar_adt_term pos adt_map info ctor args =
-  let variant =
-    match HStringMap.find_opt ctor info.ctor_variant with
-    | Some v -> v
-    | None -> assert false
-  in
-  let disc_e = LA.Ident (pos, variant) in
+  let disc_e = LA.Ident (pos, ctor) in
   let this_ctor_fields =
     match HStringMap.find_opt ctor info.ctor_fields with
     | Some fs -> fs
@@ -195,15 +178,10 @@ let adt_info_of_type adt_map ty =
    variable->field-projection substitutions imposed by a (possibly nested)
    constructor pattern.  Returns (conditions, substitutions). *)
 let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub_pats)) =
-  if HStringMap.mem name info.ctor_variant then
+  if List.mem name info.ctor_variants then
     let ctor = name in
-    let variant =
-      match HStringMap.find_opt ctor info.ctor_variant with
-      | Some v -> v
-      | None -> assert false
-    in
     let outer_cond =
-      LA.CompOp (pos, LA.Eq, tag_of pos info scrut, LA.Ident (pos, variant))
+      LA.CompOp (pos, LA.Eq, tag_of pos info scrut, LA.Ident (pos, ctor))
     in
     let ctor_fields =
       match HStringMap.find_opt ctor info.ctor_fields with
@@ -215,7 +193,7 @@ let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub
         let field_expr = LA.RecordProject (pos, scrut, fname) in
         let LA.Pat (_, sub_name, _) = sub_pat in
         match adt_info_of_type adt_map ftype with
-        | Some sub_info when HStringMap.mem sub_name sub_info.ctor_variant ->
+        | Some sub_info when List.mem sub_name sub_info.ctor_variants ->
           let (c, s) = collect_pattern_constraints pos adt_map sub_info field_expr sub_pat in
           (conds @ c, subs @ s)
         | _ ->
