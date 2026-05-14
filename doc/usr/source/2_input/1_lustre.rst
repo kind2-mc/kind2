@@ -894,8 +894,11 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
 When blocks
 ^^^^^^^^^^^
 Kind 2 also supports ``when`` blocks, which are similar in structure to ``if``
-statements but use *lazy* branch semantics, like ``when ... then ... else ...``
-expressions.
+statements but use *lazy* branch semantics. There are two syntax options for ``when`` blocks.
+
+**Syntax 1: Conditional style**
+
+The first syntax resembles ``when ... then ... else ...`` expressions:
 
 .. code-block:: none
 
@@ -907,13 +910,52 @@ expressions.
       y2 = expr4;
    end
 
+
+Additional branches can be expressed by nesting ``when`` blocks inside the ``else`` branch:
+
+.. code-block:: none
+
+   when condition1 then
+      y1 = expr1;
+      y2 = expr2;
+   else
+      when condition2 then
+         y1 = expr3;
+         y2 = expr4;
+      else
+         y1 = expr5;
+         y2 = expr6;
+      end
+   end
+
+
+**Syntax 2: Pattern-matching style with otherwise**
+
+The second syntax uses a pattern-matching style with multiple guarded branches and an ``otherwise`` clause:
+
+.. code-block:: none
+
+   when
+     | condition1:
+        y1 = expr1;
+        y2 = expr2;
+     | condition2:
+        y1 = expr3;
+        y2 = expr4;
+     otherwise:
+        y1 = expr5;
+        y2 = expr6;
+   end
+
+**Semantics**
+
 At each step, only the selected branch is evaluated.
 In particular, branch expressions that are not selected are not evaluated.
 This is useful when one branch relies on assumptions that do not hold in other
 cases.
 
 As for ``if`` blocks, ``when`` blocks are statement-level syntax sugar.
-For each assigned variable, the block above corresponds to nested lazy
+For each assigned variable, the blocks above correspond to nested lazy
 ``when ... then ... else ...`` expressions.
 
 Current restrictions for ``when`` blocks are:
