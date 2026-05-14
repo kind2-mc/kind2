@@ -456,6 +456,17 @@ let extract_equations_from_when node_id ctx wb =
   let* tree_map = when_block_to_trees wb in
   let (lhss_poss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in
+  (* For when blocks, always enforce that every variable defined in any branch
+     is defined in all branches, regardless of context. *)
+  let* () =
+    let lhss = List.map fst lhss_poss in
+    R.seq_ (List.map2 (fun lhs tree ->
+      if has_leaf_none tree then
+        let (var, pos) = get_lhs_var lhs in
+        mk_error pos (MissingDefinitionInBranchError var)
+      else R.ok ()
+    ) lhss trees)
+  in
   let lhs_poss = List.map (fun (A.StructDef (pos, _), _) -> pos) lhss_poss in
   let rhs_poss = List.map snd lhss_poss in
   let lhss = List.map fst lhss_poss in
