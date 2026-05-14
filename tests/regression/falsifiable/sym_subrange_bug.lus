@@ -8,5 +8,7 @@ node N(c: bool; r: R) returns (s: set<R>);
 let
   if c then
     s = {r} + {r};
+  else
+    s = any@<set<int>>;
   fi
 tel

@@ -14,6 +14,7 @@ let
     y2 = 10;
   else 
     y1 = 6;
+    y2 = any@<int>;
   fi
   p1 = any@<bool>;
   p3 = any@<bool>;
