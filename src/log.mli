@@ -63,6 +63,10 @@ module type Sig = sig
   (** Set log format to JSON *)
   val set_log_format_json : unit -> unit
 
+  val get_short_log_output : unit -> bool
+
+  val set_short_log_output : unit -> unit
+
   (** Relay log messages to invariant manager, takes printing function as
       argument for relay messages. *)
   val set_relay_log : unit -> unit

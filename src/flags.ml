@@ -3663,7 +3663,21 @@ let check_nonvacuity_default = true
   let log_format_json () = Log.get_log_format () = Log.F_json
 
   (** ************************************************************ **)
+  (** ********************** Log formats ************************* **)
 
+  let log_format_default = Log.get_log_format ()
+
+  (* Use add_format_spec instead of add_spec *)
+
+  (* JSON log. *)
+  let _ = add_spec
+    "-short"
+    (Arg.Unit (fun () ->
+         Log.set_short_log_output ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Priint a shorter version of the log output")
+
+  (** ************************************************************ **)
   (* Colored output *)
   let color_default = true
   let color = ref color_default

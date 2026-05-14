@@ -814,14 +814,16 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
       | Some e -> e
       | None -> "unknown"
     in
+  let pp_expr ppf sexpr = if Log.get_short_log_output () then () 
+                          else Format.fprintf ppf "@,@[<v 2>  %s@]@]" sexpr in
    Format.fprintf
       ppf
-      "@[<v>@{<blue_b>%s@}: %a@,\
-      @[<v 2>  expression: %s@]@]"
+      "@[<v>@{<blue_b>%s@}: %a\
+      %a"
       (name_wrapper name)
       pp_print_status_of_prop
       (status, kind)
-      sexpr
+      pp_expr sexpr
   in
 
   (ignore_or_fprintf level)
