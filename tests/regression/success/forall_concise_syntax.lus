@@ -1,0 +1,12 @@
+transparent function F(inp: int | inp> 0) returns (out: int)
+con
+  assume inp > 0;
+noc
+let
+  out = inp + 1;
+tel
+
+node N() returns ()
+let
+  check "P1" forall (i: int | i > 0) F(i) > i;
+tel
