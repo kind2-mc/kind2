@@ -785,20 +785,6 @@ node_if_block:
     { A.IfBlock(mk_pos $startpos, e, l, block) }
 
 
-when_elsif_list:
-  | ELSIF; e = expr; THEN ;
-      l1 = nonempty_list(node_item);
-  { [A.WhenBlock(mk_pos $startpos, e, l1, [])] }
-  | ELSIF; e = expr; THEN ;
-      l1 = nonempty_list(node_item);
-    ELSE;
-      l2 = nonempty_list(node_item);
-  { [A.WhenBlock(mk_pos $startpos, e, l1, l2)] }
-  | ELSIF; e = expr; THEN ;
-      l1 = nonempty_list(node_item); 
-    l2 = when_elsif_list;
-    { [A.WhenBlock(mk_pos $startpos, e, l1, l2)] }
-
 node_when_block:
   | WHEN; e = expr; THEN; 
       l1 = nonempty_list(node_item);
@@ -810,15 +796,6 @@ node_when_block:
       l2 = nonempty_list(node_item);
     END;
     { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
-  | WHEN; e = expr; THEN;
-    l = nonempty_list(node_item);
-    block = when_elsif_list
-    END;
-    { A.WhenBlock(mk_pos $startpos, e, l, block) }
-
-
-
-
 
 
 node_frame_block:

@@ -902,12 +902,9 @@ expressions.
    when condition1 then
       y1 = expr1;
       y2 = expr2;
-   elsif condition2 then
+   else
       y1 = expr3;
       y2 = expr4;
-   else
-      y1 = expr5;
-      y2 = expr6;
    end
 
 At each step, only the selected branch is evaluated.
