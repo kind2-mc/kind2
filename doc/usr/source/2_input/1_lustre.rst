@@ -894,7 +894,7 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
 When blocks
 ^^^^^^^^^^^
 Kind 2 also supports ``when`` blocks, which are similar in structure to ``if``
-statements but use *lazy* branch semantics, like ``if ... then ... otherwise ...``
+statements but use *lazy* branch semantics, like ``when ... then ... else ...``
 expressions.
 
 .. code-block:: none
@@ -914,7 +914,7 @@ cases.
 
 As for ``if`` blocks, ``when`` blocks are statement-level syntax sugar.
 For each assigned variable, the block above corresponds to nested lazy
-``if ... then ... otherwise ...`` expressions.
+``when ... then ... else ...`` expressions.
 
 Current restrictions for ``when`` blocks are:
 

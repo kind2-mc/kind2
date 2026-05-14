@@ -167,6 +167,8 @@ let mk_span start_pos end_pos =
 %token ELSE
 %token ELSIF
 %token FI
+%token WHEN
+%token OTHERWISE
 %token END
 %token FRAME
 
@@ -194,7 +196,6 @@ let mk_span start_pos end_pos =
 %token CONCAT
 
 (* Tokens for clocks *)
-%token WHEN
 %token CURRENT
 %token CONDACT
 %token ACTIVATE
@@ -791,6 +792,33 @@ node_when_block:
       l2 = nonempty_list(node_item);
     END;
     { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
+  | WHEN;
+      BAR; c1 = node_when_case_colon;
+      cs = list(bar_node_when_case_colon);
+      OTHERWISE; COLON;
+      l_else = nonempty_list(node_item);
+    END;
+    {
+      let cases = c1 :: cs in
+      let nested = List.fold_right
+        (fun (cond, l_then) l_otherwise ->
+          [A.WhenBlock (mk_pos $startpos, cond, l_then, l_otherwise)])
+        cases
+        l_else
+      in
+      match nested with
+      | [A.WhenBlock _ as wb] -> wb
+      | _ -> assert false
+    }
+
+
+bar_node_when_case_colon:
+  | BAR; c = node_when_case_colon { c }
+
+
+node_when_case_colon:
+  | e = expr; COLON; l = nonempty_list(node_item)
+    { (e, l) }
 
 
 node_frame_block:

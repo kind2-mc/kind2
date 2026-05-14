@@ -296,6 +296,8 @@ let keyword_table = mk_hashtbl [
   "else", ELSE ;
   "elsif", ELSIF ;
   "fi", FI ;
+  "when", WHEN ; (* Also clock operator *)
+  "otherwise", OTHERWISE;
   "end", END ;
   "frame", FRAME ;
 
@@ -308,7 +310,6 @@ let keyword_table = mk_hashtbl [
   "choose", CHOOSE ;
   
   (* Clock operators *)
-  "when", WHEN ;
   "current", CURRENT ;
   "condact", CONDACT ;
   "activate", ACTIVATE ;
