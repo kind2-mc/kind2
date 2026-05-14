@@ -788,10 +788,6 @@ node_if_block:
 node_when_block:
   | WHEN; e = expr; THEN; 
       l1 = nonempty_list(node_item);
-    END;
-    { A.WhenBlock (mk_pos $startpos, e, l1, []) }
-  | WHEN; e = expr; THEN; 
-      l1 = nonempty_list(node_item);
     ELSE; 
       l2 = nonempty_list(node_item);
     END;
