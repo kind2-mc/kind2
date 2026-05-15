@@ -96,7 +96,7 @@ let error_message kind = match kind with
   | DuplicateProperty id -> "Property '"
   ^ HString.string_of_hstring id ^ "' has more than one definition"
   | InvalidPropertyName id -> "Property name '"
-  ^ HString.string_of_hstring id ^ "' contains forbidden characters. Property names cannot include '[' or ']'."
+  ^ HString.string_of_hstring id ^ "' contains forbidden characters. Property names cannot contain '[' or ']'."
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | UndefinedContract id -> "Contract '"
