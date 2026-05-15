@@ -1515,6 +1515,21 @@ module Names = struct
     Format.asprintf "%a_str_spec" (pp_print_list Format.pp_print_string "_")
 end
 
+(* |===| Hardcoded strings. *)
+
+(* Internal string values *)
+module StringValues = struct
+
+  let scope_sep : (unit, Format.formatter, unit) format = "."
+
+  let pp_print_scope_sep ppf = Format.fprintf ppf scope_sep
+
+  let type_ascription_input_name = ".inp"
+
+  let type_ascription_output_name = ".op"
+
+end
+
 
 (* 
    Local Variables:

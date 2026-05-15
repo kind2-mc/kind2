@@ -46,7 +46,7 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s%a%t"
             call Lib.pp_print_line_and_column pos
-            StringGlobals.pp_print_scope_sep
+            Lib.StringValues.pp_print_scope_sep
       ) ""
     ) scope n
     
@@ -56,7 +56,7 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s%a%t"
             call Lib.pp_print_line_and_column pos
-            StringGlobals.pp_print_scope_sep
+            Lib.StringValues.pp_print_scope_sep
       ) ""
     ) scope kind name Lib.pp_print_line_and_column pos
 

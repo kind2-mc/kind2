@@ -80,8 +80,8 @@ fun ctx node_name fun_ids expr ->
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos; } in
     let node_id = mk_fresh_fn_name pos node_name TypeAscription in
-    let ip_id = HString.mk_hstring StringGlobals.type_ascription_input_name in 
-    let op_id = HString.mk_hstring StringGlobals.type_ascription_output_name in
+    let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
+    let op_id = HString.mk_hstring Lib.StringValues.type_ascription_output_name in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
     let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
     let op = pos, op_id, mono, A.ClockTrue in

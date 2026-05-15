@@ -198,7 +198,7 @@ let lift_prop_name node_name pos prop_name =
          "%s%a%t%s"
          node_name
          pp_print_pos pos
-         StringGlobals.pp_print_scope_sep
+         Lib.StringValues.pp_print_scope_sep
          prop_name)
     prop_name
 
@@ -264,9 +264,9 @@ let non_vacuity_check scope name pos requires props =
         pp_print_list (
           fun fmt (pos, call) ->
             Format.fprintf fmt "%s%a%t"
-              call Lib.pp_print_line_and_column pos StringGlobals.pp_print_scope_sep
+              call Lib.pp_print_line_and_column pos Lib.StringValues.pp_print_scope_sep
         ) ""
-      ) s name StringGlobals.pp_print_scope_sep Lib.pp_print_line_and_column pos 
+      ) s name Lib.StringValues.pp_print_scope_sep Lib.pp_print_line_and_column pos 
     in
     let guard = conj_of requires in
     property_of_expr
@@ -319,7 +319,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
               E.mk_var svar |> E.mk_impl guard
               |> property_of_expr
                 candidate
-                (C.prop_name_of_svar sv name (Format.asprintf "%tensure" StringGlobals.pp_print_scope_sep))
+                (C.prop_name_of_svar sv name (Format.asprintf "%tensure" Lib.StringValues.pp_print_scope_sep))
                 prop_status
                 (P.GuaranteeModeImplication (pos, scope))
             ) :: acc
@@ -350,14 +350,14 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
           Format.asprintf "%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
             pp_print_line_and_column call_pos
-            StringGlobals.pp_print_scope_sep
+            Lib.StringValues.pp_print_scope_sep
             pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a%t%s"
             NI.pp_print_node_id_user_name node_id
             pp_print_line_and_column call_pos 
-            StringGlobals.pp_print_scope_sep n
+            Lib.StringValues.pp_print_scope_sep n
         )
       in
       let prop_status = P.PropUnknown in
