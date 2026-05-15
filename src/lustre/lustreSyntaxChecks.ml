@@ -602,11 +602,7 @@ let has_forbidden_chars (name : H.t option) =
     match name with 
     | Some n -> 
         (let s = HString.string_of_hstring n in
-        String.contains s '[' || String.contains s ']' || 
-        try 
-          let i = String.index s ':' in 
-          i + 1 < String.length s && s.[i+1] = ':'
-        with Not_found -> false)
+        String.contains s '[' || String.contains s ']')
     | None -> false
 
 (* Record duplicate properties if we find them *)
