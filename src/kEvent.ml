@@ -291,9 +291,9 @@ let all_stats () =
 
 let name_wrapper s =
   let re =
-    Str.regexp "^\\(TypeAscription\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
+    Str.regexp "^\\(type_ascription_\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
   if Str.string_match re s 0 then
-    let kind = Str.matched_group 1 s in
+    let kind = "TypeAscription" in
     let loc = Str.matched_group 2 s in
     kind ^ "[" ^ loc ^"]"
   else
