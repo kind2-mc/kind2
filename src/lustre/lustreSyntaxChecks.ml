@@ -854,7 +854,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   | None -> Ok (([], StringSet.empty))) in
   let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
-  let* (warnings3, props) = (check_items
+  let* (warnings3, _) = (check_items
   (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
   common_node_equations_checks
   items 
@@ -890,7 +890,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   | Some (p, c) -> no_stateful_contract_imports ctx c
     >> check_contract false ctx function_contract_checks empty_ty_check (p, c) props
   | None -> Ok ([], StringSet.empty)) in 
-  let* (warnings3, props) = (check_items
+  let* (warnings3, _) = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
     composed_items_checks
     items
@@ -905,7 +905,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   in
    (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
-    let* (warnings,props) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
+    let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
 
 and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
@@ -924,7 +924,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
     | LA.IfBlock (_, e, l1, l2) -> 
       let* warnings1 = check_expr ctx f e in 
       let* (warnings2, props) = (check_items ctx ~tc_ctx f l1 props) in 
-      let* (warnings3, props) = (check_items ctx ~tc_ctx f l2 props) in 
+      let* (warnings3, _) = (check_items ctx ~tc_ctx f l2 props) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
@@ -934,9 +934,9 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
-      let* (warnings1, props1) = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes props in
-      let* (warnings2, props2) = check_items ctx ~tc_ctx f nes props in 
-      let* (warnings3, props3) = (check_items ctx ~tc_ctx f nis) props in
+      let* (warnings1, props) = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes props in
+      let* (warnings2, props) = check_items ctx ~tc_ctx f nes props in 
+      let* (warnings3, _) = (check_items ctx ~tc_ctx f nis) props in
       Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
@@ -1371,7 +1371,7 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
   in
   let ctx_full = build_local_ctx ctx locals inputs outputs in
   let* warnings4 = oqv_check_locals oqv_on_ty ctx_full locals in
-  let* (warnings5, props) =
+  let* (warnings5, _) =
     check_items
       (build_local_ctx ctx_full locals [] [])
       ~tc_ctx:(Some tc_ctx)
@@ -1388,7 +1388,7 @@ let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outpu
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
   let* warnings1 = oqv_check_inputs oqv_on_ty ctx_io inputs in
   let* warnings2 = oqv_check_outputs oqv_on_ty ctx_io outputs in
-  let* (warnings3, props) =
+  let* (warnings3, _) =
     check_contract true ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty contract props
   in
   Ok (warnings1 @ warnings2 @ warnings3)
