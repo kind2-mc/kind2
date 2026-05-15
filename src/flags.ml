@@ -3662,20 +3662,19 @@ let check_nonvacuity_default = true
     (fun fmt -> Format.fprintf fmt "Output in JSON format")
   let log_format_json () = Log.get_log_format () = Log.F_json
 
-  (** ************************************************************ **)
-  (** ********************** Log formats ************************* **)
-
-  let log_format_default = Log.get_log_format ()
-
   (* Use add_format_spec instead of add_spec *)
 
   (* JSON log. *)
+  let show_props_default = Log.get_show_props ()
+
   let _ = add_spec
-    "-short"
-    (Arg.Unit (fun () ->
-         Log.set_short_log_output ()
-       ))
-    (fun fmt -> Format.fprintf fmt "Priint a shorter version of the log output")
+    "--show-props"
+    (Arg.Bool Log.set_show_props)
+    (fun fmt -> Format.fprintf fmt 
+      "Show property constraints when printing property summary.@ \
+        Default: %a"
+      fmt_bool show_props_default
+    )
 
   (** ************************************************************ **)
   (* Colored output *)

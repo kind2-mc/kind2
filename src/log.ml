@@ -35,8 +35,8 @@ module type Sig = sig
   val set_log_format_pt : unit -> unit
   val set_log_format_xml : unit -> unit
   val set_log_format_json : unit -> unit
-  val get_short_log_output : unit -> bool
-  val set_short_log_output : unit -> unit
+  val get_show_props : unit -> bool
+  val set_show_props : bool -> unit
   val set_relay_log : unit -> unit
   val unset_relay_log : unit -> unit
   val pp_print_kind_module_xml_src : Format.formatter -> Lib.kind_module -> unit
@@ -89,7 +89,7 @@ let prev_log_format = ref !log_format
 let get_log_format () = !log_format
 let set_log_format l = log_format := l
 
-let short_output = ref false 
+let show_props = ref true 
 let first_log_flag = ref true
 
 
@@ -272,8 +272,8 @@ let set_log_format_xml () =
 let set_log_format_json () = log_format := F_json
 
 
-let get_short_log_output () = !short_output
-let set_short_log_output () = short_output := true 
+let get_show_props () = !show_props
+let set_show_props value = show_props := value 
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () =

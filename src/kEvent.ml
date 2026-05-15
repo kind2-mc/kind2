@@ -814,8 +814,8 @@ let prop_status_with_expr_pt level trans_sys prop_status_kind =
       | Some e -> e
       | None -> "unknown"
     in
-  let pp_expr ppf sexpr = if Log.get_short_log_output () then () 
-                          else Format.fprintf ppf "@,@[<v 2>  %s@]@]@," sexpr in
+  let pp_expr ppf sexpr = if Log.get_show_props () then Format.fprintf ppf "@,@[<v 2>  %s@]@]@,"  sexpr
+                          else () in
    Format.fprintf
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
