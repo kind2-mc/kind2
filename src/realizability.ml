@@ -668,6 +668,7 @@ let compute_deadlocking_trace_and_conflict
           prop_term = vr_wo ;
           prop_status = PropUnknown ;
           prop_kind = Invariant ;
+          prop_expr = None
         }
       in
 

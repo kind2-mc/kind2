@@ -148,3 +148,4 @@ val ast_of_file : string -> (LustreAst.t, [> error]) result
    indent-tabs-mode: nil
    End: 
 *)
+

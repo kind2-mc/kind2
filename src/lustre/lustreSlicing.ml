@@ -536,7 +536,7 @@ let order_equations
 
 (* Return state variables from properties *)
 let roots_of_props props =
-  List.map (fun (sv, _, _, _) -> sv) props
+  List.map (fun (sv, _, _, _, _) -> sv) props
   |> SVS.of_list
 
 let rec contract_proof_obligation = function
@@ -554,7 +554,7 @@ let rec contract_proof_obligation = function
     false
 
 let  filter_props_contract props =
-  List.filter (fun (_, _, src, _) -> contract_proof_obligation src) props
+  List.filter (fun (_, _, src, _, _) -> contract_proof_obligation src) props
 
 let roots_of_props_contract props =
   filter_props_contract props |> roots_of_props
@@ -682,10 +682,24 @@ let roots_of_contract_ass = function
   let with_sofar_var = assumes <> [] in
   Contract.svars_of ~with_sofar_var contract
 
-let roots_of_inlined_calls calls =
+let keep_inline_call c prop =
+  match prop with
+  | None -> true
+  | Some prop ->
+    let rec check prop =
+      match prop.Property.prop_source with
+      | Property.Instantiated ((_, pos), prop') ->
+        pos = c.N.call_pos || check prop'
+      | Property.Assumption (_, (_, p)) when p = c.N.call_pos -> true
+      | _ -> false
+    in
+    check prop
+
+
+let roots_of_inlined_calls prop calls =
   List.fold_left
     (fun acc c ->
-      if c.N.call_inlined then
+      if c.N.call_inlined && keep_inline_call c prop then
         SVS.union acc (D.values c.call_outputs |> SVS.of_list)
       else
         acc
@@ -1010,6 +1024,7 @@ let rec slice_nodes
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
+    property
     is_top
     roots
     ({ N.outputs; 
@@ -1053,7 +1068,7 @@ let root_and_leaves_of_impl
     |> SVS.union (
       if is_top then SVS.empty else D.values outputs |> SVS.of_list
     )
-    |> SVS.union (roots_of_inlined_calls calls)
+    |> SVS.union (roots_of_inlined_calls property calls)
 
     |> SVS.elements
   in
@@ -1067,6 +1082,7 @@ let root_and_leaves_of_impl
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
 let root_and_leaves_of_contracts
+    property
     is_top
     roots
     ({ N.outputs;
@@ -1089,7 +1105,7 @@ let root_and_leaves_of_contracts
     match roots node false with
     | None ->
       roots_of_contract ~with_sofar_var:(not is_top) contract
-      |> SVS.union (roots_of_inlined_calls calls)
+      |> SVS.union (roots_of_inlined_calls property calls)
       |> SVS.union (roots_of_props_contract props)
       |> SVS.elements
     | Some r ->
@@ -1115,19 +1131,19 @@ let node_is_abstract analysis { N.node_id } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-  is_top roots abstraction_map node
+  property is_top roots abstraction_map node
 =
   if node_is_abstract abstraction_map node
   then (* Node is to be abstract *)
-    root_and_leaves_of_contracts is_top roots node 
+    root_and_leaves_of_contracts property is_top roots node 
   else (* Node is to be concrete *)
-    root_and_leaves_of_impl is_top roots node
+    root_and_leaves_of_impl property is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction'
-  ?(preserve_sig = false) analysis roots subsystem
+  ?(preserve_sig = false) ?property analysis roots subsystem
 =
 
   let { A.top } = A.info_of_param analysis in
@@ -1143,10 +1159,10 @@ let slice_to_abstraction'
 
     slice_nodes
       preserve_sig
-      (root_and_leaves_of_abstraction_map false roots analysis)
+      (root_and_leaves_of_abstraction_map property false roots analysis)
       nodes
       []
-      [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
+      [root_and_leaves_of_abstraction_map property true roots analysis (List.hd nodes)]
 
   in
 
@@ -1186,17 +1202,27 @@ let slice_to_abstraction
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction_and_property
-  ?(preserve_sig = false) analysis vars subsystem
+  ?(preserve_sig = false) analysis prop subsystem
 =
-  let roots { N.contract } is_impl =
-    if is_impl then
-      Some vars
-    else
-      (* Always include at least roots of contract *)
-      Some (roots_of_contract_ass contract) 
+  let roots =
+    match prop.Property.prop_source with
+    | Property.Instantiated _
+    | Property.Assumption _ -> (fun _ _ -> None)
+    | _ -> (
+      let vars =
+        Term.state_vars_of_term prop.Property.prop_term
+      in
+      fun { N.contract } is_impl -> (
+        if is_impl then
+          Some vars
+        else
+          (* Always include at least roots of contract *)
+          Some (roots_of_contract_ass contract)
+        )
+    )
   in
   slice_to_abstraction'
-    ~preserve_sig:preserve_sig analysis roots subsystem
+    ~preserve_sig:preserve_sig ~property:prop analysis roots subsystem
 
 
   

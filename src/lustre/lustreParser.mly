@@ -166,7 +166,6 @@ let mk_span start_pos end_pos =
 %token THEN
 %token ELSE
 %token ELSIF
-%token OTHERWISE
 %token FI
 %token FRAME
 
@@ -221,7 +220,7 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
-%nonassoc ELSE OTHERWISE
+%nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
@@ -1086,7 +1085,7 @@ pexpr(Q):
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
-  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); OTHERWISE; e3 = pexpr(Q)
+  | WHEN; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q)
     { A.TernaryOp (mk_pos $startpos, A.LazyIte, e1, e2, e3) }
 
   (* Recursive node call *)
@@ -1342,7 +1341,7 @@ typed_idents:
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
   | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr;
-    (* Pair each identifier with the type *)
+    (* Concise refinement type syntax *)
     { 
       match l with 
         | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
@@ -1359,6 +1358,13 @@ quantified_typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type_or_history
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr
+    (* Concise refinement type syntax *)
+    {
+      match l with
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
 
 (* A list of lists of typed identifiers *)
 typed_idents_list:

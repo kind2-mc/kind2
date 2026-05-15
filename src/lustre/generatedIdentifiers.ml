@@ -62,7 +62,8 @@ type t = {
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
-    * LustreAst.expr) 
+    * LustreAst.expr
+    * NodeId.t option) (* Node ID for type ascription substitution *)
   list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
@@ -94,6 +95,8 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t;
+  expr_source_map: LustreAst.expr StringMap.t;
+  type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }
 
@@ -141,6 +144,8 @@ let union ids1 ids2 = {
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
+    expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
+    type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
     history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
 
@@ -170,5 +175,7 @@ let empty () = {
   equations = [];
   nonvacuity_props = StringSet.empty;
   array_literal_vars = StringSet.empty;
+  expr_source_map = StringMap.empty;
+  type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
 }

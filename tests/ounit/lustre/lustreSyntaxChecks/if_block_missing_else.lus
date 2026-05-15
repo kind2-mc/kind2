@@ -1,0 +1,7 @@
+node test(x: int) returns (y: int);
+let
+  if (x > 0)
+  then
+    y = 1;
+  fi
+tel

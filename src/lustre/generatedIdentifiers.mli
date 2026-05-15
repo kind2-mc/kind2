@@ -62,7 +62,8 @@ type t = {
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
-    * LustreAst.expr) 
+    * LustreAst.expr
+    * NodeId.t option) (* Node ID for type ascription substitution *)
     list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
@@ -94,6 +95,8 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
+  expr_source_map: LustreAst.expr StringMap.t;
+  type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }
 

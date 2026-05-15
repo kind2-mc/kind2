@@ -56,6 +56,10 @@ type t = {
   prop_term : Term.t ;
   (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
 
+  prop_expr : string option;
+  (* Expression of property *)
+  
+
   mutable prop_status : prop_status ;
   (** Current status *)
 }
@@ -71,7 +75,7 @@ and prop_source =
   | Generated of Lib.position option * StateVar.t list * generated_source
   (** Property was generated, for example, from a subrange constraint *)
 
-  | Instantiated of Scope.t * t
+  | Instantiated of (Scope.t * Lib.position) * t
   (** Property is an instance of a property in a called node.
 
      Reference the instantiated property by the [scope] of the subsystem and

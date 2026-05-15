@@ -294,7 +294,6 @@ let keyword_table = mk_hashtbl [
   "if", IF ;
   "then", THEN ;
   "else", ELSE ;
-  "otherwise", OTHERWISE;
   "elsif", ELSIF ;
   "fi", FI ;
   "frame", FRAME ;
