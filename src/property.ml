@@ -81,7 +81,7 @@ and prop_source =
 
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
-  | Instantiated of Scope.t * t
+  | Instantiated of (Scope.t * Lib.position) * t
 
   (* Contract assumption that a caller has to prove.
 
@@ -146,7 +146,7 @@ let pp_print_prop_source ppf = function
      Format.fprintf ppf "subrange constraint"
   | Candidate _ ->
      Format.fprintf ppf "candidate invariant"
-  | Instantiated (scope,_) ->
+  | Instantiated ((scope, _),_) ->
      Format.fprintf
        ppf
        "instantiated from %s"
