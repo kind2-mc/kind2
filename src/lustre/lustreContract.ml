@@ -45,8 +45,9 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
     Format.asprintf "%a%s" (
       pp_print_list (
         fun fmt (pos, call) ->
-          Format.fprintf fmt "%s%a."
+          Format.fprintf fmt "%s%a%t"
             call Lib.pp_print_line_and_column pos
+            Lib.StringValues.pp_print_scope_sep
       ) ""
     ) scope n
     
@@ -54,8 +55,9 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
     Format.asprintf "%a%s%s%a" (
       pp_print_list (
         fun fmt (pos, call) ->
-          Format.fprintf fmt "%s%a."
+          Format.fprintf fmt "%s%a%t"
             call Lib.pp_print_line_and_column pos
+            Lib.StringValues.pp_print_scope_sep
       ) ""
     ) scope kind name Lib.pp_print_line_and_column pos
 
