@@ -2687,10 +2687,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   in
 
   let rexpr = match node_id_opt, replace_expr with
-    | Some nid, Some expr ->
+    | Some _, Some expr ->
       (* Format.printf "Found type ascription with a mapped RHS for %a: %a\n" NI.pp_print_node_id_input_name nid A.pp_print_expr expr ; *)
       LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
-    | Some nid, None -> 
+    | Some _, None -> 
       (* Format.printf "Didn't find mapped type ascription for %a. \n" NI.pp_print_node_id_input_name nid;
       Format.printf "Map: %a\n" pp_map global_teas; *)
       rexpr

@@ -680,26 +680,6 @@ let progress_pt mdl level k =
     pp_print_kind_module mdl
     k
  *)
-
-let prop_expr_map_pt level trans_sys prop_status_kind = 
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Expressions of properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    (pp_print_list (fun ppf (name, _, _) -> (
-      let property = TransSys.property_of_name trans_sys name in
-      let sexpr = match property.prop_expr with
-        | Some e -> e
-        | None -> "unknown"
-      in
-        Format.fprintf ppf "@[<h>@{<blue_b>%s@}: %s@]" (name_wrapper name) sexpr
-
-    ))
-    "@,")
-    prop_status_kind
-    Pretty.print_double_line ()
-
 let pp_print_status_of_prop = (function ppf -> (function
                   | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"
@@ -784,7 +764,7 @@ let pp_print_status_of_prop = (function ppf -> (function
                       ((Property.length_of_cex cex) - 1)
                 )
               )
-
+(* 
 (* Pretty-print a list of properties and their status *)
 let prop_status_pt level trans_sys prop_status_kind =
   prop_expr_map_pt level trans_sys prop_status_kind;
@@ -803,9 +783,9 @@ let prop_status_pt level trans_sys prop_status_kind =
             (s, k))
        "@,")
     prop_status_kind
-    Pretty.print_double_line ()
+    Pretty.print_double_line () *)
           
-let prop_status_with_expr_pt level trans_sys prop_status_kind =
+let prop_status_pt level trans_sys prop_status_kind =
 
   let pp_property_block ppf (name, status, kind) =
     let property = TransSys.property_of_name trans_sys name in
