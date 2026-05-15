@@ -33,8 +33,8 @@
   @author Rob Lorch
 *)
 
-val desugar_adts :
+val desugar_adts_program :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-  LustreAst.declaration list ->
-  LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context
+  LustreAst.declaration list * TypeCheckerContext.tc_context
+  * GeneratedIdentifiers.t NodeId.Map.t

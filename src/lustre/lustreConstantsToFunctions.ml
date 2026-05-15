@@ -170,9 +170,34 @@ let decl_constants_to_calls new_func_ids decl = match decl with
 let constants_to_calls new_func_ids decls = 
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
+(* Returns true iff the type contains an ADT (algebraic data type). *)
+let rec type_contains_adt ctx ty =
+  let r = type_contains_adt ctx in
+  match ty with
+  | A.ADT _ -> true
+  | A.UserType (_, tys, name) ->
+    List.exists r tys ||
+    (match Ctx.lookup_ty_syn ctx name tys with
+    | Some (A.ADT _) -> true
+    | Some ty' -> r ty'
+    | None -> false)
+  | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
+  | A.RecordType (_, _, flds) -> List.exists (fun (_, _, ty) -> r ty) flds
+  | A.ArrayType (_, (ty, _)) -> r ty
+  | A.Set (_, ty) -> r ty
+  | A.Map (_, kt, vt) | A.TArr (_, kt, vt) -> r kt || r vt
+  | A.RefinementType (_, (_, _, ty), _) -> r ty
+  | A.History (_, id) ->
+    (match Ctx.lookup_ty ctx id with None -> false | Some ty -> r ty)
+  | A.IntRange _ | A.Bool _ | A.Int _ | A.Real _
+  | A.UBitVector _ | A.SBitVector _ | A.AbstractType _ | A.EnumType _ -> false
+
+
 (* Returns true iff the type contains some expression that would induce generated 
-   identifiers. In this context, the only way to induce generated identifiers 
-   is from set binary operations (union/intersection) *)
+   identifiers. In this context, the only ways to induce generated identifiers:
+    * set binary operations (union/intersection)
+    * ADTs
+    * ADT terms *)
 let rec ty_contains_gids ctx ni ty = 
   let r = ty_contains_gids ctx ni in
   match ty with  
@@ -215,9 +240,9 @@ let rec ty_contains_gids ctx ni ty =
 let gen_const_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
-    | A.ConstDecl (s, A.FreeConst (_, id, ty)) -> 
+    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->
       let ctx = Ctx.add_ty ctx id ty in
-      let contains_gids = ty_contains_gids ctx None ty in
+      let contains_gids = ty_contains_gids ctx None ty || type_contains_adt ctx ty in
       if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then
         (* Generate a function for free constants when the type includes generated identifiers,
            and for realizability checking of free constants. *)
@@ -245,8 +270,8 @@ let gen_const_functions ctx decls =
         acc_decls, acc_new_func_ids, acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
-    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
-      if Ctx.type_contains_ref_or_subrange ctx ty then 
+    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) ->
+      if Ctx.type_contains_ref_or_subrange ctx ty then
         let p = s.start_pos in
         let node_type = NI.DefinedConstant in 
         let node_id = NI.mk_node_id ~node_type id in

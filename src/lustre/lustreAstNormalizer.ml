@@ -77,6 +77,7 @@ module AIC = LustreAstInlineConstants
 module AI = LustreAbstractInterpretation
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
+module LDAT = LustreDesugarADTs
 
 type error = [
   | `LustreAstNormalizerError
@@ -1054,6 +1055,8 @@ let get_inlinable_func_decls inlinable_funcs decls =
     decls
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
+  let decls, ctx, adt_gids = LDAT.desugar_adts_program ctx decls in
+  let gids = NI.Map.merge union_keys2 gids adt_gids in
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;

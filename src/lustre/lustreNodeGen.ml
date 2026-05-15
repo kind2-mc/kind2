@@ -2065,6 +2065,28 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (X.fold over_indices index_types X.empty) :: ib_oracles
     ) in
     List.fold_left over_ib_oracles [] gids.GI.ib_oracles
+  in
+  let adt_term_oracles =
+    let over_adt_term_oracles adt_term_oracles (id, expr_type) = (
+      let oracle_ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = ( fun index index_type accum ->
+        let possible_state_var = mk_state_var
+          ~is_const:false
+          map
+          (node_scope @ I.reserved_scope)
+          oracle_ident
+          index
+          index_type
+          (Some N.Oracle)
+        in
+        match possible_state_var with
+          | Some state_var -> X.add index state_var accum
+          | None -> accum
+      ) in
+      (X.fold over_indices index_types X.empty) :: adt_term_oracles
+    ) in
+    List.fold_left over_adt_term_oracles [] gids.GI.adt_term_oracles
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
@@ -2819,7 +2841,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     inputs;
     oracles;
     outputs;
-    locals = ib_oracles @ locals;
+    locals = adt_term_oracles @ ib_oracles @ locals;
     equations;
     calls;
     asserts;
