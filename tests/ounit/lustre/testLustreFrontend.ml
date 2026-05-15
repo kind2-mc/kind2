@@ -66,6 +66,10 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test bad underscore" (fun () ->
+    match load_file "./lustreSyntaxChecks/bad_underscore.lus" with
+    | Error (`LustreSyntaxChecksError (_, InvalidUnderscore)) -> true
+    | _ -> false);
   mk_test "test non-inlinable type ascription 1" (fun () ->
     match load_file "./lustreSyntaxChecks/non_inlinable_ta.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInTypeAscription _)) -> true
