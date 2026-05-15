@@ -260,13 +260,13 @@ let non_vacuity_check scope name pos requires props =
   match requires with
   | { C.scope = s } :: _ ->
     let name =
-      Format.asprintf "%a%s%trequires%a" (
+      Format.asprintf "%a%s%a" (
         pp_print_list (
           fun fmt (pos, call) ->
             Format.fprintf fmt "%s%a%t"
               call Lib.pp_print_line_and_column pos Lib.StringValues.pp_print_scope_sep
         ) ""
-      ) s name Lib.StringValues.pp_print_scope_sep Lib.pp_print_line_and_column pos 
+      ) s name Lib.pp_print_line_and_column pos 
     in
     let guard = conj_of requires in
     property_of_expr
