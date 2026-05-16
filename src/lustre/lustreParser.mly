@@ -815,9 +815,6 @@ left_side:
   (* Parenthesized list *)
   | LPAREN; l = struct_item_list; RPAREN { A.StructDef (mk_pos $startpos, l) }
 
-  (* Empty list *)
-  | LPAREN; RPAREN { A.StructDef (mk_pos $startpos, []) }
-
 
 (* Item in a structured equation *)
 struct_item:
