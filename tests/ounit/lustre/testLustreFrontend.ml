@@ -867,7 +867,7 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     | _ -> false);
   mk_test "If block outside frame block missing else branch" (fun () ->
     match load_file "./lustreSyntaxChecks/if_block_missing_else.lus" with
-    | Error (`LustreDesugarIfBlocksError (_, MissingElseBranchError)) -> true
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
   mk_test "If block outside frame block variable missing in branch" (fun () ->
     match load_file "./lustreSyntaxChecks/if_block_missing_definition.lus" with

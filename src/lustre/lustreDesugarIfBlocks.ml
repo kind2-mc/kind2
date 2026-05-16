@@ -26,7 +26,6 @@ module Ctx = TypeCheckerContext
 
 type error_kind = 
   | MisplacedNodeItemError of A.node_item
-  | MissingElseBranchError
   | MissingDefinitionInBranchError of HString.t
 
 let error_message error = match error with
@@ -40,10 +39,8 @@ let error_message error = match error with
     (* Other node items are allowed *)
     | _ -> assert false
   )
-  | MissingElseBranchError ->
-    "If blocks outside of frame blocks must have an else branch."
   | MissingDefinitionInBranchError id ->
-    "Variable '" ^ HString.string_of_hstring id ^ "' must be defined in all branches of the if block."
+    "Variable '" ^ HString.string_of_hstring id ^ "' must be defined in every branch, including implicit ones."
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind
@@ -81,17 +78,6 @@ let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 let unwrap = function 
 | Ok r -> r 
 | Error _ -> assert false
-
-(** Checks that an if block (outside of a frame block) has an else branch,
-    and recursively checks nested if blocks. *)
-let rec check_if_block_has_else ni = match ni with
-  | A.IfBlock (pos, _, _, []) -> mk_error pos MissingElseBranchError
-  | A.IfBlock (_, _, then_nis, else_nis) ->
-    let if_blocks = List.filter_map (fun item -> match item with
-      | A.IfBlock _ -> Some item
-      | _ -> None) (then_nis @ else_nis) in
-    R.seq_ (List.map check_if_block_has_else if_blocks)
-  | _ -> assert false
 
 (** Checks whether a cond_tree contains any Leaf None (undefined branch). *)
 let rec has_leaf_none = function
@@ -405,12 +391,6 @@ let split_and_flatten3 ls =
     5. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if node_id ctx ib in_frame_block =
-  (* When outside a frame block, enforce that else branches are present and
-     that every variable defined in one branch is defined in all branches. *)
-  let* () =
-    if in_frame_block then R.ok ()
-    else check_if_block_has_else ib
-  in
   (* Keep track of where the if block variables are defined so that the position can
      be displayed in post analysis, eg ivcMcs.ml *)
   update_if_position_info node_id ib;
