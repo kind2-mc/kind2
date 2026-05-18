@@ -216,16 +216,15 @@ let mk_span start_pos end_pos =
 %token HASH
 %token MATCH
 %token END
-%token CASE 
 
 (* Token for end of file marker *)
 %token EOF
-    
+
 (* Priorities and associativity of operators, lowest first *)
-%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
 %nonassoc WHEN CURRENT BAR
-%right CASE
-%nonassoc ELSE 
+%nonassoc MATCH_ARM_BODY  (* resolves shift/reduce: match arm body ends before next | *)
+%nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
@@ -502,7 +501,7 @@ pat:
 
 (* A single arm of a match expression *)
 match_arm:
-  | BAR; p = pat; CASE; e = expr { (p, e) }
+  | BAR; p = pat; COLON; e = expr %prec MATCH_ARM_BODY { (p, e) }
 
 
 (* ********************************************************************** *)

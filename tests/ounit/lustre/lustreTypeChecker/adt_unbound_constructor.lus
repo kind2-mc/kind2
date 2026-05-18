@@ -3,8 +3,8 @@ datatype Color = Red | Green | Blue;
 node N (c: Color) returns (r: bool);
 let
   r = match c with
-    | Red --> true
-    | Purple (f) --> false
-    | Blue --> false
+    | Red : true
+    | Purple (f) : false
+    | Blue : false
   end;
 tel
