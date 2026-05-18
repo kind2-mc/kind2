@@ -167,6 +167,7 @@ type info = {
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
   call_context : LustreAst.expr list;
   inlined_expr_ctx : bool;
+  adt_map : LDAT.adt_map;
 }
 
 let pp_print_generated_identifiers ppf gids =
@@ -1009,8 +1010,17 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, expr_list' = desugar_expr_list map expr_list in
     StringSet.union vars1 vars2,
     RestartEvery (pos, ident, expr_list', e')
-  | Match _ -> assert false
-  | ADTTerm _ -> assert false
+  | Match (pos, scrut, arms, scrut_ty_opt) ->
+    let vars0, scrut' = r map scrut in
+    let vars_list, arms' = List.split (List.map (fun (pat, body) ->
+      let vars, body' = r map body in
+      vars, (pat, body')
+    ) arms) in
+    let all_vars = List.fold_left StringSet.union vars0 vars_list in
+    all_vars, Match (pos, scrut', arms', scrut_ty_opt)
+  | ADTTerm (pos, ctor, args) ->
+    let vars, args' = desugar_expr_list map args in
+    vars, ADTTerm (pos, ctor, args')
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
         expr_list
@@ -1055,8 +1065,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
     decls
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
-  let decls, ctx, adt_gids = LDAT.desugar_adts_program ctx decls in
-  let gids = NI.Map.merge union_keys2 gids adt_gids in
+  let decls, ctx, adt_map = LDAT.desugar_adts_program ctx decls in
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
@@ -1069,8 +1078,9 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
-    inlined_expr_ctx = false }
-  in 
+    inlined_expr_ctx = false;
+    adt_map }
+  in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
     let (normal_item, accum, warnings) =
@@ -2563,8 +2573,57 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | Match _ -> assert false
-  | ADTTerm _ -> assert false
+  | A.Match (pos, scrut, arms, scrut_ty_opt) ->
+    let adt_info = match scrut_ty_opt with
+      | Some ty -> (match LDAT.adt_info_of_type info.adt_map ty with
+        | Some i -> i | None -> assert false)
+      | None -> assert false
+    in
+    let scrut', g0, w0 = normalize_expr ?guard info node_id map scrut in
+    let arm_results = List.map (fun (pat, body) ->
+      let (cond_opt, body) = LDAT.desugar_arm pos info.adt_map adt_info scrut' pat body in
+      let body', g, w = normalize_expr ?guard info node_id map body in
+      (cond_opt, body'), g, w
+    ) arms in
+    let desugared_arms = List.map (fun (x, _, _) -> x) arm_results in
+    let g1 = List.fold_left (fun acc (_, g, _) -> union acc g) (empty ()) arm_results in
+    let w1 = List.concat_map (fun (_, _, w) -> w) arm_results in
+    LDAT.build_ite pos desugared_arms, union g0 g1, w0 @ w1
+  | A.ADTTerm (pos, ctor, args) ->
+    let args', g0, w0 = normalize_list (normalize_expr ?guard info node_id map) args in
+    let find_adt_info_for_ctor =
+      LDAT.HStringMap.fold (fun _ty_name info acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          if LDAT.HStringMap.mem ctor info.LDAT.ctor_fields then Some info
+          else None
+      ) info.adt_map None
+    in
+    (match find_adt_info_for_ctor with
+    | None -> assert false
+    | Some adt_info ->
+        let disc_e = A.Ident (pos, ctor) in
+        let this_ctor_fields =
+          match LDAT.HStringMap.find_opt ctor adt_info.LDAT.ctor_fields with
+          | Some fs -> fs | None -> assert false
+        in
+        let arg_map =
+          List.combine (List.map fst this_ctor_fields) args'
+          |> List.fold_left (fun m (fn, e) -> LDAT.HStringMap.add fn e m) LDAT.HStringMap.empty
+        in
+        let payload_results = List.map (fun (fname, ftype) ->
+          match LDAT.HStringMap.find_opt fname arg_map with
+          | Some e -> (fname, e), empty ()
+          | None ->
+            let e, go = LDAT.mk_fresh_adt_term_oracle pos ftype in
+            (fname, e), go
+        ) adt_info.LDAT.all_payload_fields in
+        let payload_flds = List.map fst payload_results in
+        let g1 = List.fold_left (fun acc (_, g) -> union acc g) (empty ()) payload_results in
+        A.RecordExpr (pos, adt_info.LDAT.type_name, [],
+          (adt_info.LDAT.disc_field, disc_e) :: payload_flds),
+        union g0 g1, w0)
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

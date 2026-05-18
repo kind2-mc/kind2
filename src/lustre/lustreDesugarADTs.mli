@@ -26,15 +26,50 @@
   where the tag field encodes the active constructor and payload fields
   for non-selected constructors carry junk default values.
 
-  [ADTTerm] expressions and [Match] expressions are desugared
-  correspondingly: [ADTTerm] becomes a [RecordExpr], and [Match] becomes
-  a nested ITE chain on the tag field.
+  The pre-pass ([desugar_adts_program]) handles TypeDecl transformation
+  and context update. [ADTTerm] and [Match] expression desugaring is
+  performed within the normalizer using the shared infrastructure below.
 
   @author Rob Lorch
 *)
 
+module HStringMap = HString.HStringMap
+
+type adt_info = {
+  type_name : HString.t;
+  disc_field : HString.t;
+  disc_enum : HString.t;
+  ctor_variants : HString.t list;
+  ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
+  all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+}
+
+type adt_map = adt_info HStringMap.t
+
+val record_type_of_adt : Lib.position -> adt_info -> LustreAst.lustre_type
+
+val mk_fresh_adt_term_oracle :
+  Lib.position ->
+  LustreAst.lustre_type ->
+  LustreAst.expr * GeneratedIdentifiers.t
+
+val adt_info_of_type : adt_map -> LustreAst.lustre_type -> adt_info option
+
+val desugar_arm :
+  Lib.position ->
+  adt_map ->
+  adt_info ->
+  LustreAst.expr ->
+  LustreAst.pattern ->
+  LustreAst.expr ->
+  LustreAst.expr option * LustreAst.expr
+
+val build_ite :
+  Lib.position ->
+  (LustreAst.expr option * LustreAst.expr) list ->
+  LustreAst.expr
+
 val desugar_adts_program :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-  LustreAst.declaration list * TypeCheckerContext.tc_context
-  * GeneratedIdentifiers.t NodeId.Map.t
+  LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map

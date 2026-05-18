@@ -571,10 +571,18 @@ let no_dangling_identifiers ctx = function
     no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
-let no_node_calls_in_constant i e =
-  if LAH.expr_contains_call e
-  then syntax_error (LAH.pos_of_expr e) (NodeCallInConstant i)
-  else Ok ()
+let no_node_calls_in_constant ctx i = function
+  | LA.Call (pos, _, node_id, _) ->
+    if StringMap.mem (NI.get_name node_id) ctx.constructors
+    then Ok ()
+    else syntax_error pos (NodeCallInConstant i)
+  | LA.Condact (pos, _, _, _, _, _)
+  | LA.RestartEvery (pos, _, _, _)
+  | LA.AnyOp (pos, _, _)
+  | LA.ChooseOp (pos, _, _)
+  | LA.TypeAscription (pos, _, _)
+    -> syntax_error pos (NodeCallInConstant i)
+  | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   (*| LA.Call (pos, _, i, args) ->
@@ -769,11 +777,11 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
+and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result
 = fun i ctx expr ->
   let composed_checks i ctx e =
-    (no_dangling_identifiers ctx e) >> 
-    (no_node_calls_in_constant i e) >> Ok []
+    (no_dangling_identifiers ctx e) >>
+    (no_node_calls_in_constant ctx i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 

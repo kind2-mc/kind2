@@ -92,13 +92,17 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; u_types: ty_set               (* store of all declared user types,
                                                      this is poor mans kind (type of type) context *)
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
-                      contract_exports 
+                      contract_exports
                   ; enum_vars: enum_variants
                   ; ty_vars:                      (* stores the type variables associated with each node *)
-                      ty_var_store              
+                      ty_var_store
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
-                      ty_var_store  
+                      ty_var_store
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
+                  ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
+                                                  (* stable ADT constructor info: ctor -> (type_name, field_types)
+                                                     populated by ADT desugaring pre-pass so that
+                                                     lookup_constructor works after ty_syns is rewritten *)
                   }
 (** The type checker global context *)
 
@@ -117,6 +121,7 @@ let empty_tc_context: tc_context =
   ; ty_vars = NI.Map.empty
   ; contract_ty_vars = NI.Map.empty
   ; ty_ty_vars = IMap.empty
+  ; adt_ctors = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -273,17 +278,24 @@ let lookup_variants: tc_context -> LA.ident -> LA.ident list option
 
 let lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type list) option
   = fun ctx ctor ->
-  IMap.fold (fun ty_name ty acc ->
-    match acc with
-    | Some _ -> acc
-    | None ->
-      (match ty with
-      | LA.ADT (_, _, cons) ->
-        (match List.assoc_opt ctor cons with
-        | Some field_tys -> Some (ty_name, field_tys)
-        | None -> None)
-      | _ -> None)
-  ) ctx.ty_syns None
+  match IMap.find_opt ctor ctx.adt_ctors with
+  | Some _ as result -> result
+  | None ->
+    IMap.fold (fun ty_name ty acc ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+        (match ty with
+        | LA.ADT (_, _, cons) ->
+          (match List.assoc_opt ctor cons with
+          | Some field_tys -> Some (ty_name, field_tys)
+          | None -> None)
+        | _ -> None)
+    ) ctx.ty_syns None
+
+let add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> tc_context
+  = fun ctx ctor ty_name field_tys ->
+  { ctx with adt_ctors = IMap.add ctor (ty_name, field_tys) ctx.adt_ctors }
 
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
@@ -390,6 +402,9 @@ let union: tc_context -> tc_context -> tc_context
                     ; ty_ty_vars = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_ty_vars)
                                    (ctx2.ty_ty_vars))
+                    ; adt_ctors = (IMap.union (fun _ _ v2 -> Some v2)
+                                   (ctx1.adt_ctors)
+                                   (ctx2.adt_ctors))
                      }
 (** Unions the two typing contexts *)
 
