@@ -1,0 +1,33 @@
+datatype Color = Red | Green | Blue;
+
+datatype Wrapper = | Wrap (bool);
+
+datatype IntOption = IntNone | IntSome (int);
+
+datatype Option<T> = None | Some (T);
+
+datatype Shape = 
+  | Point 
+  | Circle (real) 
+  | Rectangle (real, real);
+
+datatype Tree = Leaf | Node (int, Tree2, Tree2);
+datatype Tree2 = Leaf2 | Node2 (int, Tree3, Tree3);
+datatype Tree3 = Leaf3; 
+
+datatype List = Nil | Cons (int, List2);
+datatype List2 = Nil2 | Cons2 (int, List3);
+datatype List3 = Nil3;
+
+node main (inp: List) returns (out: [Tree, int]; counter: int; )
+let
+  counter = 0 -> 1 + pre counter; 
+
+  out = match inp with
+    | Cons (i, Cons2(j, Nil3)) : '(Leaf, j) 
+    | Cons (i, l) : '(Node(i, Leaf2, Leaf2), 0)
+    | Nil : '(Node (0, Leaf2, Node2 (1, Leaf3, Leaf3)), 0)
+  end;
+
+  check counter > 3 => out[0] = Leaf and out[1] > 0;
+tel
