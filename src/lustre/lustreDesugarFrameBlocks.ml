@@ -152,10 +152,10 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     Condact (p, r e1, r e2, b, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (p, e1, li, e2) ->
-    let e2 = match e2 with
+  | StructUpdate (p, e1, li, e2) -> 
+    let e2 = match e2 with 
     | Some e2 -> Some (r e2)
-    | None -> None
+    | None -> None 
     in
     A.StructUpdate (p, r e1,
     List.map (function
@@ -164,7 +164,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | SetIndex (a, e) -> SetIndex (a, r e)
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
-             ) li,
+             ) li, 
     e2)
   | A.Match (p, e, arms, ty_opt) ->
     A.Match (p, r e,

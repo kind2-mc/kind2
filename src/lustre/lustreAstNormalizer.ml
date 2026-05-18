@@ -2579,18 +2579,16 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         | Some i -> i | None -> assert false)
       | None -> assert false
     in
-    let scrut', g0, w0 = normalize_expr ?guard info node_id map scrut in
-    let arm_results = List.map (fun (pat, body) ->
+    let scrut', gids1, warnings1 = normalize_expr ?guard info node_id map scrut in
+    let desugared_arms, gids2, warnings2 = List.map (fun (pat, body) ->
       let (cond_opt, body) = LDAT.desugar_arm pos info.adt_map adt_info scrut' pat body in
       let body', g, w = normalize_expr ?guard info node_id map body in
       (cond_opt, body'), g, w
-    ) arms in
-    let desugared_arms = List.map (fun (x, _, _) -> x) arm_results in
-    let g1 = List.fold_left (fun acc (_, g, _) -> union acc g) (empty ()) arm_results in
-    let w1 = List.concat_map (fun (_, _, w) -> w) arm_results in
-    LDAT.build_ite pos desugared_arms, union g0 g1, w0 @ w1
+    ) arms |> Lib.split3 in
+    let gids2 = List.fold_left union (empty ()) gids2 in
+    LDAT.build_ite pos desugared_arms, union gids1 gids2, warnings1 @ List.flatten warnings2 
   | A.ADTTerm (pos, ctor, args) ->
-    let args', g0, w0 = normalize_list (normalize_expr ?guard info node_id map) args in
+    let args', gids1, warnings = normalize_list (normalize_expr ?guard info node_id map) args in
     let find_adt_info_for_ctor =
       LDAT.HStringMap.fold (fun _ty_name info acc ->
         match acc with
@@ -2620,10 +2618,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
             (fname, e), go
         ) adt_info.LDAT.all_payload_fields in
         let payload_flds = List.map fst payload_results in
-        let g1 = List.fold_left (fun acc (_, g) -> union acc g) (empty ()) payload_results in
+        let gids2 = List.fold_left (fun acc (_, g) -> union acc g) (empty ()) payload_results in
         A.RecordExpr (pos, adt_info.LDAT.type_name, [],
           (adt_info.LDAT.disc_field, disc_e) :: payload_flds),
-        union g0 g1, w0)
+        union gids1 gids2, warnings)
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
