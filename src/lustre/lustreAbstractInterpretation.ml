@@ -471,8 +471,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       Ctx.traverse_group_expr_list g ty_ctx proj es
     )
     | StructUpdate (_, e, _, _) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
-    (*!!??*)
-    | Match _
+    | Match _ (* module to be removed soon anyway... *)
     | ADTTerm _ -> ty
     | _ -> assert false)
 

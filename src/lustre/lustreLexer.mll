@@ -491,7 +491,6 @@ rule token = parse
   | '/' { DIV }
   | '*' { MULT }
   | "->" { ARROW }
-  | "-->" { CASE }
   | "&&" { BVAND }
   | "||" { BVOR }
   | "!" { BVNOT }
