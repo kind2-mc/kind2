@@ -764,26 +764,6 @@ let pp_print_status_of_prop = (function ppf -> (function
                       ((Property.length_of_cex cex) - 1)
                 )
               )
-(* 
-(* Pretty-print a list of properties and their status *)
-let prop_status_pt level trans_sys prop_status_kind =
-  prop_expr_map_pt level trans_sys prop_status_kind;
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    (pp_print_list 
-       (fun ppf ((p, s, k)) -> 
-          Format.fprintf 
-            ppf
-            "@[<h>@{<blue_b>%s@}: %a@]"
-            (name_wrapper p)
-            pp_print_status_of_prop
-            (s, k))
-       "@,")
-    prop_status_kind
-    Pretty.print_double_line () *)
           
 let prop_status_pt level trans_sys prop_status_kind =
 
@@ -1200,7 +1180,7 @@ let prop_attributes_json ppf trans_sys prop_name =
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
-            Format.fprintf ppf
+          Format.fprintf ppf
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
     )
