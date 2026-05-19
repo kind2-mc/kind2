@@ -3668,7 +3668,7 @@ let check_nonvacuity_default = true
   let show_props_default = Log.get_show_props ()
 
   let _ = add_spec
-    "--show-props"
+    "--show_props"
     (Arg.Bool Log.set_show_props)
     (fun fmt -> Format.fprintf fmt 
       "Show property constraints when printing property summary.@ \
