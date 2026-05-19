@@ -6,13 +6,13 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+   http://www.apache.org/licenses/LICENSE-2.0 
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
-   permissions and limitations under the License.
+   permissions and limitations under the License. 
 
 *)
 
@@ -50,7 +50,8 @@ let rec flatten_ref_type ctx ty = match ty with
     | None -> Ok (A.UserType (pos, ty_args, str)))
   | RecordType (pos, id, tis) ->
     let* tis = Res.seq (List.map (fun (p, id, ty) ->
-      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)) tis) in
+      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)
+    ) tis) in
     Ok (A.RecordType (pos, id, tis))
   | Set (pos, ty) ->
     let* ty = flatten_ref_type ctx ty in
@@ -187,7 +188,8 @@ let rec flatten_ref_type ctx ty = match ty with
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ty
   | ADT (pos, name, cons) ->
     let* cons = Res.seq (List.map (fun (ctor, tys) ->
-      let* tys = Res.seq (List.map (flatten_ref_type ctx) tys) in Ok (ctor, tys)) cons) in
+      let* tys = Res.seq (List.map (flatten_ref_type ctx) tys) in Ok (ctor, tys)
+    ) cons) in
     Ok (A.ADT (pos, name, cons))
 
 let flatten_ref_types_local_decl ctx = function
@@ -210,7 +212,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
   (* Expressions with types *)
   | Quantifier (p, q, tis, e) ->
     let* tis = Res.seq (List.map (fun (p, id, ty) ->
-      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)) tis) in
+      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)
+    ) tis) in
     let* e = rc e in
     Ok (Quantifier (p, q, tis, e))
   | EmptySet (p, Some ty) ->
@@ -311,7 +314,8 @@ let flatten_ref_types_contract_eq ctx eq =
     Ok (A.GhostConst cd)
   | A.GhostVars (p1, GhostVarDec (p2, tids), expr) ->
     let* tids = Res.seq (List.map (fun (p, id, ty) ->
-      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)) tids) in
+      let* ty = flatten_ref_type ctx ty in Ok (p, id, ty)
+    ) tids) in
     Ok (A.GhostVars (p1, GhostVarDec (p2, tids), expr))
   | A.Assume (p, id, s, expr) ->
     let* expr = flatten_ref_types_expr ctx expr in
@@ -321,9 +325,11 @@ let flatten_ref_types_contract_eq ctx eq =
     Ok (A.Guarantee (p, id, s, expr))
   | A.Mode (p, id, requires, ensures) ->
     let* requires = Res.seq (List.map (fun (p, id, expr) ->
-      let* expr = flatten_ref_types_expr ctx expr in Ok (p, id, expr)) requires) in
+      let* expr = flatten_ref_types_expr ctx expr in Ok (p, id, expr)
+    ) requires) in
     let* ensures = Res.seq (List.map (fun (p, id, expr) ->
-      let* expr = flatten_ref_types_expr ctx expr in Ok (p, id, expr)) ensures) in
+      let* expr = flatten_ref_types_expr ctx expr in Ok (p, id, expr)
+    ) ensures) in
     Ok (A.Mode (p, id, requires, ensures))
   | A.ContractCall (pos, id, ps, args, outputs) ->
     let* ps = Res.seq (List.map (flatten_ref_type ctx) ps) in
@@ -348,11 +354,13 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
   in
   let flatten_inputs ctx ips =
     Res.seq (List.map (fun (pos, id, ty, cl, b) ->
-      let* ty = flatten_ref_type ctx ty in Ok (pos, id, ty, cl, b)) ips)
+      let* ty = flatten_ref_type ctx ty in Ok (pos, id, ty, cl, b)
+    ) ips)
   in
   let flatten_outputs ctx ops =
     Res.seq (List.map (fun (pos, id, ty, cl) ->
-      let* ty = flatten_ref_type ctx ty in Ok (pos, id, ty, cl)) ops)
+      let* ty = flatten_ref_type ctx ty in Ok (pos, id, ty, cl)
+    ) ops)
   in
   let* decls = Res.seq (List.map (fun decl -> match decl with
     | A.TypeDecl (pos, AliasType (pos2, id, ps, ty)) ->
@@ -389,11 +397,13 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
   ) decls) in
   let* gids = Res.seq_chain (fun acc (k, gids) ->
     let* ib_oracles = Res.seq (List.map (fun (id, ty) ->
-      let* ty = flatten_ref_type ctx ty in Ok (id, ty)) gids.GI.ib_oracles) in
+      let* ty = flatten_ref_type ctx ty in Ok (id, ty)
+    ) gids.GI.ib_oracles) in
     let* locals =
       let bindings = GI.StringMap.bindings gids.GI.locals in
       let* bindings = Res.seq (List.map (fun (id, ty) ->
-        let* ty = flatten_ref_type ctx ty in Ok (id, ty)) bindings) in
+        let* ty = flatten_ref_type ctx ty in Ok (id, ty)
+      ) bindings) in
       Ok (List.fold_left (fun m (k, v) -> GI.StringMap.add k v m) GI.StringMap.empty bindings)
     in
     Ok (NI.Map.add k { gids with GI.ib_oracles; GI.locals } acc)

@@ -93,8 +93,8 @@ type group_expr =
   | ArrayExpr (* Array expression *)
 
 type access_kind =
-  | Array
-  | Map
+  | Array 
+  | Map 
   | Tuple
   | Unknown
 
@@ -678,7 +678,7 @@ and pp_print_expr ppf =
 
     | Match (_, e, arms, _) ->
       let pp_arm ppf (pat, body) =
-        Format.fprintf ppf "| %a --> %a"
+        Format.fprintf ppf "| %a : %a"
           pp_print_pattern pat
           pp_print_expr body
       in
