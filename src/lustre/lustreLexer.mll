@@ -297,6 +297,7 @@ let keyword_table = mk_hashtbl [
   "elsif", ELSIF ;
   "fi", FI ;
   "when", WHEN ; (* Also clock operator *)
+  "cond", COND ;
   "otherwise", OTHERWISE;
   "end", END ;
   "frame", FRAME ;

@@ -6,7 +6,7 @@ noc
 
 node N(x: int) returns (y,z: int);
 let
-  when 
+  cond 
     | x = 0:
       y = f(x);
       z = 0;

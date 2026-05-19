@@ -168,6 +168,7 @@ let mk_span start_pos end_pos =
 %token ELSIF
 %token FI
 %token WHEN
+%token COND
 %token OTHERWISE
 %token END
 %token FRAME
@@ -792,9 +793,9 @@ node_when_block:
       l2 = nonempty_list(node_item);
     END;
     { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
-  | WHEN;
-      BAR; c1 = node_when_case_colon;
-      cs = list(bar_node_when_case_colon);
+  | COND;
+      BAR; c1 = node_cond_case_colon;
+      cs = list(bar_node_cond_case_colon);
       OTHERWISE; COLON;
       l_else = nonempty_list(node_item);
     END;
@@ -812,11 +813,11 @@ node_when_block:
     }
 
 
-bar_node_when_case_colon:
-  | BAR; c = node_when_case_colon { c }
+bar_node_cond_case_colon:
+  | BAR; c = node_cond_case_colon { c }
 
 
-node_when_case_colon:
+node_cond_case_colon:
   | e = expr; COLON; l = nonempty_list(node_item)
     { (e, l) }
 
