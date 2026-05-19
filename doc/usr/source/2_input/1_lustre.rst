@@ -894,11 +894,7 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
 When blocks
 ^^^^^^^^^^^
 Kind 2 also supports ``when`` blocks, which are similar in structure to ``if``
-statements but use *lazy* branch semantics. There are two syntax options for ``when`` blocks.
-
-**Syntax 1: Conditional style**
-
-The first syntax resembles ``when ... then ... else ...`` expressions:
+statements but use *lazy* branch semantics:
 
 .. code-block:: none
 
@@ -928,25 +924,6 @@ Additional branches can be expressed by nesting ``when`` blocks inside the ``els
       end
    end
 
-
-**Syntax 2: Pattern-matching style with otherwise**
-
-The second syntax uses a pattern-matching style with multiple guarded branches and an ``otherwise`` clause:
-
-.. code-block:: none
-
-   when
-     | condition1:
-        y1 = expr1;
-        y2 = expr2;
-     | condition2:
-        y1 = expr3;
-        y2 = expr4;
-     otherwise:
-        y1 = expr5;
-        y2 = expr6;
-   end
-
 **Semantics**
 
 At each step, only the selected branch is evaluated.
@@ -965,6 +942,38 @@ Current restrictions for ``when`` blocks are:
 * Branch expressions cannot call Lustre nodes (calls to functions are allowed).
 * ``if`` blocks cannot be nested inside ``when`` blocks, and ``when`` blocks
   cannot be nested inside ``if`` blocks.
+
+
+Cond blocks
+^^^^^^^^^^^
+Kind 2 also supports ``cond`` blocks, which use a pattern-matching style with
+multiple guarded branches and an ``otherwise`` clause:
+
+.. code-block:: none
+
+   cond
+     | condition1:
+        y1 = expr1;
+        y2 = expr2;
+     | condition2:
+        y1 = expr3;
+        y2 = expr4;
+     otherwise:
+        y1 = expr5;
+        y2 = expr6;
+   end
+
+The semantics of ``cond`` blocks is the same as for ``when`` blocks: at each
+step, only the selected branch is evaluated, and branch expressions that are
+not selected are not evaluated.
+
+Current restrictions for ``cond`` blocks are the same as for ``when`` blocks:
+
+* Branch expressions cannot contain temporal operators (for example ``pre`` or
+   ``->``).
+* Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+* ``if`` blocks cannot be nested inside ``cond`` blocks, and ``cond`` blocks
+   cannot be nested inside ``if`` blocks.
 
 
 Frame conditions
