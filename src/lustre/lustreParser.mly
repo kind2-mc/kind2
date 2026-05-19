@@ -1,5 +1,4 @@
 (* This file is part of the Kind 2 model checker.
-lustrepars
    Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
@@ -221,7 +220,7 @@ let mk_span start_pos end_pos =
 %token EOF
 
 (* Priorities and associativity of operators, lowest first *)
-%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
 %nonassoc MATCH_ARM_BODY  (* resolves shift/reduce: match arm body ends before next | *)
 %nonassoc ELSE

@@ -154,6 +154,13 @@ let clear_cache () =
 
 type info = {
   context : Ctx.tc_context;
+  (* The normalization step desugars ADT terms to record terms 
+     and match expressions to lazy ITEs. 
+     But, some functions (like abstract_expr) operate on *unnormalized* terms, 
+     and need a typing context that reflects this pre-normalization state 
+     (before converting ADTs -> record types). 
+     So, we also need to store a pre-desugaring context. *)
+  pre_desugar_context : Ctx.tc_context;
   abstract_interp_context : LustreAbstractInterpretation.context;
   (* (Index variable type * array type) StringMap.t *)
   inductive_variables : (LustreAst.lustre_type * LustreAst.lustre_type) StringMap.t;
@@ -169,6 +176,11 @@ type info = {
   inlined_expr_ctx : bool;
   adt_map : LDAT.adt_map;
 }
+
+let add_ty_to_info info id ty =
+  { info with
+    context = Ctx.add_ty info.context id ty;
+    pre_desugar_context = Ctx.add_ty info.pre_desugar_context id ty }
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals in
@@ -1021,6 +1033,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | ADTTerm (pos, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
     vars, ADTTerm (pos, ctor, args')
+
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
         expr_list
@@ -1065,8 +1078,10 @@ let get_inlinable_func_decls inlinable_funcs decls =
     decls
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
+  let pre_desugar_context = ctx in
   let decls, ctx, adt_map = LDAT.desugar_adts_program ctx decls in
   let info = { context = ctx;
+    pre_desugar_context;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
@@ -1186,11 +1201,12 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   match NI.Map.find_opt node_id gids_map with
   | None -> empty(), []
   | Some gids -> (
-    let ctx =
+    let info =
       StringMap.fold
-        (fun id ty acc -> Ctx.add_ty acc id ty)
-        gids.locals info.context
+        (fun id ty acc -> add_ty_to_info acc id ty)
+        gids.locals info
     in
+    let ctx = info.context in
     (* Normalize all equations in gids *)
     let gids_list, warnings, eqs = List.map (fun (tis, sc, lhs, expr, source) ->
       match source with 
@@ -1236,7 +1252,8 @@ and normalize_declaration info map = function
     Some (A.FuncDecl (span, normal_decl)), map, warnings
   | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
     let ctx = Chk.add_io_node_ctx info.context id ps ips ops in
-    let info = { info with context = ctx } in
+    let pre_ctx = Chk.add_io_node_ctx info.pre_desugar_context id ps ips ops in
+    let info = { info with context = ctx; pre_desugar_context = pre_ctx } in
     let ngids, warnings = normalize_gid_equations info map (Some id) in
     let map = NI.Map.add id ngids map in
     None, map, warnings
@@ -1277,15 +1294,17 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
-  let ctx = List.fold_left (fun c (id, ty) -> Ctx.add_ty c id ty)
-    info.context
-    (Ctx.IMap.bindings type_exports) in
-  let ctx = List.fold_left (fun c (_, id, ty, _, _) -> Ctx.add_ty c id ty)
-    ctx ivars in
-  let ctx = List.fold_left (fun c (_, id, ty, _) -> Ctx.add_ty c id ty)
-    ctx ovars in
+  let add_exports_to info =
+    List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
+      info (Ctx.IMap.bindings type_exports) in
+  let add_ivars_to info =
+    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
+      info ivars in
+  let add_ovars_to info =
+    List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
+      info ovars in
+  let info = add_exports_to (add_ivars_to (add_ovars_to info)) in
   let info = { info with
-    context = ctx;
     interpretation = interp;
     contract_ref; }
   in
@@ -1353,7 +1372,9 @@ and normalize_node info map
   (* Setup the typing context *)
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
-  let info = { info with context = ctx } in
+  let pre_ctx = Chk.add_io_node_ctx info.pre_desugar_context node_id params inputs outputs in
+  let pre_ctx = Ctx.add_ty pre_ctx ctr_id (A.Int dpos) in
+  let info = { info with context = ctx; pre_desugar_context = pre_ctx } in
   let locals, gids3, warnings3 = List.map (fun decl -> 
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
@@ -1396,10 +1417,10 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids6, interpretation, warnings6 = match contract with
     | Some contract ->
-      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx
-      in
+      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx in
+      let pre_ctx = Chk.tc_ctx_of_contract info.pre_desugar_context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx in
       let contract_ref = new_contract_reference () in
-      let info = { info with context = ctx; contract_ref } in
+      let info = { info with context = ctx; pre_desugar_context = pre_ctx; contract_ref } in
       let ncontracts, gids, interpretation, warnings =
         normalize_contract info node_id map is_extern inputs outputs contract
       in
@@ -1407,7 +1428,8 @@ and normalize_node info map
     | None -> None, empty (), StringMap.empty, []
   in
   let ctx = Chk.add_local_node_ctx ctx locals in
-  let info = { info with context = ctx } in
+  let pre_ctx = Chk.add_local_node_ctx info.pre_desugar_context locals in
+  let info = { info with context = ctx; pre_desugar_context = pre_ctx } in
   (* Record subrange constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
@@ -1480,7 +1502,7 @@ and desugar_history info expr =
         in
         let ty = get_history_type info.context id in
         let history_vars = StringMap.singleton id name in
-        {info with context = Ctx.add_ty info.context name ty},
+        add_ty_to_info info name ty,
         union gids { (empty ()) with history_vars }
       )
       history_arg_vars
@@ -1599,14 +1621,14 @@ and rename_ghost_variables info contract =
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
-    let info = { info with context = Ctx.add_ty info.context new_id ty } in
+    let info = add_ty_to_info info new_id ty in
     let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
-  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, ty)::tis), e) :: t -> 
+  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, ty)::tis), e) :: t ->
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
-    let info = { info with context = Ctx.add_ty info.context new_id ty } in
+    let info = add_ty_to_info info new_id ty in
     let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
@@ -1830,8 +1852,7 @@ and normalize_equation info node_id map = function
         in
         let index_types = index_types_of_array_type pos ty in
         let info = List.fold_left2
-          (fun info i index_ty ->
-            { info with context = Ctx.add_ty info.context i index_ty })
+          (fun info i index_ty -> add_ty_to_info info i index_ty)
           info
           is
           index_types
@@ -1921,7 +1942,15 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
       | None when expr_has_inductive_var ivars expr ->
         (StringMap.choose_opt info.inductive_variables) |> get |> snd |> snd
       | None ->
-        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+        let ty = match Chk.infer_type_expr info.pre_desugar_context node_id expr with
+          | Ok (ty, _, _) ->
+            (match LDAT.adt_info_of_type info.adt_map ty with
+            | Some adt_info -> LDAT.record_type_of_adt pos adt_info
+            | None -> ty)
+          | Error _ ->
+            Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+        in
+        ty
     in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
@@ -2601,27 +2630,26 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     (match find_adt_info_for_ctor with
     | None -> assert false
     | Some adt_info ->
-        let disc_e = A.Ident (pos, ctor) in
-        let this_ctor_fields =
-          match LDAT.HStringMap.find_opt ctor adt_info.LDAT.ctor_fields with
-          | Some fs -> fs | None -> assert false
-        in
-        let arg_map =
-          List.combine (List.map fst this_ctor_fields) args'
-          |> List.fold_left (fun m (fn, e) -> LDAT.HStringMap.add fn e m) LDAT.HStringMap.empty
-        in
-        let payload_results = List.map (fun (fname, ftype) ->
-          match LDAT.HStringMap.find_opt fname arg_map with
-          | Some e -> (fname, e), empty ()
-          | None ->
-            let e, go = LDAT.mk_fresh_adt_term_oracle pos ftype in
-            (fname, e), go
-        ) adt_info.LDAT.all_payload_fields in
-        let payload_flds = List.map fst payload_results in
-        let gids2 = List.fold_left (fun acc (_, g) -> union acc g) (empty ()) payload_results in
-        A.RecordExpr (pos, adt_info.LDAT.type_name, [],
-          (adt_info.LDAT.disc_field, disc_e) :: payload_flds),
-        union gids1 gids2, warnings)
+      let disc_e = A.Ident (pos, ctor) in
+      let this_ctor_fields =
+        match LDAT.HStringMap.find_opt ctor adt_info.LDAT.ctor_fields with
+        | Some fs -> fs | None -> assert false
+      in
+      let arg_map =
+        List.combine (List.map fst this_ctor_fields) args'
+        |> List.fold_left (fun m (fn, e) -> LDAT.HStringMap.add fn e m) LDAT.HStringMap.empty
+      in
+      let payload_results, gids2 = List.map (fun (fname, ftype) ->
+        match LDAT.HStringMap.find_opt fname arg_map with
+        | Some e -> (fname, e), empty ()
+        | None ->
+          let e, go = LDAT.mk_fresh_adt_term_oracle pos ftype in
+          (fname, e), go
+      ) adt_info.LDAT.all_payload_fields |> List.split in
+      let gids2 = List.fold_left union (empty ()) gids2 in
+      A.RecordExpr (pos, adt_info.LDAT.type_name, [],
+        (adt_info.LDAT.disc_field, disc_e) :: payload_results),
+      union gids1 gids2, warnings)
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
@@ -2677,7 +2705,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
     let expr = AH.substitute_naive id2 (A.Ident (p1, id')) expr in
     let info = match id with 
     | Some _ -> info
-    | None -> { info with context = Ctx.add_ty info.context id' ty2 }
+    | None -> add_ty_to_info info id' ty2
     in 
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in

@@ -83,14 +83,8 @@ let build_adt_info type_name ctors =
       HStringMap.add ctor fields m
     ) HStringMap.empty ctors
   in
-  let seen = Hashtbl.create 8 in
   let all_payload_fields =
-    List.concat_map (fun (ctor, _) ->
-      HStringMap.find ctor ctor_fields
-      |> List.filter (fun (fname, _) ->
-        if Hashtbl.mem seen (HString.string_of_hstring fname) then false
-        else (Hashtbl.add seen (HString.string_of_hstring fname) (); true))
-    ) ctors
+    List.concat_map (fun (ctor, _) -> HStringMap.find ctor ctor_fields) ctors
   in
   { type_name; disc_field; disc_enum; ctor_variants; ctor_fields; all_payload_fields }
 
@@ -175,8 +169,10 @@ let desugar_arm pos adt_map info scrut pat body =
 let rec build_ite pos arms =
   match arms with
   | [] -> assert false
-  | (None, _) :: _ :: _ -> assert false (* More cases after a catch-all; will be caught in later PR by redundancy checks *)
-  | [(_, body)] -> body (* Last case must always cover all cases so far uncovered *)
+  (* More cases after a catch-all; will be caught in later PR by redundancy checks *)
+  | (None, _) :: _ :: _ -> assert false 
+  (* Last case must always cover all cases so far uncovered (problems here will be caught by later PR's exhaustiveness checks) *)
+  | [(_, body)] -> body 
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)
 
@@ -203,7 +199,7 @@ let update_context adt_map ctx =
 
 (* Pre-pass: transform ADT TypeDecls into enum + record TypeDecls and update
    the type-checker context. Expression-level desugaring (ADTTerm, Match)
-   is handled later within the normalizer. *)
+   is interspersed within the normalizer. *)
 let desugar_adts_program ctx decls =
   let adt_map = build_adt_map decls in
   if HStringMap.is_empty adt_map then
