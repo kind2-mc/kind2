@@ -2841,7 +2841,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
         let expanded = expand_type_syn ctx ty' in
         match expanded with
-        | LA.UserType _ -> R.ok (ty', [])  (* ADT-backed: stop here to avoid infinite recursion *)
+        | LA.ADT _ (* Already validated at declaration *)
+        | LA.UserType _ -> R.ok (ty', [])  
         | _ -> check_type_well_formed_rec is_nested expanded)
       else (
         match nname with 

@@ -184,12 +184,8 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
   | UserType (_, ty_args, i) as ty -> (
     match IMap.find_opt i (ctx.ty_syns) with
     | None -> ty
-    (* TODO: Here (and in lustreFlattenRefinementTypes.ml), we *may*
-       want to do one level of expansion, or else ADTs are never(?) 
-       inspected since they will be referenced by a type alias. *)
     | Some inner -> (
       match inner with
-      | ADT _ -> ty
       | UserType (_, _, uid) when uid = i -> inner
       | _ -> (
         let ty_vars =
