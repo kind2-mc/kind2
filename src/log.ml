@@ -271,7 +271,6 @@ let set_log_format_xml () =
 (* Set log format to JSON *)
 let set_log_format_json () = log_format := F_json
 
-
 let get_show_props () = !show_props
 let set_show_props value = show_props := value 
 

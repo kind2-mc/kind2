@@ -63,8 +63,10 @@ module type Sig = sig
   (** Set log format to JSON *)
   val set_log_format_json : unit -> unit
 
+  (** Returns whether to show properties' constraints*)
   val get_show_props : unit -> bool
-
+  
+  (** Set whether to show properties' constraints *)
   val set_show_props : bool -> unit
 
   (** Relay log messages to invariant manager, takes printing function as

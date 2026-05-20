@@ -287,18 +287,18 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-(* Pretty-print kind module for plain text output *)
-
+(* Ensure that the names printed are properly formatted *)
 let name_wrapper s =
   let re =
     Str.regexp "^\\(type_ascription_\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
-  if Str.string_match re s 0 then
-    let kind = "TypeAscription" in
-    let loc = Str.matched_group 2 s in
-    kind ^ "[" ^ loc ^"]"
-  else
-    s
-
+    if Str.string_match re s 0 then
+      let kind = "TypeAscription" in
+      let loc = Str.matched_group 2 s in
+      kind ^ "[" ^ loc ^"]"
+    else
+      s
+      
+(* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
 
@@ -527,6 +527,7 @@ let execution_path_pt level input_sys trans_sys path full_contract=
     ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
     (pp_print_path_pt ~full_contract input_sys trans_sys) path
+
 
 (* Output cex for a property as plain text *)
 let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
@@ -794,6 +795,7 @@ let prop_status_pt level trans_sys prop_status_kind =
     (pp_print_list pp_property_block "@,")
     prop_status_kind
     Pretty.print_double_line ()
+
 
 (* ********************************************************************** *)
 (* XML specific functions                                                 *)
@@ -1329,6 +1331,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       | Property.Invariant -> "counterExample"
       | Property.Reachable _ -> "witness"
     in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf
