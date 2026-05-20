@@ -1,0 +1,8 @@
+-- Constructor name matches a global constant: should be an error.
+const Red: bool = true;
+datatype Color = Red | Green | Blue;
+
+node main(c: Color) returns (ok: bool);
+let
+  ok = true;
+tel

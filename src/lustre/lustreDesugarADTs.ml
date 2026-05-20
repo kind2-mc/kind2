@@ -122,6 +122,32 @@ let adt_info_of_type adt_map ty =
   | LA.ADT (_, name, _) -> HStringMap.find_opt name adt_map
   | _ -> None
 
+(* Replace every ADT type with its desugared record equivalent. *)
+let rec desugar_type pos adt_map ty =
+  match adt_info_of_type adt_map ty with
+  | Some adt_info -> record_type_of_adt pos adt_info
+  | None ->
+    let ds = desugar_type pos adt_map in
+    match ty with
+    | LA.Bool _ | LA.Int _ | LA.Real _
+    | LA.SBitVector _ | LA.UBitVector _
+    | LA.IntRange _ | LA.AbstractType _
+    | LA.EnumType _ | LA.History _ -> ty
+    | LA.UserType (p, params, name) ->
+      LA.UserType (p, List.map ds params, name)
+    | LA.TupleType (p, ts) -> LA.TupleType (p, List.map ds ts)
+    | LA.GroupType (p, ts) -> LA.GroupType (p, List.map ds ts)
+    | LA.RecordType (p, n, fields) ->
+      LA.RecordType (p, n,
+        List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
+    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
+    | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
+    | LA.RefinementType (p, (p2, id, t), e) ->
+      LA.RefinementType (p, (p2, id, ds t), e)
+    | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
+    | LA.Set (p, t) -> LA.Set (p, ds t)
+    | LA.ADT _ -> ty (* unreachable: adt_info_of_type handles ADT *)
+
 (* Recursively collect the conjunction of tag equality conditions and the
    variable->field-projection substitutions imposed by a (possibly nested)
    constructor pattern.  Returns (conditions, substitutions). *)

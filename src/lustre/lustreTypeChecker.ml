@@ -123,6 +123,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | ConstructorNameClashWithConst of HString.t * HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -262,6 +263,9 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
     ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
     ^ HString.string_of_hstring ty2 ^ "'"
+  | ConstructorNameClashWithConst (ctor, ty_name) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
+    ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -961,8 +965,10 @@ let rec unify_types pos ctx is_type_ascription ty1 ty2 =
   | t, GroupType (_, tys) when List.length tys = 1 ->
     r t (List.hd tys)
 
-  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
-    R.ok StringMap.empty 
+  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
+    R.ok StringMap.empty
+  | LA.ADT (_, id1, _), LA.ADT (_, id2, _) when HString.equal id1 id2 ->
+    R.ok StringMap.empty
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
     R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
@@ -2898,7 +2904,10 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         match lookup_constructor ctx ctor with
         | Some (existing_ty_name, _) ->
           type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
-        | None -> R.ok ()
+        | None ->
+          (match lookup_const ctx ctor with
+          | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
+          | None -> R.ok ())
       ) ctors) in
       R.ok (ty', [])
     | Bool _ | Int _ | Real _

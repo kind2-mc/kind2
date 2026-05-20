@@ -55,6 +55,8 @@ val mk_fresh_adt_term_oracle :
 
 val adt_info_of_type : adt_map -> LustreAst.lustre_type -> adt_info option
 
+val desugar_type : Lib.position -> adt_map -> LustreAst.lustre_type -> LustreAst.lustre_type
+
 val desugar_arm :
   Lib.position ->
   adt_map ->

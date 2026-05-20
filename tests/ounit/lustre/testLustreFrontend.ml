@@ -867,6 +867,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
     | Error (`LustreFlattenRefinementTypesError (_, ADTBoundVariable)) -> true
     | _ -> false);
+  mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name clashes with global constant (ADT before const)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const_reversed.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows node name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows function name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_function_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
