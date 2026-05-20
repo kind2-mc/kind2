@@ -2668,7 +2668,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-  let create_constraint_name_pos node_id (pos : position)= 
+  let create_constraint_name_pos (pos : position)= 
     Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
@@ -2679,7 +2679,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     | Output -> Some N.Guarantee, None
     | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
   in
-  let name = create_constraint_name_pos node_id pos in
+  let name = create_constraint_name_pos pos in
   let replace_expr = match node_id_opt with
   | Some nid -> NI.Map.find_opt nid global_teas
   | None -> None
