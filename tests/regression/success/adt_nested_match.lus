@@ -1,4 +1,3 @@
--- Nested ADT pattern matching: Inner is a field type of Outer.
 datatype Inner = A | B (int);
 datatype Outer = Wrap (Inner) | Empty;
 
@@ -11,5 +10,5 @@ let
     | Empty : -1
   end;
   ok = o = Empty => val = -1;
-  --%PROPERTY ok;
+  check ok;
 tel

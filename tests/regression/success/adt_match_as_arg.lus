@@ -1,5 +1,3 @@
--- Match expression passed directly as a node argument, exercising type
--- inference on match expressions in argument position.
 datatype Sign = Pos | Neg | Zero;
 
 node negate(s: Sign) returns (s2: Sign);
@@ -14,12 +12,11 @@ tel
 node main(s: Sign) returns (ok: bool);
 var s2: Sign;
 let
-  -- Pass a match expression directly as an argument to negate.
   s2 = negate(match s with
     | Pos : Neg
     | Neg : Pos
     | Zero : Zero
   end);
   ok = s2 = s;
-  --%PROPERTY ok;
+  check ok;
 tel

@@ -1,4 +1,3 @@
--- Wrapping x in Some and immediately pattern-matching extracts x.
 datatype IntOpt = None | Some (int);
 
 node main(x: int) returns (ok: bool);
@@ -11,5 +10,5 @@ let
     | None : 0
   end;
   ok = out = x;
-  --%PROPERTY ok;
+  check ok;
 tel

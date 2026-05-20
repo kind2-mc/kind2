@@ -1,8 +1,7 @@
--- Every value of an ADT type must equal one of its constructors.
 datatype Direction = North | South | East | West;
 
 node main(d: Direction) returns (ok: bool);
 let
   ok = d = North or d = South or d = East or d = West;
-  --%PROPERTY ok;
+  check ok;
 tel

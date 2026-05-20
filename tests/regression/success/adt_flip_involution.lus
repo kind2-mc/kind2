@@ -1,4 +1,3 @@
--- flip is an involution: flip(flip(b)) = b.
 datatype Bit = Zero | One;
 
 node flip(b: Bit) returns (b2: Bit);
@@ -16,5 +15,5 @@ let
   flipped = flip(b);
   double_flipped = flip(flipped);
   ok = double_flipped = b;
-  --%PROPERTY ok;
+  check ok;
 tel

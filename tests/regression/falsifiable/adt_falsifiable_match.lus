@@ -1,4 +1,3 @@
--- Not all constructors produce true, so this check is falsifiable.
 datatype Color = Red | Green | Blue;
 
 node main(c: Color) returns (ok: bool);
