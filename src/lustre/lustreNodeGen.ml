@@ -2608,7 +2608,16 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
-  in let (assumes, guarantees, props) =
+  in 
+  (* Helper for subranges and refinement type expression substitution *)
+  let find_type_ascription_expr nid = 
+    NI.Map.fold (fun _ gds acc ->
+      match acc with
+      | Some _ -> acc
+      | None -> NI.Map.find_opt nid gds.GI.type_ascription_exprs
+      ) gids_map None
+  in
+  let (assumes, guarantees, props) =
     let create_constraint_name prefix pos = 
       (* Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr *)
       Format.asprintf "@[<h>%s%a@]" prefix pp_print_line_and_column pos
@@ -2627,6 +2636,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | Local -> None, Some Property.Body
         | Output -> Some N.Guarantee, None
         | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
+      in
+      let rexpr = match find_type_ascription_expr node_id with
+        | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+        | None -> rexpr
       in
       let srexpr = A.string_of_expr rexpr in
       if is_original then
@@ -2677,13 +2690,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
   in
   let name = create_constraint_name_pos pos in
-  let find_type_ascription_expr nid = 
-    NI.Map.fold (fun _ gds acc ->
-      match acc with
-      | Some _ -> acc
-      | None -> NI.Map.find_opt nid gds.GI.type_ascription_exprs
-    ) gids_map None
-  in
   let replace_expr = match node_id_opt with
   | Some nid -> find_type_ascription_expr nid
   | None -> None
