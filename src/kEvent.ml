@@ -290,7 +290,7 @@ let all_stats () =
 (* Ensure that the names printed are properly formatted *)
 let name_wrapper s =
   let re =
-    Str.regexp "^.+_\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
+    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
     if Str.string_match re s 0 then
       let kind = "TypeAscription" in
       let loc = Str.matched_group 2 s in
