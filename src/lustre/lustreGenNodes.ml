@@ -26,9 +26,9 @@ fun pos node_name node_type ->
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let name = match node_type with 
-  | Any -> HString.mk_hstring "_any_" 
-  | Choose -> HString.mk_hstring "_choose_" 
-  | TypeAscription -> HString.mk_hstring "_type_ascription_"
+  | Any -> HString.mk_hstring ".any_"
+  | Choose -> HString.mk_hstring ".choose_"
+  | TypeAscription -> HString.mk_hstring ".type_ascription_"
   | _ -> assert false
   in
   let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
