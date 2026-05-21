@@ -2685,13 +2685,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   | None -> None
   in
 
-  let rexpr = match node_id_opt, replace_expr with
-    | Some _, Some expr ->
-      LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
-    | Some _, None -> 
-      rexpr
-    | None, _ ->
-      rexpr
+  let rexpr = match replace_expr with
+    | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+    | None -> rexpr
     in
     let srexpr = A.string_of_expr rexpr in
     match constraint_kind, generated_source with
