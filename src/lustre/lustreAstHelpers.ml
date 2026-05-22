@@ -232,6 +232,10 @@ let rec expr_contains_id id = function
   | ADTTerm (_, _, args) ->
     List.fold_left (fun acc e -> acc || expr_contains_id id e) false args
 
+let rec pat_bound_vars = function
+  | Pat (_, id, []) -> SI.singleton id
+  | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
+
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
@@ -255,7 +259,13 @@ let rec substitute_naive (var:HString.t) t = function
   (* Not supported due to introduction of bound variables *)
   | AnyOp _ -> assert false 
   | ChooseOp _ -> assert false 
-  | Match _ -> assert false
+  | Match (pos, e, arms, ty) ->
+    let e = substitute_naive var t e in
+    let arms = List.map (fun (pat, arm_e) ->
+      let arm_e = if SI.mem var (pat_bound_vars pat) then arm_e else substitute_naive var t arm_e in
+      (pat, arm_e)
+    ) arms in
+    Match (pos, e, arms, ty)
   | ADTTerm (pos, ctor, args) ->
     ADTTerm (pos, ctor, List.map (substitute_naive var t) args)
   (* Quantifiers introduce bound variables, but we still support substitution 
@@ -974,10 +984,6 @@ let contract_has_pre_or_arrow (_, l) =
   |> some_of_list
 
 let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i
-
-let rec pat_bound_vars = function
-  | Pat (_, id, []) -> SI.singleton id
-  | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
 let vars_of_clock_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
