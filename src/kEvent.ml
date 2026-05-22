@@ -336,7 +336,6 @@ let proved_pt mdl level trans_sys k prop =
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
     let prop = name_wrapper prop in
-    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
