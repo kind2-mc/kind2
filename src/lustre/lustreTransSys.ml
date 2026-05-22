@@ -731,7 +731,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
            let name =
              let row, col = row_col_of_pos call_pos in
              Format.asprintf "inst_%a_l%dc%d_%a_%d"
-               NI.pp_print_node_id_user_name call_node_id
+               NI.pp_print_node_id_internal_name call_node_id
                row col
                StateVar.pp_print_state_var state_var
                call_id
