@@ -27,6 +27,7 @@ type error_kind = Unknown of string
   | DuplicateOutput of HString.t * Lib.position
   | UndefinedOutput of HString.t 
   | DuplicateProperty of HString.t
+  | InvalidPropertyName of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t

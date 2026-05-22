@@ -46,6 +46,7 @@ type error_kind = Unknown of string
   | DuplicateOutput of HString.t * Lib.position
   | UndefinedOutput of HString.t 
   | DuplicateProperty of HString.t
+  | InvalidPropertyName of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
@@ -94,6 +95,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is not defined via an equation or frame block"
   | DuplicateProperty id -> "Property '"
   ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | InvalidPropertyName id -> "Property name '"
+  ^ HString.string_of_hstring id ^ "' contains forbidden characters. Property names cannot contain '[' or ']'."
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | UndefinedContract id -> "Contract '"
@@ -594,6 +597,69 @@ let no_temporal_operator decl_ctx expr =
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
   | _ -> Ok []
+  
+let has_forbidden_chars (name : H.t option) =
+    match name with 
+    | Some n -> 
+        (let s = HString.string_of_hstring n in
+        String.contains s '[' || String.contains s ']')
+    | None -> false
+
+(* Record duplicate properties if we find them *)
+let over_props props = function
+  | LA.AnnotProperty (pos, name, _, kind) ->
+
+    
+    if has_forbidden_chars name then
+      let name = LustreAstHelpers.name_of_prop pos name kind in
+      syntax_error pos (InvalidPropertyName name)
+    else
+      let name = LustreAstHelpers.name_of_prop pos name kind in
+      if StringSet.mem name props
+      then syntax_error pos (DuplicateProperty name)
+      else Ok (StringSet.add name props)
+  | _ -> Ok props
+let over_named_contract_prop props pos name =
+  if has_forbidden_chars name then
+    let name =
+      match name with
+      | Some name -> name
+      | None -> HString.mk_hstring ""
+    in
+    syntax_error pos (InvalidPropertyName name)
+  else
+    match name with
+    | None ->
+        Ok props
+    | Some name ->
+        if StringSet.mem name props then
+          syntax_error pos (DuplicateProperty name)
+        else
+          Ok (StringSet.add name props)
+let over_contract_props props = function
+  | LA.Assume (pos, name, _, _)
+  | LA.Guarantee (pos, name, _, _) ->
+      over_named_contract_prop props pos name
+
+  | LA.Mode (_, _, rs, gs) ->
+      let* props =
+        Res.seq_chain
+          (fun props (pos, name, _) ->
+             over_named_contract_prop props pos name)
+          props
+          rs
+      in
+      Res.seq_chain
+        (fun props (pos, name, _) ->
+           over_named_contract_prop props pos name)
+        props
+        gs
+
+  | LA.GhostVars _
+  | LA.GhostConst _
+  | LA.AssumptionVars _
+  | LA.ContractCall _ ->
+      Ok props
 
 let no_stateful_contract_imports ctx contract =
   try
@@ -769,6 +835,7 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+  let props = StringSet.empty in
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
@@ -777,23 +844,25 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   >> (if ext then (Res.ok []) else (outputs_exactly_one_definition outputs items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
-  let* warnings1 = (match contract with
+  let* (warnings1, props) = (match contract with
   | Some c -> 
     let ctx =
       (* Locals are not visible in contracts *)
       build_local_ctx ctx [] inputs outputs
     in
-    check_contract false ctx common_contract_checks empty_ty_check c
-  | None -> Ok ([])) in
+    check_contract false ctx common_contract_checks empty_ty_check c props
+  | None -> Ok (([], StringSet.empty))) in
   let ctx = build_local_ctx ctx locals inputs outputs in
   let* warnings2 = (Res.seq (List.map (check_local_items ctx) locals)) in
-  let* warnings3 = (check_items
+  let* (warnings3, _) = (check_items
   (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
   common_node_equations_checks
-  items) in
+  items 
+  props) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+  let props = StringSet.empty in
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
@@ -817,14 +886,15 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
-  let* warnings2 = (match contract with
+  let* (warnings2, props) = (match contract with
   | Some (p, c) -> no_stateful_contract_imports ctx c
-    >> check_contract false ctx function_contract_checks empty_ty_check (p, c)
-  | None -> Ok []) in 
-  let* warnings3 = (check_items
+    >> check_contract false ctx function_contract_checks empty_ty_check (p, c) props
+  | None -> Ok ([], StringSet.empty)) in 
+  let* (warnings3, _) = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
     composed_items_checks
     items
+    props
   ) in
   (Ok (List.flatten warnings1 @ warnings2 @ warnings3, decl))
 
@@ -835,21 +905,13 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   in
    (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
-    let* warnings = (check_contract true ctx common_contract_checks empty_ty_check contract) in
+    let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
 
 and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
-  LA.node_item list -> ([> warning] list, 'a) result 
-= fun ctx ?(tc_ctx=None) f items ->
-  (* Record duplicate properties if we find them *)
-  let over_props props = function
-    | LA.AnnotProperty (pos, name, _, kind) ->
-      let name = LustreAstHelpers.name_of_prop pos name kind in
-      if StringSet.mem name props
-      then syntax_error pos (DuplicateProperty name)
-      else Ok (StringSet.add name props)
-    | _ -> Ok props
-  in
+  LA.node_item list -> StringSet.t -> ([> warning] list * StringSet.t, 'a) result 
+= fun ctx ?(tc_ctx=None) f items props ->
+  
   let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
     LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
@@ -860,8 +922,8 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
         >> check_expr ctx' f e
     | LA.IfBlock (_, e, l1, l2) -> 
       let* warnings1 = check_expr ctx f e in 
-      let* warnings2 = (check_items ctx ~tc_ctx f l1) in 
-      let* warnings3 = (check_items ctx ~tc_ctx f l2) in 
+      let* (warnings2, props) = (check_items ctx ~tc_ctx f l1 props) in 
+      let* (warnings3, _) = (check_items ctx ~tc_ctx f l2 props) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
@@ -871,18 +933,23 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
-      let* warnings1 = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes in
-      let* warnings2 = check_items ctx ~tc_ctx f nes in 
-      let* warnings3 = (check_items ctx ~tc_ctx f nis) in
+      let* (warnings1, props) = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes props in
+      let* (warnings2, props) = check_items ctx ~tc_ctx f nes props in 
+      let* (warnings3, _) = (check_items ctx ~tc_ctx f nis) props in
       Ok (warnings1 @ warnings2 @ warnings3)
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ([])
   in
   (* Check for duplicate properties *)
-  Res.seq_chain (fun props -> over_props props) StringSet.empty items >> 
+  let* props =
+    Res.seq_chain
+      (fun properties item -> over_props properties item)
+      props
+      items
+  in  
   let* warnings = Res.seq (List.map (check_item ctx tc_ctx f) items) in 
-  Ok (List.flatten warnings)
+    (Ok (List.flatten warnings, props))
 
 and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
@@ -915,10 +982,10 @@ and no_assert_in_frame_init pos = function
   | _ -> Res.ok ()
 
 
-and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) -> 
   (context -> LA.lustre_type -> ([> warning] list, 'a) result) ->
-  LA.contract -> ([> warning] list, 'a) result 
-= fun is_contract_node ctx f oqv_on_ty (_, contract) ->
+  LA.contract -> StringSet.t -> ([> warning] list * StringSet.t, 'a) result 
+= fun is_contract_node ctx f oqv_on_ty (_, contract) props ->
   let ctx = build_contract_ctx ctx contract in
   let check_list e = Res.seq (List.map (check_expr ctx f) e) in
   let check_contract_item ctx f = function
@@ -960,8 +1027,14 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
   in
+  let* props =
+  Res.seq_chain
+    (fun props item -> over_contract_props props item)
+    props
+    contract
+  in
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
-  Ok(List.flatten warnings)
+  Ok(List.flatten warnings, props)
 
 and check_ty ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
@@ -1281,35 +1354,38 @@ let oqv_check_locals oqv_on_ty base_ctx locals =
   Ok (List.flatten warnings1)
 
 let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
+  let props = StringSet.empty in
   let ctx_io = build_local_ctx ctx [] inputs outputs in
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
   let* warnings1 = oqv_check_inputs oqv_on_ty ctx_io inputs in
   let* warnings2 = oqv_check_outputs oqv_on_ty ctx_io outputs in
-  let* warnings3 =
+  let* (warnings3, props) =
     match contract with
     | Some c ->
       (* Locals are not visible in contracts, so use io ctx *)
-      check_contract false ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty c
-    | None -> Ok ([])
+      check_contract false ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty c props
+    | None -> Ok (([], StringSet.empty))
   in
   let ctx_full = build_local_ctx ctx locals inputs outputs in
   let* warnings4 = oqv_check_locals oqv_on_ty ctx_full locals in
-  let* warnings5 =
+  let* (warnings5, _) =
     check_items
       (build_local_ctx ctx_full locals [] [])
       ~tc_ctx:(Some tc_ctx)
       (ovq_check_expr inlinable_funcs tc_ctx)
       items
+      props
   in
   Ok (warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
 
 let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outputs, contract) =
+  let props = StringSet.empty in
   let ctx_io = build_local_ctx ctx [] inputs outputs in
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
   let* warnings1 = oqv_check_inputs oqv_on_ty ctx_io inputs in
   let* warnings2 = oqv_check_outputs oqv_on_ty ctx_io outputs in
-  let* warnings3 =
-    check_contract true ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty contract
+  let* (warnings3, _) =
+    check_contract true ctx_io (ovq_check_expr inlinable_funcs tc_ctx) oqv_on_ty contract props
   in
   Ok (warnings1 @ warnings2 @ warnings3)
 
