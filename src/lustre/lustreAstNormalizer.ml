@@ -733,8 +733,16 @@ let add_step_counter info =
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info (node_id : NI.t option) id =
+  let keep_declared_type =
+    match node_id with
+    | Some node_id ->
+      NI.get_node_type node_id = NI.TypeAscription
+      && HString.equal id (HString.mk_hstring StringValues.type_ascription_output_name)
+    | None -> false
+  in
   let ty = (match AI.get_type info.abstract_interp_context node_id id, 
                   Ctx.lookup_ty info.context id |> get with
+  | _, ty when keep_declared_type -> ty
   | _, (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
   | Some ty, _ -> ty
   | None, ty -> ty)

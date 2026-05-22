@@ -21,17 +21,17 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
-let mk_fresh_fn_name: Lib.position -> NI.node_type -> NI.t = 
-fun pos node_type -> 
+let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
+fun pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let name = match node_type with 
-  | Any -> HString.mk_hstring "any_" 
-  | Choose -> HString.mk_hstring "choose_" 
-  | TypeAscription -> HString.mk_hstring "type_ascription_"
+  | Any -> HString.mk_hstring ".any_"
+  | Choose -> HString.mk_hstring ".choose_"
+  | TypeAscription -> HString.mk_hstring ".type_ascription_"
   | _ -> assert false
   in
-  let name = HString.concat2 name pos in
+  let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
   NI.mk_node_id ~node_type ~user_name:name name
 
 let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
@@ -78,7 +78,7 @@ fun ctx node_name fun_ids expr ->
     let e, gen_nodes1 = rec_call e in
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos; } in
-    let node_id = mk_fresh_fn_name pos TypeAscription in
+    let node_id = mk_fresh_fn_name pos node_name TypeAscription in
     let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
     let op_id = HString.mk_hstring Lib.StringValues.type_ascription_output_name in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
@@ -152,14 +152,14 @@ fun ctx node_name fun_ids expr ->
     let generated_node, name = match expr with 
     | AnyOp _ -> 
         (* `any` operators are nondeterministic *)
-        let name = mk_fresh_fn_name pos Any in
+        let name = mk_fresh_fn_name pos node_name Any in
         A.NodeDecl (span, 
         (name, true, A.Opaque, ty_params, inputs,
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))), 
         name
     | ChooseOp _ -> 
         (* `choose` operators are deterministic *)
-        let name = mk_fresh_fn_name pos Choose in
+        let name = mk_fresh_fn_name pos node_name Choose in
         A.FuncDecl (span, 
         (name, true, A.Opaque, ty_params, inputs,
         [pos, id, ty, A.ClockTrue], [], [], Some (pos, contract))), 

@@ -287,18 +287,18 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-(* Pretty-print kind module for plain text output *)
-
+(* Ensure that the names printed are properly formatted *)
 let name_wrapper s =
   let re =
-    Str.regexp "^\\(type_ascription_\\)\\(l[0-9]+c[0-9]+\\)\\[l[0-9]+c[0-9]+\\]\\."  in
-  if Str.string_match re s 0 then
-    let kind = "TypeAscription" in
-    let loc = Str.matched_group 2 s in
-    kind ^ "[" ^ loc ^"]"
-  else
-    s
-
+    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
+    if Str.string_match re s 0 then
+      let kind = "TypeAscription" in
+      let loc = Str.matched_group 2 s in
+      kind ^ "[" ^ loc ^"]"
+    else
+      s
+      
+(* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
 
@@ -335,6 +335,7 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
+    let prop = name_wrapper prop in
     let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
@@ -764,26 +765,6 @@ let pp_print_status_of_prop = (function ppf -> (function
                       ((Property.length_of_cex cex) - 1)
                 )
               )
-(* 
-(* Pretty-print a list of properties and their status *)
-let prop_status_pt level trans_sys prop_status_kind =
-  prop_expr_map_pt level trans_sys prop_status_kind;
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    (pp_print_list 
-       (fun ppf ((p, s, k)) -> 
-          Format.fprintf 
-            ppf
-            "@[<h>@{<blue_b>%s@}: %a@]"
-            (name_wrapper p)
-            pp_print_status_of_prop
-            (s, k))
-       "@,")
-    prop_status_kind
-    Pretty.print_double_line () *)
           
 let prop_status_pt level trans_sys prop_status_kind =
 
@@ -814,6 +795,7 @@ let prop_status_pt level trans_sys prop_status_kind =
     (pp_print_list pp_property_block "@,")
     prop_status_kind
     Pretty.print_double_line ()
+
 
 (* ********************************************************************** *)
 (* XML specific functions                                                 *)
