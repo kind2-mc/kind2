@@ -157,8 +157,6 @@ let setup : unit -> any_input = fun () ->
 let main () =
 
   (* Set everything up and produce input system. *)
-  (* This is where we would need to pass a map of properties to equations. 
-  Unless we want to change this code, we would have to include it in InputSystem.t*)
   let Input input_sys = setup () in
 
   (* Not launching if we're just translating contracts. *)

@@ -529,6 +529,7 @@ let execution_path_pt level input_sys trans_sys path full_contract=
       %a@]@.")
     (pp_print_path_pt ~full_contract input_sys trans_sys) path
 
+
 (* Output cex for a property as plain text *)
 let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
@@ -1182,7 +1183,7 @@ let prop_attributes_json ppf trans_sys prop_name =
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
           let fname, lnum, cnum = file_row_col_of_pos pos in
-            Format.fprintf ppf
+          Format.fprintf ppf
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
     )
@@ -1331,6 +1332,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       | Property.Invariant -> "counterExample"
       | Property.Reachable _ -> "witness"
     in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf

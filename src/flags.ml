@@ -3675,6 +3675,7 @@ let check_nonvacuity_default = true
     )
 
   (** ************************************************************ **)
+
   (* Colored output *)
   let color_default = true
   let color = ref color_default

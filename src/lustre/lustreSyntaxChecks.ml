@@ -911,7 +911,6 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
 and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.node_item list -> StringSet.t -> ([> warning] list * StringSet.t, 'a) result 
 = fun ctx ?(tc_ctx=None) f items props ->
- 
   
   let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
     LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
@@ -1036,8 +1035,6 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
   in
   let* warnings = Res.seq (List.map (check_contract_item ctx f) contract) in 
   Ok(List.flatten warnings, props)
-
-
 
 and check_ty ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
@@ -1378,7 +1375,6 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
       (ovq_check_expr inlinable_funcs tc_ctx)
       items
       props
-
   in
   Ok (warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
 

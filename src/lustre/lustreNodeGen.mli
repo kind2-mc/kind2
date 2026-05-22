@@ -19,7 +19,6 @@
   
   @author Andrew Marmaduke *)
 
-
 val compile : TypeCheckerContext.tc_context
 -> GeneratedIdentifiers.t NodeId.Map.t
 -> LustreAst.declaration list
