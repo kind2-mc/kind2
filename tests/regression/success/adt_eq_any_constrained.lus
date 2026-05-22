@@ -1,0 +1,9 @@
+datatype D = C1 (int) | C2 (real);
+
+node main(i: int) returns (ok: bool);
+var x: D;
+let
+  x = any { d: D | d = C1(i) };
+  ok = x = C1(i);
+  check ok;
+tel

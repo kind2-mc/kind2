@@ -1,0 +1,11 @@
+type Point = { x: int; y: int };
+datatype Shape = Pt (Point) | None;
+
+node main(p1, p2: Point) returns (ok: bool);
+var a, b: Shape;
+let
+  a = Pt(p1);
+  b = Pt(p2);
+  ok = a = b;
+  check ok;
+tel
