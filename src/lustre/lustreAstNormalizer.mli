@@ -111,7 +111,7 @@ val normalize : TypeCheckerContext.tc_context ->
   LustreAst.t ->
     GeneratedIdentifiers.t NodeId.Map.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.Map.t *
-   [> warning] list, [> error])
+   [> warning] list * LustreDesugarADTs.adt_map, [> error])
   result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit

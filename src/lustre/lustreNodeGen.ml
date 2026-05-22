@@ -34,6 +34,7 @@ module I = LustreIdent
 module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
+module LDAT = LustreDesugarADTs
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -56,6 +57,7 @@ type compiler_state = {
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
   global_constraints: LustreExpr.t list;
+  adt_map : LDAT.adt_map;
 }
 
 type identifier_maps = {
@@ -131,7 +133,7 @@ let empty_identifier_maps node_name = {
   call_count = 1;
 }
 
-let empty_compiler_state () = { 
+let empty_compiler_state () = {
   nodes = [];
   type_alias = StringMap.empty;
   free_constants = [];
@@ -139,6 +141,7 @@ let empty_compiler_state () = {
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
   global_constraints = [];
+  adt_map = StringMap.empty;
 }
 
 (*
@@ -554,6 +557,24 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         ((rhs_index_tl, expr) :: rhs_tl)
     else (internal_error pos "Type mismatch in equation: record indexes do not match";
           assert false)
+  (* ADT discriminant index on left-hand and right-hand side *)
+  | (X.AdtTagIndex i :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.AdtTagIndex j :: rhs_index_tl, expr) :: rhs_tl ->
+    if i = j then
+      expand_tuple' pos accum bounds
+        ((lhs_index_tl, state_var) :: lhs_tl)
+        ((rhs_index_tl, expr) :: rhs_tl)
+    else (internal_error pos "Type mismatch in equation: ADT tag indexes do not match";
+          assert false)
+  (* ADT payload index on left-hand and right-hand side *)
+  | (X.AdtPayloadIndex (c1, j1) :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.AdtPayloadIndex (c2, j2) :: rhs_index_tl, expr) :: rhs_tl ->
+    if c1 = c2 && j1 = j2 then
+      expand_tuple' pos accum bounds
+        ((lhs_index_tl, state_var) :: lhs_tl)
+        ((rhs_index_tl, expr) :: rhs_tl)
+    else (internal_error pos "Type mismatch in equation: ADT payload indexes do not match";
+          assert false)
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
@@ -561,12 +582,16 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.RecordIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.RecordIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.TupleIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
   | (X.TupleIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.TupleIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.TupleIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.ListIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
@@ -574,6 +599,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.ListIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
   | (X.ListIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.ListIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.ListIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
@@ -581,12 +608,16 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
   | (X.ArrayIntIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.ArrayIntIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.ArrayIntIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.ArrayVarIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
-  | (X.ArrayVarIndex _::_, _)::_, (SetMapIndex _ :: _, _)::_
+  | (X.ArrayVarIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.ArrayVarIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.ArrayVarIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
@@ -594,6 +625,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.AbstractTypeIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.AbstractTypeIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
   | (X.SetMapIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
   | (X.SetMapIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
@@ -601,8 +634,28 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.SetMapIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
   | (X.SetMapIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
   | (X.SetMapIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+  | (X.SetMapIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
 
-  | (_ :: _, _) :: _, ([], _) :: _ 
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.AdtTagIndex _ :: _, _) :: _, (X.AdtPayloadIndex _ :: _, _) :: _
+
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.RecordIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.AbstractTypeIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.SetMapIndex _ :: _, _) :: _
+  | (X.AdtPayloadIndex _ :: _, _) :: _, (X.AdtTagIndex _ :: _, _) :: _
+
+  | (_ :: _, _) :: _, ([], _) :: _
   | ([], _) :: _, (_ :: _, _) :: _ ->
     (internal_error pos "Type mismatch in equation: head indexes do not match";
       assert false)
@@ -649,9 +702,46 @@ let create_uf_symbols node_id inputs outputs =
       SVM.add output uf uf_symbols
   ) SVM.empty
 
-let rec compile ctx gids decls =
+(* Given a field name (HString), return the appropriate LustreIndex for it.
+   If the field is the discriminant of an ADT, return AdtTagIndex of the ADT type name.
+   If the field is a payload field of an ADT constructor, return AdtPayloadIndex (ctor, j).
+   Otherwise return RecordIndex of the string. *)
+let field_name_to_index adt_map field_hs =
+  let field_str = HString.string_of_hstring field_hs in
+  match StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      if info.disc_field = field_hs
+      then Some (X.AdtTagIndex (HString.string_of_hstring type_name))
+      else None
+  ) adt_map None with
+  | Some idx -> idx
+  | None ->
+  match StringMap.fold (fun _type_name (info : LDAT.adt_info) acc ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      StringMap.fold (fun ctor_hs fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          let rec find j = function
+            | [] -> None
+            | (fn, _) :: rest ->
+              if fn = field_hs
+              then Some (X.AdtPayloadIndex (HString.string_of_hstring ctor_hs, j))
+              else find (j + 1) rest
+          in
+          find 0 fields
+      ) info.ctor_fields None
+  ) adt_map None with
+  | Some idx -> idx
+  | None -> X.RecordIndex field_str
+
+let rec compile ctx gids adt_map decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
-  let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
+  let output = List.fold_left over_decls { (empty_compiler_state ()) with adt_map } decls in 
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
   in
@@ -700,8 +790,8 @@ and compile_ast_type
     X.singleton X.empty_index (Type.mk_abstr ident)
   | A.RecordType (_, _, record_fields) ->
     let over_fields = fun a (_, i, t) ->
-      let i = HString.string_of_hstring i in
-      let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in
+      let index = field_name_to_index cstate.adt_map i in
+      let over_indices = fun j t a -> X.add (index :: j) t a in
       let compiled_record_field_ty = compile_ast_type cstate ctx map t in
       X.fold over_indices compiled_record_field_ty a
     in
@@ -937,6 +1027,30 @@ and compile_ast_expr
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
+    (* ADT equality: payload fields carry AdtPayloadIndex (ctor, j) in the trie. Each such
+       field's equality is guarded by the discriminant matching that constructor, so junk
+       fields (those for a non-selected constructor) do not affect the result.
+       Equality:    disc = C => payload_e1 = payload_e2
+       Disequality: disc = C AND payload_e1 <> payload_e2 *)
+    let find_adt_disc idx =
+      match List.rev idx with
+      | X.AdtPayloadIndex (ctor, _) :: prefix_rev ->
+        (* This is an ADT payload field; any failure to locate the discriminant is a bug *)
+        let prefix = List.rev prefix_rev in
+        let result = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
+          match acc with
+          | Some _ -> acc
+          | None ->
+            if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
+              let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
+              let (disc_e1, _) = X.find disc_idx eqs in
+              Some (disc_e1, ctor, E.type_of_lustre_expr disc_e1)
+            else None
+        ) cstate.adt_map None in
+        (* ctor must belong to some ADT in adt_map *)
+        (match result with Some _ -> result | None -> assert false)
+      | _ -> None
+    in
     (* Compile the equality for each pair of `eqs` *)
     let over_indices = fun i (e1, e2) (fst_flag, acc_guard, acc) ->  
       match E.type_of_lustre_expr e1 with 
@@ -988,10 +1102,26 @@ and compile_ast_expr
         | true, E.Unbound _ :: _ -> e1 :: acc_guard 
         | _ -> acc_guard 
         in
-        false, acc_guard, X.add i e acc 
-      (* For non-array types, straightforward equality (no quantification) *)
+        false, acc_guard, X.add i e acc
+      (* For non-array types, straightforward equality.
+         Guard payload fields of ADT records so that junk fields
+         (those for non-selected constructors) do not affect the result.
+         For equality:    disc_e1 = C => payload_e1 = payload_e2
+         For disequality: disc_e1 = C AND payload_e1 <> payload_e2.
+         We guard on disc_e1 only, not disc_e2, because:
+         - Equality: the discriminant entry disc_e1 = disc_e2 is already present as its own
+           trie leaf.
+         - Disequality: if disc_e1 = C and the payloads differ, e1 <> e2 regardless of
+           disc_e2 (different constructor means different ADT value; same constructor with
+           unequal payloads also means different ADT value). 
+           If disc_e1 <> C the guard is false and the clause contributes nothing. *)
       | _ ->
-        false, acc_guard, X.add i (mk_binary e1 e2) acc 
+        let eq_expr = match find_adt_disc i with
+          | Some (disc_e1, ctor, disc_ty) ->
+            mk_comb (E.mk_eq disc_e1 (E.mk_constr ctor disc_ty)) (mk_binary e1 e2)
+          | None -> mk_binary e1 e2
+        in
+        false, acc_guard, X.add i eq_expr acc
     in
     let _, _, expr = X.fold over_indices eqs (true, [], X.empty) in 
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
@@ -1056,6 +1186,8 @@ and compile_ast_expr
 
   and compile_projection bounds expr = function
     | X.RecordIndex _
+    | X.AdtTagIndex _
+    | X.AdtPayloadIndex _
     | X.TupleIndex _
     | X.ArrayIntIndex _ as index ->
       let expr = compile_ast_expr cstate ctx bounds map expr in
@@ -1071,10 +1203,10 @@ and compile_ast_expr
     List.fold_left over_exprs (0, X.empty) expr_list |> snd
   
   and compile_record_expr bounds expr_list =
-    let expr_list = List.map (fun (s, e) -> HString.string_of_hstring s, e) expr_list in
     let over_exprs = fun accum (i, expr) ->
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
-      let over_expr = fun j e t -> X.add (X.RecordIndex i :: j) e t in
+      let index = field_name_to_index cstate.adt_map i in
+      let over_expr = fun j e t -> X.add (index :: j) e t in
       X.fold over_expr compiled_expr accum
     in
     List.fold_left over_exprs X.empty expr_list
@@ -1242,6 +1374,8 @@ and compile_ast_expr
         in X.add [] v X.empty *)
       | X.TupleIndex _ :: _, _
       | X.RecordIndex _ :: _, _
+      | X.AdtTagIndex _ :: _, _
+      | X.AdtPayloadIndex _ :: _, _
       | X.ListIndex _ :: _, _
       | X.AbstractTypeIndex _ :: _, _ ->
         let over_expr = fun indexes v acc -> match indexes with
@@ -1368,8 +1502,7 @@ and compile_ast_expr
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
   | A.RecordProject (_, expr, field) ->
-    let field = HString.string_of_hstring field in
-    compile_projection bounds expr (X.RecordIndex field)
+    compile_projection bounds expr (field_name_to_index cstate.adt_map field)
   | A.IndexAccess (_, expr, field, A.Tuple) ->
     let field = match field with 
     | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  

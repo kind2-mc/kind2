@@ -1121,7 +1121,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       (NI.Map.bindings map)
     A.pp_print_program ast;
 
-  Res.ok (ast, map, warnings)
+  Res.ok (ast, map, warnings, adt_map)
 
   and add_ref_type_constraints info map kind node_id vars =
   vars
