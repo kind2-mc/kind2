@@ -538,6 +538,14 @@ val get_prop_term : t -> string -> Term.t
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
 
+
+(** Return the expression of the property
+
+    [get_prop_expr t n] returns the saved source expression in the transition
+    system of the first property of name [n]. *)
+val get_prop_expr : t -> string -> string option
+
+
 (** Return current kind of the property
 
 [get_prop_kind t n] returns the kind saved in the transition
@@ -585,6 +593,9 @@ val get_prop_status_and_kind_all_nocands : t -> (string * Property.prop_status *
     According to {!Property.prop_status_known}, a property is known if
     it is invariant, or has a [k]-step counterexample. *)
 val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
+
+
+val get_prop_status_and_kind_and_expr_all_nocands : t ->  (string * Property.prop_status * Property.prop_kind * Term.t) list
 
 
 (** Instantiate all properties to the bound *)

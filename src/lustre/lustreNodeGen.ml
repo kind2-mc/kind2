@@ -62,7 +62,7 @@ type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   usr_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
   res_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
-  expr : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
+  expr : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t; 
   array_literal_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   source : LustreNode.state_var_source StateVar.StateVarHashtbl.t;
   bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
@@ -617,7 +617,7 @@ let expand_tuple pos lhs rhs =
   expand_tuple' pos [] []
     (X.bindings lhs) (X.bindings rhs)
 
-let compile_contract_item map count scope kind pos name expr =
+let compile_contract_item gids map count scope kind pos name expr =
     let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
@@ -625,7 +625,12 @@ let compile_contract_item map count scope kind pos name expr =
       | Some name -> Some (HString.string_of_hstring name)
       | None -> None
     in
-    let contract_sv = C.mk_svar pos count name state_var scope in
+    let sexpr =
+      let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+      try LustreAst.string_of_expr (GI.StringMap.find key gids.GI.expr_source_map)
+      with Not_found -> LustreAst.string_of_expr expr
+    in
+    let contract_sv = C.mk_svar pos count name state_var scope sexpr in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
 
@@ -1603,11 +1608,11 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       let id' = HString.string_of_hstring id in
       let reqs = List.mapi
         (fun i (p, n, e) -> 
-          compile_contract_item map (i + 1) contract_scope N.Require p n e)
+          compile_contract_item gids map (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
         (fun i (p, n, e) -> 
-          compile_contract_item map (i + 1) contract_scope N.Ensure p n e)
+          compile_contract_item gids map (i + 1) contract_scope N.Ensure p n e)
         enss in
       let contract_scope =
         List.map (fun (_, i) -> HString.string_of_hstring i) contract_scope
@@ -1688,7 +1693,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.assume_count in
       map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item map (i + 1) contract_scope kind pos name expr
+      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
     in List.map over_assumes assumes
   in
   let guarantees = 
@@ -1696,7 +1701,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.guarantee_count in
       map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item map (i + 1) contract_scope kind pos name expr
+      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
     in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
@@ -1924,7 +1929,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* (State Variables for) Generated Refinement Type Constraints        *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _) =
+    let over_generated_locals glocals (_, _, id, _, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -2155,6 +2160,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
+      let src_expr =
+        let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+        try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+      in
       let name, src =
         match name_opt with
         | None -> assert false (* Prop named in LustreAstNormalizer *)
@@ -2174,7 +2183,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in
-      sv, name, src, kind
+      sv, name, src, kind, src_expr
     in List.map op node_props
 
   in let asserts =
@@ -2599,9 +2608,20 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* ****************************************************************** *)
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
-  in let (assumes, guarantees, props) =
-    let create_constraint_name rexpr = 
-      Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+  in 
+  (* Helper for subranges and refinement type expression substitution *)
+  let find_type_ascription_expr nid = 
+    NI.Map.fold (fun _ gds acc ->
+      match acc with
+      | Some _ -> acc
+      | None -> NI.Map.find_opt nid gds.GI.type_ascription_exprs
+      ) gids_map None
+  in
+  let (assumes, guarantees, props) =
+    let create_constraint_name prefix pos = 
+      (* Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr *)
+      Format.asprintf "@[<h>%s%a@]" prefix pp_print_line_and_column pos
+ 
     in
     let over_subrange_constraints
       (a, ac, g, gc, p)
@@ -2617,31 +2637,36 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         | Output -> Some N.Guarantee, None
         | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
       in
+      let rexpr = match find_type_ascription_expr node_id with
+        | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+        | None -> rexpr
+      in
+      let srexpr = A.string_of_expr rexpr in
       if is_original then
         let scope =
           List.map (fun (i, s) -> i, HString.string_of_hstring s) contract_scope
         in
         match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
-          let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos ac (Some name) sv scope in
+          let name = create_constraint_name "SubRange" pos in
+          let contract_sv = C.mk_svar pos ac (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee, _ ->
-          let name = create_constraint_name rexpr in
-          let contract_sv = C.mk_svar pos gc (Some name) sv scope in
+          let name = create_constraint_name "SubRange" pos in
+          let contract_sv = C.mk_svar pos gc (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None, Some gen_src ->
-          let name = create_constraint_name rexpr in
+          let name = create_constraint_name "SubRange" pos in
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+          a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
         | _ -> assert false
       else
-        let name = create_constraint_name rexpr in
+        let name = create_constraint_name "SubRange" pos in
         let src = Property.Generated (Some pos, [sv], Property.Body) in
         let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+        a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints
@@ -2653,31 +2678,40 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-  let create_constraint_name rexpr = 
-    Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
+  let create_constraint_name_pos (pos : position)= 
+    Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
   in
-  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr) =
+  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
     let sv = H.find !map.state_var (mk_ident id) in
     let constraint_kind, generated_source = match source with
-      | GI.Input -> Some N.Assumption, None
-      | Local -> None, Some Property.Body
-      | Output -> Some N.Guarantee, None
-      | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
-    in match constraint_kind, generated_source with
+    | GI.Input -> Some N.Assumption, None
+    | Local -> None, Some Property.Body
+    | Output -> Some N.Guarantee, None
+    | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
+  in
+  let name = create_constraint_name_pos pos in
+  let replace_expr = match node_id_opt with
+  | Some nid -> find_type_ascription_expr nid
+  | None -> None
+  in
+
+  let rexpr = match replace_expr with
+    | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+    | None -> rexpr
+    in
+    let srexpr = A.string_of_expr rexpr in
+    match constraint_kind, generated_source with
       | Some N.Assumption, _ ->
-        let name = create_constraint_name rexpr in
-        let contract_sv = C.mk_svar pos ac (Some name) sv [] in
+        let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
-        contract_sv :: a, ac + 1, g, gc, p
+        (contract_sv :: a, ac + 1, g, gc, p)
       | Some N.Guarantee, _ ->
-        let name = create_constraint_name rexpr in
-        let contract_sv = C.mk_svar pos gc (Some name) sv [] in
+        let contract_sv = C.mk_svar pos gc (Some name) sv [] srexpr in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
-        a, ac, (contract_sv, false) :: g, gc + 1, p
+        (a, ac, (contract_sv, false) :: g, gc + 1, p)
       | None, Some gen_src ->
-        let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv], gen_src) in
-        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
+        (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
       | _ -> assert false
   in
   let (assumes, _, guarantees, _, props) = 
@@ -2685,7 +2719,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     (assumes, List.length assumes, guarantees, List.length guarantees, props)
     gids.GI.refinement_type_constraints
   in
-  assumes, guarantees, props
+  (assumes, guarantees, props)
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)

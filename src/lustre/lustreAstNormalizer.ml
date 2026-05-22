@@ -219,7 +219,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
-  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr, _) =
     Format.fprintf ppf "(%a, %a, %a, %a)"
       pp_print_source source
       Lib.pp_print_position pos
@@ -293,6 +293,10 @@ let dpos = Lib.dummy_pos
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
+
+let record_source_expr gids normalized_expr original_expr =
+  let key = HString.mk_hstring (A.string_of_expr normalized_expr) in
+  { gids with expr_source_map = StringMap.add key original_expr gids.expr_source_map }
 
 let get_inductive_vars ind_vars expr =
   let vars = AH.vars_without_node_call_ids expr in
@@ -1137,7 +1141,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
       let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
       let gids2 = { (empty ()) with
-        refinement_type_constraints = [(source, pos, name, output_expr)];
+        refinement_type_constraints = [(source, pos, name, output_expr, node_id)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
       in
       union gids1 gids2, warnings 
@@ -1511,6 +1515,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
@@ -1521,6 +1526,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter > b *)
@@ -1531,6 +1537,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
       
       (* expr or counter < b1 or counter > b2 *)
@@ -1545,11 +1552,13 @@ and normalize_item info node_id map = function
           )
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Reachable _ -> 
         let expr = A.UnaryOp (pos, A.Not, expr) in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Provided expr2 ->
@@ -1560,6 +1569,8 @@ and normalize_item info node_id map = function
           let pos' =  AH.pos_of_expr expr2 in
           let expr2 = A.UnaryOp (pos', A.Not, expr2) in
           let nexpr2, gids2, warnings2 = abstract_expr false info (Some node_id) map expr2 in
+          let gids1 = record_source_expr gids1 nexpr1 expr1 in
+          let gids2 = record_source_expr gids2 nexpr2 expr2 in
           let name'', gids2 = match name' with
             | Some name ->
               let name'' = HString.concat2 (HString.mk_hstring "Guard of ") name in
@@ -1577,6 +1588,7 @@ and normalize_item info node_id map = function
 
       | _ ->
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
     in
     decls, union h_gids gids, warnings
@@ -1623,10 +1635,12 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let info, h_gids, expr = desugar_history info expr in
 
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
         let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
@@ -1635,6 +1649,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let over_property info map (pos, name, expr) =
           let info, h_gids, expr = desugar_history info expr in
           let nexpr, gids, warnings = abstract_expr true info (Some node_id) map expr in
+          let gids = record_source_expr gids nexpr expr in
           (pos, name, nexpr), union h_gids gids, warnings
         in
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
@@ -2077,6 +2092,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       in
       let nexpr, gids2 =
         mk_fresh_call ~vmap info id map pos cond restart nargs None
+      in
+      let gids2 = 
+        if NI.get_node_type id = NI.TypeAscription && args <> [] then
+          let original_expr = List.hd args in
+          { gids2 with type_ascription_exprs = NI.Map.add id original_expr gids2.type_ascription_exprs }
+        else
+          gids2
       in
       nexpr, union gids1 gids2, warnings
     in
