@@ -345,7 +345,7 @@ let extract_props_certs sys =
   ) ([], []) (TS.get_invariants sys |> Invs.flatten) in
 
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | { Property.prop_source = Property.Candidate _ } -> acc
+      | p when Property.is_candidate p -> acc
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
         (* let (k,p') = c in
         KEvent.log_uncond "[PROP] %a -----> %i:%a" Term.pp_print_term p k Term.pp_print_term p' ; *)
@@ -356,8 +356,7 @@ let extract_props_certs sys =
     ) (certs, []) (TS.get_real_properties sys) in
 
   let certs =  List.fold_left (fun certs -> function
-      | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate _ } -> c :: certs
+      | { Property.prop_status = Property.PropInvariant c } -> c :: certs
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs

@@ -105,11 +105,13 @@ and prop_source =
      properties *)
   | Candidate of prop_source option
 
-let is_candidate = function 
-| Candidate _ -> true
-| PropAnnot _ | Generated _ | Instantiated _ | Assumption _ 
-| Guarantee _ | GuaranteeOneModeActive _ | GuaranteeModeImplication _
-| NonVacuityCheck _ -> false
+let rec is_candidate p =
+  match p.prop_source with
+  | Candidate _ -> true
+  | Instantiated (_, p) -> is_candidate p
+  | _ -> false
+
+let is_real p = not (is_candidate p)
 
 let copy t = { t with prop_status = t.prop_status }
 
