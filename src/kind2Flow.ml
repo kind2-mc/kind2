@@ -609,7 +609,7 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
 let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
-  ( if TSys.has_non_candidate_property sys |> not && not ignore_props then
+  ( if TSys.has_real_property sys |> not && not ignore_props then
       KEvent.log L_note
         "System %a has no property, skipping verification step." fmt_sys sys
     else

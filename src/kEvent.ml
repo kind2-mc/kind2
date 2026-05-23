@@ -325,7 +325,7 @@ let proved_pt mdl level trans_sys k prop =
   if 
     not (Property.prop_status_known (Property.get_prop_status property))
   then (
-    let prop_type = match property.prop_source with 
+    let prop_type = match Property.get_prop_original_source property with 
       | Candidate None -> "Candidate property"
       | Candidate Some (Generated _) -> "Generated candidate property"
       | Generated _ -> "Generated property"
@@ -847,7 +847,7 @@ let prop_attributes_xml trans_sys prop_name =
           lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
-  " isCandidate=\"" ^ (string_of_bool (Property.is_candidate prop.Property.prop_source)) 
+  " isCandidate=\"" ^ (string_of_bool (Property.is_candidate prop)) 
   ^ "\"" ^ get_attributes prop.Property.prop_source
 
 
@@ -1191,7 +1191,7 @@ let prop_attributes_json ppf trans_sys prop_name =
   in
 
   Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
-      (string_of_bool (Property.is_candidate prop.Property.prop_source));
+      (string_of_bool (Property.is_candidate prop));
   (match prop.Property.prop_expr with 
   | Some expr -> 
   Format.fprintf ppf "\"expr\" : \"%s\",@,"
