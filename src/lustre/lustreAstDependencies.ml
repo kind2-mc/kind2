@@ -509,8 +509,9 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Match (_, e, arms, _) ->
     get_node_call_from_expr e
     @ List.flatten (List.map (fun (_, body) -> get_node_call_from_expr body) arms)
-  | LA.ADTTerm (_, _, args) ->
+  | LA.ADTTerm (_, ty_args, _, args) ->
     List.flatten (List.map get_node_call_from_expr args)
+    @ List.flatten (List.map extract_node_calls_type ty_args)
 (** Returns all the node calls from an expression *)
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
@@ -834,8 +835,9 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
       ) SI.empty arms
     in
     SI.union (r e) arm_vars
-  | ADTTerm (_, _, args) ->
-    SI.flatten (List.map r args)
+  | ADTTerm (_, ty_args, _, args) ->
+    SI.union (SI.flatten (List.map r args))
+      (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
 
 (** get all the variables and flatten node calls using
     the node summary for an expression *)
@@ -1073,9 +1075,11 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
         let fst = List.hd arm_exprs in
         graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, bad_e))
     )
-  | LA.ADTTerm (_, _, args) ->
+  | LA.ADTTerm (_, ty_args, _, args) ->
     let* gs = R.seq (List.map (mk_graph_expr2 m) args) in
-    R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs)]
+    let g_tys = List.map mk_graph_type ty_args in
+    let g_args = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs) in
+    R.ok [List.fold_left union_dependency_analysis_data g_args g_tys]
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.

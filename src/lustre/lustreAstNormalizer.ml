@@ -1029,9 +1029,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     ) arms) in
     let all_vars = List.fold_left StringSet.union vars0 vars_list in
     all_vars, Match (pos, scrut', arms', scrut_ty_opt)
-  | ADTTerm (pos, ctor, args) ->
+  | ADTTerm (pos, ty_args, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
-    vars, ADTTerm (pos, ctor, args')
+    vars, ADTTerm (pos, ty_args, ctor, args')
 
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
@@ -2596,7 +2596,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     ) arms |> Lib.split3 in
     let gids2 = List.fold_left union (empty ()) gids2 in
     LDAT.build_ite pos desugared_arms, union gids1 gids2, warnings1 @ List.flatten warnings2 
-  | A.ADTTerm (pos, ctor, args) ->
+  | A.ADTTerm (pos, _ty_args, ctor, args) ->
     let args', gids1, warnings = normalize_list (normalize_expr ?guard info node_id map) args in
     let find_adt_info_for_ctor =
       LDAT.HStringMap.fold (fun _ty_name info acc ->

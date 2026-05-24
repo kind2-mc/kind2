@@ -180,7 +180,7 @@ and expr =
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
   (* ADT constructor application *)
-  | ADTTerm of position * ident * expr list
+  | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
 

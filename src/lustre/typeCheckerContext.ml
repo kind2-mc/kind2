@@ -734,7 +734,7 @@ let rec type_contains_subrange ctx = function
     match lookup_ty_syn ctx id ty_args with
     | Some (ADT _) -> false
     | Some ty -> type_contains_subrange ctx ty
-    | None -> assert false
+    | None -> Format.printf "%a\n" HString.pp_print_hstring id; assert false
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
@@ -967,8 +967,10 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
   | LA.Match (_, e, arms, _) ->
     SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
-  | LA.ADTTerm (_, _, args) ->
-    SI.flatten (List.map call args)
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    SI.union
+      (SI.flatten (List.map call args))
+      (SI.flatten (List.map (ty_vars_of_type ctx node_name) ty_args))
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
@@ -1049,6 +1051,7 @@ let rec expr_contains_node_call ctx expr =
     node_id_is_node ctx ni
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
-  | LA.ADTTerm (_, _, args) ->
+  | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
+    || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
 

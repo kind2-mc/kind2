@@ -287,8 +287,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
     let* e = rc e in
     let* arms = Res.seq (List.map (fun (pat, arm_e) -> let* e = rc arm_e in Ok (pat, e)) arms) in
     Ok (Match (p, e, arms, ty_opt))
-  | ADTTerm (p, ctor, args) ->
-    let* args = Res.seq (List.map rc args) in Ok (ADTTerm (p, ctor, args))
+  | ADTTerm (p, ty_args, ctor, args) ->
+    let* ty_args = Res.seq (List.map (flatten_ref_type ctx) ty_args) in
+    let* args = Res.seq (List.map rc args) in Ok (ADTTerm (p, ty_args, ctor, args))
 
 let flatten_ref_types_item ctx item =
   match item with

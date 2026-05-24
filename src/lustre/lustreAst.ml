@@ -143,7 +143,7 @@ type expr =
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
   (* ADT constructor application *)
-  | ADTTerm of position * ident * expr list
+  | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
 
@@ -668,12 +668,23 @@ and pp_print_expr ppf =
       pp_print_expr e
       pp_print_lustre_type ty
 
-    | ADTTerm (_, c, []) ->
+    | ADTTerm (_, [], c, []) ->
       HString.pp_print_hstring ppf c
 
-    | ADTTerm (_, c, args) ->
+    | ADTTerm (_, ty_args, c, []) ->
+      Format.fprintf ppf "%a@<%a>"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
+
+    | ADTTerm (_, [], c, args) ->
       Format.fprintf ppf "%a(%a)"
         HString.pp_print_hstring c
+        (pp_print_list pp_print_expr ",@ ") args
+
+    | ADTTerm (_, ty_args, c, args) ->
+      Format.fprintf ppf "%a@<%a>(%a)"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") args
 
     | Match (_, e, arms, _) ->

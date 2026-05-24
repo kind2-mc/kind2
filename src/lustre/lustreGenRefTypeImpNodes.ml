@@ -92,7 +92,7 @@ let rec expr_contains_mode_ref expr =
     -> false
   | Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
-  | ADTTerm (_, _, args) ->
+  | ADTTerm (_, _, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
 
 let mk_generated_env_contract_eqs ctx node_id base_contract =

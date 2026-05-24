@@ -274,8 +274,8 @@ let rec minimize_node_call_args ue lst expr =
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
     | A.Match (p, e, arms, ty_opt) ->
       A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms, ty_opt)
-    | A.ADTTerm (p, ctor, args) ->
-      A.ADTTerm (p, ctor, List.map aux args)
+    | A.ADTTerm (p, ty_args, ctor, args) ->
+      A.ADTTerm (p, ty_args, ctor, List.map aux args)
   in aux expr
 
 and ast_contains p ast =
@@ -316,7 +316,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.Match (_,e,arms,_) ->
       aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
-    | A.ADTTerm (_,_,args) ->
+    | A.ADTTerm (_,_,_,args) ->
       List.exists aux args
   in
   aux ast

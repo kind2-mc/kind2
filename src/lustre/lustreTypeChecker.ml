@@ -393,8 +393,9 @@ let no_mismatched_clock is_bool e =
     | LA.Match (_, e, arms, _) ->
       check_clocks clock e >>
       Res.seq_ (List.map (fun (_, arm_e) -> check_clocks clock arm_e) arms)
-    | LA.ADTTerm (_, _, args) ->
-      Res.seq_ (List.map (check_clocks clock) args)
+    | LA.ADTTerm (_, ty_args, _, args) ->
+      Res.seq_ (List.map (check_clocks clock) args) >>
+      Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
     result = function
@@ -443,8 +444,9 @@ let no_mismatched_clock is_bool e =
     | LA.Match (_, e, arms, _) ->
       check_merge e >>
       Res.seq_ (List.map (fun (_, arm_e) -> check_merge arm_e) arms)
-    | LA.ADTTerm (_, _, args) ->
-      Res.seq_ (List.map check_merge args)
+    | LA.ADTTerm (_, ty_args, _, args) ->
+      Res.seq_ (List.map check_merge args) >>
+      Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
   in
   check_merge e
 
@@ -628,8 +630,8 @@ let rec infer_const_attr ctx exp =
   )
   | LA.Match (_, e, arms, _) ->
     r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
-  | LA.ADTTerm (_, _, args) ->
-    List.concat_map r args
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    combine (List.concat_map r args) (List.concat_map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args)
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -860,9 +862,12 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
       R.ok (pat, arm_e)
     ) arms) in
     R.ok (LA.Match (pos, e, arms, ty_opt))
-  | LA.ADTTerm (pos, ctor, args) ->
+  | LA.ADTTerm (pos, adt_ty_args, ctor, args) ->
+    let* adt_ty_args = R.seq (List.map (fun ty_arg ->
+      instantiate_type_variables ctx pos nname ty_arg ty_args
+    ) adt_ty_args) in
     let* args = R.seq (List.map call args) in
-    R.ok (LA.ADTTerm (pos, ctor, args))
+    R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
 
 let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
@@ -1016,7 +1021,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* Identifiers *)
   | LA.Ident (pos, i) ->
     (match lookup_constructor ctx i with
-    | Some _ -> infer_type_expr ctx nname (LA.ADTTerm (pos, i, []))
+    | Some _ -> infer_type_expr ctx nname (LA.ADTTerm (pos, [], i, []))
     | None ->
       match (lookup_ty ctx i) with
       | None -> type_error pos (UnboundIdentifier i)
@@ -1407,7 +1412,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let name = NI.get_name node_id in
     match ty_args, lookup_constructor ctx name with
     | [], Some _ -> 
-      infer_type_expr ctx nname (LA.ADTTerm (pos, name, arg_exprs))
+      infer_type_expr ctx nname (LA.ADTTerm (pos, [], name, arg_exprs))
     | _ ->
     let* _ = if NI.get_node_type node_id = TypeAscription then 
       let is_function = match nname with 
@@ -1551,18 +1556,50 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         type_error pos (UnequalMatchArmTypes (main_ty, second))
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
-  | LA.ADTTerm (pos, ctor, args) ->
+  | LA.ADTTerm (pos, ty_args, ctor, args) ->
     (match lookup_constructor ctx ctor with
     | None -> type_error pos (UnboundConstructor ctor)
     | Some (ty_name, field_tys) ->
       if List.length args <> List.length field_tys then
         type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length args))
       else
+        let ty_vars = match lookup_ty_ty_vars ctx ty_name with
+          | None -> []
+          | Some ty_vars -> ty_vars
+        in
+        let* ty_args, field_tys = match ty_args, ty_vars with
+        | [], [] ->
+          R.ok ([], field_tys)
+        | [], _ ->
+          let* arg_inf_tys, _, _ = infer_type_node_args pos ctx args nname in
+          let field_ty_group =
+            if List.length field_tys = 1 then List.hd field_tys
+            else LA.GroupType (pos, field_tys)
+          in
+          let* unif = unify_types pos ctx false field_ty_group arg_inf_tys in
+          let substitution = StringMap.bindings unif in
+          let* inferred_type_args = R.seq (List.map (fun ty_var ->
+            match List.assoc_opt ty_var substitution with
+            | Some ty -> R.ok ty
+            | None -> type_error pos (CallRequiresExplicitAnnotation ty_var)
+          ) ty_vars) in
+          let field_tys = List.map (LH.apply_type_subst_in_type substitution) field_tys in
+          R.ok (inferred_type_args, field_tys)
+        | _, _ ->
+          let* substitution =
+            if List.length ty_vars = List.length ty_args then
+              R.ok (List.combine ty_vars ty_args)
+            else
+              type_error pos (InvalidPolymorphicCall ty_name)
+          in
+          let field_tys = List.map (LH.apply_type_subst_in_type substitution) field_tys in
+          R.ok (ty_args, field_tys)
+        in
         let* pairs = R.seq (List.map2 (fun arg ft ->
           check_type_expr ctx nname arg ft
         ) args field_tys) in
         let checked_args, warnings = List.split pairs in
-        R.ok (LA.UserType (pos, [], ty_name), LA.ADTTerm (pos, ctor, checked_args), List.flatten warnings)
+        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
     )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -1683,7 +1720,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | Pre (pos, _)
   | When (pos, _, _)
   | LA.Match (pos, _, _, _)
-  | LA.ADTTerm (pos, _, _)
+  | LA.ADTTerm (pos, _, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -2658,8 +2695,9 @@ and check_no_index_access ctx nname ty e =
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
   | LA.Match (_, e, arms, _) ->
     r e >> Res.seq_ (List.map (fun (_, arm_e) -> r arm_e) arms)
-  | LA.ADTTerm (_, _, args) ->
-    Res.seq_ (List.map r args)
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    Res.seq_ (List.map r args) >>
+    Res.seq_ (List.map (LH.fold_lustre_ty r (R.ok ()) (>>)) ty_args)
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2773,8 +2811,9 @@ and expr_contains_set_binop ctx ni expr =
     List.fold_left (fun acc x -> acc || r x) false expr_list
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
-  | LA.ADTTerm (_, _, args) ->
+  | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
+    || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
