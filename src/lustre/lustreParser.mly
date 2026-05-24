@@ -167,6 +167,10 @@ let mk_span start_pos end_pos =
 %token ELSE
 %token ELSIF
 %token FI
+%token WHEN
+%token COND
+%token OTHERWISE
+%token END
 %token FRAME
 
 (* Tokens for relations *)
@@ -193,7 +197,6 @@ let mk_span start_pos end_pos =
 %token CONCAT
 
 (* Tokens for clocks *)
-%token WHEN
 %token CURRENT
 %token CONDACT
 %token ACTIVATE
@@ -743,6 +746,7 @@ check:
 
 node_item:
   | i = node_if_block { i }
+  | i = node_when_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -782,7 +786,40 @@ node_if_block:
     { A.IfBlock(mk_pos $startpos, e, l, block) }
 
 
+node_when_block:
+  | WHEN; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    ELSE; 
+      l2 = nonempty_list(node_item);
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
+  | COND;
+      BAR; c1 = node_cond_case_colon;
+      cs = list(bar_node_cond_case_colon);
+      OTHERWISE; COLON;
+      l_else = nonempty_list(node_item);
+    END;
+    {
+      let cases = c1 :: cs in
+      let nested = List.fold_right
+        (fun (cond, l_then) l_otherwise ->
+          [A.WhenBlock (mk_pos $startpos, cond, l_then, l_otherwise)])
+        cases
+        l_else
+      in
+      match nested with
+      | [A.WhenBlock _ as wb] -> wb
+      | _ -> assert false
+    }
 
+
+bar_node_cond_case_colon:
+  | BAR; c = node_cond_case_colon { c }
+
+
+node_cond_case_colon:
+  | e = expr; COLON; l = nonempty_list(node_item)
+    { (e, l) }
 
 
 node_frame_block:

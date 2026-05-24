@@ -34,6 +34,8 @@ let error_message error = match error with
     | FrameBlock _ -> "Frame blocks are not allowed inside if blocks."
     | AnnotMain _ -> "Main annotations are not allowed inside if blocks."
     | AnnotProperty _ -> "Property annotations are not allowed inside if blocks."
+    | WhenBlock _ -> "When blocks are not allowed inside if blocks."
+    | IfBlock _ -> "If blocks are not allowed inside when blocks."
     (* Other node items are allowed *)
     | _ -> assert false
   )
@@ -100,7 +102,8 @@ let mk_fresh_ib_oracle pos expr_type =
   in nexpr, gids
 
 let rec update_if_position_info node_id ni = match ni with
-  | A.IfBlock (_, _, nis1, nis2) ->
+  | A.IfBlock (_, _, nis1, nis2)
+  | A.WhenBlock (_, _, nis1, nis2) ->
     List.iter (update_if_position_info node_id) nis1;
     List.iter (update_if_position_info node_id) nis2;
   | Body (Equation (_, lhs, expr)) ->
@@ -200,6 +203,7 @@ let if_block_to_trees ib =
           | A.FrameBlock (pos, _, _, _)
           | A.AnnotProperty (pos, _, _, _) 
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
@@ -225,6 +229,7 @@ let if_block_to_trees ib =
           | A.Body (Assert (pos, _)) 
           | A.AnnotProperty (pos, _, _, _)
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
       (* We've processed everything in the if block. *)
       | A. IfBlock (_, _, [], []) -> R.ok (trees)
@@ -232,6 +237,59 @@ let if_block_to_trees ib =
       | _ -> assert false
   ) in
   (helper ib LhsMap.empty [])
+
+(** Converts a when block to a map of trees (like if_block_to_trees but for WhenBlock). *)
+let when_block_to_trees wb =
+  let rec helper wb trees conds = (
+    match wb with
+      | A.WhenBlock (pos, cond, ni::nis, nis') -> (
+        match ni with
+          | A.Body (Equation (_, lhs, expr)) ->
+          let lhs, expr = update_recursive_array_locals trees lhs expr in
+          let trees = LhsMap.update (lhs, AH.pos_of_expr expr)
+            (fun tree -> match tree with
+              | Some tree -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr tree)
+              | None -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr (Leaf None)))
+            trees
+          in
+          (helper (A.WhenBlock (pos, cond, nis, nis')) trees conds)
+          | A.WhenBlock _ ->
+            let* res = (helper ni trees (conds @ [(true, cond)])) in
+            (helper (A.WhenBlock (pos, cond, nis, nis'))
+                   res
+                   conds)
+          | A.IfBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.Body (Assert (pos, _))
+          | A.FrameBlock (pos, _, _, _)
+          | A.AnnotProperty (pos, _, _, _)
+          | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
+        )
+      | A.WhenBlock (pos, cond, [], ni::nis) -> (
+        match ni with
+          | A.Body (Equation (_, lhs, expr)) ->
+            let lhs, expr = update_recursive_array_locals trees lhs expr in
+            let trees = LhsMap.update (lhs, AH.pos_of_expr expr)
+              (fun tree -> match tree with
+                | Some tree -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr tree)
+                | None -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr (Leaf None)))
+              trees
+            in
+            (helper (A.WhenBlock (pos, cond, [], nis)) trees conds)
+          | A.WhenBlock _ ->
+            let* res = (helper ni trees (conds @ [(false, cond)])) in
+            (helper (A.WhenBlock (pos, cond, [], nis))
+                   res
+                   conds)
+          | A.IfBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.FrameBlock (pos, _, _, _)
+          | A.Body (Assert (pos, _))
+          | A.AnnotProperty (pos, _, _, _)
+          | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
+        )
+      | A.WhenBlock (_, _, [], []) -> R.ok (trees)
+      | _ -> assert false
+  ) in
+  (helper wb LhsMap.empty [])
   
 (** Converts a tree of conditions/expressions to an ITE expression. *)
 let rec tree_to_ite pos node =
@@ -243,6 +301,17 @@ let rec tree_to_ite pos node =
       let right = tree_to_ite pos right in
       let pos = AH.pos_of_expr left in
       TernaryOp (pos, Ite, cond, left, right)
+
+(** Converts a tree of conditions/expressions to a lazy ITE expression. *)
+let rec tree_to_lazy_ite pos node =
+  match node with
+    | Leaf Some expr -> expr
+    | Leaf None -> A.Ident(pos, ib_oracle_tree)
+    | Node (left, cond, right) ->
+      let left = tree_to_lazy_ite pos left in
+      let right = tree_to_lazy_ite pos right in
+      let pos = AH.pos_of_expr left in
+      TernaryOp (pos, LazyIte, cond, left, right)
 
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
@@ -265,6 +334,10 @@ let rec fill_ite_with_oracles ctx expr ty =
       let e1, gids1, decls1 = fill_ite_with_oracles ctx e1 ty in
       let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
+    | A.TernaryOp (pos, LazyIte, cond, e1, e2) ->
+      let e1, gids1, decls1 = fill_ite_with_oracles ctx e1 ty in
+      let e2, gids2, decls2 = fill_ite_with_oracles ctx e2 ty in
+      A.TernaryOp (pos, LazyIte, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
       (* We convert ty to its base type, including mapping subrange types to ints,
          because oracles should not fulfill type-related proof obligations *)
@@ -355,12 +428,48 @@ let extract_equations_from_if node_id ctx ib in_frame_block =
   R.ok (new_decls, eqs, [gids])
 
 
+(** Helper function for 'desugar_node_item' that converts WhenBlocks to a list
+    of lazy ITEs (if-then-otherwise). Same steps as extract_equations_from_if
+    but uses tree_to_lazy_ite to produce LazyIte expressions. *)
+let extract_equations_from_when node_id ctx wb =
+  update_if_position_info node_id wb;
+  let* tree_map = when_block_to_trees wb in
+  let (lhss_poss, trees) = LhsMap.bindings (tree_map) |> List.split in
+  let trees = List.map simplify_tree trees in
+  (* For when blocks, always enforce that every variable defined in any branch
+     is defined in all branches, regardless of context. *)
+  let* () =
+    let lhss = List.map fst lhss_poss in
+    R.seq_ (List.map2 (fun lhs tree ->
+      if has_leaf_none tree then
+        let (var, pos) = get_lhs_var lhs in
+        mk_error pos (MissingDefinitionInBranchError var)
+      else R.ok ()
+    ) lhss trees)
+  in
+  let lhs_poss = List.map (fun (A.StructDef (pos, _), _) -> pos) lhss_poss in
+  let rhs_poss = List.map snd lhss_poss in
+  let lhss = List.map fst lhss_poss in
+  let ites = List.map2 tree_to_lazy_ite rhs_poss trees in
+  let tys = (List.map (get_tree_type ctx) lhss) in
+  let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *))
+                       tys) in
+  let res = List.map2 (fill_ite_with_oracles ctx) ites tys in
+  let ites = List.map (fun (x, _, _) -> x) res in
+  let gids = List.map (fun (_, y, _) -> y) res in
+  let new_decls = List.map (fun (_, _, z) -> z) res |> List.flatten in
+  let gids = List.fold_left GI.union (GI.empty ()) gids in
+  let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine lhs_poss lhss) ites) in
+  R.ok (new_decls, eqs, [gids])
+
+
 (** Desugar an individual node item. Given a node item, it returns any generated
     local declarations (if we introduce new local variables), the converted
     node_item list in the form of ITEs, and any gids).
 *)
 let rec desugar_node_item node_id ctx in_frame_block ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if node_id ctx ib in_frame_block
+  | A.WhenBlock _ as wb -> extract_equations_from_when node_id ctx wb
   | A.FrameBlock (pos, vars, nes, nis) -> 
     let* res = R.seq (List.map (desugar_node_item node_id ctx true) nis) in
     let decls, nis, gids = split_and_flatten3 res in
