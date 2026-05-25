@@ -933,8 +933,8 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
         >> (f ctx e)
       in
       let* warnings1 = check_expr ctx f e in
-      let* warnings2 = (check_items ctx ~tc_ctx lazy_when l1) in
-      let* warnings3 = (check_items ctx ~tc_ctx lazy_when l2) in
+      let* warnings2, props = (check_items ctx ~tc_ctx lazy_when l1 props) in
+      let* warnings3, _ = (check_items ctx ~tc_ctx lazy_when l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
