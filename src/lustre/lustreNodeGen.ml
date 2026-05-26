@@ -693,8 +693,19 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, _, ident) ->
-    StringMap.find ident cstate.type_alias 
+  | A.UserType (_, ty_args, ident) ->
+    (* For polymorphic ADT instantiations (e.g., UserType([Int],"Opt")), look up
+       the monomorphized concrete type "Opt<int>" that was inserted by
+       instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
+    let key = if ty_args = [] then ident
+      else
+        HString.mk_hstring (Format.asprintf "%a<%a>"
+          HString.pp_print_hstring ident
+          (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args)
+    in
+    (match StringMap.find_opt key cstate.type_alias with
+    | Some t -> t
+    | None -> StringMap.find ident cstate.type_alias)
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
@@ -991,7 +1002,7 @@ and compile_ast_expr
         false, acc_guard, X.add i e acc 
       (* For non-array types, straightforward equality (no quantification) *)
       | _ ->
-        false, acc_guard, X.add i (mk_binary e1 e2) acc 
+        false, acc_guard, X.add i (mk_binary e1 e2) acc
     in
     let _, _, expr = X.fold over_indices eqs (true, [], X.empty) in 
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
@@ -2924,7 +2935,7 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ps, ltype) ->
-    let cstate = List.fold_left (fun acc p -> 
+    let cstate = List.fold_left (fun acc p ->
       compile_type_decl pos ctx acc (A.FreeType (Lib.dummy_pos, p))
     ) cstate ps in
     let empty_map = ref (empty_identifier_maps None) in

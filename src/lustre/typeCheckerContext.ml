@@ -734,7 +734,7 @@ let rec type_contains_subrange ctx = function
     match lookup_ty_syn ctx id ty_args with
     | Some (ADT _) -> false
     | Some ty -> type_contains_subrange ctx ty
-    | None -> Format.printf "%a\n" HString.pp_print_hstring id; assert false
+    | None -> assert false
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in

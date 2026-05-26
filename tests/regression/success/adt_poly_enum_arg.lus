@@ -1,0 +1,10 @@
+type Color = enum { Red, Green, Blue };
+datatype Opt<T> = Absent | Present (T);
+
+node main() returns (ok: bool);
+var x: Opt<Color>;
+let
+  x = Present(Red);
+  ok = x = Present(Red);
+  check ok;
+tel

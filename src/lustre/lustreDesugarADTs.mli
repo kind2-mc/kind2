@@ -46,6 +46,8 @@ type adt_info = {
 
 type adt_map = adt_info HStringMap.t
 
+val build_adt_info : HString.t -> (HString.t * LustreAst.lustre_type list) list -> adt_info
+
 val record_type_of_adt : Lib.position -> adt_info -> LustreAst.lustre_type
 
 val mk_fresh_adt_term_oracle :
