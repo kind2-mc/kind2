@@ -1070,7 +1070,8 @@ and check_pattern_no_duplicates ctx pat =
   let rec check seen = function
     | [] -> Ok ()
     | (pos, id) :: rest ->
-      if List.mem id seen then syntax_error pos (DuplicatePatternVariable id)
+      if (List.mem id seen && not (id = HString.mk_hstring "_")) 
+      then syntax_error pos (DuplicatePatternVariable id)
       else check (id :: seen) rest
   in
   check [] (collect pat)
