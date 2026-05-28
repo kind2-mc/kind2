@@ -2942,7 +2942,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let* _ = R.seq_ (List.map (fun (ctor, _) ->
         match lookup_constructor ctx ctor with
         | Some (existing_ty_name, _) ->
-          type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
+          if existing_ty_name <> new_ty_name then 
+            type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
+          else R.ok ()
         | None ->
           (match lookup_const ctx ctor with
           | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
