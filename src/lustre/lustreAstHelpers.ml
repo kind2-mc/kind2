@@ -281,9 +281,23 @@ let rec substitute_naive (var:HString.t) t = function
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> substitute_naive var t e) expr_list)
   | StructUpdate (pos, e1, idx, Some e2) ->
+    let idx = List.map (function
+      | Label _ as l -> l
+      | Index (p, e) -> Index (p, substitute_naive var t e)
+      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
+      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
+      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
+    ) idx in
     StructUpdate (pos, substitute_naive var t e1, idx, Some (substitute_naive var t e2))
   | StructUpdate (pos, e1, idx, None) ->
-    StructUpdate (pos, substitute_naive var t e1, idx, None) 
+    let idx = List.map (function
+      | Label _ as l -> l
+      | Index (p, e) -> Index (p, substitute_naive var t e)
+      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
+      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
+      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
+    ) idx in
+    StructUpdate (pos, substitute_naive var t e1, idx, None)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -337,7 +351,14 @@ let rec apply_subst_in_expr sigma = function
   | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
-  | Match _ -> assert false (* Not supported due to introduction of bound variables *)
+  | Match (pos, e, arms, ty) ->
+    let e = apply_subst_in_expr sigma e in
+    let arms = List.map (fun (pat, arm_e) ->
+      let bound = pat_bound_vars pat in
+      let sigma' = List.filter (fun (v, _) -> not (SI.mem v bound)) sigma in
+      (pat, apply_subst_in_expr sigma' arm_e)
+    ) arms in
+    Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty (apply_subst_in_expr sigma)) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_subst_in_expr sigma) args)
