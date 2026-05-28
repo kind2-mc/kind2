@@ -1,0 +1,11 @@
+const N: int = 3;
+datatype D = Vec (int^N) | Empty;
+
+node main(v: int^N) returns (ok: bool);
+var x, y: D;
+let
+  x = Vec(v);
+  y = Vec(v);
+  ok = x = y;
+  check ok;
+tel

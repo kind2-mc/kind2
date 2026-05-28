@@ -1,0 +1,18 @@
+datatype Shape = Circle (real) | Rect (real, real);
+
+node main(s1, s2: Shape) returns (ok: bool);
+let
+  ok = match s1 with
+    | Circle(r1) :
+      match s2 with
+      | Circle(r2) : (r1 = r2) = (s1 = s2)
+      | Rect(w2, h2) : s1 <> s2
+      end
+    | Rect(w1, h1) :
+      match s2 with
+      | Circle(r2) : s1 <> s2
+      | Rect(w2, h2) : (w1 = w2 and h1 = h2) = (s1 = s2)
+      end
+    end;
+  check ok;
+tel
