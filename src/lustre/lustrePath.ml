@@ -1106,53 +1106,61 @@ let rec get_widths_for_contract ident_width values_width contract_trace = match 
                [RecordIndex "Cons_1"] for a nested field).
    type_name:  the ADT type name (key into adt_map).
    bindings: association list (index -> sv) for searching. *)
-let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name =
+(* Reconstruct the ADT value string for a known disc_sv at a given step.
+   For nested ADT fields, derive the nested disc sv from bindings (the field_index
+   prefix makes those lookups unambiguous). *)
+let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv =
   match G.HStringMap.find_opt type_name adt_map with
   | None -> assert false
   | Some adt_info ->
-    let disc_index =
-      root_index @ [D.RecordIndex (HString.string_of_hstring adt_info.G.disc_field)]
-    in
-    (match List.assoc_opt disc_index bindings with
+    let disc_type = StateVar.type_of_state_var disc_sv in
+    let disc_vals = try SVT.find model disc_sv with Not_found -> assert false in
+    (match List.nth_opt disc_vals step with
     | None -> assert false
-    | Some disc_sv ->
-      let disc_type = StateVar.type_of_state_var disc_sv in
-      let disc_vals = try SVT.find model disc_sv with Not_found -> assert false in
-      (match List.nth_opt disc_vals step with
-      | None -> assert false
-      | Some (Model.Term t) when Type.is_enum disc_type ->
-        let ctor_name = Term.numeral_of_term t |> Type.get_constr_of_num in
-        let ctor_hs = HString.mk_hstring ctor_name in
-        let fields =
-          match G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields with
-          | None -> assert false | Some fs -> fs
-        in
-        if fields = [] then ctor_name
-        else
-          let field_strs = List.map (fun (fname, field_kind) ->
-            let field_index =
-              root_index @ [D.RecordIndex (HString.string_of_hstring fname)]
+    | Some (Model.Term t) when Type.is_enum disc_type ->
+      let ctor_name = Term.numeral_of_term t |> Type.get_constr_of_num in
+      let ctor_hs = HString.mk_hstring ctor_name in
+      let fields =
+        match G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields with
+        | None -> assert false | Some fs -> fs
+      in
+      if fields = [] then ctor_name
+      else
+        let field_strs = List.map (fun (fname, field_kind) ->
+          let field_index =
+            root_index @ [D.RecordIndex (HString.string_of_hstring fname)]
+          in
+          match field_kind with
+          | G.AdtFieldNested nested_type ->
+            (* For nested ADT, look up disc sv by index; the field_index prefix
+               makes this unambiguous even in a flat bindings list. *)
+            let nested_disc_field = HString.string_of_hstring
+              (match G.HStringMap.find_opt nested_type adt_map with
+               | None -> assert false | Some ai -> ai.G.disc_field) in
+            let nested_disc_index =
+              field_index @ [D.RecordIndex nested_disc_field]
             in
-            match field_kind with
-            | G.AdtFieldNested nested_type ->
+            (match List.assoc_opt nested_disc_index bindings with
+            | None -> assert false
+            | Some nested_disc_sv ->
               reconstruct_adt_at_step model bindings adt_map step
-                field_index nested_type
-            | G.AdtFieldPlain ->
-              (* "_" here means the sv is absent: possibly sliced away *)
-              (match List.assoc_opt field_index bindings with
+                field_index nested_type nested_disc_sv)
+          | G.AdtFieldPlain ->
+            (* "_" here means the sv is absent: possibly sliced away *)
+            (match List.assoc_opt field_index bindings with
+            | None -> "_"
+            | Some psv ->
+              (match SVT.find_opt model psv with
               | None -> "_"
-              | Some psv ->
-                (match SVT.find_opt model psv with
+              | Some pvals ->
+                match List.nth_opt pvals step with
                 | None -> "_"
-                | Some pvals ->
-                  match List.nth_opt pvals step with
-                  | None -> "_"
-                  | Some pv ->
-                    let pty = StateVar.type_of_state_var psv in
-                    string_of_t (pp_print_value ~as_type:pty) pv))
-          ) fields in
-          ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")"
-      | _ -> assert false))
+                | Some pv ->
+                  let pty = StateVar.type_of_state_var psv in
+                  string_of_t (pp_print_value ~as_type:pty) pv))
+        ) fields in
+        ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")"
+    | _ -> assert false)
 
 (* One reconstructed ADT stream: the user-visible variable name and its
    value string at each counterexample step. *)
@@ -1209,7 +1217,7 @@ let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
       in
       let n_steps = List.length disc_sv_values in
       let step_strings = List.init n_steps (fun step ->
-        reconstruct_adt_at_step model bindings adt_map step root_index type_name
+        reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv
       ) in
       if step_strings = [] then None
       else Some (root_name, step_strings)
