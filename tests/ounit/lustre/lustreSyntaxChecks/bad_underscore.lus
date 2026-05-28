@@ -3,7 +3,7 @@ datatype Color = Red (int);
 node N (c: Color) returns (o: int);
 let
   o = match c with 
-  | Red (_) --> _
+  | Red (_) : _
   end;
 
   check o = 0;
