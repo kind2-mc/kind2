@@ -732,7 +732,7 @@ let rec type_contains_subrange ctx = function
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
-    | Some (ADT _) -> false
+    | Some (ADT _) -> false (*!! TODO: Should we do this? *)
     | Some ty -> type_contains_subrange ctx ty
     | None -> assert false
   )

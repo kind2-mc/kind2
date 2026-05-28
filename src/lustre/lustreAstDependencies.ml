@@ -714,7 +714,10 @@ let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) r
     It ignores ids that it cannot find as they may be globals. 
  *)
 
-    
+let rec pat_bound_vars = function
+      | LA.Pat (_, i, []) -> SI.singleton i
+      | LA.Pat (_, _, pats) -> SI.flatten (List.map pat_bound_vars pats)
+
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = fun (p, eqns) -> 
     let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
@@ -826,10 +829,6 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
         result
       | None -> SI.empty))
   | Match (_, e, arms, _) ->
-    let rec pat_bound_vars = function
-      | LA.Pat (_, i, []) -> SI.singleton i
-      | LA.Pat (_, _, pats) -> SI.flatten (List.map pat_bound_vars pats)
-    in
     let arm_vars = List.fold_left (fun acc (pat, body) ->
         SI.union acc (SI.diff (r body) (pat_bound_vars pat))
       ) SI.empty arms
@@ -1055,10 +1054,20 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
               { g with this_imported = imp})
            sum_bds))
   | LA.Match (_, e, arms, _) ->
+    let remove_bound_ids bound_ids ad =
+      { ad with
+        graph_data = G.remove_vertices ad.graph_data bound_ids;
+        graph_data2 = G.remove_vertices ad.graph_data2 bound_ids;
+        id_pos_data = List.fold_left (fun m i -> IMap.remove i m) ad.id_pos_data bound_ids }
+    in
     let* g_scrut = mk_graph_expr2 m e in
     let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
     let arm_exprs = List.map snd arms in
-    let* arm_gs = R.seq (List.map (mk_graph_expr2 m) arm_exprs) in
+    let* arm_gs = R.seq (List.map (fun (pat, body) ->
+        let bound_ids = pat_bound_vars pat |> SI.to_list in
+        let* gs = mk_graph_expr2 m body in
+        R.ok (List.map (remove_bound_ids bound_ids) gs)
+      ) arms) in
     (try
       let gs' =
         List.tl arm_gs |> List.fold_left (fun acc gs' ->

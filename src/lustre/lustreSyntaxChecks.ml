@@ -179,7 +179,7 @@ type context = {
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
-  constructors : unit StringMap.t; }
+  constructors : StringSet.t; }
 
 let empty_ctx () = {
     nodes = StringMap.empty;
@@ -192,7 +192,7 @@ let empty_ctx () = {
     pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
-    constructors = StringMap.empty;
+    constructors = StringSet.empty;
   }
 
 let ctx_add_node ctx i ty = {
@@ -236,7 +236,7 @@ let ctx_add_symbolic_array_index ctx i ty = {
   }
 
 let ctx_add_constructor ctx i = {
-    ctx with constructors = StringMap.add i () ctx.constructors
+    ctx with constructors = StringSet.add i ctx.constructors
   }
 
 (* Expression contains a pre, an arrow, or a call to a node *)
@@ -545,7 +545,7 @@ let no_dangling_calls ctx = function
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
-    let check_ctors = StringMap.mem (NI.get_name node_id) ctx.constructors in
+    let check_ctors = StringSet.mem (NI.get_name node_id) ctx.constructors in
     (match check_nodes, check_funcs, check_ctors with
     | true, _, _ -> Ok ()
     | _, true, _ -> Ok ()
@@ -562,7 +562,7 @@ let no_a_dangling_identifier ctx pos i =
     StringMap.mem i ctx.pattern_vars;
     StringMap.mem i ctx.array_indices;
     StringMap.mem i ctx.symbolic_array_indices;
-    StringMap.mem i ctx.constructors; ]
+    StringSet.mem i ctx.constructors; ]
   in
   let check_ids = List.filter (fun x -> x) check_ids in
   if List.length check_ids > 0 then Ok ()
@@ -575,7 +575,7 @@ let no_dangling_identifiers ctx = function
 
 let no_node_calls_in_constant ctx i = function
   | LA.Call (pos, _, node_id, _) ->
-    if StringMap.mem (NI.get_name node_id) ctx.constructors
+    if StringSet.mem (NI.get_name node_id) ctx.constructors
     then Ok ()
     else syntax_error pos (NodeCallInConstant i)
   | LA.Condact (pos, _, _, _, _, _)
@@ -1072,7 +1072,7 @@ and check_ty ctx f = function
 and check_pattern_no_duplicates ctx pat =
   let rec collect = function
     | LA.Pat (pos, id, []) ->
-      if StringMap.mem id ctx.constructors then [] else [(pos, id)]
+      if StringSet.mem id ctx.constructors then [] else [(pos, id)]
     | LA.Pat (_, _, pats) -> List.concat_map collect pats
   in
   let rec check seen = function
@@ -1237,7 +1237,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let pat_vars pat =
         let rec collect = function
           | LA.Pat (_, id, []) ->
-            if StringMap.mem id ctx.constructors then [] else [id]
+            if StringSet.mem id ctx.constructors then [] else [id]
           | LA.Pat (_, _, pats) -> List.concat_map collect pats
         in collect pat
       in
@@ -1265,7 +1265,10 @@ and check_expr_list ctx f l =
   Ok(List.flatten warnings)
 
 and ovq_check_expr inlinable_funcs tc_ctx ctx = function
-| LA.Call (pos, _, node_id, args) ->
+| LA.Call (pos, tys, node_id, args) ->
+  if StringSet.mem (NI.get_name node_id) ctx.constructors then 
+    ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
+  else 
   let inlinable_funcs = 
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
