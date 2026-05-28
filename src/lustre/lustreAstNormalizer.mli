@@ -94,6 +94,7 @@ val mk_enum_range_expr : ?force_prop:bool ->
   (LustreAst.expr * bool) list
 
 val mk_ref_type_expr : TypeCheckerContext.tc_context ->
+  LustreDesugarADTs.adt_map ->
   NodeId.t option ->
   LustreAst.expr ->
   LustreAst.lustre_type ->
