@@ -937,8 +937,11 @@ pexpr(Q):
   | e = any_expr { e }
   | e = choose_expr { e }
 
-  (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) }
+  (* An identifier or constructor w/ no args *)
+  | s = ident; ps = call_static_params
+    { match ps with
+      | [] -> A.Ident (mk_pos $startpos, s)
+      | tys -> A.ADTTerm (mk_pos $startpos, tys, s, []) }
 
   (* A mode reference. *)
   | DOUBLE_COLON ; mode_ref = separated_nonempty_list(DOUBLE_COLON, ident) {
