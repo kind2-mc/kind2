@@ -1,0 +1,7 @@
+
+
+node N(s1, s2: set<int>) returns (s: set<int>)
+let
+  s = s1 - s2;
+  check "P1" forall (x:int) (x in s) = (x in s1 and not (x in s2));
+tel

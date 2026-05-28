@@ -1665,7 +1665,21 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     if b1 || b2 
     then R.ok (ty2, e1, e2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
-  | LA.Minus | LA.Div ->
+  | LA.Minus ->
+    let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in
+    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty2 in
+    (match ty1', ty2' with
+    | Set (_, ty3), Set (_, ty4) ->
+      let* same_elem_ty = eq_lustre_type ctx ty3 ty4 in
+      if same_elem_ty
+      then R.ok (ty2, e1, e2, warnings1 @ warnings2)
+      else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
+    | _ ->
+      let* is_num = are_args_num ctx pos ty1 ty2 in
+      if is_num
+      then R.ok (ty2, e1, e2, warnings1 @ warnings2)
+      else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)))
+  | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok (ty2, e1, e2, warnings1 @ warnings2)
@@ -1703,6 +1717,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
       | Error id, _ | _, Error id -> (type_error pos (UnboundIdentifier id)))
   | LA.Union -> assert false (* Parsed as Plus and changed to Union during normalization *)
   | LA.Intersection -> assert false (* Parsed as Times and changed to Intersection during normalization *)
+  | LA.Difference -> assert false (* Parsed as Minus and changed to Difference during normalization *)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> NI.t option -> Lib.position
@@ -2593,8 +2608,8 @@ and expr_contains_set_binop ctx ni expr =
   let r = expr_contains_set_binop ctx ni in 
   match expr with
   | LA.CompOp (_, Eq, e, _)
-  | BinaryOp (_, (Union | Intersection | Plus | Times), e, _) ->
-  (* We call this function before relabeling Plus/Times to Union/Intersection *)
+  | BinaryOp (_, (Union | Intersection | Difference | Plus | Times | Minus), e, _) ->
+  (* We call this function before relabeling Plus/Times/Minus to Union/Intersection/Difference *)
     let ty, _, _ = infer_type_expr ctx None e |> Result.get_ok in
     type_contains_map_or_set ctx ty 
   | Quantifier (_, _, tis, e) -> 

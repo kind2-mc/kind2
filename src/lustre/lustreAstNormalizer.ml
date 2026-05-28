@@ -2438,7 +2438,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | _ -> assert false
     in 
     normalize_expr ?guard info node_id map expr
-  | BinaryOp (pos, ((Plus | Times) as op), expr1, expr2) ->
+  | BinaryOp (pos, ((Plus | Times | Minus) as op), expr1, expr2) ->
     let ty, _, _ = Chk.infer_type_expr info.context node_id expr1 |> unwrap in 
     let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> unwrap in (
     match ty, op with 
@@ -2446,12 +2446,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Union, expr1, expr2))
     | Set _, Times -> 
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Intersection, expr1, expr2))
+    | Set _, Minus ->
+      normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Difference, expr1, expr2))
     | _ ->  
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
-  | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
+  | BinaryOp (pos, ((Union | Intersection | Difference) as op), expr1, expr2) ->
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)

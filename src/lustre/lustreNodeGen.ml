@@ -1314,7 +1314,8 @@ and compile_ast_expr
   | A.BinaryOp (_, A.Plus, expr1, expr2) ->
     compile_binary bounds E.mk_plus expr1 expr2
   | A.BinaryOp (_, A.Union, _, _) 
-  | A.BinaryOp (_, A.Intersection, _, _) -> 
+  | A.BinaryOp (_, A.Intersection, _, _)
+  | A.BinaryOp (_, A.Difference, _, _) ->
     assert false (* abstracted during normalization *)
   | A.BinaryOp (_, A.Div, expr1, expr2) ->
     compile_binary bounds E.mk_div expr1 expr2 
@@ -2499,16 +2500,15 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in 
       let eq_lhs = compile_map_or_set_def id fresh_idx_name false in 
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
-      let op' = match op with 
-      | A.Union -> A.Or 
-      | A.Intersection -> And 
-      | _ -> assert false
-      in
+      let in_l = A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1) in
+      let in_r = A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2) in
       let expr = 
-        A.BinaryOp (dummy_pos, op', 
-          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr1), 
-          A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2))
-      in 
+        match op with
+        | A.Union -> A.BinaryOp (dummy_pos, A.Or, in_l, in_r)
+        | A.Intersection -> A.BinaryOp (dummy_pos, And, in_l, in_r)
+        | A.Difference -> A.BinaryOp (dummy_pos, And, in_l, A.UnaryOp (dummy_pos, A.Not, in_r))
+        | _ -> assert false
+      in
       let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map expr in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
