@@ -332,9 +332,9 @@ let build_global_ctx (decls:LustreAst.t) =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
   let over_decls acc = function
-    | LA.TypeDecl (_, AliasType (p, id, _, (EnumType (_, _, variants) as ty))) ->
+    | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) ->
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
-    | LA.TypeDecl (_, AliasType (p, id, _, ADT (_, _, cons))) ->
+    | LA.TypeDecl (_, AliasType (_, _, _, ADT (_, _, cons))) ->
       List.fold_left (fun a (ctor, _) ->
         ctx_add_constructor a ctor
       ) acc cons
