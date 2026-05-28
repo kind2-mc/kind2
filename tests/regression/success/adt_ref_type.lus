@@ -1,0 +1,16 @@
+--type Positive = subrange [1,*] of int;
+type Positive = subtype { x: int | x > 0 };
+
+--datatype Event<T> = Absent | Present (T);
+datatype Event = Absent | Present (Positive);
+
+--node Top(e: Event<Positive>)
+node Top(e: Event)
+  returns (p: Positive);
+let
+  p =
+    match e with
+    | Present(v) : v
+    | Absent : choose@<Positive>
+    end;
+tel
