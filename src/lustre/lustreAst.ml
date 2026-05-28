@@ -71,6 +71,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -536,6 +537,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Intersection, e1, e2) -> p2 p "*" e1 e2
+    | BinaryOp (p, Difference, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
