@@ -480,8 +480,10 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
   (* Update of structured expressions *)
-  | LA.StructUpdate (_, e1, _, Some e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
-  | LA.StructUpdate (_, e, _, _) -> get_node_call_from_expr e 
+  | LA.StructUpdate (_, e1, is, Some e2) ->
+    get_node_call_from_expr e1 @ get_node_call_from_indices is @ get_node_call_from_expr e2
+  | LA.StructUpdate (_, e, is, None) ->
+    get_node_call_from_expr e @ get_node_call_from_indices is
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
@@ -513,6 +515,13 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
     List.flatten (List.map get_node_call_from_expr args)
     @ List.flatten (List.map extract_node_calls_type ty_args)
 (** Returns all the node calls from an expression *)
+
+and get_node_call_from_indices: LA.label_or_index list -> (LA.ident * Lib.position) list
+= fun is ->
+  List.concat_map (function
+    | LA.Index (_, e) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
+      get_node_call_from_expr e
+    | LA.Label _ -> []) is
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
 = function 

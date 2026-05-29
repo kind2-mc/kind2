@@ -340,7 +340,8 @@ let rec desugar_expr ctx adt_map expr =
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p adt_map ty)
-  | LA.Call (p, ty_args, id, es) -> LA.Call (p, ty_args, id, rlist es)
+  | LA.Call (p, ty_args, id, es) ->
+    LA.Call (p, List.map (desugar_type p adt_map) ty_args, id, rlist es)
   | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
   | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
   | LA.Condact (p, e1, e2, id, es1, es2) ->

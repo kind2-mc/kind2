@@ -1,0 +1,35 @@
+type Nat = subrange [0,*] of int;
+type Pos = subrange [1,*] of int;
+
+datatype Option<T> = Some (T) | None;
+
+transparent function GetValue<T>(o: Option<T>) returns (v: T);
+let
+  v = match o with
+    | Some(value) : value
+    | None : choose@<T>
+  end;
+tel
+
+node imported nondet() returns (r: bool);
+
+type Vote = enum {Yes, No};
+
+type Decision = enum {Commit, Abort};
+
+type HostId = int;
+
+datatype Message =
+  | VoteReqMsg
+  | VoteMsg (HostId, Vote)
+  | DecisionMsg (Decision);
+
+type MsgSet = set<Message>;
+
+node Network(send: Option<Message>) returns 
+  (sentMsgs: MsgSet);
+let
+  sentMsgs = {GetValue(send)};
+
+  check sentMsgs = sentMsgs;
+tel

@@ -941,17 +941,17 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
     The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
     a boolean. *)
-let rec unify_types pos ctx is_type_ascription ty1 ty2 = 
+let rec unify_types pos ctx is_type_ascription ty1 ty2 =
   let r = unify_types pos ctx is_type_ascription in
   let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
-  match ty1, ty2 with 
-  (* UserTypes denote __the callee's__ 
+  match ty1, ty2 with
+  (* UserTypes denote __the callee's__
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  (* AbstractTypes denote __the caller's__ 
+  (* AbstractTypes denote __the caller's__
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
-  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
+  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
 
   (* Group types are weird... *)
   | GroupType (_, tys1), GroupType (_, tys2) ->
@@ -972,8 +972,11 @@ let rec unify_types pos ctx is_type_ascription ty1 ty2 =
 
   | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
     R.ok StringMap.empty
-  | LA.ADT (_, id1, _), LA.ADT (_, id2, _) when HString.equal id1 id2 ->
-    R.ok StringMap.empty
+  | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
+    let tys1 = List.concat_map snd cons1 in
+    let tys2 = List.concat_map snd cons2 in
+    let* maps = R.seq (List.map2 r tys1 tys2) in
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
     R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
