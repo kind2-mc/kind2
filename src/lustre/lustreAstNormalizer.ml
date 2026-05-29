@@ -207,7 +207,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring output
       A.pp_print_expr cond
       pp_print_context ctx
-      NI.pp_print_node_id_user_name node_id
+      NI.pp_print_node_id_internal_name node_id
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
@@ -257,10 +257,20 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   let pp_print_equation ppf (_, _, lhs, expr, _) = Format.fprintf ppf "%a = %a"
-  A.pp_print_eq_lhs lhs
-  A.pp_print_expr expr
+    A.pp_print_eq_lhs lhs
+    A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  let pp_print_set_binops ppf (id, expr1, expr2, _, _, _) = Format.fprintf ppf "binop: (%a, %a, %a)"
+    HString.pp_print_hstring id
+    A.pp_print_expr expr1 
+    A.pp_print_expr expr2
+  in
+  let pp_print_set_insertions ppf (id, expr1, expr2, _, _) = Format.fprintf ppf "set_update: (%a, %a, %a)"
+    HString.pp_print_hstring id
+    A.pp_print_expr expr1 
+    A.pp_print_expr expr2
+  in
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -272,6 +282,8 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
+    (pp_print_list pp_print_set_binops "\n") gids.set_binops
+    (pp_print_list pp_print_set_insertions "\n") gids.set_insertions
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
