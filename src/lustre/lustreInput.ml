@@ -249,17 +249,9 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    (*Format.printf "ctx: %a\n"
-      TypeCheckerContext.pp_print_tc_context inlined_global_ctx;
-    Format.printf "%a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_type_and_consts;
-    Format.printf "%a\n"
-      (Lib.pp_print_list LA.pp_print_declaration "\n") const_inlined_nodes_and_contracts;
-      *)
-
     (* Step 22. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs
+      LAN.normalize adt_map inlined_global_ctx abstract_interp_ctx inlinable_funcs
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 

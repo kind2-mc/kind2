@@ -74,7 +74,7 @@ module A = LustreAst
 module NI = NodeId
 module AH = LustreAstHelpers
 module AIC = LustreAstInlineConstants
-module AI = LustreAbstractInterpretation
+(* module AI = LustreAbstractInterpretation *)
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module LDAT = LustreDesugarADTs
@@ -154,7 +154,7 @@ let clear_cache () =
 
 type info = {
   context : Ctx.tc_context;
-  abstract_interp_context : LustreAbstractInterpretation.context;
+  (* abstract_interp_context : LustreAbstractInterpretation.context; *)
   (* (Index variable type * array type) StringMap.t *)
   inductive_variables : (LustreAst.lustre_type * LustreAst.lustre_type) StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
@@ -167,6 +167,7 @@ type info = {
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
   call_context : LustreAst.expr list;
   inlined_expr_ctx : bool;
+  adt_map : LDAT.adt_map;
 }
 
 let add_ty_to_info info id ty =
@@ -439,7 +440,7 @@ let mk_fresh_dummy_index _ =
   let name = HString.concat2 prefix (HString.mk_hstring "_index") in
   name
 
-let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true) ctx node_id expr_type expr =
+let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true) adt_map ctx node_id expr_type expr =
   let rec mk ctx n expr_type expr = 
     let expr_type = Chk.expand_type_syn_reftype_history ctx expr_type |> unwrap in
     match expr_type with
@@ -515,11 +516,33 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | RecordType (_, _, tys) ->
-      let mk_proj i = A.RecordProject (dpos, expr, i) in
-      let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
-      let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
+    | RecordType (_, rname, tys) ->
+      (* If record type came from desugared ADT, the constraint only applies 
+         if the constructor is selected *)
+      (match LDAT.HStringMap.find_opt rname adt_map with
+      | Some adt_info ->
+        let tag_expr = A.RecordProject (dpos, expr, adt_info.LDAT.disc_field) in
+        List.concat_map (fun (_, fname, ftype) ->
+          if not (Ctx.type_contains_enum_or_subrange ctx ftype) then []
+          else
+            let constraints = mk ctx n ftype (A.RecordProject (dpos, expr, fname)) in
+            if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
+            else
+              let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
+                match acc with Some _ -> acc | None ->
+                if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
+              ) adt_info.LDAT.ctor_fields None in
+              match ctor_opt with
+              | None -> constraints
+              | Some ctor ->
+                let guard = A.CompOp (dpos, A.Eq, tag_expr, A.Ident (dpos, ctor)) in
+                List.map (fun (c, is_orig) -> A.BinaryOp (dpos, A.Impl, guard, c), is_orig) constraints
+        ) tys
+      | None ->
+        let mk_proj i = A.RecordProject (dpos, expr, i) in
+        let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
+        let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
+        List.fold_left (@) [] tys)
    | A.Set (_, kt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
@@ -527,7 +550,7 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let ctx = Ctx.add_ty ctx idx_str kt in
       let rexpr1 = mk ctx (succ n) kt idx in
       let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
-      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false adt_map ctx node_id kt idx) in
       let assumption1 = List.fold_left (fun acc e ->
           A.BinaryOp (dpos, A.And, acc, e)
         ) key_in_map enum_exprs
@@ -554,7 +577,7 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let rexpr1 = mk ctx (succ n) kt idx in
       let rexpr2 = mk ctx (succ n) vt (A.IndexAccess (dpos, expr, idx, Map)) in
       let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
-      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+      let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false adt_map ctx node_id kt idx) in
       let assumption = List.fold_left (fun acc e ->
           A.BinaryOp (dpos, A.And, acc, e)
         ) key_in_map enum_exprs
@@ -586,28 +609,47 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
       P1(x[0]) and P2(x[1]). *)
 and mk_ref_type_expr
- = fun ctx node_id expr expr_type ->
+ = fun adt_map ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
-  match ty with 
-  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
-    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
-       in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 expr ref_expr in 
+  match ty with
+  | A.RefinementType (_, (_, id2, _), ref_expr) ->
+    let expr = AH.substitute_naive id2 expr ref_expr in
     [expr]
-  | TupleType (pos, tys) 
+  | TupleType (pos, tys)
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in
-      mk_ref_type_expr ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
+      mk_ref_type_expr adt_map ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
     ) tys |> List.flatten
-  | RecordType (p, _, tis) -> 
-    List.map (fun (_, id2, ty) -> 
-      let expr = A.RecordProject(p, expr, id2) in
-      mk_ref_type_expr ctx node_id expr ty
-    ) tis |> List.flatten
-  | ArrayType (_, (ty, len)) -> 
+  | RecordType (p, rname, tis) ->
+    (* If record type came from desugared ADT, the constraint only applies 
+       if the constructor is selected *)
+    (match LDAT.HStringMap.find_opt rname adt_map with
+    | Some adt_info ->
+      let tag_expr = A.RecordProject (p, expr, adt_info.LDAT.disc_field) in
+      List.concat_map (fun (_, fname, ftype) ->
+        let fexpr = A.RecordProject (p, expr, fname) in
+        let constraints = mk_ref_type_expr adt_map ctx node_id fexpr ftype in
+        if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
+        else
+          let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
+            match acc with Some _ -> acc | None ->
+            if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
+          ) adt_info.LDAT.ctor_fields None in
+          match ctor_opt with
+          | None -> constraints
+          | Some ctor ->
+            let guard = A.CompOp (p, A.Eq, tag_expr, A.Ident (p, ctor)) in
+            List.map (fun c -> A.BinaryOp (p, A.Impl, guard, c)) constraints
+      ) tis
+    | None ->
+      List.map (fun (_, id2, ty) ->
+        let expr = A.RecordProject (p, expr, id2) in
+        mk_ref_type_expr adt_map ctx node_id expr ty
+      ) tis |> List.flatten)
+  | ArrayType (_, (ty, len)) ->
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
+    let exprs = mk_ref_type_expr adt_map ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
     List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
@@ -622,9 +664,9 @@ and mk_ref_type_expr
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index ty in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx node_id idx ty in
+    let exprs1 = mk_ref_type_expr adt_map ctx node_id idx ty in
     let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
-    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id ty idx) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false adt_map ctx node_id ty idx) in
     let assumption1 = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
       ) key_in_map enum_exprs
@@ -640,9 +682,9 @@ and mk_ref_type_expr
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index kt in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx node_id idx kt in
+    let exprs1 = mk_ref_type_expr adt_map ctx node_id idx kt in
     let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
-    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
+    let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false adt_map ctx node_id kt idx) in
     let assumption = List.fold_left (fun acc e ->
         A.BinaryOp (dpos, A.And, acc, e)
       ) key_in_map enum_exprs
@@ -654,9 +696,9 @@ and mk_ref_type_expr
         A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs1
     in
-    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
+    let exprs2 = mk_ref_type_expr adt_map ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
     let exprs2 =
-      List.map (fun (e) -> 
+      List.map (fun e -> 
         A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs2
     in
@@ -664,7 +706,7 @@ and mk_ref_type_expr
 
   | _ -> []
 
-let mk_range_expr ?(force_prop = false) = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true
+let mk_range_expr ?(force_prop = false) adt_map = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true adt_map
 
 let mk_enum_subrange_reftype_constraints node_id info vars =
   let enum_subrange_reftype_vars =
@@ -678,8 +720,8 @@ let mk_enum_subrange_reftype_constraints node_id info vars =
       (fun acc (_, id, ty) ->
         let expr = A.Ident(dpos, id) in
         let range_exprs =
-          List.map fst (mk_enum_range_expr info.context node_id ty expr) @
-          (mk_ref_type_expr info.context node_id expr ty)
+          List.map fst (mk_enum_range_expr info.adt_map info.context node_id ty expr) @
+          (mk_ref_type_expr info.adt_map info.context node_id expr ty)
         in
         range_exprs :: acc
       )
@@ -748,14 +790,8 @@ let add_step_counter info =
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
-let get_type_of_id info (node_id : NI.t option) id =
-  let ty = (match AI.get_type info.abstract_interp_context node_id id, 
-                  Ctx.lookup_ty info.context id |> get with
-  | _, (RefinementType _ as ty) -> ty (* don't discard refinement type in favor of inferred subrange *)
-  | Some ty, _ -> ty
-  | None, ty -> ty)
-  in
-  Ctx.expand_type_syn info.context ty
+let get_type_of_id info _node_id id =
+  Ctx.lookup_ty info.context id |> get
 
 (* If [expr] is already an id then we don't create a fresh local *)
 let should_not_abstract info force = function
@@ -1083,9 +1119,9 @@ let get_inlinable_func_decls inlinable_funcs decls =
     NI.Map.empty
     decls
 
-let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
+let rec normalize adt_map ctx _ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
   let info = { context = ctx;
-    abstract_interp_context = ai_ctx;
+    (* abstract_interp_context = ai_ctx; *)
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
@@ -1096,7 +1132,8 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
-    inlined_expr_ctx = false; }
+    inlined_expr_ctx = false;
+    adt_map; }
   in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1151,7 +1188,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     (empty (), [])
 
   and mk_fresh_refinement_type_constraint source info map pos node_id expr expr_type =
-    let ref_type_exprs = mk_ref_type_expr info.context node_id expr expr_type in
+    let ref_type_exprs = mk_ref_type_expr info.adt_map info.context node_id expr expr_type in
     let gids, warnings = List.map (fun ref_type_expr ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars ref_type_expr in
@@ -1171,7 +1208,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
 
   (* If `force_prop` is set to `true`, Kind 2 will treat the generated properties as non-candidate *)
   and mk_fresh_subrange_constraint ?(force_prop = false) source info map pos node_id expr expr_type =
-    let range_exprs = mk_range_expr ~force_prop info.context node_id expr_type expr in
+    let range_exprs = mk_range_expr ~force_prop info.adt_map info.context node_id expr_type expr in
     let gids, warnings = List.map (fun (range_expr, is_original) ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars range_expr in
@@ -1430,18 +1467,18 @@ and normalize_node info map
   (* Record subrange constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _)) 
-      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
+      | A.NodeVarDecl (_, (_, id, _, _))
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) ->
         let ty = get_type_of_id info (Some node_id) id in
         Ctx.type_contains_subrange ctx ty || Ctx.type_contains_ref ctx ty
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
-      | A.NodeVarDecl (p, (_, id, _, _)) 
-      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
+      | A.NodeVarDecl (p, (_, id, _, _))
+      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->
         let ty = get_type_of_id info (Some node_id) id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in 
+        let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in
         let gids2, warnings2 = mk_fresh_refinement_type_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty in
         union acc_g (union gids1 gids2), acc_w @ warnings1 @ warnings2
       | A.NodeConstDecl (_, FreeConst _)
