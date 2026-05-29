@@ -887,6 +887,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_constructor_shadows_function_call.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
     | _ -> false);
+  mk_test "test undeclared type in ADT constructor argument" (fun () ->
+    match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
