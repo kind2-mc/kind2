@@ -2624,8 +2624,21 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | A.Match _ | A.ADTTerm _ ->
-    assert false (* desugared before normalization by lustreDesugarADTs *)
+  | A.ADTTerm (pos, ty_args, ctor, args) ->
+    let nargs, gids, warnings =
+      normalize_list (normalize_expr ?guard info node_id map) args
+    in
+    A.ADTTerm (pos, ty_args, ctor, nargs), gids, warnings
+  | A.Match (pos, scrut, arms, scrut_ty_opt) ->
+    let nscrut, gids1, warnings1 = normalize_expr ?guard info node_id map scrut in
+    let narms, gids2, warnings2 =
+      normalize_list
+        (fun (pat, body) ->
+          let nbody, gids, warnings = normalize_expr ?guard info node_id map body in
+          (pat, nbody), gids, warnings)
+        arms
+    in
+    A.Match (pos, nscrut, narms, scrut_ty_opt), union gids1 gids2, warnings1 @ warnings2
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

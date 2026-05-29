@@ -903,8 +903,21 @@ and compile_ast_type
   | A.History _
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
-  | A.ADT _ -> assert false
-      (* Lib.todo "Trying to flatten function type. This should not happen" *)
+  | A.ADT (_, ident, ctors) ->
+    let name = HString.string_of_hstring ident in
+    let compile_field_type ty =
+      match ty with
+      | A.UserType (_, [], n) when HString.equal n ident ->
+        Type.mk_datatype name []
+      | _ ->
+        match X.bindings (compile_ast_type cstate ctx map ty) with
+        | [(idx, t)] when idx = X.empty_index -> t
+        | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
+    in
+    let ctors' = List.map (fun (c, field_tys) ->
+      (HString.string_of_hstring c, List.map compile_field_type field_tys)
+    ) ctors in
+    X.singleton X.empty_index (Type.mk_datatype name ctors')
 
 and vars_of_quant cstate ctx map avars =
   let avars = List.map (fun (p, s, ty) -> p, HString.string_of_hstring s, ty) avars in
