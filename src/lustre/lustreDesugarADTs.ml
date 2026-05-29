@@ -87,12 +87,24 @@ let build_adt_info type_name type_params ctors =
   in
   { type_name; type_params; disc_field; disc_enum; ctor_variants; ctor_fields; all_payload_fields }
 
-(* Collect all ADT type declarations from a program into an adt_map. *)
+(* True if any constructor field type directly references type_name itself. *)
+let is_directly_recursive type_name ctors =
+  List.exists (fun (_ctor, field_types) ->
+    List.exists (fun ty ->
+      match ty with
+      | LA.UserType (_, _, n) -> HString.equal n type_name
+      | _ -> false
+    ) field_types
+  ) ctors
+
+(* Collect non-recursive ADT type declarations from a program into an adt_map.
+   Recursive ADTs are excluded and left for the backend's native datatype encoding. *)
 let build_adt_map decls =
   List.fold_left (fun m decl ->
     match decl with
     | LA.TypeDecl (_, LA.AliasType (_, name, ty_params, LA.ADT (_, _, ctors))) ->
-      HStringMap.add name (build_adt_info name ty_params ctors) m
+      if is_directly_recursive name ctors then m
+      else HStringMap.add name (build_adt_info name ty_params ctors) m
     | _ -> m
   ) HStringMap.empty decls
 
@@ -276,51 +288,61 @@ let rec desugar_expr ctx adt_map expr =
   match expr with
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
     let args' = rlist args in
-    let adt_info =
+    let adt_info_opt =
       HStringMap.fold (fun _ info acc ->
         match acc with Some _ -> acc | None ->
           if HStringMap.mem ctor info.ctor_fields then Some info else None
       ) adt_map None
-      |> (function Some i -> i | None -> assert false)
     in
-    let ty_args' = List.map (desugar_type pos adt_map) ty_args in
-    let subst =
-      if List.length adt_info.type_params = List.length ty_args'
-      then List.combine adt_info.type_params ty_args'
-      else []
-    in
-    let inst_fields fields =
-      List.map (fun (fn, ft) -> (fn, LH.apply_type_subst_in_type subst ft)) fields
-    in
-    let disc_e = LA.Ident (pos, ctor) in
-    let this_ctor_fields = inst_fields (
-      HStringMap.find_opt ctor adt_info.ctor_fields
-      |> (function Some fs -> fs | None -> assert false))
-    in
-    let arg_map =
-      List.combine (List.map fst this_ctor_fields) args'
-      |> List.fold_left (fun m (fn, e) -> HStringMap.add fn e m) HStringMap.empty
-    in
-    let payload_pairs = List.map (fun (fname, ftype) ->
-      match HStringMap.find_opt fname arg_map with
-      | Some e -> (fname, e)
-      | None -> (fname, default_value ctx adt_map pos ftype)
-    ) (inst_fields adt_info.all_payload_fields) in
-    LA.RecordExpr (pos, adt_info.type_name, [],
-      (adt_info.disc_field, disc_e) :: payload_pairs)
+    (match adt_info_opt with
+    | None ->
+      (* Constructor belongs to a recursive ADT — pass through for backend encoding. *)
+      LA.ADTTerm (pos, ty_args, ctor, args')
+    | Some adt_info ->
+      let ty_args' = List.map (desugar_type pos adt_map) ty_args in
+      let subst =
+        if List.length adt_info.type_params = List.length ty_args'
+        then List.combine adt_info.type_params ty_args'
+        else []
+      in
+      let inst_fields fields =
+        List.map (fun (fn, ft) -> (fn, LH.apply_type_subst_in_type subst ft)) fields
+      in
+      let disc_e = LA.Ident (pos, ctor) in
+      let this_ctor_fields = inst_fields (
+        HStringMap.find_opt ctor adt_info.ctor_fields
+        |> (function Some fs -> fs | None -> assert false))
+      in
+      let arg_map =
+        List.combine (List.map fst this_ctor_fields) args'
+        |> List.fold_left (fun m (fn, e) -> HStringMap.add fn e m) HStringMap.empty
+      in
+      let payload_pairs = List.map (fun (fname, ftype) ->
+        match HStringMap.find_opt fname arg_map with
+        | Some e -> (fname, e)
+        | None -> (fname, default_value ctx adt_map pos ftype)
+      ) (inst_fields adt_info.all_payload_fields) in
+      LA.RecordExpr (pos, adt_info.type_name, [],
+        (adt_info.disc_field, disc_e) :: payload_pairs))
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
-    let adt_info =
-      (match scrut_ty_opt with
+    let adt_info_opt =
+      match scrut_ty_opt with
       | Some ty -> adt_info_of_type adt_map ty
-      | None -> None)
-      |> (function Some i -> i | None -> assert false)
+      | None -> None
     in
-    let scrut' = r scrut in
-    let desugared_arms = List.map (fun (pat, body) ->
-      let (cond_opt, body') = desugar_arm pos adt_map adt_info scrut' pat body in
-      (cond_opt, r body')
-    ) arms in
-    build_ite pos desugared_arms
+    (match adt_info_opt with
+    | None ->
+      (* Scrutinee is a recursive ADT type — pass through for backend encoding. *)
+      let scrut' = r scrut in
+      let arms' = List.map (fun (pat, body) -> (pat, r body)) arms in
+      LA.Match (pos, scrut', arms', scrut_ty_opt)
+    | Some adt_info ->
+      let scrut' = r scrut in
+      let desugared_arms = List.map (fun (pat, body) ->
+        let (cond_opt, body') = desugar_arm pos adt_map adt_info scrut' pat body in
+        (cond_opt, r body')
+      ) arms in
+      build_ite pos desugared_arms)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ -> expr
   | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
@@ -442,7 +464,9 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
           let record_ty = record_type_of_adt pos info in
           let record_decl = LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, record_ty)) in
           [enum_decl; record_decl]
-        | None -> assert false)
+        | None ->
+          (* Recursive ADT — leave the declaration as-is for the backend. *)
+          [decl])
       | LA.ConstDecl (p, cd) ->
         [LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)]
       | _ -> [decl]

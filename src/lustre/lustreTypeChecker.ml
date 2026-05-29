@@ -2438,11 +2438,17 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
       else R.ok ()
     ) () ps in
 
-    let ctx' = List.fold_left (fun acc p -> 
+    let ctx' = List.fold_left (fun acc p ->
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
     let ctx = add_ty_vars_ty ctx i ps in
-    let* ty, _ = check_type_well_formed ctx' Global None false ty in 
+    (* For recursive ADTs, add the type itself to ctx' before checking so that
+       self-referential field types are recognized as valid *)
+    let ctx' = match ty with
+      | LA.ADT _ -> add_ty_syn ctx' i ty
+      | _ -> ctx'
+    in
+    let* ty, _ = check_type_well_formed ctx' Global None false ty in
     (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
