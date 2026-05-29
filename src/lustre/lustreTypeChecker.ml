@@ -2942,18 +2942,20 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
       )
     | ADT (pos, new_ty_name, ctors) ->
-      let* _ = R.seq_ (List.map (fun (ctor, _) ->
-        match lookup_constructor ctx ctor with
-        | Some (existing_ty_name, _) ->
-          if existing_ty_name <> new_ty_name then 
-            type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
-          else R.ok ()
-        | None ->
-          (match lookup_const ctx ctor with
-          | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
-          | None -> R.ok ())
-      ) ctors) in
-      R.ok (ty', [])
+      let* ctors, all_warnings = R.seq (List.map (fun (ctor, tys) ->
+        let* _ = (match lookup_constructor ctx ctor with
+          | Some (existing_ty_name, _) ->
+            if existing_ty_name <> new_ty_name then
+              type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
+            else R.ok ()
+          | None ->
+            (match lookup_const ctx ctor with
+            | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
+            | None -> R.ok ())) in
+        let* tys, warnings = R.seq (List.map (check_type_well_formed_rec true) tys) |> R.map List.split in
+        R.ok ((ctor, tys), List.flatten warnings)
+      ) ctors) |> R.map List.split in
+      R.ok (LA.ADT (pos, new_ty_name, ctors), List.flatten all_warnings)
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
   in
