@@ -38,8 +38,8 @@ let error_message = function
 
 let (let*) = Result.bind
 
-let mk_error pos kind = Error (`LustreFlattenRefinementTypesError (pos, kind))
-
+(* currently unused *)
+(*let mk_error pos kind = Error (`LustreFlattenRefinementTypesError (pos, kind))*)
 
 let rec flatten_ref_type ctx ty = match ty with
   | A.UserType (pos, ty_args, str) ->
@@ -68,17 +68,6 @@ let rec flatten_ref_type ctx ty = match ty with
     Ok (A.ArrayType (pos, (ty, expr)))
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let* ty = flatten_ref_type ctx ty in
-    let bound_var_is_adt = match ty with
-      | A.UserType (_, ty_args, str) ->
-        (match TypeCheckerContext.lookup_ty_syn ctx str ty_args with
-        | Some (A.ADT _) -> true
-        | _ -> false)
-      | A.ADT _ -> true
-      | _ -> false
-    in
-    if bound_var_is_adt then
-      mk_error pos2 ADTBoundVariable
-    else
     let rec chase_refinements ty = match ty with
     | A.RefinementType (_, (_, id2, ty2), expr2) ->
       let cons = chase_refinements ty2 in

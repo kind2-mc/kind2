@@ -886,7 +886,7 @@ let instantiate_polymorphic_adts ctx decls =
         (* Build the concrete record type. Field types that are themselves polymorphic
            ADT uses (e.g., UserType([Int],"Opt") for Opt<Opt<int>>) are kept in their
            original UserType form; compile_ast_type resolves them via the mono key. *)
-        let adt_info = LDAT.build_adt_info id concrete_ctors in
+        let adt_info = LDAT.build_adt_info id [] concrete_ctors in
         let record_ty = match LDAT.record_type_of_adt pos adt_info with
           | A.RecordType (p, _, fields) -> A.RecordType (p, mono_name, fields)
           | _ -> assert false

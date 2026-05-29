@@ -24,11 +24,10 @@
     [type T_tag = C0 | C1 | C2;]
     [type T = \{ T_tag: T_tag; C1_0: t1; C2_0: t2_0; C2_1: t2_1 \}]
   where the tag field encodes the active constructor and payload fields
-  for non-selected constructors carry junk default values.
+  for non-selected constructors carry default values.
 
-  The pre-pass ([desugar_adts_program]) handles TypeDecl transformation
-  and context update. [ADTTerm] and [Match] expression desugaring is
-  performed within the normalizer using the shared infrastructure below.
+  [desugar_adts] is the main pipeline entry point: it desugars both
+  TypeDecls and all [ADTTerm]/[Match] expressions in one pass.
 
   @author Rob Lorch
 *)
@@ -37,6 +36,7 @@ module HStringMap = HString.HStringMap
 
 type adt_info = {
   type_name : HString.t;
+  type_params : HString.t list;
   disc_field : HString.t;
   disc_enum : HString.t;
   ctor_variants : HString.t list;
@@ -46,14 +46,17 @@ type adt_info = {
 
 type adt_map = adt_info HStringMap.t
 
-val build_adt_info : HString.t -> (HString.t * LustreAst.lustre_type list) list -> adt_info
+val build_adt_info :
+  HString.t ->
+  HString.t list ->
+  (HString.t * LustreAst.lustre_type list) list ->
+  adt_info
 
-val record_type_of_adt : Lib.position -> adt_info -> LustreAst.lustre_type
-
-val mk_fresh_adt_term_oracle :
+val record_type_of_adt :
   Lib.position ->
-  LustreAst.lustre_type ->
-  LustreAst.expr * GeneratedIdentifiers.t
+  ?ty_args:LustreAst.lustre_type list ->
+  adt_info ->
+  LustreAst.lustre_type
 
 val adt_info_of_type : adt_map -> LustreAst.lustre_type -> adt_info option
 
@@ -73,7 +76,8 @@ val build_ite :
   (LustreAst.expr option * LustreAst.expr) list ->
   LustreAst.expr
 
-val desugar_adts_program :
+val desugar_adts :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-  LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map
+  LustreAst.declaration list ->
+  LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map

@@ -153,8 +153,6 @@ let clear_cache () =
   NodeArgCache.clear node_arg_cache;
 
 type info = {
-  (* Pre-ADT-desugaring typing context.
-     Needed because type inference happens on un-normalized (not desugared) expressions. *)
   context : Ctx.tc_context;
   abstract_interp_context : LustreAbstractInterpretation.context;
   (* (Index variable type * array type) StringMap.t *)
@@ -169,17 +167,14 @@ type info = {
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
   call_context : LustreAst.expr list;
   inlined_expr_ctx : bool;
-  adt_map : LDAT.adt_map;
 }
 
 let add_ty_to_info info id ty =
   { info with context = Ctx.add_ty info.context id ty }
 
-(* Infer the type of [expr] in the pre-desugaring context and desugar the result. *)
 let infer_type info node_id expr =
-  let pos = AH.pos_of_expr expr in
   let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in
-  LDAT.desugar_type pos info.adt_map ty
+  ty
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals in
@@ -579,9 +574,8 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
       P1(x[0]) and P2(x[1]). *)
 and mk_ref_type_expr
- = fun ctx adt_map node_id expr expr_type ->
+ = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
-  let ty = LDAT.desugar_type Lib.dummy_pos adt_map ty in
   match ty with 
   | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
@@ -591,17 +585,17 @@ and mk_ref_type_expr
   | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in
-      mk_ref_type_expr ctx adt_map node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
+      mk_ref_type_expr ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
       let expr = A.RecordProject(p, expr, id2) in
-      mk_ref_type_expr ctx adt_map node_id expr ty
+      mk_ref_type_expr ctx node_id expr ty
     ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
-    let exprs = mk_ref_type_expr ctx adt_map node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
+    let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
     List.map (fun expr ->
       let bound1 = 
         A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
@@ -616,7 +610,7 @@ and mk_ref_type_expr
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index ty in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx adt_map node_id idx ty in
+    let exprs1 = mk_ref_type_expr ctx node_id idx ty in
     let key_in_map = A.BinaryOp (dpos, A.In Set, idx, expr) in
     let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id ty idx) in
     let assumption1 = List.fold_left (fun acc e ->
@@ -634,7 +628,7 @@ and mk_ref_type_expr
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index kt in 
     let base_kt = Chk.expand_type_syn_reftype_history_subrange ctx kt |> Result.get_ok in 
-    let exprs1 = mk_ref_type_expr ctx adt_map node_id idx kt in
+    let exprs1 = mk_ref_type_expr ctx node_id idx kt in
     let key_in_map = A.BinaryOp (dpos, A.In Map, idx, expr) in
     let enum_exprs = List.map fst (mk_enum_range_expr ~mk_range:false ctx node_id kt idx) in
     let assumption = List.fold_left (fun acc e ->
@@ -648,7 +642,7 @@ and mk_ref_type_expr
         A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs1
     in
-    let exprs2 = mk_ref_type_expr ctx adt_map node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
+    let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
     let exprs2 =
       List.map (fun (e) -> 
         A.Quantifier (dpos, A.Forall, [var], body e assumption)
@@ -673,7 +667,7 @@ let mk_enum_subrange_reftype_constraints node_id info vars =
         let expr = A.Ident(dpos, id) in
         let range_exprs =
           List.map fst (mk_enum_range_expr info.context node_id ty expr) @
-          (mk_ref_type_expr info.context info.adt_map node_id expr ty)
+          (mk_ref_type_expr info.context node_id expr ty)
         in
         range_exprs :: acc
       )
@@ -1078,7 +1072,6 @@ let get_inlinable_func_decls inlinable_funcs decls =
     decls
 
 let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
-  let decls, _post_desugar_ctx, adt_map = LDAT.desugar_adts_program ctx decls in
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
@@ -1091,8 +1084,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
-    inlined_expr_ctx = false;
-    adt_map }
+    inlined_expr_ctx = false; }
   in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
@@ -1122,7 +1114,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       (NI.Map.bindings map)
     A.pp_print_program ast;
 
-  Res.ok (ast, map, warnings, adt_map)
+  Res.ok (ast, map, warnings)
 
   and add_ref_type_constraints info map kind node_id vars =
   vars
@@ -1147,7 +1139,7 @@ let rec normalize ctx ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
     (empty (), [])
 
   and mk_fresh_refinement_type_constraint source info map pos node_id expr expr_type =
-    let ref_type_exprs = mk_ref_type_expr info.context info.adt_map node_id expr expr_type in
+    let ref_type_exprs = mk_ref_type_expr info.context node_id expr expr_type in
     let gids, warnings = List.map (fun ref_type_expr ->
       i := !i + 1;
       let output_expr = AH.rename_contract_vars ref_type_expr in
@@ -2583,54 +2575,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | A.Match (pos, scrut, arms, scrut_ty_opt) ->
-    let adt_info = match scrut_ty_opt with
-      | Some ty -> (match LDAT.adt_info_of_type info.adt_map ty with
-        | Some i -> i | None -> assert false)
-      | None -> assert false
-    in
-    let scrut', gids1, warnings1 = normalize_expr ?guard info node_id map scrut in
-    let desugared_arms, gids2, warnings2 = List.map (fun (pat, body) ->
-      let (cond_opt, body) = LDAT.desugar_arm pos info.adt_map adt_info scrut' pat body in
-      let body', g, w = normalize_expr ?guard info node_id map body in
-      (cond_opt, body'), g, w
-    ) arms |> Lib.split3 in
-    let gids2 = List.fold_left union (empty ()) gids2 in
-    LDAT.build_ite pos desugared_arms, union gids1 gids2, warnings1 @ List.flatten warnings2 
-  | A.ADTTerm (pos, _ty_args, ctor, args) ->
-    let args', gids1, warnings = normalize_list (normalize_expr ?guard info node_id map) args in
-    let find_adt_info_for_ctor =
-      LDAT.HStringMap.fold (fun _ty_name info acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          if LDAT.HStringMap.mem ctor info.LDAT.ctor_fields then Some info
-          else None
-      ) info.adt_map None
-    in
-    (match find_adt_info_for_ctor with
-    | None -> assert false
-    | Some adt_info ->
-      let disc_e = A.Ident (pos, ctor) in
-      let this_ctor_fields =
-        match LDAT.HStringMap.find_opt ctor adt_info.LDAT.ctor_fields with
-        | Some fs -> fs | None -> assert false
-      in
-      let arg_map =
-        List.combine (List.map fst this_ctor_fields) args'
-        |> List.fold_left (fun m (fn, e) -> LDAT.HStringMap.add fn e m) LDAT.HStringMap.empty
-      in
-      let payload_results, gids2 = List.map (fun (fname, ftype) ->
-        match LDAT.HStringMap.find_opt fname arg_map with
-        | Some e -> (fname, e), empty ()
-        | None ->
-          let e, go = LDAT.mk_fresh_adt_term_oracle pos ftype in
-          (fname, e), go
-      ) adt_info.LDAT.all_payload_fields |> List.split in
-      let gids2 = List.fold_left union (empty ()) gids2 in
-      A.RecordExpr (pos, adt_info.LDAT.type_name, [],
-        (adt_info.LDAT.disc_field, disc_e) :: payload_results),
-      union gids1 gids2, warnings)
+  | A.Match _ | A.ADTTerm _ ->
+    assert false (* desugared before normalization by lustreDesugarADTs *)
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
@@ -2729,9 +2675,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | ADT (pos, _, _) -> 
-    let ty = LDAT.desugar_type pos info.adt_map ty in 
-    normalize_ty ~guard ~id info node_id map ty 
+  | ADT _ -> assert false (* desugared before normalization by lustreDesugarADTs *)
   | Int _ | History _ | Bool _ | Real _ | IntRange _
   | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []

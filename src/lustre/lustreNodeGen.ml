@@ -2210,31 +2210,9 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     ) in
     List.fold_left over_ib_oracles [] gids.GI.ib_oracles
   in
-  let adt_term_oracles =
-    let over_adt_term_oracles adt_term_oracles (id, expr_type) = (
-      let oracle_ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map expr_type in
-      let over_indices = ( fun index index_type accum ->
-        let possible_state_var = mk_state_var
-          ~is_const:false
-          map
-          (node_scope @ I.reserved_scope)
-          oracle_ident
-          index
-          index_type
-          (Some N.Oracle)
-        in
-        match possible_state_var with
-          | Some state_var -> X.add index state_var accum
-          | None -> accum
-      ) in
-      (X.fold over_indices index_types X.empty) :: adt_term_oracles
-    ) in
-    List.fold_left over_adt_term_oracles [] gids.GI.adt_term_oracles
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
-  in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
@@ -2985,7 +2963,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     inputs;
     oracles;
     outputs;
-    locals = adt_term_oracles @ ib_oracles @ locals;
+    locals = ib_oracles @ locals;
     equations;
     calls;
     asserts;
@@ -3040,7 +3018,7 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
         in
         let ref_type_exprs =
           if has_ref_type then
-            AN.mk_ref_type_expr ctx cstate.adt_map None (A.Ident(p, i)) ty
+            AN.mk_ref_type_expr ctx None (A.Ident(p, i)) ty
           else []
         in
         List.map (fun expr ->
