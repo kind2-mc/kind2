@@ -2431,6 +2431,31 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_map_element_updates [] gids.GI.map_element_updates
   in
   let gequations = gequations @ map_element_update_eqs in
+  let map_subtraction_eqs =
+    let over_map_subtractions acc (id, nexpr1, nexpr2, fresh_idx_name, _, _) =
+      (* Desugar to lhs[i] = (i in nexpr1 and not (i in nexpr2), nexpr1[i]),
+         i.e. a key is kept iff it is in the map and not in the subtracted set *)
+      let fresh_idx = A.Ident (dummy_pos, fresh_idx_name) in
+      let eq_lhs = compile_map_or_set_def id fresh_idx_name false in
+      let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in
+      let present_expr =
+        A.BinaryOp (dummy_pos, A.And,
+          A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1),
+          A.UnaryOp (dummy_pos, A.Not,
+            A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2)))
+      in
+      let value_expr = A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map) in
+      let expr = A.GroupExpr (dummy_pos, TupleExpr, [present_expr; value_expr]) in
+      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map expr in
+      (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let map_subtraction_eqs = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      map_subtraction_eqs @ acc
+    in
+    List.fold_left over_map_subtractions [] gids.GI.map_subtractions
+  in
+  let gequations = gequations @ map_subtraction_eqs in
   (* ****************************************************************** *)
   (* Sets                                                               *)
   (* ****************************************************************** *)
