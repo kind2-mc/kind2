@@ -2618,11 +2618,53 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       | None -> NI.Map.find_opt nid gds.GI.type_ascription_exprs
       ) gids_map None
   in
+  (* Several type constraints may be generated from a single source position
+     (e.g. one per field of a record type). Since constraint names are derived
+     from the position, this returns a function that disambiguates colliding
+     names by appending a numeric suffix (_1, _2, ...), leaving unique names
+     untouched. *)
+  let make_uniquifier base_names =
+    let counts = Hashtbl.create 7 in
+    List.iter (fun n ->
+      Hashtbl.replace counts n
+        (1 + (try Hashtbl.find counts n with Not_found -> 0))
+    ) base_names;
+    let indices = Hashtbl.create 7 in
+    fun name ->
+      if (try Hashtbl.find counts name with Not_found -> 0) > 1 then (
+        let idx = 1 + (try Hashtbl.find indices name with Not_found -> 0) in
+        Hashtbl.replace indices name idx;
+        Format.asprintf "%s_%d" name idx
+      ) else name
+  in
   let (assumes, guarantees, props) =
-    let create_constraint_name prefix pos = 
+    let create_constraint_name prefix pos =
       (* Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr *)
       Format.asprintf "@[<h>%s%a@]" prefix pp_print_line_and_column pos
- 
+
+    in
+    (* A single field of a subrange type may generate both a "real" property
+       (the original/declared constraint, with [is_original] set) and a
+       candidate invariant; these are consecutive and share a name. We
+       therefore disambiguate per field, where each field contributes exactly
+       one real constraint. We count the real constraints per name, and assign
+       a suffix only when more than one field shares the same name. Candidate
+       constraints precede their real counterpart and inherit its suffix. *)
+    let real_counts = Hashtbl.create 7 in
+    List.iter (fun (_, _, is_original, pos, _, _) ->
+      if is_original then
+        let name = create_constraint_name "SubRange" pos in
+        Hashtbl.replace real_counts name
+          (1 + (try Hashtbl.find real_counts name with Not_found -> 0))
+    ) gids.GI.subrange_constraints;
+    let seen_reals = Hashtbl.create 7 in
+    let uniq_name is_original pos =
+      let base = create_constraint_name "SubRange" pos in
+      if (try Hashtbl.find real_counts base with Not_found -> 0) > 1 then (
+        let idx = 1 + (try Hashtbl.find seen_reals base with Not_found -> 0) in
+        if is_original then Hashtbl.replace seen_reals base idx;
+        Format.asprintf "%s_%d" base idx
+      ) else base
     in
     let over_subrange_constraints
       (a, ac, g, gc, p)
@@ -2649,22 +2691,22 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         in
         match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
-          let name = create_constraint_name "SubRange" pos in
+          let name = uniq_name is_original pos in
           let contract_sv = C.mk_svar pos ac (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee, _ ->
-          let name = create_constraint_name "SubRange" pos in
+          let name = uniq_name is_original pos in
           let contract_sv = C.mk_svar pos gc (Some name) sv scope srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None, Some gen_src ->
-          let name = create_constraint_name "SubRange" pos in
+          let name = uniq_name is_original pos in
           let src = Property.Generated (Some pos, [sv], gen_src) in
           a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
         | _ -> assert false
       else
-        let name = create_constraint_name "SubRange" pos in
+        let name = uniq_name is_original pos in
         let src = Property.Generated (Some pos, [sv], Property.Body) in
         let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
@@ -2679,8 +2721,16 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
   (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-  let create_constraint_name_pos (pos : position)= 
+  let create_constraint_name_pos (pos : position)=
     Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
+  in
+  let uniq_name =
+    make_uniquifier
+      (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
+         gids.GI.refinement_type_constraints)
+  in
+  let create_constraint_name_pos pos =
+    uniq_name (create_constraint_name_pos pos)
   in
   let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
     let sv = H.find !map.state_var (mk_ident id) in
