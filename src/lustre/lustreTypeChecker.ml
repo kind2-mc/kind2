@@ -1674,6 +1674,12 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
       if same_elem_ty
       then R.ok (ty2, e1, e2, warnings1 @ warnings2)
       else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
+    | Map (_, kt, _), Set (_, st) ->
+      (* Map subtraction: remove from the map all keys contained in the set *)
+      let* same_elem_ty = eq_lustre_type ctx kt st in
+      if same_elem_ty
+      then R.ok (ty1, e1, e2, warnings1 @ warnings2)
+      else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
     | _ ->
       let* is_num = are_args_num ctx pos ty1 ty2 in
       if is_num

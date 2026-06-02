@@ -74,7 +74,13 @@ type t = {
     HString.t * 
     LustreAst.lustre_type * 
     LustreAst.lustre_type) list;
-  set_insertions: (HString.t * 
+  map_subtractions: (HString.t *
+    LustreAst.expr *
+    LustreAst.expr *
+    HString.t *
+    LustreAst.lustre_type *
+    LustreAst.lustre_type) list;
+  set_insertions: (HString.t *
     LustreAst.expr * 
     LustreAst.expr * 
     HString.t * 

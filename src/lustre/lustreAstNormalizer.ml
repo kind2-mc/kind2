@@ -2446,7 +2446,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Union, expr1, expr2))
     | Set _, Times -> 
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Intersection, expr1, expr2))
-    | Set _, Minus ->
+    | Set _, Minus | Map _, Minus ->
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Difference, expr1, expr2))
     | _ ->  
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
@@ -2465,23 +2465,38 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let ty = match Chk.infer_type_expr info.context node_id expr1 with 
+    let ty1 = match Chk.infer_type_expr info.context node_id expr1 with 
     | Ok (ty, _, _) -> (
       match Chk.expand_type_syn_reftype_history_subrange info.context ty with 
-      | Ok (Set (_, ty)) -> ty 
+      | Ok ty -> ty
       | _ -> assert false
     )
     | Error _ -> assert false 
-    in 
-    let gids3 = { (empty ()) with   
-      set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ]; 
-      locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
-    } in 
-    let nexpr = A.Ident (pos, name1) in 
-    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
-    nexpr, gids, warnings1 @ warnings2
+    in
+    (match op, ty1 with
+    | A.Difference, A.Map (_, kt, vt) ->
+      (* Map subtraction: remove from the map all keys contained in the set *)
+      let name1 = HString.concat2 prefix (HString.mk_hstring "_map_subtraction") in
+      let kt = Chk.expand_type_syn_reftype_history_subrange info.context kt |> Result.get_ok in
+      let vt = Chk.expand_type_syn_reftype_history_subrange info.context vt |> Result.get_ok in
+      let gids3 = { (empty ()) with
+        map_subtractions = [ name1, nexpr1, nexpr2, name2, kt, vt ];
+        locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
+      } in
+      let nexpr = A.Ident (pos, name1) in
+      let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
+      nexpr, gids, warnings1 @ warnings2
+    | _ ->
+      let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in
+      let ty = match ty1 with Set (_, ty) -> ty | _ -> assert false in
+      let gids3 = { (empty ()) with
+        set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ];
+        locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
+      } in
+      let nexpr = A.Ident (pos, name1) in
+      let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
+      nexpr, gids, warnings1 @ warnings2)
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
