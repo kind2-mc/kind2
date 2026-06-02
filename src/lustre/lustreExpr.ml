@@ -766,8 +766,15 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
-    | `IS_INT
-    | `UF _ -> (function _ -> assert false)
+    | `IS_INT -> (function _ -> assert false)
+
+    (* UF application: print as f(arg1, arg2, ...) *)
+    | `UF sym ->
+      let name = UfSymbol.name_of_uf_symbol sym in
+      (function args ->
+        Format.fprintf ppf "@[<hv 2>%s(%a)@]"
+          name
+          (pp_print_list (pp_print_term_node safe pvar) ", ") args)
       
 
 (* Pretty-print a hashconsed term *)
@@ -3312,6 +3319,20 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
 
 (* Return expression of a numeral *)
 let mk_int_expr n = Term.mk_num n
+
+let mk_uf uf_sym ret_type args =
+  { expr_init = Term.mk_uf uf_sym (List.map (fun e -> e.expr_init) args);
+    expr_step = Term.mk_uf uf_sym (List.map (fun e -> e.expr_step) args);
+    expr_type = ret_type }
+
+(* Build a match expression. arms is (ctor_name, vars, arm_body) list; the same
+   vars are used for both init and step sides of the body. *)
+let mk_match scrut arms result_type =
+  let init_arms = List.map (fun (n, vs, body) -> (n, vs, body.expr_init)) arms in
+  let step_arms = List.map (fun (n, vs, body) -> (n, vs, body.expr_step)) arms in
+  { expr_init = Term.mk_match scrut.expr_init init_arms;
+    expr_step = Term.mk_match scrut.expr_step step_arms;
+    expr_type = result_type }
 
 
 let mk_of_expr ?as_type expr = 

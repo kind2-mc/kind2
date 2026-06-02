@@ -517,6 +517,12 @@ val numeral_of_expr : expr -> Numeral.t
 val unsafe_term_of_expr : expr -> Term.t
 val unsafe_expr_of_term : Term.t -> expr
 
+(** Build a UF application expression with given return type and arguments *)
+val mk_uf : UfSymbol.t -> Type.t -> t list -> t
+
+(** Build a match expression. arms is (ctor_name, vars, arm_body) list. *)
+val mk_match : t -> (string * Var.t list * t) list -> Type.t -> t
+
 
 val mk_array : t -> t -> t
 

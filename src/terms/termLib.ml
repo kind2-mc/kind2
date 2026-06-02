@@ -35,7 +35,7 @@ type cexs = cex list
 (* ********************************************************************** *)
 
 (* Return the default value of the type *)
-let default_of_type t =
+let rec default_of_type t =
 
   match Type.node_of_type t with
 
@@ -59,10 +59,24 @@ let default_of_type t =
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
 
+    (* Apply the first non-self-recursive constructor with default field values *)
+    | Type.Datatype (name, ctors) ->
+      let is_self_recursive ty =
+        match Type.node_of_type ty with
+        | Type.Datatype (n, []) -> n = name
+        | _ -> false
+      in
+      let ctor_name, fields =
+        match List.find_opt (fun (_, fs) -> not (List.exists is_self_recursive fs)) ctors with
+        | Some c -> c
+        | None -> List.hd ctors
+      in
+      let ctor_sym = UfSymbol.mk_uf_symbol ctor_name fields t in
+      Term.mk_uf ctor_sym (List.map default_of_type fields)
+
     (* No defaults *)
     | Type.Abstr _
-    | Type.Array _
-    | Type.Datatype _ -> invalid_arg "default_of_type"
+    | Type.Array _ -> invalid_arg "default_of_type"
 
 
 
@@ -259,7 +273,7 @@ let pp_print_logic ?(enforce_logic=false) fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
       if (L.mem BV l && (L.mem IA l || L.mem RA l))
-         || (L.mem DT l && L.mem BV l) then
+         || L.mem DT l then
         pp_print_string fmt "ALL"
       else pp_print_features ~enforce_logic fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)

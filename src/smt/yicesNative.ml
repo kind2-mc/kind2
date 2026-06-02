@@ -567,6 +567,8 @@ and ensure_term_qf_lira t =
     ensure_lambda_qf_lira lam;
     List.iter ensure_term_qf_lira a
   | Exists lam | Forall lam -> ensure_lambda_qf_lira lam
+  | Match _ ->
+    failwith "Yices (native protocol) does not support algebraic datatypes"
   | Annot (t, _) -> ensure_term_qf_lira t
 
 let fail_when_arith solver t =
@@ -611,6 +613,8 @@ let declare_sort solver sort = match Type.node_of_type sort with
   (*   execute_command solver cmd 0 *)
 
 
+  | Type.Datatype _ ->
+    failwith "Yices (native protocol) does not support algebraic datatypes"
   | _ -> failwith "Only declare uninterpreted and enumerated sorts."
 
 

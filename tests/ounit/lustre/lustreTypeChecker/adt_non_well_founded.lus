@@ -1,0 +1,6 @@
+datatype M = C (M);
+
+node n (x: M) returns (y: M);
+let
+  y = x;
+tel

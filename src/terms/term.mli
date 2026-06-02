@@ -336,6 +336,9 @@ val mk_exists : ?fundef:bool -> Var.t list -> t -> t
 (** Return a hashconsed universally quantified term *)
 val mk_forall : ?fundef:bool -> Var.t list -> t -> t
 
+(** Return a hashconsed match expression *)
+val mk_match : t -> (string * Var.t list * t) list -> t
+
 (** {1 Constant terms} *)
 
 (** The propositional constant [true] *)

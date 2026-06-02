@@ -434,6 +434,12 @@ let get_all_abstr_types () =
       | _ -> acc) ht []
   |> List.rev
 
+let get_all_datatype_types () =
+  Hkindtype.fold (fun ty acc -> match ty with
+      | { Hashcons.node = Datatype (_, ctors) } when ctors <> [] -> ty :: acc
+      | _ -> acc) ht []
+  |> List.rev
+
 
 
 (* ********************************************************************* *)
@@ -652,6 +658,9 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
        are subtype *)
     | Array (i1, _), Array (i2, _) ->
       (check_type i1 i2) (* && (check_type t2 t1) *)
+
+    (* Datatypes are nominally typed *)
+    | Datatype (n1, _), Datatype (n2, _) -> n1 = n2
 
     (* No other subtype relationships *)
     | _ -> false

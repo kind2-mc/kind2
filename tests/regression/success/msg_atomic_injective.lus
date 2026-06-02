@@ -1,0 +1,7 @@
+datatype Msg = Atomic (int) | Enc (Msg, Msg) | Pair (Msg, Msg);
+
+node main(i: int; j: int) returns (ok: bool);
+let
+  ok = (Atomic(i) = Atomic(j)) = (i = j);
+  check ok;
+tel

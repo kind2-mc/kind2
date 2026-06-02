@@ -91,11 +91,12 @@ sig
     | Let of lambda * t list
     | Exists of lambda
     | Forall of lambda
+    | Match of t * (string * lambda) list
     | Annot of t * attr
 
   and t = private (t_node, t_prop) H.hash_consed
 
-  and t_prop = private { bound_vars : int list } 
+  and t_prop = private { bound_vars : int list }
 
   and flat = private
     | Var of var
@@ -132,6 +133,8 @@ sig
   val mk_exists : var list -> t -> t
 
   val mk_forall : var list -> t -> t
+
+  val mk_match : t -> (string * var list * t) list -> t
 
   val mk_annot : t -> attr -> t
 
@@ -246,6 +249,9 @@ struct
     (* Universal quantification *)
     | Forall of lambda
 
+    (* Datatype match expression: scrutinee and list of (ctor_name, arm_lambda) *)
+    | Match of t * (string * lambda) list
+
     (* Annotated term *)
     | Annot of t * attr
 
@@ -345,6 +351,13 @@ struct
       | Exists l1, Exists l2
       | Forall l1, Forall l2 -> l1 == l2
 
+      (* Equality of match: scrutinees physically equal, same number of arms,
+         arm constructor names equal and lambda abstractions physically equal *)
+      | Match (s1, arms1), Match (s2, arms2) ->
+        (s1 == s2) &&
+        (List.length arms1 = List.length arms2) &&
+        (List.for_all2 (fun (n1, l1) (n2, l2) -> String.equal n1 n2 && l1 == l2) arms1 arms2)
+
       (* Equality of annotated terms: terms are physically equal and
          annotations are physically equal *)
       | Annot (t1, a1), Annot (t2, a2) -> t1 == t2 && a1 == a2
@@ -357,6 +370,7 @@ struct
       | Let _, _
       | Exists _, _
       | Forall _, _
+      | Match _, _
       | Annot _, _ -> false
 
     (* Hash of a term: interleave hash values of kinds *)
@@ -396,13 +410,22 @@ struct
           4
 
       (* Hash of quantifiers: hash of lambda abstraction *)
-      | Exists { H.hkey = hl } -> safe_hash_interleave hl 8 5 
+      | Exists { H.hkey = hl } -> safe_hash_interleave hl 8 5
       | Forall { H.hkey = hl } -> safe_hash_interleave hl 8 6
 
       (* Hash of attribute: delegate *)
-      | Annot ( { H.hkey = ht }, a) -> 
+      | Annot ( { H.hkey = ht }, a) ->
 
         safe_hash_interleave (Hashtbl.hash [T.hash_of_attr a; ht]) 8 7
+
+      (* Hash of match: hash scrutinee key and arm keys *)
+      | Match ({ H.hkey = hs }, arms) ->
+
+        safe_hash_interleave
+          (Hashtbl.hash
+             (hs :: List.map (fun (name, { H.hkey = hl }) ->
+               Hashtbl.hash (name, hl)) arms))
+          8 8
 
   end
 
@@ -490,10 +513,21 @@ struct
 
 
     (* Bound variables in quantifier are variables in quantified term *)
-    | Exists { H.node = L (i, { H.prop = { bound_vars } }) } 
-    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } -> 
+    | Exists { H.node = L (i, { H.prop = { bound_vars } }) }
+    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } ->
 
       bound_vars_outside_lambda (List.length i) bound_vars
+
+    (* Bound variables in match: union of scrut's bound vars and each arm's
+       bound vars (adjusted for the arm's lambda scope) *)
+    | Match ({ H.prop = { bound_vars = scrut_bvs } }, arms) ->
+
+      let acc = IntegerSet.of_list scrut_bvs in
+      List.fold_left (fun a (_, { H.node = L (sorts, { H.prop = { bound_vars } }) }) ->
+        let bvs' = bound_vars_outside_lambda (List.length sorts) bound_vars in
+        IntegerSet.union a (IntegerSet.of_list bvs')
+      ) acc arms
+      |> IntegerSet.elements
 
     (* Bound variables in annotated term are bound variables in term *)
     | Annot ({ H.prop = { bound_vars } }, _) -> bound_vars
@@ -551,8 +585,13 @@ struct
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for universal quantifier *)
-  let ht_forall l = 
+  let ht_forall l =
     let n = Forall l in
+    Ht.hashcons ht n (prop_of_term_node n)
+
+  (* Unsafe constructor for a match expression *)
+  let ht_match scrut arms =
+    let n = Match (scrut, arms) in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for an annotated term *)
@@ -618,9 +657,17 @@ struct
          pp_print_typed_var_list pp_sort db' ppf tl)
 
 
+  (* Print untyped variable names X<db+1> X<db+2> ... for a match arm pattern *)
+  let rec pp_print_match_vars db ppf = function
+    | [] -> ()
+    | _ :: tl ->
+      let db' = succ db in
+      Format.fprintf ppf "X%i" db';
+      if tl <> [] then (Format.pp_print_space ppf (); pp_print_match_vars db' ppf tl)
+
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda' pp_symbol pp_var pp_sort db ppf = function 
+  let rec pp_print_lambda' pp_symbol pp_var pp_sort db ppf = function
 
     | { H.node = L (l, t) } ->
 
@@ -695,12 +742,34 @@ struct
         (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
     (* Print a universal quantification *)
-    | { H.node = Forall { H.node = L (x, t) } } -> 
+    | { H.node = Forall { H.node = L (x, t) } } ->
 
-      Format.fprintf ppf 
-        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
+      Format.fprintf ppf
+        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]"
         (pp_print_typed_var_list pp_sort db) x
         (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
+
+    (* Print a match expression in SMT-LIB 2.6 syntax:
+       (match scrut ((pattern body) ...))
+       Nullary constructor:    (Ctor body)
+       Non-nullary constructor: ((Ctor X1 X2 ...) body) *)
+    | { H.node = Match (scrut, arms) } ->
+
+      let pp_arm ppf (name, { H.node = L (sorts, body) }) =
+        let n = List.length sorts in
+        if n = 0 then
+          Format.fprintf ppf "@[<hv 1>(%s@ %a)@]"
+            name
+            (pp_print_term' pp_symbol pp_var pp_sort db) body
+        else
+          Format.fprintf ppf "@[<hv 1>((%s@ %a)@ %a)@]"
+            name
+            (pp_print_match_vars db) sorts
+            (pp_print_term' pp_symbol pp_var pp_sort (db + n)) body
+      in
+      Format.fprintf ppf "@[<hv 1>(match@ %a@ (@[<hv>%a@]))@]"
+        (pp_print_term' pp_symbol pp_var pp_sort db) scrut
+        (Format.pp_print_list ~pp_sep:(fun ppf () -> Format.pp_print_space ppf ()) pp_arm) arms
 
     (* Print an annotated term *)
     | { H.node = Annot (t, a) } ->
@@ -817,6 +886,8 @@ struct
     | MExists of sort list
     | MForall of sort list
     | MAnnot of attr
+    (* Reconstruct a Match node: arms_info carries (ctor_name, field_sorts) per arm *)
+    | MMatch of (string * sort list) list
 
   (* Tail-recursive bottom-up right-to-left map on the term
 
@@ -905,17 +976,31 @@ struct
           ((db + (List.length x), MTree t) :: (db, MExists x) :: s)
 
       (* Universal quantifier *)
-      | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s -> 
+      | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s ->
 
         (* Push quantified term to the stack followed by a marker for
            the quantifier *)
-        map 
-          f 
-          ([] :: accum) 
+        map
+          f
+          ([] :: accum)
           ((db + (List.length x), MTree t) :: (db, MForall x) :: s)
 
+      (* Match expression:
+         Push arm bodies (in reverse order so arm_1 ends up at top of stack,
+         processed first → ends up at back of accum head) and scrutinee (last
+         on stack → processed last → front of accum head).
+         Result order in accum head: [scrut'; body_1'; ...; body_n']. *)
+      | (db, MTree { H.node = Match (scrut, arms) }) :: s ->
+
+        let arms_info = List.map (fun (name, { H.node = L (sorts, _) }) ->
+          (name, sorts)) arms in
+        let arm_entries_rev = List.rev_map (fun (_, { H.node = L (sorts, body) }) ->
+          (db + List.length sorts, MTree body)) arms in
+        map f ([] :: accum)
+          (arm_entries_rev @ ((db, MTree scrut) :: (db, MMatch arms_info) :: s))
+
       (* Function application *)
-      | (db, MNode op) :: s -> 
+      | (db, MNode op) :: s ->
 
         (* Rebuild function application with mapped subterms *)
         (match accum with 
@@ -951,13 +1036,26 @@ struct
 
           | _ -> assert false)
 
-      | (db, MForall x) :: s -> 
+      | (db, MForall x) :: s ->
 
         (* Rebuild universal quantification with mapped subterm *)
-        (match accum with 
+        (match accum with
 
-          | [t] :: h' :: d -> 
+          | [t] :: h' :: d ->
             map f ((f db (ht_forall (hl_lambda x t)) :: h') :: d) s
+
+          | _ -> assert false)
+
+      | (db, MMatch arms_info) :: s ->
+
+        (* Rebuild match with mapped scrutinee and arm bodies.
+           accum head = [scrut'; body_1'; ...; body_n'] *)
+        (match accum with
+
+          | (scrut' :: bodies') :: h' :: d ->
+            let arms' = List.map2 (fun (name, sorts) body ->
+              (name, hl_lambda sorts body)) arms_info bodies' in
+            map f ((f db (ht_match scrut' arms') :: h') :: d) s
 
           | _ -> assert false)
 
@@ -989,20 +1087,26 @@ struct
 
 
   (* We need a separate type to store the term when moving bottom-up *)
-  type 'a fold_tstack = 
+  type 'a fold_tstack =
 
     (* Recurse into tree *)
-    | FTree of int * t 
+    | FTree of int * t
 
     (* Combine evaluated arguments from the result stack *)
     | FNode of 'a * t list
 
     (* Pop [n] substitutions from the context *)
-    | FPop of int 
+    | FPop of int
 
     (* Add top of the result stack as substitution for variable [n] to
        the context *)
     | FCtx of int
+
+    (* Add Skip substitutions for a match arm's bound variables (de Bruijn indices) *)
+    | FMatchSkip of int list
+
+    (* Collect all results from the current match frame and combine into one *)
+    | FMatchCollect
 
 
 (* Folding function for bottom-up right-to-left evaluation of a term;
@@ -1184,6 +1288,22 @@ struct
         accum
         (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
+    (* Match expression: with fail_quant, raise; otherwise traverse all
+       subterms (scrutinee + arm bodies) in a fresh accumulator frame and
+       combine the results into a single value via FMatchCollect. *)
+    | FTree (db, { H.node = Match (scrut, arms) }) :: tl ->
+
+      if fail_quant then raise (Invalid_argument "Ltree.fold : match term");
+
+      let arm_instrs_rev = List.rev_map (fun (_, { H.node = L (sorts, body) }) ->
+        let n_s = List.length sorts in
+        let vs = int_seq (db + 1) n_s in
+        [FMatchSkip vs; FTree (db + n_s, body); FPop n_s]
+      ) arms in
+      let arm_instrs = List.concat (List.rev arm_instrs_rev) in
+      fold fail_quant f subst ([] :: accum)
+        (FTree (db, scrut) :: arm_instrs @ (FMatchCollect :: tl))
+
     (* The top element of the stack is a quantifier *)
     | FTree (db, { H.node = (Forall { H.node = L (n, l) } |
                              Exists { H.node = L (n, l) })
@@ -1250,6 +1370,37 @@ struct
 
     (* The top element of the stack is a negative end-of-scope marker *)
     | FPop _ :: _ -> assert false
+
+    (* Add Skip substitutions for a match arm's bound variables *)
+    | FMatchSkip vs :: tl ->
+      let skip = List.map (fun dbi -> (dbi, Skip)) vs in
+      fold fail_quant f (skip @ subst) accum tl
+
+    (* Collect n results from the current frame and combine via f.
+       Uses s_and as a dummy symbol; callers using fail_on_quantifiers:false
+       (state_vars_of_term, logic_of_flat, etc.) treat any App as "union
+       all child results". *)
+    (* Collect all results from the current frame and combine them into one.
+       Arm bodies that are entirely BoundVars get Skipped and contribute 0
+       results; the scrutinee and arms with free variables contribute 1 each.
+       When the frame is non-empty we combine via f using the last entry's flat
+       (the scrutinee, processed first, appended last) as the label.
+       When empty (all Skipped), pop the frame without pushing a result,
+       matching the BoundVar+Skip behaviour elsewhere. *)
+    | FMatchCollect :: tl ->
+
+      (match accum with
+
+        | es :: es' :: d ->
+          if es = [] then
+            fold fail_quant f subst (es' :: d) tl
+          else begin
+            let flats, r = List.split es in
+            let t = List.nth flats (List.length flats - 1) in
+            fold fail_quant f subst (((t, f t r) :: es') :: d) tl
+          end
+
+        | _ -> assert false)
 
     (* The top of the stack is an evaluation of the context *)
     | FCtx i :: itl -> 
@@ -1318,7 +1469,7 @@ struct
       (function _ -> 
         function { H.node = n } -> 
           let n' = 
-            match n with 
+            match n with
               | FreeVar v -> FreeVar (T.import_var v)
               | BoundVar _ -> n
               | Leaf s -> Leaf (T.import_symbol s)
@@ -1326,6 +1477,7 @@ struct
               | Let (l, b) -> Let (import_lambda l, b)
               | Exists l -> Exists (import_lambda l)
               | Forall l -> Forall (import_lambda l)
+              | Match (s, arms) -> Match (s, List.map (fun (name, l) -> (name, import_lambda l)) arms)
               | Annot (t, a) -> Annot (import t, a)
           in
           Ht.hashcons ht n' (prop_of_term_node n'))
@@ -1652,12 +1804,20 @@ struct
      [exists x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_exists x t = ht_exists (mk_lambda x t)
 
-  (* Constructor for a universal quantification: 
+  (* Constructor for a universal quantification:
      [forall x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_forall x t = ht_forall (mk_lambda x t)
 
+  (* Constructor for a match expression:
+     arms is a list of (ctor_name, vars, body) where vars are the free
+     variables bound by the pattern and body uses those variables *)
+  let mk_match scrut arms =
+    let arms' = List.map (fun (name, vars, body) ->
+      (name, mk_lambda vars body)) arms in
+    ht_match scrut arms'
+
   (* Constructor for annotated term *)
-  let mk_annot t a = ht_annot t a 
+  let mk_annot t a = ht_annot t a
 
   (* Return the node of a hashconsed term *)
   let node_of_t { Hashcons.node = n } = n
@@ -1746,13 +1906,15 @@ struct
         (ht_let (hl_lambda i t) b)
         a
 
-    (* Quantified term *)
+    (* Quantified or match term *)
     | { H.node = Exists _ }
     | { H.node = Forall _ }
     | { H.node = Let ({ H.node = L (_, { H.node = Exists _ }) }, _ ) }
-    | { H.node = Let ({ H.node = L (_, { H.node = Forall _ }) }, _ ) } -> 
+    | { H.node = Let ({ H.node = L (_, { H.node = Forall _ }) }, _ ) }
+    | { H.node = Let ({ H.node = L (_, { H.node = Match _ }) }, _ ) }
+    | { H.node = Match _ } ->
 
-      invalid_arg "destruct: quantified term"
+      invalid_arg "destruct: quantified or match term"
 
     (* Annotated term  *)
     | { H.node = Annot (_, _) } as t -> t
@@ -1818,14 +1980,19 @@ struct
       | MTree { H.node = Let ({ H.node = L (x, t)}, b) } :: s -> 
         has_quantifier has (push b ((MTree t) :: (MLet x) :: s)) 
 
-      (* Existential quantifier *)
+      (* Existential/universal quantifier *)
       | MTree ({ H.node = Exists _ }) :: _
       | MTree ({ H.node = Forall _ }) :: _ -> true
-        
-      (* Function application *)
-      | MNode _ :: s | MAnnot _ :: s | MLet _ :: s -> has_quantifier has s
 
-      | MExists _ :: _  | MForall _ :: _ -> true
+      (* Match: recurse into scrutinee and arm bodies *)
+      | MTree { H.node = Match (scrut, arms) } :: s ->
+        let arm_trees = List.map (fun (_, { H.node = L (_, body) }) -> MTree body) arms in
+        has_quantifier has (arm_trees @ (MTree scrut :: s))
+
+      (* Function application *)
+      | MNode _ :: s | MAnnot _ :: s | MLet _ :: s | MMatch _ :: s -> has_quantifier has s
+
+      | MExists _ :: _ | MForall _ :: _ -> true
         
     in
 

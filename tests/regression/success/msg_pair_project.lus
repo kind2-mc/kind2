@@ -1,0 +1,21 @@
+datatype Msg = Atomic (int) | Enc (Msg, Msg) | Pair (Msg, Msg);
+
+node main(m1: Msg; m2: Msg) returns (ok: bool);
+var m: Msg;
+var fst: Msg;
+var snd: Msg;
+let
+  m = Pair(m1, m2);
+  fst = match m with
+    | Pair(x, y) : x
+    | Atomic(n) : choose@<Msg> 
+    | Enc(k, v) : choose@<Msg> 
+  end;
+  snd = match m with
+    | Pair(x, y) : y
+    | Atomic(n) : choose@<Msg> 
+    | Enc(k, v) : choose@<Msg> 
+  end;
+  ok = fst = m1 and snd = m2;
+  check ok;
+tel

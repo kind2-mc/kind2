@@ -23,6 +23,14 @@ let check_logic logic =
   let open TermLib.FeatureSet in
   match logic with
   | `Inferred l -> (
+    if mem DT l then (
+      let msg =
+        Format.asprintf
+          "In %a: Yices 2 does not support algebraic datatypes"
+          Lib.pp_print_kind_module (KEvent.get_module ())
+      in
+      failwith msg
+    ) ;
     if mem Q l then (
       let msg =
         Format.asprintf

@@ -2633,8 +2633,16 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nscrut, gids1, warnings1 = normalize_expr ?guard info node_id map scrut in
     let narms, gids2, warnings2 =
       normalize_list
-        (fun (pat, body) ->
-          let nbody, gids, warnings = normalize_expr ?guard info node_id map body in
+        (fun (A.Pat (_, ctor, sub_pats) as pat, body) ->
+          let info' =
+            match Ctx.lookup_constructor info.context ctor with
+            | Some (_, field_tys) ->
+              List.fold_left2 (fun acc_info (A.Pat (_, var, _)) ty ->
+                add_ty_to_info acc_info var ty
+              ) info sub_pats field_tys
+            | None -> info
+          in
+          let nbody, gids, warnings = normalize_expr ?guard info' node_id map body in
           (pat, nbody), gids, warnings)
         arms
     in

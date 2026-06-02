@@ -1579,8 +1579,76 @@ and compile_ast_expr
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
-  | A.Match _ -> assert false
-  | A.ADTTerm _ -> assert false
+  | A.ADTTerm (_, _ty_args, ctor, arg_exprs) ->
+    let (ty_name, _) =
+      match Ctx.lookup_constructor ctx ctor with
+      | Some r -> r
+      | None -> assert false
+    in
+    let adt_type = X.find X.empty_index (StringMap.find ty_name cstate.type_alias) in
+    let compiled_args = List.map
+      (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
+      arg_exprs
+    in
+    let arg_types = List.map (fun e -> e.E.expr_type) compiled_args in
+    let ctor_sym =
+      UfSymbol.mk_uf_symbol (HString.string_of_hstring ctor) arg_types adt_type
+    in
+    X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
+  | A.Match (_, scrut, arms, _) ->
+    let scrut_e = X.find X.empty_index (compile_ast_expr cstate ctx bounds map scrut) in
+    let adt_type = scrut_e.E.expr_type in
+    (* Compile each match arm using native SMT-LIB match.
+       Pattern variables are bound as fresh free variables; the body is compiled
+       with those variables in scope, then wrapped into a lambda by mk_match. *)
+    let compile_arm (A.Pat (_, ctor_hs, subpats), body) =
+      let ctor_name = HString.string_of_hstring ctor_hs in
+      let (ty_name_hs, field_lus_types) =
+        match Ctx.lookup_constructor ctx ctor_hs with
+        | Some r -> r
+        | None -> (ctor_hs, [])  (* catchall pattern: no fields *)
+      in
+      let field_types = List.map (fun lty ->
+        match lty with
+        | A.UserType (_, [], n) when HString.equal n ty_name_hs -> adt_type
+        | _ ->
+          let m = ref (empty_identifier_maps None) in
+          match X.bindings (compile_ast_type cstate ctx m lty) with
+          | [(idx, t)] when idx = X.empty_index -> t
+          | _ -> assert false
+      ) field_lus_types in
+      (* Create fresh free variables for each pattern variable *)
+      let pat_vars = List.mapi (fun i subpat ->
+        match subpat with
+        | A.Pat (_, var_hs, []) ->
+          let ft = List.nth field_types i in
+          let var_name = HString.string_of_hstring var_hs ^ "$match" in
+          let v = Var.mk_free_var (HString.mk_hstring var_name) ft in
+          (var_hs, v, ft)
+        | _ -> assert false
+      ) subpats in
+      (* Bind pattern variables as free-variable expressions for body compilation *)
+      List.iter (fun (var_hs, v, _ft) ->
+        H.replace !map.quant_vars (mk_ident var_hs)
+          (X.singleton X.empty_index (E.mk_free_var v))
+      ) pat_vars;
+      let body_x = compile_ast_expr cstate ctx bounds map body in
+      List.iter (fun (var_hs, _, _) ->
+        H.remove !map.quant_vars (mk_ident var_hs)
+      ) pat_vars;
+      let vars = List.map (fun (_, v, _) -> v) pat_vars in
+      (ctor_name, vars, body_x)
+    in
+    let compiled_arms = List.map compile_arm arms in
+    (* Build one mk_match per index of the result, distributing over structure *)
+    let first_body = let (_, _, b) = List.hd compiled_arms in b in
+    X.fold (fun idx _ acc ->
+      let arms_at_idx = List.map (fun (ctor, vars, body_x) ->
+        (ctor, vars, X.find idx body_x)
+      ) compiled_arms in
+      let result_type = (X.find idx first_body).E.expr_type in
+      X.add idx (E.mk_match scrut_e arms_at_idx result_type) acc
+    ) first_body X.empty
 
 and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let called_node = N.node_of_node_id node_id cstate.nodes in

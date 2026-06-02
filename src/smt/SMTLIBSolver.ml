@@ -533,17 +533,25 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (* Send command to the solver without timeout *)
       execute_command solver cmd 0
 
-    (* | Type.Enum (name, l) -> *)
-    (*   let s = match name with Some n -> n | None -> (string_of_sort sort) in *)
-    (*   let cmd = *)
-    (*     Format.asprintf "@[<hv 1>(declare-datatypes ()@ ((%s %a)))@]" *)
-    (*       s *)
-    (*       (pp_print_list (fun ppf -> Format.fprintf ppf "(%s)") " ") l *)
-    (*   in *)
-
-    (*   (\* Send command to the solver without timeout *\) *)
-    (*   execute_command solver cmd 0 *)
-
+    | Type.Datatype (dt_name, ctors) ->
+      let pp_ctor ppf (ctor_name, field_types) =
+        if field_types = [] then
+          Format.pp_print_string ppf ctor_name
+        else begin
+          Format.fprintf ppf "(%s" ctor_name;
+          List.iteri (fun i ft ->
+            Format.fprintf ppf " (%s_%d %s)" ctor_name i (string_of_sort ft)
+          ) field_types;
+          Format.pp_print_string ppf ")"
+        end
+      in
+      let cmd =
+        Format.asprintf "(declare-datatypes ((%s 0)) ((%a)))"
+          dt_name
+          (fun ppf cs -> List.iter (fun c -> Format.fprintf ppf "%a " pp_ctor c) cs)
+          ctors
+      in
+      execute_command solver cmd 0
 
     | _ -> failwith "Only declare uninterpreted sorts."
 

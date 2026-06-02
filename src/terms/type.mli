@@ -246,6 +246,9 @@ val get_constr_of_num : Numeral.t -> string
 (** Return abstract types that have been built *)
 val get_all_abstr_types : unit -> t list
 
+(** Return all recursive algebraic datatype types *)
+val get_all_datatype_types : unit -> t list
+
 (** Return the numeral encoding of a construcor of an enumerated datatype *)
 val get_num_of_constr : string -> Numeral.t
 

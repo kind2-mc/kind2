@@ -827,6 +827,8 @@ let rec type_of_term' t = match T.destruct t with
 let type_of_term t =
   match node_of_term t with
   | T.Exists _ | T.Forall _ -> Type.t_bool
+  | T.Match (_, (_, lam) :: _) ->
+    let T.L (_, body) = T.node_of_lambda lam in type_of_term' body
   | _ -> type_of_term' t
 
 (* Type checking disabled
@@ -988,8 +990,14 @@ let mk_forall ?(fundef=false) vars t =
   T.mk_forall vars t
 
 
+(* Return a hashconsed match expression.
+   arms is a list of (ctor_name, vars, body) where vars are the free variables
+   bound by the constructor pattern and body is the arm body using those vars. *)
+let mk_match = T.mk_match
+
+
 (* Import a term from a different instance into this hashcons table *)
-let import = T.import 
+let import = T.import
 
 (* Import a term from a different instance into this hashcons table *)
 let import_lambda = T.import_lambda 
@@ -1793,40 +1801,33 @@ let bump_and_apply_k f k term =
 (* Return all state variables in term *)
 let state_vars_of_term term  = 
 
-  eval_t ~fail_on_quantifiers:false 
-    (function 
-      | T.Var v -> 
-        (function 
-          | [] ->
-            if Var.is_state_var_instance v || Var.is_const_state_var v then
-              StateVar.StateVarSet.singleton 
-                (Var.state_var_of_state_var_instance v)
-            else StateVar.StateVarSet.empty
-          | _ -> assert false)
-      | T.Const _ -> 
-        (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
-      | T.App _ -> 
-        List.fold_left 
-          StateVar.StateVarSet.union 
-          StateVar.StateVarSet.empty
-      (* | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+  eval_t ~fail_on_quantifiers:false
+    (function
+      | T.Var v ->
+        let sv_self =
+          if Var.is_state_var_instance v || Var.is_const_state_var v then
+            StateVar.StateVarSet.singleton
+              (Var.state_var_of_state_var_instance v)
+          else StateVar.StateVarSet.empty
+        in
+        List.fold_left StateVar.StateVarSet.union sv_self
+      | T.Const _ ->
+        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
+      | T.App _ ->
+        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty)
     term
 
 
 (* Return all variables in term *)
 let vars_of_term term = 
 
-  (* Collect all variables in a set *)
-  eval_t ~fail_on_quantifiers:false 
-    (function 
-      | T.Var v -> 
-        (function [] -> Var.VarSet.singleton v | _ -> assert false)
-      | T.Const _ -> 
-        (function [] -> Var.VarSet.empty | _ -> assert false)
-      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-      (*| T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+  eval_t ~fail_on_quantifiers:false
+    (function
+      | T.Var v ->
+        List.fold_left Var.VarSet.union (Var.VarSet.singleton v)
+      | T.Const _ ->
+        List.fold_left Var.VarSet.union Var.VarSet.empty
+      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
     term
 
 
@@ -1855,23 +1856,19 @@ let state_vars_at_offset_of_term i term =
 
   (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
-    (function 
-      | T.Var v 
-        when 
+    (function
+      | T.Var v
+        when
           Var.is_state_var_instance v &&
-          Numeral.(Var.offset_of_state_var_instance v = i) -> 
-        (function 
-          | [] -> 
-            StateVar.StateVarSet.singleton
-              (Var.state_var_of_state_var_instance v)
-          | _ -> assert false)
-      | T.Var _ 
-      | T.Const _ -> 
-        (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
-      | T.App _ -> 
+          Numeral.(Var.offset_of_state_var_instance v = i) ->
+        List.fold_left StateVar.StateVarSet.union
+          (StateVar.StateVarSet.singleton
+            (Var.state_var_of_state_var_instance v))
+      | T.Var _
+      | T.Const _ ->
         List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
-      (* | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+      | T.App _ ->
+        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty)
     term
 
 let indexes_of_state_var sv term =
@@ -1933,23 +1930,18 @@ let push_select term =
 (* Return set of state variables at given offsets in term *)
 let vars_at_offset_of_term i term = 
 
-  (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
-    (function 
-      | T.Var v 
-        when 
+    (function
+      | T.Var v
+        when
           Var.is_state_var_instance v &&
-          Numeral.(Var.offset_of_state_var_instance v = i) -> 
-        (function 
-          | [] -> Var.VarSet.singleton v
-          | _ -> assert false)
-      | T.Var _ 
-      | T.Const _ -> 
-        (function [] -> Var.VarSet.empty | _ -> assert false)
-      | T.App _ -> 
+          Numeral.(Var.offset_of_state_var_instance v = i) ->
+        List.fold_left Var.VarSet.union (Var.VarSet.singleton v)
+      | T.Var _
+      | T.Const _ ->
         List.fold_left Var.VarSet.union Var.VarSet.empty
-      (*| T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+      | T.App _ ->
+        List.fold_left Var.VarSet.union Var.VarSet.empty)
     term
 
 
@@ -1975,20 +1967,17 @@ let var_offsets_of_term expr =
   in
 
   eval_t ~fail_on_quantifiers:false
-    (function 
-      | T.Var v when Var.is_state_var_instance v -> 
-        (function 
-          | [] -> 
-            let o = Var.offset_of_state_var_instance v in
-            (Some o, Some o)
-          | _ -> assert false)
+    (function
+      | T.Var v when Var.is_state_var_instance v ->
+        let o = Var.offset_of_state_var_instance v in
+        List.fold_left min_max_none (Some o, Some o)
 
       | T.Const _
-      | T.Var _ -> 
-        (function [] -> (None, None) | _ -> assert false)
+      | T.Var _ ->
+        List.fold_left min_max_none (None, None)
 
-      | T.App _ -> 
-        (function l -> List.fold_left min_max_none (None, None) l)
+      | T.App _ ->
+        List.fold_left min_max_none (None, None)
 
       (*| T.Attr _ -> (function [v] -> v | _ -> assert false)*))
     expr

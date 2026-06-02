@@ -104,7 +104,8 @@ let build_adt_map decls =
     match decl with
     | LA.TypeDecl (_, LA.AliasType (_, name, ty_params, LA.ADT (_, _, ctors))) ->
       if is_directly_recursive name ctors then m
-      else HStringMap.add name (build_adt_info name ty_params ctors) m
+      else 
+        HStringMap.add name (build_adt_info name ty_params ctors) m 
     | _ -> m
   ) HStringMap.empty decls
 
@@ -136,8 +137,11 @@ let adt_info_of_type adt_map ty =
 let rec desugar_type pos adt_map ty =
   match ty with
   | LA.ADT (_, name, cons) ->
-    let info = build_adt_info name [] cons in
-    record_type_of_adt pos info
+    if is_directly_recursive name cons then 
+      ty 
+    else 
+      let info = build_adt_info name [] cons in
+      record_type_of_adt pos info
   | _ ->
   match adt_info_of_type adt_map ty with
   | Some adt_info ->
@@ -270,7 +274,16 @@ let rec default_value ctx adt_map pos ty =
     | Some expanded -> default_value ctx adt_map pos expanded
     | None -> assert false)
   | LA.TArr _ -> assert false
-  | LA.ADT _ -> assert false (* desugar_type should have handled this *)
+  | LA.ADT (_, adt_name, ctors) ->
+    let is_recursive_field = function
+      | LA.UserType (_, [], id) -> HString.equal id adt_name
+      | _ -> false
+    in
+    let (ctor, field_tys) = List.find
+      (fun (_, tys) -> List.for_all (fun ty -> not (is_recursive_field ty)) tys)
+      ctors
+    in
+    LA.ADTTerm (pos, [], ctor, List.map (default_value ctx adt_map pos) field_tys)
   | LA.AbstractType _ -> failwith "Unsupported: abstract type in ADT constructor"
 
 (* Desugar ADTTerm and Match expressions throughout an expression. *)
@@ -327,8 +340,10 @@ let rec desugar_expr ctx adt_map expr =
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
     let adt_info_opt =
       match scrut_ty_opt with
-      | Some ty -> adt_info_of_type adt_map ty
-      | None -> None
+      | Some ty -> 
+
+          adt_info_of_type adt_map ty
+      | None -> assert false 
     in
     (match adt_info_opt with
     | None ->
@@ -450,35 +465,32 @@ let desugar_contract_node ctx adt_map (id, params, inputs, outputs, (p, body)) =
    Returns transformed type/const decls, transformed node/contract decls, and updated context. *)
 let desugar_adts ctx type_and_const_decls node_contract_decls =
   let adt_map = build_adt_map (type_and_const_decls @ node_contract_decls) in
-  if HStringMap.is_empty adt_map then
-    (type_and_const_decls, node_contract_decls, ctx, adt_map)
-  else
-    let ctx' = update_context adt_map ctx in
-    let type_and_const_decls' = List.concat_map (fun decl ->
-      match decl with
-      | LA.TypeDecl (sp, LA.AliasType (_, name, ty_params, LA.ADT (pos, _, _))) ->
-        (match HStringMap.find_opt name adt_map with
-        | Some info ->
-          let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
-          let enum_decl = LA.TypeDecl (sp, LA.AliasType (pos, info.disc_enum, [], enum_ty)) in
-          let record_ty = record_type_of_adt pos info in
-          let record_decl = LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, record_ty)) in
-          [enum_decl; record_decl]
-        | None ->
-          (* Recursive ADT — leave the declaration as-is for the backend. *)
-          [decl])
-      | LA.ConstDecl (p, cd) ->
-        [LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)]
-      | _ -> [decl]
-    ) type_and_const_decls in
-    let node_contract_decls' = List.map (fun decl ->
-      match decl with
-      | LA.NodeDecl (sp, nd) -> LA.NodeDecl (sp, desugar_node ctx' adt_map nd)
-      | LA.FuncDecl (sp, nd) -> LA.FuncDecl (sp, desugar_node ctx' adt_map nd)
-      | LA.ContractNodeDecl (sp, cnd) ->
-        LA.ContractNodeDecl (sp, desugar_contract_node ctx' adt_map cnd)
-      | LA.ConstDecl (p, cd) ->
-        LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)
-      | _ -> decl
-    ) node_contract_decls in
-    (type_and_const_decls', node_contract_decls', ctx', adt_map)
+  let ctx' = update_context adt_map ctx in
+  let type_and_const_decls' = List.concat_map (fun decl ->
+    match decl with
+    | LA.TypeDecl (sp, LA.AliasType (_, name, ty_params, LA.ADT (pos, _, _))) ->
+      (match HStringMap.find_opt name adt_map with
+      | Some info ->
+        let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
+        let enum_decl = LA.TypeDecl (sp, LA.AliasType (pos, info.disc_enum, [], enum_ty)) in
+        let record_ty = record_type_of_adt pos info in
+        let record_decl = LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, record_ty)) in
+        [enum_decl; record_decl]
+      | None ->
+        (* Recursive ADT — leave the declaration as-is for the backend. *)
+        [decl])
+    | LA.ConstDecl (p, cd) ->
+      [LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)]
+    | _ -> [decl]
+  ) type_and_const_decls in
+  let node_contract_decls' = List.map (fun decl ->
+    match decl with
+    | LA.NodeDecl (sp, nd) -> LA.NodeDecl (sp, desugar_node ctx' adt_map nd)
+    | LA.FuncDecl (sp, nd) -> LA.FuncDecl (sp, desugar_node ctx' adt_map nd)
+    | LA.ContractNodeDecl (sp, cnd) ->
+      LA.ContractNodeDecl (sp, desugar_contract_node ctx' adt_map cnd)
+    | LA.ConstDecl (p, cd) ->
+      LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)
+    | _ -> decl
+  ) node_contract_decls in
+  (type_and_const_decls', node_contract_decls', ctx', adt_map)

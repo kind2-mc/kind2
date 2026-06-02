@@ -85,6 +85,7 @@
       <xs:enumeration value="enum"/>
       <xs:enumeration value="array"/>
       <xs:enumeration value="abstr"/>
+      <xs:enumeration value="datatype"/>
     </xs:restriction>
   </xs:simpleType>
 

@@ -371,6 +371,7 @@ let rec bounds ty =
   match Type.node_of_type ty with
   | Bool | Int | IntRange _ | Enum _ | Real | UBV _ | BV _ | Abstr _ -> []
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
+  | Datatype _ -> assert false
 
 let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_system_cmd) =
 
