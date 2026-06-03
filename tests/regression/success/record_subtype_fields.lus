@@ -1,0 +1,11 @@
+
+type Nat = subtype { x : int | x >= 0 };
+
+type Pos = subrange [1,*] of int;
+
+type R = struct { x: Nat; y: Pos; z: Nat };
+
+node N() returns (z: R);
+let
+  z = R { x = 0; y = 1; z = 0 };
+tel

@@ -33,6 +33,7 @@
 
 type error_kind = 
   | MisplacedNodeItemError of LustreAst.node_item
+  | MissingDefinitionInBranchError of HString.t
 
 val error_message : error_kind -> string
 

@@ -45,7 +45,8 @@ let valid_items set items =
     | Body (Assert _)
     | AnnotMain _ -> false
     | FrameBlock _
-    | IfBlock _ -> assert false (* desugared earlier in pipeline *)
+    | IfBlock _
+    | WhenBlock _ -> assert false (* desugared earlier in pipeline *)
   )
 
 let is_output_defined outputs items =

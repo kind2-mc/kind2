@@ -261,6 +261,7 @@ and interpret_node ty_ctx gids (id, _, _, ps, ins, outs, locals, items, contract
     | AnnotProperty _ -> acc
     (* Shouldn't be possible *)
     | LA.IfBlock _ 
+    | LA.WhenBlock _
     | LA.FrameBlock _ -> assert false)
     []
     items

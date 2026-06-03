@@ -1,0 +1,12 @@
+node F(x: int) returns ();
+let
+tel
+
+node N(c: bool) returns ();
+let
+  if c then
+    () = F(0);
+  else
+    () = F(1);
+  fi
+tel

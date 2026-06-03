@@ -12,6 +12,7 @@ and optional for non-empty set literals (e.g. ``{ 1 }@<int>``).
 
 The built-in set operators are **set union** (denoted by ``+``), 
 **set intersection** (denoted by ``*``), and 
+**set difference** (denoted by ``-``), and 
 **set membership** (denoted by ``in``). 
 All are infix and take the expected semantics; 
 see below for an example.
@@ -23,5 +24,6 @@ see below for an example.
      out = s1 * { 1, 2, 3 } + {}@<int>;
 
      check forall (i: int) not (i in s1 + s2) = (not (i in s1) and not (i in s2));
+     check forall (i: int) i in s1 - s2 = (i in s1 and not (i in s2));
      check forall (i: int) i in out => (i = 1 or i = 2 or i = 3);
    tel

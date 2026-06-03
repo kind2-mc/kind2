@@ -1,0 +1,15 @@
+type Pos = subrange [1,*] of int;
+
+const N: Pos = 4;
+
+function P(A: int^N; i: int) returns (r: bool);
+let
+  r = A[i] = i;
+tel
+
+node Top() returns (A: int^N);
+let
+  A = [0,1,2,3];
+  check P(A, 0) and P(A, 1);
+tel
+

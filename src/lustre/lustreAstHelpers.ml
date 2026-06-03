@@ -961,7 +961,8 @@ let rec node_item_has_pre_or_arrow = function
 | Body (Equation (_, lhs, e)) ->
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
-| IfBlock (_, e, l1, l2) -> (match has_pre_or_arrow e with
+| IfBlock (_, e, l1, l2)
+| WhenBlock (_, e, l1, l2) -> (match has_pre_or_arrow e with
   | Some pos -> Some pos
   | None -> (match node_item_list_has_pre_or_arrow l1 with 
     | Some pos -> Some pos
@@ -1292,7 +1293,8 @@ let rec vars_of_type = function
 
 let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
-  | IfBlock (_, _, l1, l2) -> 
+  | IfBlock (_, _, l1, l2)
+  | WhenBlock (_, _, l1, l2) -> 
     List.flatten (List.map defined_vars_with_pos l1) @
     List.flatten (List.map defined_vars_with_pos l2)
   | FrameBlock (_, vars, _, _) ->
@@ -1643,7 +1645,8 @@ let rec replace_idents locals1 locals2 expr =
 let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]
-  | IfBlock (_, _, nis1, nis2) -> 
+  | IfBlock (_, _, nis1, nis2)
+  | WhenBlock (_, _, nis1, nis2) -> 
     List.flatten (List.map extract_node_equation nis1) @ List.flatten (List.map extract_node_equation nis2)
   | FrameBlock (_, _, nes, nis) -> 
     let nes = List.map (fun ne -> Body ne) nes in

@@ -1,0 +1,6 @@
+node N(m1: map<int,int>; s: set<int>) returns (m2: map<int,int>)
+let
+  m2 = m1 - s;
+  check "P1" forall (k:int) (k in m2) = (k in m1 and not (k in s));
+  check "P2" forall (k:int) (k in m2) => (m2[k] = m1[k]);
+tel

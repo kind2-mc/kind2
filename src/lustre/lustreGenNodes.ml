@@ -22,17 +22,16 @@ module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
 let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
-fun pos node_id node_type -> 
+fun pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
-  let nname = NI.get_name node_id in
   let name = match node_type with 
-  | Any -> HString.concat2 nname (HString.mk_hstring ".any_") 
-  | Choose -> HString.concat2 nname (HString.mk_hstring ".choose_") 
-  | TypeAscription -> HString.concat2 nname (HString.mk_hstring ".type_ascription_")
+  | Any -> HString.mk_hstring ".any_"
+  | Choose -> HString.mk_hstring ".choose_"
+  | TypeAscription -> HString.mk_hstring ".type_ascription_"
   | _ -> assert false
   in
-  let name = HString.concat2 name pos in
+  let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
   NI.mk_node_id ~node_type ~user_name:name name
 
 let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
@@ -86,8 +85,8 @@ fun ctx node_name fun_ids expr ->
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos; } in
     let node_id = mk_fresh_fn_name pos node_name TypeAscription in
-    let ip_id = HString.mk_hstring ".inp" in 
-    let op_id = HString.mk_hstring ".op" in
+    let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
+    let op_id = HString.mk_hstring Lib.StringValues.type_ascription_output_name in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
     let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
     let op = pos, op_id, mono, A.ClockTrue in
@@ -361,6 +360,11 @@ fun ctx node_name fun_ids ni ->
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
     let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
     A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
+  | WhenBlock (pos, cond, nis1, nis2) ->
+    let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
+    let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
+    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
     let nes, gen_nodes1 = List.map rec_call nes |> List.split in

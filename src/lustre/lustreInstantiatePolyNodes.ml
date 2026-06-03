@@ -45,6 +45,7 @@ let instantiate_type_variables_ni
   AnnotProperty (pos, name, expr, k)
 | AnnotMain _ -> ni
 | IfBlock _ 
+| WhenBlock _
 | FrameBlock _ -> assert false
 
 let instantiate_type_variables_loc 
@@ -541,6 +542,17 @@ and gen_poly_decls_ni
       ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) nis2 in 
     ctx, gids, IfBlock (p, expr, nis1, nis2), decls, node_decls_map
+  | WhenBlock (p, expr, nis1, nis2) ->
+    let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in
+    let ctx, gids, nis1, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni ->
+      let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in
+      ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls, node_decls_map) nis1 in
+    let ctx, gids, nis2, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni ->
+      let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in
+      ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls, node_decls_map) nis2 in
+    ctx, gids, WhenBlock (p, expr, nis1, nis2), decls, node_decls_map
   | FrameBlock (p, vars, nes, nis) -> 
     let ctx, gids, nis, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni -> 
       let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in 

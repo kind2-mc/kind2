@@ -1238,7 +1238,7 @@ let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
 
   if pos_lnum >= 0 && pos_cnum >= 0 then
 
-    fprintf ppf "[l%dc%d]" pos_lnum pos_cnum
+    fprintf ppf "[L%dC%d]" pos_lnum pos_cnum
 
   else
 
@@ -1513,6 +1513,21 @@ module Names = struct
   (** Contract name for invariant logging. *)
   let inv_log_contract_name =
     Format.asprintf "%a_str_spec" (pp_print_list Format.pp_print_string "_")
+end
+
+(* |===| Hardcoded strings. *)
+
+(* Internal string values *)
+module StringValues = struct
+
+  let scope_sep : (unit, Format.formatter, unit) format = "."
+
+  let pp_print_scope_sep ppf = Format.fprintf ppf scope_sep
+
+  let type_ascription_input_name = ".inp"
+
+  let type_ascription_output_name = ".op"
+
 end
 
 
