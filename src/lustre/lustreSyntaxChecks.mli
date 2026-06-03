@@ -30,7 +30,6 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | InvalidUnderscore 
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t

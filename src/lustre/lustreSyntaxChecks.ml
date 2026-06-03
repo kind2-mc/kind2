@@ -49,7 +49,6 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | InvalidUnderscore 
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
@@ -102,7 +101,6 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
-  | InvalidUnderscore -> "Single underscore identifier '_' can only be used in patterns"
   | QuantifiedVariableInPre var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
   | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable or refinement type bound variable '"
@@ -318,7 +316,7 @@ function
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
-      | GenericIndex (_, e)
+      | GenericIndex (_, e) 
       | MapIndex (_, e)
       | SetIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
@@ -331,7 +329,7 @@ let build_global_ctx (decls:LustreAst.t) =
   let contract_decls, others =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
-  let over_decls acc = function
+  let over_decls acc = function 
     | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) ->
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
     | LA.TypeDecl (_, AliasType (_, _, _, ADT (_, _, cons))) ->
@@ -541,7 +539,7 @@ let outputs_exactly_one_definition outputs items =
 
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, node_id, _, _)
-  | Activate (pos, node_id, _, _, _)
+  | Activate (pos, node_id, _, _, _) 
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
@@ -585,12 +583,6 @@ let no_node_calls_in_constant ctx i = function
   | LA.TypeAscription (pos, _, _)
     -> syntax_error pos (NodeCallInConstant i)
   | _ -> Ok ()
-
-let no_invalid_underscore id p =
-  if HString.string_of_hstring id = "_" then 
-    syntax_error p InvalidUnderscore
-  else 
-    Res.ok () 
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   (*| LA.Call (pos, _, i, args) ->
@@ -743,9 +735,8 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_ty_node_calls i ty = 
   match ty with 
-    | LA.RefinementType (_, (p, id, ty), e) ->
+    | LA.RefinementType (_, (_, _, ty), e) ->
       check_ty_node_calls i ty >>
-      no_invalid_underscore id p >>
       if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
@@ -769,10 +760,8 @@ and check_ty_node_calls i ty =
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> 
-    no_invalid_underscore id pos >>
     Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ps, ty) ) -> 
-    no_invalid_underscore id pos >>
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
@@ -799,7 +788,7 @@ and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  e
 
 and common_node_equations_checks ctx e =
     (no_dangling_calls ctx e)
-    >> (no_dangling_identifiers ctx e)
+    >> (no_dangling_identifiers ctx e) 
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> Ok []
 
@@ -821,21 +810,15 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result
+and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
 = fun ctx local -> match local with
-  | LA.NodeConstDecl (_, FreeConst (_, _, _)) ->
-    Ok ([])
-  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) ->
-    check_const_expr_decl i ctx e
-  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) ->
-    check_const_expr_decl i ctx e
-  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) ->
-    Ok ([])
-  | NodeVarDecl (_, (pos, i, _, _)) ->
-    syntax_error pos (UnsupportedClockedLocal i)
+  | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
+  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
+  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
+  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
+  | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
-  no_invalid_underscore (NI.get_user_name node_id) span.start_pos >>
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
@@ -861,7 +844,6 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
-  no_invalid_underscore (NI.get_user_name node_id) span.start_pos >>
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
@@ -999,10 +981,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       let* warnings2 = check_list gs in 
       Ok (List.flatten warnings1 @ List.flatten warnings2)
     | GhostVars (_, GhostVarDec (_, l), e) ->
-      let* warnings1 = Res.seq (List.map (fun (p, id, ty) -> 
-        no_invalid_underscore id p >>
-        oqv_on_ty ctx ty
-      ) l) in
+      let* warnings1 = Res.seq (List.map (fun (_, _, ty) -> oqv_on_ty ctx ty) l) in
       let* warnings2 = check_expr ctx f e in
       Ok (List.flatten warnings1 @ warnings2)
     | AssumptionVars (pos, _) ->
@@ -1011,12 +990,8 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
     | GhostConst decl -> (
       let* warnings1 =
         match decl with
-        | LA.FreeConst (p, id, ty) -> 
-          no_invalid_underscore id p >>
-          oqv_on_ty ctx ty
-        | LA.TypedConst (p, id, _, ty) -> 
-          no_invalid_underscore id p >>
-          oqv_on_ty ctx ty
+        | LA.FreeConst (_, _, ty) -> oqv_on_ty ctx ty
+        | LA.TypedConst (_, _, _, ty) -> oqv_on_ty ctx ty
         | LA.UntypedConst _ -> Ok []
       in
       match decl with
@@ -1227,9 +1202,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Res.ok (warnings1 @ warnings2) 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
-    | Ident (p, id) ->  
-      let* () = no_invalid_underscore id p in 
-      Res.ok []
+    | Ident (_, _) -> Res.ok []
     | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
     | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
@@ -1388,19 +1361,13 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
 
 let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* warnings1 =
-    Res.seq (List.map (fun (p, id, ty, _, _) -> 
-      let* _ = no_invalid_underscore id p in 
-      oqv_on_ty base_ctx ty
-    ) inputs)
+    Res.seq (List.map (fun (_, _, ty, _, _) -> oqv_on_ty base_ctx ty) inputs)
   in
   Ok (List.flatten warnings1)
 
 let oqv_check_outputs oqv_on_ty base_ctx outputs =
   let* warnings1 =
-    Res.seq (List.map (fun (p, id, ty, _) -> 
-      let* _ = no_invalid_underscore id p in 
-      oqv_on_ty base_ctx ty
-    ) outputs)
+    Res.seq (List.map (fun (_, _, ty, _) -> oqv_on_ty base_ctx ty) outputs)
   in
   Ok (List.flatten warnings1)
 
@@ -1409,13 +1376,11 @@ let oqv_check_locals oqv_on_ty base_ctx locals =
     Res.seq
       (List.map
          (function
-           | LA.NodeConstDecl (_, FreeConst (p, id, ty))
-           | LA.NodeConstDecl (_, TypedConst (p, id, _, ty)) ->
-             let* () = no_invalid_underscore id p in 
+           | LA.NodeConstDecl (_, FreeConst (_, _, ty))
+           | LA.NodeConstDecl (_, TypedConst (_, _, _, ty)) ->
              oqv_on_ty base_ctx ty
            | LA.NodeConstDecl (_, UntypedConst _) -> Ok []
-           | LA.NodeVarDecl (_, (p, id, ty, _)) ->
-             let* () = no_invalid_underscore id p in 
+           | LA.NodeVarDecl (_, (_, _, ty, _)) ->
              oqv_on_ty base_ctx ty)
          locals)
   in
