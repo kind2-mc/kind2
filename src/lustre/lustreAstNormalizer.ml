@@ -2754,6 +2754,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
     ) constructors |> Lib.split3 in
     let gids = List.fold_left union (empty ()) gids in
     let warnings = List.concat warnings in
-    ADT (p, name, constructors), gids, warnings  | Int _ | History _ | Bool _ | Real _ | IntRange _
+    ADT (p, name, constructors), gids, warnings  
+  | Int _ | History _ | Bool _ | Real _ | IntRange _
   | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []
