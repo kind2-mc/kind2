@@ -2972,12 +2972,12 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
         let ctx = Ctx.add_ty ctx i ty in
         let range_exprs =
           if has_subrange then
-            AN.mk_range_expr cstate.adt_map ctx None ty (A.Ident (p, i)) |> List.map fst
+            AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
           else []
         in
         let ref_type_exprs =
           if has_ref_type then
-            AN.mk_ref_type_expr cstate.adt_map ctx None (A.Ident(p, i)) ty
+            AN.mk_ref_type_expr ctx None (A.Ident(p, i)) ty
           else []
         in
         List.map (fun expr ->
