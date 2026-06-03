@@ -783,19 +783,8 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, ty_args, ident) ->
-    (* For polymorphic ADT instantiations (e.g., UserType([Int],"Opt")), look up
-       the monomorphized concrete type "Opt<int>" that was inserted by
-       instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
-    let key = if ty_args = [] then ident
-      else
-        HString.mk_hstring (Format.asprintf "%a<%a>"
-          HString.pp_print_hstring ident
-          (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args)
-    in
-    (match StringMap.find_opt key cstate.type_alias with
-    | Some t -> t
-    | None -> StringMap.find ident cstate.type_alias)
+  | A.UserType (_, _, ident) ->
+    StringMap.find ident cstate.type_alias 
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
