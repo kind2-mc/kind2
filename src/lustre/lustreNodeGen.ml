@@ -1038,30 +1038,6 @@ and compile_ast_expr
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
-    (* ADT equality: payload fields carry AdtPayloadIndex (ctor, j) in the trie. Each such
-       field's equality is guarded by the discriminant matching that constructor, so junk
-       fields (those for a non-selected constructor) do not affect the result.
-       Equality:    disc = C => payload_e1 = payload_e2
-       Disequality: disc = C AND payload_e1 <> payload_e2 *)
-    let find_adt_disc idx =
-      match List.rev idx with
-      | X.AdtPayloadIndex (ctor, _) :: prefix_rev ->
-        (* This is an ADT payload field; any failure to locate the discriminant is a bug *)
-        let prefix = List.rev prefix_rev in
-        let result = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
-          match acc with
-          | Some _ -> acc
-          | None ->
-            if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
-              let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-              let (disc_e1, _) = X.find disc_idx eqs in
-              Some (disc_e1, ctor, E.type_of_lustre_expr disc_e1)
-            else None
-        ) cstate.adt_map None in
-        (* ctor must belong to some ADT in adt_map *)
-        (match result with Some _ -> result | None -> assert false)
-      | _ -> None
-    in
     (* Compile the equality for each pair of `eqs` *)
     let over_indices = fun i (e1, e2) (fst_flag, acc_guard, acc) ->  
       match E.type_of_lustre_expr e1 with 
@@ -1114,25 +1090,8 @@ and compile_ast_expr
         | _ -> acc_guard 
         in
         false, acc_guard, X.add i e acc
-      (* For non-array types, straightforward equality.
-         Guard payload fields of ADT records so that junk fields
-         (those for non-selected constructors) do not affect the result.
-         For equality:    disc_e1 = C => payload_e1 = payload_e2
-         For disequality: disc_e1 = C AND payload_e1 <> payload_e2.
-         We guard on disc_e1 only, not disc_e2, because:
-         - Equality: the discriminant entry disc_e1 = disc_e2 is already present as its own
-           trie leaf.
-         - Disequality: if disc_e1 = C and the payloads differ, e1 <> e2 regardless of
-           disc_e2 (different constructor means different ADT value; same constructor with
-           unequal payloads also means different ADT value). 
-           If disc_e1 <> C the guard is false and the clause contributes nothing. *)
       | _ ->
-        let eq_expr = match find_adt_disc i with
-          | Some (disc_e1, ctor, disc_ty) ->
-            mk_comb (E.mk_eq disc_e1 (E.mk_constr ctor disc_ty)) (mk_binary e1 e2)
-          | None -> mk_binary e1 e2
-        in
-        false, acc_guard, X.add i eq_expr acc
+        false, acc_guard, X.add i (mk_binary e1 e2) acc 
     in
     let _, _, expr = X.fold over_indices eqs (true, [], X.empty) in 
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
