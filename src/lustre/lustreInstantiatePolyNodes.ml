@@ -327,8 +327,7 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
 
   ctx, gids_map, decls, node_decls_map
 
-and gen_poly_decls_loi: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
-                            A.label_or_index -> Ctx.tc_context * GI.t NI.Map.t * A.label_or_index * A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
+and gen_poly_decls_loi
 = fun ctx gids caller_nname node_decls_map loi ->
   let re e =
     let ctx, gids, e, decls, ndm = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
@@ -462,7 +461,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
       let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname acc_node_decls_map ty in 
       ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls1, node_decls_map) tis in 
+    ) (ctx, gids, [], [], node_decls_map) tis in 
     ctx, gids, Quantifier (p, q, tis, expr), decls1 @ decls2, node_decls_map
   | Merge (p, id, id_exprs) ->
     let ctx, gids, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
