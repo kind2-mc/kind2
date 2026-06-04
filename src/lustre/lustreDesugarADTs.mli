@@ -46,36 +46,6 @@ type adt_info = {
 
 type adt_map = adt_info HStringMap.t
 
-val build_adt_info :
-  HString.t ->
-  HString.t list ->
-  (HString.t * LustreAst.lustre_type list) list ->
-  adt_info
-
-val record_type_of_adt :
-  Lib.position ->
-  ?ty_args:LustreAst.lustre_type list ->
-  adt_info ->
-  LustreAst.lustre_type
-
-val adt_info_of_type : adt_map -> LustreAst.lustre_type -> adt_info option
-
-val desugar_type : Lib.position -> adt_map -> LustreAst.lustre_type -> LustreAst.lustre_type
-
-val desugar_arm :
-  Lib.position ->
-  adt_map ->
-  adt_info ->
-  LustreAst.expr ->
-  LustreAst.pattern ->
-  LustreAst.expr ->
-  LustreAst.expr option * LustreAst.expr
-
-val build_ite :
-  Lib.position ->
-  (LustreAst.expr option * LustreAst.expr) list ->
-  LustreAst.expr
-
 val desugar_adts :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->

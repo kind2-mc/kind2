@@ -114,52 +114,35 @@ let record_type_of_adt pos ?(ty_args = []) info =
 let tag_of pos info scrut =
   LA.RecordProject (pos, scrut, info.disc_field)
 
-let adt_info_of_type adt_map ty =
+(* Direct lookup: only matches types that are themselves an ADT name.
+   Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
+   NOT replaced with the bare record type (the refinement wrapper must be kept). *)
+let adt_info_of_type_direct adt_map ty =
   match ty with
   | LA.UserType (_, _, name) -> HStringMap.find_opt name adt_map
   | LA.ADT (_, name, _) -> HStringMap.find_opt name adt_map
   | _ -> None
 
-(* Replace every ADT type with its desugared record equivalent. *)
-let rec desugar_type pos adt_map ty =
+(* Full lookup: traverses type synonyms and refinement types to find the
+   underlying ADT.  Used by desugar_expr (Match) and collect_pattern_constraints
+   where the scrutinee may have a refinement type that wraps an ADT. *)
+let rec adt_info_of_type ctx adt_map ty =
   match ty with
-  | LA.ADT (_, name, cons) ->
-    let info = build_adt_info name [] cons in
-    record_type_of_adt pos info
-  | _ ->
-  match adt_info_of_type adt_map ty with
-  | Some adt_info ->
-    let ty_args = match ty with
-      | LA.UserType (_, args, _) -> List.map (desugar_type pos adt_map) args
-      | _ -> []
-    in
-    record_type_of_adt pos ~ty_args adt_info
-  | None ->
-    let ds = desugar_type pos adt_map in
-    match ty with
-    | LA.Bool _ | LA.Int _ | LA.Real _
-    | LA.SBitVector _ | LA.UBitVector _
-    | LA.IntRange _ | LA.AbstractType _
-    | LA.EnumType _ | LA.History _ -> ty
-    | LA.UserType (p, params, name) ->
-      LA.UserType (p, List.map ds params, name)
-    | LA.TupleType (p, ts) -> LA.TupleType (p, List.map ds ts)
-    | LA.GroupType (p, ts) -> LA.GroupType (p, List.map ds ts)
-    | LA.RecordType (p, n, fields) ->
-      LA.RecordType (p, n,
-        List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
-    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
-    | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
-    | LA.RefinementType (p, (p2, id, t), e) ->
-      LA.RefinementType (p, (p2, id, ds t), e)
-    | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
-    | LA.Set (p, t) -> LA.Set (p, ds t)
-    | LA.ADT _ -> ty (* unreachable: handled above *)
+  | LA.UserType (_, ty_args, name) ->
+    (match HStringMap.find_opt name adt_map with
+    | Some _ as r -> r
+    | None ->
+      match Ctx.lookup_ty_syn ctx name ty_args with
+      | Some expanded -> adt_info_of_type ctx adt_map expanded
+      | None -> None)
+  | LA.ADT (_, name, _) -> HStringMap.find_opt name adt_map
+  | LA.RefinementType (_, (_, _, inner_ty), _) -> adt_info_of_type ctx adt_map inner_ty
+  | _ -> None
 
 (* Recursively collect the conjunction of tag equality conditions and the
    variable->field-projection substitutions imposed by a (possibly nested)
    constructor pattern.  Returns (conditions, substitutions). *)
-let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub_pats)) =
+let rec collect_pattern_constraints pos ctx adt_map info scrut (LA.Pat (_, name, sub_pats)) =
   if List.mem name info.ctor_variants then
     let ctor = name in
     let outer_cond =
@@ -174,9 +157,9 @@ let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr = LA.RecordProject (pos, scrut, fname) in
         let LA.Pat (_, sub_name, _) = sub_pat in
-        match adt_info_of_type adt_map ftype with
+        match adt_info_of_type ctx adt_map ftype with
         | Some sub_info when List.mem sub_name sub_info.ctor_variants ->
-          let (c, s) = collect_pattern_constraints pos adt_map sub_info field_expr sub_pat in
+          let (c, s) = collect_pattern_constraints pos ctx adt_map sub_info field_expr sub_pat in
           (conds @ c, subs @ s)
         | _ ->
           (conds, subs @ [(sub_name, field_expr)])
@@ -188,8 +171,8 @@ let rec collect_pattern_constraints pos adt_map info scrut (LA.Pat (_, name, sub
 
 (* Desugar a single match arm into a (condition option, body) pair.
    Substitutes pattern variables with field projections in body. *)
-let desugar_arm pos adt_map info scrut pat body =
-  let (conds, subs) = collect_pattern_constraints pos adt_map info scrut pat in
+let desugar_arm pos ctx adt_map info scrut pat body =
+  let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
   let body =
     List.fold_left (fun b (var, expr) -> LH.substitute_naive var expr b) body subs
   in
@@ -229,7 +212,7 @@ let update_context adt_map ctx =
 
 (* Generate a default (junk) value for a type. Used for unused ADT payload fields. *)
 let rec default_value ctx adt_map pos ty =
-  let ty = desugar_type pos adt_map ty in
+  let ty = desugar_type pos ctx adt_map ty in
   match ty with
   | LA.Bool _ -> LA.Const (pos, LA.False)
   | LA.Int _ | LA.IntRange _ | LA.SBitVector _ | LA.UBitVector _ ->
@@ -261,8 +244,45 @@ let rec default_value ctx adt_map pos ty =
   | LA.ADT _ -> assert false (* desugar_type should have handled this *)
   | LA.AbstractType _ -> failwith "Unsupported: abstract type in ADT constructor"
 
+(* Replace every ADT type with its desugared record equivalent. *)
+and desugar_type pos ctx adt_map ty =
+  match ty with
+  | LA.ADT (_, name, cons) ->
+    let info = build_adt_info name [] cons in
+    record_type_of_adt pos info
+  | LA.RefinementType (p, (p2, id, t), e) ->
+    LA.RefinementType (p, (p2, id, desugar_type pos ctx adt_map t), desugar_expr ctx adt_map e)
+  | _ ->
+  match adt_info_of_type_direct adt_map ty with
+  | Some adt_info ->
+    let ty_args = match ty with
+      | LA.UserType (_, args, _) -> List.map (desugar_type pos ctx adt_map) args
+      | _ -> []
+    in
+    record_type_of_adt pos ~ty_args adt_info
+  | None ->
+    let ds = desugar_type pos ctx adt_map in
+    match ty with
+    | LA.Bool _ | LA.Int _ | LA.Real _
+    | LA.SBitVector _ | LA.UBitVector _
+    | LA.IntRange _ | LA.AbstractType _
+    | LA.EnumType _ | LA.History _ -> ty
+    | LA.UserType (p, params, name) ->
+      LA.UserType (p, List.map ds params, name)
+    | LA.TupleType (p, ts) -> LA.TupleType (p, List.map ds ts)
+    | LA.GroupType (p, ts) -> LA.GroupType (p, List.map ds ts)
+    | LA.RecordType (p, n, fields) ->
+      LA.RecordType (p, n,
+        List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
+    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
+    | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
+    | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
+    | LA.Set (p, t) -> LA.Set (p, ds t)
+    | LA.RefinementType _ -> assert false (* handled above *)
+    | LA.ADT _ -> assert false (* unreachable: handled above *)
+
 (* Desugar ADTTerm and Match expressions throughout an expression. *)
-let rec desugar_expr ctx adt_map expr =
+and desugar_expr ctx adt_map expr =
   let r e = desugar_expr ctx adt_map e in
   let rlist es = List.map r es in
   let rilist ies = List.map (fun (i, e) -> (i, r e)) ies in
@@ -283,7 +303,7 @@ let rec desugar_expr ctx adt_map expr =
       ) adt_map None
       |> (function Some i -> i | None -> assert false)
     in
-    let ty_args' = List.map (desugar_type pos adt_map) ty_args in
+    let ty_args' = List.map (desugar_type pos ctx adt_map) ty_args in
     let subst =
       if List.length adt_info.type_params = List.length ty_args'
       then List.combine adt_info.type_params ty_args'
@@ -311,13 +331,13 @@ let rec desugar_expr ctx adt_map expr =
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
     let adt_info =
       (match scrut_ty_opt with
-      | Some ty -> adt_info_of_type adt_map ty
+      | Some ty -> adt_info_of_type ctx adt_map ty
       | None -> None)
       |> (function Some i -> i | None -> assert false)
     in
     let scrut' = r scrut in
     let desugared_arms = List.map (fun (pat, body) ->
-      let (cond_opt, body') = desugar_arm pos adt_map adt_info scrut' pat body in
+      let (cond_opt, body') = desugar_arm pos ctx adt_map adt_info scrut' pat body in
       (cond_opt, r body')
     ) arms in
     build_ite pos desugared_arms
@@ -339,30 +359,30 @@ let rec desugar_expr ctx adt_map expr =
   | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
-  | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p adt_map ty)
+  | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p ctx adt_map ty)
   | LA.Call (p, ty_args, id, es) ->
-    LA.Call (p, List.map (desugar_type p adt_map) ty_args, id, rlist es)
+    LA.Call (p, List.map (desugar_type p ctx adt_map) ty_args, id, rlist es)
   | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
   | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
   | LA.Condact (p, e1, e2, id, es1, es2) ->
     LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   | LA.Quantifier (p, k, idents, e) ->
-    let idents' = List.map (fun (p, id, ty) -> (p, id, desugar_type p adt_map ty)) idents in
+    let idents' = List.map (fun (p, id, ty) -> (p, id, desugar_type p ctx adt_map ty)) idents in
     LA.Quantifier (p, k, idents', r e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ ->
     assert false (* desugared before this pipeline step *)
 
 let desugar_const_decl ctx adt_map = function
-  | LA.FreeConst (p, id, ty) -> LA.FreeConst (p, id, desugar_type p adt_map ty)
+  | LA.FreeConst (p, id, ty) -> LA.FreeConst (p, id, desugar_type p ctx adt_map ty)
   | LA.UntypedConst (p, id, e) -> LA.UntypedConst (p, id, desugar_expr ctx adt_map e)
   | LA.TypedConst (p, id, e, ty) ->
-    LA.TypedConst (p, id, desugar_expr ctx adt_map e, desugar_type p adt_map ty)
+    LA.TypedConst (p, id, desugar_expr ctx adt_map e, desugar_type p ctx adt_map ty)
 
 let desugar_contract_item ctx adt_map item =
   let r = desugar_expr ctx adt_map in
-  let dt p ty = desugar_type p adt_map ty in
+  let dt p ty = desugar_type p ctx adt_map ty in
   match item with
   | LA.Assume (p, n, s, e) -> LA.Assume (p, n, s, r e)
   | LA.Guarantee (p, n, s, e) -> LA.Guarantee (p, n, s, r e)
@@ -401,7 +421,7 @@ let rec desugar_node_item ctx adt_map item =
     LA.FrameBlock (p, vars, List.map de eqs, List.map di items)
 
 let desugar_node ctx adt_map (id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
-  let dt p ty = desugar_type p adt_map ty in
+  let dt p ty = desugar_type p ctx adt_map ty in
   let di (p, id, ty, cl, c) = (p, id, dt p ty, cl, c) in
   let do_ (p, id, ty, cl) = (p, id, dt p ty, cl) in
   let dl = function
@@ -419,7 +439,7 @@ let desugar_node ctx adt_map (id, is_extern, opac, params, inputs, outputs, loca
    contract')
 
 let desugar_contract_node ctx adt_map (id, params, inputs, outputs, (p, body)) =
-  let dt pos ty = desugar_type pos adt_map ty in
+  let dt pos ty = desugar_type pos ctx adt_map ty in
   let di (p, id, ty, cl, c) = (p, id, dt p ty, cl, c) in
   let do_ (p, id, ty, cl) = (p, id, dt p ty, cl) in
   (id, params,
@@ -446,6 +466,9 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
           let record_decl = LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, record_ty)) in
           [enum_decl; record_decl]
         | None -> assert false)
+      | LA.TypeDecl (sp, LA.AliasType (p, name, ty_params, ty)) ->
+        let ty = desugar_type p ctx' adt_map ty in
+        [LA.TypeDecl (sp, LA.AliasType (p, name, ty_params, ty))]
       | LA.ConstDecl (p, cd) ->
         [LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)]
       | _ -> [decl]
@@ -460,4 +483,10 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
         LA.ConstDecl (p, desugar_const_decl ctx' adt_map cd)
       | _ -> decl
     ) node_contract_decls in
+    let ctx' = List.fold_left (fun acc_ctx decl ->
+      match decl with
+      | LA.TypeDecl (_, LA.AliasType (_, name, [], ty)) when not (HStringMap.mem name adt_map) ->
+        Ctx.add_ty_syn acc_ctx name ty
+      | _ -> acc_ctx
+    ) ctx' type_and_const_decls' in
     (type_and_const_decls', node_contract_decls', ctx', adt_map)

@@ -1500,10 +1500,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   )
   | LA.Match (pos, scrutinee, arms, _) ->
     let rec bind_pattern_ty ctx field_ty pat =
-      let adt_opt = match field_ty with
-        | LA.ADT _ -> Some field_ty
-        | LA.UserType (_, ty_args, id) -> lookup_ty_syn ctx id ty_args
-        | _ -> None
+      let* adt_opt = match field_ty with
+        | LA.ADT _ -> R.ok (Some field_ty)
+        | _ -> 
+          let* ty = expand_type_syn_reftype_history_subrange ctx field_ty in 
+          R.ok (Some ty)
       in 
       match pat with
       | LA.Pat (pos, id, []) ->
@@ -1536,10 +1537,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         )
     in
     let* scrut_ty, scrutinee, warnings1 = infer_type_expr ctx nname scrutinee in
-    let scrut_adt_opt = match scrut_ty with
-      | LA.ADT _ -> Some scrut_ty
-      | LA.UserType (_, ty_args, id) -> lookup_ty_syn ctx id ty_args
-      | _ -> None
+    let* scrut_adt_opt = match scrut_ty with
+      | LA.ADT _ -> R.ok (Some scrut_ty)
+      | _ -> 
+        let* ty = expand_type_syn_reftype_history_subrange ctx scrut_ty in 
+        R.ok (Some ty)
     in
     (match scrut_adt_opt with
     | Some (LA.ADT _) ->

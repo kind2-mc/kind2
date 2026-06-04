@@ -419,7 +419,13 @@ let rec apply_type_subst_in_expr
     Quantifier (pos, q, tis, apply_type_subst_in_expr sigma expr)
   | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | Match _ -> assert false (* Not supported due to introduction of bound variables *)
+  | Match (pos, e, arms, ty) ->
+    let e = apply_type_subst_in_expr sigma e in
+    let arms = List.map (fun (pat, arm_e) ->
+      (pat, apply_type_subst_in_expr sigma arm_e)
+    ) arms in
+    let ty = Option.map (apply_type_subst_in_type sigma) ty in
+    Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_type_subst_in_expr sigma) args)

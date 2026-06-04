@@ -112,8 +112,9 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
+    | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
@@ -148,8 +149,9 @@ let rec flatten_ref_type ctx ty = match ty with
       let bound_var = A.Ident (pos, id) in  
       RefinementType (pos, (pos, id, A.Int pos), 
         A.BinaryOp (pos, A.And, A.CompOp (pos, A.Lte, lb, bound_var), A.CompOp (pos, A.Lte, bound_var, ub))))
-  | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _ 
+  | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
+  | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -215,6 +217,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
+  | ADTTerm _ | Match _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_item ctx item = 
   match item with 
