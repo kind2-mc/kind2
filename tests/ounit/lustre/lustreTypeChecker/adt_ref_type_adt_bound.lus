@@ -2,7 +2,7 @@ datatype D = | C(subtype { x: int | x < 100 });
 
 type T = subtype { x: D | match x with | C(i): i >= 0 end };
 
-node N(inp: D) returns (out: int)
+node N(inp: T) returns (out: int)
 let
   out = match inp with 
   | C(i): i

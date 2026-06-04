@@ -1292,17 +1292,15 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
-  let add_exports_to info =
-    List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
-      info (Ctx.IMap.bindings type_exports) in
-  let add_ivars_to info =
-    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
-      info ivars in
-  let add_ovars_to info =
-    List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
-      info ovars in
-  let info = add_exports_to (add_ivars_to (add_ovars_to info)) in
+  let ctx = List.fold_left (fun c (id, ty) -> Ctx.add_ty c id ty)
+    info.context
+    (Ctx.IMap.bindings type_exports) in
+  let ctx = List.fold_left (fun c (_, id, ty, _, _) -> Ctx.add_ty c id ty)
+    ctx ivars in
+  let ctx = List.fold_left (fun c (_, id, ty, _) -> Ctx.add_ty c id ty)
+    ctx ovars in
   let info = { info with
+    context = ctx;
     interpretation = interp;
     contract_ref; }
   in
@@ -1427,18 +1425,18 @@ and normalize_node info map
   (* Record subrange constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _))
-      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) ->
+      | A.NodeVarDecl (_, (_, id, _, _)) 
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
         let ty = get_type_of_id info (Some node_id) id in
         Ctx.type_contains_subrange ctx ty || Ctx.type_contains_ref ctx ty
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
-      | A.NodeVarDecl (p, (_, id, _, _))
-      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->
+      | A.NodeVarDecl (p, (_, id, _, _)) 
+      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) -> 
         let ty = get_type_of_id info (Some node_id) id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in
+        let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in 
         let gids2, warnings2 = mk_fresh_refinement_type_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty in
         union acc_g (union gids1 gids2), acc_w @ warnings1 @ warnings2
       | A.NodeConstDecl (_, FreeConst _)

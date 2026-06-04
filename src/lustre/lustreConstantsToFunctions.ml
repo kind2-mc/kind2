@@ -176,8 +176,10 @@ let constants_to_calls new_func_ids decls =
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
 (* Returns true iff the type contains an ADT (algebraic data type). *)
-let rec type_contains_adt ctx ty =
-  let r = type_contains_adt ctx in
+(* Currently unused by module, since ADTs do not yet create generated identifiers. 
+   However, they will in the near future, once we support abstract types in ADTs. *)
+let rec _type_contains_adt ctx ty =
+  let r = _type_contains_adt ctx in
   match ty with
   | A.ADT _ -> true
   | A.UserType (_, tys, name) ->
@@ -197,12 +199,9 @@ let rec type_contains_adt ctx ty =
   | A.IntRange _ | A.Bool _ | A.Int _ | A.Real _
   | A.UBitVector _ | A.SBitVector _ | A.AbstractType _ | A.EnumType _ -> false
 
-
 (* Returns true iff the type contains some expression that would induce generated 
-   identifiers. In this context, the only ways to induce generated identifiers:
-    * set binary operations (union/intersection)
-    * ADTs
-    * ADT terms *)
+   identifiers. In this context, the only way to induce generated identifiers 
+   is from set binary operations (union/intersection) *)
 let rec ty_contains_gids ctx ni ty = 
   let r = ty_contains_gids ctx ni in
   match ty with  
@@ -245,9 +244,9 @@ let rec ty_contains_gids ctx ni ty =
 let gen_const_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
-    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->
+    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->  
       let ctx = Ctx.add_ty ctx id ty in
-      let contains_gids = ty_contains_gids ctx None ty || type_contains_adt ctx ty in
+      let contains_gids = ty_contains_gids ctx None ty in
       if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then
         (* Generate a function for free constants when the type includes generated identifiers,
            and for realizability checking of free constants. *)
@@ -275,8 +274,8 @@ let gen_const_functions ctx decls =
         acc_decls, acc_new_func_ids, acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
-    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) ->
-      if Ctx.type_contains_ref_or_subrange ctx ty then
+    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
+      if Ctx.type_contains_ref_or_subrange ctx ty then 
         let p = s.start_pos in
         let node_type = NI.DefinedConstant in 
         let node_id = NI.mk_node_id ~node_type id in
