@@ -132,9 +132,10 @@ val lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type lis
 (** Lookup an ADT constructor and return its ADT type name and field types *)
 
 val add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> tc_context
-(** Register an ADT constructor with its type name and field types.
-    Used by the ADT desugaring pre-pass to preserve lookup_constructor
-    after ty_syns is rewritten from ADT to RecordType. *)
+(** Register an ADT constructor with its type name and field types *)
+
+val remove_adt_ctor: tc_context -> LA.ident -> tc_context
+(** Remove an ADT constructor registration *)
 
 val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add a type synonym in the typing context *)

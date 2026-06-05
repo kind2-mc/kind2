@@ -240,7 +240,8 @@ let update_context adt_map ctx =
     ) info.ctor_variants in
     let acc_ctx = List.fold_left Ctx.union acc_ctx (type_bindings @ const_bindings) in
     let record_ty = record_type_of_adt pos info in
-    Ctx.add_ty_syn acc_ctx type_name record_ty
+    let acc_ctx = Ctx.add_ty_syn acc_ctx type_name record_ty in
+    List.fold_left Ctx.remove_adt_ctor acc_ctx info.ctor_variants
   ) adt_map ctx
 
 (* Generate a default (junk) value for a type. Used for unused ADT payload fields. *)

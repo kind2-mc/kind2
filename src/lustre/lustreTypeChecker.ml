@@ -2487,6 +2487,16 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
             @ (Lib.list_apply enum_const_bindings Global)))
         else
           type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
+      | LA.ADT (_, _, cons) ->
+        let ctx' = add_ty_syn ctx i ty in
+        let* ctx'' = R.seq_chain
+          (fun acc (ctor, field_tys) ->
+            match lookup_constructor acc ctor with
+            | Some (existing_ty, _) when not (HString.equal existing_ty i) ->
+              type_error pos (DuplicateConstructor (ctor, existing_ty, i))
+            | _ -> R.ok (add_adt_ctor acc ctor i field_tys))
+          ctx' cons in
+        R.ok (LA.AliasType (pos, i, ps, ty), ctx'')
       | _ -> R.ok (LA.AliasType (pos, i, ps, ty), add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in

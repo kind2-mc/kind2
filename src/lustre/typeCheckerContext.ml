@@ -100,9 +100,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                       ty_var_store
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
                   ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
-                                                  (* stable ADT constructor info: ctor -> (type_name, field_types)
-                                                     populated by ADT desugaring pre-pass so that
-                                                     lookup_constructor works after ty_syns is rewritten *)
+                                                  (* ctor -> (type_name, field_types) *)
                   }
 (** The type checker global context *)
 
@@ -274,24 +272,15 @@ let lookup_variants: tc_context -> LA.ident -> LA.ident list option
 
 let lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type list) option
   = fun ctx ctor ->
-  match IMap.find_opt ctor ctx.adt_ctors with
-  | Some _ as result -> result
-  | None ->
-    IMap.fold (fun ty_name ty acc ->
-      match acc with
-      | Some _ -> acc
-      | None ->
-        (match ty with
-        | LA.ADT (_, _, cons) ->
-          (match List.assoc_opt ctor cons with
-          | Some field_tys -> Some (ty_name, field_tys)
-          | None -> None)
-        | _ -> None)
-    ) ctx.ty_syns None
+  IMap.find_opt ctor ctx.adt_ctors
 
 let add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> tc_context
   = fun ctx ctor ty_name field_tys ->
   { ctx with adt_ctors = IMap.add ctor (ty_name, field_tys) ctx.adt_ctors }
+
+let remove_adt_ctor: tc_context -> LA.ident -> tc_context
+  = fun ctx ctor ->
+  { ctx with adt_ctors = IMap.remove ctor ctx.adt_ctors }
 
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
