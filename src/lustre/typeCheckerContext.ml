@@ -278,6 +278,10 @@ let add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> t
   = fun ctx ctor ty_name field_tys ->
   { ctx with adt_ctors = IMap.add ctor (ty_name, field_tys) ctx.adt_ctors }
 
+let remove_adt_ctor: tc_context -> LA.ident -> tc_context
+  = fun ctx ctor ->
+  { ctx with adt_ctors = IMap.remove ctor ctx.adt_ctors }
+
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
 (** add a type synonym in the typing context *)

@@ -134,6 +134,9 @@ val lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type lis
 val add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> tc_context
 (** Register an ADT constructor with its type name and field types *)
 
+val remove_adt_ctor: tc_context -> LA.ident -> tc_context
+(** Remove an ADT constructor registration *)
+
 val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add a type synonym in the typing context *)
 
