@@ -89,8 +89,8 @@ let rec fold_lustre_ty f init op ty =
   | Map (_, kt, vt) -> op (r kt) (r vt)
   | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
   | Set (_, ty) -> r ty
-  | ArrayType (_, (ty, e))
-  | RefinementType (_, (_, _, ty), e) ->
+  | ArrayType (_, (ty, e)) 
+  | RefinementType (_, (_, _, ty), e) -> 
     op (r ty) (f e)
   | ADT (_, _, cons) -> 
     let tys = List.map snd cons |> List.flatten in 
@@ -115,7 +115,7 @@ let rec map_lustre_ty f ty =
     TupleType (p, List.map r tys)
   | RecordType (p, id, tis) -> 
     RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
-  | RefinementType (p1, (p2, id, ty), e) ->
+  | RefinementType (p1, (p2, id, ty), e) -> 
     RefinementType (p1, (p2, id, r ty), f e)
   | ADT (p, id, cons) -> 
     ADT (p, id, List.map (fun (id, tys) -> id, List.map r tys) cons)
@@ -141,7 +141,7 @@ let rec contains_subtype_satisfying p ty =
   | RecordType (_, _, tis) -> 
     p ty || 
     List.exists (fun (_, _, ty) -> r ty) tis
-  | RefinementType (_, (_, _, ty'), _) ->
+  | RefinementType (_, (_, _, ty'), _) -> 
     p ty || r ty'
   | ADT (_, _, cons) -> 
     let tys = List.map snd cons |> List.flatten in
@@ -183,7 +183,7 @@ let rec expr_contains_call = function
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
-  | TypeAscription _
+  | TypeAscription _ 
     -> true
   | Match (_, e, arms, _) ->
     expr_contains_call e ||
@@ -224,8 +224,8 @@ let rec expr_contains_id id = function
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) ->
-    expr_contains_id id e ||
+  | RestartEvery (_, _, expr_list, e) -> 
+    expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
   | Match (_, e, arms, _) ->
     expr_contains_id id e ||
@@ -501,9 +501,9 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
-  | RecordType (pos, name, tis) ->
-    let tis =
-      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis 
     in
     RecordType (pos, name, tis)
   | ADT (pos, name, cons) ->
@@ -1022,7 +1022,7 @@ let contract_has_pre_or_arrow (_, l) =
   List.map contract_node_equation_has_pre_or_arrow l
   |> some_of_list
 
-let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i
+let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i 
 
 let vars_of_clock_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
@@ -1291,7 +1291,7 @@ let rec vars_of_type = function
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _
+  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
   | SBitVector _ | UBitVector _ -> SI.empty
   | ADT (_, _, cons) -> 
     let tys = List.map snd cons |> List.flatten in 
@@ -1611,28 +1611,28 @@ let rec replace_idents locals1 locals2 expr =
   | Activate (p, id, e1, e2, l) ->
     Activate (p, id, r e1, r e2, List.map r l)
   | Condact (p, e1, e2, id, l1, l2) ->
-    Condact (p, r e1, r e2, id,
+    Condact (p, r e1, r e2, id, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (p, e1, li, Some e2) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, Some e2) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
               | Index (a, e) -> Index (a, r e)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
-             ) li,
+             ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)
-             ) li,
+             ) li, 
     None)
   | Match (pos, e, arms, ty_opt) ->
     let arms = List.map (fun (pat, arm_e) ->
@@ -2076,7 +2076,7 @@ let rec rename_contract_vars = function
         let id = components |> List.tl |> List.tl |> String.concat "_" in
         let id = HString.mk_hstring id in
         Ident (p, id)
-      else e
+      else e 
     with _ -> e)
   | EmptySet (_, None) | EmptyMap (_, None)
   | ModeRef (_, _) as e -> e
@@ -2232,8 +2232,8 @@ let rec constants_to_calls: ident list -> expr -> expr
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)
@@ -2253,7 +2253,7 @@ let rec constants_to_calls: ident list -> expr -> expr
     let ty_args = List.map (map_lustre_ty r) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map r args)
 
-let pos_of_type ty = match ty with
+let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
   | IntRange (p, _, _) | EnumType (p, _, _) | AbstractType (p, _)
   | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _)

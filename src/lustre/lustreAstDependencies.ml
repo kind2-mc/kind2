@@ -533,7 +533,7 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
-  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _
+  | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _ | IntRange _ 
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
   | ADT (_, _, cons) ->
     let tys = List.map snd cons |> List.flatten in
@@ -848,7 +848,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     SI.union (SI.flatten (List.map r args))
       (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
 
-(** get all the variables and flatten node calls using
+(** get all the variables and flatten node calls using (*!! should assert false? *) 
     the node summary for an expression *)
              
 (* We use a contract_node_equation option map. In this map, every identifier is associated
