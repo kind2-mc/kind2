@@ -740,8 +740,8 @@ and gen_poly_decls_decls
   let decls = List.rev decls in
   ctx, gids, decls, gen_decls, node_decls_map 
 
-let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t  * A.declaration list
-= fun ctx gids decls ->
+let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t  * A.declaration list 
+= fun ctx gids decls -> 
   (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations
      created so far) *)
   let node_decls_map = List.fold_left (fun acc decl -> match decl with 

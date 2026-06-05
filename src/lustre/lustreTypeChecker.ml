@@ -528,7 +528,7 @@ let rec infer_const_attr ctx exp =
       | Some e, None -> r e 
       | Some e1, Some e2 -> combine (r e1) (r e2)
      )
-    | LA.AbstractType _ | LA.EnumType _ 
+    | LA.AbstractType _ | LA.EnumType _  
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
     | LA.UserType _ -> [R.ok ()]
     | LA.ADT (_, _, cons) ->
@@ -951,7 +951,7 @@ let rec unify_types pos ctx is_type_ascription ty1 ty2 =
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
   (* AbstractTypes denote __the caller's__ 
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
-  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
+  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
 
   (* Group types are weird... *)
   | GroupType (_, tys1), GroupType (_, tys2) ->

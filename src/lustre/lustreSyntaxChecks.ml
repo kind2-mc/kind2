@@ -845,7 +845,7 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result
+and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->
   let composed_checks i ctx e =
     (no_dangling_identifiers ctx e) >> 

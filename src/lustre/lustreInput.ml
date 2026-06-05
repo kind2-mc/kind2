@@ -196,8 +196,8 @@ let type_check declarations =
         let* decls1, ctx1, gids1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in
         let* decls2, ctx2, gids2 = LGI.gen_imp_nodes global_ctx sorted_node_contract_decls in
         Res.ok (
-          decls1 @ decls2,
-          TypeCheckerContext.union ctx1 ctx2,
+          decls1 @ decls2, 
+          TypeCheckerContext.union ctx1 ctx2, 
           NodeId.Map.merge GI.union_keys2 gids1 gids2
         )
       else Res.ok (sorted_node_contract_decls, global_ctx, NI.Map.empty)
