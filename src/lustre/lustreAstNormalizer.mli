@@ -99,7 +99,7 @@ val mk_ref_type_expr : TypeCheckerContext.tc_context ->
   LustreAst.lustre_type ->
   LustreAst.expr list
 
-val mk_range_expr : ?force_prop:bool -> TypeCheckerContext.tc_context ->
+val mk_range_expr : ?force_prop:bool -> TypeCheckerContext.tc_context -> 
   NodeId.t option ->
   LustreAst.lustre_type ->
   LustreAst.expr ->
