@@ -2,6 +2,7 @@ lib: [
   "_build/install/default/lib/kind2/META"
   "_build/install/default/lib/kind2/dune-package"
   "_build/install/default/lib/kind2/opam"
+  "_build/install/default/doc/kind2/odoc-config.sexp"
 ]
 bin: [
   "_build/install/default/bin/kind2"
