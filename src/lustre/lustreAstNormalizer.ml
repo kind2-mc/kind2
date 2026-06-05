@@ -518,12 +518,12 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-   | RecordType (_, _, tys) ->
+    | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-   | A.Set (_, kt) -> 
+    | A.Set (_, kt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
       let idx = A.Ident (dpos, idx_str) in
@@ -591,13 +591,13 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
 and mk_ref_type_expr
  = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
-  match ty with
-  | A.RefinementType (_, (_, id2, _), ref_expr) ->
+  match ty with 
+  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
        in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 expr ref_expr in
+    let expr = AH.substitute_naive id2 expr ref_expr in 
     [expr]
-  | TupleType (pos, tys)
+  | TupleType (pos, tys) 
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in
       mk_ref_type_expr ctx node_id (A.IndexAccess (pos, expr, A.Const (pos, A.Num i), A.Tuple)) ty
@@ -607,7 +607,7 @@ and mk_ref_type_expr
       let expr = A.RecordProject(p, expr, id2) in
       mk_ref_type_expr ctx node_id expr ty
     ) tis |> List.flatten
-  | ArrayType (_, (ty, len)) ->
+  | ArrayType (_, (ty, len)) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
     let exprs = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Array)) ty in
@@ -667,7 +667,7 @@ and mk_ref_type_expr
 
   | _ -> []
 
-let mk_range_expr ?(force_prop = false) = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true 
+let mk_range_expr ?(force_prop = false) = mk_enum_range_expr ~force_prop ~mk_enum:false ~mk_range:true
 
 let mk_enum_subrange_reftype_constraints node_id info vars =
   let enum_subrange_reftype_vars =
@@ -1433,7 +1433,7 @@ and normalize_node info map
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
       | A.NodeVarDecl (p, (_, id, _, _)) 
-      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) -> 
+      | A.NodeConstDecl (p, TypedConst (_, id, _, _)) ->  
         let ty = get_type_of_id info (Some node_id) id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
         let gids1, warnings1 = (mk_fresh_subrange_constraint Local info map p (Some node_id) (A.Ident (p, id)) ty) in 

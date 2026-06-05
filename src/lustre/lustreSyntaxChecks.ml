@@ -145,7 +145,7 @@ let error_message kind = match kind with
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
-type warning_kind =
+type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
 
 let warning_message warning = match warning with
@@ -311,9 +311,9 @@ function
 
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
-  match e2 with
+  match e2 with 
   | Some e2 -> has_stateful_op ctx e2
-  | None -> false
+  | None -> false 
   ||
   List.fold_left
     (fun acc l_or_i -> acc ||
@@ -332,7 +332,7 @@ let build_global_ctx (decls:LustreAst.t) =
   let contract_decls, others =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
-  let over_decls acc = function 
+  let over_decls acc = function
     | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) ->
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
     | LA.TypeDecl (_, AliasType (_, _, _, ADT (_, _, cons))) ->
@@ -848,14 +848,14 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
 and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result
 = fun i ctx expr ->
   let composed_checks i ctx e =
-    (no_dangling_identifiers ctx e) >>
+    (no_dangling_identifiers ctx e) >> 
     (no_node_calls_in_constant ctx i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 
 and common_node_equations_checks ctx e =
     (no_dangling_calls ctx e)
-    >> (no_dangling_identifiers ctx e) 
+    >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> Ok []
 
@@ -1118,7 +1118,7 @@ and check_ty ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
-| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _
+| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
@@ -1313,8 +1313,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
       Ok (warnings1 @ List.flatten warnings2)
   in
-  let* warnings1 = res in
-  let* warnings2 = check expr in
+  let* warnings1 = res in 
+  let* warnings2 = check expr in 
   Ok (warnings1 @ warnings2)
 
 and check_expr_list ctx f l =

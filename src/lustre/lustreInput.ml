@@ -198,7 +198,7 @@ let type_check declarations =
         Res.ok (
           decls1 @ decls2,
           TypeCheckerContext.union ctx1 ctx2,
-          NodeId.Map.merge GI.union_keys2 (NodeId.Map.merge GI.union_keys2 gids1 gids2) NI.Map.empty
+          NodeId.Map.merge GI.union_keys2 gids1 gids2
         )
       else Res.ok (sorted_node_contract_decls, global_ctx, NI.Map.empty)
     in
@@ -240,17 +240,17 @@ let type_check declarations =
     in
 
     (* Step 21. Convert free constants to functions without args *)
-    let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx =
+    let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_const_functions inlined_global_ctx const_inlined_type_and_consts in
-    let* const_inlined_type_and_consts =
+    let* const_inlined_type_and_consts = 
       LCF.constants_to_calls new_func_ids const_inlined_type_and_consts in
-    let* const_inlined_nodes_and_contracts =
+    let* const_inlined_nodes_and_contracts = 
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
     (* Step 22. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs
+      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 

@@ -10,5 +10,4 @@ doc: [
   "_build/install/default/doc/kind2/CHANGES.md"
   "_build/install/default/doc/kind2/LICENSE.rst"
   "_build/install/default/doc/kind2/README.rst"
-  "_build/install/default/doc/kind2/odoc-config.sexp"
 ]

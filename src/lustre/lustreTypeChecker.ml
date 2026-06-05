@@ -388,7 +388,7 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es1) >>  Res.seq_ (List.map (check_clocks clock) es2)
     | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
-    | When (pos, e, c) ->
+    | When (pos, e, c) -> 
       check_clocks clock e >> clocks_match_result pos c clock
     | LA.Match (_, e, arms, _) ->
       check_clocks clock e >>
@@ -439,7 +439,7 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
     | Activate (_, _, e1, e2, es) -> 
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
-    | RestartEvery (_, _, es, e) ->
+    | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map check_merge es) >> check_merge e
     | LA.Match (_, e, arms, _) ->
       check_merge e >>
@@ -528,8 +528,8 @@ let rec infer_const_attr ctx exp =
       | Some e, None -> r e 
       | Some e1, Some e2 -> combine (r e1) (r e2)
      )
-    | LA.AbstractType _ | LA.EnumType _
-    | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+    | LA.AbstractType _ | LA.EnumType _ 
+    | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
     | LA.UserType _ -> [R.ok ()]
     | LA.ADT (_, _, cons) ->
       let tys = List.concat_map snd cons in
@@ -617,7 +617,7 @@ let rec infer_const_attr ctx exp =
   | ChooseOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
-  | RestartEvery (_, i, _, _)
+  | RestartEvery (_, i, _, _) 
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -941,15 +941,15 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
     The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
     a boolean. *)
-let rec unify_types pos ctx is_type_ascription ty1 ty2 =
+let rec unify_types pos ctx is_type_ascription ty1 ty2 = 
   let r = unify_types pos ctx is_type_ascription in
   let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
   let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
-  match ty1, ty2 with
-  (* UserTypes denote __the callee's__
+  match ty1, ty2 with 
+  (* UserTypes denote __the callee's__ 
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  (* AbstractTypes denote __the caller's__
+  (* AbstractTypes denote __the caller's__ 
      type parameters after calling `expand_type_syn_reftype_history_subrange` *)
   | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
 
@@ -1711,7 +1711,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   | IndexAccess (pos, _, _, _)
-  | TypeAscription (pos, _, _)
+  | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
   | Condact (pos, _, _, _, _, _)
@@ -1732,8 +1732,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
 
-(** Type checks an expression and returns [ok]
- * if the expected type is the given type [tc_type]
+(** Type checks an expression and returns [ok] 
+ * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
 (* Convert the GenericIndex to one of the other indices based on the inferred type of ue *)
@@ -2851,8 +2851,8 @@ and expr_contains_set_binop ctx ni expr =
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
     List.fold_left (fun acc x -> acc || r x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) ->
-    r e ||
+  | RestartEvery (_, _, expr_list, e) -> 
+    r e || 
     List.fold_left (fun acc x -> acc || r x) false expr_list
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
@@ -2926,14 +2926,14 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
       if (member_ty_syn ctx i || member_u_types ctx i)
-      then (
+      then 
         (* Check that we are passing the correct number of type arguments *)
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
         let expanded = expand_type_syn ctx ty' in
         match expanded with
         | LA.ADT _ (* Already validated at declaration *)
         | LA.UserType _ -> R.ok (ty', [])  
-        | _ -> check_type_well_formed_rec is_nested expanded)
+        | _ -> check_type_well_formed_rec is_nested expanded
       else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)

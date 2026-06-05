@@ -6,8 +6,8 @@ module Chk = LustreTypeChecker
 module LH = LustreAstHelpers
 module GI = GeneratedIdentifiers
 
-let unwrap res = match res with
-| Ok res -> res
+let unwrap res = match res with 
+| Ok res -> res 
 | Error _ -> assert false
 
 (* True iff `gen_id` is a monomorphization of `base_id` *)
@@ -502,11 +502,11 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ) (ctx, gids, [], decls1 @ decls2, node_decls_map) exprs in 
     ctx, gids, Activate (p, id, expr1, expr2, exprs), decls, node_decls_map
   | RestartEvery (p, id, exprs, expr) ->
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in
-    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr ->
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
+    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
+      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls, node_decls_map) exprs in
+    ) (ctx, gids, [], decls, node_decls_map) exprs in 
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map
   | Match (p, e, arms, ty_opt) ->
     let ctx, gids, e, decls1, node_decls_map = rec_call e in
@@ -744,12 +744,12 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declarat
 = fun ctx gids decls ->
   (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations
      created so far) *)
-  let node_decls_map = List.fold_left (fun acc decl -> match decl with
+  let node_decls_map = List.fold_left (fun acc decl -> match decl with 
   | (A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (FuncDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)
   | (ContractNodeDecl (_, (id, _, _, _, _)) as decl) -> NI.Map.add id (decl, []) acc
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> acc
-  ) NI.Map.empty decls
+  ) NI.Map.empty decls 
   in
 
   let ctx, gids, decls, gen_decls, _ = gen_poly_decls_decls ctx gids node_decls_map decls in

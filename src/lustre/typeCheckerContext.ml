@@ -92,12 +92,12 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; u_types: ty_set               (* store of all declared user types,
                                                      this is poor mans kind (type of type) context *)
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
-                      contract_exports
+                      contract_exports 
                   ; enum_vars: enum_variants
                   ; ty_vars:                      (* stores the type variables associated with each node *)
                       ty_var_store
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
-                      ty_var_store
+                      ty_var_store  
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
                   ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
                                                   (* ctor -> (type_name, field_types) *)
@@ -722,7 +722,7 @@ let rec type_contains_subrange ctx = function
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
     | Some ty -> type_contains_subrange ctx ty
-    | None -> false
+    | None -> false (*!! should assert false? *)
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
@@ -751,7 +751,7 @@ let rec type_contains_enum_or_subrange ctx = function
     match lookup_ty_syn ctx id ty_args with
     | Some (ADT _) -> false
     | Some ty -> type_contains_enum_or_subrange ctx ty
-    | None -> false
+    | None -> false (*!! should assert false? *) 
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
@@ -834,8 +834,8 @@ let rec type_contains_abstract ctx = function
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
-  | History (_, id) ->
-    (match lookup_ty ctx id with
+  | History (_, id) -> 
+    (match lookup_ty ctx id with 
     | Some ty -> type_contains_abstract ctx ty
     | _ -> assert false)
   | ADT (_, _, cons) ->
@@ -898,7 +898,7 @@ let rec type_contains_array ctx = function
   | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
-let rec ty_vars_of_expr ctx node_name expr =
+let rec ty_vars_of_expr ctx node_name expr = 
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
   | LA.Call (_, tys, _, es) -> 

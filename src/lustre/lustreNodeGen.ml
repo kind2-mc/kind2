@@ -133,7 +133,7 @@ let empty_identifier_maps node_name = {
   call_count = 1;
 }
 
-let empty_compiler_state () = {
+let empty_compiler_state () = { 
   nodes = [];
   type_alias = StringMap.empty;
   free_constants = [];
@@ -2163,10 +2163,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       (X.fold over_indices index_types X.empty) :: ib_oracles
     ) in
     List.fold_left over_ib_oracles [] gids.GI.ib_oracles
-  in
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
+  in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
@@ -3104,7 +3104,7 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ps, ltype) ->
-    let cstate = List.fold_left (fun acc p ->
+    let cstate = List.fold_left (fun acc p -> 
       compile_type_decl pos ctx acc (A.FreeType (Lib.dummy_pos, p))
     ) cstate ps in
     let empty_map = ref (empty_identifier_maps None) in
