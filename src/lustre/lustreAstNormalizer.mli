@@ -93,22 +93,19 @@ val mk_enum_range_expr : ?force_prop:bool ->
   LustreAst.expr ->
   (LustreAst.expr * bool) list
 
-val mk_ref_type_expr : 
-  TypeCheckerContext.tc_context ->
+val mk_ref_type_expr : TypeCheckerContext.tc_context ->
   NodeId.t option ->
   LustreAst.expr ->
   LustreAst.lustre_type ->
   LustreAst.expr list
 
-val mk_range_expr : ?force_prop:bool ->
-  TypeCheckerContext.tc_context ->
+val mk_range_expr : ?force_prop:bool -> TypeCheckerContext.tc_context ->
   NodeId.t option ->
   LustreAst.lustre_type ->
   LustreAst.expr ->
   (LustreAst.expr * bool) list
 
-val normalize : 
-  TypeCheckerContext.tc_context ->
+val normalize : TypeCheckerContext.tc_context ->
   LustreAbstractInterpretation.context ->
   NodeId.Set.t ->
   LustreAst.t ->
