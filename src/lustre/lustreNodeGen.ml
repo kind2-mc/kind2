@@ -1580,7 +1580,7 @@ and compile_ast_expr
   | A.When _ -> assert false
   | A.Activate _ -> assert false
   | A.ADTTerm (_, _ty_args, ctor, arg_exprs) ->
-    let (ty_name, _) =
+    let (ty_name, field_tys) =
       match Ctx.lookup_constructor ctx ctor with
       | Some r -> r
       | None -> assert false
@@ -1590,7 +1590,10 @@ and compile_ast_expr
       (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
       arg_exprs
     in
-    let arg_types = List.map (fun e -> e.E.expr_type) compiled_args in
+    let arg_types = List.map
+      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
+      field_tys
+    in
     let ctor_sym =
       UfSymbol.mk_uf_symbol (HString.string_of_hstring ctor) arg_types adt_type
     in
