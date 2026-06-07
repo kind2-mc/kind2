@@ -2345,13 +2345,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let kt = Chk.expand_type_syn_reftype_history_subrange info.context kt |> Result.get_ok in
     let vt = Chk.expand_type_syn_reftype_history_subrange info.context vt |> Result.get_ok in
     let expr = A.StructUpdate (p1, EmptyMap (p2, Some (kt, vt)), [A.MapIndex (p3, e1)], Some e2) in 
-    normalize_expr info node_id map expr
+    normalize_expr ?guard info node_id map expr
   | StructUpdate (p1, EmptySet (p2, None), [A.SetIndex (p3, e)], None) ->
     let ty = infer_type info node_id e in
     (* Use base types *)
     let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> Result.get_ok in
     let expr = A.StructUpdate (p1, EmptySet (p2, Some ty), [A.SetIndex (p3, e)], None) in 
-    normalize_expr info node_id map expr
+    normalize_expr ?guard info node_id map expr
   | EmptyMap (_, None) | EmptySet (_, None) -> assert false 
   | EmptySet (pos, Some ty) -> 
     i := !i + 1;
