@@ -1,0 +1,13 @@
+function imported P() returns (r: int);
+
+transparent function G(x: int) returns (r: int);
+let
+  r = x + 1;
+tel
+
+node N(y:int) returns ();
+let
+  check forall (x : int) (
+    when x > 0 then P() = x else G(y) > y
+  );
+tel

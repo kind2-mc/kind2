@@ -2108,7 +2108,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      * function body may be duplicated. A check in LustreAstNormalizer ensures
      * all calls within an inlined function are inlinable.
      *)
-    let should_inline = vmap <> [] || info.inlined_expr_ctx in
+    let call_context_has_quantified_vars =
+      let quant_ids = List.map (fun (_, q, _) -> q) info.quantified_variables in
+      let has_quant_vars e =
+        let vars = AH.vars_without_node_call_ids e in
+        List.exists (fun q -> A.SI.mem q vars) quant_ids
+      in
+      List.exists has_quant_vars info.call_context
+    in
+    let should_inline =
+      vmap <> [] || info.inlined_expr_ctx ||
+      (is_inlinable && call_context_has_quantified_vars)
+    in
     if should_inline
     then (
       assert (is_inlinable);
