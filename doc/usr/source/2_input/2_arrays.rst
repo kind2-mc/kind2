@@ -127,6 +127,31 @@ then the expression ``M[1][2]`` is valid and evaluates to 6. The result of a
 single selection on an *n*\ -dimensional array is an *(n-1)*\ -dimensional
 array. The result of ``M[2]`` is the array ``[7, 8, 9]``.
 
+Element update
+^^^^^^^^^^^^^^
+
+A new array that is identical to an existing one except at selected indices can
+be constructed with the *element update* syntax ``A[i := v]``. It denotes a copy
+of the array ``A`` in which the element at index ``i`` is replaced by ``v``; the
+original array ``A`` is not modified. For example,
+
+.. code-block:: none
+
+   B = A[0 := 1];
+
+defines ``B`` to be equal to ``A`` everywhere except at index ``0``, where its
+value is ``1``. Several elements can be updated at once by separating the
+individual updates with semicolons:
+
+.. code-block:: none
+
+   B = A[0 := 1; 2 := 3];
+
+The update syntax can be combined with selection to update an element of a
+multidimensional array or of an array of compound values. For instance, given
+the matrix ``M`` above, ``M[1 := M[1][2 := 0]]`` denotes a copy of ``M`` in
+which the element at row ``1``, column ``2`` is set to ``0``.
+
 Structural equality
 ^^^^^^^^^^^^^^^^^^^
 
