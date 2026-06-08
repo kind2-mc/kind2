@@ -12,6 +12,18 @@ where ``idx`` is some concrete natural number that is in range (with ``0``-based
      y = '(0, false, x[2]);
    tel
 
+.. note::
+
+   This syntax changed after Kind 2 v2.3.0. In v2.3.0 and earlier, tuples were
+   constructed with curly braces, ``{x1, ..., xn}``, and a component was accessed
+   with the ``.%`` operator, as in ``t.%idx`` (with ``0``-based indexing); nested
+   accesses were chained, as in ``t.%1.%0``. For example, the definition
+   ``y = '(0, false, x[2]);`` above would previously have been written
+   ``y = {0, false, x.%2};``.
+
+   The change was motivated by the introduction of :doc:`set data types <10_sets>`:
+   the ``{...}`` notation is now used for set constructors.
+
 Element update
 --------------
 
