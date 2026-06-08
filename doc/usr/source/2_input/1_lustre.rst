@@ -810,10 +810,22 @@ A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
 In Kind 2, these restrictions also apply to the contract attached to a function,
-if any. Moreover, Kind 2 enforces that partially defined functions,
+if any. Moreover, Kind 2 strictly enforces that partially defined functions,
 imported functions, and functions abstracted by their contracts
 behave as mathematical functions. That is, given the same inputs,
-the functions always produce the same outputs.
+such a function always produces the same outputs, regardless of the step at
+which it is called.
+
+The stateless nature of functions also determines the scope of their contract
+assumptions. For a function, an assumption constrains only the *current*
+timestep: when reasoning about a call, the function's guarantees may rely on its
+assumptions holding at the current step alone. For a node, by contrast, the
+scope extends to all previous timesteps: the node's guarantees may rely on its
+assumptions having held at every step up to and including the current one (the
+"assumptions always hold implies guarantees always hold" semantics described in
+:ref:`Contract Semantics <9_other/2_contract_semantics>`). This mirrors the fact
+that a function's outputs depend only on the current values of its inputs,
+whereas a node may also depend on their previous values.
 
 Benefits and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
