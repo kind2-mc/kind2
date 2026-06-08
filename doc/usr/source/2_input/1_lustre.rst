@@ -1207,10 +1207,37 @@ call-site polymorphic arguments are specified using the ``@`` instantiation oper
      y2 = SafePre@<bool>(y2);
    tel
 
-Note that ``SafePre`` can be called 
+Note that ``SafePre`` can be called
 with any type, not just primitive types (e.g. ``SafePre@<[int, bool]>(.)`` and ``SafePre@<[int, U]>(.)``,
 where ``U`` is itself a type parameter in the caller's declaration).
-Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
+
+Kind 2 can also infer the type arguments of a polymorphic call, so the ``@<...>``
+instantiation is optional in most cases. When no type arguments are supplied, Kind 2
+determines them *bottom-up* by unifying the node's input parameter types against the
+types of the actual arguments at the call site. For instance, the two calls in ``Top``
+above can be written without any annotation:
+
+.. code-block:: none
+
+   node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+   let
+     y1 = SafePre(y1);
+     y2 = SafePre(y2);
+   tel
+
+Here ``T`` is inferred to be ``int`` in the first call and ``bool`` in the second.
+
+Inference uses *base types only*: any refinement, subrange, or history information on the
+arguments is stripped before unification, so the inferred type argument is always the
+underlying base type. For example, if an argument has type ``subrange [0, 10] of int`` (or
+a refinement type over ``int``), the corresponding type parameter is inferred as ``int``.
+
+A type argument can be inferred only when the corresponding type parameter appears in an
+*input* position, so that it can be determined from the arguments. If a type parameter
+occurs only in the node's outputs (and thus cannot be recovered from the call arguments),
+the ``@<...>`` annotation must still be provided explicitly; otherwise Kind 2 reports that
+the call requires an explicit annotation. When an explicit annotation is given, it must be
+consistent with the types of the arguments, or a type error is raised.
 
 Another example is a polymorphic node ``PairSwap``, which takes a polymorphic pair tuple as input and 
 returns the corresponding swapped pair tuple as output.
