@@ -851,18 +851,82 @@ the IC3IA engine with the Z3qe or cvc5qe options must shut down,
 since their current implementation cannot reason about the resulting system.
 
 
+Conditional expressions
+-----------------------
+Kind 2 provides two forms of conditional expression. Both select between two
+branches based on a Boolean condition, but they differ in how the branches are
+evaluated.
+
+The ``if ... then ... else ...`` expression has *eager* semantics:
+
+.. code-block:: none
+
+   x = if condition then expr1 else expr2;
+
+The ``when ... then ... else ...`` expression has *lazy* semantics:
+
+.. code-block:: none
+
+   x = when condition then expr1 else expr2;
+
+Both expressions evaluate to ``expr1`` when ``condition`` is true and to
+``expr2`` otherwise. The difference is operational: with the eager ``if`` form,
+both branches are evaluated at every step regardless of the condition, whereas
+with the lazy ``when`` form only the selected branch is evaluated; the branch
+that is not selected is not evaluated at all. The lazy form is useful when one
+branch is only meaningful (for instance, only satisfies the assumptions it
+relies on) when the condition selects it.
+
+The branches of a ``when ... then ... else ...`` expression are subject to the
+following restrictions (the ``if ... then ... else ...`` expression has no such
+restrictions):
+
+* They cannot contain temporal operators (for example ``pre`` or ``->``).
+* They cannot call Lustre nodes (calls to functions are allowed).
+
+Each form has a corresponding statement-level block, described in the next
+section: ``if`` statements desugar to ``if ... then ... else ...`` expressions,
+while ``when`` and ``cond`` blocks desugar to ``when ... then ... else ...``
+expressions.
+
+
+Short-circuit Boolean operators
+-------------------------------
+Besides the standard Boolean operators ``and``, ``or``, and ``=>``, which
+evaluate both of their operands, Kind 2 provides short-circuit (lazy) variants
+that evaluate their right operand only when necessary:
+
+* ``e1 and then e2`` (short-circuit conjunction): if ``e1`` is false, the result
+  is false and ``e2`` is not evaluated.
+* ``e1 or else e2`` (short-circuit disjunction): if ``e1`` is true, the result
+  is true and ``e2`` is not evaluated.
+* ``e1 ==> e2`` (short-circuit implication): if ``e1`` is false, the result is
+  true and ``e2`` is not evaluated.
+
+When the right operand *is* evaluated, these operators agree with their eager
+counterparts: ``and then`` with ``and``, ``or else`` with ``or``, and ``==>``
+with the implication operator ``=>``. As with the lazy ``when ... then ...
+else ...`` expression, the right operand is subject to the following
+restrictions:
+
+* It cannot contain temporal operators (for example ``pre`` or ``->``).
+* It cannot call Lustre nodes (calls to functions are allowed).
+
+These operators are convenient when the right operand is only well-defined, or
+only satisfies its assumptions, when the left operand has the appropriate value,
+as in ``x <> 0 and then y / x > 1``.
+
+
 If statements and frame conditions
 ----------------------------------
-Within node definitions, Kind 2 has support for two features that allow the programmer 
-to use a more imperative style-- (1) ``if`` statements and (2) frame conditions. 
+Within node definitions, Kind 2 has support for two features that allow the programmer
+to use a more imperative style-- (1) ``if`` statements and (2) frame conditions.
 
 If statements
 ^^^^^^^^^^^^^
-Kind 2 has always supported conditional expressions of the form ``x = if condition then expr1
-else expr2``, where the ``if/then/else`` expression either evaluates to ``expression1``
-or ``expression2``, depending on the value of ``condition``. However, in some circumstances,
-it may be more natural to use ``if`` statements that serve as control flow (rather than
-evaluate to a value). For example, Kind 2 now supports statements of the form:
+In addition to the conditional *expressions* described above, in some circumstances
+it may be more natural to use ``if`` *statements* that serve as control flow (rather than
+evaluate to a value). For example, Kind 2 supports statements of the form:
 
 .. code-block:: none
 
