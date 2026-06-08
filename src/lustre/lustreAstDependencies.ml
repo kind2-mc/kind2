@@ -63,7 +63,7 @@ let error_message error = match error with
     let helping_message = match imported_node_type with 
       | Any -> "Cyclic dependency is likely caused by the use of the 'any' operator" 
       | Choose -> "Cyclic dependency is likely caused by the use of the 'choose' operator" 
-      | _ ->  "Cyclic dependency is likely caused by a call to the imported node " 
+      | _ ->  "Cyclic dependency is likely caused by a call to the imported node or function " 
         ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
 
     "Potential cyclic dependency detected in definition of identifiers: "
@@ -613,7 +613,8 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
     (match bneq with
      | LA.Assert (_, e) -> get_node_call_from_expr e
      | LA.Equation (_, _, e) -> get_node_call_from_expr e)
-  | IfBlock (_, e, l1, l2) ->
+  | IfBlock (_, e, l1, l2)
+  | WhenBlock (_, e, l1, l2) ->
     get_node_call_from_expr e @
     extract_node_calls l1 @
     extract_node_calls l2
@@ -1478,7 +1479,8 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
     let* g = mk_graph_eqn m eqn in
     let* gs = mk_graph_node_items m items in
     R.ok (union_dependency_analysis_data g gs)
-  | IfBlock (_, _, nis1, nis2) :: items -> 
+  | IfBlock (_, _, nis1, nis2) :: items
+  | WhenBlock (_, _, nis1, nis2) :: items -> 
     let* gs1 = mk_graph_node_items m nis1 in
     let* gs2 = mk_graph_node_items m nis2 in
     let* gs3 = mk_graph_node_items m items in

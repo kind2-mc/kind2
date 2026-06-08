@@ -34,6 +34,9 @@ type svar = {
   name: string option;
   (** Optional name for an assume or a guarantee *)
   
+  src_expr: string;
+  (** Source expression of this contract variable*)
+
   svar: StateVar.t ;
   (** Actual state variable. *)
 
@@ -44,7 +47,7 @@ type svar = {
 (** Creates a [svar]. *)
 val mk_svar :
   Lib.position -> int -> string option ->
-  StateVar.t -> (Lib.position * string) list -> svar
+  StateVar.t -> (Lib.position * string) list -> string -> svar
 
 (** Returns the position of the svar *)
 val pos_of_svar : svar -> Lib.position

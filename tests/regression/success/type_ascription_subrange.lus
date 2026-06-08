@@ -1,0 +1,7 @@
+
+type Pos = subrange [1,*] of int;
+
+node N(tN : Pos) returns (y : Pos);
+let
+  y = (tN + 1 : Pos);
+tel

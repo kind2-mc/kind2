@@ -228,7 +228,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
-  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr) =
+  let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr, _) =
     Format.fprintf ppf "(%a, %a, %a, %a)"
       pp_print_source source
       Lib.pp_print_position pos
@@ -314,6 +314,10 @@ let dpos = Lib.dummy_pos
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
+
+let record_source_expr gids normalized_expr original_expr =
+  let key = HString.mk_hstring (A.string_of_expr normalized_expr) in
+  { gids with expr_source_map = StringMap.add key original_expr gids.expr_source_map }
 
 let get_inductive_vars ind_vars expr =
   let vars = AH.vars_without_node_call_ids expr in
@@ -401,7 +405,7 @@ let get_inline_func_expr inlinable_funcs name args =
         | TupleStructItem _ | TupleSelection _ | FieldSelection _
         | ArraySliceStructItem _ -> assert false (* unreachable *)
       )
-      | IfBlock _ | FrameBlock _ ->
+      | IfBlock _ | WhenBlock _ | FrameBlock _ ->
         assert false (* desugared earlier in pipeline *)
       | Body (Assert _) | AnnotMain _ | AnnotProperty _ ->
         assert false (* rejected earlier in pipeline *)
@@ -1198,7 +1202,7 @@ let rec normalize adt_map ctx _ai_ctx inlinable_funcs (decls:LustreAst.t) gids =
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
       let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
       let gids2 = { (empty ()) with
-        refinement_type_constraints = [(source, pos, name, output_expr)];
+        refinement_type_constraints = [(source, pos, name, output_expr, node_id)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
       in
       union gids1 gids2, warnings 
@@ -1558,6 +1562,7 @@ and normalize_item info node_id map = function
     [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
   | IfBlock _ 
+  | WhenBlock _
   | FrameBlock _ -> 
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
@@ -1574,6 +1579,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
@@ -1584,6 +1590,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter > b *)
@@ -1594,6 +1601,7 @@ and normalize_item info node_id map = function
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
       
       (* expr or counter < b1 or counter > b2 *)
@@ -1608,11 +1616,13 @@ and normalize_item info node_id map = function
           )
         in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Reachable _ -> 
         let expr = A.UnaryOp (pos, A.Not, expr) in
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Provided expr2 ->
@@ -1623,6 +1633,8 @@ and normalize_item info node_id map = function
           let pos' =  AH.pos_of_expr expr2 in
           let expr2 = A.UnaryOp (pos', A.Not, expr2) in
           let nexpr2, gids2, warnings2 = abstract_expr false info (Some node_id) map expr2 in
+          let gids1 = record_source_expr gids1 nexpr1 expr1 in
+          let gids2 = record_source_expr gids2 nexpr2 expr2 in
           let name'', gids2 = match name' with
             | Some name ->
               let name'' = HString.concat2 (HString.mk_hstring "Guard of ") name in
@@ -1640,6 +1652,7 @@ and normalize_item info node_id map = function
 
       | _ ->
         let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
     in
     decls, union h_gids gids, warnings
@@ -1686,10 +1699,12 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let info, h_gids, expr = desugar_history info expr in
 
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         A.Assume (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
         let info, h_gids, expr = desugar_history info expr in
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
+        let gids = record_source_expr gids nexpr expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
@@ -1698,6 +1713,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let over_property info map (pos, name, expr) =
           let info, h_gids, expr = desugar_history info expr in
           let nexpr, gids, warnings = abstract_expr true info (Some node_id) map expr in
+          let gids = record_source_expr gids nexpr expr in
           (pos, name, nexpr), union h_gids gids, warnings
         in
         let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
@@ -2141,6 +2157,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let nexpr, gids2 =
         mk_fresh_call ~vmap info id map pos cond restart nargs None
       in
+      let gids2 = 
+        if NI.get_node_type id = NI.TypeAscription && args <> [] then
+          let original_expr = List.hd args in
+          { gids2 with type_ascription_exprs = NI.Map.add id original_expr gids2.type_ascription_exprs }
+        else
+          gids2
+      in
       nexpr, union gids1 gids2, warnings
     in
     (* Once a call is inlined, we inline the remaining calls in the body of
@@ -2148,7 +2171,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      * function body may be duplicated. A check in LustreAstNormalizer ensures
      * all calls within an inlined function are inlinable.
      *)
-    let should_inline = vmap <> [] || info.inlined_expr_ctx in
+    let call_context_has_quantified_vars =
+      let quant_ids = List.map (fun (_, q, _) -> q) info.quantified_variables in
+      let has_quant_vars e =
+        let vars = AH.vars_without_node_call_ids e in
+        List.exists (fun q -> A.SI.mem q vars) quant_ids
+      in
+      List.exists has_quant_vars info.call_context
+    in
+    let should_inline =
+      vmap <> [] || info.inlined_expr_ctx ||
+      (is_inlinable && call_context_has_quantified_vars)
+    in
     if should_inline
     then (
       assert (is_inlinable);
@@ -2475,7 +2509,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | _ -> assert false
     in 
     normalize_expr ?guard info node_id map expr
-  | BinaryOp (pos, ((Plus | Times) as op), expr1, expr2) ->
+  | BinaryOp (pos, ((Plus | Times | Minus) as op), expr1, expr2) ->
     let ty = infer_type info node_id expr1 in
     let ty = Chk.expand_type_syn_reftype_history_subrange info.context ty |> unwrap in (
     match ty, op with 
@@ -2483,12 +2517,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Union, expr1, expr2))
     | Set _, Times -> 
       normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Intersection, expr1, expr2))
+    | Set _, Minus | Map _, Minus ->
+      normalize_expr ?guard info node_id map (A.BinaryOp (pos, A.Difference, expr1, expr2))
     | _ ->  
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
       BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
     )
-  | BinaryOp (pos, ((Union | Intersection) as op), expr1, expr2) -> 
+  | BinaryOp (pos, ((Union | Intersection | Difference) as op), expr1, expr2) ->
     (* Don't supply the guard when normalizing subexpressions, 
        because we need to generate oracle variables in initial step 
        if there are unguarded pres *)
@@ -2500,21 +2536,38 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let _, _, warnings2 = normalize_expr ?guard info node_id map expr2 in 
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
-    let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let ty =
-      let ty = infer_type info node_id expr1 in
-      match Chk.expand_type_syn_reftype_history_subrange info.context ty with
-      | Ok (Set (_, ty)) -> ty
+    let ty1 = match Chk.infer_type_expr info.context node_id expr1 with 
+    | Ok (ty, _, _) -> (
+      match Chk.expand_type_syn_reftype_history_subrange info.context ty with 
+      | Ok ty -> ty
       | _ -> assert false
+    )
+    | Error _ -> assert false 
     in
-    let gids3 = { (empty ()) with   
-      set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ]; 
-      locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
-    } in 
-    let nexpr = A.Ident (pos, name1) in 
-    let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
-    nexpr, gids, warnings1 @ warnings2
+    (match op, ty1 with
+    | A.Difference, A.Map (_, kt, vt) ->
+      (* Map subtraction: remove from the map all keys contained in the set *)
+      let name1 = HString.concat2 prefix (HString.mk_hstring "_map_subtraction") in
+      let kt = Chk.expand_type_syn_reftype_history_subrange info.context kt |> Result.get_ok in
+      let vt = Chk.expand_type_syn_reftype_history_subrange info.context vt |> Result.get_ok in
+      let gids3 = { (empty ()) with
+        map_subtractions = [ name1, nexpr1, nexpr2, name2, kt, vt ];
+        locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
+      } in
+      let nexpr = A.Ident (pos, name1) in
+      let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
+      nexpr, gids, warnings1 @ warnings2
+    | _ ->
+      let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in
+      let ty = match ty1 with Set (_, ty) -> ty | _ -> assert false in
+      let gids3 = { (empty ()) with
+        set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ];
+        locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
+      } in
+      let nexpr = A.Ident (pos, name1) in
+      let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
+      nexpr, gids, warnings1 @ warnings2)
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in

@@ -285,7 +285,7 @@ let flatten_ref_types_item ctx item =
   | A.AnnotProperty (p, id, expr, k) ->
     let* expr = flatten_ref_types_expr ctx expr in
     Ok (A.AnnotProperty (p, id, expr, k))
-  | Body _ | FrameBlock _ | IfBlock _ | AnnotMain _ -> Ok item
+  | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ -> Ok item
 
 let flatten_ref_types_const_decl ctx decl =
   match decl with

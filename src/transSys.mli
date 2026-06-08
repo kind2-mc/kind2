@@ -538,6 +538,14 @@ val get_prop_term : t -> string -> Term.t
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
 
+
+(** Return the expression of the property
+
+    [get_prop_expr t n] returns the saved source expression in the transition
+    system of the first property of name [n]. *)
+val get_prop_expr : t -> string -> string option
+
+
 (** Return current kind of the property
 
 [get_prop_kind t n] returns the kind saved in the transition
@@ -587,6 +595,9 @@ val get_prop_status_and_kind_all_nocands : t -> (string * Property.prop_status *
 val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
 
 
+val get_prop_status_and_kind_and_expr_all_nocands : t ->  (string * Property.prop_status * Property.prop_kind * Term.t) list
+
+
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
@@ -622,8 +633,8 @@ val set_prop_unknown : t -> string -> unit
 (* Set the list of properties of a subsystem *)
 val set_subsystem_properties : t -> Scope.t -> Property.t list -> t
 
-(** Returns true iff sys has at least one non-candidate property. *)
-val has_non_candidate_property : t -> bool
+(** Returns true iff sys has at least one real (not candidate) property. *)
+val has_real_property : t -> bool
 
 (** Return true if all properties which are not candidates are either valid or
     invalid *)

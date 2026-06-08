@@ -4,8 +4,11 @@ Current:
 - Cesare Tinelli
 - Daniel Larraz
 - Robert Lorch
+- Joshua Bergthold
 
 Alumni:
+- Ethan Rooke
+- Kian Weimer
 - Abdal Mohamed
 - Andrew Marmaduke
 - Apoorv Ingle

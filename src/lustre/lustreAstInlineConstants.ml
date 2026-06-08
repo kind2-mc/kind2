@@ -500,6 +500,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (IfBlock _) :: _ 
   | (FrameBlock _) :: _ ->
     assert false
+  | (WhenBlock _) :: _ ->
+    assert false
   | (AnnotProperty (pos, n, e, k)) :: items ->
     (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items
@@ -566,9 +568,16 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
       | Some (p, contract) -> Some (p, inline_constants_of_contract ctx contract)
       | None -> None
     in
-    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
-    let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
+    let local_ctx, ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items local_ctx items in
+    let pos = span.LA.start_pos in
+    let ips_tys = List.map (fun (_, _, ty, _, _) -> ty) ips' in
+    let ops_tys = List.map (fun (_, _, ty, _) -> ty) ops' in
+    let arg_ty = if List.length ips_tys = 1 then List.hd ips_tys else LA.GroupType (pos, ips_tys) in
+    let ret_ty = if List.length ops_tys = 1 then List.hd ops_tys else LA.GroupType (pos, ops_tys) in
+    let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
+    let ctx' = TC.add_ty_node ctx i fun_ty false in
+    ctx', (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
   | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract))) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
@@ -576,9 +585,16 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
       | Some (p, contract) -> Some (p, inline_constants_of_contract ctx contract)
       | None -> None
     in
-    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
-    let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
+    let local_ctx, ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items local_ctx items in
+    let pos = span.LA.start_pos in
+    let ips_tys = List.map (fun (_, _, ty, _, _) -> ty) ips' in
+    let ops_tys = List.map (fun (_, _, ty, _) -> ty) ops' in
+    let arg_ty = if List.length ips_tys = 1 then List.hd ips_tys else LA.GroupType (pos, ips_tys) in
+    let ret_ty = if List.length ops_tys = 1 then List.hd ops_tys else LA.GroupType (pos, ops_tys) in
+    let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
+    let ctx' = TC.add_ty_node ctx i fun_ty true in
+    ctx', (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, contract)))) ->
      ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, inline_constants_of_contract ctx contract))))
   | e -> (ctx, e)

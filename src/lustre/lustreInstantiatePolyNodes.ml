@@ -46,6 +46,7 @@ let instantiate_type_variables_ni
   AnnotProperty (pos, name, expr, k)
 | AnnotMain _ -> ni
 | IfBlock _ 
+| WhenBlock _
 | FrameBlock _ -> assert false
 
 let instantiate_type_variables_loc 
@@ -335,8 +336,7 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
 
   ctx, gids_map, decls, node_decls_map
 
-and gen_poly_decls_loi: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
-                            A.label_or_index -> Ctx.tc_context * GI.t NI.Map.t * A.label_or_index * A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
+and gen_poly_decls_loi
 = fun ctx gids caller_nname node_decls_map loi ->
   let re e =
     let ctx, gids, e, decls, ndm = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
@@ -470,7 +470,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
       let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname acc_node_decls_map ty in 
       ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls1, node_decls_map) tis in 
+    ) (ctx, gids, [], [], node_decls_map) tis in 
     ctx, gids, Quantifier (p, q, tis, expr), decls1 @ decls2, node_decls_map
   | Merge (p, id, id_exprs) ->
     let ctx, gids, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
@@ -550,6 +550,17 @@ and gen_poly_decls_ni
       ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) nis2 in 
     ctx, gids, IfBlock (p, expr, nis1, nis2), decls, node_decls_map
+  | WhenBlock (p, expr, nis1, nis2) ->
+    let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in
+    let ctx, gids, nis1, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni ->
+      let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in
+      ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls, node_decls_map) nis1 in
+    let ctx, gids, nis2, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni ->
+      let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in
+      ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls, node_decls_map) nis2 in
+    ctx, gids, WhenBlock (p, expr, nis1, nis2), decls, node_decls_map
   | FrameBlock (p, vars, nes, nis) -> 
     let ctx, gids, nis, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni -> 
       let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in 
@@ -818,7 +829,7 @@ let collect_poly_adt_uses_node_item ctx acc ni =
   match ni with
   | A.Body (Equation (_, _, e)) | A.Body (Assert (_, e))
   | A.AnnotProperty (_, _, e, _) -> collect_poly_adt_uses_expr ctx acc e
-  | A.AnnotMain _ | A.IfBlock _ | A.FrameBlock _ -> acc
+  | A.AnnotMain _ | A.IfBlock _ | A.WhenBlock _ | A.FrameBlock _ -> acc
 
 let collect_poly_adt_uses_ci ctx acc ci =
   let re = collect_poly_adt_uses_expr ctx in

@@ -656,6 +656,16 @@ module Names: sig
   val inv_log_contract_name : string list -> string
 end
 
+(** Internal string values *)
+module StringValues: sig
+    val scope_sep : (unit, Format.formatter, unit) format
+
+    val pp_print_scope_sep : Format.formatter -> unit
+
+    val type_ascription_input_name : string
+
+    val type_ascription_output_name : string
+end
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
