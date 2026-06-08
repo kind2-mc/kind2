@@ -1601,9 +1601,23 @@ and compile_ast_expr
   | A.Match (_, scrut, arms, _) ->
     let scrut_e = X.find X.empty_index (compile_ast_expr cstate ctx bounds map scrut) in
     let adt_type = scrut_e.E.expr_type in
+    (* Pre-compile the catch-all arm body to use as the default in nested
+       sub-pattern matches (needed when a sub-pattern is a constructor). *)
+    let default_x_opt =
+      match List.find_opt (fun (A.Pat (_, ctor_hs, _), _) ->
+        Option.is_none (Ctx.lookup_constructor ctx ctor_hs)
+      ) arms with
+      | None -> None
+      | Some (_, default_body) ->
+        Some (compile_ast_expr cstate ctx bounds map default_body)
+    in
     (* Compile each match arm using native SMT-LIB match.
-       Pattern variables are bound as fresh free variables; the body is compiled
-       with those variables in scope, then wrapped into a lambda by mk_match. *)
+       For flat sub-patterns (simple variables/wildcards), pattern variables are
+       bound as fresh free variables and the body is compiled with them in scope.
+       For nested constructor sub-patterns (e.g., Id(j) inside Triple(...)),
+       an anonymous flat variable is created for the position and the body is
+       wrapped in a nested mk_match that matches the constructor and binds its
+       fields. *)
     let compile_arm (A.Pat (_, ctor_hs, subpats), body) =
       let ctor_name = HString.string_of_hstring ctor_hs in
       let (ty_name_hs, field_lus_types) =
@@ -1620,27 +1634,75 @@ and compile_ast_expr
           | [(idx, t)] when idx = X.empty_index -> t
           | _ -> assert false
       ) field_lus_types in
-      (* Create fresh free variables for each pattern variable *)
-      let pat_vars = List.mapi (fun i subpat ->
-        match subpat with
-        | A.Pat (_, var_hs, []) ->
-          let ft = List.nth field_types i in
-          let var_name = HString.string_of_hstring var_hs ^ "$match" in
-          let v = Var.mk_free_var (HString.mk_hstring var_name) ft in
-          (var_hs, v, ft)
-        | _ -> assert false
-      ) subpats in
-      (* Bind pattern variables as free-variable expressions for body compilation *)
-      List.iter (fun (var_hs, v, _ft) ->
+      let counter = ref 0 in
+      (* For each sub-pattern, return:
+         - flat Var.t for this position in the outer SMT arm
+         - leaf bindings (var_hs, Var.t) to add to quant_vars
+         - body wrapper: E.t X.t -> E.t X.t to insert any needed nested matches *)
+      let rec process_subpat (A.Pat (_, name_hs, nested_subpats)) field_type =
+        match Ctx.lookup_constructor ctx name_hs with
+        | None ->
+          (* Variable or wildcard: bind as a flat pattern variable *)
+          let var_name = HString.string_of_hstring name_hs ^ "$match" in
+          let v = Var.mk_free_var (HString.mk_hstring var_name) field_type in
+          let bindings =
+            if HString.equal name_hs (HString.mk_hstring "_") then []
+            else [(name_hs, v)]
+          in
+          (v, bindings, (fun body_x -> body_x))
+        | Some (sub_ty_name_hs, sub_field_lus_types) ->
+          (* Nested constructor: create a unique anonymous flat variable,
+             recurse into its sub-patterns, then wrap the body in a nested
+             match that checks this constructor and binds its fields. *)
+          let n = !counter in incr counter;
+          let ctor_str = HString.string_of_hstring name_hs in
+          let anon_name = Printf.sprintf "%s$ctor$%d" ctor_str n in
+          let outer_v = Var.mk_free_var (HString.mk_hstring anon_name) field_type in
+          let sub_field_types = List.map (fun lty ->
+            match lty with
+            | A.UserType (_, [], n) when HString.equal n sub_ty_name_hs -> field_type
+            | _ ->
+              let m = ref (empty_identifier_maps None) in
+              match X.bindings (compile_ast_type cstate ctx m lty) with
+              | [(idx, t)] when idx = X.empty_index -> t
+              | _ -> assert false
+          ) sub_field_lus_types in
+          let sub_results = List.map2 process_subpat nested_subpats sub_field_types in
+          let sub_vars = List.map (fun (v, _, _) -> v) sub_results in
+          let leaf_bindings = List.concat_map (fun (_, bs, _) -> bs) sub_results in
+          let sub_wraps = List.map (fun (_, _, w) -> w) sub_results in
+          let outer_v_e = E.mk_free_var outer_v in
+          let default_x = match default_x_opt with
+            | Some d -> d
+            | None -> assert false
+          in
+          let wrap body_x =
+            let inner_body_x = List.fold_right (fun w acc -> w acc) sub_wraps body_x in
+            X.fold (fun idx _ acc ->
+              let result_type = (X.find idx inner_body_x).E.expr_type in
+              let nested_arms = [
+                (ctor_str, sub_vars, X.find idx inner_body_x);
+                ("_", [], X.find idx default_x)
+              ] in
+              X.add idx (E.mk_match outer_v_e nested_arms result_type) acc
+            ) inner_body_x X.empty
+          in
+          (outer_v, leaf_bindings, wrap)
+      in
+      let sub_results = List.map2 process_subpat subpats field_types in
+      let flat_vars = List.map (fun (v, _, _) -> v) sub_results in
+      let leaf_bindings = List.concat_map (fun (_, bs, _) -> bs) sub_results in
+      let wraps = List.map (fun (_, _, w) -> w) sub_results in
+      List.iter (fun (var_hs, v) ->
         H.replace !map.quant_vars (mk_ident var_hs)
           (X.singleton X.empty_index (E.mk_free_var v))
-      ) pat_vars;
+      ) leaf_bindings;
       let body_x = compile_ast_expr cstate ctx bounds map body in
-      List.iter (fun (var_hs, _, _) ->
+      List.iter (fun (var_hs, _) ->
         H.remove !map.quant_vars (mk_ident var_hs)
-      ) pat_vars;
-      let vars = List.map (fun (_, v, _) -> v) pat_vars in
-      (ctor_name, vars, body_x)
+      ) leaf_bindings;
+      let wrapped_body_x = List.fold_right (fun w acc -> w acc) wraps body_x in
+      (ctor_name, flat_vars, wrapped_body_x)
     in
     let compiled_arms = List.map compile_arm arms in
     (* Build one mk_match per index of the result, distributing over structure *)
