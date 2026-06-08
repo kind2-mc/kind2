@@ -127,6 +127,18 @@ then the expression ``M[1][2]`` is valid and evaluates to 6. The result of a
 single selection on an *n*\ -dimensional array is an *(n-1)*\ -dimensional
 array. The result of ``M[2]`` is the array ``[7, 8, 9]``.
 
+Structural equality
+^^^^^^^^^^^^^^^^^^^
+
+Arrays support **structural equality** (denoted by ``=``) and **structural
+disequality** (denoted by ``<>``). Two arrays are structurally equal when they
+have the same size and their elements are equal index by index. For example,
+given the array ``A`` defined by ``A = [2, 5, 7]``, the expression
+``A = [2, 5, 7]`` is valid, while ``A <> [2, 5, 8]`` is valid as well.
+Structural equality also applies to multidimensional arrays and to arrays
+whose elements are themselves compound values (records, tuples, sets, maps,
+etc.).
+
 Unsupported features of Lustre V5
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

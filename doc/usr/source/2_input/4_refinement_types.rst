@@ -106,20 +106,6 @@ Conceptually, the refinement types can be viewed as an augmentation of
       --%MAIN;
    tel
 
-If an output variable with a refinement type is left undefined, Kind 2 will specify that the value 
-ranges over a recursively chased base type.
-
-.. code-block::
-
-   node M() returns (y: Nat | y < 100);
-   let
-   tel
-
-In the above example, ``M``'s return value ``y`` will range over *all integers*, 
-not just natural numbers less than 100. This is because ``y`` is an output variable,
-and therefore its refinement type is viewed as a proof obligation. 
-In this case, Kind 2 will report that ``y`` violates its refinement type. 
-
 Operations
 ----------
 
