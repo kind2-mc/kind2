@@ -715,11 +715,21 @@ These two calls are the same (the second one is just syntactic sugar). The
 call* is activated when the clock ``c`` is true. Notice that the restart clock
 ``r`` is also sampled by ``c`` in this call.
 
-Partially defined nodes
------------------------
+Underspecified outputs
+----------------------
 
-Kind 2 allows nodes to define their outputs only partially. For instance, the
-node
+Every output (and local variable) of a node or function must be defined in its
+body, either by an equation or by a frame block; leaving an output without a
+definition is rejected. (The only exception is ``imported`` nodes and functions,
+which have no body at all; see :ref:`The imported keyword
+<2_input/1_lustre#imported>`.)
+
+An output need not be given a precise value, however. It can be left
+*underspecified* by assigning it an arbitrary value of the appropriate type with
+the ``any`` (or ``choose``) operator (see `Nondeterministic choice operator`_).
+This is the intended way to express that an output is not fully constrained. For
+instance, the node below defines ``count`` precisely but leaves ``error``
+underspecified, while still being analyzed against its contract:
 
 .. code-block:: none
 
@@ -738,11 +748,11 @@ node
    noc
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
+     error = any@<bool> ;
    tel
 
-can be analyzed: first for mode exhaustiveness, and the body is checked against
-its contract, although it is only *partially* defined.
-Here, both will succeed.
+This node can be analyzed: first for mode exhaustiveness, and then the body is
+checked against its contract. Here, both will succeed.
 
 .. _2_input/1_lustre#imported:
 
@@ -782,22 +792,6 @@ by decomposing it into smaller subnodes and specifying the actual
 dependencies among inputs and outputs.
 
 
-Partially defined nodes VS ``imported``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Kind 2 allows partially defined nodes, that is nodes in which some streams
-do not have a definition. At first glance, it might seem like a node with no
-definitions at all (with an empty body) is the same as an ``imported`` node.
-
-It is not the case. A partially defined node *still has a (potentially
-empty) body* which can be analyzed. The fact that it is not completely defined
-does not change this fact.
-If a partially defined node is at the top level, or is in the cone of
-influence of the top node in a modular analysis, then it's body **will** be analyzed.
-
-An ``imported`` node on the other hand *explicitly does not have a body*. Its
-non-existent body will thus never be analyzed.
-
 Functions
 ---------
 
@@ -810,8 +804,8 @@ A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
 In Kind 2, these restrictions also apply to the contract attached to a function,
-if any. Moreover, Kind 2 strictly enforces that partially defined functions,
-imported functions, and functions abstracted by their contracts
+if any. Moreover, Kind 2 strictly enforces that imported functions
+and functions abstracted by their contracts
 behave as mathematical functions. That is, given the same inputs,
 such a function always produces the same outputs, regardless of the step at
 which it is called.
