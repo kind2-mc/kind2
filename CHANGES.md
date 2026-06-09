@@ -11,7 +11,7 @@ New features:
 - New built-in operator [choose](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#nondeterministic-choice-operator). Like `any`, it denotes an arbitrary stream of values, but the value is determined by the free variables in the predicate (behaving like a function).
 - Support for subranges with [symbolic constant bounds](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/12_subranges.html#symbolic-bounds).
 - Support for quantifiers in refinement type predicates.
-- Support for a [concise refinement type syntax](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#quantifiers-in-specifications) for quantified variables (e.g. `forall (i: int | i > 0)`).
+- Support for a [concise refinement type syntax](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#concise-refinement-type-syntax) for quantified variables (e.g. `forall (i: int | i > 0)`).
 - New safety [proof production](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/5_proofs.html) feature based on the new cvc5 CPC proof format (replaces LFSC); compatible with cvc5 1.3.2.
 - Support for Bitwuzla as an [interpolating solver](https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/4_ic3.html#ic3-ia-options).
 - New [contract monitor](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/14_contract_monitor.html) feature to check a given trace satisfies a contract.
