@@ -1074,7 +1074,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
     let arm_exprs = List.map snd arms in
     let* arm_gs = R.seq (List.map (fun (pat, body) ->
-        let bound_ids = pat_bound_vars pat |> SI.to_list in
+        let bound_ids = pat_bound_vars pat |> SI.elements in
         let* gs = mk_graph_expr2 m body in
         R.ok (List.map (remove_bound_ids bound_ids) gs)
       ) arms) in
