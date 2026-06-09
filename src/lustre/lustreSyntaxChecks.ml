@@ -53,6 +53,8 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
+  | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -112,6 +114,12 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | QuantifiedVariableInLazyGuardedNodeCall (var, node) -> "Quantified variable or refinement type bound variable '"
+    ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
+    ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
+  | SymbolicArrayIndexInLazyGuardedNodeCall (idx, node) -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
+    ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -180,7 +188,8 @@ type context = {
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
-  constructors : StringSet.t; }
+  constructors : StringSet.t;
+  lazy_cond_vars : LA.SI.t; }
 
 let empty_ctx () = {
     nodes = StringMap.empty;
@@ -194,6 +203,7 @@ let empty_ctx () = {
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
     constructors = StringSet.empty;
+    lazy_cond_vars = LA.SI.empty;
   }
 
 let ctx_add_node ctx i ty = {
@@ -239,6 +249,19 @@ let ctx_add_symbolic_array_index ctx i ty = {
 let ctx_add_constructor ctx i = {
     ctx with constructors = StringSet.add i ctx.constructors
   }
+
+let ctx_add_lazy_cond_vars ctx vars = {
+    ctx with lazy_cond_vars = LA.SI.union ctx.lazy_cond_vars vars
+  }
+
+let ctx_add_lazy_vars_from_guard ctx guard_expr =
+  let vars = LAH.vars_without_node_call_ids guard_expr in
+  let lazy_vars =
+    LA.SI.filter
+      (fun v -> StringMap.mem v ctx.quant_vars || StringMap.mem v ctx.symbolic_array_indices)
+      vars
+  in
+  ctx_add_lazy_cond_vars ctx lazy_vars
 
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
@@ -977,14 +1000,15 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       let* (warnings3, _) = (check_items ctx ~tc_ctx f l2 props) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.WhenBlock (_, e, l1, l2) ->
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
       let lazy_when ctx e =
         (no_calls_to_node "a branch of a when block" ctx e)
         >> (no_temporal_operator "branches of a when block" e)
         >> (f ctx e)
       in
       let* warnings1 = check_expr ctx f e in
-      let* warnings2, props = (check_items ctx ~tc_ctx lazy_when l1 props) in
-      let* warnings3, _ = (check_items ctx ~tc_ctx lazy_when l2 props) in
+      let* warnings2, props = (check_items ctx_lazy ~tc_ctx lazy_when l1 props) in
+      let* warnings3, _ = (check_items ctx_lazy ~tc_ctx lazy_when l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
@@ -1146,8 +1170,8 @@ and check_pattern_no_duplicates ctx pat =
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let lazy_ite ctx e =
-    (no_calls_to_node "a branch of an if-then-otherwise" ctx e)
-    >> (no_temporal_operator "branches of an if-then-otherwise" e)
+    (no_calls_to_node "a branch of a when-then-else" ctx e)
+    >> (no_temporal_operator "branches of a when-then-else" e)
     >> (f ctx e)
   in
   let lazy_match ctx e =
@@ -1183,16 +1207,19 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
     | BinaryOp (_, AndThen, e1, e2) ->
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
       let* warnings1 = (check_expr ctx (lazy_bool_op "'and then'") e1) in 
-      let* warnings2 = (check_expr ctx (lazy_bool_op "'and then'") e2) in 
+      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'and then'") e2) in 
       Ok (warnings1 @ warnings2)
     | BinaryOp (_, OrElse, e1, e2) ->
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
       let* warnings1 = (check_expr ctx (lazy_bool_op "'or else'") e1) in 
-      let* warnings2 = (check_expr ctx (lazy_bool_op "'or else'") e2) in 
+      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'or else'") e2) in 
       Ok (warnings1 @ warnings2)
     | BinaryOp (_, LazyImpl, e1, e2) ->
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
       let* warnings1 = (check_expr ctx (lazy_bool_op "==>") e1) in 
-      let* warnings2 = (check_expr ctx (lazy_bool_op "==>") e2) in 
+      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "==>") e2) in 
       Ok (warnings1 @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
@@ -1222,9 +1249,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings3 = (check_expr ctx f e3) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | TernaryOp (_, LazyIte, e1, e2, e3) -> 
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
       let* warnings1 = (check_expr ctx f e1) in
-      let* warnings2 = (check_expr ctx lazy_ite e2) in
-      let* warnings3 = (check_expr ctx lazy_ite e3) in
+      let* warnings2 = (check_expr ctx_lazy lazy_ite e2) in
+      let* warnings3 = (check_expr ctx_lazy lazy_ite e3) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | GroupExpr (_, _, e)
     | Call (_, _, _, e)
@@ -1330,6 +1358,9 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
   in
+  let is_non_inlinable =
+    not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
+  in
   let vars =
     List.fold_left
       (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
@@ -1338,19 +1369,34 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   in
   let over_vars j =
     let found_quant_in_non_inlinable =
-      StringMap.mem j ctx.quant_vars && not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
+      StringMap.mem j ctx.quant_vars && is_non_inlinable
     in
     let found_symbolic_index_in_non_inlinable =
       StringMap.mem j ctx.symbolic_array_indices &&
-      not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
+      is_non_inlinable
     in
     (match found_quant_in_non_inlinable, found_symbolic_index_in_non_inlinable with
     | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, (NI.get_internal_name node_id)))
     | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, (NI.get_internal_name node_id)))
     | false, false -> Ok [])
   in
+  let over_lazy_context =
+    if not is_non_inlinable || LA.SI.is_empty ctx.lazy_cond_vars then
+      Ok []
+    else
+      let vars = LA.SI.elements ctx.lazy_cond_vars in
+      match List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars with
+      | Some v ->
+        syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
+      | None -> (
+        match List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices) vars with
+        | Some v ->
+          syntax_error pos (SymbolicArrayIndexInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
+        | None -> Ok []
+      )
+  in
   let check = List.map over_vars (LA.SI.elements vars) in
-  List.fold_left (>>) (Ok []) check
+  List.fold_left (>>) (Ok []) (check @ [over_lazy_context])
 | LA.TypeAscription (pos, expr, ty) -> 
   let args = [expr] in 
   let ty = Ctx.expand_type_syn tc_ctx ty in

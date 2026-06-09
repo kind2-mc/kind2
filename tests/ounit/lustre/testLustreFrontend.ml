@@ -234,6 +234,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
     | _ -> false);
+  mk_test "quantified lazy guard rejects non-inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_noninlinable_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedNodeCall _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard allows inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
+    | Ok _ -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
