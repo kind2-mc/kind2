@@ -10,8 +10,7 @@ For example ``map<int, int>`` denotes (streams of) maps of integers to integers,
 which creates a map with keys ``k1`` through ``kn``, each mapping to its corresponding value.
 For example, ``map[0 := 0; 1 := 1]``, ``map[{ '(false, 0) } := 0.0]``, and ``map[x := y]`` 
 are all valid map literals.
-Type annotations are *required* for empty maps (e.g. ``map[]@<int, int>``)
-and optional for non-empty map literals (e.g. ``map[1 := 1]@<int, int>``).
+Type annotations are *required* for empty maps (e.g. ``map[]@<int, int>``).
 
 The built-in map operators are **map insertion/update**
 (denoted by ``m[k1 := v1; ...; kn := vn]`` for map expression ``m``),
@@ -28,6 +27,13 @@ indexing a map will always yield the same value for a fixed key and timestep
 (i.e., for all maps ``m`` and keys ``k`` of the proper type, 
 ``m[k] = m[k]`` is valid, even if key ``k`` is not in the map ``m``).
 Otherwise, the operators all take the expected semantics.
+
+Maps also support **structural equality** (denoted by ``=``) and
+**structural disequality** (denoted by ``<>``). Two maps are structurally
+equal when they bind exactly the same keys to the same values, regardless of
+how they were constructed (e.g., ``map[0 := 0; 1 := 1] = map[1 := 1; 0 := 0]``
+is valid).
+
 See below for an example.
 
 .. code-block:: none
