@@ -631,7 +631,9 @@ let rec infer_const_attr ctx exp =
   | LA.Match (_, e, arms, _) ->
     r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
   | LA.ADTTerm (_, ty_args, _, args) ->
-    combine (List.concat_map r args) (List.concat_map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args)
+    let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
+    let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
+    combine r_args r_tys
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
