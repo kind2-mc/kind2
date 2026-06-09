@@ -256,8 +256,24 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
-  | StructUpdate (p, e1, l, Some e2) -> StructUpdate (p, r e1, l, Some (r e2))
-  | StructUpdate (p, e1, l, None) -> StructUpdate (p, r e1, l, None)
+  | StructUpdate (p, e1, l, Some e2) -> 
+    let l = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, r e)
+    | MapIndex (p, e) -> MapIndex (p, r e)
+    | SetIndex (p, e) -> SetIndex (p, r e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, r e) 
+    ) l in 
+    StructUpdate (p, r e1, l, Some (r e2))
+  | StructUpdate (p, e1, l, None) -> 
+    let l = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, r e)
+    | MapIndex (p, e) -> MapIndex (p, r e)
+    | SetIndex (p, e) -> SetIndex (p, r e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, r e) 
+    ) l in 
+    StructUpdate (p, r e1, l, None)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
@@ -370,6 +386,18 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   | EmptyMap (pos, Some (kt, vt)) -> 
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
+  | StructUpdate (p, e, lois, e_opt) -> 
+    let lois = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | MapIndex (p, e) -> MapIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | SetIndex (p, e) -> SetIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
+    ) lois in 
+    let e_opt = Option.map (simplify_expr ~ind_vars ~is_guarded ctx) e_opt in
+    StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
+  | RecordProject (p, e, id) -> 
+    RecordProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
