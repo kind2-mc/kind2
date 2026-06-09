@@ -495,10 +495,10 @@ let rec mk_enum_range_expr ?(force_prop = false) ?(mk_enum=true) ?(mk_range=true
       let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
       List.map (fun (e, is_original) -> A.Quantifier (dpos, A.Forall, [var], body e), is_original) rexpr
     | TupleType (p, tys) ->
-      let mk_proj i = A.IndexAccess (dpos, expr, A.Const (p, A.Num (i |> string_of_int |> HString.mk_hstring)), A.Tuple) in
-      let tys = List.filter (fun ty -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
-      let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
-      List.fold_left (@) [] tys
+      List.mapi (fun i ty ->
+         let i = i |> string_of_int |> HString.mk_hstring in
+         mk ctx n ty (A.IndexAccess (dpos, expr, A.Const (p, A.Num i), A.Tuple))
+      ) tys |> List.flatten
     | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum_or_subrange ctx ty) tys in
