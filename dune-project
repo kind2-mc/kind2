@@ -1,6 +1,7 @@
 (lang dune 2.7)
 
 (name kind2)
+(version 3.0.0)
 
 (license Apache-2.0)
 (authors "The Kind 2 development team")

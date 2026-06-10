@@ -1,4 +1,4 @@
-# Unreleased
+# Kind 2 v3.0.0
 
 New features:
 - New [map](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/11_maps.html) and [set](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/10_sets.html) types.
