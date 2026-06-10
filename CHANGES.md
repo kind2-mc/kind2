@@ -8,7 +8,7 @@ New features:
 - New [type ascription](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/4_refinement_types.html#type-ascription) operator.
 - New [conditional expression](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#conditional-expressions) and [blocks](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#when-blocks) with lazy semantics, and [short-circuiting versions](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#short-circuit-boolean-operators) of 'and', 'or', and '=>'.
 - Support for [machine integers](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/3_machine_ints.html) of arbitrary concrete size, including generation of invariant candidates.
-- New built-in operator [choose](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#nondeterministic-choice-operator). Like `any`, it denotes an arbitrary stream of values, but the value is determined by the free variables in the predicate (behaving like a function).
+- New built-in operator [choose](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#nondeterministic-choice-operator). Like `any`, it denotes an arbitrary stream of values, but the value is determined by the free variables in the predicate, effectively behaving like a function of those variables.
 - Support for subranges with [symbolic constant bounds](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/12_subranges.html#symbolic-bounds).
 - Support for quantifiers in refinement type predicates.
 - Support for a [concise refinement type syntax](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#concise-refinement-type-syntax) for quantified variables (e.g. `forall (i: int | i > 0)`).
