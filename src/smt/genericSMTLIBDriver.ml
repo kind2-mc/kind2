@@ -866,7 +866,9 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
       Type.pp_print_type ty_array
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-                                
+  | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s
+  | `Selector (s, _) -> Format.pp_print_string ppf s
+
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =

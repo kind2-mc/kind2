@@ -768,6 +768,16 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `DISTINCT
     | `IS_INT -> (function _ -> assert false)
 
+    | `IsConstructor s ->
+      (function [a] ->
+        Format.fprintf ppf "@[<hv 2>(%s@ %a)@]" ("(_ is " ^ s ^ ")") (pp_print_term_node safe pvar) a
+      | _ -> assert false)
+
+    | `Selector (s, _) ->
+      (function [a] ->
+        Format.fprintf ppf "@[<hv 2>%s(%a)@]" s (pp_print_term_node safe pvar) a
+      | _ -> assert false)
+
     (* UF application: print as f(arg1, arg2, ...) *)
     | `UF sym ->
       let name = UfSymbol.name_of_uf_symbol sym in
@@ -3324,6 +3334,16 @@ let mk_uf uf_sym ret_type args =
   { expr_init = Term.mk_uf uf_sym (List.map (fun e -> e.expr_init) args);
     expr_step = Term.mk_uf uf_sym (List.map (fun e -> e.expr_step) args);
     expr_type = ret_type }
+
+let mk_is_constructor ctor_name e = {
+  expr_init = Term.mk_is_constructor ctor_name e.expr_init;
+  expr_step = Term.mk_is_constructor ctor_name e.expr_step;
+  expr_type = Type.mk_bool () }
+
+let mk_selector selector_name result_type e = {
+  expr_init = Term.mk_selector selector_name result_type e.expr_init;
+  expr_step = Term.mk_selector selector_name result_type e.expr_step;
+  expr_type = result_type }
 
 (* Build a match expression. arms is (ctor_name, vars, arm_body) list; the same
    vars are used for both init and step sides of the body. *)

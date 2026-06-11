@@ -827,8 +827,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
       | `BVSIGNEXT _ , _
-      | `BVZEROEXT _ , _ -> assert false
-    )    
+      | `BVZEROEXT _ , _ 
+      | `IsConstructor _, _ 
+      | `Selector _, _ -> assert false
+    )
 
   (* | Term.T.Attr (t, _) -> t *)
 
@@ -1145,7 +1147,7 @@ let atom_of_term t =
 
   (* Term is of some other type  *)
   else (
-
+    (*!! TODO for ADTs? *)
     (* Not implemented *)
     assert false )
 
@@ -2288,6 +2290,16 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `BVCONCAT -> bv_concat args
 
+          | `IsConstructor s ->
+            (match args with
+             | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+             | _ -> assert false)
+
+          | `Selector (s, ty) ->
+            (match args with
+             | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+             | _ -> assert false)
+
           (* Constant symbols *)
           | `TRUE
           | `FALSE
@@ -2295,7 +2307,6 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `DECIMAL _
           | `UBV _ 
           | `BV _ -> assert false
-          
       )
 
     (* Skip over attributed term *)
@@ -2966,6 +2977,16 @@ let rec remove_ite' fterm args =
 
         (* Array store *)
         | `STORE -> store args
+
+        | `IsConstructor s ->
+          (match args with
+           | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+           | _ -> assert false)
+
+        | `Selector (s, ty) ->
+          (match args with
+           | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+           | _ -> assert false)
 
         (* Constant symbols *)
         | `TRUE | `FALSE | `NUMERAL _ | `DECIMAL _ | `BV _ | `UBV _ -> assert false

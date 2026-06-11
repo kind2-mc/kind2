@@ -1,0 +1,17 @@
+datatype Msg = Atom (int) | Enc (Msg, Msg);
+
+function IsAtom (m: Msg) returns (r: bool)
+let r = match m with | Atom(_) : true | _ : false end; tel
+
+function IsAtomEnc (m: Msg) returns (r: bool)
+let
+  r = match m with
+      | Enc(Atom(n), k) : IsAtom(k)
+      | _ : false
+      end;
+tel
+
+node main (m: Msg) returns ()
+let
+  check not IsAtomEnc(Atom(0));
+tel

@@ -303,7 +303,9 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `CONST_ARRAY _ -> Format.pp_print_string ppf ""
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-  
+  | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s
+  | `Selector (s, _) -> Format.pp_print_string ppf s
+
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =

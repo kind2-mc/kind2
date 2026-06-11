@@ -2684,16 +2684,30 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     A.ADTTerm (pos, ty_args, ctor, nargs), gids, warnings
   | A.Match (pos, scrut, arms, scrut_ty_opt) ->
     let nscrut, gids1, warnings1 = normalize_expr ?guard info node_id map scrut in
+    (* Collect all leaf (non-constructor) pattern variables with their types.
+       Match expressions at this point are only on recursive ADTs (non-recursive
+       ADTs are desugared in step 10), so lookup_constructor gives concrete types. *)
+    let rec collect_leaf_vars (A.Pat (p, name, sub_pats)) pat_ty =
+      match Ctx.lookup_constructor info.context name with
+      | None ->
+        if HString.equal name (HString.mk_hstring "_") then []
+        else [(p, name, pat_ty)]
+      | Some (_, field_tys) ->
+        List.concat_map (fun (sub_pat, field_ty) ->
+          collect_leaf_vars sub_pat field_ty
+        ) (List.combine sub_pats field_tys)
+    in
+    let scrut_ty = infer_type info node_id scrut in
     let narms, gids2, warnings2 =
       normalize_list
-        (fun (A.Pat (_, ctor, sub_pats) as pat, body) ->
+        (fun (pat, body) ->
+          let leaf_vars = collect_leaf_vars pat scrut_ty in
           let info' =
-            match Ctx.lookup_constructor info.context ctor with
-            | Some (_, field_tys) ->
-              List.fold_left2 (fun acc_info (A.Pat (_, var, _)) ty ->
-                add_ty_to_info acc_info var ty
-              ) info sub_pats field_tys
-            | None -> info
+            List.fold_left (fun acc_info (p, var, ty) ->
+              let acc_info = add_ty_to_info acc_info var ty in
+              { acc_info with quantified_variables =
+                  acc_info.quantified_variables @ [(p, var, ty)] }
+            ) info leaf_vars
           in
           let nbody, gids, warnings = normalize_expr ?guard info' node_id map body in
           (pat, nbody), gids, warnings)

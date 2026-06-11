@@ -800,7 +800,30 @@ and compile_ast_type
     in
     (match StringMap.find_opt key cstate.type_alias with
     | Some t -> t
-    | None -> StringMap.find ident cstate.type_alias)
+    | None ->
+      let generic = StringMap.find ident cstate.type_alias in
+      (match ty_args with
+      | [] -> generic
+      | _ ->
+        match StringMap.find_opt ident cstate.adt_map with
+        | None -> generic
+        | Some adt_info ->
+          let type_params = adt_info.LDAT.type_params in
+          if List.length type_params <> List.length ty_args then generic
+          else
+            let subst = List.fold_left2 (fun acc param arg ->
+              match X.bindings (compile_ast_type cstate ctx map arg) with
+              | [(idx, t)] when idx = X.empty_index -> StringMap.add param t acc
+              | _ -> acc
+            ) StringMap.empty type_params ty_args in
+            X.map (fun ty ->
+              match Type.node_of_type ty with
+              | Type.Abstr s ->
+                (match StringMap.find_opt (HString.mk_hstring s) subst with
+                | Some t -> t
+                | None -> ty)
+              | _ -> ty
+            ) generic))
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
@@ -989,6 +1012,7 @@ and compile_ast_expr
       let ty = Type.enum_of_constr id_str in
       X.singleton X.empty_index (E.mk_constr id_str ty)
     with Not_found ->
+    try
       let id_str = HString.string_of_hstring id_str in
       (match String.split_on_char '_' id_str with
       | proj :: id :: name :: [] -> (try
@@ -1002,6 +1026,10 @@ and compile_ast_expr
         X.singleton X.empty_index e
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
+    with Not_found ->
+      Format.printf "Failed to resolve %a\n"
+        HString.pp_print_hstring id_str;
+      assert false
 
   and compile_mode_reference path' =
     let path' = List.map HString.string_of_hstring path' in
@@ -1604,121 +1632,86 @@ and compile_ast_expr
       UfSymbol.mk_uf_symbol (HString.string_of_hstring ctor) arg_types adt_type
     in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
+    (*!! Should consider moving this step to lustreDesugarADTs.ml, 
+         even here in the recursive case. *)
   | A.Match (_, scrut, arms, _) ->
     let scrut_e = X.find X.empty_index (compile_ast_expr cstate ctx bounds map scrut) in
     let adt_type = scrut_e.E.expr_type in
-    (* Pre-compile the catch-all arm body to use as the default in nested
-       sub-pattern matches (needed when a sub-pattern is a constructor). *)
-    let default_x_opt =
-      match List.find_opt (fun (A.Pat (_, ctor_hs, _), _) ->
-        Option.is_none (Ctx.lookup_constructor ctx ctor_hs)
-      ) arms with
-      | None -> None
-      | Some (_, default_body) ->
-        Some (compile_ast_expr cstate ctx bounds map default_body)
+    let compile_field_type ty_name_hs lty =
+      match lty with
+      | A.UserType (_, [], n) when HString.equal n ty_name_hs -> adt_type
+      | _ ->
+        let m = ref (empty_identifier_maps None) in
+        (match X.bindings (compile_ast_type cstate ctx m lty) with
+        | [(idx, t)] when idx = X.empty_index -> t
+        | _ -> assert false)
     in
-    (* Compile each match arm using native SMT-LIB match.
-       For flat sub-patterns (simple variables/wildcards), pattern variables are
-       bound as fresh free variables and the body is compiled with them in scope.
-       For nested constructor sub-patterns (e.g., Id(j) inside Triple(...)),
-       an anonymous flat variable is created for the position and the body is
-       wrapped in a nested mk_match that matches the constructor and binds its
-       fields. *)
-    let compile_arm (A.Pat (_, ctor_hs, subpats), body) =
+    (* Process a sub-pattern against a selector expression at that position.
+       Returns (tester conditions, leaf var bindings to quant_vars). *)
+    let rec process_subpat (A.Pat (_, name_hs, nested_subpats)) sub_e =
+      match Ctx.lookup_constructor ctx name_hs with
+      | None ->
+        let bindings =
+          if HString.equal name_hs (HString.mk_hstring "_") then []
+          else [(name_hs, sub_e)]
+        in
+        ([], bindings)
+      | Some (sub_ty_name_hs, sub_field_lus_types) ->
+        let ctor_str = HString.string_of_hstring name_hs in
+        let tester = E.mk_is_constructor ctor_str sub_e in
+        let sub_results = List.mapi (fun i (nested_pat, lty) ->
+          let sel_e = E.mk_selector
+            (ctor_str ^ "_" ^ string_of_int i)
+            (compile_field_type sub_ty_name_hs lty)
+            sub_e
+          in
+          process_subpat nested_pat sel_e
+        ) (List.combine nested_subpats sub_field_lus_types) in
+        (tester :: List.concat_map fst sub_results, List.concat_map snd sub_results)
+    in
+    (* Compile one arm: condition (t_true for catch-all) and body trie. *)
+    let compile_arm_ite (A.Pat (_, ctor_hs, subpats), body) =
       let ctor_name = HString.string_of_hstring ctor_hs in
-      let (ty_name_hs, field_lus_types) =
-        match Ctx.lookup_constructor ctx ctor_hs with
-        | Some r -> r
-        | None -> (ctor_hs, [])  (* catchall pattern: no fields *)
-      in
-      let field_types = List.map (fun lty ->
-        match lty with
-        | A.UserType (_, [], n) when HString.equal n ty_name_hs -> adt_type
-        | _ ->
-          let m = ref (empty_identifier_maps None) in
-          match X.bindings (compile_ast_type cstate ctx m lty) with
-          | [(idx, t)] when idx = X.empty_index -> t
-          | _ -> assert false
-      ) field_lus_types in
-      let counter = ref 0 in
-      (* For each sub-pattern, return:
-         - flat Var.t for this position in the outer SMT arm
-         - leaf bindings (var_hs, Var.t) to add to quant_vars
-         - body wrapper: E.t X.t -> E.t X.t to insert any needed nested matches *)
-      let rec process_subpat (A.Pat (_, name_hs, nested_subpats)) field_type =
-        match Ctx.lookup_constructor ctx name_hs with
-        | None ->
-          (* Variable or wildcard: bind as a flat pattern variable *)
-          let var_name = HString.string_of_hstring name_hs ^ "$match" in
-          let v = Var.mk_free_var (HString.mk_hstring var_name) field_type in
-          let bindings =
-            if HString.equal name_hs (HString.mk_hstring "_") then []
-            else [(name_hs, v)]
+      match Ctx.lookup_constructor ctx ctor_hs with
+      | None ->
+        (E.t_true, compile_ast_expr cstate ctx bounds map body)
+      | Some (ty_name_hs, field_lus_types) ->
+        let tester = E.mk_is_constructor ctor_name scrut_e in
+        let sub_results = List.mapi (fun i (subpat, lty) ->
+          let sel_e = E.mk_selector
+            (ctor_name ^ "_" ^ string_of_int i)
+            (compile_field_type ty_name_hs lty)
+            scrut_e
           in
-          (v, bindings, (fun body_x -> body_x))
-        | Some (sub_ty_name_hs, sub_field_lus_types) ->
-          (* Nested constructor: create a unique anonymous flat variable,
-             recurse into its sub-patterns, then wrap the body in a nested
-             match that checks this constructor and binds its fields. *)
-          let n = !counter in incr counter;
-          let ctor_str = HString.string_of_hstring name_hs in
-          let anon_name = Printf.sprintf "%s$ctor$%d" ctor_str n in
-          let outer_v = Var.mk_free_var (HString.mk_hstring anon_name) field_type in
-          let sub_field_types = List.map (fun lty ->
-            match lty with
-            | A.UserType (_, [], n) when HString.equal n sub_ty_name_hs -> field_type
-            | _ ->
-              let m = ref (empty_identifier_maps None) in
-              match X.bindings (compile_ast_type cstate ctx m lty) with
-              | [(idx, t)] when idx = X.empty_index -> t
-              | _ -> assert false
-          ) sub_field_lus_types in
-          let sub_results = List.map2 process_subpat nested_subpats sub_field_types in
-          let sub_vars = List.map (fun (v, _, _) -> v) sub_results in
-          let leaf_bindings = List.concat_map (fun (_, bs, _) -> bs) sub_results in
-          let sub_wraps = List.map (fun (_, _, w) -> w) sub_results in
-          let outer_v_e = E.mk_free_var outer_v in
-          let default_x = match default_x_opt with
-            | Some d -> d
-            | None -> assert false
-          in
-          let wrap body_x =
-            let inner_body_x = List.fold_right (fun w acc -> w acc) sub_wraps body_x in
-            X.fold (fun idx _ acc ->
-              let result_type = (X.find idx inner_body_x).E.expr_type in
-              let nested_arms = [
-                (ctor_str, sub_vars, X.find idx inner_body_x);
-                ("_", [], X.find idx default_x)
-              ] in
-              X.add idx (E.mk_match outer_v_e nested_arms result_type) acc
-            ) inner_body_x X.empty
-          in
-          (outer_v, leaf_bindings, wrap)
-      in
-      let sub_results = List.map2 process_subpat subpats field_types in
-      let flat_vars = List.map (fun (v, _, _) -> v) sub_results in
-      let leaf_bindings = List.concat_map (fun (_, bs, _) -> bs) sub_results in
-      let wraps = List.map (fun (_, _, w) -> w) sub_results in
-      List.iter (fun (var_hs, v) ->
-        H.replace !map.quant_vars (mk_ident var_hs)
-          (X.singleton X.empty_index (E.mk_free_var v))
-      ) leaf_bindings;
-      let body_x = compile_ast_expr cstate ctx bounds map body in
-      List.iter (fun (var_hs, _) ->
-        H.remove !map.quant_vars (mk_ident var_hs)
-      ) leaf_bindings;
-      let wrapped_body_x = List.fold_right (fun w acc -> w acc) wraps body_x in
-      (ctor_name, flat_vars, wrapped_body_x)
+          process_subpat subpat sel_e
+        ) (List.combine subpats field_lus_types) in
+        let all_conds = tester :: List.concat_map fst sub_results in
+        let all_bindings = List.concat_map snd sub_results in
+        let cond_e = E.mk_and_n all_conds in
+        List.iter (fun (var_hs, sel_e) ->
+          H.replace !map.quant_vars (mk_ident var_hs)
+            (X.singleton X.empty_index sel_e)
+        ) all_bindings;
+        let body_x = compile_ast_expr cstate ctx bounds map body in
+        List.iter (fun (var_hs, _) ->
+          H.remove !map.quant_vars (mk_ident var_hs)
+        ) all_bindings;
+        (cond_e, body_x)
     in
-    let compiled_arms = List.map compile_arm arms in
-    (* Build one mk_match per index of the result, distributing over structure *)
-    let first_body = let (_, _, b) = List.hd compiled_arms in b in
+    let compiled_arms = List.map compile_arm_ite arms in
+    let first_body = snd (List.hd compiled_arms) in
+    (* Build one ITE chain per index of the result trie. The last arm is
+       always the else-branch (catch-all or last explicit constructor). *)
     X.fold (fun idx _ acc ->
-      let arms_at_idx = List.map (fun (ctor, vars, body_x) ->
-        (ctor, vars, X.find idx body_x)
+      let bodies_at_idx = List.map (fun (cond_e, body_x) ->
+        (cond_e, X.find idx body_x)
       ) compiled_arms in
-      let result_type = (X.find idx first_body).E.expr_type in
-      X.add idx (E.mk_match scrut_e arms_at_idx result_type) acc
+      let rec build_ite = function
+        | [] -> assert false
+        | [(_cond, arm_e)] -> arm_e
+        | (cond_e, arm_e) :: rest -> E.mk_ite cond_e arm_e (build_ite rest)
+      in
+      X.add idx (build_ite bodies_at_idx) acc
     ) first_body X.empty
 
 and compile_node node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
@@ -2363,6 +2356,91 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_ib_oracles [] gids.GI.ib_oracles
   in
   (* ****************************************************************** *)
+  (* Pre-populate quant_vars for match arm pattern variables            *)
+  (* gids.calls may reference pattern variable names from match arm     *)
+  (* bodies (e.g., F2(k4)). Pattern vars are only in quant_vars during  *)
+  (* ITE compilation which runs after over_calls, so we create state    *)
+  (* variables sv = selector(scrutinee) and map name -> sv in quant_vars *)
+  (* before over_calls runs.                                            *)
+  (* ****************************************************************** *)
+  let (glocals, pv_equations) =
+    let rec get_pat_bindings cft (A.Pat (_, name_hs, nested)) sub_e =
+      match Ctx.lookup_constructor ctx name_hs with
+      | None ->
+        if HString.equal name_hs (HString.mk_hstring "_") then []
+        else [(name_hs, sub_e)]
+      | Some (sub_ty_name_hs, sub_field_lus_types) ->
+        let ctor_str = HString.string_of_hstring name_hs in
+        List.concat_map (fun (i, (npat, lty)) ->
+          let sel = E.mk_selector
+            (ctor_str ^ "_" ^ string_of_int i)
+            (cft sub_ty_name_hs lty)
+            sub_e
+          in
+          get_pat_bindings cft npat sel
+        ) (List.mapi (fun i x -> (i, x)) (List.combine nested sub_field_lus_types))
+    in
+    let mk_pv_sv var_hs sel_e (gls, eqs) =
+      let ident = mk_ident var_hs in
+      match mk_state_var map
+        (node_scope @ I.reserved_scope)
+        ident X.empty_index
+        sel_e.E.expr_type
+        (Some N.Generated)
+      with
+      | None -> (gls, eqs)
+      | Some sv ->
+        SVT.add state_var_expr_map sv sel_e;
+        N.add_state_var_def sv (N.GeneratedEq (Lib.dummy_pos, []));
+        H.replace !map.quant_vars ident
+          (X.singleton X.empty_index (E.mk_var sv));
+        let sv_trie = X.singleton X.empty_index sv in
+        let sel_trie = X.singleton X.empty_index sel_e in
+        (sv_trie :: gls, (expand_tuple Lib.dummy_pos sv_trie sel_trie) @ eqs)
+    in
+    let process_match gls eqs scrut arms =
+      let scrut_e = X.find X.empty_index (compile_ast_expr cstate ctx [] map scrut) in
+      let adt_type = scrut_e.E.expr_type in
+      let cft ty_name_hs lty =
+        match lty with
+        | A.UserType (_, [], n) when HString.equal n ty_name_hs -> adt_type
+        | _ ->
+          let m = ref (empty_identifier_maps None) in
+          (match X.bindings (compile_ast_type cstate ctx m lty) with
+          | [(idx, t)] when idx = X.empty_index -> t
+          | _ -> assert false)
+      in
+      List.fold_left
+        (fun acc (A.Pat (_, ctor_hs, subpats), _) ->
+          match Ctx.lookup_constructor ctx ctor_hs with
+          | None -> acc
+          | Some (ty_name_hs, field_lus_types) ->
+            let ctor_str = HString.string_of_hstring ctor_hs in
+            List.fold_left
+              (fun acc' (i, (subpat, lty)) ->
+                let sel = E.mk_selector
+                  (ctor_str ^ "_" ^ string_of_int i)
+                  (cft ty_name_hs lty)
+                  scrut_e
+                in
+                List.fold_left
+                  (fun a (var_hs, sel_e) -> mk_pv_sv var_hs sel_e a)
+                  acc'
+                  (get_pat_bindings cft subpat sel)
+              )
+              acc
+              (List.mapi (fun i x -> (i, x)) (List.combine subpats field_lus_types))
+        )
+        (gls, eqs) arms
+    in
+    List.fold_left
+      (fun (gls, eqs) item -> match item with
+        | A.Body (A.Equation (_, _, A.Match (_, scrut, arms, _))) ->
+          process_match gls eqs scrut arms
+        | _ -> (gls, eqs))
+      (glocals, []) items
+  in
+  (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
   let (calls, glocals) =
@@ -2837,6 +2915,7 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     List.fold_left over_set_binops [] gids.GI.set_binops
   in
   let gequations = gequations @ set_binop_eqs in
+  let gequations = gequations @ pv_equations in
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
