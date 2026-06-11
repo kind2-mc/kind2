@@ -3045,12 +3045,31 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | Int _, IntRange _ -> R.ok true
 
   (* Lustre V6 features *)
-  | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
-    if List.length ty_args1 = List.length ty_args2
-    then (
-      let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 
-      let r2 = i1 = i2 in 
-      R.ok (r1 && r2)
+  | UserType (pos1, ty_args1, i1), UserType (pos2, ty_args2, i2) ->
+    (* UserTypes for datatypes are not yet inlined, so we possibly 
+       need to call lookup_ty_syn *)
+    if i1 = i2 then (
+      if List.length ty_args1 = List.length ty_args2
+      then R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2)
+      else R.ok false
+    )
+    else if member_ty_syn ctx i1 then (
+      let* ty_alias = match lookup_ty_syn ctx i1 ty_args1 with
+        | None -> type_error pos1
+            (Impossible ("Cannot find definition of Identifier "
+              ^ (HString.string_of_hstring i1)))
+        | Some ty -> R.ok ty
+      in
+      eq_lustre_type ctx ty_alias (UserType (pos2, ty_args2, i2))
+    )
+    else if member_ty_syn ctx i2 then (
+      let* ty_alias = match lookup_ty_syn ctx i2 ty_args2 with
+        | None -> type_error pos2
+            (Impossible ("Cannot find definition of Identifier "
+              ^ (HString.string_of_hstring i2)))
+        | Some ty -> R.ok ty
+      in
+      eq_lustre_type ctx (UserType (pos1, ty_args1, i1)) ty_alias
     )
     else R.ok false
    
