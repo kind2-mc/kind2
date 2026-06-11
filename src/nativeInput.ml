@@ -274,8 +274,8 @@ let prop_source_of_sexpr prop_term = function
     if c == s_inst then
       let rec prop = {Property.prop_name = p; prop_source = source;
                       prop_term; prop_status = Property.PropUnknown;
-                      prop_kind = Invariant; }
-      and source = Property.Instantiated (scope, prop) in
+                      prop_kind = Invariant; prop_expr = None;}
+      and source = Property.Instantiated ((scope, Lib.dummy_pos), prop) in
       source
     else assert false
 
@@ -305,7 +305,8 @@ let prop_of_sexpr = function
       prop_source = prop_source_of_sexpr prop_term source;
       prop_term;
       prop_status = Property.PropUnknown;
-      prop_kind = Invariant }
+      prop_kind = Invariant ;
+      prop_expr = None}
   | _ -> failwith "Invalid property"
 
 
@@ -652,7 +653,7 @@ let pp_print_prop_source sys ppf = function
   | Property.Generated (_, state_vars, _) ->
     Format.fprintf ppf ":generated@ (@[<v>%a@])"
     (pp_print_list (pp_print_state_var sys) "@ ") state_vars  
-  | Property.Instantiated (scope, prop) ->
+  | Property.Instantiated ((scope, _), prop) ->
     let name = prop.Property.prop_name in
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
   | Property.Candidate _ ->

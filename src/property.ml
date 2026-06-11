@@ -61,6 +61,9 @@ type t =
     (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
     prop_term : Term.t;
 
+    (* Expression of property *)
+    prop_expr : string option;
+
     (* Current status *)
     mutable prop_status : prop_status 
 
@@ -81,7 +84,7 @@ and prop_source =
 
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
-  | Instantiated of Scope.t * t
+  | Instantiated of (Scope.t * Lib.position) * t
 
   (* Contract assumption that a caller has to prove.
 
@@ -102,11 +105,13 @@ and prop_source =
      properties *)
   | Candidate of prop_source option
 
-let is_candidate = function 
-| Candidate _ -> true
-| PropAnnot _ | Generated _ | Instantiated _ | Assumption _ 
-| Guarantee _ | GuaranteeOneModeActive _ | GuaranteeModeImplication _
-| NonVacuityCheck _ -> false
+let rec is_candidate p =
+  match p.prop_source with
+  | Candidate _ -> true
+  | Instantiated (_, p) -> is_candidate p
+  | _ -> false
+
+let is_real p = not (is_candidate p)
 
 let copy t = { t with prop_status = t.prop_status }
 
@@ -146,7 +151,7 @@ let pp_print_prop_source ppf = function
      Format.fprintf ppf "subrange constraint"
   | Candidate _ ->
      Format.fprintf ppf "candidate invariant"
-  | Instantiated (scope,_) ->
+  | Instantiated ((scope, _),_) ->
      Format.fprintf
        ppf
        "instantiated from %s"

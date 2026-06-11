@@ -373,7 +373,8 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
-  | A.IfBlock (pos, _, _, _) 
+  | A.IfBlock (pos, _, _, _)
+  | A.WhenBlock (pos, _, _, _)
   | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _, _)

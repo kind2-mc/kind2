@@ -166,8 +166,11 @@ let mk_span start_pos end_pos =
 %token THEN
 %token ELSE
 %token ELSIF
-%token OTHERWISE
 %token FI
+%token WHEN
+%token COND
+%token OTHERWISE
+%token END
 %token FRAME
 
 (* Tokens for relations *)
@@ -194,7 +197,6 @@ let mk_span start_pos end_pos =
 %token CONCAT
 
 (* Tokens for clocks *)
-%token WHEN
 %token CURRENT
 %token CONDACT
 %token ACTIVATE
@@ -221,7 +223,7 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
-%nonassoc ELSE OTHERWISE
+%nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
@@ -761,6 +763,7 @@ check:
 
 node_item:
   | i = node_if_block { i }
+  | i = node_when_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -800,7 +803,40 @@ node_if_block:
     { A.IfBlock(mk_pos $startpos, e, l, block) }
 
 
+node_when_block:
+  | WHEN; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    ELSE; 
+      l2 = nonempty_list(node_item);
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
+  | COND;
+      BAR; c1 = node_cond_case_colon;
+      cs = list(bar_node_cond_case_colon);
+      OTHERWISE; COLON;
+      l_else = nonempty_list(node_item);
+    END;
+    {
+      let cases = c1 :: cs in
+      let nested = List.fold_right
+        (fun (cond, l_then) l_otherwise ->
+          [A.WhenBlock (mk_pos $startpos, cond, l_then, l_otherwise)])
+        cases
+        l_else
+      in
+      match nested with
+      | [A.WhenBlock _ as wb] -> wb
+      | _ -> assert false
+    }
 
+
+bar_node_cond_case_colon:
+  | BAR; c = node_cond_case_colon { c }
+
+
+node_cond_case_colon:
+  | e = expr; COLON; l = nonempty_list(node_item)
+    { (e, l) }
 
 
 node_frame_block:
@@ -832,9 +868,6 @@ left_side:
 
   (* Parenthesized list *)
   | LPAREN; l = struct_item_list; RPAREN { A.StructDef (mk_pos $startpos, l) }
-
-  (* Empty list *)
-  | LPAREN; RPAREN { A.StructDef (mk_pos $startpos, []) }
 
 
 (* Item in a structured equation *)
@@ -1103,7 +1136,7 @@ pexpr(Q):
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
-  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); OTHERWISE; e3 = pexpr(Q)
+  | WHEN; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q)
     { A.TernaryOp (mk_pos $startpos, A.LazyIte, e1, e2, e3) }
 
   (* Recursive node call *)
@@ -1359,7 +1392,7 @@ typed_idents:
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
   | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr;
-    (* Pair each identifier with the type *)
+    (* Concise refinement type syntax *)
     { 
       match l with 
         | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
@@ -1376,6 +1409,13 @@ quantified_typed_idents:
   | l = ident_list_pos; COLON; t = lustre_type_or_history
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
+  | l = ident_list_pos; COLON; t = lustre_type; BAR; expr = expr
+    (* Concise refinement type syntax *)
+    {
+      match l with
+        | (pos, e) :: [] -> [(pos, e, A.RefinementType (mk_pos $startpos, (mk_pos $startpos, e, t), expr))]
+        | _ -> fail_at_position (mk_pos $startpos) "Refinement type concise syntax can only be applied to a single (lone) variable."
+    }
 
 (* A list of lists of typed identifiers *)
 typed_idents_list:

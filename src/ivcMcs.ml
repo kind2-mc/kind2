@@ -352,6 +352,9 @@ let rec minimize_item id_typ_map ue lst = function
   | A.IfBlock (pos, e, l1, l2) -> 
     [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
                         List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+  | A.WhenBlock (pos, e, l1, l2) ->
+    [A.WhenBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten,
+                         List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
   | A.FrameBlock (pos, vars, nes, nis) -> 
     [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
                                          with | None -> [] | Some eq -> [eq]) 
@@ -618,6 +621,7 @@ let add_as_candidate os_invs sys =
       prop_term = t ;
       prop_status = PropUnknown ;
       prop_kind = Invariant ;
+      prop_expr = None;
     }
   in
   let props = List.map create_candidate os_invs in

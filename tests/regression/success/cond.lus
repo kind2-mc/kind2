@@ -1,0 +1,23 @@
+
+function imported f(x: int) returns (y: int);
+con
+  assume "A1" x >= 0;
+noc
+
+node N(x: int) returns (y,z: int);
+let
+  cond 
+    | x = 0:
+      y = f(x);
+      z = 0;
+    | x < 0:
+      y = f(-x) - 1;
+      z = -1;
+    otherwise:
+      y = f(x) + 1;
+      z = 1;
+  end
+  check "P1" x = 0 ==> y = f(x);
+  check "P2" x < 0 ==> y = f(-x) - 1;
+  check "P3" x > 0 ==> y = f(x) + 1;
+tel

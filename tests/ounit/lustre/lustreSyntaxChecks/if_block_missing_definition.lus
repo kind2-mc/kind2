@@ -1,0 +1,10 @@
+node test(x: int) returns (y, z: int);
+let
+  if (x > 0)
+  then
+    y = 1;
+    z = 2;
+  else
+    y = 3;
+  fi
+tel

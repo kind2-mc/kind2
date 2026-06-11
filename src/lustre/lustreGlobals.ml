@@ -26,8 +26,8 @@ type t =
 
   { 
 
-    (* Free constants *)
-    free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
+    (* Free constants: ident, variable index, is_generated *)
+    free_constants : (LustreIdent.t * Var.t LustreIndex.t * bool) list;
     
     (* register bounds of state variables for later use *)
     state_var_bounds : state_var_bounds;

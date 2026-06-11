@@ -71,6 +71,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -242,6 +243,7 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
+  | WhenBlock of position * expr * node_item list * node_item list
   | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
@@ -534,6 +536,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Intersection, e1, e2) -> p2 p "*" e1 e2
+    | BinaryOp (p, Difference, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
@@ -547,7 +550,7 @@ let rec pp_print_expr ppf =
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
-    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "when" "then" "else" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -969,6 +972,17 @@ and pp_print_node_item ppf = function
 
   | IfBlock (_, e, l1, l2) -> 
     Format.fprintf ppf "if %a then %a else  %a fi"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+      (pp_print_list pp_print_node_item " ") l2
+
+  | WhenBlock (_, e, l1, []) -> 
+    Format.fprintf ppf "when %a then %a end"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+
+  | WhenBlock (_, e, l1, l2) -> 
+    Format.fprintf ppf "when %a then %a else %a end"  
       pp_print_expr e 
       (pp_print_list pp_print_node_item " ") l1
       (pp_print_list pp_print_node_item " ") l2

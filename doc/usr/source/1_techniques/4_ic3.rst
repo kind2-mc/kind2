@@ -42,7 +42,7 @@ If you only want to enable of the engines, e.g. IC3QE, run
 IC3-IA Options
 ^^^^^^^^^^^^^^
 
-``--smt_itp_solver {MathSAT | SMTInterpol | Z3qe | cvc5qe | OpenSMT}`` -- set the SMT solver used for interpolation.
+``--smt_itp_solver {MathSAT | SMTInterpol | Z3qe | cvc5qe | OpenSMT | Bitwuzla}`` -- set the SMT solver used for interpolation.
 
 ``--ic3ia_max <int>`` -- set the maximum number of IC3IA parallel processes. Each process checks an individual property.
 

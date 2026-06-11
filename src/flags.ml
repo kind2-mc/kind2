@@ -3662,6 +3662,18 @@ let check_nonvacuity_default = true
     (fun fmt -> Format.fprintf fmt "Output in JSON format")
   let log_format_json () = Log.get_log_format () = Log.F_json
 
+  (* Property constraints in output *)
+  let show_props_default = Log.get_show_props ()
+
+  let _ = add_spec
+    "--show_props"
+    (Arg.Bool Log.set_show_props)
+    (fun fmt -> Format.fprintf fmt 
+      "Show property constraints when printing property summary.@ \
+        Default: %a"
+      fmt_bool show_props_default
+    )
+
   (** ************************************************************ **)
 
   (* Colored output *)
