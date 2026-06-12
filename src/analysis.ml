@@ -413,11 +413,7 @@ let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.fo
 let split_properties_nocands sys =
   let valid, invalid, unknown = TransSys.get_split_properties sys in
   let remove_cands l =
-    List.filter (
-      function
-      | { Property.prop_source = Property.Candidate _ } -> false
-      | _ -> true
-    ) l
+    List.filter Property.is_real l
     |> List.rev in
   remove_cands valid, remove_cands invalid, remove_cands unknown
 

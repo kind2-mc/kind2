@@ -203,13 +203,6 @@ let rec ty_contains_gids ctx ni ty =
   | A.Map (_, ty1, ty2)
   | A.TArr (_, ty1, ty2) ->
     (r ty1) || (r ty2)
-  | A.IntRange (_, e1_opt, e2_opt) -> (
-    match e1_opt, e2_opt with 
-    | None, None -> false 
-    | None, Some e 
-    | Some e, None -> Chk.expr_contains_set_binop ctx ni e 
-    | Some e1, Some e2 -> (Chk.expr_contains_set_binop ctx ni e1) || (Chk.expr_contains_set_binop ctx ni e2)
-    )
   | A.AbstractType _ | A.EnumType _  
   | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ 
   | A.UserType _ -> false 
@@ -250,7 +243,7 @@ let gen_const_functions ctx decls =
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
     | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
-      if Ctx.type_contains_ref_or_subrange ctx ty then 
+      if Ctx.type_contains_ref ctx ty then 
         let p = s.start_pos in
         let node_type = NI.DefinedConstant in 
         let node_id = NI.mk_node_id ~node_type id in

@@ -71,6 +71,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -146,7 +147,6 @@ and lustre_type =
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
@@ -544,6 +544,7 @@ let rec pp_print_expr ppf =
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Intersection, e1, e2) -> p2 p "*" e1 e2
+    | BinaryOp (p, Difference, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
@@ -557,7 +558,7 @@ let rec pp_print_expr ppf =
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
-    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "when" "then" "else" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -680,16 +681,6 @@ and pp_print_lustre_type ppf = function
   | Int _ -> Format.fprintf ppf "int"
   | SBitVector (_, i) -> Format.fprintf ppf "sint<%d>" i
   | UBitVector (_, i) -> Format.fprintf ppf "uint<%d>" i
-  | IntRange (_, l, u) -> 
-    let pp_print_opt ppf expr_opt = (match expr_opt with
-      | Some expr -> pp_print_expr ppf expr
-      | None -> Format.fprintf ppf "%s" unbounded_limit_string
-    )
-    in
-    Format.fprintf ppf 
-      "subrange [%a,%a] of int" 
-      pp_print_opt l
-      pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
   | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s

@@ -127,6 +127,43 @@ then the expression ``M[1][2]`` is valid and evaluates to 6. The result of a
 single selection on an *n*\ -dimensional array is an *(n-1)*\ -dimensional
 array. The result of ``M[2]`` is the array ``[7, 8, 9]``.
 
+Element update
+^^^^^^^^^^^^^^
+
+A new array that is identical to an existing one except at selected indices can
+be constructed with the *element update* syntax ``A[i := v]``. It denotes a copy
+of the array ``A`` in which the element at index ``i`` is replaced by ``v``; the
+original array ``A`` is not modified. For example,
+
+.. code-block:: none
+
+   B = A[0 := 1];
+
+defines ``B`` to be equal to ``A`` everywhere except at index ``0``, where its
+value is ``1``. Several elements can be updated at once by separating the
+individual updates with semicolons:
+
+.. code-block:: none
+
+   B = A[0 := 1; 2 := 3];
+
+The update syntax can be combined with selection to update an element of a
+multidimensional array or of an array of compound values. For instance, given
+the matrix ``M`` above, ``M[1 := M[1][2 := 0]]`` denotes a copy of ``M`` in
+which the element at row ``1``, column ``2`` is set to ``0``.
+
+Structural equality
+^^^^^^^^^^^^^^^^^^^
+
+Arrays support **structural equality** (denoted by ``=``) and **structural
+disequality** (denoted by ``<>``). Two arrays are structurally equal when they
+have the same size and their elements are equal index by index. For example,
+given the array ``A`` defined by ``A = [2, 5, 7]``, the expression
+``A = [2, 5, 7]`` is valid, while ``A <> [2, 5, 8]`` is valid as well.
+Structural equality also applies to multidimensional arrays and to arrays
+whose elements are themselves compound values (records, tuples, sets, maps,
+etc.).
+
 Unsupported features of Lustre V5
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -415,6 +452,28 @@ is a formula that specifies that the matrix ``M`` is symmetric.
 
 
 Quantifiers can be arbitrarily nested and alternated at the propositional level.
+
+Concise refinement type syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A quantified variable can also be given a :ref:`refinement type
+<2_input/4_refinement_types>` using the concise syntax ``x: type | Q(x)``, which
+restricts the quantification to the values of ``x`` of the given ``type`` that
+satisfy the predicate ``Q(x)``. For example,
+
+.. code-block:: none
+
+   forall (i: int | 0 <= i and i < n) ok[i]
+
+is equivalent to
+
+.. code-block:: none
+
+   forall (i: int) 0 <= i and i < n ==> ok[i]
+
+For existential quantification the predicate is conjoined instead, so
+``exists (i: int | Q(i)) P(i)`` is equivalent to
+``exists (i: int) Q(i) and then P(i)``.
 
 Example
 ~~~~~~~

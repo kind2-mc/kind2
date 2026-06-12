@@ -536,7 +536,7 @@ let order_equations
 
 (* Return state variables from properties *)
 let roots_of_props props =
-  List.map (fun (sv, _, _, _) -> sv) props
+  List.map (fun (sv, _, _, _, _) -> sv) props
   |> SVS.of_list
 
 let rec contract_proof_obligation = function
@@ -555,7 +555,7 @@ let rec contract_proof_obligation = function
     false
 
 let  filter_props_contract props =
-  List.filter (fun (_, _, src, _) -> contract_proof_obligation src) props
+  List.filter (fun (_, _, src, _, _) -> contract_proof_obligation src) props
 
 let roots_of_props_contract props =
   filter_props_contract props |> roots_of_props

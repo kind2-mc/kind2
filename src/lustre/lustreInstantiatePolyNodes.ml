@@ -303,7 +303,7 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
-  | Bool _ | Int _ | IntRange _ | Real _ | UserType _
+  | Bool _ | Int _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
 
 and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map = 
@@ -328,6 +328,27 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
   let gids_map = NI.Map.add node_id gids gids_map in
 
   ctx, gids_map, decls, node_decls_map
+
+and gen_poly_decls_loi
+= fun ctx gids caller_nname node_decls_map loi ->
+  let re e =
+    let ctx, gids, e, decls, ndm = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
+    ctx, gids, e, decls, ndm
+  in
+  match loi with
+  | A.Label _ -> ctx, gids, loi, [], node_decls_map
+  | A.Index (p, e) ->
+    let ctx, gids, e, decls, ndm = re e in
+    ctx, gids, A.Index (p, e), decls, ndm
+  | A.MapIndex (p, e) ->
+    let ctx, gids, e, decls, ndm = re e in
+    ctx, gids, A.MapIndex (p, e), decls, ndm
+  | A.SetIndex (p, e) ->
+    let ctx, gids, e, decls, ndm = re e in
+    ctx, gids, A.SetIndex (p, e), decls, ndm
+  | A.GenericIndex (p, e) ->
+    let ctx, gids, e, decls, ndm = re e in
+    ctx, gids, A.GenericIndex (p, e), decls, ndm
 
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                              A.expr -> Ctx.tc_context * GI.t NI.Map.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
@@ -399,12 +420,20 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, ty, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map ty in 
     ctx, gids, TypeAscription (p, expr, ty), decls1 @ decls2, node_decls_map
   | StructUpdate (p, expr1, lois, Some expr2) ->
-    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
-    let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
-    ctx, gids, StructUpdate (p, expr1, lois, Some expr2), decls1 @ decls2, node_decls_map 
+    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in
+    let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in
+    let ctx, gids, lois, decls3, node_decls_map = List.fold_left (fun (ctx, gids, acc_lois, acc_decls, acc_ndm) loi ->
+      let ctx, gids, loi, decls, ndm = gen_poly_decls_loi ctx gids caller_nname acc_ndm loi in
+      ctx, gids, acc_lois @ [loi], acc_decls @ decls, ndm
+    ) (ctx, gids, [], [], node_decls_map) lois in
+    ctx, gids, StructUpdate (p, expr1, lois, Some expr2), decls1 @ decls2 @ decls3, node_decls_map
   | StructUpdate (p, expr1, lois, None) ->
-    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
-    ctx, gids, StructUpdate (p, expr1, lois, None), decls1, node_decls_map 
+    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in
+    let ctx, gids, lois, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_lois, acc_decls, acc_ndm) loi ->
+      let ctx, gids, loi, decls, ndm = gen_poly_decls_loi ctx gids caller_nname acc_ndm loi in
+      ctx, gids, acc_lois @ [loi], acc_decls @ decls, ndm
+    ) (ctx, gids, [], [], node_decls_map) lois in
+    ctx, gids, StructUpdate (p, expr1, lois, None), decls1 @ decls2, node_decls_map
   | IndexAccess (p, expr1, expr2, kind) ->
     let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
     let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
@@ -434,7 +463,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
       let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids caller_nname acc_node_decls_map ty in 
       ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls1, node_decls_map) tis in 
+    ) (ctx, gids, [], [], node_decls_map) tis in 
     ctx, gids, Quantifier (p, q, tis, expr), decls1 @ decls2, node_decls_map
   | Merge (p, id, id_exprs) ->
     let ctx, gids, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 

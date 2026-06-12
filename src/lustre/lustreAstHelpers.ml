@@ -73,7 +73,7 @@ let rec fold_lustre_ty f init op ty =
   let r = fold_lustre_ty f init op in 
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
-  | IntRange _ | EnumType _ | AbstractType _ -> init
+  | EnumType _ | AbstractType _ -> init
   | UserType _ | History _ -> init 
   | GroupType (_, tys) 
   | TupleType (_, tys) -> 
@@ -96,7 +96,7 @@ let rec map_lustre_ty f ty =
   let r = map_lustre_ty f in
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
-  | IntRange _ | EnumType _ | AbstractType _ -> ty
+  | EnumType _ | AbstractType _ -> ty
   | UserType _ | History _ -> ty 
   | Map (p, kt, vt) -> Map (p, r kt, r vt)
   | Set (p, ty) -> Set (p, r ty)
@@ -116,7 +116,7 @@ let rec contains_subtype_satisfying p ty =
   let r = contains_subtype_satisfying p in
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
-  | IntRange _ | EnumType _ | AbstractType _ 
+  | EnumType _ | AbstractType _ 
   | UserType _ | History _ -> p ty 
   | Map (_, kt, vt) -> 
     p ty || r kt || r vt 
@@ -1166,7 +1166,7 @@ let rec vars_of_type = function
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Bool _ | IntRange _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | Int _ | Bool _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
   | SBitVector _ | UBitVector _ -> SI.empty
 
 
@@ -1725,18 +1725,6 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       Ok true
     | SBitVector (_, s1), SBitVector (_, s2)
     | UBitVector (_, s1), UBitVector (_, s2) -> Ok (s1 = s2)
-    | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
-      let* e1 = match xe1, ye1 with
-        | None, None -> Ok true
-        | Some xe1, Some ye1 -> syn_expr_equal depth_limit xe1 ye1
-        | _ -> Ok false
-      in
-      let* e2 =  match xe2, ye2 with
-        | None, None -> Ok true
-        | Some xe2, Some ye2 -> syn_expr_equal depth_limit xe2 ye2
-        | _ -> Ok false
-      in
-      Ok (e1 && e2)
     | UserType (_, ty_args1, x), UserType (_, ty_args2, y) -> 
       let* r1 = rlist ty_args1 ty_args2 |> join in 
       let r2 = HString.equal x y in 
@@ -2082,7 +2070,7 @@ let rec constants_to_calls: ident list -> expr -> expr
 
 let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
-  | IntRange (p, _, _) | EnumType (p, _, _) | AbstractType (p, _) 
+  | EnumType (p, _, _) | AbstractType (p, _) 
   | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _) 
   | ArrayType (p, (_, _)) | TArr (p, _, _) | GroupType (p, _)  
   | TupleType (p, _)  | RecordType (p, _, _)  

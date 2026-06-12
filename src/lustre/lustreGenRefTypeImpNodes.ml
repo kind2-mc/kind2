@@ -167,7 +167,7 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
   (* Since we are omitting assumptions from environment realizability checks,
      we need to chase base types for environment inputs *)
   let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
-    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+    let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap in 
     (p, id, ty, cl, b)
   ) inputs2 in
   inputs2, outputs2

@@ -287,6 +287,17 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
+(* Ensure that the names printed are properly formatted *)
+let name_wrapper s =
+  let re =
+    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
+    if Str.string_match re s 0 then
+      let kind = "TypeAscription" in
+      let loc = Str.matched_group 2 s in
+      kind ^ "[" ^ loc ^"]"
+    else
+      s
+      
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -314,7 +325,7 @@ let proved_pt mdl level trans_sys k prop =
   if 
     not (Property.prop_status_known (Property.get_prop_status property))
   then (
-    let prop_type = match property.prop_source with 
+    let prop_type = match Property.get_prop_original_source property with 
       | Candidate None -> "Candidate property"
       | Candidate Some (Generated _) -> "Generated candidate property"
       | Generated _ -> "Generated property"
@@ -324,6 +335,7 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
+    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -404,7 +416,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      prop
+      (name_wrapper prop)
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -563,7 +575,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        prop
+        (name_wrapper prop)
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -635,7 +647,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text prop
+      div_by_zero_text (name_wrapper prop)
       |> printf_pt L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -669,22 +681,7 @@ let progress_pt mdl level k =
     pp_print_kind_module mdl
     k
  *)
-
-(* Pretty-print a list of properties and their status *)
-let prop_status_pt level prop_status_kind =
-
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
-    Pretty.print_line ()
-    Pretty.print_line ()
-    (pp_print_list 
-       (fun ppf ((p, s, k)) -> 
-          Format.fprintf 
-            ppf
-            "@[<h>@{<blue_b>%s@}: %a@]"
-            p
-            (function ppf -> (function
+let pp_print_status_of_prop = (function ppf -> (function
                   | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"
 
@@ -768,11 +765,37 @@ let prop_status_pt level prop_status_kind =
                       ((Property.length_of_cex cex) - 1)
                 )
               )
-            (s, k))
-       "@,")
+          
+let prop_status_pt level trans_sys prop_status_kind =
+
+  let pp_property_block ppf (name, status, kind) =
+    let property = TransSys.property_of_name trans_sys name in
+    let sexpr =
+      match property.prop_expr with
+      | Some e -> e
+      | None -> "unknown"
+    in
+  let pp_expr ppf sexpr = if Log.get_show_props () then Format.fprintf ppf "@,@[<v 2>  %s@]@]@,"  sexpr
+                          else () in
+   Format.fprintf
+      ppf
+      "@[<v>@{<blue_b>%s@}: %a\
+      %a"
+      (name_wrapper name)
+      pp_print_status_of_prop
+      (status, kind)
+      pp_expr sexpr
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@{<b>Summary of Properties@}:@,%a%a@,%a@]@."
+    Pretty.print_line ()
+    Pretty.print_line ()
+    (pp_print_list pp_property_block "@,")
     prop_status_kind
     Pretty.print_double_line ()
-          
+
 
 (* ********************************************************************** *)
 (* XML specific functions                                                 *)
@@ -828,7 +851,7 @@ let prop_attributes_xml trans_sys prop_name =
           lnum cnum pp_print_fname fname
   in
 
-  " isCandidate=\"" ^ (string_of_bool (Property.is_candidate prop.Property.prop_source)) 
+  " isCandidate=\"" ^ (string_of_bool (Property.is_candidate prop)) 
   ^ "\"" ^ get_attributes prop.Property.prop_source
 
 
@@ -1177,8 +1200,12 @@ let prop_attributes_json ppf trans_sys prop_name =
   in
 
   Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
-      (string_of_bool (Property.is_candidate prop.Property.prop_source));
-
+      (string_of_bool (Property.is_candidate prop));
+  (match prop.Property.prop_expr with 
+  | Some expr -> 
+  Format.fprintf ppf "\"expr\" : \"%s\",@,"
+      expr
+  | None -> ());
   get_attributes prop.Property.prop_source
 
 
@@ -1367,7 +1394,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text prop
+      div_by_zero_text (name_wrapper prop)
       |> printf_json mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -1575,7 +1602,7 @@ let log_execution_path level input_sys full_contract trans_sys path  =
 (* Output summary of status of properties *)
 let log_prop_status level trans_sys prop_status_kind =
   match get_log_format () with 
-    | F_pt -> prop_status_pt level prop_status_kind
+    | F_pt -> prop_status_pt level trans_sys prop_status_kind
     | F_xml -> prop_status_xml level trans_sys prop_status_kind
     | F_json -> prop_status_json level trans_sys prop_status_kind
     | F_relay -> ()

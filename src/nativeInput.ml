@@ -274,7 +274,7 @@ let prop_source_of_sexpr prop_term = function
     if c == s_inst then
       let rec prop = {Property.prop_name = p; prop_source = source;
                       prop_term; prop_status = Property.PropUnknown;
-                      prop_kind = Invariant; }
+                      prop_kind = Invariant; prop_expr = None;}
       and source = Property.Instantiated ((scope, Lib.dummy_pos), prop) in
       source
     else assert false
@@ -305,7 +305,8 @@ let prop_of_sexpr = function
       prop_source = prop_source_of_sexpr prop_term source;
       prop_term;
       prop_status = Property.PropUnknown;
-      prop_kind = Invariant }
+      prop_kind = Invariant ;
+      prop_expr = None}
   | _ -> failwith "Invalid property"
 
 

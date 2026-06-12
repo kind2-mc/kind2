@@ -31,5 +31,10 @@ let
     y2 = '(44, false, true);
     y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
     y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
+  else
+    y1 = any@<int^2>;
+    y2 = any@<[int, bool, bool]>;
+    y3 = any@<r2>;
+    y4[i] = any@<int>;
   fi
 tel

@@ -8,10 +8,12 @@ node N(x: int) returns (y: int);
 let
   when x = 0 then
     y = f(x);
-  elsif x < 0 then
-    y = f(-x) - 1;
   else
-    y = f(x) + 1;
+    when x < 0 then
+      y = f(-x) - 1;
+    else
+      y = f(x) + 1;
+    end
   end
   check "P1" x = 0 ==> y = f(x);
   check "P2" x < 0 ==> y = f(-x) - 1;

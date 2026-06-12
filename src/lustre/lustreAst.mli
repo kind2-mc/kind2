@@ -87,6 +87,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -116,7 +117,6 @@ type lustre_type =
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident

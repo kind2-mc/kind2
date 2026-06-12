@@ -627,6 +627,7 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
             prop_kind = Reachable None;
             prop_term = Term.mk_var v;
             prop_status = PropUnknown ; 
+            prop_expr = None ;
           }
         in
         let curr_state_props =

@@ -56,6 +56,10 @@ type t = {
   prop_term : Term.t ;
   (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
 
+  prop_expr : string option;
+  (* Expression of property *)
+  
+
   mutable prop_status : prop_status ;
   (** Current status *)
 }
@@ -107,8 +111,11 @@ val copy : t -> t
 (** Pretty-prints a property source. *)
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
-(** Returns true iff the input property source is candidate *)
-val is_candidate : prop_source -> bool
+(** Returns true iff the input property is a candidate property *)
+val is_candidate : t -> bool
+
+(** Returns true iff the input property is not a candidate property *)
+val is_real : t -> bool
 
 (** Pretty-prints a property status. *)
 val pp_print_prop_status : Format.formatter -> prop_status -> unit

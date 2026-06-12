@@ -52,14 +52,6 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
-  mk_test "test symbolic subrange bound 1" (fun () ->
-    match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
-    | Ok _ -> false 
-    | _ -> true);
-  mk_test "test symbolic subrange bound 2" (fun () ->
-    match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
-    | Ok _ -> true
-    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -233,6 +225,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "refinement bound var under set passed to non-inlinable function" (fun () ->
     match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard rejects non-inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_noninlinable_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedNodeCall _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard allows inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
+    | Ok _ -> true
     | _ -> false);
 ])
 
@@ -555,10 +555,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
     | _ -> false);
-  mk_test "test empty subrange" (fun () ->
-    match load_file "./lustreTypeChecker/empty_range.lus" with
-    | Error (`LustreTypeCheckerError (_, EmptySubrange _)) -> true
-    | _ -> false);
   mk_test "test disallowed resassignment" (fun () ->
     match load_file "./lustreTypeChecker/enum_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
@@ -685,7 +681,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test invalid type for bound variable" (fun () ->
     match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
     | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
@@ -742,10 +738,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test provided invalid type" (fun () ->
     match load_file "./lustreTypeChecker/provided.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
-    | _ -> false);
-  mk_test "test open interval with no bounds" (fun () ->
-    match load_file "./lustreTypeChecker/open_interval.lus" with
-    | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
     | _ -> false);
   mk_test "test nondeterministic choice type error" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
@@ -864,35 +856,17 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "Uninitialized node item inside frame block 2" (fun () ->
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
-    | _ -> false);  
-])
-
-(* *************************************************************************** *)
-(*                        Lustre Abstract Interpretation Checks                *)
-(* *************************************************************************** *)
-let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >::: [
-  mk_test "test subrange bug 1" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug1.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 2" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug2.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "If block outside frame block missing else branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_else.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 3" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug3.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "If block outside frame block variable missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 4" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug4.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
-    | _ -> false);
-  mk_test "test subrange bug 5" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug5.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
-    | _ -> false);
-  mk_test "test subrange bug 6" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug6.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "When block variable missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
 ])

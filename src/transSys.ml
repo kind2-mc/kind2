@@ -594,12 +594,12 @@ let scope_of_trans_sys t = t.scope
 (* Returns the properties in the transition system. *)
 let get_properties t = t.properties
 
+(** Returns true iff sys has at least one real (not candidate) property. *)
+let has_real_property { properties } =
+  List.exists Property.is_real properties
+
 (* Return all properties *)
-let get_real_properties t = List.filter (
-  function
-  | { P.prop_source = P.Candidate _ } -> false
-  | _ -> true
-) t.properties
+let get_real_properties t = List.filter Property.is_real t.properties
 
 
 (** Returns the mode requirements for this system as a list of triplets
@@ -614,7 +614,7 @@ let get_split_properties { properties } =
     function
     | { Property.prop_status = Property.PropInvariant _ } as p->
       p :: valid, invalid, unknown
-    | { Property.prop_source = Property.Candidate _ } ->
+    | p when Property.is_candidate p ->
       all
     | { Property.prop_status = Property.PropFalse _ } as p ->
       valid, p :: invalid, unknown
@@ -1394,7 +1394,18 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
-(* Return current kind of property *)
+
+(* Return current status of property *)
+let get_prop_expr trans_sys p = 
+
+  try 
+
+    (property_of_name trans_sys p).P.prop_expr
+
+  with Not_found -> None
+
+
+  (* Return current kind of property *)
 let get_prop_kind trans_sys p = 
   (property_of_name trans_sys p).P.prop_kind
 
@@ -1466,9 +1477,9 @@ let set_prop_unknown { properties } p =
   if not found then raise (PropertyNotFound p)
 
 (* Return current status of all properties *)
-let get_prop_status_all_nocands t = 
+let get_prop_status_all_nocands t =
   List.fold_left (fun acc -> function
-      | { P.prop_source = P.Candidate _ } -> acc
+      | p when Property.is_candidate p -> acc
       | { P.prop_name; P.prop_status } -> (prop_name, prop_status) :: acc
     ) [] t.properties
   |> List.rev
@@ -1476,15 +1487,23 @@ let get_prop_status_all_nocands t =
 (* Return current status and kind of all properties *)
 let get_prop_status_and_kind_all_nocands t = 
   List.fold_left (fun acc -> function
-      | { P.prop_source = P.Candidate _ } -> acc
+      | p when Property.is_candidate p -> acc
       | { P.prop_name; P.prop_status; P.prop_kind } -> (prop_name, prop_status, prop_kind) :: acc
+    ) [] t.properties
+  |> List.rev
+
+(* Return current status and kind of all properties *)
+let get_prop_status_and_kind_and_expr_all_nocands t = 
+  List.fold_left (fun acc -> function
+      | p when Property.is_candidate p -> acc
+      | { P.prop_name; P.prop_status; P.prop_kind ; P.prop_term } -> (prop_name, prop_status, prop_kind, prop_term) :: acc
     ) [] t.properties
   |> List.rev
 
 (* Return the kind of all properties *)
 let get_prop_kind_all_nocands t = 
   List.fold_left (fun acc -> function
-      | { P.prop_source = P.Candidate _ } -> acc
+      | p when Property.is_candidate p -> acc
       | { P.prop_name; P.prop_kind } -> (prop_name, prop_kind) :: acc
     ) [] t.properties
   |> List.rev
@@ -1506,17 +1525,6 @@ let get_prop_status_all_unknown t =
 
 let get_ctr t = t.ctr_state_var
 
-
-let rec is_non_candidate_property p =
-  match p.P.prop_source with
-  | P.Candidate _ -> false
-  | P.Instantiated (_, p) -> is_non_candidate_property p
-  | _ -> true
-
-(** Returns true iff sys has at least one non-candidate property. *)
-let has_non_candidate_property { properties } =
-  List.exists is_non_candidate_property properties
-
 let rec set_subsystem_properties t scope ps =
   let aux (t, instances) =
     (set_subsystem_properties t scope ps, instances)
@@ -1535,7 +1543,7 @@ let rec set_subsystem_properties t scope ps =
 let all_props_proved t =
   List.for_all
     (function
-      | { P.prop_source = P.Candidate _ } -> true
+      | p when Property.is_candidate p -> true
       | { P.prop_status = (P.PropInvariant _ | P.PropFalse _) } -> true
       | _ -> false
     ) t.properties
@@ -1544,7 +1552,7 @@ let all_props_proved t =
 let at_least_one_prop_falsified t =
   List.exists
     (function
-      | { P.prop_source = P.Candidate _ } -> false
+      | p when Property.is_candidate p -> false
       | { P.prop_status = (P.PropFalse _) } -> true
       | _ -> false
     ) t.properties
@@ -1655,23 +1663,15 @@ let invars_of_bound ?(one_state_only = false) { invariants } =
 
 (* Return true if the property is a candidate invariant *)
 let is_candidate t prop =
-  match (property_of_name t prop).P.prop_source with
-  | P.Candidate _ -> true
-  | _ -> false
+  Property.is_candidate (property_of_name t prop)
 
 let get_candidates t =
   List.fold_left (fun acc p ->
-    match p.P.prop_source with
-    | P.Candidate _ -> p.P.prop_term :: acc
-    | _ -> acc
-    ) [] t.properties
+    if Property.is_candidate p then p.P.prop_term :: acc else acc
+  ) [] t.properties
   |> List.rev
 
-let get_candidate_properties t = List.filter (
-  function
-  | { P.prop_source = P.Candidate _ } -> true
-  | _ -> false
-) t.properties
+let get_candidate_properties t = List.filter Property.is_candidate t.properties
 
 let get_unknown_candidates t =
   List.fold_left (fun acc p ->

@@ -256,8 +256,24 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
-  | StructUpdate (p, e1, l, Some e2) -> StructUpdate (p, r e1, l, Some (r e2))
-  | StructUpdate (p, e1, l, None) -> StructUpdate (p, r e1, l, None)
+  | StructUpdate (p, e1, l, Some e2) -> 
+    let l = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, r e)
+    | MapIndex (p, e) -> MapIndex (p, r e)
+    | SetIndex (p, e) -> SetIndex (p, r e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, r e) 
+    ) l in 
+    StructUpdate (p, r e1, l, Some (r e2))
+  | StructUpdate (p, e1, l, None) -> 
+    let l = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, r e)
+    | MapIndex (p, e) -> MapIndex (p, r e)
+    | SetIndex (p, e) -> SetIndex (p, r e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, r e) 
+    ) l in 
+    StructUpdate (p, r e1, l, None)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
@@ -370,19 +386,23 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   | EmptyMap (pos, Some (kt, vt)) -> 
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
+  | StructUpdate (p, e, lois, e_opt) -> 
+    let lois = List.map (fun loi -> match loi with 
+    | LA.Label _ -> loi
+    | Index (p, e) -> Index (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | MapIndex (p, e) -> MapIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | SetIndex (p, e) -> SetIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
+    ) lois in 
+    let e_opt = Option.map (simplify_expr ~ind_vars ~is_guarded ctx) e_opt in
+    StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
+  | RecordProject (p, e, id) -> 
+    RecordProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 
 and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
-  | LA.IntRange (pos, lbound, ubound) ->
-    let lbound' = match lbound with 
-      | None -> None
-      | Some lbound -> Some (simplify_expr ~ind_vars ctx lbound) in
-    let ubound' = match ubound with
-      | None -> None
-      | Some ubound -> Some (simplify_expr ~ind_vars ctx ubound) in
-    LA.IntRange (pos, lbound', ubound')
   | LA.TupleType (pos, types) ->
     let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
     LA.TupleType (pos, types')
@@ -555,9 +575,16 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
       | Some (p, contract) -> Some (p, inline_constants_of_contract ctx contract)
       | None -> None
     in
-    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
-    let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
+    let local_ctx, ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items local_ctx items in
+    let pos = span.LA.start_pos in
+    let ips_tys = List.map (fun (_, _, ty, _, _) -> ty) ips' in
+    let ops_tys = List.map (fun (_, _, ty, _) -> ty) ops' in
+    let arg_ty = if List.length ips_tys = 1 then List.hd ips_tys else LA.GroupType (pos, ips_tys) in
+    let ret_ty = if List.length ops_tys = 1 then List.hd ops_tys else LA.GroupType (pos, ops_tys) in
+    let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
+    let ctx' = TC.add_ty_node ctx i fun_ty false in
+    ctx', (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
   | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract), is_rec)) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
@@ -565,9 +592,16 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
       | Some (p, contract) -> Some (p, inline_constants_of_contract ctx contract)
       | None -> None
     in
-    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
-    let items' = inline_constants_of_node_items ctx' items in
-     ctx, (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract'), is_rec))
+    let local_ctx, ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items local_ctx items in
+    let pos = span.LA.start_pos in
+    let ips_tys = List.map (fun (_, _, ty, _, _) -> ty) ips' in
+    let ops_tys = List.map (fun (_, _, ty, _) -> ty) ops' in
+    let arg_ty = if List.length ips_tys = 1 then List.hd ips_tys else LA.GroupType (pos, ips_tys) in
+    let ret_ty = if List.length ops_tys = 1 then List.hd ops_tys else LA.GroupType (pos, ops_tys) in
+    let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
+    let ctx' = TC.add_ty_node ctx i fun_ty true in
+    ctx', (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract'), is_rec))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, contract)))) ->
      ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, inline_constants_of_contract ctx contract))))
   | e -> (ctx, e)

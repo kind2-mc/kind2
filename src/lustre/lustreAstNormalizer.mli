@@ -84,9 +84,8 @@ val error_if_lus_strict : warning_kind -> bool
 
 val mk_fresh_dummy_index : 'a -> HString.t
 
-val mk_enum_range_expr : ?force_prop:bool ->
+val mk_enum_expr :
   ?mk_enum:bool ->
-  ?mk_range:bool ->
   TypeCheckerContext.tc_context ->
   NodeId.t option ->
   LustreAst.lustre_type ->
@@ -99,14 +98,7 @@ val mk_ref_type_expr : TypeCheckerContext.tc_context ->
   LustreAst.lustre_type ->
   LustreAst.expr list
 
-val mk_range_expr : ?force_prop:bool -> TypeCheckerContext.tc_context -> 
-  NodeId.t option ->
-  LustreAst.lustre_type ->
-  LustreAst.expr ->
-  (LustreAst.expr * bool) list
-
 val normalize : TypeCheckerContext.tc_context ->
-  LustreAbstractInterpretation.context ->
   NodeId.Set.t ->
   LustreAst.t ->
     GeneratedIdentifiers.t NodeId.Map.t ->

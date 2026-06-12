@@ -198,7 +198,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * LustreAst.expr) list;
 
   (* Contract. *)
   contract : contract option ;
@@ -466,7 +466,7 @@ let pp_print_assert safe ppf (_,sv) =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf (sv, n, _, k) = 
+let pp_print_prop safe ppf (sv, n, _, k, _) = 
   match k with
     | Property.Invariant -> 
       let sv_string = 
@@ -740,7 +740,7 @@ let pp_print_node_debug ppf
 
   let pp_print_equation = pp_print_node_equation false in
 
-  let pp_print_prop ppf (state_var, name, source, kind) = 
+  let pp_print_prop ppf (state_var, name, source, kind, _) = 
     match kind with
     | Property.Invariant ->
       Format.fprintf
@@ -1305,7 +1305,7 @@ let stateful_vars_of_node
       let stateful_vars = 
         add_to_svs
           stateful_vars
-          (List.map (fun (sv, _, _, _) -> sv) props) 
+          (List.map (fun (sv, _, _, _, _) -> sv) props) 
       in
 
       (* Add stateful variables from contracts *)

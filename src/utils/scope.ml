@@ -36,7 +36,7 @@ let pp_print_scope_internal ppf s =
   Format.fprintf 
     ppf
     "@{<blue>%a@}"
-    (pp_print_list Ident.pp_print_ident ".")
+    (pp_print_list Ident.pp_print_ident Lib.StringValues.scope_sep)
     s
 
 module Scope = struct 
