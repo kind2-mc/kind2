@@ -417,7 +417,8 @@ let bounded_check call_pos caller_rf =
     P.prop_source ;
     P.prop_term ;
     P.prop_status ;
-    prop_kind = Invariant 
+    P.prop_kind = Invariant;
+    P.prop_expr = None
   }
 
 let decrease_check call_pos svar_map caller_rf callee_rf =
@@ -442,7 +443,8 @@ let decrease_check call_pos svar_map caller_rf callee_rf =
     P.prop_source ;
     P.prop_term ;
     P.prop_status ;
-    prop_kind = Invariant
+    P.prop_kind = Invariant;
+    P.prop_expr = None
   }
 
 (* The termination checks of a contract as properties. *) 
