@@ -52,13 +52,6 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
-  subrange_constraints : (source
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
@@ -139,7 +132,6 @@ let union ids1 ids2 = {
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
-    subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
     refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
@@ -171,7 +163,6 @@ let empty () = {
   ib_oracles = [];
   calls = [];
   contract_calls = StringMap.empty;
-  subrange_constraints = [];
   refinement_type_constraints = [];
   empty_maps = [];
   empty_sets = [];

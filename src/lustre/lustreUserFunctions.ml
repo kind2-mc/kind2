@@ -61,9 +61,9 @@ let is_output_defined outputs items =
     | _ -> false
   )
 
-let have_ref_type_or_subrange ctx outputs =
+let have_ref_type ctx outputs =
   outputs |> List.exists (fun (_, _, ty, _) ->
-    Ctx.type_contains_ref_or_subrange ctx ty
+    Ctx.type_contains_ref ctx ty
   )
 
 let rec can_be_abstracted' ctx contracts (_, items) =
@@ -73,14 +73,14 @@ let rec can_be_abstracted' ctx contracts (_, items) =
         match NI.Map.find_opt id contracts with
         | None -> assert false
         | Some (_, _, _, outputs, contract) ->
-          have_ref_type_or_subrange ctx outputs
+          have_ref_type ctx outputs
           || can_be_abstracted' ctx contracts contract
     )
     | _ -> false
   )
 
 let can_be_abstracted ctx contracts outputs contract =
-  have_ref_type_or_subrange ctx outputs
+  have_ref_type ctx outputs
   ||
   match contract with
   | None -> false

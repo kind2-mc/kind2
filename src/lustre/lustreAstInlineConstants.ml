@@ -403,14 +403,6 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
    all of the constants have been type checked *)
 
 and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
-  | LA.IntRange (pos, lbound, ubound) ->
-    let lbound' = match lbound with 
-      | None -> None
-      | Some lbound -> Some (simplify_expr ~ind_vars ctx lbound) in
-    let ubound' = match ubound with
-      | None -> None
-      | Some ubound -> Some (simplify_expr ~ind_vars ctx ubound) in
-    LA.IntRange (pos, lbound', ubound')
   | LA.TupleType (pos, types) ->
     let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
     LA.TupleType (pos, types')
