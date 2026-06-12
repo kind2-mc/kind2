@@ -598,7 +598,6 @@ let rec traverse_group_expr_list f ctx proj es =
   | Int _
     | UBitVector _ 
     | SBitVector _
-    | IntRange _
     | Real _ -> Ok true
   | RefinementType (_, (_, _, ty), _) -> is_type_num ctx ty
   | History (_, id) -> 
@@ -610,8 +609,7 @@ let rec traverse_group_expr_list f ctx proj es =
 
 let rec is_type_int: tc_context -> tc_type -> (bool, HString.t) result
   = fun ctx ty -> match ty with
-  | Int _
-  | IntRange _ -> Ok true
+  | Int _ -> Ok true
   | RefinementType (_, (_, _, ty), _) -> is_type_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
@@ -623,8 +621,7 @@ let rec is_type_int: tc_context -> tc_type -> (bool, HString.t) result
 let rec is_type_real_or_int: tc_context -> tc_type -> (bool, HString.t) result
   = fun ctx ty -> match ty with
   | Real _
-  | Int _
-  | IntRange _ -> Ok true
+  | Int _ -> Ok true
   | RefinementType (_, (_, _, ty), _) -> is_type_real_or_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
@@ -636,9 +633,8 @@ let rec is_type_real_or_int: tc_context -> tc_type -> (bool, HString.t) result
 let rec is_type_int_or_machine_int: tc_context -> tc_type -> (bool, HString.t) result
   = fun ctx ty -> match ty with
   |  Int _
-    | UBitVector _ 
-    | SBitVector _
-     | IntRange _ -> Ok true
+  | UBitVector _ 
+  | SBitVector _ -> Ok true
   | RefinementType (_, (_, _, ty), _) -> is_type_int_or_machine_int ctx ty
   | History (_, id) -> 
     let ty = lookup_ty ctx id in 
@@ -703,60 +699,31 @@ let rec is_machine_type_of_associated_width: tc_context -> (tc_type * tc_type) -
       | Some ty -> is_machine_type_of_associated_width ctx (ty, ty2))
   | _ -> Ok false
 
-let rec type_contains_subrange ctx = function
-  | LA.IntRange _ -> true
-  | RefinementType (_, (_, _, ty), _) -> type_contains_subrange ctx ty
+let rec type_contains_enum ctx = function
+  | LA.EnumType _ -> true
+  | RefinementType (_, (_, _, ty), _) -> type_contains_enum ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_subrange ctx ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_enum ctx ty) false tys
   | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ctx ty)
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum ctx ty)
       false tys
-  | ArrayType (_, (ty, _)) -> type_contains_subrange ctx ty
-  | Set (_, ty) -> type_contains_subrange ctx ty
+  | ArrayType (_, (ty, _)) -> type_contains_enum ctx ty
+  | Set (_, ty) -> type_contains_enum ctx ty
   | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> type_contains_subrange ctx ty1 || type_contains_subrange ctx ty2
-  | History (_, id) -> 
-    (match lookup_ty ctx id with 
-    | Some ty -> type_contains_subrange ctx ty
-    | _ -> assert false)
-  | UserType (_, ty_args, id) -> (
-    match lookup_ty_syn ctx id ty_args with
-    | Some ty -> type_contains_subrange ctx ty
-    | None -> assert false 
-  )
-  | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
-    List.fold_left (fun acc ty -> acc || type_contains_subrange ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _
-  | AbstractType _ | SBitVector _ | UBitVector _ -> false
-
-let rec type_contains_enum_or_subrange ctx = function
-  | LA.IntRange _
-  | EnumType _ -> true
-  | RefinementType (_, (_, _, ty), _) -> type_contains_enum_or_subrange ctx ty
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ctx ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_or_subrange ctx ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_enum_or_subrange ctx ty
-  | Set (_, ty) -> type_contains_subrange ctx ty
-  | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> type_contains_enum_or_subrange ctx ty1 || type_contains_enum_or_subrange ctx ty2
+  | TArr (_, ty1, ty2) -> type_contains_enum ctx ty1 || type_contains_enum ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
-    | Some ty -> type_contains_enum_or_subrange ctx ty
+    | Some ty -> type_contains_enum ctx ty
     | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
-    | Some (ADT _) -> false
-    | Some ty -> type_contains_enum_or_subrange ctx ty
+    | Some ty -> type_contains_enum ctx ty
     | None -> assert false 
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
-    List.fold_left (fun acc ty -> acc || type_contains_enum_or_subrange ctx ty) false tys
-  | Bool _ | Int _ | Real _
+    List.fold_left (fun acc ty -> acc || type_contains_enum ctx ty) false tys
+  | Bool _ | Int _ | Real _ 
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
   let rec type_contains_ref ctx = function
@@ -782,38 +749,34 @@ let rec type_contains_enum_or_subrange ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
     List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
-  | Bool _ | Int _ | Real _  | EnumType _ | IntRange _
+  | Bool _ | Int _ | Real _  | EnumType _ 
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
-let type_contains_ref_or_subrange ctx ty =
-  type_contains_ref ctx ty || type_contains_subrange ctx ty
-
-let rec type_contains_enum_subrange_reftype ctx = function
-  | LA.IntRange _
-  | EnumType _ 
+let rec type_contains_enum_reftype ctx = function
+  | LA.EnumType _ 
   | RefinementType _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ctx ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_enum_reftype ctx ty) false tys
   | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_subrange_reftype ctx ty)
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_reftype ctx ty)
       false tys
   | ArrayType (_, (ty, _)) 
-  | Set (_, ty) -> type_contains_enum_subrange_reftype ctx ty
+  | Set (_, ty) -> type_contains_enum_reftype ctx ty
   | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> type_contains_enum_subrange_reftype ctx ty1 || type_contains_enum_subrange_reftype ctx ty2
+  | TArr (_, ty1, ty2) -> type_contains_enum_reftype ctx ty1 || type_contains_enum_reftype ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
-      | Some ty -> type_contains_enum_subrange_reftype ctx ty
+      | Some ty -> type_contains_enum_reftype ctx ty
       | _ -> assert false)
   | UserType (_, ty_args, id) -> (
     match lookup_ty_syn ctx id ty_args with
     | Some (ADT _) -> false
-    | Some ty -> type_contains_enum_subrange_reftype ctx ty
+    | Some ty -> type_contains_enum_reftype ctx ty
     | None -> assert false
   )
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
-    List.fold_left (fun acc ty -> acc || type_contains_enum_subrange_reftype ctx ty) false tys
+    List.fold_left (fun acc ty -> acc || type_contains_enum_reftype ctx ty) false tys
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
@@ -841,7 +804,7 @@ let rec type_contains_abstract ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
     List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_map_or_set ctx = function
@@ -868,7 +831,7 @@ let rec type_contains_map_or_set ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
     List.fold_left (fun acc ty -> acc || type_contains_map_or_set ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_array ctx = function
@@ -895,7 +858,7 @@ let rec type_contains_array ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
     List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _ | IntRange _
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec ty_vars_of_expr ctx node_name expr = 
@@ -993,7 +956,7 @@ and ty_vars_of_type ctx node_name ty =
   | ADT (_, _, cons) ->
     let tys = List.concat_map snd cons in
     List.fold_left (fun acc ty -> SI.union acc (ty_vars_of_type ctx node_name ty)) SI.empty tys
-  | History _ | Int _ | Bool _ | IntRange _ | Real _  | EnumType _
+  | History _ | Int _ | Bool _ | Real _  | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
 
 

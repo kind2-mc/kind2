@@ -766,23 +766,6 @@ and compile_ast_type
   | A.SBitVector (_, s) -> X.singleton X.empty_index (Type.t_bv s)
   | A.UBitVector (_, s) -> X.singleton X.empty_index (Type.t_ubv s)
   | A.Real _ -> X.singleton X.empty_index Type.t_real
-  | A.IntRange (_, lbound, ubound) -> 
-    (* TODO: Old code does subtyping here, currently missing *)
-    (* TODO: This type should only be well-formed if bounds are constants 
-      This should be done in the type checker *)
-    (* We assume that lbound and ubound are constant integers
-      and that lbound < ubound *)
-    let lvalue = match lbound with 
-      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
-      | None -> None 
-      | _ -> assert false
-    in
-    let uvalue = match ubound with 
-      | Some A.Const (_, Num x) -> (Some (Numeral.of_string (HString.string_of_hstring x)))
-      | None -> None 
-      | _ -> assert false
-    in
-    X.singleton X.empty_index (Type.mk_int_range lvalue uvalue)
   | A.EnumType (_, enum_name, enum_elements) ->
       let enum_name = HString.string_of_hstring enum_name in
       let enum_elements = List.map HString.string_of_hstring enum_elements in
@@ -2000,28 +1983,6 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
       result :: glocals
     in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Subrange Constraints               *)
-  (* ****************************************************************** *)
-  in let glocals =
-    let over_generated_locals glocals (_, _, _, _, id, _) =
-      let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
-      let over_indices = fun index index_type accum ->
-        let possible_state_var = mk_state_var
-          map
-          (node_scope @ I.reserved_scope)
-          ident
-          index
-          index_type
-          (Some N.Generated)
-        in
-        match possible_state_var with
-        | Some state_var -> X.add index state_var accum
-        | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
-      result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
-  (* ****************************************************************** *)
   (* (State Variables for) Generated Refinement Type Constraints        *)
   (* ****************************************************************** *)
   in let glocals =
@@ -2727,10 +2688,10 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
     )
     | None -> SVS.empty
   (* ****************************************************************** *)
-  (* Generate Contract Constraints for Integer Subranges                *)
+  (* Generate Contract Constraints for Refinement Type Constraints      *)
   (* ****************************************************************** *)
   in 
-  (* Helper for subranges and refinement type expression substitution *)
+  (* Helper for refinement type expression substitution *)
   let find_type_ascription_expr nid = 
     NI.Map.fold (fun _ gds acc ->
       match acc with
@@ -2756,141 +2717,57 @@ and compile_node_decl gids_map is_function opac cstate ctx node_id ext params in
         Hashtbl.replace indices name idx;
         Format.asprintf "%s_%d" name idx
       ) else name
-  in
-  let (assumes, guarantees, props) =
-    let create_constraint_name prefix pos =
-      (* Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr *)
-      Format.asprintf "@[<h>%s%a@]" prefix pp_print_line_and_column pos
-
+  in let (assumes, guarantees, props) =
+    let create_constraint_name_pos (pos : position)=
+      Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
     in
-    (* A single field of a subrange type may generate both a "real" property
-       (the original/declared constraint, with [is_original] set) and a
-       candidate invariant; these are consecutive and share a name. We
-       therefore disambiguate per field, where each field contributes exactly
-       one real constraint. We count the real constraints per name, and assign
-       a suffix only when more than one field shares the same name. Candidate
-       constraints precede their real counterpart and inherit its suffix. *)
-    let real_counts = Hashtbl.create 7 in
-    List.iter (fun (_, _, is_original, pos, _, _) ->
-      if is_original then
-        let name = create_constraint_name "SubRange" pos in
-        Hashtbl.replace real_counts name
-          (1 + (try Hashtbl.find real_counts name with Not_found -> 0))
-    ) gids.GI.subrange_constraints;
-    let seen_reals = Hashtbl.create 7 in
-    let uniq_name is_original pos =
-      let base = create_constraint_name "SubRange" pos in
-      if (try Hashtbl.find real_counts base with Not_found -> 0) > 1 then (
-        let idx = 1 + (try Hashtbl.find seen_reals base with Not_found -> 0) in
-        if is_original then Hashtbl.replace seen_reals base idx;
-        Format.asprintf "%s_%d" base idx
-      ) else base
+    let uniq_name =
+      make_uniquifier
+        (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
+          gids.GI.refinement_type_constraints)
     in
-    let over_subrange_constraints
-      (a, ac, g, gc, p)
-      (source, contract_scope, is_original, pos, id, rexpr)
-    =
-      let contract_scope = List.map (fun (pos, node_id) -> 
-        pos, NI.get_internal_name node_id
-      ) contract_scope in
+    let create_constraint_name_pos pos =
+      uniq_name (create_constraint_name_pos pos)
+    in
+    let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
       let sv = H.find !map.state_var (mk_ident id) in
       let constraint_kind, generated_source = match source with
-        | GI.Input -> Some N.Assumption, None
-        | Local -> None, Some Property.Body
-        | Output -> Some N.Guarantee, None
-        | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
-      in
-      let rexpr = match find_type_ascription_expr node_id with
-        | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
-        | None -> rexpr
+      | GI.Input -> Some N.Assumption, None
+      | Local -> None, Some Property.Body
+      | Output -> Some N.Guarantee, None
+      | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
+    in
+    let name = create_constraint_name_pos pos in
+    let replace_expr = match node_id_opt with
+    | Some nid -> find_type_ascription_expr nid
+    | None -> None
+    in
+
+    let rexpr = match replace_expr with
+      | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
+      | None -> rexpr
       in
       let srexpr = A.string_of_expr rexpr in
-      if is_original then
-        let scope =
-          List.map (fun (i, s) -> i, HString.string_of_hstring s) contract_scope
-        in
-        match constraint_kind, generated_source with
+      match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
-          let name = uniq_name is_original pos in
-          let contract_sv = C.mk_svar pos ac (Some name) sv scope srexpr in
+          let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
-          contract_sv :: a, ac + 1, g, gc, p
+          (contract_sv :: a, ac + 1, g, gc, p)
         | Some N.Guarantee, _ ->
-          let name = uniq_name is_original pos in
-          let contract_sv = C.mk_svar pos gc (Some name) sv scope srexpr in
+          let contract_sv = C.mk_svar pos gc (Some name) sv [] srexpr in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
-          a, ac, (contract_sv, false) :: g, gc + 1, p
+          (a, ac, (contract_sv, false) :: g, gc + 1, p)
         | None, Some gen_src ->
-          let name = uniq_name is_original pos in
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
+          (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
         | _ -> assert false
-      else
-        let name = uniq_name is_original pos in
-        let src = Property.Generated (Some pos, [sv], Property.Body) in
-        let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p
     in
     let (assumes, _, guarantees, _, props) = 
-      List.fold_left over_subrange_constraints
+      List.fold_left over_ref_type_constraints
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
-      gids.GI.subrange_constraints
+      gids.GI.refinement_type_constraints
     in
-    assumes, guarantees, props
-  (* ****************************************************************** *)
-  (* Generate Contract Constraints for Refinement Type Constraints      *)
-  (* ****************************************************************** *)
-  in let (assumes, guarantees, props) =
-  let create_constraint_name_pos (pos : position)=
-    Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
-  in
-  let uniq_name =
-    make_uniquifier
-      (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
-         gids.GI.refinement_type_constraints)
-  in
-  let create_constraint_name_pos pos =
-    uniq_name (create_constraint_name_pos pos)
-  in
-  let over_ref_type_constraints (a, ac, g, gc, p) (source, pos, id, rexpr, node_id_opt) =
-    let sv = H.find !map.state_var (mk_ident id) in
-    let constraint_kind, generated_source = match source with
-    | GI.Input -> Some N.Assumption, None
-    | Local -> None, Some Property.Body
-    | Output -> Some N.Guarantee, None
-    | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
-  in
-  let name = create_constraint_name_pos pos in
-  let replace_expr = match node_id_opt with
-  | Some nid -> find_type_ascription_expr nid
-  | None -> None
-  in
-
-  let rexpr = match replace_expr with
-    | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
-    | None -> rexpr
-    in
-    let srexpr = A.string_of_expr rexpr in
-    match constraint_kind, generated_source with
-      | Some N.Assumption, _ ->
-        let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in
-        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
-        (contract_sv :: a, ac + 1, g, gc, p)
-      | Some N.Guarantee, _ ->
-        let contract_sv = C.mk_svar pos gc (Some name) sv [] srexpr in
-        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
-        (a, ac, (contract_sv, false) :: g, gc + 1, p)
-      | None, Some gen_src ->
-        let src = Property.Generated (Some pos, [sv], gen_src) in
-        (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
-      | _ -> assert false
-  in
-  let (assumes, _, guarantees, _, props) = 
-    List.fold_left over_ref_type_constraints
-    (assumes, List.length assumes, guarantees, List.length guarantees, props)
-    gids.GI.refinement_type_constraints
-  in
-  (assumes, guarantees, props)
+    (assumes, guarantees, props)
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
@@ -3065,15 +2942,9 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
     List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
     let global_constraints =
       let ty = Ctx.expand_type_syn ctx ty in
-      let has_subrange = Ctx.type_contains_subrange ctx ty in
       let has_ref_type = Ctx.type_contains_ref ctx ty in
-      if has_subrange || has_ref_type then (
+      if has_ref_type then (
         let ctx = Ctx.add_ty ctx i ty in
-        let range_exprs =
-          if has_subrange then
-            AN.mk_range_expr ctx None ty (A.Ident (p, i)) |> List.map fst
-          else []
-        in
         let ref_type_exprs =
           if has_ref_type then
             AN.mk_ref_type_expr ctx None (A.Ident(p, i)) ty
@@ -3082,7 +2953,7 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
         List.map (fun expr ->
           let c_expr = compile_ast_expr cstate ctx [] map expr in
           X.max_binding c_expr |> snd
-        ) (range_exprs @ ref_type_exprs) @ cstate.global_constraints
+        ) ref_type_exprs @ cstate.global_constraints
       )
       else cstate.global_constraints
     in

@@ -154,7 +154,6 @@ and lustre_type =
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
@@ -718,16 +717,6 @@ and pp_print_lustre_type ppf = function
   | Int _ -> Format.fprintf ppf "int"
   | SBitVector (_, i) -> Format.fprintf ppf "sint<%d>" i
   | UBitVector (_, i) -> Format.fprintf ppf "uint<%d>" i
-  | IntRange (_, l, u) -> 
-    let pp_print_opt ppf expr_opt = (match expr_opt with
-      | Some expr -> pp_print_expr ppf expr
-      | None -> Format.fprintf ppf "%s" unbounded_limit_string
-    )
-    in
-    Format.fprintf ppf 
-      "subrange [%a,%a] of int" 
-      pp_print_opt l
-      pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
   | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s

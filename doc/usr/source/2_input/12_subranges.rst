@@ -10,7 +10,6 @@ inclusive. Bounds may also be symbolic constant expressions (see `Symbolic bound
 Subranges may be unbounded on one side, denoted by using a ``*`` in lieu of a concrete integer for either the upper 
 or lower bound (but not both). For example, ``subrange [0, *] of int`` denotes the type of streams of 
 nonnegative integers, while ``subrange [*, -1] of int`` denotes the type of streams of negative integers. 
-The type ``subrange [*, *] of int`` is not allowed; instead, one should just use the type ``int``.
 
 Subrange types can be viewed as particular instances of refinement types: 
 a subrange type on an input variable or free constant can be viewed as an assumption, 

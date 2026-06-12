@@ -39,7 +39,7 @@ fun ctx node_name fun_ids ty ->
   let r = desugar_type ctx node_name fun_ids in 
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
-  | IntRange _ | EnumType _ | AbstractType _ 
+  | EnumType _ | AbstractType _ 
   | UserType _ | History _ -> ty, [] 
   | Map (p, kt, vt) -> 
     let kt, gen_nodes1 = r kt in 
@@ -88,7 +88,7 @@ fun ctx node_name fun_ids expr ->
     let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
     let op_id = HString.mk_hstring Lib.StringValues.type_ascription_output_name in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
-    let mono = Chk.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
+    let mono = Chk.expand_type_syn_reftype_history ctx ty |> Result.get_ok in
     let op = pos, op_id, mono, A.ClockTrue in
     let eq = A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, op_id)]), A.Ident (pos, ip_id))) in
     (* The generated function might be polymorphic, so we find all the needed type variables *)

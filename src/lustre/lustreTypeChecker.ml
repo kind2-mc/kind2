@@ -521,13 +521,6 @@ let rec infer_const_attr ctx exp =
     | LA.Map (_, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
-    | LA.IntRange (_, e1_opt, e2_opt) -> (
-      match e1_opt, e2_opt with 
-      | None, None -> [R.ok ()]
-      | None, Some e 
-      | Some e, None -> r e 
-      | Some e1, Some e2 -> combine (r e1) (r e2)
-     )
     | LA.AbstractType _ | LA.EnumType _  
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
     | LA.UserType _ -> [R.ok ()]
@@ -858,24 +851,22 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
   | LA.Match (pos, e, arms, ty_opt) ->
-    let* e = call e in
-    let* arms = R.seq (List.map (fun (pat, arm_e) ->
-      let* arm_e = call arm_e in
-      R.ok (pat, arm_e)
-    ) arms) in
-    R.ok (LA.Match (pos, e, arms, ty_opt))
-  | LA.ADTTerm (pos, adt_ty_args, ctor, args) ->
-    let* adt_ty_args = R.seq (List.map (fun ty_arg ->
-      instantiate_type_variables ctx pos nname ty_arg ty_args
-    ) adt_ty_args) in
-    let* args = R.seq (List.map call args) in
-    R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
-
-let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = false) ctx ty =
-  let rec_call = expand_type_syn_reftype ~expand_subrange ~expand_history ctx in
+      let* e = call e in
+      let* arms = R.seq (List.map (fun (pat, arm_e) ->
+        let* arm_e = call arm_e in
+        R.ok (pat, arm_e)
+      ) arms) in
+      R.ok (LA.Match (pos, e, arms, ty_opt))
+    | LA.ADTTerm (pos, adt_ty_args, ctor, args) ->
+      let* adt_ty_args = R.seq (List.map (fun ty_arg ->
+        instantiate_type_variables ctx pos nname ty_arg ty_args
+      ) adt_ty_args) in
+      let* args = R.seq (List.map call args) in
+      R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
+      
+let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
+  let rec_call = expand_type_syn_reftype ~expand_history ctx in
   match ty with
-  | LA.IntRange (pos, _, _) ->
-    if expand_subrange then R.ok (LA.Int pos) else R.ok ty
   | LA.History (pos, i) -> if expand_history then (
     match lookup_ty ctx i with
     | None -> type_error pos (UnboundIdentifier i)
@@ -915,7 +906,7 @@ let rec expand_type_syn_reftype ?(expand_subrange = false) ?(expand_history = fa
   | ty -> R.ok ty
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types to their base types. 
-    Expands subranges and history types to their base types if the corresponding 
+    Expands history types to their base types if the corresponding 
     args are set to true.
 *)
 
@@ -923,11 +914,6 @@ let expand_type_syn_reftype_history ctx =
   expand_type_syn_reftype ~expand_history:true ctx
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types and history types to their base types. *)
-
-let expand_type_syn_reftype_history_subrange ctx =
-  expand_type_syn_reftype ~expand_subrange:true ~expand_history:true ctx
-(** Chases the type (and nested types) to its base form to resolve type synonyms. 
-    Also simplifies refinement types, history types, __and subrange types__ to their base types. *)
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -945,14 +931,14 @@ let union_keys key id1 id2 = match key, id1, id2 with
     a boolean. *)
 let rec unify_types pos ctx is_type_ascription ty1 ty2 = 
   let r = unify_types pos ctx is_type_ascription in
-  let* ty1 = expand_type_syn_reftype_history_subrange ctx ty1 in
-  let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
+  let* ty1 = expand_type_syn_reftype_history ctx ty1 in
+  let* ty2 = expand_type_syn_reftype_history ctx ty2 in
   match ty1, ty2 with 
   (* UserTypes denote __the callee's__ 
-     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
+     type parameters after calling `expand_type_syn_reftype_history` *)
   | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
   (* AbstractTypes denote __the caller's__ 
-     type parameters after calling `expand_type_syn_reftype_history_subrange` *)
+     type parameters after calling `expand_type_syn_reftype_history` *)
   | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
 
   (* Group types are weird... *)
@@ -1505,7 +1491,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let* adt_opt = match field_ty with
         | LA.ADT _ -> R.ok (Some field_ty)
         | _ -> 
-          let* ty = expand_type_syn_reftype_history_subrange ctx field_ty in 
+          let* ty = expand_type_syn_reftype_history ctx field_ty in 
           R.ok (Some ty)
       in 
       match pat with
@@ -1542,7 +1528,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* scrut_adt_opt = match scrut_ty with
       | LA.ADT _ -> R.ok (Some scrut_ty)
       | _ -> 
-        let* ty = expand_type_syn_reftype_history_subrange ctx scrut_ty in 
+        let* ty = expand_type_syn_reftype_history ctx scrut_ty in 
         R.ok (Some ty)
     in
     (match scrut_adt_opt with
@@ -1612,7 +1598,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
 
 and check_array_dimensions pos ctx base_e idxs =
   let ty = lookup_ty ctx base_e |> Option.get in
-  let* ty = expand_type_syn_reftype_history_subrange ctx ty in
+  let* ty = expand_type_syn_reftype_history ctx ty in
   let rec calc_number_of_array_dimensions ty = 
     match ty with 
     | LustreAst.ArrayType (_, (ty, _)) -> 
@@ -1744,7 +1730,7 @@ and desugar_generic_index ctx nname ue idx = match idx with
     (* `ue` is only used for type information and is processed/updated in `infer_type_expr` 
        (justification for ignoring expression output of `infer_type_expr` *)
     let* ty, _, _ = infer_type_expr ctx nname ue in 
-    let* ty = expand_type_syn_reftype_history_subrange ctx ty in (
+    let* ty = expand_type_syn_reftype_history ctx ty in (
     match ty with 
     | LA.TupleType _ 
     | LA.ArrayType _ -> Ok (LA.Index (pos, e2))
@@ -1784,10 +1770,8 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
   | LA.SBitVector (_, s1), SBitVector (_, s2)
   | LA.UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)
   | _ ->
-  let num1 = HString.mk_hstring "1" in
   let num_tys = [
       LA.Int pos
-    ; LA.IntRange (pos, Some (Const (pos, Num num1)), Some (Const (pos, Num num1))) 
     ; LA.Real pos] in
   let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> (bool, [> error]) result
     = fun ctx ty1 ty2 ty ->
@@ -1810,7 +1794,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
   | LA.In _ -> (
-    let* ty2 = expand_type_syn_reftype_history_subrange ctx ty2 in
+    let* ty2 = expand_type_syn_reftype_history ctx ty2 in
     match ty2 with
     | LA.Set (_, given_index_type) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
@@ -1835,8 +1819,8 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
   | LA.Times
   | LA.Plus -> 
     let* b1 = are_args_num ctx pos ty1 ty2 in 
-    let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in 
-    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty2 in 
+    let* ty1' = expand_type_syn_reftype_history ctx ty1 in 
+    let* ty2' = expand_type_syn_reftype_history ctx ty2 in 
     let* b2 = match ty1', ty2' with 
     | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4 
     | _ -> Ok false 
@@ -1845,8 +1829,8 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     then R.ok (ty2, e1, e2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
   | LA.Minus ->
-    let* ty1' = expand_type_syn_reftype_history_subrange ctx ty1 in
-    let* ty2' = expand_type_syn_reftype_history_subrange ctx ty2 in
+    let* ty1' = expand_type_syn_reftype_history ctx ty1 in
+    let* ty2' = expand_type_syn_reftype_history ctx ty2 in
     (match ty1', ty2' with
     | Set (_, ty3), Set (_, ty4) ->
       let* same_elem_ty = eq_lustre_type ctx ty3 ty4 in
@@ -2801,7 +2785,7 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
      this will be caught by `check_type_well_formed`, which recursively checks 
      the map key and value types for wellformedness. *)
   else R.ok () 
-| AbstractType _ | Bool _ | Int _ | IntRange _
+| AbstractType _ | Bool _ | Int _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
 | ADT _ -> type_error pos (UnsupportedMapType ty)
 
@@ -2949,42 +2933,6 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           | None, None -> 
             type_error pos (UndeclaredType i)
       )
-    (* Allow subranges with symbolic bounds; they will be desugared in lustreFlattenRefinementTypes *) 
-    | LA.IntRange (p, e1, e2) -> (
-      match e1, e2 with
-      | None, None -> type_error p IntervalMustHaveBound
-      | Some e, None -> (
-        let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-        let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
-        match inf_ty with 
-        | LA.Int _ -> R.ok (LA.IntRange (p, Some e, None), warnings)
-        | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
-      )
-      | None, Some e -> (
-        let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-        let* inf_ty = expand_type_syn_reftype_history_subrange ctx inf_ty in
-        match inf_ty with 
-        | LA.Int _ -> R.ok (LA.IntRange (p, None, Some e), warnings)
-        | _ -> type_error (LH.pos_of_expr e) (ExpectedIntegerExpression inf_ty)
-      )
-      | Some e1, Some e2 ->
-        let* inf_ty1, e1, warnings1 = infer_type_expr ctx nname e1 in 
-        let* inf_ty2, e2, warnings2 = infer_type_expr ctx nname e2 in 
-        let* inf_ty1 = expand_type_syn_reftype_history_subrange ctx inf_ty1 in
-        let* inf_ty2 = expand_type_syn_reftype_history_subrange ctx inf_ty2 in
-        match inf_ty1, inf_ty2 with 
-        | LA.Int _, Int _ -> (
-          match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with 
-          | Ok v1, Ok v2 -> 
-            if v1 > v2 then type_error p (EmptySubrange (v1, v2)) 
-            else Ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
-          | _ -> R.ok (LA.IntRange (p, Some e1, Some e2), warnings1 @ warnings2)
-        )
-        | LA.Int _, inf_ty -> 
-          type_error (LH.pos_of_expr e2) (ExpectedIntegerExpression inf_ty)
-        | inf_ty, _ -> 
-          type_error (LH.pos_of_expr e1) (ExpectedIntegerExpression inf_ty)
-      )
     | ADT (pos, new_ty_name, ctors) ->
       let* ctors, all_warnings = R.seq (List.map (fun (ctor, tys) ->
         let* _ = (match lookup_constructor ctx ctor with
@@ -3038,11 +2986,6 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | Real _, Real _ -> R.ok true
   | SBitVector (_, s1), SBitVector (_, s2) -> R.ok (s1 = s2)
   | UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)
-
-  (* Integer Range *)
-  | IntRange _, IntRange _ -> R.ok true
-  | IntRange _, Int _ -> R.ok true
-  | Int _, IntRange _ -> R.ok true
 
   (* Lustre V6 features *)
   | UserType (pos1, ty_args1, i1), UserType (pos2, ty_args2, i2) ->

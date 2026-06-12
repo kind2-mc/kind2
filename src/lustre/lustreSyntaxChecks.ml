@@ -458,7 +458,7 @@ let build_equation_ctx ctx tc_ctx = function
             (* Chase type aliases if we have proper type context *)
             let ty = match tc_ctx with 
             | Some tc_ctx -> 
-              LustreTypeChecker.expand_type_syn_reftype_history_subrange tc_ctx ty |> unwrap 
+              LustreTypeChecker.expand_type_syn_reftype_history tc_ctx ty |> unwrap 
             | None -> ty 
             in
             (match ty with
@@ -844,7 +844,7 @@ and check_ty_node_calls i ty =
     | ADT (_, _, cons) ->
       let tys = List.map snd cons |> List.flatten in
       Res.seq_ (List.map (check_ty_node_calls i) tys)
-    | Bool _ | Int _ | IntRange _ | Real _ | EnumType _
+    | Bool _ | Int _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
@@ -1142,7 +1142,7 @@ and check_ty ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
-| Int _ | Bool _ | SBitVector _ | UBitVector _ | IntRange _ 
+| Int _ | Bool _ | SBitVector _ | UBitVector _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
@@ -1472,15 +1472,6 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
       match Ctx.lookup_ty tc_ctx id with
       | Some ty' -> oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty'
       | None -> Ok [])
-  | LA.IntRange (_, lo, hi) ->
-    let check_part e_opt =
-      match e_opt with
-      | None -> Ok []
-      | Some e -> check_expr ctx ovq e
-    in
-    let* warnings1 = check_part lo in
-    let* warnings2 = check_part hi in
-    Ok (warnings1 @ warnings2)
   | LA.Int _ | LA.Bool _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
