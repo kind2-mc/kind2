@@ -1416,13 +1416,16 @@ let mk_graph_eqn: node_summary
 
       
   fun m -> function
+        (* An empty left-hand side denotes a call statement whose results are
+           discarded; it defines no variables and adds no dependencies. *)
+        | Equation (_, (LA.StructDef (_, [])), _) -> R.ok (empty_dependency_analysis_data)
         | Equation (pos, (LA.StructDef (_, lhss)), e) ->
-           (* We need to find the mapping of graphs from the 
-              lhs of the equation to the rhs of the equations 
-              such that the width of each of the lhs and rhs 
+           (* We need to find the mapping of graphs from the
+              lhs of the equation to the rhs of the equations
+              such that the width of each of the lhs and rhs
               especially if it is just an identifier.
             *)
-           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
+           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g ->
            (Debug.parse "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)

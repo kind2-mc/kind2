@@ -2062,6 +2062,11 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
 
 and check_type_struct_def: tc_context -> NI.t -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [> warning] list, [> error]) result
   = fun ctx nname (StructDef (pos, lhss)) exp_ty ->
+  (* An empty left-hand side denotes a call statement whose results are
+     discarded (e.g. 'double(n-1);'). The right-hand side has already been
+     type checked, so there is nothing more to verify here. *)
+  if lhss = [] then R.ok (LA.StructDef (pos, []), [])
+  else
   (* This is a structured type, and we would want the expected type exp_ty to be a tuple type *)
   (Debug.parse "Checking if structure definition: %a has type %a \nwith local context %a"
     (Lib.pp_print_list LA.pp_print_struct_item ",") lhss

@@ -39,6 +39,7 @@ module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
+module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
 module LGN = LustreGenNodes 
@@ -191,6 +192,10 @@ let type_check declarations =
         )
       else Res.ok (sorted_node_contract_decls, global_ctx, NodeId.Map.empty)
     in
+
+    (* Step 9b. Introduce a fresh local variable for the result of each call
+       statement (an equation with an empty left-hand side) *)
+    let* sorted_node_contract_decls = LNC.name_calls global_ctx sorted_node_contract_decls in
 
     (* Step 10. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx gids sorted_node_contract_decls in

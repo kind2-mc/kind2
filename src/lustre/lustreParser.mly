@@ -892,10 +892,12 @@ node_equation:
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
+  (* A call statement whose results are discarded. The left-hand side is left
+     empty here; a fresh local variable for each returned value is introduced
+     later in the pipeline (see LustreNameCalls), once types are available. *)
   | nc = node_call SEMICOLON {
     let pos = mk_pos $startpos in
-    let lhs_id = HString.mk_hstring "_" in
-    let lhs = A.StructDef (pos, [A.SingleIdent (pos, lhs_id)]) in
+    let lhs = A.StructDef (pos, []) in
     A.Equation (pos, lhs, nc)
   }
 

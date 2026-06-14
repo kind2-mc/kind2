@@ -91,14 +91,12 @@ let get_lhs_var lhs = match lhs with
   | A.StructDef (pos, [ArrayDef (_, i, _)]) -> (i, pos)
   | _ -> assert false
 
-(** The wildcard identifier '_' used as the LHS of a call whose result is
-    not bound to a user variable (e.g. a lemma call like 'double(n-1);').
-    Such internal variables are not required to be defined in every branch. *)
-let internal_lhs_var = HString.mk_hstring "_"
-
-let is_internal_lhs lhs =
+(** Fresh local variables introduced to capture the discarded results of a call
+    statement (e.g. a lemma call like 'double(n-1);', see lustreNameCalls.ml)
+    are not required to be defined in every branch. *)
+let is_discarded_lhs lhs =
   let (var, _) = get_lhs_var lhs in
-  HString.equal var internal_lhs_var
+  GI.var_is_discarded_output var
 
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle pos expr_type =
@@ -421,7 +419,7 @@ let extract_equations_from_if node_id ctx ib in_frame_block =
     else
       let lhss = List.map fst lhss_poss in
       R.seq_ (List.map2 (fun lhs tree ->
-        if has_leaf_none tree && not (is_internal_lhs lhs) then
+        if has_leaf_none tree && not (is_discarded_lhs lhs) then
           let (var, pos) = get_lhs_var lhs in
           mk_error pos (MissingDefinitionInBranchError var)
         else R.ok ()
@@ -458,7 +456,7 @@ let extract_equations_from_when node_id ctx wb =
   let* () =
     let lhss = List.map fst lhss_poss in
     R.seq_ (List.map2 (fun lhs tree ->
-      if has_leaf_none tree && not (is_internal_lhs lhs) then
+      if has_leaf_none tree && not (is_discarded_lhs lhs) then
         let (var, pos) = get_lhs_var lhs in
         mk_error pos (MissingDefinitionInBranchError var)
       else R.ok ()
