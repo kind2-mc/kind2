@@ -1152,29 +1152,40 @@ let rec fold_node_calls_with_trans_sys'
         TransSys.get_subsystem_instances trans_sys 
       in
 
-      let tl' = 
-        List.fold_left 
+      let tl' =
+        List.fold_left
           (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
 
-             (* Find called node by name *)
-             let node' = node_of_node_id call_node_id nodes in
+             (* Find subsystem of this node by name, and the instance of this
+                node call by position.
 
-             (* Find subsystem of this node by name *)
-             let trans_sys', instances' =
-               List.find 
-                 (fun (t, _) -> 
+                The subsystem (or the instance) may be missing when the call
+                was abstracted away rather than concretely encoded, as happens
+                for the (mutually) recursive call of a recursive function. In
+                that case there is no concrete model to reconstruct a path
+                for, so we skip the call. *)
+             let subsystem =
+               List.find_opt
+                 (fun (t, _) ->
                     Scope.equal
                       ([TransSys.scope_of_trans_sys t |> List.rev |> List.hd])
                       (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
                  subsystems
+               |> (function
+                 | None -> None
+                 | Some (trans_sys', instances') ->
+                   List.find_opt
+                     (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
+                     instances'
+                   |> Option.map (fun instance -> (trans_sys', instance)))
              in
 
-             (* Find instance of this node call by position *)
-             let instance = 
-               List.find 
-                 (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
-                 instances'
-             in
+             match subsystem with
+             | None -> a
+             | Some (trans_sys', instance) ->
+
+             (* Find called node by name *)
+             let node' = node_of_node_id call_node_id nodes in
 
              (* Only keep call conditions that effectively sample the node
                 call, i.e. not the ones where default initial values are
@@ -1185,7 +1196,7 @@ let rec fold_node_calls_with_trans_sys'
                  List.filter (function CActivate _ -> false | _ -> true)
                    call_cond
              in
-             
+
              FDown (node', trans_sys',
                     (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)
