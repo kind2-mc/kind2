@@ -78,6 +78,7 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
+  | MissingDecreasesClause of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -147,6 +148,9 @@ let error_message kind = match kind with
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | MissingDecreasesClause id -> "Recursive function '"
+    ^ HString.string_of_hstring id
+    ^ "' must include a decreases clause in its contract"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -906,6 +910,22 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
     let* warnings1 =  (common_contract_checks ctx e) in
     let* warnings2 = (no_temporal_operator "function contracts" e) in 
     Ok (warnings1 @ warnings2)
+  in
+  let* () =
+    if is_rec.LA.is_rec then
+      let has_decreases_clause =
+        match contract with
+        | Some (_, items) ->
+          List.exists (function LA.Decreases _ -> true | _ -> false) items
+        | None -> false
+      in
+      if not has_decreases_clause then
+        syntax_error span.start_pos
+          (MissingDecreasesClause (NI.get_user_name node_id))
+      else
+        Ok ()
+    else
+      Ok ()
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
