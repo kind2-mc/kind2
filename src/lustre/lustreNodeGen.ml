@@ -2164,13 +2164,9 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
         if is_function && is_rec && NI.equal node_id this_node_id then
           match node_decreases with
           | Some decreases ->
-            let resolve_arg arg =
-              List.fold_left
-                (fun acc (name, _, _, def) ->
-                  LustreAstHelpers.substitute_naive name def acc)
-                arg gids.GI.node_args
+            let resolved_args =
+              List.map (resolve_call_abstractions gids) args
             in
-            let resolved_args = List.map resolve_arg args in
             { node_call with
               N.call_rec_decrease_expr =
                 mk_rec_decrease_expr pos formal_param_idents resolved_args decreases }
@@ -3014,6 +3010,36 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
+
+(* Inline the abstractions introduced by normalization back to their
+   source-level expressions, so that recovered expressions are written in terms
+   of the original program. Both abstracted call arguments ([gids.node_args])
+   and abstracted call results ([gids.calls], rendered as the corresponding
+   call) are inlined, iterating to a fixpoint so that nested calls are resolved
+   too. *)
+and resolve_call_abstractions gids expr =
+  let arg_defs =
+    List.map (fun (name, _, _, def) -> (name, def)) gids.GI.node_args
+  in
+  let call_defs =
+    List.map
+      (fun (pos, var, _, _, _, node_id, args, _, _) ->
+        (var, A.Call (pos, [], node_id, args)))
+      gids.GI.calls
+  in
+  let defs = arg_defs @ call_defs in
+  let step e =
+    List.fold_left
+      (fun acc (name, def) -> LustreAstHelpers.substitute_naive name def acc)
+      e defs
+  in
+  let rec fixpoint e fuel =
+    if fuel <= 0 then e
+    else
+      let e' = step e in
+      if A.string_of_expr e' = A.string_of_expr e then e else fixpoint e' (fuel - 1)
+  in
+  fixpoint expr (List.length defs + 1)
 
 (* Build the source-level decrease constraint of a recursive call, i.e.
    "decreases[formal_params := actual_args] < decreases". Formal parameters are
