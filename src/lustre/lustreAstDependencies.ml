@@ -1277,8 +1277,38 @@ let sort_declarations: bool -> LA.t -> ((LA.t * LA.ident list * int IMap.t), [> 
     try String.equal (HString.sub node_name 0 9) "contract "
     with _ -> false
   in
-  let toplevel_nodes = ad.graph_data |> G.non_target_vertices
-    |> G.to_vertex_list
+  (* A node is a top-level (analysis target) node when nothing else in the
+     model depends on it. We cannot simply use [G.non_target_vertices] (nodes
+     with no incoming edge), because a recursive function depends on itself and
+     mutually-recursive functions depend on each other, giving them incoming
+     edges. To make recursive functions top-level nodes just like non-recursive
+     ones, we ignore dependency edges internal to a strongly connected
+     component, i.e., a node is top-level if it has no incoming edge from a node
+     in a different SCC. For a graph without recursion every SCC is a singleton,
+     so this coincides with [G.non_target_vertices]. *)
+  let toplevel_nodes =
+    let g = ad.graph_data in
+    let scc_id_of_vertex =
+      List.fold_left
+        (fun (i, m) scc ->
+          (i + 1,
+           G.to_vertex_list scc
+           |> List.fold_left (fun m v -> G.VMap.add v i m) m))
+        (0, G.VMap.empty) (G.get_sccs g)
+      |> snd
+    in
+    let externally_targeted =
+      G.to_edge_list (G.get_edges g)
+      |> List.fold_left
+           (fun acc (src, tgt) ->
+             if G.VMap.find_opt src scc_id_of_vertex
+                <> G.VMap.find_opt tgt scc_id_of_vertex
+             then G.VMap.add tgt () acc
+             else acc)
+           G.VMap.empty
+    in
+    G.get_vertices g |> G.to_vertex_list
+    |> List.filter (fun v -> not (G.VMap.mem v externally_targeted))
     |> List.filter (fun s -> not (is_contract_node s))
   in
   Debug.parse "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
