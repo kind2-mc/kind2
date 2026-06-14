@@ -44,6 +44,7 @@ let valid_items set items =
     | A.Body (Equation (_, _, _))
     | Body (Assert _)
     | AnnotMain _ -> false
+    | Auto _ -> true (* no-op, removed earlier in pipeline *)
     | FrameBlock _
     | IfBlock _
     | WhenBlock _ -> assert false (* desugared earlier in pipeline *)

@@ -116,7 +116,8 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   let nis = List.map (ni_constants_to_calls new_func_ids) nis in 
   A.FrameBlock (p, vars, eqs, nis)
 | A.AnnotMain _ -> ni
-| A.AnnotProperty (p, id, e, k) -> 
+| A.Auto _ -> ni
+| A.AnnotProperty (p, id, e, k) ->
   A.AnnotProperty (p, id, AH.constants_to_calls new_func_ids e, k)
 
 let node_decl_constants_to_calls new_func_ids (ni, imp, opac, ps, ips, ops, locals, nis, c) = 

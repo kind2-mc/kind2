@@ -173,6 +173,7 @@ let mk_span start_pos end_pos =
 %token WHEN
 %token COND
 %token OTHERWISE
+%token AUTO
 %token END
 %token FRAME
 
@@ -799,6 +800,7 @@ node_item:
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
+  | AUTO; SEMICOLON { A.Auto (mk_pos $startpos) }
 
 
 elsif_list:

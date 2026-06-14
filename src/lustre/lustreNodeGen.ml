@@ -2169,8 +2169,9 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
-      | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main) 
-      | A.IfBlock _ 
+      | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main)
+      | A.Auto _ -> (props, eqs, asserts, is_main) (* no-op, removed earlier in pipeline *)
+      | A.IfBlock _
       | A.WhenBlock _
       | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline

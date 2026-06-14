@@ -886,6 +886,7 @@ let rec node_item_has_pre_or_arrow = function
     | Some pos -> Some pos
     | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
+| Auto _ -> None
 | AnnotProperty (_, _, e, _) -> has_pre_or_arrow e
 and
 

@@ -44,7 +44,8 @@ let instantiate_type_variables_ni
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in 
   AnnotProperty (pos, name, expr, k)
 | AnnotMain _ -> ni
-| IfBlock _ 
+| Auto _ -> ni
+| IfBlock _
 | WhenBlock _
 | FrameBlock _ -> assert false
 
@@ -556,6 +557,7 @@ and gen_poly_decls_ni
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, AnnotProperty (p, n, expr, k), decls, node_decls_map
   | AnnotMain _ -> ctx, gids, ni, [], node_decls_map
+  | Auto _ -> ctx, gids, ni, [], node_decls_map
 
 and gen_poly_decls_op
 = fun ctx gids node_id node_decls_map (p, id, ty, cl) -> 

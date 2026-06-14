@@ -361,9 +361,10 @@ fun ctx node_name fun_ids ni ->
     let nis, gen_nodes2 = List.map rec_call nis |> List.split in
     FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
   | Body (Assert (pos, e)) ->
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in 
+    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
     Body (Assert (pos, e)), gen_nodes
   | AnnotMain _ -> ni, []
+  | Auto _ -> ni, []
     
 
 let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list = 

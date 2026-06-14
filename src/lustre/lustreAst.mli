@@ -254,9 +254,10 @@ type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   | WhenBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
+  | Auto of position (** No-op item, only allowed in the body of a lemma *)
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl

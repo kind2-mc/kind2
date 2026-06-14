@@ -1993,6 +1993,9 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok (ann, [])
+  | LA.Auto _ as ann ->
+    Debug.parse "Node Item Skipped (Auto): %a" LA.pp_print_node_item ann
+    ; R.ok (ann, [])
   | LA.AnnotProperty (p, id, e1, Provided e2) as ann ->
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e1

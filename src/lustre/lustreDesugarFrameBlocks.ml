@@ -379,6 +379,7 @@ match ni with
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
+  | A.Auto pos
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
 
 

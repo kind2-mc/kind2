@@ -514,6 +514,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
     -> (AnnotMain (pos, b)) :: inline_constants_of_node_items ctx items
+  | (Auto pos) :: items
+    -> (Auto pos) :: inline_constants_of_node_items ctx items
 
 let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation list -> LA.contract_node_equation list =
   fun ctx ->

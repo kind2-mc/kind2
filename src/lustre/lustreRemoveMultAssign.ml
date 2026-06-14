@@ -146,9 +146,10 @@ let remove_mult_assign_from_ni ctx ni =
       (* Don't need to alter these node items as they are not allowed in if
          and frame blocks. If they are present anyway, it will be caught in
          lustreDesugarIfBlocks.ml *)
-      | A.Body (Assert _) 
+      | A.Body (Assert _)
       | A.AnnotProperty _
-      | A.AnnotMain _ -> [ni], []
+      | A.AnnotMain _
+      | A.Auto _ -> [ni], []
   ) in
   let (nis, gids) = helper ctx ni in
   let gids = List.fold_left GI.union (GI.empty ()) gids in

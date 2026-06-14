@@ -357,7 +357,7 @@ let get_inline_func_expr inlinable_funcs name args =
       )
       | IfBlock _ | WhenBlock _ | FrameBlock _ ->
         assert false (* desugared earlier in pipeline *)
-      | Body (Assert _) | AnnotMain _ | AnnotProperty _ ->
+      | Body (Assert _) | AnnotMain _ | AnnotProperty _ | Auto _ ->
         assert false (* rejected earlier in pipeline *)
       | A.Body (Equation (_, StructDef (_, _), _)) ->
         assert false (* rejected earlier in pipeline, should we support it? *)
@@ -1342,9 +1342,10 @@ and normalize_item info node_id map = function
     let nequation, gids, warnings = normalize_equation info node_id map equation in
     [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
-  | IfBlock _ 
+  | IfBlock _
   | WhenBlock _
-  | FrameBlock _ -> 
+  | FrameBlock _
+  | Auto _ ->
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
   | AnnotProperty (pos, name, expr, k) ->

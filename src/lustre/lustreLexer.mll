@@ -301,6 +301,7 @@ let keyword_table = mk_hashtbl [
   "when", WHEN ; (* Also clock operator *)
   "cond", COND ;
   "otherwise", OTHERWISE;
+  "auto", AUTO ;
   "end", END ;
   "frame", FRAME ;
 

@@ -91,6 +91,15 @@ let get_lhs_var lhs = match lhs with
   | A.StructDef (pos, [ArrayDef (_, i, _)]) -> (i, pos)
   | _ -> assert false
 
+(** The wildcard identifier '_' used as the LHS of a call whose result is
+    not bound to a user variable (e.g. a lemma call like 'double(n-1);').
+    Such internal variables are not required to be defined in every branch. *)
+let internal_lhs_var = HString.mk_hstring "_"
+
+let is_internal_lhs lhs =
+  let (var, _) = get_lhs_var lhs in
+  HString.equal var internal_lhs_var
+
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle pos expr_type =
   i := !i + 1;
@@ -191,17 +200,19 @@ let if_block_to_trees ib =
             trees 
           in
           (helper (A.IfBlock (pos, cond, nis, nis')) trees conds)
-          (* Recurse, keeping track of our location within the if blocks using the 
+          (* A no-op item contributes no equations to any tree. *)
+          | A.Auto _ -> (helper (A.IfBlock (pos, cond, nis, nis')) trees conds)
+          (* Recurse, keeping track of our location within the if blocks using the
              'conds' list. *)
-          | A.IfBlock _ -> 
+          | A.IfBlock _ ->
             let* res = (helper ni trees (conds @ [(true, cond)])) in
             (helper (A.IfBlock (pos, cond, nis, nis'))
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
-          | A.Body (Assert (pos, _)) 
+          | A.Body (Assert (pos, _))
           | A.FrameBlock (pos, _, _, _)
-          | A.AnnotProperty (pos, _, _, _) 
+          | A.AnnotProperty (pos, _, _, _)
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
@@ -217,16 +228,18 @@ let if_block_to_trees ib =
               trees 
             in
             (helper (A.IfBlock (pos, cond, [], nis)) trees conds)
-          (* Recurse, keeping track of our location within the if blocks using the 
+          (* A no-op item contributes no equations to any tree. *)
+          | A.Auto _ -> (helper (A.IfBlock (pos, cond, [], nis)) trees conds)
+          (* Recurse, keeping track of our location within the if blocks using the
              'conds' list. *)
-          | A.IfBlock _ -> 
+          | A.IfBlock _ ->
             let* res = (helper ni trees (conds @ [(false, cond)])) in
             (helper (A.IfBlock (pos, cond, [], nis))
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
           | A.FrameBlock (pos, _, _, _)
-          | A.Body (Assert (pos, _)) 
+          | A.Body (Assert (pos, _))
           | A.AnnotProperty (pos, _, _, _)
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
@@ -253,6 +266,8 @@ let when_block_to_trees wb =
             trees
           in
           (helper (A.WhenBlock (pos, cond, nis, nis')) trees conds)
+          (* A no-op item contributes no equations to any tree. *)
+          | A.Auto _ -> (helper (A.WhenBlock (pos, cond, nis, nis')) trees conds)
           | A.WhenBlock _ ->
             let* res = (helper ni trees (conds @ [(true, cond)])) in
             (helper (A.WhenBlock (pos, cond, nis, nis'))
@@ -275,6 +290,8 @@ let when_block_to_trees wb =
               trees
             in
             (helper (A.WhenBlock (pos, cond, [], nis)) trees conds)
+          (* A no-op item contributes no equations to any tree. *)
+          | A.Auto _ -> (helper (A.WhenBlock (pos, cond, [], nis)) trees conds)
           | A.WhenBlock _ ->
             let* res = (helper ni trees (conds @ [(false, cond)])) in
             (helper (A.WhenBlock (pos, cond, [], nis))
@@ -404,7 +421,7 @@ let extract_equations_from_if node_id ctx ib in_frame_block =
     else
       let lhss = List.map fst lhss_poss in
       R.seq_ (List.map2 (fun lhs tree ->
-        if has_leaf_none tree then
+        if has_leaf_none tree && not (is_internal_lhs lhs) then
           let (var, pos) = get_lhs_var lhs in
           mk_error pos (MissingDefinitionInBranchError var)
         else R.ok ()
@@ -441,7 +458,7 @@ let extract_equations_from_when node_id ctx wb =
   let* () =
     let lhss = List.map fst lhss_poss in
     R.seq_ (List.map2 (fun lhs tree ->
-      if has_leaf_none tree then
+      if has_leaf_none tree && not (is_internal_lhs lhs) then
         let (var, pos) = get_lhs_var lhs in
         mk_error pos (MissingDefinitionInBranchError var)
       else R.ok ()
@@ -470,10 +487,12 @@ let extract_equations_from_when node_id ctx wb =
 let rec desugar_node_item node_id ctx in_frame_block ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if node_id ctx ib in_frame_block
   | A.WhenBlock _ as wb -> extract_equations_from_when node_id ctx wb
-  | A.FrameBlock (pos, vars, nes, nis) -> 
+  | A.FrameBlock (pos, vars, nes, nis) ->
     let* res = R.seq (List.map (desugar_node_item node_id ctx true) nis) in
     let decls, nis, gids = split_and_flatten3 res in
     R.ok (decls, [A.FrameBlock(pos, vars, nes, nis)], gids)
+  (* A no-op item is dropped. *)
+  | A.Auto _ -> R.ok ([], [], [GI.empty ()])
   | _ -> R.ok ([], [ni], [GI.empty ()])
 
 
