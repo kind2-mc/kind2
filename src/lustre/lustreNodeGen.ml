@@ -1521,6 +1521,7 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     N.call_outputs = outputs;
     N.call_defaults = defaults;
     N.call_inlined = inlined;
+    N.call_rec_decrease_expr = None;
   }
   in node_call
 
@@ -1801,8 +1802,16 @@ and compile_node_io cstate ctx node_id params inputs outputs =
   { cstate with
     node_io = NI.Map.add node_id (inputs, outputs, !map) cstate.node_io }
 
-and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_id ext params locals items contract =
+and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_id ext params node_inputs locals items contract =
   let gids = NI.Map.find node_id gids_map in
+  let this_node_id = node_id in
+  (* Source-level names of the value input parameters and the source decreases
+     measure, used to render the decrease constraint of recursive calls in terms
+     of the source program. *)
+  let formal_param_idents =
+    List.map (fun ip -> LustreAstHelpers.extract_ip_ty ip |> fst) node_inputs
+  in
+  let node_decreases = get_decreases_expr contract in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
@@ -2147,7 +2156,28 @@ and compile_node_decl scc_map gids_map is_function is_rec opac cstate ctx node_i
       let node_call = compile_node_call
         node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined
       in
-      let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
+      (* For a recursive (self-)call, render the source-level decrease
+         constraint so the corresponding decrease_check property displays it.
+         Call arguments have been abstracted to locals during normalization, so
+         inline those locals back to their defining expressions first. *)
+      let node_call =
+        if is_function && is_rec && NI.equal node_id this_node_id then
+          match node_decreases with
+          | Some decreases ->
+            let resolve_arg arg =
+              List.fold_left
+                (fun acc (name, _, _, def) ->
+                  LustreAstHelpers.substitute_naive name def acc)
+                arg gids.GI.node_args
+            in
+            let resolved_args = List.map resolve_arg args in
+            { node_call with
+              N.call_rec_decrease_expr =
+                mk_rec_decrease_expr pos formal_param_idents resolved_args decreases }
+          | None -> node_call
+        else node_call
+      in
+      let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in
       node_call :: calls, glocals' @ glocals
     in
     List.fold_left over_calls ([], glocals) gids.calls
@@ -2984,7 +3014,32 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
-  
+
+(* Build the source-level decrease constraint of a recursive call, i.e.
+   "decreases[formal_params := actual_args] < decreases". Formal parameters are
+   substituted simultaneously (via fresh placeholders) to avoid variable
+   capture when an argument mentions another parameter. Returns [None] when the
+   number of arguments does not match the number of formal parameters. *)
+and mk_rec_decrease_expr pos formal_params args decreases_expr =
+  if List.length formal_params <> List.length args then None
+  else
+    let placeholders =
+      List.mapi
+        (fun i _ -> HString.mk_hstring (Format.sprintf ".rec_arg_%d" i))
+        formal_params
+    in
+    let to_placeholders =
+      List.fold_left2
+        (fun acc p ph -> LustreAstHelpers.substitute_naive p (A.Ident (pos, ph)) acc)
+        decreases_expr formal_params placeholders
+    in
+    let substituted =
+      List.fold_left2
+        (fun acc ph arg -> LustreAstHelpers.substitute_naive ph arg acc)
+        to_placeholders placeholders args
+    in
+    Some (A.string_of_expr (A.CompOp (pos, A.Lt, substituted, decreases_expr)))
+
 and compile_declaration_phase2:
   compiler_state -> GI.t NI.Map.t -> Ctx.tc_context -> int StringMap.t -> A.declaration -> compiler_state
 = fun cstate gids ctx scc_map decl ->
@@ -2992,12 +3047,12 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec }) -> (
-    let cstate = compile_node_decl scc_map gids true is_rec opac cstate ctx i ext params locals items contract in
+  | A.FuncDecl (_, (i, ext, opac, params, inputs, _, locals, items, contract), { is_rec }) -> (
+    let cstate = compile_node_decl scc_map gids true is_rec opac cstate ctx i ext params inputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
-  | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
-    let cstate = compile_node_decl scc_map gids false false opac cstate ctx i ext params locals items contract in
+  | A.NodeDecl (_, (i, ext, opac, params, inputs, _, locals, items, contract)) ->
+    let cstate = compile_node_decl scc_map gids false false opac cstate ctx i ext params inputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
   this is necessary because each unique call to a contract node must be 

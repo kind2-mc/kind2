@@ -131,6 +131,12 @@ type node_call = {
 
   (* Whether this call was inlined or not *)
   call_inlined : bool;
+
+  (* Source-level rendering of the decrease constraint generated for a
+     recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
+     the corresponding decrease_check property. [None] for non-recursive calls
+     or when the source expression could not be reconstructed. *)
+  call_rec_decrease_expr : string option;
 }
 
 

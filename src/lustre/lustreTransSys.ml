@@ -411,6 +411,9 @@ let bounded_check call_pos caller_rf =
     in
     Term.mk_leq [Term.mk_num Numeral.zero; caller_rf_term]
   in
+  let prop_expr =
+    Format.asprintf "(0 <= %a)" (E.pp_print_expr false) caller_rf
+  in
   let prop_status = P.PropUnknown in
   let prop_source = P.TerminationCheck call_pos in
   { P.prop_name ;
@@ -418,24 +421,34 @@ let bounded_check call_pos caller_rf =
     P.prop_term ;
     P.prop_status ;
     P.prop_kind = Invariant;
-    P.prop_expr = None
+    P.prop_expr = Some prop_expr
   }
 
-let decrease_check call_pos svar_map caller_rf callee_rf =
+let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
   let prop_name =
     Format.asprintf "decrease_check%a" pp_print_line_and_column call_pos
   in
+  let callee_rf_term =
+    E.base_term_of_expr TransSys.prop_base callee_rf |> lift_term svar_map
+  in
   let prop_term =
-    let callee_rf_term =
-      E.base_term_of_expr TransSys.prop_base callee_rf
-    in
     let caller_rf_term =
       E.base_term_of_expr TransSys.prop_base caller_rf
     in
     Term.mk_lt [
-      callee_rf_term |> lift_term svar_map; 
+      callee_rf_term;
       caller_rf_term
     ]
+  in
+  (* Prefer the source-level rendering reconstructed during node generation
+     (e.g. "n - 1 < n"); fall back to the normalized term otherwise. *)
+  let prop_expr =
+    match src_expr with
+    | Some e -> e
+    | None ->
+      Format.asprintf "%a < %a"
+        (E.pp_print_term_as_expr false) callee_rf_term
+        (E.pp_print_expr false) caller_rf
   in
   let prop_status = P.PropUnknown in
   let prop_source = P.TerminationCheck call_pos in
@@ -444,14 +457,14 @@ let decrease_check call_pos svar_map caller_rf callee_rf =
     P.prop_term ;
     P.prop_status ;
     P.prop_kind = Invariant;
-    P.prop_expr = None
+    P.prop_expr = Some prop_expr
   }
 
-(* The termination checks of a contract as properties. *) 
+(* The termination checks of a contract as properties. *)
 
-let termination_checks call_pos svar_map caller_rf callee_rf =
+let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
   [bounded_check call_pos caller_rf;
-   decrease_check call_pos svar_map caller_rf callee_rf]
+   decrease_check call_pos svar_map src_expr caller_rf callee_rf]
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
@@ -742,7 +755,8 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       N.call_context   ;
       N.call_inputs    ;
       N.call_oracles   ;
-      N.call_outputs   ;}
+      N.call_outputs   ;
+      N.call_rec_decrease_expr ;}
     node_locals
     node_props
     node_hist_svars
@@ -942,7 +956,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     | N.Function { rec_info = Some (caller_id, caller_rf) },
       N.Function { rec_info = Some (callee_id, callee_rf) } when caller_id = callee_id -> (
       termination_checks
-        call_pos state_var_map_up caller_rf callee_rf
+        call_pos state_var_map_up call_rec_decrease_expr caller_rf callee_rf
       |> List.map (add_call_context_to_prop call_context)
     )
     | _ -> []
