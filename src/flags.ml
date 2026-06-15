@@ -3107,8 +3107,21 @@ module Global = struct
     )
 
   let real_precision () = !real_precision
+  let default_arr_elements_printed = 5
+  let arr_elements_printed = ref default_arr_elements_printed
+  
+  (* Array printing *)
+  let _ = add_spec
+    "--max_array_elements_printed"
+    (Arg.Int (fun n -> arr_elements_printed := n))
+    (fun fmt ->
+      Format.fprintf fmt
+        "Specifices number of elements to print when printing array-like types in pretty-print output.@ \
+        Default: %d"
+        default_arr_elements_printed
+    )
 
-
+  let arr_elements_printed () = !arr_elements_printed
   (* Log invariants. *)
   let log_invs_default = false
   let log_invs = ref log_invs_default
@@ -3731,6 +3744,7 @@ type slice_nodes = Global.slice_nodes
 
 let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
+let arr_elements_printed = Global.arr_elements_printed
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let print_cex = Global.print_cex

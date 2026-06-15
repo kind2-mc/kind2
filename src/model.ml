@@ -145,8 +145,9 @@ let pp_print_map_as_array as_type ppf m =
     let first = ref true in
     let num_printed = ref 0 in
     let over_printed = ref false in
+    let max_printed = Flags.arr_elements_printed () in
     MIL.iter (fun l v ->
-        if !num_printed >= 5 then over_printed := true else (
+        if !num_printed >= max_printed then over_printed := true else (
         Array.blit current 0 prev 0 dim;
         Array.blit (Array.of_list l) 0 current 0 dim;
         let cpt = ref 0 in

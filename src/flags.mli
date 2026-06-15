@@ -165,6 +165,8 @@ val include_dirs : unit -> string list
 type real_precision = [`Rational | `Float]
 val real_precision : unit -> real_precision
 
+val arr_elements_printed : unit -> int
+
 (** Minimizes and logs invariants as contracts. *)
 val log_invs : unit -> bool
 
