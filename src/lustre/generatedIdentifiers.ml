@@ -121,13 +121,17 @@ let var_is_iboracle var =
    abstract calls appearing inside larger expressions. *)
 let discarded_output = "discard"
 
-(* Checks if a variable name corresponds to a discarded call-statement result *)
+(* Checks if a variable name corresponds to a discarded call-statement result.
+
+   At the AST level the fresh variables are named with [discarded_output] as a
+   suffix (e.g. '1_discard'), but [LustreNodeGen.mk_ident] turns a leading
+   numeric segment into a trailing index, so the corresponding state variable is
+   named with [discarded_output] as a prefix instead (e.g. 'discard_1'). We
+   therefore look for [discarded_output] as a '_'-separated segment, which
+   matches both forms. *)
 let var_is_discarded_output var =
-  let
-    var = String.split_on_char '_' (HString.string_of_hstring var) |>
-    List.rev |> List.hd
-  in
-  (var = discarded_output)
+  String.split_on_char '_' (HString.string_of_hstring var)
+  |> List.mem discarded_output
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None

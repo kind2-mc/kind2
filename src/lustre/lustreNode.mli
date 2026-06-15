@@ -154,6 +154,7 @@ type equation = equation_lhs * LustreExpr.t
 type func_info = {
   uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
   rec_info: (int * LustreExpr.expr) option;
+  is_lemma: bool;
 }
 
 type type_of_component =

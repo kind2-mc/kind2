@@ -1821,7 +1821,7 @@ and compile_node_io cstate ctx node_id params inputs outputs =
   { cstate with
     node_io = NI.Map.add node_id (inputs, outputs, !map) cstate.node_io }
 
-and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec opac cstate ctx node_id ext params locals items contract =
+and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_lemma opac cstate ctx node_id ext params locals items contract =
   let gids = NI.Map.find node_id gids_map in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
@@ -1884,9 +1884,10 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec opac
         else
           None
       in
-      N.Function { 
+      N.Function {
         uf_symbols = create_uf_symbols node_id inputs outputs;
-        rec_info
+        rec_info;
+        is_lemma
       }
     else
       N.Node
@@ -3100,12 +3101,12 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec }) -> (
-    let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec opac cstate ctx i ext params locals items contract in
+  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec; is_lemma }) -> (
+    let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec is_lemma opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
   | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
-    let cstate = compile_node_decl scc_map gids rec_decreases_map false false opac cstate ctx i ext params locals items contract in
+    let cstate = compile_node_decl scc_map gids rec_decreases_map false false false opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
   this is necessary because each unique call to a contract node must be 

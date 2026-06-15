@@ -152,6 +152,7 @@ type contract = C.t
 type func_info = {
   uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
   rec_info: (int * E.expr) option;
+  is_lemma: bool;
 }
 
 type type_of_component =

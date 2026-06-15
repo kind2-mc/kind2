@@ -22,6 +22,7 @@ module E = LustreExpr
 module Contract = LustreContract
 module N = LustreNode
 module NI = NodeId
+module GI = GeneratedIdentifiers
 
 module A = Analysis
 module S = SubSystem
@@ -708,6 +709,56 @@ let roots_of_inlined_calls prop calls =
     SVS.empty
     calls
 
+(* Returns [true] if [sv] is a variable introduced to capture the (otherwise
+   discarded) result of a call statement, e.g. a lemma application like
+   'double(n-1);' (see lustreNameCalls.ml). *)
+let is_discarded_output_svar sv =
+  GI.var_is_discarded_output
+    (StateVar.name_of_state_var sv |> HString.mk_hstring)
+
+(* Add discarded call-statement results as roots so that the corresponding
+   calls are not sliced away.
+
+   A call statement whose results are discarded (e.g. a lemma application like
+   'double(n-1);') captures each result in a fresh discarded-output variable.
+   These variables are dead from a data-flow perspective, so cone-of-influence
+   slicing would normally drop them along with the call. We keep them by adding
+   the discarded-output variables as roots: slicing then preserves their
+   defining equations and, transitively, the calls feeding them.
+
+   In addition, a lemma is lowered to a function with a synthetic output (the
+   result of its body). When the lemma calls itself recursively, that output is
+   referenced by the call, so we keep the node's outputs as roots too; otherwise
+   the call's output trie would no longer match the (sliced) node output trie
+   when building the transition system. *)
+let roots_of_lemma_calls { N.outputs; N.equations; N.calls; N.comp_type } =
+  (* Discarded-output variables defined in equations *)
+  let discarded_roots =
+    List.fold_left
+      (fun acc ((sv, _), _) ->
+        if is_discarded_output_svar sv then SVS.add sv acc else acc)
+      SVS.empty
+      equations
+  in
+  (* Discarded-output variables that are directly call outputs, if any *)
+  let discarded_roots =
+    List.fold_left
+      (fun acc { N.call_outputs } ->
+        D.fold
+          (fun _ sv acc ->
+            if is_discarded_output_svar sv then SVS.add sv acc else acc)
+          call_outputs
+          acc)
+      discarded_roots
+      calls
+  in
+  (* Keep the synthetic output of a lemma so that a recursive call to it and
+     the lemma signature stay consistent *)
+  match comp_type with
+  | N.Function { N.is_lemma = true } ->
+    SVS.union discarded_roots (D.values outputs |> SVS.of_list)
+  | _ -> discarded_roots
+
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
   List.fold_left 
@@ -1042,18 +1093,18 @@ let root_and_leaves_of_impl
     property
     is_top
     roots
-    ({ N.outputs; 
+    ({ N.outputs;
        N.contract;
        N.props;
        N.calls;
        N.asserts } as node) =
 
   (* Slice everything from node *)
-  let node_sliced = 
+  let node_sliced =
     slice_all_of_node
       ~keep_props:true
       ~keep_contracts:true
-      node 
+      node
   in
   
   (* Slice starting with outputs, contracts and properties *)
@@ -1084,6 +1135,9 @@ let root_and_leaves_of_impl
       if is_top then SVS.empty else D.values outputs |> SVS.of_list
     )
     |> SVS.union (roots_of_inlined_calls property calls)
+
+    (* Do not slice calls to lemmas *)
+    |> SVS.union (roots_of_lemma_calls node)
 
     |> SVS.elements
   in
