@@ -84,7 +84,18 @@ LustreIndex.index list LustreIndex.t
 
 (** Return the set of dependencies of each state variable
 
-    See [order_equations] for further details. *)
+    [state_var_dependencies i d n] takes as input a Lustre node [n] and
+    an association list [d] of node names to a map from output indexes
+    to the list of input indexes the output variable depends on. Return
+    for each state variable in [n] the set of state variables it depends
+    on, and a map such that for each output identified by its position
+    indicates which positions in the inputs it depends on. The input
+    parameter [d] must contain such a map for each called node.
+
+    If the flag [i] is true, consider the equations for the inital
+    state only, otherwise consider the equations for post-initial
+    states only.
+*)
 val state_var_dependencies : bool -> (
   NodeId.t * (
     LustreIndex.index list LustreIndex.t *
@@ -147,6 +158,8 @@ val slice_to_abstraction :
     ?preserve_sig:bool ->
     bool -> Analysis.param -> LustreNode.t SubSystem.t ->
     LustreNode.t SubSystem.t
+
+val slice_node_to_abstraction : LustreNode.t -> LustreNode.t
 
 val slice_to_abstraction_and_property :
     ?preserve_sig:bool ->

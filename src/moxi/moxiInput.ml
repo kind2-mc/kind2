@@ -74,18 +74,23 @@ let parse_buffer lexbuf =
     Error (SyntaxError pos)
 
 
-let rec mk_subsystem sys = {
-  SubSystem.scope = TS.scope_of_trans_sys sys;
-  source = sys;
-  opacity = Opacity.Transparent;
-  has_contract = false;
-  has_impl = true;
-  has_modes = false;
-  subsystems =
-    TS.get_subsystems sys
-    |> List.map mk_subsystem;
-}
-
+let rec mk_subsystem map sys =
+  let scope = TS.scope_of_trans_sys sys in
+  let subsystems = TS.get_subsystems sys in
+  let sub = {
+    SubSystem.scope = scope;
+    source = sys;
+    opacity = Opacity.Transparent;
+    has_contract = false;
+    has_impl = true;
+    has_modes = false;
+    map;
+    subsystems = subsystems |> List.map TS.scope_of_trans_sys;
+  } in
+  Scope.Hashtbl.add map scope sub;
+  (* Assume no cycles between subsystems *)
+  List.map (mk_subsystem map) subsystems |> ignore;
+  sub
 
 let hstring_of_symbol = snd
 let string_of_symbol symbol = HString.string_of_hstring (snd symbol)
@@ -684,7 +689,7 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     let sys =
       TS.set_subsystem_properties sys sys_scope props
     in
-    mk_subsystem sys, curr_state_props
+    mk_subsystem (Scope.Hashtbl.create 7) sys, curr_state_props
   )
   | _ -> failwith("check-system with more than one query is not currently supported")
 

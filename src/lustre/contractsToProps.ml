@@ -37,6 +37,8 @@ let rec collect_contracts (equations, locals, asserts, props) = function
 
     | Ast.AssumptionVars _ -> equations, locals, asserts, props
 
+    | Ast.Decreases _ -> equations, locals, asserts, props
+
     | Ast.GhostConst dec ->
       let pos, (id, expr, typ) = match dec with
         | Ast.FreeConst (pos,_,_)

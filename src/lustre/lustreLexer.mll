@@ -254,6 +254,8 @@ let keyword_table = mk_hashtbl [
   "transparent", TRANSPARENT ;
   "opaque", OPAQUE ;
   "imported", IMPORTED ;
+  "rec", REC ;
+  "lemma", LEMMA ;
   "node", NODE ;
   "function", FUNCTION ;
   "returns", RETURNS ;
@@ -299,6 +301,7 @@ let keyword_table = mk_hashtbl [
   "when", WHEN ; (* Also clock operator *)
   "cond", COND ;
   "otherwise", OTHERWISE;
+  "auto", AUTO ;
   "end", END ;
   "frame", FRAME ;
 
@@ -332,6 +335,7 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
+  "decreases", DECREASES;
 
   "with", WITH ;
   ]

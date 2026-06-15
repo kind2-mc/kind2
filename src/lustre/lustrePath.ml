@@ -556,10 +556,20 @@ let node_path_of_instance
   (* Format.printf "node_path_of_instance@.@." ; *)
 
   (* Record trace of node calls *)
-  let trace = 
+  let trace =
     List.map
-      (fun (t, { T.pos }, _) -> 
-         (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
+      (fun (t, { T.pos }, _) ->
+         (* For a recursive function, the subsystem scope is prefixed with a
+            recursion tag that distinguishes unrollings (e.g. [rec_5; name]);
+            the node name is the last element. This ident is only used to
+            display the call trace, where the internal tag should not appear,
+            so we keep just the node name. [of_scope] also only accepts a flat
+            (single-id) scope. For a non-recursive node the scope already is
+            [name], so this is a no-op. *)
+         let ident =
+           TransSys.scope_of_trans_sys t |> List.rev |> List.hd
+         in
+         ([ident] |> I.of_scope, pos))
       instances
   in
 

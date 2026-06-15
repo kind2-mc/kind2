@@ -100,6 +100,8 @@ let mk_span start_pos end_pos =
 %token OPAQUE
 %token TRANSPARENT
 %token IMPORTED
+%token REC
+%token LEMMA
 %token NODE
 %token FUNCTION
 %token RETURNS
@@ -136,6 +138,7 @@ let mk_span start_pos end_pos =
 %token ENSURE
 %token WEAKLY
 %token ASSUMP_VARS
+%token DECREASES
 
 (* Token for assertions *)
 %token ASSERT
@@ -170,6 +173,7 @@ let mk_span start_pos end_pos =
 %token WHEN
 %token COND
 %token OTHERWISE
+%token AUTO
 %token END
 %token FRAME
 
@@ -262,6 +266,10 @@ opacity_modifier:
   | TRANSPARENT { A.Transparent }
   | { A.Default }
 
+rec_modifier:
+  | REC { true }
+  | { false }
+
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl: 
   | d = const_decl { List.map 
@@ -278,10 +286,16 @@ decl:
     let (l, e) = def in
     [A.NodeDecl ( mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r) )]
   }
-  | opac = opacity_modifier ; FUNCTION ; decl = node_decl ; def = node_def {
+  | opac = opacity_modifier ; FUNCTION ; is_rec = rec_modifier; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), { is_lemma = false; is_rec })]
+  }
+  | LEMMA; decl = lemma_decl ; def = node_def {
+    let (n, p, i, r) = decl in
+    let o = [mk_pos $startpos, HString.mk_hstring "_", A.Bool (mk_pos $startpos), A.ClockTrue] in
+    let (l, e) = def in
+    [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -289,7 +303,7 @@ decl:
   }
   | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r), { is_lemma = false; is_rec = false })]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
@@ -513,6 +527,16 @@ node_decl:
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
   }
 
+lemma_decl:
+| n = ident;
+  p = loption(decl_static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  option(SEMICOLON);
+  r = option(contract_spec); 
+  {
+    (NI.mk_node_id n, p, List.flatten i, r)
+  }
+
 (* A node definition (locals + body). *)
 node_def:
   l = list(node_local_decl);
@@ -584,6 +608,12 @@ assumption_vars:
     A.AssumptionVars (mk_pos $startpos, ids)
   }
 
+decreases_clause:
+  DECREASES ; e = expr; SEMICOLON
+  {
+    A.Decreases (mk_pos $startpos, e)
+  }
+
 contract_item:
   | e = contract_ghost_vars { e }
   | c = contract_ghost_const { c }
@@ -592,6 +622,7 @@ contract_item:
   | m = mode_equation { m }
   | i = contract_import { i }
   | a = assumption_vars { a }
+  | d = decreases_clause { d }
 
 contract_in_block:
   | c = nonempty_list(contract_item) { c }
@@ -769,6 +800,7 @@ node_item:
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
+  | AUTO; SEMICOLON { A.Auto (mk_pos $startpos) }
 
 
 elsif_list:
@@ -859,6 +891,15 @@ node_equation:
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
+
+  (* A call statement whose results are discarded. The left-hand side is left
+     empty here; a fresh local variable for each returned value is introduced
+     later in the pipeline (see LustreNameCalls), once types are available. *)
+  | nc = node_call SEMICOLON {
+    let pos = mk_pos $startpos in
+    let lhs = A.StructDef (pos, []) in
+    A.Equation (pos, lhs, nc)
+  }
 
 
 left_side:

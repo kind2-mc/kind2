@@ -78,6 +78,8 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
+  | MissingDecreasesClause of HString.t
+  | MisplacedAuto
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -147,6 +149,10 @@ let error_message kind = match kind with
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | MissingDecreasesClause id -> "Recursive function '"
+    ^ HString.string_of_hstring id
+    ^ "' must include a decreases clause in its contract"
+  | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -343,7 +349,7 @@ let build_global_ctx (decls:LustreAst.t) =
       but this type information is not needed for syntax checks for now *)
     | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
       ctx_add_node acc (NI.get_internal_name node_id) ()
-    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
+    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _), _) ->
       ctx_add_func acc (NI.get_internal_name node_id) ()
     | _ -> acc
   in
@@ -356,7 +362,8 @@ let build_global_ctx (decls:LustreAst.t) =
     | GhostVars (_, _, e)
     | Assume (_, _, _, e) ->
       (stateful || has_stateful_op ctx e, imports)
-    | Guarantee (_, _, _, e) ->
+    | Guarantee (_, _, _, e)
+    | Decreases (_, e) ->
       (stateful || has_stateful_op ctx e, imports)
     | Mode (_, _, reqs, enss) ->
       let req_or_ens_has_stateful_op req_ens_lst =
@@ -510,6 +517,7 @@ let rec find_var_def_count id = function
   )
   | LA.AnnotMain _ -> []
   | LA.AnnotProperty _ -> []
+  | LA.Auto _ -> []
 
 let locals_exactly_one_definition locals items =
   let over_locals = function
@@ -682,6 +690,7 @@ let over_contract_props props = function
   | LA.GhostVars _
   | LA.GhostConst _
   | LA.AssumptionVars _
+  | LA.Decreases _
   | LA.ContractCall _ ->
       Ok props
 
@@ -814,7 +823,7 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
-  | FuncDecl (span, decl) -> check_func_decl ctx span decl
+  | FuncDecl (span, decl, is_rec) -> check_func_decl ctx span decl is_rec
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
@@ -885,14 +894,14 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   props) in
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
-and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
   let props = StringSet.empty in
   let ctx =
     (* Locals are not visible in contracts *)
     build_local_ctx ctx [] inputs outputs
   in
   let decl = LA.FuncDecl
-    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
+    (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract), is_rec)
   in
   let composed_items_checks ctx e =
     (no_calls_to_node "functions" ctx e)
@@ -905,6 +914,22 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
     let* warnings2 = (no_temporal_operator "function contracts" e) in 
     Ok (warnings1 @ warnings2)
   in
+  let* () =
+    if is_rec.LA.is_rec then
+      let has_decreases_clause =
+        match contract with
+        | Some (_, items) ->
+          List.exists (function LA.Decreases _ -> true | _ -> false) items
+        | None -> false
+      in
+      if not has_decreases_clause then
+        syntax_error span.start_pos
+          (MissingDecreasesClause (NI.get_user_name node_id))
+      else
+        Ok ()
+    else
+      Ok ()
+  in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
@@ -916,6 +941,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   | None -> Ok ([], StringSet.empty)) in 
   let* (warnings3, _) = (check_items
     (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+    ~in_lemma:is_rec.LA.is_lemma
     composed_items_checks
     items
     props
@@ -932,10 +958,10 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
 
-and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
-  LA.node_item list -> StringSet.t -> ([> warning] list * StringSet.t, 'a) result 
-= fun ctx ?(tc_ctx=None) f items props ->
-  
+and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
+  LA.node_item list -> StringSet.t -> ([> warning] list * StringSet.t, 'a) result
+= fun ctx ?(tc_ctx=None) ?(in_lemma=false) f items props ->
+
   let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
     LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
@@ -945,9 +971,9 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
         >> (expr_only_supported_in_merge false e)
         >> check_expr ctx' f e
     | LA.IfBlock (_, e, l1, l2) ->
-      let* warnings1 = check_expr ctx f e in 
-      let* (warnings2, props) = (check_items ctx ~tc_ctx f l1 props) in 
-      let* (warnings3, _) = (check_items ctx ~tc_ctx f l2 props) in 
+      let* warnings1 = check_expr ctx f e in
+      let* (warnings2, props) = (check_items ctx ~tc_ctx ~in_lemma f l1 props) in
+      let* (warnings3, _) = (check_items ctx ~tc_ctx ~in_lemma f l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.WhenBlock (_, e, l1, l2) ->
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
@@ -957,8 +983,8 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
         >> (f ctx e)
       in
       let* warnings1 = check_expr ctx f e in
-      let* warnings2, props = (check_items ctx_lazy ~tc_ctx lazy_when l1 props) in
-      let* warnings3, _ = (check_items ctx_lazy ~tc_ctx lazy_when l2 props) in
+      let* warnings2, props = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l1 props) in
+      let* warnings3, _ = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
@@ -968,13 +994,15 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> (context -> LA.expr
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
       (Res.seq_ (List.map (check_frame_vars pos var_ids) nes)) >> 
-      let* (warnings1, props) = check_items ctx ~tc_ctx (fun _ e -> no_temporal_operator "frame block initializations" e) nes props in
-      let* (warnings2, props) = check_items ctx ~tc_ctx f nes props in 
-      let* (warnings3, _) = (check_items ctx ~tc_ctx f nis) props in
+      let* (warnings1, props) = check_items ctx ~tc_ctx ~in_lemma (fun _ e -> no_temporal_operator "frame block initializations" e) nes props in
+      let* (warnings2, props) = check_items ctx ~tc_ctx ~in_lemma f nes props in
+      let* (warnings3, _) = (check_items ctx ~tc_ctx ~in_lemma f nis) props in
       Ok (warnings1 @ warnings2 @ warnings3)
-    | Body (Assert (_, e)) 
+    | Body (Assert (_, e))
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ([])
+    | LA.Auto pos ->
+      if in_lemma then Ok ([]) else syntax_error pos MisplacedAuto
   in
   (* Check for duplicate properties *)
   let* props =
@@ -1061,6 +1089,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       )
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
+    | Decreases (_, e) -> check_expr ctx f e
   in
   let* props =
   Res.seq_chain
@@ -1401,7 +1430,7 @@ let oqv_check_locals oqv_on_ty base_ctx locals =
   in
   Ok (List.flatten warnings1)
 
-let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
+let oqv_check_node_decl ?(in_lemma=false) inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
   let props = StringSet.empty in
   let ctx_io = build_local_ctx ctx [] inputs outputs in
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
@@ -1420,6 +1449,7 @@ let oqv_check_node_decl inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs,
     check_items
       (build_local_ctx ctx_full locals [] [])
       ~tc_ctx:(Some tc_ctx)
+      ~in_lemma
       (ovq_check_expr inlinable_funcs tc_ctx)
       items
       props
@@ -1441,8 +1471,8 @@ let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> (
 = fun inlinable_funcs ctx tc_ctx -> function
   | NodeDecl (_, decl) ->
     oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
-  | FuncDecl (_, decl) ->
-    oqv_check_node_decl inlinable_funcs ctx tc_ctx decl
+  | FuncDecl (_, decl, attrs) ->
+    oqv_check_node_decl ~in_lemma:attrs.LA.is_lemma inlinable_funcs ctx tc_ctx decl
   | ContractNodeDecl (_, decl) ->
     oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx decl
   | _ -> Ok []

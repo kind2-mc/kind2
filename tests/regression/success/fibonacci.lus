@@ -1,0 +1,13 @@
+
+function rec Fib(n: int) returns (f: int);
+(*@contract
+  guarantee "fib is non-negative" f >= 0;
+  decreases n;
+*)
+let
+  cond
+  | n <= 0:    f = 0;
+  | n = 1:     f = 1;
+    otherwise: f = Fib(n - 1) + Fib(n - 2);
+  end
+tel

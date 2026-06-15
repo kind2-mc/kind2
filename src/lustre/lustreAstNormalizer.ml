@@ -259,7 +259,7 @@ let compute_node_input_constant_mask decls =
   | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
-  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _)) ->
+  | FuncDecl (_, (id, _, _, _, inputs, _, _, _, _), _) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     NI.Map.add id is_consts map
   | _ -> map
@@ -357,7 +357,7 @@ let get_inline_func_expr inlinable_funcs name args =
       )
       | IfBlock _ | WhenBlock _ | FrameBlock _ ->
         assert false (* desugared earlier in pipeline *)
-      | Body (Assert _) | AnnotMain _ | AnnotProperty _ ->
+      | Body (Assert _) | AnnotMain _ | AnnotProperty _ | Auto _ ->
         assert false (* rejected earlier in pipeline *)
       | A.Body (Equation (_, StructDef (_, _), _)) ->
         assert false (* rejected earlier in pipeline, should we support it? *)
@@ -958,7 +958,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
     (fun acc decl ->
      match decl with
      | A.NodeDecl (_, nd) (* Type ascription nodes are inlinable *)
-     | A.FuncDecl (_, nd) ->
+     | A.FuncDecl (_, nd, _) ->
        let (id, _, _, _, _, _, _, _, _) = nd in
        if NI.Set.mem id inlinable_funcs then
          NI.Map.add id nd acc
@@ -1100,9 +1100,9 @@ and normalize_declaration info map = function
   | A.NodeDecl (span, decl) ->
     let normal_decl, map, warnings = normalize_node info map decl in
     Some (A.NodeDecl(span, normal_decl)), map, warnings
-  | FuncDecl (span, decl) ->
+  | FuncDecl (span, decl, is_rec) ->
     let normal_decl, map, warnings = normalize_node info map decl in
-    Some (A.FuncDecl (span, normal_decl)), map, warnings
+    Some (A.FuncDecl (span, normal_decl, is_rec)), map, warnings
   | ContractNodeDecl (_, (id, ps, ips, ops, _)) ->
     let ctx = Chk.add_io_node_ctx info.context id ps ips ops in
     let info = { info with context = ctx } in
@@ -1342,9 +1342,10 @@ and normalize_item info node_id map = function
     let nequation, gids, warnings = normalize_equation info node_id map equation in
     [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
-  | IfBlock _ 
+  | IfBlock _
   | WhenBlock _
-  | FrameBlock _ -> 
+  | FrameBlock _
+  | Auto _ ->
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
   | AnnotProperty (pos, name, expr, k) ->
@@ -1487,6 +1488,8 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         let gids = record_source_expr gids nexpr expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
+      | Decreases (pos, expr) -> 
+        Decreases (pos, expr), empty (), [], StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in

@@ -110,6 +110,13 @@ val ctr_id : HString.t
 (** Checks if a variable name corresponds to an iboracle *)
 val var_is_iboracle: HString.t -> bool
 
+(* String constant used as the suffix of fresh locals capturing the discarded
+   results of a call statement (see lustreNameCalls.ml). *)
+val discarded_output : string
+
+(** Checks if a variable name corresponds to a discarded call-statement result *)
+val var_is_discarded_output: HString.t -> bool
+
 val empty : unit -> t
 
 val union : t -> t -> t
