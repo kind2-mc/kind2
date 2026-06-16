@@ -61,6 +61,8 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | MissingDecreasesClause of HString.t
   | MisplacedAuto
+  | LemmaCallOutsideCallStatement of HString.t
+  | CallStatementCallsNonLemma of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

@@ -80,6 +80,8 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | MissingDecreasesClause of HString.t
   | MisplacedAuto
+  | LemmaCallOutsideCallStatement of HString.t
+  | CallStatementCallsNonLemma of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -153,6 +155,10 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' must include a decreases clause in its contract"
   | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
+  | LemmaCallOutsideCallStatement id -> "Lemma '"
+    ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
+  | CallStatementCallsNonLemma id -> "'"
+    ^ HString.string_of_hstring id ^ "' is not a lemma; only lemmas can be invoked in a call statement"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -183,6 +189,7 @@ type contract_data = {
 type context = {
   nodes : node_data StringMap.t;
   functions : node_data StringMap.t;
+  lemmas : StringSet.t;
   contracts : contract_data StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
@@ -195,6 +202,7 @@ type context = {
 let empty_ctx () = {
     nodes = StringMap.empty;
     functions = StringMap.empty;
+    lemmas = StringSet.empty;
     contracts = StringMap.empty;
     free_consts = StringMap.empty;
     consts = StringMap.empty;
@@ -216,6 +224,14 @@ let ctx_add_contract ctx i ty = {
 let ctx_add_func ctx i ty = {
     ctx with functions = StringMap.add i ty ctx.functions
   }
+
+let ctx_add_lemma ctx i = {
+    ctx with lemmas = StringSet.add i ctx.lemmas
+  }
+
+(* Is [node_id] the identifier of a lemma? *)
+let is_lemma ctx node_id =
+  StringSet.mem (NI.get_internal_name node_id) ctx.lemmas
 
 let ctx_add_free_const ctx i ty = {
     ctx with free_consts = StringMap.add i ty ctx.free_consts
@@ -349,8 +365,11 @@ let build_global_ctx (decls:LustreAst.t) =
       but this type information is not needed for syntax checks for now *)
     | NodeDecl (_, (node_id, _, _, _, _, _, _, _, _)) ->
       ctx_add_node acc (NI.get_internal_name node_id) ()
-    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _), _) ->
-      ctx_add_func acc (NI.get_internal_name node_id) ()
+    | FuncDecl (_, (node_id, _, _, _, _, _, _, _, _), attrs) ->
+      let acc = ctx_add_func acc (NI.get_internal_name node_id) () in
+      if attrs.LA.is_lemma then
+        ctx_add_lemma acc (NI.get_internal_name node_id)
+      else acc
     | _ -> acc
   in
   let ctx = List.fold_left over_decls (empty_ctx ()) others in
@@ -574,6 +593,13 @@ let no_a_dangling_identifier ctx pos i =
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
     no_a_dangling_identifier ctx pos i
+  | _ -> Ok ()
+
+(* A lemma can only be invoked in a call statement (an equation with an empty
+   left-hand side, see lustreParser.mly). Reject lemma calls anywhere else. *)
+let no_lemma_calls ctx = function
+  | LA.Call (pos, _, node_id, _) when is_lemma ctx node_id ->
+    syntax_error pos (LemmaCallOutsideCallStatement (NI.get_user_name node_id))
   | _ -> Ok ()
 
 let no_node_calls_in_constant i e =
@@ -839,12 +865,14 @@ and common_node_equations_checks ctx e =
     (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+    >> (no_lemma_calls ctx e)
     >> Ok []
 
 and common_contract_checks ctx e =
     (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+    >> (no_lemma_calls ctx e)
     >> Ok []
 
 (* Can't have from/within/at keywords in reachability queries in functions *)
@@ -967,9 +995,22 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx' = build_equation_ctx ctx tc_ctx lhs in
       let StructDef (_, struct_items) = lhs in
-      check_struct_items ctx struct_items
-        >> (expr_only_supported_in_merge false e)
-        >> check_expr ctx' f e
+      (match struct_items, e with
+       (* A call statement (empty left-hand side, see lustreParser.mly) is the
+          only place a lemma may be invoked, and it may only invoke a lemma.
+          The invoked lemma call is checked here directly; its arguments still
+          go through [f] (which rejects any nested lemma calls). *)
+       | [], LA.Call (cpos, _, node_id, args) ->
+         (if is_lemma ctx node_id then Ok ()
+          else syntax_error cpos
+            (CallStatementCallsNonLemma (NI.get_user_name node_id)))
+         >> check_struct_items ctx struct_items
+         >> (expr_only_supported_in_merge false e)
+         >> check_expr_list ctx' f args
+       | _ ->
+         check_struct_items ctx struct_items
+           >> (expr_only_supported_in_merge false e)
+           >> check_expr ctx' f e)
     | LA.IfBlock (_, e, l1, l2) ->
       let* warnings1 = check_expr ctx f e in
       let* (warnings2, props) = (check_items ctx ~tc_ctx ~in_lemma f l1 props) in
