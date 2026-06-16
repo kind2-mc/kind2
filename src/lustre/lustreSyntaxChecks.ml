@@ -1019,8 +1019,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
     | LA.WhenBlock (_, e, l1, l2) ->
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
       let lazy_when ctx e =
-        (no_calls_to_node "a branch of a when block" ctx e)
-        >> (no_temporal_operator "branches of a when block" e)
+        (no_temporal_operator "branches of a when block" e)
         >> (f ctx e)
       in
       let* warnings1 = check_expr ctx f e in
@@ -1171,8 +1170,7 @@ and check_ty ctx f = function
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let lazy_ite ctx e =
-    (no_calls_to_node "a branch of a when-then-else" ctx e)
-    >> (no_temporal_operator "branches of a when-then-else" e)
+    (no_temporal_operator "branches of a when-then-else" e)
     >> (f ctx e)
   in
   let lazy_bool_op op ctx e =

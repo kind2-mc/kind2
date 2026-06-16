@@ -1527,6 +1527,19 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     | Some id -> Some (mk_ident id |> H.find !map.state_var)
     | None -> None
   in
+  let is_node =
+    try not (N.is_function (N.node_of_node_id node_id cstate.nodes))
+    with Not_found -> false
+  in
+  (* When a node is called within a branch of a when block (i.e. it has a
+     call context but no explicit activation condition), the activation of the
+     node is driven by the when guard. Represent it as an activation condition
+     rather than a call context. *)
+  let cond_state_var, call_ctx =
+    match call_ctx, cond_state_var with
+    | Some id, [] when is_node -> [N.CActivate id], None
+    | _ -> cond_state_var, call_ctx
+  in
   let call_id = !map.call_count in
   map := {!map with call_count = call_id + 1 };
   let node_call = {
