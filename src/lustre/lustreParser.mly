@@ -609,9 +609,16 @@ assumption_vars:
   }
 
 decreases_clause:
-  DECREASES ; e = expr; SEMICOLON
+  DECREASES ; es = separated_nonempty_list(COMMA, expr); SEMICOLON
   {
-    A.Decreases (mk_pos $startpos, e)
+    let pos = mk_pos $startpos in
+    (* A single measure is kept as a plain expression; a tuple of measures is
+       represented as an expression list, interpreted lexicographically. *)
+    let e = match es with
+      | [e] -> e
+      | _ -> A.GroupExpr (pos, A.ExprList, es)
+    in
+    A.Decreases (pos, e)
   }
 
 contract_item:

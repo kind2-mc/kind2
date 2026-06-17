@@ -42,7 +42,8 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of SI.t
   | CyclicDependency of HString.t list
-  | ImportedCyclicDependency of (HString.t list * NI.t) 
+  | ImportedCyclicDependency of (HString.t list * NI.t)
+  | MismatchedDecreasesArity of HString.t list
 
 let error_message error = match error with
   | Unknown s -> s
@@ -67,8 +68,13 @@ let error_message error = match error with
         ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
 
     "Potential cyclic dependency detected in definition of identifiers: "
-    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ 
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^
     " (Hint: " ^ helping_message ^ ")"
+  | MismatchedDecreasesArity ids ->
+    "Mutually recursive functions must declare decrease measures of the same "
+    ^ "arity for the lexicographic termination check to be well defined, but "
+    ^ "mismatching arities were found among: "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -1208,6 +1214,44 @@ let sort_and_check_contract_eqns: dependency_analysis_data
    2. Ensures the assumptions do not use the current value
       of the output streams. *)
 
+(* The arity of a function's decrease measure: the number of components of the
+   tuple (a single, non-tuple measure has arity 1). Returns [None] for any
+   declaration without a decreases clause. *)
+let decreases_arity = function
+  | LA.FuncDecl (_, (_, _, _, _, _, _, _, _, Some (_, citems)), _) ->
+    List.fold_left
+      (fun acc item -> match item with
+        | LA.Decreases (_, LA.GroupExpr (_, LA.ExprList, es)) -> Some (List.length es)
+        | LA.Decreases (_, _) -> Some 1
+        | _ -> acc)
+      None citems
+  | _ -> None
+
+(* All functions of a mutually recursive group must declare a decrease measure
+   of the same arity, otherwise their measures cannot be compared
+   lexicographically against each other. *)
+let check_decreases_arity ad decl_map scc =
+  let arities =
+    List.filter_map
+      (fun id ->
+        match IMap.find_opt id decl_map with
+        | Some (Some decl) ->
+          (match decreases_arity decl with Some n -> Some (id, n) | None -> None)
+        | _ -> None)
+      scc
+  in
+  match arities with
+  | [] | [_] -> R.ok ()
+  | (_, n0) :: _ ->
+    if List.for_all (fun (_, n) -> n = n0) arities then R.ok ()
+    else
+      let pos =
+        match find_id_pos ad.id_pos_data (List.hd scc) with
+        | Some p -> p
+        | None -> assert false
+      in
+      graph_error pos (MismatchedDecreasesArity (List.map fst arities))
+
 let topological_sort_with_rec_funs decl_map ad =
   let sccs =
     (* Topological ordered *)
@@ -1235,6 +1279,7 @@ let topological_sort_with_rec_funs decl_map ad =
         acc
         scc
     in
+    let* () = check_decreases_arity ad decl_map scc in
     let scc_map' =
       List.fold_left (fun acc id -> IMap.add id scc_id acc) scc_map scc
     in

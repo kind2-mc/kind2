@@ -1,0 +1,12 @@
+-- A lexicographic decreases measure that does not actually decrease: the first
+-- component stays equal while the second strictly increases, so the
+-- decrease_check must be falsified.
+function rec f(m, n: int) returns (r: int);
+(*@contract
+  assume m >= 0 and n >= 0;
+  guarantee r >= 0;
+  decreases m, n;
+*)
+let
+  r = when m <= 0 then 0 else f(m, n + 1);
+tel

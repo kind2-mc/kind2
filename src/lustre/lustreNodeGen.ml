@@ -1868,13 +1868,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         if is_rec then
           match StringMap.find_opt internal_node_name_hstring scc_map with
           | Some scc_id -> (
-            let decreases_expr = 
+            let decreases_expr =
               match get_decreases_expr contract with
               | Some expr -> (
+                (* A tuple of measures compiles to several indexed bindings,
+                   one per lexicographic component, in declaration order. *)
                 let nexpr = compile_ast_expr cstate ctx [] map expr in
                 match X.bindings nexpr with
-                | [_, expr] -> E.init_expr expr
-                | _ -> assert false
+                | [] -> assert false
+                | bindings -> List.map (fun (_, e) -> E.init_expr e) bindings
               )
               | None -> assert false
             in
@@ -3024,7 +3026,7 @@ and compile_declaration_phase1:
   | A.ContractNodeDecl _ -> cstate
   | A.NodeParamInst _ -> assert false
 
-and get_decreases_expr contract = 
+and get_decreases_expr contract =
   match contract with
   | Some (_, contract) -> (
     let over_decrease_clause = fun acc decl ->
@@ -3035,6 +3037,13 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
+
+(* The individual components of a decrease measure. A tuple of measures is
+   represented as an expression list; a single measure is its own component. *)
+and decreases_measures expr =
+  match expr with
+  | A.GroupExpr (_, A.ExprList, es) -> es
+  | e -> [e]
 
 (* Inline the abstractions introduced by normalization back to their
    source-level expressions, so that recovered expressions are written in terms
@@ -3091,7 +3100,34 @@ and mk_rec_decrease_expr pos callee_formals args callee_decreases caller_decreas
         (fun acc ph arg -> LustreAstHelpers.substitute_naive ph arg acc)
         to_placeholders placeholders args
     in
-    Some (A.string_of_expr (A.CompOp (pos, A.Lt, substituted, caller_decreases)))
+    (* Render the decrease constraint. For a single measure this is just
+       "callee < caller". For a tuple of measures it is the lexicographic
+       ordering: the i-th component strictly decreases while all preceding
+       components are equal. *)
+    let callee_ms = decreases_measures substituted in
+    let caller_ms = decreases_measures caller_decreases in
+    if List.length callee_ms <> List.length caller_ms then None
+    else
+      let lt c d = A.CompOp (pos, A.Lt, c, d) in
+      let eq c d = A.CompOp (pos, A.Eq, c, d) in
+      let conj a b = A.BinaryOp (pos, A.And, a, b) in
+      let disj a b = A.BinaryOp (pos, A.Or, a, b) in
+      let rec lex = function
+        | [], [] -> None
+        | [c], [d] -> Some (lt c d)
+        | c :: cs, d :: ds -> (
+          let rest =
+            match lex (cs, ds) with
+            | Some tl -> conj (eq c d) tl
+            | None -> eq c d
+          in
+          Some (disj (lt c d) rest)
+        )
+        | _ -> None
+      in
+      (match lex (callee_ms, caller_ms) with
+       | Some e -> Some (A.string_of_expr e)
+       | None -> None)
 
 and compile_declaration_phase2:
   compiler_state -> GI.t NI.Map.t -> Ctx.tc_context -> int StringMap.t ->

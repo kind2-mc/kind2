@@ -405,14 +405,17 @@ let bounded_check call_pos caller_rf =
   let prop_name =
     Format.asprintf "bounded_check%a" pp_print_line_and_column call_pos
   in
+  (* Lexicographic termination requires the measure to be bounded below, i.e.
+     each component is non-negative. *)
   let prop_term =
-    let caller_rf_term =
-      E.base_term_of_expr TransSys.prop_base caller_rf
-    in
-    Term.mk_leq [Term.mk_num Numeral.zero; caller_rf_term]
+    List.map (fun e ->
+      Term.mk_leq [Term.mk_num Numeral.zero; E.base_term_of_expr TransSys.prop_base e])
+      caller_rf
+    |> Term.mk_and
   in
   let prop_expr =
-    Format.asprintf "(0 <= %a)" (E.pp_print_expr false) caller_rf
+    List.map (fun e -> Format.asprintf "(0 <= %a)" (E.pp_print_expr false) e) caller_rf
+    |> String.concat " and "
   in
   let prop_status = P.PropUnknown in
   let prop_source = P.TerminationCheck call_pos in
@@ -428,17 +431,32 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
   let prop_name =
     Format.asprintf "decrease_check%a" pp_print_line_and_column call_pos
   in
-  let callee_rf_term =
-    E.base_term_of_expr TransSys.prop_base callee_rf |> lift_term svar_map
+  let callee_rf_terms =
+    List.map (fun e ->
+      E.base_term_of_expr TransSys.prop_base e |> lift_term svar_map) callee_rf
   in
+  let caller_rf_terms =
+    List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
+  in
+  (* The measure strictly decreases in the lexicographic order: some component
+     decreases while all earlier components stay equal. For a single component
+     this reduces to the ordinary "callee < caller". When the two measures have
+     different arities (possible for mutually recursive functions), their common
+     prefix is compared. *)
   let prop_term =
-    let caller_rf_term =
-      E.base_term_of_expr TransSys.prop_base caller_rf
+    let rec lex cs ds =
+      match cs, ds with
+      | [c], [d] -> Term.mk_lt [c; d]
+      | c :: cs', d :: ds' ->
+        Term.mk_or [
+          Term.mk_lt [c; d];
+          Term.mk_and [Term.mk_eq [c; d]; lex cs' ds']
+        ]
+      | _ -> assert false
     in
-    Term.mk_lt [
-      callee_rf_term;
-      caller_rf_term
-    ]
+    let n = min (List.length callee_rf_terms) (List.length caller_rf_terms) in
+    let take l = List.filteri (fun i _ -> i < n) l in
+    lex (take callee_rf_terms) (take caller_rf_terms)
   in
   (* Prefer the source-level rendering reconstructed during node generation
      (e.g. "n - 1 < n"); fall back to the normalized term otherwise. *)
@@ -446,9 +464,7 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
     match src_expr with
     | Some e -> e
     | None ->
-      Format.asprintf "%a < %a"
-        (E.pp_print_term_as_expr false) callee_rf_term
-        (E.pp_print_expr false) caller_rf
+      Format.asprintf "%a" (E.pp_print_term_as_expr false) prop_term
   in
   let prop_status = P.PropUnknown in
   let prop_source = P.TerminationCheck call_pos in
