@@ -153,7 +153,7 @@ type equation = equation_lhs * LustreExpr.t
 
 type func_info = {
   uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
-  rec_info: (int * LustreExpr.expr) option;
+  rec_info: (int * LustreExpr.expr list) option;
   is_lemma: bool;
 }
 

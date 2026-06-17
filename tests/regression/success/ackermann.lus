@@ -1,0 +1,14 @@
+-- The Ackermann function terminates by the lexicographic ordering of the
+-- pair (m, n): each recursive call either decreases m, or keeps m equal and
+-- decreases n.
+function rec ack(m, n: int) returns (r: int);
+(*@contract
+  assume m >= 0 and n >= 0;
+  guarantee "nonneg" r >= 0;
+  decreases m, n;
+*)
+let
+  r = when m <= 0 then n + 1
+      else when n <= 0 then ack(m - 1, 1)
+      else ack(m - 1, ack(m, n - 1));
+tel

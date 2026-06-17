@@ -151,7 +151,10 @@ type contract = C.t
 
 type func_info = {
   uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
-  rec_info: (int * E.expr) option;
+  (* SCC identifier together with the decrease measure of the function: a
+     non-empty list of expressions interpreted lexicographically (a single
+     element is the ordinary, non-lexicographic case). *)
+  rec_info: (int * E.expr list) option;
   is_lemma: bool;
 }
 

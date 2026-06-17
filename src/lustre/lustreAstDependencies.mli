@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | ContractDependencyOnCurrentOutput of LA.SI.t
   | CyclicDependency of HString.t list
   | ImportedCyclicDependency of (HString.t list * NodeId.t)
+  | MismatchedDecreasesArity of HString.t list
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind

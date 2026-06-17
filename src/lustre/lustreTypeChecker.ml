@@ -2178,7 +2178,18 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
       R.ok (LA.Guarantee (pos, id, b, e), warnings)
     | Decreases (pos, e) ->
-      let* e, warnings = check_type_expr ctx (Some nname) e (Int pos) in
+      (* A decreases measure is a single integer expression, or a tuple of
+         integer expressions interpreted lexicographically. Every component
+         must be of integer type. *)
+      let* e, warnings = (match e with
+        | LA.GroupExpr (gpos, LA.ExprList, es) ->
+          let* res = R.seq (List.map (fun e ->
+            check_type_expr ctx (Some nname) e (Int pos)) es)
+          in
+          let es, warnings = List.split res in
+          R.ok (LA.GroupExpr (gpos, LA.ExprList, es), List.flatten warnings)
+        | _ -> check_type_expr ctx (Some nname) e (Int pos))
+      in
       R.ok (LA.Decreases (pos, e), warnings)
     | Mode (pos, id, reqs, ensures) ->
       let* reqs, warnings1 = R.seq (List.map (fun (a, b, e)  -> 
