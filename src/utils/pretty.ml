@@ -20,18 +20,19 @@
 *)
 
 open Format
+open Lib
 
 (* Set width of pretty printing boxes to number of columns *)
 let vt_width =
   try
+    (* Only query the terminal when stdout is actually a TTY. Under
+       [dune runtest]/CI, stdout is a pipe, so we skip the [stty] call and
+       avoid the SIGTTIN suspension that made the test suite hang. *)
     if Unix.isatty Unix.stdout then (
-      let cols =
-        match Sys.getenv_opt "COLUMNS" with
-        | Some s -> (try int_of_string s with _ -> 80)
-        | None -> 80
-      in
-      set_margin cols;
-      cols
+      let stty_size = syscall "stty size < /dev/tty" in
+      let w = Scanf.sscanf stty_size "%d %d" (fun _ cols -> cols) in
+      set_margin w;
+      w
     ) else
       80
   with _ -> 80
