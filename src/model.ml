@@ -172,7 +172,9 @@ let pp_print_map_as_array as_type ppf m =
         incr num_printed;
         first := false;
       )) m;
-    if !over_printed then Format.fprintf ppf ", ...";
+    if !over_printed then
+      Format.fprintf ppf "%s..."
+        (if !num_printed >= 1 then ", " else "");
     for _ = 1 to dim do
       Format.fprintf ppf "]@]";
     done
