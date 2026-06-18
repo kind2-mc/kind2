@@ -3116,7 +3116,7 @@ module Global = struct
     (Arg.Int (fun n -> arr_elements_printed := n))
     (fun fmt ->
       Format.fprintf fmt
-        "Specifices number of elements to print when printing array-like types in pretty-print output.@ \
+        "Specifices number of elements to print when printing array-like types in pretty-print output. Set to -1 to always print all elements.@ \
         Default: %d"
         default_arr_elements_printed
     )
