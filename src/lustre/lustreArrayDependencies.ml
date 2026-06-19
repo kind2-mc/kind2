@@ -235,6 +235,8 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
     union_ (r e) graph
   (* Temporal operators *)
   | Pre _ -> empty_
+  (* 'last x' refers to the previous value of x: no instantaneous dependency *)
+  | Last _ -> empty_
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
   | TypeAscription (_, e, _) -> r e
   (* Node calls *)

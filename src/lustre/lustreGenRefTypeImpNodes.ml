@@ -64,7 +64,8 @@ let rec expr_contains_mode_ref expr =
   let r = expr_contains_mode_ref in 
   match expr with 
   | A.ModeRef (_, _) -> true
-  | Ident (_, _) 
+  | Ident (_, _)
+  | Last (_, _)
   | Const (_, _)
   | EmptySet _
   | EmptyMap _ -> false

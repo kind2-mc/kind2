@@ -115,6 +115,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
+  | Last _ as e -> e
   | EmptyMap _ as e -> e
   | EmptySet _ as e -> e
   | RecordProject (p, e, id) -> RecordProject (p, r e, id)

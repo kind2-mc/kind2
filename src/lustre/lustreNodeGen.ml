@@ -1271,6 +1271,7 @@ and compile_ast_expr
   (* Identifiers                                                        *)
   (* ****************************************************************** *)
   | A.Ident (_, ident) -> compile_id_string bounds ident
+  | A.Last _ -> assert false (* desugared in lustreDesugarLast *)
   | A.ModeRef (_, path) -> compile_mode_reference path
   (* ****************************************************************** *)
   (* Constants                                                          *)

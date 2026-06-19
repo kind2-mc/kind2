@@ -342,10 +342,10 @@ let no_mismatched_clock is_bool e =
         | _ -> type_error pos (IllegalClockExprInActivate c)
       in
       clocks_match_result pos clk_exp clock
-    | Ident _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
+    | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
     | EmptyMap (_, Some (kt, vt)) ->
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) kt) >>
-      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt) 
+      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | RecordProject (_, e, _) | UnaryOp (_, _, e)
@@ -386,9 +386,9 @@ let no_mismatched_clock is_bool e =
           let* _ = check_clocks (ClockPos clock) e1 in
           check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
-    | Ident _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
-    | EmptyMap (_, Some (kt, vt)) -> 
-      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >> 
+    | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
+    | EmptyMap (_, Some (kt, vt)) ->
+      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >>
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
@@ -564,6 +564,7 @@ let rec infer_const_attr ctx exp =
   (* Temporal operators *)
   | Pre (_, e) ->
     List.map (fun _ -> error exp "pre operator") (r e)
+  | Last _ -> [error exp "last operator"]
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
   | TypeAscription (_, e, ty) ->
@@ -715,10 +716,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) tis) in 
     let* e = call e in 
     R.ok (LA.Quantifier (pos, q, tis, e))
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None) 
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> R.ok expr
-  | RecordProject (pos, e, idx) -> 
-    let* e = call e in 
+  | RecordProject (pos, e, idx) ->
+    let* e = call e in
     R.ok (LA.RecordProject (pos, e, idx))
   | Const (_, _) as e -> R.ok e
   | Extract (pos, e, idx1, idx2) -> 
@@ -951,7 +952,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   (* Identifiers *)
   | LA.Ident (pos, i) ->
     (match (lookup_ty ctx i) with
-    | None -> type_error pos (UnboundIdentifier i) 
+    | None -> type_error pos (UnboundIdentifier i)
+    | Some ty -> R.ok (ty, e, []))
+  (* 'last x' has the same type as 'x' (desugared away before this point) *)
+  | LA.Last (pos, i) ->
+    (match (lookup_ty ctx i) with
+    | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> R.ok (ty, e, []))
   | LA.ModeRef (pos, ids) ->      
     let lookup_mode_ty ctx (ids:HString.t list) =
@@ -1533,8 +1539,9 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | GroupExpr (pos, _, _) 
   | StructUpdate (pos, _, _, _) 
   | RecordExpr (pos, _, _, _) 
-  | Pre (pos, _) 
-  | When (pos, _, _) 
+  | Pre (pos, _)
+  | Last (pos, _)
+  | When (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -2499,7 +2506,7 @@ and check_no_index_access ctx nname ty e =
     | Some (LA.Ident _, _, _) -> R.ok () (* Free constant *)
     | Some (e, _, _) -> r e (* Defined constant *)
   )
-  | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> R.ok ()
+  | Last _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> R.ok ()
   | EmptyMap (_, Some (kt, vt)) ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) kt >>
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) vt
@@ -2630,12 +2637,13 @@ and expr_contains_set_binop ctx ni expr =
       add_ty acc id ty 
     ) ctx tis in 
     expr_contains_set_binop ctx ni e 
-  | Ident _  -> false 
+  | Ident _  -> false
+  | Last _ -> false
   | EmptyMap (_, None) | EmptySet (_, None)
-  | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptyMap (_, Some (kt, vt)) -> 
-    LH.fold_lustre_ty r false (||) kt || 
-    LH.fold_lustre_ty r false (||) vt 
+  | ModeRef (_, _) | Const (_, _) -> false
+  | EmptyMap (_, Some (kt, vt)) ->
+    LH.fold_lustre_ty r false (||) kt ||
+    LH.fold_lustre_ty r false (||) vt
   | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
   | RecordProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 

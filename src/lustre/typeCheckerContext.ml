@@ -838,12 +838,12 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
-  | Ident (_, id) -> (
+  | Ident (_, id) | Last (_, id) -> (
     match lookup_ty ctx id with
     | None -> SI.empty (* e.g. any bound variable *)
     | Some ty -> ty_vars_of_type ctx node_name ty
   )
-  | EmptyMap (_, None) | EmptySet (_, None) 
+  | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> SI.empty
   | RecordProject (_, e, _) -> call e
   | TypeAscription (_, e, ty) ->
@@ -918,8 +918,8 @@ let node_id_is_node = fun ctx node_id ->
 let rec expr_contains_node_call ctx expr = 
   let r = expr_contains_node_call ctx in
   match expr with
-  | LA.Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptySet (_, Some ty) -> 
+  | LA.Ident (_, _) | Last (_, _) | ModeRef (_, _) | Const (_, _) -> false
+  | EmptySet (_, Some ty) ->
     LH.fold_lustre_ty r false (||) ty
   | EmptySet (_, None)
   | EmptyMap (_, None) -> false

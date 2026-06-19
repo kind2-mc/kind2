@@ -274,6 +274,7 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
 let rec has_stateful_op ctx =
 function
 | LA.Pre _ | Arrow _ -> true
+| Last _ -> true
 
 | RestartEvery _
 | AnyOp _ -> true
@@ -773,7 +774,7 @@ let rec expr_only_supported_in_merge observer expr =
     Res.seq_ (List.map (fun (_, e) -> match e with
       | LA.When (_, e, _) | e -> r true e)
       e)
-  | Ident _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
+  | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
   | RecordProject (_, e, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
@@ -1306,9 +1307,9 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Res.ok (warnings1 @ warnings2) 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
-    | Ident _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
+    | Ident _ | Last _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
   in
-  let* warnings1 = res in 
+  let* warnings1 = res in
   let* warnings2 = check expr in 
   Ok (warnings1 @ warnings2)
 

@@ -829,6 +829,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     | Some hist_varid ->
       StringSet.empty, IndexAccess(pos, Ident(pos, hist_varid), expr, Array)
   )
+  | Last _ -> StringSet.empty, expr
   | ModeRef _ -> StringSet.empty, expr
   | RecordProject (pos, e, idx) ->
     let vars, e' = r map e in
@@ -2156,6 +2157,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
   | Ident _ as e -> rename_id_expr info e, empty (), []
+  (* 'last' is desugared away before normalization *)
+  | Last _ as e -> e, empty (), []
   (* ************************************************************************ *)
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
