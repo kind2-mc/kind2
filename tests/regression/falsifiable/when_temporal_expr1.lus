@@ -1,0 +1,19 @@
+
+node two(m: bool) returns (c1, c2: int);
+let
+  c1 =
+    when m then
+      1 -> pre c2 + 1
+    else
+      0 -> pre c2 + 1;
+
+  c2 = 10 -> if not (pre c2 = 99) then 99 else 22;
+tel
+
+node main() returns (c1, c2: int);
+var d: bool;
+let
+  d = true -> not (pre d);
+  c1, c2 = two(d);
+  check "P1" not (c1 = 23 and c2 = 22);
+tel

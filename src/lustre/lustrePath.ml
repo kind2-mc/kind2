@@ -1127,7 +1127,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 
   (* Functions derived from constants are printed along with the global constants. 
      Type ascriptions not shown. *)
-  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription then 
+  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
     pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
   else 
 
@@ -1145,6 +1145,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | DefinedConstant -> "Global constant"
     | FreeConstant -> "Global constant"
     | Choose -> "'Choose' operator"
+    | ClockedExpr -> "clocked expression"
     | TypeAscription -> "Type ascription operator"
   in
   
@@ -1533,7 +1534,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
 
     (* Functions derived from constants are printed along with the global constants. 
        Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription then 
+    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
@@ -2043,7 +2044,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
 
     (* Functions derived from constants are printed along with the global constants. 
        Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription then 
+    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
       pp_print_lustre_path_json' false const_map const_funcs ppf tl 
     else
 

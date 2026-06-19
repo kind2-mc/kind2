@@ -1,0 +1,19 @@
+
+node two(m: bool) returns (c1, c2: int);
+let
+  when m then
+    c1 = 1 -> pre c2 + 1;
+    c2 = 0 -> pre c1 + 1;
+  else
+    c2 = 1 -> pre c1 + 1;
+    c1 = 0 -> pre c2 + 1;
+  end
+tel
+
+node main() returns (c1, c2: int);
+var d: bool;
+let
+  d = true -> not (pre d);
+  c1, c2 = two(d);
+  check "P1" not (c1 = 4 and c2 = 5);
+tel
