@@ -39,6 +39,7 @@ module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
+module LDL = LustreDesugarLast
 module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
@@ -63,6 +64,7 @@ type error = [
   | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
+  | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -149,6 +151,11 @@ let fail_or_warn warning =
 
 let type_check declarations =
   let tc_res = (
+    (* Step 0. Desugar the 'last' operator (only allowed within frame blocks).
+       Done before syntax checks and type checking so that the rest of the
+       pipeline never sees 'last'. *)
+    let* declarations = LDL.desugar_last declarations in
+
     (* Step 1. Basic syntax checks on declarations  *)
     let* warnings1, declarations = LS.syntax_check declarations in
 

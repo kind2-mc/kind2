@@ -212,6 +212,7 @@ let mk_span start_pos end_pos =
 
 (* Tokens for temporal operators *)
 %token PRE
+%token LAST
 %token FBY
 %token ARROW
 
@@ -241,8 +242,9 @@ let mk_span start_pos end_pos =
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
-%nonassoc PRE 
-%nonassoc INT REAL 
+%nonassoc PRE
+%nonassoc LAST
+%nonassoc INT REAL
 %nonassoc NOT
 %nonassoc BVNOT 
 %left CARET 
@@ -1336,6 +1338,8 @@ pexpr(Q):
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
+  (* The 'last' operator (only valid inside frame blocks; desugared away early) *)
+  | LAST; i = ident { A.Last (mk_pos $startpos, i) }
   | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
     { let pos = mk_pos $startpos in
       fail_at_position pos "Unsupported operator: fby" }

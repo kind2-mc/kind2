@@ -326,6 +326,7 @@ let keyword_table = mk_hashtbl [
   (* Temporal operators *)
   "pre", PRE ;
   "fby", FBY ;
+  "last", LAST ;
 
   (* Block annotation contract stuff. *)
   "mode", MODE;

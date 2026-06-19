@@ -171,6 +171,9 @@ and expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Previous value of a variable in a frame block (desugared early in the
+     pipeline by LustreDesugarLast) *)
+  | Last of position * ident
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)

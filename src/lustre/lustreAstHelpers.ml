@@ -58,6 +58,7 @@ let pos_of_expr = function
   | Quantifier (pos, _, _, _)
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Last (pos, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | ChooseOp (pos, _, _) | Extract (pos, _, _, _)

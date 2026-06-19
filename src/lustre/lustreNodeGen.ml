@@ -1916,6 +1916,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
+        (* Locals introduced to desugar the 'last' operator are Kind 2
+           generated and therefore invisible (not shown in counterexamples). *)
+        let source = if GI.var_is_last_local i then N.Generated else N.Local in
         let over_indices = fun index index_type accum ->
           let possible_state_var = mk_state_var
             ~is_input:false
@@ -1924,7 +1927,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
             ident
             index
             index_type
-            (Some N.Local)
+            (Some source)
           in
           match possible_state_var with
           | Some state_var -> X.add index state_var accum
