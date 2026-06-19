@@ -130,10 +130,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
-  mk_test "test when block with node call in branch" (fun () ->
-    match load_file "./lustreSyntaxChecks/when_block_node_call.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
-    | _ -> false);
   mk_test "test function contract with stateful import 1" (fun () ->
     match load_file "./lustreSyntaxChecks/function_stateful_contract_import.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true

@@ -255,6 +255,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
       | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
+      | ClockedExpr -> "clocked expression"
       | Choose -> "'Choose' operator")
     NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;
