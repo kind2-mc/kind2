@@ -1,0 +1,5 @@
+-- The 'last' operator may only be used within a frame block.
+node n(i: int) returns (o: int);
+let
+  o = last i + 1;
+tel

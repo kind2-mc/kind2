@@ -136,6 +136,9 @@ type expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Previous value of a variable in a frame block (desugared early in the
+     pipeline by LustreDesugarLast) *)
+  | Last of position * ident
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
@@ -612,6 +615,9 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_expr ",@ ") l 
 
     | Pre (p, e) -> p1 p "pre" e
+
+    | Last (p, i) ->
+      Format.fprintf ppf "%alast %a" ppos p pp_print_ident i
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 

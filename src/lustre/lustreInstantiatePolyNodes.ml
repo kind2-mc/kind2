@@ -379,10 +379,10 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
-  | RecordProject (p, expr, id) -> 
+  | RecordProject (p, expr, id) ->
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, RecordProject (p, expr, id), decls, node_decls_map
   | ConvOp (p, op, expr) -> 

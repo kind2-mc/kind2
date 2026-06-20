@@ -31,6 +31,7 @@ type error = [
   | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
+  | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
 ]
 
 let error_position error = match error with
@@ -46,6 +47,7 @@ let error_position error = match error with
   | `LustreConstantsToFunctionsError (pos, _) -> pos
   | `LustreGenRefTypeImpNodesError (pos, _) -> pos
   | `LustreDesugarFrameBlocksError (pos, _) -> pos
+  | `LustreDesugarLastError (pos, _) -> pos
 
 let error_message error = match error with
   | `LustreArrayDependencies (_, kind) -> LustreArrayDependencies.error_message kind
@@ -60,3 +62,4 @@ let error_message error = match error with
   | `LustreConstantsToFunctionsError (_, kind) -> LustreConstantsToFunctions.error_message kind 
   | `LustreGenRefTypeImpNodesError (_, kind) -> LustreGenRefTypeImpNodes.error_message kind
   | `LustreDesugarFrameBlocksError (_, kind) -> LustreDesugarFrameBlocks.error_message kind
+  | `LustreDesugarLastError (_, kind) -> LustreDesugarLast.error_message kind

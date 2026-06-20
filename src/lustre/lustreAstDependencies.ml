@@ -439,7 +439,7 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
                             
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None) -> []
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None) -> []
   | EmptyMap (_, Some (kt, vt)) -> extract_node_calls_type kt @ extract_node_calls_type vt
   | EmptySet (_, Some ty) -> extract_node_calls_type ty
   | ModeRef (pos, ids) ->
@@ -775,6 +775,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
+  (* 'last x' refers to the previous value of x: no instantaneous dependency *)
+  | Last _ -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
   | TypeAscription (_, e, ty) -> SI.union (r e) (LH.vars_of_type ty)
 

@@ -148,9 +148,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | EmptyMap (p, Some (kt, vt)) ->
     EmptyMap (p, Some (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
   (* Everything else *)
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
-  | ModeRef _ as e -> e 
-  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
+  | ModeRef _ as e -> e
+  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)
   | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 

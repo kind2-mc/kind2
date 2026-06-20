@@ -133,6 +133,20 @@ let var_is_discarded_output var =
   String.split_on_char '_' (HString.string_of_hstring var)
   |> List.mem discarded_output
 
+(* String constant used in lustreDesugarLast.ml as a segment of the fresh local
+   variables introduced to desugar the 'last' operator (e.g. '0_glast_o'). The
+   leading numeric segment guarantees the generated names cannot clash with
+   user-written identifiers. These locals are invisible (Kind 2 generated). *)
+let last_local = "glast"
+
+(* Checks if a variable name corresponds to a 'last'-operator local. As with
+   [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
+   numeric segment to the end, so we look for [last_local] as a '_'-separated
+   segment, which matches both forms. *)
+let var_is_last_local var =
+  String.split_on_char '_' (HString.string_of_hstring var)
+  |> List.mem last_local
+
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
   | _, (Some v), None -> Some v

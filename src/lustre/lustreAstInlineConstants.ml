@@ -238,6 +238,7 @@ and push_pre is_guarded pos =
   let r e = push_pre is_guarded pos e in
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
+  | Last _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
   | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)

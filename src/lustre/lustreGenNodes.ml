@@ -227,6 +227,7 @@ fun ctx node_name fun_ids expr ->
     A.Call(pos, ty_vars, name, inputs_call), gen_nodes @ ty_gen_nodes @ [generated_node]
 
   | Ident _ as e -> e, []
+  | Last _ as e -> e, []
   | ModeRef (_, _) as e -> e, []
   | A.EmptySet (pos, None) -> A.EmptySet (pos, None), []
   | A.EmptySet (pos, Some ty) ->

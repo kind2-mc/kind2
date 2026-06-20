@@ -117,6 +117,13 @@ val discarded_output : string
 (** Checks if a variable name corresponds to a discarded call-statement result *)
 val var_is_discarded_output: HString.t -> bool
 
+(* String constant used as a segment of fresh locals introduced to desugar the
+   'last' operator (see lustreDesugarLast.ml). *)
+val last_local : string
+
+(** Checks if a variable name corresponds to a 'last'-operator local *)
+val var_is_last_local: HString.t -> bool
+
 val empty : unit -> t
 
 val union : t -> t -> t

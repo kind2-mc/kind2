@@ -237,7 +237,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
@@ -275,7 +275,7 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args
