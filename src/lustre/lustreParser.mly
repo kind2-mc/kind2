@@ -243,7 +243,6 @@ let mk_span start_pos end_pos =
 %left BVAND
 %nonassoc LSH RSH
 %nonassoc PRE
-%nonassoc LAST
 %nonassoc INT REAL
 %nonassoc NOT
 %nonassoc BVNOT 
