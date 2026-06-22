@@ -844,19 +844,23 @@ node_if_block:
 
 
 node_when_block:
-  | WHEN; e = expr; THEN; 
+  | WHEN; e = expr; THEN;
       l1 = nonempty_list(node_item);
-    ELSE; 
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, []) }
+  | WHEN; e = expr; THEN;
+      l1 = nonempty_list(node_item);
+    ELSE;
       l2 = nonempty_list(node_item);
     END;
     { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
   | COND;
       BAR; c1 = node_cond_case_colon;
       cs = list(bar_node_cond_case_colon);
-      OTHERWISE; COLON;
-      l_else = nonempty_list(node_item);
+      l_else = option(cond_otherwise);
     END;
     {
+      let l_else = match l_else with Some l -> l | None -> [] in
       let cases = c1 :: cs in
       let nested = List.fold_right
         (fun (cond, l_then) l_otherwise ->
@@ -868,6 +872,10 @@ node_when_block:
       | [A.WhenBlock _ as wb] -> wb
       | _ -> assert false
     }
+
+
+cond_otherwise:
+  | OTHERWISE; COLON; l = nonempty_list(node_item) { l }
 
 
 bar_node_cond_case_colon:
