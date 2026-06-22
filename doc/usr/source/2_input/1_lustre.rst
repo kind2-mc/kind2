@@ -1196,10 +1196,23 @@ will also generate the two warnings as discussed in the previous paragraph.
 The ``last`` operator
 ^^^^^^^^^^^^^^^^^^^^^
 Within a frame block, the expression ``last x`` (where ``x`` is a variable in
-scope) denotes the previous value of ``x``, initialized by the frame.
-That is, ``last x`` is equivalent to ``init_x -> pre x``, where ``init_x`` is the
-initialization given for ``x`` at the top of the frame block (or simply
-``pre x`` when ``x`` has no initialization).
+scope) denotes the value of ``x`` at the *immediately preceding timestep*, with
+the value at the first timestep given by the frame's initialization of ``x`` (or
+left undefined when ``x`` has no initialization). ``last x`` always refers to the
+value of ``x`` one timestep earlier, regardless of any branch conditions under
+which it appears.
+
+.. warning::
+
+   ``last x`` is **not** the same as writing ``init_x -> pre x`` inside a branch
+   of a ``when`` (or ``cond``) block. When ``init_x -> pre x`` is written
+   directly inside a branch, the lazy branch semantics make ``pre x`` refer to
+   the value of ``x`` the *last time that branch was selected*, which may be
+   several timesteps earlier. In contrast, ``last x`` always refers to the value
+   of ``x`` at the immediately preceding timestep. (In a context that is
+   evaluated at every timestep — for example a plain frame-block equation outside
+   any ``when``/``cond`` branch — the two coincide, but ``last x`` is the
+   reliable way to express "value at the previous timestep" in all contexts.)
 
 The ``last`` operator may only be used inside a frame block; using it elsewhere
 is an error.
