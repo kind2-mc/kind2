@@ -869,4 +869,16 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     match load_file "./lustreSyntaxChecks/when_block_omitted_in_frame.lus" with
     | Ok _ -> true
     | _ -> false);
+  mk_test "When block with omitted else branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "Cond block with omitted otherwise branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/cond_no_otherwise_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "When block with omitted else branch outside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
 ])

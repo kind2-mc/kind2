@@ -1268,8 +1268,41 @@ blocks are equivalent:
       end
    tel
 
+Within a frame block, the ``else`` branch of a ``when`` block (and the
+``otherwise`` branch of a ``cond`` block) may also be omitted entirely. An
+omitted ``else``/``otherwise`` branch behaves as if it defined every frame block
+variable with ``x = last x``. For example, the following two frame blocks are
+equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o;
+         c1 = last c1;
+         c2 = last c2;
+      end
+   tel
+
 Outside a frame block, every variable defined in any branch of a ``when`` block
-must still be defined in all branches.
+must still be defined in all branches, and the ``else``/``otherwise`` branch
+cannot be omitted.
 
 Restrictions
 ^^^^^^^^^^^^
