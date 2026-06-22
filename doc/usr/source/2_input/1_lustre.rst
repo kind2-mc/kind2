@@ -1193,6 +1193,71 @@ will also generate the two warnings as discussed in the previous paragraph.
       fi
    tel
 
+The ``last`` operator
+^^^^^^^^^^^^^^^^^^^^^
+Within a frame block, the expression ``last x`` (where ``x`` is a variable in
+scope) denotes the previous value of ``x``, initialized by the frame.
+That is, ``last x`` is equivalent to ``init_x -> pre x``, where ``init_x`` is the
+initialization given for ``x`` at the top of the frame block (or simply
+``pre x`` when ``x`` has no initialization).
+
+The ``last`` operator may only be used inside a frame block; using it elsewhere
+is an error.
+
+For example, in the following frame block ``last o`` refers to the value of
+``o`` at the previous timestep, initialized to ``i`` (the initialization of
+``o``):
+
+.. code-block:: none
+
+   frame (o)
+   o = i;
+   let
+      o = last o + 1;
+   tel
+
+Omitting equations in ``when`` blocks within frame blocks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Just as with ``if`` statements, a variable may be left undefined in some branches
+of a ``when`` block when the ``when`` block appears within a frame block.
+When the definition of a variable ``x`` is omitted in a branch, that branch
+behaves as if it contained the equation ``x = last x`` (i.e., ``x`` keeps its
+previous value, initialized by the frame). For example, the following two frame
+blocks are equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+         c2 = last c2;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+         c1 = last c1;
+      end
+   tel
+
+Outside a frame block, every variable defined in any branch of a ``when`` block
+must still be defined in all branches.
+
 Restrictions
 ^^^^^^^^^^^^
 A frame block cannot be nested within an if statement or another frame block, as

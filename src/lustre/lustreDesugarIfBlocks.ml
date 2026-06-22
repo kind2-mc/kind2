@@ -446,21 +446,25 @@ let extract_equations_from_if node_id ctx ib in_frame_block =
 (** Helper function for 'desugar_node_item' that converts WhenBlocks to a list
     of lazy ITEs (if-then-otherwise). Same steps as extract_equations_from_if
     but uses tree_to_lazy_ite to produce LazyIte expressions. *)
-let extract_equations_from_when node_id ctx wb =
+let extract_equations_from_when node_id ctx wb in_frame_block =
   update_if_position_info node_id wb;
   let* tree_map = when_block_to_trees wb in
   let (lhss_poss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in
-  (* For when blocks, always enforce that every variable defined in any branch
-     is defined in all branches, regardless of context. *)
+  (* Outside a frame block, every variable defined in any branch must be defined
+     in all branches. Inside a frame block, an omitted definition is filled with
+     an oracle (later guarded by 'last x', i.e. 'init_x -> pre x'), so undefined
+     branches are allowed. *)
   let* () =
-    let lhss = List.map fst lhss_poss in
-    R.seq_ (List.map2 (fun lhs tree ->
-      if has_leaf_none tree && not (is_discarded_lhs lhs) then
-        let (var, pos) = get_lhs_var lhs in
-        mk_error pos (MissingDefinitionInBranchError var)
-      else R.ok ()
-    ) lhss trees)
+    if in_frame_block then R.ok ()
+    else
+      let lhss = List.map fst lhss_poss in
+      R.seq_ (List.map2 (fun lhs tree ->
+        if has_leaf_none tree && not (is_discarded_lhs lhs) then
+          let (var, pos) = get_lhs_var lhs in
+          mk_error pos (MissingDefinitionInBranchError var)
+        else R.ok ()
+      ) lhss trees)
   in
   let lhs_poss = List.map (fun (A.StructDef (pos, _), _) -> pos) lhss_poss in
   let rhs_poss = List.map snd lhss_poss in
@@ -484,7 +488,7 @@ let extract_equations_from_when node_id ctx wb =
 *)
 let rec desugar_node_item node_id ctx in_frame_block ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if node_id ctx ib in_frame_block
-  | A.WhenBlock _ as wb -> extract_equations_from_when node_id ctx wb
+  | A.WhenBlock _ as wb -> extract_equations_from_when node_id ctx wb in_frame_block
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* res = R.seq (List.map (desugar_node_item node_id ctx true) nis) in
     let decls, nis, gids = split_and_flatten3 res in
