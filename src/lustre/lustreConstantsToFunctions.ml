@@ -79,6 +79,8 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
     R.ok (A.Assume (p, id, b, AH.constants_to_calls new_func_ids e))
   | Guarantee (p, id, b, e) -> 
     R.ok (A.Guarantee (p, id, b, AH.constants_to_calls new_func_ids e))
+  | Decreases (p, e) -> 
+    R.ok (A.Decreases (p, AH.constants_to_calls new_func_ids e))
   | Mode (p, id, reqs, enss) -> 
     let reqs = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) reqs in 
     let enss = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) enss in 
@@ -114,7 +116,8 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   let nis = List.map (ni_constants_to_calls new_func_ids) nis in 
   A.FrameBlock (p, vars, eqs, nis)
 | A.AnnotMain _ -> ni
-| A.AnnotProperty (p, id, e, k) -> 
+| A.Auto _ -> ni
+| A.AnnotProperty (p, id, e, k) ->
   A.AnnotProperty (p, id, AH.constants_to_calls new_func_ids e, k)
 
 let node_decl_constants_to_calls new_func_ids (ni, imp, opac, ps, ips, ops, locals, nis, c) = 
@@ -148,9 +151,9 @@ let decl_constants_to_calls new_func_ids decl = match decl with
 | A.NodeDecl (s, node_decl) -> 
   let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
   R.ok (A.NodeDecl (s, node_decl))
-| A.FuncDecl (s, node_decl) -> 
+| A.FuncDecl (s, node_decl, is_rec) -> 
   let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
-  R.ok (A.FuncDecl (s, node_decl))
+  R.ok (A.FuncDecl (s, node_decl, is_rec))
 | A.ContractNodeDecl (p, (id, ps, ips, ops, c)) -> 
   let* ips = R.seq (List.map (fun (p, id, ty, c, b) -> 
     let* ty = ty_constants_to_calls_safe new_func_ids ty in 
@@ -252,7 +255,7 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let acc_decls =
-          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))]
+          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })]
         in
         let acc_decls, acc_new_func_ids =
           (* If type does not contain generated identifiers, and we are only generating
@@ -279,12 +282,12 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let func_decl1 =
-          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))
+          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None), { is_lemma = false; is_rec = false })
         in
         (if List.mem `CONTRACTCK (Flags.enabled ()) then
           let func_decl2 =
             let node_id = NI.mk_node_id ~node_type:NI.FreeConstant id in
-            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))
+            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })
           in
           acc_decls @ [func_decl1; func_decl2]
         else

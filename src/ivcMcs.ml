@@ -239,7 +239,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
@@ -281,7 +281,7 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args
@@ -353,6 +353,7 @@ let minimize_node_eq id_typ_map ue lst = function
 
 let rec minimize_item id_typ_map ue lst = function
   | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
+  | A.Auto p -> [A.Auto p]
   | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
   | A.Body eq -> (
     match minimize_node_eq id_typ_map ue lst eq with
@@ -423,6 +424,7 @@ let minimize_contract_node_eq ue lst cne =
     in
     [A.Mode (pos,id,req,ens)]
   | A.AssumptionVars _ -> [cne]
+  | A.Decreases _ -> [cne]
 
 let minimize_node_decl ue loc_core
   ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
@@ -476,8 +478,8 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, (p, body))
 let minimize_decl ue loc_core = function
   | A.NodeDecl (span, ndecl) ->
     A.NodeDecl (span, minimize_node_decl ue loc_core ndecl)
-  | A.FuncDecl (span, ndecl) ->
-    A.FuncDecl (span, minimize_node_decl ue loc_core ndecl)
+  | A.FuncDecl (span, ndecl, is_rec) ->
+    A.FuncDecl (span, minimize_node_decl ue loc_core ndecl, is_rec)
   | A.ContractNodeDecl (span, cdecl) ->
     A.ContractNodeDecl (span, minimize_contract_decl ue loc_core cdecl)
   | decl -> decl 
@@ -488,7 +490,7 @@ let fill_input_types_hashtbl ast =
     Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
   in
   let aux_decl = function
-  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl) -> aux_node_decl ndecl
+  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl, _) -> aux_node_decl ndecl
   | _ -> ()
   in
   List.iter aux_decl ast

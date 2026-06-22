@@ -35,8 +35,10 @@ type 'a t = {
   (* System has an implementation. *)
   has_impl : bool ;
 
+  map : 'a t Scope.Hashtbl.t ;
+
   (* Direct sub-systems. *)
-  subsystems : 'a t list ;
+  subsystems : Scope.t list ;
 }
 
 (* Strategy info of a subsystem. *)
@@ -66,20 +68,23 @@ let rec all_subsystems' accum = function
   all_subsystems' accum tl
 
 (* First system on the stack. *)
-| { subsystems } as h :: tl -> 
+| { scope = top; map; subsystems } as h :: tl -> 
 
   (* Subsystems that are not in the accumulator. *)
   let tl' =
-    subsystems |> List.fold_left (fun tl' ({ scope } as subsystem) ->
+    subsystems |> List.fold_left (fun tl' scope ->
       if
+       (* System of the same name is in the stack? *)
+       scope = top
+       || List.exists (fun { scope = s } -> scope = s) tl
        (* System of the same name is in the accumulator? *)
-       List.exists
+       || List.exists
          (fun { scope = s } -> scope = s)
          accum
       then (* Do not add twice. *)
        tl'
       else (* First get subsystems of this system. *)
-       subsystem :: tl'
+       Scope.Hashtbl.find map scope :: tl'
     ) []
   in
 
@@ -99,37 +104,18 @@ let all_subsystems s = all_subsystems' [] [s]
 
 let all_subsystems_of_list l = all_subsystems' [] l
 
-(* Search depth-first for the subsystem in the list of subsystems, skip over
-   systems already visited. *)
-let rec find_subsystem' scope visited = function 
-
-(* Stack is empty, scope not found. *)
-| [] -> raise Not_found 
-
-(* Take first element from stack. *)
-| ({ scope = scope'; subsystems } as subsystem) :: tl -> 
-
-  (* Return subsystem if scope matches. *)
-  if scope = scope' then subsystem else 
-
-    (* System already seen? *)
-    if List.mem scope' visited then 
-
-      (* Continue with rest of stack. *)
-      find_subsystem' scope visited tl
-
-    else
-
-      (* Push subsystems of this system to stack. *)
-      find_subsystem' scope (scope' :: visited) (subsystems @ tl)
-        
-    
 (* Return the subsystem of the given scope.
 
    Raise [Not_found] if there is no subsystem of that scope. *)
-let find_subsystem subsystem scope = find_subsystem' scope [] [subsystem]
+let find_subsystem { map } scope = Scope.Hashtbl.find map scope
 
-let find_subsystem_of_list subsystems scope = find_subsystem' scope [] subsystems
+let find_subsystem_of_list subsystems scope =
+  let res =
+    List.find_map (fun { map } -> Scope.Hashtbl.find_opt map scope) subsystems
+  in
+  match res with
+  | Some sub -> sub
+  | None -> raise Not_found
 
 (* 
    Local Variables:

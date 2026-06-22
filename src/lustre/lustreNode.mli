@@ -110,6 +110,12 @@ type node_call = {
 
   call_inlined : bool;
   (** Whether this call was inlined or not *)
+
+  call_rec_decrease_expr : string option;
+  (** Source-level rendering of the decrease constraint generated for a
+      recursive call (e.g. ["(n - 1 < n)"]), used as the displayed expression
+      of the corresponding [decrease_check] property. [None] for non-recursive
+      calls or when the source expression could not be reconstructed. *)
 }
 
 
@@ -146,7 +152,9 @@ type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
 type equation = equation_lhs * LustreExpr.t
 
 type func_info = {
-  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
+  rec_info: (int * LustreExpr.expr list) option;
+  is_lemma: bool;
 }
 
 type type_of_component =
@@ -345,6 +353,9 @@ val node_id_of_node : t -> NI.t
 
 (** Return whether the component is a function *)
 val is_function : t -> bool
+
+(** Return whether the component is a recursive function *)
+val is_recursive : t -> bool
 
 (** [ordered_equations_of_node n stateful init]
     Returns the equations of [n], topologically sorted by their base (step)

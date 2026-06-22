@@ -60,6 +60,10 @@ type error_kind = Unknown of string
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
+  | MissingDecreasesClause of HString.t
+  | MisplacedAuto
+  | LemmaCallOutsideCallStatement of HString.t
+  | CallStatementCallsNonLemma of HString.t
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

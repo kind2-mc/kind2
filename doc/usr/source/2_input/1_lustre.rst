@@ -1193,6 +1193,117 @@ will also generate the two warnings as discussed in the previous paragraph.
       fi
    tel
 
+The ``last`` operator
+^^^^^^^^^^^^^^^^^^^^^
+Within a frame block, the expression ``last x`` (where ``x`` is a variable in
+scope) denotes the value of ``x`` at the *immediately preceding timestep*, with
+the value at the first timestep given by the frame's initialization of ``x`` (or
+left undefined when ``x`` has no initialization). ``last x`` always refers to the
+value of ``x`` one timestep earlier, regardless of any branch conditions under
+which it appears.
+
+.. warning::
+
+   ``last x`` is **not** the same as writing ``init_x -> pre x`` inside a branch
+   of a ``when`` (or ``cond``) block. When ``init_x -> pre x`` is written
+   directly inside a branch, the lazy branch semantics make ``pre x`` refer to
+   the value of ``x`` the *last time that branch was selected*, which may be
+   several timesteps earlier. In contrast, ``last x`` always refers to the value
+   of ``x`` at the immediately preceding timestep. (In a context that is
+   evaluated at every timestep — for example a plain frame-block equation outside
+   any ``when``/``cond`` branch — the two coincide, but ``last x`` is the
+   reliable way to express "value at the previous timestep" in all contexts.)
+
+The ``last`` operator may only be used inside a frame block; using it elsewhere
+is an error.
+
+For example, in the following frame block ``last o`` refers to the value of
+``o`` at the previous timestep, initialized to ``i`` (the initialization of
+``o``):
+
+.. code-block:: none
+
+   frame (o)
+   o = i;
+   let
+      o = last o + 1;
+   tel
+
+Omitting equations in ``when`` blocks within frame blocks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Just as with ``if`` statements, a variable may be left undefined in some branches
+of a ``when`` block when the ``when`` block appears within a frame block.
+When the definition of a variable ``x`` is omitted in a branch, that branch
+behaves as if it contained the equation ``x = last x`` (i.e., ``x`` keeps its
+previous value, initialized by the frame). For example, the following two frame
+blocks are equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+         c2 = last c2;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+         c1 = last c1;
+      end
+   tel
+
+Within a frame block, the ``else`` branch of a ``when`` block (and the
+``otherwise`` branch of a ``cond`` block) may also be omitted entirely. An
+omitted ``else``/``otherwise`` branch behaves as if it defined every frame block
+variable with ``x = last x``. For example, the following two frame blocks are
+equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o;
+         c1 = last c1;
+         c2 = last c2;
+      end
+   tel
+
+Outside a frame block, every variable defined in any branch of a ``when`` block
+must still be defined in all branches, and the ``else``/``otherwise`` branch
+cannot be omitted.
+
 Restrictions
 ^^^^^^^^^^^^
 A frame block cannot be nested within an if statement or another frame block, as

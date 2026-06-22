@@ -130,10 +130,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
-  mk_test "test when block with node call in branch" (fun () ->
-    match load_file "./lustreSyntaxChecks/when_block_node_call.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
-    | _ -> false);
   mk_test "test function contract with stateful import 1" (fun () ->
     match load_file "./lustreSyntaxChecks/function_stateful_contract_import.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
@@ -915,6 +911,22 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     | _ -> false);
   mk_test "When block variable missing in branch" (fun () ->
     match load_file "./lustreSyntaxChecks/when_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
+  mk_test "When block variable omitted in branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_block_omitted_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "When block with omitted else branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "Cond block with omitted otherwise branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/cond_no_otherwise_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "When block with omitted else branch outside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
 ])

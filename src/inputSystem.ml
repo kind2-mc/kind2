@@ -191,11 +191,11 @@ let next_analysis_of_strategy (type s)
       in
       if Flags.modular () then (
         let subs_of_scope scope =
-          let { S.subsystems } = S.find_subsystem_of_list main_subs scope in
+          let { S.subsystems } as sub = S.find_subsystem_of_list main_subs scope in
           subsystems
           |> List.map (
-            fun ({ S.scope } as sub) ->
-              scope, S.strategy_info_of sub
+            fun scope ->
+              scope, S.strategy_info_of (S.find_subsystem sub scope)
           )
         in
         Strategy.next_modular_analysis results subs_of_scope all_syss
@@ -217,11 +217,11 @@ let next_analysis_of_strategy (type s)
       in
       if Flags.modular () then (
         let subs_of_scope scope =
-          let { S.subsystems } = S.find_subsystem subsystem scope in
+          let { S.subsystems } as sub = S.find_subsystem subsystem scope in
           subsystems
           |> List.map (
-            fun ({ S.scope } as sub) ->
-              scope, S.strategy_info_of sub
+            fun scope ->
+              scope, S.strategy_info_of (S.find_subsystem sub scope)
           )
         in
         Strategy.next_modular_analysis results subs_of_scope all_syss
@@ -244,11 +244,11 @@ let next_analysis_of_strategy (type s)
       in
       if Flags.modular () then (
         let subs_of_scope scope =
-          let { S.subsystems } = S.find_subsystem_of_list main_subs scope in
+          let { S.subsystems } as sub = S.find_subsystem_of_list main_subs scope in
           subsystems
           |> List.map (
-            fun ({ S.scope } as sub) ->
-              scope, S.strategy_info_of sub
+            fun scope ->
+              scope, S.strategy_info_of (S.find_subsystem sub scope)
           )
         in
         Strategy.next_modular_analysis results subs_of_scope all_syss
@@ -332,7 +332,9 @@ let contract_check_params (type s) (input_system : s t) =
 
   let param_for_subsystem sub =
     let scope = sub.S.scope in
-    let subsystems = sub.S.subsystems in
+    let subsystems = 
+      List.map (fun s -> S.find_subsystem sub s) sub.S.subsystems
+    in
     (A.ContractCheck {
       A.top = scope ;
       A.uid = A.get_uid () ;
@@ -1141,15 +1143,34 @@ let prefix_system (type s) (input_system : s t) prefix : s t = match input_syste
       result
     in
 
-    let rec rename (subsystem: N.t SubSystem.t) =
-      { subsystem with
-        source = rename_node subsystem.source;
-        scope = rename_scope subsystem.scope;
-        subsystems = List.map rename subsystem.subsystems
-      }
-    in
+    let rename_sys (root : N.t SubSystem.t) : N.t SubSystem.t =
+      let new_global_map = Scope.Hashtbl.create (Scope.Hashtbl.length root.map) in
 
-    let main_subs = List.map rename main_subs in
+      let rec rename (sub : N.t SubSystem.t) : N.t SubSystem.t =
+        let new_scope = rename_scope sub.scope in
+        let new_source = rename_node sub.source in
+        let new_subsystems = List.map rename_scope sub.subsystems in
+
+        let new_sub = {
+          sub with
+          scope = new_scope;
+          source = new_source;
+          subsystems = new_subsystems;
+          map = new_global_map;
+        } in
+
+        Scope.Hashtbl.add new_global_map new_scope new_sub;
+
+        sub.subsystems |> List.iter (fun scope ->
+          if not (Scope.Hashtbl.mem new_global_map scope) then
+            rename (Scope.Hashtbl.find root.map scope) |> ignore
+        );
+        
+        new_sub
+      in
+      rename root
+    in
+    let main_subs = List.map rename_sys main_subs in
     Lustre (main_subs, globals, ast)
   | _ -> input_system
 

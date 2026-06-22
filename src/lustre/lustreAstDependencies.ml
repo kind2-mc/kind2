@@ -42,7 +42,8 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of SI.t
   | CyclicDependency of HString.t list
-  | ImportedCyclicDependency of (HString.t list * NI.t) 
+  | ImportedCyclicDependency of (HString.t list * NI.t)
+  | MismatchedDecreasesArity of HString.t list
 
 let error_message error = match error with
   | Unknown s -> s
@@ -67,8 +68,13 @@ let error_message error = match error with
         ^ Lib.string_of_t LA.pp_print_ident imported_node_name in
 
     "Potential cyclic dependency detected in definition of identifiers: "
-    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^ 
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids) ^
     " (Hint: " ^ helping_message ^ ")"
+  | MismatchedDecreasesArity ids ->
+    "Mutually recursive functions must declare decrease measures of the same "
+    ^ "arity for the lexicographic termination check to be well defined, but "
+    ^ "mismatching arities were found among: "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -86,13 +92,7 @@ module G = Graph.Make(struct
                let pp_print_t = LA.pp_print_ident
              end)
 
-module IMap = struct
-  include (Map.Make(struct
-               type t = LA.ident
-               let compare i1 i2 = HString.compare i1 i2
-             end))
-  (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)         
-end
+module IMap = HString.HStringMap
 
 module IntMap = struct
   include (Map.Make(struct
@@ -445,7 +445,7 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
                             
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None) -> []
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None) -> []
   | EmptyMap (_, Some (kt, vt)) -> extract_node_calls_type kt @ extract_node_calls_type vt
   | EmptySet (_, Some ty) -> extract_node_calls_type ty
   | ModeRef (pos, ids) ->
@@ -533,6 +533,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
 = fun node_name -> function
   | LA.AssumptionVars _ -> empty_dependency_analysis_data
+  | LA.Decreases (_, e) ->
+    List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+       (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
   | LA.ContractCall (pos, node_id, _, es, _) ->
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix (NI.get_internal_name node_id) pos)
@@ -676,7 +679,7 @@ let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration o
     mk_decl_map m' decls 
 
   | (LA.NodeDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls
-  | (LA.FuncDecl (span, (node_id, _, _, _, _, _, _, _, _)) as ndecl) :: decls ->
+  | (LA.FuncDecl (span, (node_id, _, _, _, _, _, _, _, _), _) as ndecl) :: decls ->
     let {LA.start_pos = pos} = span in
     let* m' = check_and_add m pos node_prefix (NI.get_internal_name node_id) (Some ndecl) in
     mk_decl_map m' decls
@@ -694,7 +697,7 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
       | TypeDecl (_, tydecl) -> mk_graph_type_decl tydecl 
       | ConstDecl (_, cdecl) -> mk_graph_const_decl cdecl
       | NodeDecl ({LA.start_pos = pos}, ndecl) -> mk_graph_node_decl pos ndecl
-      | FuncDecl ({LA.start_pos = pos}, ndecl) -> mk_graph_node_decl pos ndecl
+      | FuncDecl ({LA.start_pos = pos}, ndecl, _) -> mk_graph_node_decl pos ndecl
       | ContractNodeDecl ({LA.start_pos = pos}, cdecl) -> mk_graph_contract_decl pos cdecl
       | NodeParamInst  _ -> Lib.todo __LOC__ in
     fun decls ->
@@ -729,7 +732,8 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
         | LA.Mode _ -> (p1, e::ps), (p2, qs)
         | LA.Guarantee _
         | LA.Assume _
-        | LA.AssumptionVars _ -> (p1, ps), (p2, e::qs)
+        | LA.AssumptionVars _ 
+        | LA.Decreases _ -> (p1, ps), (p2, e::qs)
       in
     List.fold_left split_eqns ((p, []), (p, [])) eqns
     
@@ -798,6 +802,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
+  (* 'last x' refers to the previous value of x: no instantaneous dependency *)
+  | Last _ -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
   | TypeAscription (_, e, ty) -> SI.union (r e) (LH.vars_of_type ty)
 
@@ -1161,7 +1167,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
         (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
       (HString.concat2 contract_prefix (NI.get_internal_name node_id)) pos)
   | LA.Assume (_, _, _, e)
-  | LA.Guarantee (_, _, _, e) ->
+  | LA.Guarantee (_, _, _, e) 
+  | LA.Decreases (_, e) ->
     R.ok (union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e)))
   | LA.Mode (pos, i, reqs, ensures) ->
     let mgs = List.fold_left
@@ -1249,6 +1256,11 @@ let check_no_input_output_duplicate ips ops =
   in
   R.seq_chain (fun m (p, i, _, _) -> add m p i) map ops
 
+let raise_cyclic_dependency_error pos_data ids =
+  match find_id_pos pos_data (List.hd ids) with
+  | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
+  | Some p -> graph_error p (CyclicDependency ids)
+
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> (LA.contract_node_decl, [> error]) result
@@ -1259,11 +1271,9 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
   let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
   let* ad' = mk_graph_contract_decl2 ad decl in
-  let* sorted_ids = (try (R.ok (G.topological_sort ad'.graph_data)) with
-    | G.CyclicGraphException ids ->
-      match (find_id_pos ad'.id_pos_data (List.hd ids)) with
-        | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
-        | Some p -> graph_error p (CyclicDependency ids))
+  let* sorted_ids =
+    try (R.ok (G.topological_sort ad'.graph_data)) with
+    | G.CyclicGraphException ids -> raise_cyclic_dependency_error ad'.id_pos_data ids
   in
   let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
   let ((_, to_sort_eqns), (p, rest)) = split_contract_equations (p, contract) in
@@ -1281,32 +1291,151 @@ let sort_and_check_contract_eqns: dependency_analysis_data
    2. Ensures the assumptions do not use the current value
       of the output streams. *)
 
+(* The arity of a function's decrease measure: the number of components of the
+   tuple (a single, non-tuple measure has arity 1). Returns [None] for any
+   declaration without a decreases clause. *)
+let decreases_arity = function
+  | LA.FuncDecl (_, (_, _, _, _, _, _, _, _, Some (_, citems)), _) ->
+    List.fold_left
+      (fun acc item -> match item with
+        | LA.Decreases (_, LA.GroupExpr (_, LA.ExprList, es)) -> Some (List.length es)
+        | LA.Decreases (_, _) -> Some 1
+        | _ -> acc)
+      None citems
+  | _ -> None
 
-let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
-  = fun decls ->
+(* All functions of a mutually recursive group must declare a decrease measure
+   of the same arity, otherwise their measures cannot be compared
+   lexicographically against each other. *)
+let check_decreases_arity ad decl_map scc =
+  let arities =
+    List.filter_map
+      (fun id ->
+        match IMap.find_opt id decl_map with
+        | Some (Some decl) ->
+          (match decreases_arity decl with Some n -> Some (id, n) | None -> None)
+        | _ -> None)
+      scc
+  in
+  match arities with
+  | [] | [_] -> R.ok ()
+  | (_, n0) :: _ ->
+    if List.for_all (fun (_, n) -> n = n0) arities then R.ok ()
+    else
+      let pos =
+        match find_id_pos ad.id_pos_data (List.hd scc) with
+        | Some p -> p
+        | None -> assert false
+      in
+      graph_error pos (MismatchedDecreasesArity (List.map fst arities))
+
+let topological_sort_with_rec_funs decl_map ad =
+  let sccs =
+    (* Topological ordered *)
+    List.map G.to_vertex_list (G.get_sccs ad.graph_data)
+  in
+  let check_all_rec_funcs acc scc =
+    let* scc_id, scc_map =
+      List.fold_left
+        (fun acc id ->
+          match IMap.find_opt id decl_map with
+          | None | Some None -> assert false
+          | Some (Some decl) ->
+            if LH.is_recursive_function decl then acc
+            else
+              let cycle =
+                let scc_subgraph =
+                  G.sub_graph ad.graph_data (G.from_vertex_list scc)
+                in
+                match G.extract_cycle scc_subgraph (List.hd scc) with
+                | Some cycle -> cycle
+                | None -> assert false
+              in
+              raise_cyclic_dependency_error ad.id_pos_data cycle
+        )
+        acc
+        scc
+    in
+    let* () = check_decreases_arity ad decl_map scc in
+    let scc_map' =
+      List.fold_left (fun acc id -> IMap.add id scc_id acc) scc_map scc
+    in
+    R.ok (scc_id + 1, scc_map')
+  in
+  let* _, scc_map =
+    List.fold_left
+      (fun acc scc ->
+        match scc with
+        | [] -> assert false
+        | [id] -> (
+          if G.has_edge ad.graph_data id id
+          then check_all_rec_funcs acc scc
+          else acc
+        )
+        | _ -> check_all_rec_funcs acc scc
+      )
+      (R.ok (0, IMap.empty))
+      sccs
+  in
+  R.ok (List.flatten sccs, scc_map)
+
+let topological_sort_without_cycles ad =
+  try R.ok (G.topological_sort ad.graph_data, IMap.empty) with
+  | G.CyclicGraphException ids ->
+    raise_cyclic_dependency_error ad.id_pos_data ids
+
+let sort_declarations: bool -> LA.t -> ((LA.t * LA.ident list * int IMap.t), [> error]) result
+  = fun allow_rec_funcs decls ->
   (* 1. make an id :-> decl map  *)
   let* decl_map = mk_decl_map IMap.empty decls in
   (* 2. build a dependency graph *)
   let ad = mk_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
-  let* sorted_ids = (try (R.ok (G.topological_sort ad.graph_data)) with
-   | G.CyclicGraphException ids ->
-      match (find_id_pos ad.id_pos_data (List.hd ids)) with
-        | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-        | Some p -> graph_error p (CyclicDependency ids))
+  let* dependency_sorted_ids, scc_map =
+    if allow_rec_funcs then topological_sort_with_rec_funs decl_map ad
+    else topological_sort_without_cycles ad
   in
-  let dependency_sorted_ids = sorted_ids in
   let is_contract_node node_name =
     try String.equal (HString.sub node_name 0 9) "contract "
     with _ -> false
   in
-  let toplevel_nodes = ad.graph_data |> G.non_target_vertices
-    |> G.to_vertex_list
+  (* A node is a top-level (analysis target) node when nothing else in the
+     model depends on it. We cannot simply use [G.non_target_vertices] (nodes
+     with no incoming edge), because a recursive function depends on itself and
+     mutually-recursive functions depend on each other, giving them incoming
+     edges. To make recursive functions top-level nodes just like non-recursive
+     ones, we ignore dependency edges internal to a strongly connected
+     component, i.e., a node is top-level if it has no incoming edge from a node
+     in a different SCC. For a graph without recursion every SCC is a singleton,
+     so this coincides with [G.non_target_vertices]. *)
+  let toplevel_nodes =
+    let g = ad.graph_data in
+    let scc_id_of_vertex =
+      List.fold_left
+        (fun (i, m) scc ->
+          (i + 1,
+           G.to_vertex_list scc
+           |> List.fold_left (fun m v -> G.VMap.add v i m) m))
+        (0, G.VMap.empty) (G.get_sccs g)
+      |> snd
+    in
+    let externally_targeted =
+      G.to_edge_list (G.get_edges g)
+      |> List.fold_left
+           (fun acc (src, tgt) ->
+             if G.VMap.find_opt src scc_id_of_vertex
+                <> G.VMap.find_opt tgt scc_id_of_vertex
+             then G.VMap.add tgt () acc
+             else acc)
+           G.VMap.empty
+    in
+    G.get_vertices g |> G.to_vertex_list
+    |> List.filter (fun v -> not (G.VMap.mem v externally_targeted))
     |> List.filter (fun s -> not (is_contract_node s))
   in
   Debug.parse "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
   let* sorted_decls = extract_decls decl_map dependency_sorted_ids in
-  R.ok (sorted_decls, toplevel_nodes)
+  R.ok (sorted_decls, toplevel_nodes, scc_map)
 (** Accepts a function to generate a declaration map, 
     a function to generate the graph of the declarations,
     runs a topological sort on the ids extracted from the map and then 
@@ -1324,9 +1453,9 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
     else (acc, nums+1)) ([], 0)) ips |> fst 
 (** Helper function to generate a node summary *)
   
-let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
-    = fun connect_imported s (i, imported, _, _, ips, ops, _, items, _) ->
-  if not imported
+let mk_node_summary: bool -> node_summary -> LA.node_decl -> bool -> node_summary
+    = fun connect_imported s (i, imported, _, _, ips, ops, _, items, _) is_rec ->
+  if not imported && not is_rec
   then 
     let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
     let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
@@ -1382,8 +1511,8 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
-    For imported nodes and imported functions we assume that output streams depend on 
-    every input stream.
+    For imported nodes and imported/recursive functions we assume that
+    output streams depend on every input stream.
  *)
 
 
@@ -1439,13 +1568,16 @@ let mk_graph_eqn: node_summary
 
       
   fun m -> function
+        (* An empty left-hand side denotes a call statement whose results are
+           discarded; it defines no variables and adds no dependencies. *)
+        | Equation (_, (LA.StructDef (_, [])), _) -> R.ok (empty_dependency_analysis_data)
         | Equation (pos, (LA.StructDef (_, lhss)), e) ->
-           (* We need to find the mapping of graphs from the 
-              lhs of the equation to the rhs of the equations 
-              such that the width of each of the lhs and rhs 
+           (* We need to find the mapping of graphs from the
+              lhs of the equation to the rhs of the equations
+              such that the width of each of the lhs and rhs
               especially if it is just an identifier.
             *)
-           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
+           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g ->
            (Debug.parse "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)
@@ -1517,9 +1649,8 @@ let analyze_circ_node_locals: LA.node_local_decl list -> (unit, [> error]) resul
   | NodeVarDecl _ -> acc) empty_dependency_analysis_data locals in
   (try (R.ok (G.topological_sort ad.graph_data)) with
     | G.CyclicGraphException ids ->
-      match (find_id_pos ad.id_pos_data (List.hd ids)) with
-        | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-        | Some p -> graph_error p (CyclicDependency ids))
+      raise_cyclic_dependency_error ad.id_pos_data ids
+  )
   >> R.ok ()
 (** Check for node locals *)
 
@@ -1567,16 +1698,16 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   = fun ad ->
   function
   | [] -> ad
-  | LA.FuncDecl (_, ndecl) :: decls ->
-    let ns = mk_node_summary false ad.nsummary ndecl in
-    let ns_conn = mk_node_summary true ad.nsummary2 ndecl in
+  | LA.FuncDecl (_, ndecl, { is_rec }) :: decls ->
+    let ns = mk_node_summary false ad.nsummary ndecl is_rec in
+    let ns_conn = mk_node_summary true ad.nsummary2 ndecl is_rec in
     generate_summaries {ad with 
       nsummary = NodeId.Map.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
       nsummary2 = NodeId.Map.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
     } decls
   | LA.NodeDecl (_, ndecl) :: decls ->
-    let ns = mk_node_summary false ad.nsummary ndecl in
-    let ns_conn = mk_node_summary true ad.nsummary2 ndecl in
+    let ns = mk_node_summary false ad.nsummary ndecl false in
+    let ns_conn = mk_node_summary true ad.nsummary2 ndecl false in
     generate_summaries {ad with 
       nsummary = NodeId.Map.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
       nsummary2 = NodeId.Map.union (fun _ _ v2 -> Some v2) ad.nsummary2 ns_conn
@@ -1591,10 +1722,10 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
 let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> error]) result = 
   fun ad ->
   function
-  | LA.FuncDecl (span, ndecl) :: ds ->
+  | LA.FuncDecl (span, ndecl, is_rec) :: ds ->
     let* ndecl' = check_node_equations ad ndecl in
     let* ds' = sort_and_check_equations ad ds in
-    R.ok (LA.FuncDecl (span, ndecl') :: ds')
+    R.ok (LA.FuncDecl (span, ndecl', is_rec) :: ds')
   | LA.NodeDecl (span, ndecl) :: ds ->
     let* ndecl' = check_node_equations ad ndecl in
     let* ds' = sort_and_check_equations ad ds in
@@ -1608,7 +1739,7 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> 
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)
 
 let sort_globals decls =
-  let* (sorted_decls, _) = sort_declarations decls in
+  let* (sorted_decls, _, _) = sort_declarations false decls in
   Debug.parse "Sorting types and constants declarations done.
     \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls;
@@ -1619,7 +1750,7 @@ let sort_globals decls =
 let sort_and_check_nodes_contracts decls =
   (* Step 1. Sort the declarations according in their dependency order
      This rules out the cases where we have recursive node or contract definitions *)
-  let* (sorted_decls, toplevel_nodes) = sort_declarations decls in
+  let* (sorted_decls, toplevel_nodes, scc_map) = sort_declarations true decls in
   Debug.parse "Sorting functions, nodes and contracts done.
     \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls;
@@ -1636,7 +1767,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  R.ok (final_decls, toplevel_nodes, analysis_data.nsummary)
+  R.ok (final_decls, toplevel_nodes, scc_map, analysis_data.nsummary)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 

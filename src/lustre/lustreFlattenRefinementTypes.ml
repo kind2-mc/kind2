@@ -150,9 +150,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | EmptyMap (p, Some (kt, vt)) ->
     EmptyMap (p, Some (flatten_ref_type ctx kt, flatten_ref_type ctx vt))
   (* Everything else *)
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
-  | ModeRef _ as e -> e 
-  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)  
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
+  | ModeRef _ as e -> e
+  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)
   | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 
@@ -196,7 +196,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
 let flatten_ref_types_item ctx item = 
   match item with 
   | A.AnnotProperty (p, id, expr, k) -> A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
-  | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ -> item
+  | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ | Auto _ -> item
 
 let flatten_ref_types_const_decl ctx decl =
   match decl with
@@ -219,6 +219,8 @@ let flatten_ref_types_contract_eq ctx eq =
     A.Assume (p, id, s, flatten_ref_types_expr ctx expr)
   | A.Guarantee (p, id, s, expr) ->
     A.Guarantee (p, id, s, flatten_ref_types_expr ctx expr)
+  | A.Decreases (p, expr) ->
+    A.Decreases (p, flatten_ref_types_expr ctx expr)
   | A.Mode (p, id, requires, ensures) -> (
     let requires =
       List.map (fun (p, id, expr) ->
@@ -271,7 +273,7 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let items = List.map (flatten_ref_types_item ctx) items in
       let contract = flatten_ref_types_contract_opt ctx contract in
       NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract))
-    | FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
+    | FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract), is_rec) ->
       let ctx =
         List.fold_left (fun acc p ->
           TypeCheckerContext.add_ty_syn acc p (A.AbstractType (Lib.dummy_pos, p))
@@ -287,7 +289,7 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let locals = List.map (flatten_ref_types_local_decl ctx) locals in
       let items = List.map (flatten_ref_types_item ctx) items in
       let contract = flatten_ref_types_contract_opt ctx contract in
-      FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract))
+      FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract), is_rec)
     | NodeParamInst (pos, (id1, id2, tys)) -> 
       let tys = List.map (flatten_ref_type ctx) tys in 
       NodeParamInst (pos, (id1, id2, tys))

@@ -131,6 +131,12 @@ type node_call = {
 
   (* Whether this call was inlined or not *)
   call_inlined : bool;
+
+  (* Source-level rendering of the decrease constraint generated for a
+     recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
+     the corresponding decrease_check property. [None] for non-recursive calls
+     or when the source expression could not be reconstructed. *)
+  call_rec_decrease_expr : string option;
 }
 
 
@@ -144,7 +150,12 @@ type equation = equation_lhs * E.t
 type contract = C.t
 
 type func_info = {
-  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
+  (* SCC identifier together with the decrease measure of the function: a
+     non-empty list of expressions interpreted lexicographically (a single
+     element is the ordinary, non-lexicographic case). *)
+  rec_info: (int * E.expr list) option;
+  is_lemma: bool;
 }
 
 type type_of_component =
@@ -572,6 +583,11 @@ let is_function { comp_type } =
   match comp_type with
   | Node -> false
   | Function _ -> true
+
+let is_recursive { comp_type } =
+  match comp_type with
+  | Function { rec_info } -> rec_info <> None
+  | _ -> false
 
 (* Pretty-print a node *)
 let pp_print_node safe ppf ({
@@ -1027,165 +1043,75 @@ let has_modes = function
 | { contract = Some { C.modes } } -> modes != []
 
 
+let mk_scope node_id = 
+  [NI.get_internal_name node_id |> HString.string_of_hstring]
 
-(* Return a subsystem from a list of nodes where the top node is at
-   the head of the list. *)
-let rec subsystem_of_nodes' nodes accum = function
+let rec subsystem_of_nodes' map nodes top =
 
-  (* Return subsystems for all nodes *)
-  | [] -> accum
+  let { calls } as node =
+    try
+      node_of_node_id top nodes
+    with Not_found ->
+      raise
+        (Invalid_argument
+            (Format.asprintf
+              "subsystem_of_nodes: node %a not found"
+              NI.pp_print_node_id_input_name top))
+  in
 
-  (* Create subsystem for node *)
-  | top :: tl -> 
+  let subsystems_ids =
+    List.map (fun { call_node_id } -> call_node_id) calls
+  in
 
-    if
+  let subsystems =
+    List.map (fun id -> mk_scope id) subsystems_ids
+  in
 
-      (* Subsystem for node already created? *)
-      List.exists
-        (fun (n, _) -> NI.equal n top)
-        accum
+  (* Scope of the system from node name *)
+  let scope = mk_scope top in
 
-    then
+  (* Does node have contracts? *)
+  let has_contract = has_effective_contract node in
 
-      (* Don't add to accumulator again *)
-      subsystem_of_nodes' nodes accum tl
+  (* Does node have modes? *)
+  let has_modes = has_modes node in
 
-    else
+  (* Does node have an implementation? *)
+  let has_impl = not node.is_extern in
 
-      (* Nodes called by this node *)
-      let { calls } as node =
+  let sub =
+    { SubSystem.scope = scope;
+      source = node;
+      opacity = node.opacity;
+      has_contract;
+      has_modes;
+      has_impl;
+      map;
+      subsystems
+    }
+  in
 
-        try 
+  Scope.Hashtbl.add map scope sub;
 
-          (* Get node by name *)
-          node_of_node_id top nodes 
+  subsystems_ids
+  |> List.iteri (fun i id ->
+    let scope = List.nth subsystems i in
+    if not (Scope.Hashtbl.mem map scope) then (
+      subsystem_of_nodes' map nodes id |> ignore
+    );
+  ) ;
 
-        (* Node must be in the list of nodes *)
-        with Not_found -> 
-
-          raise
-            (Invalid_argument 
-               (Format.asprintf
-                  "subsystem_of_nodes: node %a not found"
-                  NI.pp_print_node_id_input_name top))
-
-      in
-
-      (* For all called nodes, either add the already created
-         subsystem to the [subsystems], or add the name of the called
-         node to [tl']. *)
-      let subsystems, tl' = 
-
-        List.fold_left 
-          (fun (a, tl) { call_node_id; } -> 
-
-             try 
-
-               (* Find subsystem for callee *)
-               let _, callee_subsystem = 
-
-                 List.find
-                   (fun (n, _) -> NI.equal n call_node_id)
-                   accum
-
-               in
-
-               if 
-
-                 (* Callee already seen as a subsystem of this
-                    node? *)
-                 let call_node_id_string =
-                   NI.get_internal_name call_node_id |> HString.string_of_hstring in
-                 List.exists 
-                   (function
-                     | { SubSystem.scope = [i] } ->
-                       String.equal i call_node_id_string
-                     | _ -> false)
-                   a
-
-               then
-
-                 (* Add node as subsystem only once, not for each
-                    call *)
-                 (a, tl)
-
-               else
-
-                 (callee_subsystem :: a, tl)
-
-             (* Subsystem for callee not created yet *)
-             with Not_found -> 
-
-               (* Must visit callee first *)
-               (a, call_node_id :: tl))
-
-
-          ([], [])
-          calls
-
-      in
-
-      (* Subsystem for some callees not created? *)
-      if tl' <> [] then 
-        
-        (* Recurse to create subsystem of callees first *)
-        subsystem_of_nodes' nodes accum (tl' @ (top :: tl))
-          
-      else
-
-        (* Scope of the system from node name *)
-        let scope = [NI.get_internal_name top |> HString.string_of_hstring] in
-
-        let opacity = node.opacity in
-
-        (* Does node have contracts? *)
-        let has_contract = has_effective_contract node in
-
-        (* Does node have modes? *)
-        let has_modes = has_modes node in
-
-        (* Does node have an implementation? *)
-        let has_impl = not node.is_extern in
-
-        (* Construct subsystem of node *)
-        let subsystem = 
-
-          { SubSystem.scope;
-            SubSystem.source = node;
-            SubSystem.opacity;
-            SubSystem.has_contract;
-            SubSystem.has_modes;
-            SubSystem.has_impl;
-            SubSystem.subsystems; }
-
-        in
-
-        (* Add subsystem of node to accumulator and continue *)
-        subsystem_of_nodes' 
-          nodes
-          ((top, subsystem) :: accum)
-          tl
-
-
-let subsystems_of_nodes tops nodes =
-  (* Create subsystems for all nodes *)
-  let all_subsystems = subsystem_of_nodes' nodes [] tops in
-
-  (* Find subsystems of top nodes *)
-  List.filter
-    (fun (n, _) -> List.exists (fun t -> NI.equal n t) tops)
-    all_subsystems
-  |> List.map (fun (_, c) -> c)
+  sub
 
 
 let subsystem_of_nodes top nodes =
   (* Create subsystems for all nodes.
      Raise Invalid_argument if top is not found *)
-  let all_subsystems = subsystem_of_nodes' nodes [] [top] in
+  subsystem_of_nodes' (Scope.Hashtbl.create 7) nodes top
 
-  match List.find_opt (fun (n, _) -> NI.equal n top) all_subsystems with
-  | Some (_, sub) -> sub
-  | None -> assert false
+
+let subsystems_of_nodes tops nodes =
+  List.map (fun top -> subsystem_of_nodes top nodes) tops
 
 
 (* Return list of topologically ordered list of nodes from subsystem.
@@ -1230,29 +1156,40 @@ let rec fold_node_calls_with_trans_sys'
         TransSys.get_subsystem_instances trans_sys 
       in
 
-      let tl' = 
-        List.fold_left 
+      let tl' =
+        List.fold_left
           (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
+
+             (* Find subsystem of this node by name, and the instance of this
+                node call by position.
+
+                The subsystem (or the instance) may be missing when the call
+                was abstracted away rather than concretely encoded, as happens
+                for the (mutually) recursive call of a recursive function. In
+                that case there is no concrete model to reconstruct a path
+                for, so we skip the call. *)
+             let subsystem =
+               List.find_opt
+                 (fun (t, _) ->
+                    Scope.equal
+                      ([TransSys.scope_of_trans_sys t |> List.rev |> List.hd])
+                      (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
+                 subsystems
+               |> (function
+                 | None -> None
+                 | Some (trans_sys', instances') ->
+                   List.find_opt
+                     (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
+                     instances'
+                   |> Option.map (fun instance -> (trans_sys', instance)))
+             in
+
+             match subsystem with
+             | None -> a
+             | Some (trans_sys', instance) ->
 
              (* Find called node by name *)
              let node' = node_of_node_id call_node_id nodes in
-
-             (* Find subsystem of this node by name *)
-             let trans_sys', instances' =
-               List.find 
-                 (fun (t, _) -> 
-                    Scope.equal
-                      (TransSys.scope_of_trans_sys t)
-                      (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
-                 subsystems
-             in
-
-             (* Find instance of this node call by position *)
-             let instance = 
-               List.find 
-                 (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
-                 instances'
-             in
 
              (* Only keep call conditions that effectively sample the node
                 call, i.e. not the ones where default initial values are
@@ -1263,7 +1200,7 @@ let rec fold_node_calls_with_trans_sys'
                  List.filter (function CActivate _ -> false | _ -> true)
                    call_cond
              in
-             
+
              FDown (node', trans_sys',
                     (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)

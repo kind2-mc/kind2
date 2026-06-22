@@ -24,6 +24,7 @@ type node_type =
   | Any (* Generated for node corresponding to an 'any' operator *)
   | Choose (* Generated for node corresponding to a 'choose' operator *)
   | TypeAscription (* Generated for node corresponding to a type ascription operator *)
+  | ClockedExpr (* Generated for a temporal expression abstracted out of a when branch *)
   | DefinedConstant (* Defined global constant converted to function without args *)
   | FreeConstant (* Free global constant converted to function without args *)
  
@@ -46,6 +47,7 @@ let pp_print_node_type ppf node_type =
       | Type -> ".type_"
       | Any -> ".any_"
       | TypeAscription -> ".type_ascription_"
+      | ClockedExpr -> ".clocked_expr_"
       | FreeConstant -> ".free_constant_"
       | DefinedConstant -> ".def_constant_"
       | Choose -> ".choose_")

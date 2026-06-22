@@ -122,6 +122,7 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
+  | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
 ]
 
 (** [of_file only_parse f] parse Lustre model from file [f], and

@@ -342,7 +342,7 @@ and desugar_expr ctx adt_map expr =
       (cond_opt, r body')
     ) arms in
     build_ite pos desugared_arms
-  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ -> expr
+  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
   | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
@@ -387,6 +387,7 @@ let desugar_contract_item ctx adt_map item =
   match item with
   | LA.Assume (p, n, s, e) -> LA.Assume (p, n, s, r e)
   | LA.Guarantee (p, n, s, e) -> LA.Guarantee (p, n, s, r e)
+  | LA.Decreases (p, e) -> LA.Decreases (p, r e)
   | LA.Mode (p, n, requires, ensures) ->
     let r3 (p, n, e) = (p, n, r e) in
     LA.Mode (p, n, List.map r3 requires, List.map r3 ensures)
@@ -401,6 +402,7 @@ let desugar_contract_item ctx adt_map item =
 let rec desugar_node_item ctx adt_map item =
   let r = desugar_expr ctx adt_map in
   match item with
+  | LA.Auto _ -> item
   | LA.Body (LA.Equation (p, lhs, e)) -> LA.Body (LA.Equation (p, lhs, r e))
   | LA.Body (LA.Assert (p, e)) -> LA.Body (LA.Assert (p, r e))
   | LA.AnnotMain _ as a -> a
@@ -477,7 +479,7 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
     let node_contract_decls' = List.map (fun decl ->
       match decl with
       | LA.NodeDecl (sp, nd) -> LA.NodeDecl (sp, desugar_node ctx' adt_map nd)
-      | LA.FuncDecl (sp, nd) -> LA.FuncDecl (sp, desugar_node ctx' adt_map nd)
+      | LA.FuncDecl (sp, nd, attrs) -> LA.FuncDecl (sp, desugar_node ctx' adt_map nd, attrs)
       | LA.ContractNodeDecl (sp, cnd) ->
         LA.ContractNodeDecl (sp, desugar_contract_node ctx' adt_map cnd)
       | LA.ConstDecl (p, cd) ->

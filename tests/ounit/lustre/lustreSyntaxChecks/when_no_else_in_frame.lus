@@ -1,0 +1,13 @@
+node two(m: bool; i: int) returns (o, c1, c2: int);
+let
+  frame (o, c1, c2)
+    o = i;
+    c1 = 0;
+    c2 = 0;
+  let
+    when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+    end
+  tel
+tel

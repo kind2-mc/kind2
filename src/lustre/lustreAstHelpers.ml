@@ -58,6 +58,7 @@ let pos_of_expr = function
   | Quantifier (pos, _, _, _)
   | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Last (pos, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos , _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | ChooseOp (pos, _, _) | Extract (pos, _, _, _)
@@ -157,7 +158,7 @@ let type_arity ty =
   | _ -> (0, 0)
 
 let rec expr_contains_call = function
-  | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false 
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty expr_contains_call false (||) ty
   | EmptySet (_, None)
@@ -193,7 +194,7 @@ let rec expr_contains_call = function
     || List.fold_left (fun acc ty -> acc || fold_lustre_ty expr_contains_call false (||) ty) false ty_args
 
 let rec expr_contains_id id = function
-  | Ident (_, id2) -> id = id2
+  | Ident (_, id2) | Last (_, id2) -> id = id2
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) | Const (_, _) -> false 
   | EmptyMap (_, Some (kt, vt)) -> 
@@ -241,6 +242,7 @@ let rec pat_bound_vars = function
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
+  | Last (_, _) as e -> e
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
   | EmptyMap (p, Some (kt, vt)) ->
@@ -331,9 +333,10 @@ let rec apply_subst_in_expr sigma = function
       | Some expr -> expr
       | None -> Ident (pos, i)
   )
+  | Last (_, _) as e -> e
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
-  | EmptyMap (p, Some (kt, vt)) -> 
+  | EmptyMap (p, Some (kt, vt)) ->
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
@@ -430,6 +433,7 @@ let rec apply_type_subst_in_expr
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_type_subst_in_expr sigma) args)
   | Ident _
+  | Last _ -> expr
   | ModeRef _  -> expr
   | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
   | Const (_, _) as e -> e
@@ -541,7 +545,9 @@ let rec apply_subst_in_type sigma = function
   | ty -> ty
     
 let rec has_unguarded_pre ung = function
-  | Const _ | Ident _ | ModeRef _  | EmptyMap (_, None) | EmptySet (_, None) -> false 
+  (* 'last x' is always guarded by its frame initialization *)
+  | Last _
+  | Const _ | Ident _ | ModeRef _  | EmptyMap (_, None) | EmptySet (_, None) -> false
 
   | EmptyMap (_, Some (kt, vt)) ->  
     fold_lustre_ty (has_unguarded_pre ung) false (||) kt || 
@@ -651,7 +657,9 @@ let has_unguarded_pre e =
   then raise Parser_error; u
 
 let rec has_unguarded_pre_no_warn ung = function
-  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> false 
+  (* 'last x' is always guarded by its frame initialization *)
+  | Last _
+  | Const _ | Ident _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> false
 
   | EmptyMap (_, Some (kt, vt)) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) kt || 
@@ -854,6 +862,9 @@ let rec has_pre_or_arrow = function
 
   | Pre (pos, _) -> Some pos
 
+  (* 'last x' denotes the previous value of x, i.e. it carries a 'pre' *)
+  | Last (pos, _) -> Some pos
+
   | TypeAscription (_, e, ty) -> (
     match has_pre_or_arrow e with
     | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
@@ -981,6 +992,7 @@ let rec node_item_has_pre_or_arrow = function
     | Some pos -> Some pos
     | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
+| Auto _ -> None
 | AnnotProperty (_, _, e, _) -> has_pre_or_arrow e
 and
 
@@ -1000,7 +1012,8 @@ let contract_node_equation_has_pre_or_arrow = function
 | GhostConst decl -> const_decl_has_pre_or_arrow decl
 | GhostVars (_, _, e)
 | Assume (_, _, _, e)
-| Guarantee (_, _, _, e) -> has_pre_or_arrow e
+| Guarantee (_, _, _, e) 
+| Decreases (_, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->
   List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
   |> some_of_list
@@ -1037,9 +1050,9 @@ let mk_mode_ref_id ids =
 let rec vars_of_node_calls_h obs =
   let vars obs = vars_of_node_calls_h obs in
   function
-  | Ident (_, i) -> if obs then SI.singleton i else SI.empty
+  | Ident (_, i) | Last (_, i) -> if obs then SI.singleton i else SI.empty
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
-  | RecordProject (_, e, _) -> vars obs e 
+  | RecordProject (_, e, _) -> vars obs e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
@@ -1096,9 +1109,9 @@ let vars_of_node_calls = vars_of_node_calls_h false
 let rec vars_without_node_call_ids: expr -> iset =
   let vars = vars_without_node_call_ids in
   function
-  | Ident (_, i) -> SI.singleton i
+  | Ident (_, i) | Last (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
-  | RecordProject (_, e, _) -> vars e 
+  | RecordProject (_, e, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1165,8 +1178,9 @@ let rec calls_of_expr: expr -> NI.Set.t =
              (NI.Set.flatten (calls_of_expr e :: List.map calls_of_expr es))
   (* Everything else *)
   | Ident _ -> NI.Set.empty
+  | Last _ -> NI.Set.empty
   | ModeRef _ -> NI.Set.empty
-  | RecordProject (_, e, _) -> calls_of_expr e 
+  | RecordProject (_, e, _) -> calls_of_expr e
   | Const _ -> NI.Set.empty
   | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> calls_of_expr e
@@ -1246,6 +1260,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ChooseOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   (* Temporal operators *)
   | Pre _ -> SI.empty
+  (* 'last x' refers to the previous value of x, i.e. x under a 'pre' *)
+  | Last _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   | TypeAscription (_, e, ty) ->
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
@@ -1360,9 +1376,9 @@ let split_program: declaration list -> (declaration list * declaration list)
 let rec replace_with_constants: expr -> expr =
   let c p = Const(p, Num (HString.mk_hstring "42")) in
   function
-  | Ident(p, _) -> c p 
+  | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
-    | ModeRef _ as e -> e 
+    | ModeRef _ as e -> e
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
@@ -1457,9 +1473,10 @@ and is used inside abstract_pre_subexpressions *)
 
   
 let rec abstract_pre_subexpressions: expr -> expr = function
-  | Ident _ 
+  | Ident _
+  | Last _
   | EmptySet (_, None) | EmptyMap (_, None)
-  | ModeRef _ as e -> e 
+  | ModeRef _ as e -> e
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
@@ -1557,7 +1574,12 @@ let rec replace_idents locals1 locals2 expr =
       | Some i2 -> Ident (pos, i2)
       | None -> Ident (pos, i)
   )
-  | Quantifier (a, b, tis, e) -> 
+  | Last (pos, i) -> (
+    match List.assoc_opt i (List.combine locals1 locals2) with
+      | Some i2 -> Last (pos, i2)
+      | None -> Last (pos, i)
+  )
+  | Quantifier (a, b, tis, e) ->
     (* Remove 'tis' from locals because they're bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
     let is = List.map (fun (_, i, _) -> i) tis in
@@ -2050,6 +2072,7 @@ let hash depth_limit expr =
       | ADTTerm (_, _, ctor, args) ->
         let args_hash = List.map (r (depth + 1)) args in
         Hashtbl.hash (32, HString.hash ctor, args_hash)
+      | Last (_, x) -> Hashtbl.hash (33, HString.hash x)
   in
   r 0 expr
 
@@ -2066,6 +2089,7 @@ let rec rename_contract_vars = function
         Ident (p, id)
       else e 
     with _ -> e)
+  | Last (_, _) as e -> e
   | EmptySet (_, None) | EmptyMap (_, None)
   | ModeRef (_, _) as e -> e
   | EmptyMap (p, Some (kt, vt)) ->
@@ -2166,7 +2190,8 @@ let rec constants_to_calls: ident list -> expr -> expr
     TypeAscription (p, r e, map_lustre_ty r ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
-    
+  | Last _ as e -> e
+
   | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
@@ -2253,7 +2278,10 @@ let pos_of_type ty = match ty with
 (* Return the node_id of a declaration if it is a node/func/contract decl *)
 let node_id_of_decl = function
   | NodeDecl (_, (id, _, _, _, _, _, _, _, _))
-  | FuncDecl (_, (id, _, _, _, _, _, _, _, _))
+  | FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
   | ContractNodeDecl (_, (id, _, _, _, _)) -> Some id
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> None
 
+let is_recursive_function = function
+  | FuncDecl (_, _, {is_rec = true}) -> true
+  | _ -> false
