@@ -717,10 +717,6 @@ let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) r
     It ignores ids that it cannot find as they may be globals. 
  *)
 
-let rec pat_bound_vars = function
-      | LA.Pat (_, i, []) -> SI.singleton i
-      | LA.Pat (_, _, pats) -> SI.flatten (List.map pat_bound_vars pats)
-
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = fun (p, eqns) -> 
     let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
@@ -836,7 +832,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
       | None -> SI.empty))
   | Match (_, e, arms, _) ->
     let arm_vars = List.fold_left (fun acc (pat, body) ->
-        SI.union acc (SI.diff (r body) (pat_bound_vars pat))
+        SI.union acc (SI.diff (r body) (LH.pat_bound_vars pat))
       ) SI.empty arms
     in
     SI.union (r e) arm_vars
@@ -1070,7 +1066,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
     let arm_exprs = List.map snd arms in
     let* arm_gs = R.seq (List.map (fun (pat, body) ->
-        let bound_ids = pat_bound_vars pat |> SI.elements in
+        let bound_ids = LH.pat_bound_vars pat |> SI.elements in
         let* gs = mk_graph_expr2 m body in
         R.ok (List.map (remove_bound_ids bound_ids) gs)
       ) arms) in

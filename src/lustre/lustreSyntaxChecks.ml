@@ -1223,7 +1223,7 @@ and check_ty ctx f = function
 
 and check_pattern_no_duplicates ctx pat =
   let rec collect = function
-    | LA.Pat (pos, id, []) ->
+    | LA.VarPat (pos, id) ->
       if StringSet.mem id ctx.constructors then [] else [(pos, id)]
     | LA.Pat (_, _, pats) -> List.concat_map collect pats
   in
@@ -1386,7 +1386,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings1 = check_expr ctx f e in
       let pat_vars pat =
         let rec collect = function
-          | LA.Pat (_, id, []) ->
+          | LA.VarPat (_, id) ->
             if StringSet.mem id ctx.constructors then [] else [id]
           | LA.Pat (_, _, pats) -> List.concat_map collect pats
         in collect pat

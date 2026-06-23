@@ -100,7 +100,9 @@ type access_kind =
   | Unknown
 
 (** Pattern for match expressions *)
-type pattern = Pat of position * ident * pattern list
+type pattern =
+  | VarPat of position * ident              (* variable binding *)
+  | Pat of position * ident * pattern list  (* constructor pattern *)
 
 (** A Lustre expression *)
 type expr =
@@ -375,6 +377,7 @@ let pp_print_clock_expr ppf = function
 
 
 let rec pp_print_pattern ppf = function
+  | VarPat (_, id) -> HString.pp_print_hstring ppf id
   | Pat (_, c, []) -> HString.pp_print_hstring ppf c
   | Pat (_, c, pats) ->
     Format.fprintf ppf "%a(%a)"

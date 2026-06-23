@@ -112,7 +112,9 @@ type group_expr =
 type access_kind = Array | Map | Tuple | Unknown
 
 (** Pattern for match expressions *)
-type pattern = Pat of position * ident * pattern list
+type pattern =
+  | VarPat of position * ident              (** variable binding *)
+  | Pat of position * ident * pattern list  (** constructor pattern *)
 
 (** A Lustre type *)
 type lustre_type =

@@ -235,8 +235,16 @@ let rec expr_contains_id id = function
     List.fold_left (fun acc e -> acc || expr_contains_id id e) false args
     || List.fold_left (fun acc ty -> acc || fold_lustre_ty (expr_contains_id id) false (||) ty) false ty_args
 
+(* Returns the set of variable names bound by a pattern.
+   Before type checking, VarPat is used for both variable bindings and 0-arg
+   constructors (disambiguation happens in bind_pattern_ty). This means
+   pre-type-check passes (e.g. dependency analysis) will incorrectly treat
+   0-arg constructor patterns as variable binders. This is benign: constructor
+   names cannot be declared as node variables (enforced by syntax checks), so
+   they never appear as vertices in the dependency graph and removing them from
+   a free-variable set has no effect on dependency ordering. *)
 let rec pat_bound_vars = function
-  | Pat (_, id, []) -> SI.singleton id
+  | VarPat (_, id) -> SI.singleton id
   | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)

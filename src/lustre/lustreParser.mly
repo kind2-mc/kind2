@@ -528,8 +528,12 @@ adt_constructor:
 
 (* A pattern in a match arm *)
 pat:
-  | i = ident 
-    { A.Pat (mk_pos $startpos, i, []) }
+  | i = ident
+    (* Bare identifiers are parsed as VarPat; the type checker
+       disambiguates them into variable bindings or 0-arg constructor
+       patterns using the constructor context. See pat_bound_vars in
+       lustreAstHelpers.ml for a note on pre-disambiguation behavior. *)
+    { A.VarPat (mk_pos $startpos, i) }
   | c = ident; LPAREN; ps = separated_nonempty_list(COMMA, pat); RPAREN
     { A.Pat (mk_pos $startpos, c, ps) }
 

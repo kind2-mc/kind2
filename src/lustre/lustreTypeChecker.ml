@@ -1492,28 +1492,33 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
   )
   | LA.Match (pos, scrutinee, arms, _) ->
+    (* Resolves a pattern against [field_ty], extending [ctx] with any variable
+       bindings and returning the annotated pattern. VarPat is ambiguous at
+       parse time: if the identifier is a known constructor it is resolved to
+       Pat(_, id, []) (0-arg constructor), otherwise it remains a VarPat
+       (variable binding). Pat is always for constructors. *)
     let rec bind_pattern_ty ctx field_ty pat =
       let* adt_opt = match field_ty with
         | LA.ADT _ -> R.ok (Some field_ty)
-        | _ -> 
-          let* ty = expand_type_syn_reftype_history ctx field_ty in 
+        | _ ->
+          let* ty = expand_type_syn_reftype_history ctx field_ty in
           R.ok (Some ty)
-      in 
+      in
       match pat with
-      | LA.Pat (pos, id, []) ->
+      | LA.VarPat (pos, id) ->
         let is_constructor = Option.is_some (lookup_constructor ctx id) in
         if is_constructor then (
           match adt_opt with
           | Some (LA.ADT (_, _, adt_cons)) ->
             (match List.assoc_opt id adt_cons with
-            | Some [] -> R.ok ctx
+            | Some [] -> R.ok (ctx, LA.Pat (pos, id, []))
             | Some field_tys ->
               type_error pos (ConstructorArityMismatch (id, List.length field_tys, 0))
             | None -> type_error pos (UnboundConstructor id)
             )
           | _ -> type_error pos (UnboundConstructor id)
         ) else
-          R.ok (add_ty ctx id field_ty)
+          R.ok (add_ty ctx id field_ty, pat)
       | LA.Pat (pos, ctor, sub_pats) ->
         (match adt_opt with
         | Some (LA.ADT (_, _, adt_cons)) ->
@@ -1523,8 +1528,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             if List.length sub_pats <> List.length field_tys then
               type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length sub_pats))
             else
-              R.seq_chain (fun ctx (ft, sp) -> bind_pattern_ty ctx ft sp)
-                ctx (List.combine field_tys sub_pats)
+              let* ctx', sub_pats' = R.seq_chain
+                (fun (acc_ctx, acc_pats) (ft, sp) ->
+                  let* ctx', sp' = bind_pattern_ty acc_ctx ft sp in
+                  R.ok (ctx', acc_pats @ [sp']))
+                (ctx, []) (List.combine field_tys sub_pats)
+              in
+              R.ok (ctx', LA.Pat (pos, ctor, sub_pats'))
           )
         | _ -> type_error pos (MatchScrutineeNotADT field_ty)
         )
@@ -1532,16 +1542,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* scrut_ty, scrutinee, warnings1 = infer_type_expr ctx nname scrutinee in
     let* scrut_adt_opt = match scrut_ty with
       | LA.ADT _ -> R.ok (Some scrut_ty)
-      | _ -> 
-        let* ty = expand_type_syn_reftype_history ctx scrut_ty in 
+      | _ ->
+        let* ty = expand_type_syn_reftype_history ctx scrut_ty in
         R.ok (Some ty)
     in
     (match scrut_adt_opt with
     | Some (LA.ADT _) ->
       let* arm_tys, arms', warnings = R.seq (List.map (fun (pat, arm_body) ->
-        let* arm_ctx = bind_pattern_ty ctx scrut_ty pat in
+        let* arm_ctx, pat' = bind_pattern_ty ctx scrut_ty pat in
         let* arm_ty, arm_body, warnings = infer_type_expr arm_ctx nname arm_body in
-        R.ok (arm_ty, (pat, arm_body), warnings)
+        R.ok (arm_ty, (pat', arm_body), warnings)
       ) arms) |> R.map Lib.split3 in
       let main_ty = List.hd arm_tys in
       let* all_equal = R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys) in

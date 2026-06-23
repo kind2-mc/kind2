@@ -142,7 +142,10 @@ let rec adt_info_of_type ctx adt_map ty =
 (* Recursively collect the conjunction of tag equality conditions and the
    variable->field-projection substitutions imposed by a (possibly nested)
    constructor pattern.  Returns (conditions, substitutions). *)
-let rec collect_pattern_constraints pos ctx adt_map info scrut (LA.Pat (_, name, sub_pats)) =
+let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
+  match pat with
+  | LA.VarPat (_, name) -> ([], [(name, scrut)])
+  | LA.Pat (_, name, sub_pats) ->
   if List.mem name info.ctor_variants then
     let ctor = name in
     let outer_cond =
@@ -156,13 +159,15 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut (LA.Pat (_, name,
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr = LA.RecordProject (pos, scrut, fname) in
-        let LA.Pat (_, sub_name, _) = sub_pat in
-        match adt_info_of_type ctx adt_map ftype with
-        | Some sub_info when List.mem sub_name sub_info.ctor_variants ->
-          let (c, s) = collect_pattern_constraints pos ctx adt_map sub_info field_expr sub_pat in
-          (conds @ c, subs @ s)
-        | _ ->
+        match sub_pat with
+        | LA.VarPat (_, sub_name) ->
           (conds, subs @ [(sub_name, field_expr)])
+        | LA.Pat (_, sub_name, _) ->
+          (match adt_info_of_type ctx adt_map ftype with
+          | Some sub_info when List.mem sub_name sub_info.ctor_variants ->
+            let (c, s) = collect_pattern_constraints pos ctx adt_map sub_info field_expr sub_pat in
+            (conds @ c, subs @ s)
+          | _ -> assert false)
       ) ([], []) ctor_fields sub_pats
     in
     (outer_cond :: sub_conds, sub_subs)
