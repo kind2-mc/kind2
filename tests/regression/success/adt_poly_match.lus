@@ -1,0 +1,14 @@
+datatype Opt<T> = Absent | Present (T);
+
+node main(i: int) returns (ok: bool);
+var x: Opt<int>;
+var out: int;
+let
+  x = Present(i);
+  out = match x with
+    | Present(v) : v
+    | Absent : 0
+  end;
+  ok = out = i;
+  check ok;
+tel

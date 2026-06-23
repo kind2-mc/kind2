@@ -66,6 +66,7 @@ let mk_span start_pos end_pos =
       
 (* Tokens for types *)
 %token TYPE
+%token DATATYPE
 %token INT
 %token UINT
 %token SINT
@@ -221,13 +222,15 @@ let mk_span start_pos end_pos =
 %token CHOOSE 
 %token WITH
 %token HASH
+%token MATCH
 
 (* Token for end of file marker *)
 %token EOF
-    
+       
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
+%nonassoc MATCH_ARM_BODY  (* resolves shift/reduce: match arm body ends before next | *)
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -384,6 +387,13 @@ type_decl:
            A.AliasType (mk_pos $startpos, e, [],
                         A.EnumType (mk_pos $startpos, e, t))) l }
 
+  (* Definition of an algebraic datatype *)
+  | DATATYPE; l = ident_list; p = option(decl_static_params); EQUALS; option(BAR); cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON
+     { let p = match p with | None -> [] | Some p -> p in 
+       List.map (fun e ->
+           A.AliasType (mk_pos $startpos, e, p,
+                        A.ADT (mk_pos $startpos, e, cs))) l }
+
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
      { List.map 
@@ -509,7 +519,27 @@ refinement_type:
 *)
 
 (* An enum type (V6) *)
-enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
+
+(* A single constructor of an algebraic datatype *)
+adt_constructor:
+  | n = ident { (n, []) }
+  | n = ident; LPAREN; tys = separated_nonempty_list(COMMA, lustre_type); RPAREN { (n, tys) }
+
+(* A pattern in a match arm *)
+pat:
+  | i = ident
+    (* Bare identifiers are parsed as VarPat; the type checker
+       disambiguates them into variable bindings or 0-arg constructor
+       patterns using the constructor context. See pat_bound_vars in
+       lustreAstHelpers.ml for a note on pre-disambiguation behavior. *)
+    { A.VarPat (mk_pos $startpos, i) }
+  | c = ident; LPAREN; ps = separated_nonempty_list(COMMA, pat); RPAREN
+    { A.Pat (mk_pos $startpos, c, ps) }
+
+(* A single arm of a match expression *)
+match_arm:
+  | BAR; p = pat; COLON; e = expr %prec MATCH_ARM_BODY { (p, e) }
 
 
 (* ********************************************************************** *)
@@ -1019,8 +1049,11 @@ pexpr(Q):
   | e = any_expr { e }
   | e = choose_expr { e }
 
-  (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
+  (* An identifier or constructor w/ no args *)
+  | s = ident; ps = call_static_params
+    { match ps with
+      | [] -> A.Ident (mk_pos $startpos, s)
+      | tys -> A.ADTTerm (mk_pos $startpos, tys, s, []) }
 
   (* A mode reference. *)
   | DOUBLE_COLON ; mode_ref = separated_nonempty_list(DOUBLE_COLON, ident) {
@@ -1342,6 +1375,10 @@ pexpr(Q):
 
   (* Type ascription *) 
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
+
+  (* Pattern matching on ADT values *)
+  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
+    { A.Match (mk_pos $startpos, e, arms, None) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }

@@ -353,9 +353,15 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | Set (_, ty) -> mk_graph_type ty
   | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
-  | RefinementType (_, (_, i, ty), e) -> 
-    let g_expr = remove (mk_graph_expr e) i in (* `i` shadows global constants *)
-    union_dependency_analysis_data (mk_graph_type ty) g_expr 
+  | RefinementType (_, (_, i, ty), e) ->
+    let g_expr = remove (mk_graph_expr e) i in
+    union_dependency_analysis_data (mk_graph_type ty) g_expr
+  (* for the future: ADTs can be recursive; relax this check *)
+  | ADT (_, _name, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+      (List.map mk_graph_type tys) in
+    deps
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)
@@ -464,8 +470,10 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.RecordExpr (_, _, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
   (* Update of structured expressions *)
-  | LA.StructUpdate (_, e1, _, Some e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
-  | LA.StructUpdate (_, e, _, _) -> get_node_call_from_expr e 
+  | LA.StructUpdate (_, e1, is, Some e2) ->
+    get_node_call_from_expr e1 @ get_node_call_from_indices is @ get_node_call_from_expr e2
+  | LA.StructUpdate (_, e, is, None) ->
+    get_node_call_from_expr e @ get_node_call_from_indices is
   | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
@@ -490,7 +498,20 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Match (_, e, arms, _) ->
+    get_node_call_from_expr e
+    @ List.flatten (List.map (fun (_, body) -> get_node_call_from_expr body) arms)
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    List.flatten (List.map get_node_call_from_expr args)
+    @ List.flatten (List.map extract_node_calls_type ty_args)
 (** Returns all the node calls from an expression *)
+
+and get_node_call_from_indices: LA.label_or_index list -> (LA.ident * Lib.position) list
+= fun is ->
+  List.concat_map (function
+    | LA.Index (_, e) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
+      get_node_call_from_expr e
+    | LA.Label _ -> []) is
 
 and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list 
 = function 
@@ -504,6 +525,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
   | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _  
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | ADT (_, _, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    List.map extract_node_calls_type tys |> List.flatten
 (** Extracts all the node calls from a type *)
 
 let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> dependency_analysis_data
@@ -693,7 +717,6 @@ let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) r
     It ignores ids that it cannot find as they may be globals. 
  *)
 
-    
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = fun (p, eqns) -> 
     let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
@@ -782,17 +805,17 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Node calls *)
   | Call (_, _, i, es) ->
-    (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
-    Format.eprintf "call: %a @." HString.pp_print_hstring i;  *)
     let arg_vars = List.map r es in
-    (* guaranteed not to throw an exception by lustreSyntaxChecks *)
-    let node_map = NodeId.Map.find i m in
-    (match IntMap.find_opt proj node_map.dependencies with
+    (match NodeId.Map.find_opt i m with
+    | None ->
+      (* Constructor call: treat arguments as plain dependencies *)
+      List.fold_left SI.union SI.empty arg_vars
+    | Some node_map ->
+      (match IntMap.find_opt proj node_map.dependencies with
       | Some dep_args ->
       (*  Format.eprintf "dependent_args: %a @." 
           (Lib.pp_print_list Format.pp_print_int ",")
           dep_args; *)
-         
         let result = List.fold_left (fun acc idx ->
             match List.nth_opt arg_vars idx with
             
@@ -806,9 +829,18 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           (Lib.pp_print_list HString.pp_print_hstring ",")
           (SI.elements result); *)
         result
-      | None -> SI.empty)
+      | None -> SI.empty))
+  | Match (_, e, arms, _) ->
+    let arm_vars = List.fold_left (fun acc (pat, body) ->
+        SI.union acc (SI.diff (r body) (LH.pat_bound_vars pat))
+      ) SI.empty arms
+    in
+    SI.union (r e) arm_vars
+  | ADTTerm (_, ty_args, _, args) ->
+    SI.union (SI.flatten (List.map r args))
+      (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
 
-(** get all the variables and flatten node calls using 
+(** get all the variables and flatten node calls using (*!! should assert false? *) 
     the node summary for an expression *)
              
 (* We use a contract_node_equation option map. In this map, every identifier is associated
@@ -989,7 +1021,10 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok (List.map (fun g -> union_dependency_analysis_data g g_ty) g_e)
   | LA.Call (_, _, i, es) ->
      (match NodeId.Map.find_opt i m with
-      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
+      | None ->
+        (* Constructor call: single output depending on all arguments *)
+        let* gs = R.seq (List.map (mk_graph_expr2 m) es) in
+        R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs)]
       | Some summary ->
          let sum_bds = IntMap.bindings summary.dependencies in
          let* gs = R.seq (List.map (mk_graph_expr2 m) es) in
@@ -1020,6 +1055,42 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
                 | None, x -> x in
               { g with this_imported = imp})
            sum_bds))
+  | LA.Match (_, e, arms, _) ->
+    let remove_bound_ids bound_ids ad =
+      { ad with
+        graph_data = G.remove_vertices ad.graph_data bound_ids;
+        graph_data2 = G.remove_vertices ad.graph_data2 bound_ids;
+        id_pos_data = List.fold_left (fun m i -> IMap.remove i m) ad.id_pos_data bound_ids }
+    in
+    let* g_scrut = mk_graph_expr2 m e in
+    let g_scrut = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g_scrut in
+    let arm_exprs = List.map snd arms in
+    let* arm_gs = R.seq (List.map (fun (pat, body) ->
+        let bound_ids = LH.pat_bound_vars pat |> SI.elements in
+        let* gs = mk_graph_expr2 m body in
+        R.ok (List.map (remove_bound_ids bound_ids) gs)
+      ) arms) in
+    (try
+      let gs' =
+        List.tl arm_gs |> List.fold_left (fun acc gs' ->
+          List.map2 union_dependency_analysis_data acc gs'
+        ) (List.hd arm_gs)
+      in
+      R.ok (List.map (fun g -> union_dependency_analysis_data g_scrut g) gs')
+    with Invalid_argument _ ->
+      let len = List.hd arm_gs |> List.length in
+      let egs = List.combine (List.tl arm_exprs) (List.tl arm_gs) in
+      match List.find_opt (fun (_, l) -> List.length l <> len) egs with
+      | None -> assert false
+      | Some (bad_e, _) ->
+        let fst = List.hd arm_exprs in
+        graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, bad_e))
+    )
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    let* gs = R.seq (List.map (mk_graph_expr2 m) args) in
+    let g_tys = List.map mk_graph_type ty_args in
+    let g_args = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs) in
+    R.ok [List.fold_left union_dependency_analysis_data g_args g_tys]
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.

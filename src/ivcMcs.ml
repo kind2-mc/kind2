@@ -152,8 +152,10 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
-  | A.Map (_, ty1, ty2) -> Map (dpos, ty1, ty2)
-  | A.Set (_, ty) -> Set (dpos, ty)
+  | A.Map (_, ty1, ty2) -> Map (dpos, unannot_pos ty1, unannot_pos ty2)
+  | A.Set (_, ty) -> Set (dpos, unannot_pos ty)
+  | A.ADT (_, id, cons) -> 
+    A.ADT (dpos, id, List.map (fun (id, tys) -> id, List.map unannot_pos tys) cons)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -269,6 +271,10 @@ let rec minimize_node_call_args ue lst expr =
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
+    | A.Match (p, e, arms, ty_opt) ->
+      A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms, ty_opt)
+    | A.ADTTerm (p, ty_args, ctor, args) ->
+      A.ADTTerm (p, ty_args, ctor, List.map aux args)
   in aux expr
 
 and ast_contains p ast =
@@ -307,6 +313,10 @@ and ast_contains p ast =
     | A.RestartEvery (_,_,es,e) ->
       List.map aux (e::es)
       |> List.exists (fun x -> x)
+    | A.Match (_,e,arms,_) ->
+      aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
+    | A.ADTTerm (_,_,_,args) ->
+      List.exists aux args
   in
   aux ast
 

@@ -289,6 +289,11 @@ and push_pre is_guarded pos =
   | Arrow _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
+  | Match (p, e, arms, ty_opt) ->
+    let arms' = List.map (fun (pat, body) -> (pat, r body)) arms in
+    Match (p, r e, arms', ty_opt)
+  | ADTTerm (p, ty_args, ctor, args) ->
+    ADTTerm (p, ty_args, ctor, List.map r args)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function
@@ -387,6 +392,10 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   | EmptyMap (pos, Some (kt, vt)) -> 
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
+  | Match (pos, e, arms, ty_opt) ->
+    let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
+    let arms' = List.map (fun (pat, body) -> (pat, simplify_expr ~ind_vars ~is_guarded ctx body)) arms in
+    Match (pos, e', arms', ty_opt)
   | StructUpdate (p, e, lois, e_opt) -> 
     let lois = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
@@ -433,6 +442,10 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     let expr' = simplify_expr ~ind_vars ctx expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
+  | ADT (pos, name, cons) ->
+    let cons' = List.map (fun (ctor, tys) ->
+        (ctor, List.map (inline_constants_of_lustre_type ~ind_vars ctx) tys)) cons in
+    ADT (pos, name, cons')
   | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty
 

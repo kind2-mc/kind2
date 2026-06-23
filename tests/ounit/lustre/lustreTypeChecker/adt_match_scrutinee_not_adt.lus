@@ -1,0 +1,10 @@
+datatype Color = Red | Green | Blue;
+
+node N (x: int) returns (r: bool);
+let
+  r = match x with
+    | Red : true
+    | Green : false
+    | Blue : false
+  end;
+tel

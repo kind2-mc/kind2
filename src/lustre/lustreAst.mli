@@ -111,6 +111,11 @@ type group_expr =
 
 type access_kind = Array | Map | Tuple | Unknown
 
+(** Pattern for match expressions *)
+type pattern =
+  | VarPat of position * ident              (** variable binding *)
+  | Pat of position * ident * pattern list  (** constructor pattern *)
+
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
@@ -133,7 +138,8 @@ type lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  
+  | ADT of position * ident * (ident * lustre_type list) list
+
 (** A Lustre expression *)
 and expr =
   (* Identifiers *)
@@ -178,6 +184,10 @@ and expr =
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
+  (* ADT constructor application *)
+  | ADTTerm of position * lustre_type list * ident * expr list
+  (* Pattern matching on ADT values *)
+  | Match of position * expr * (pattern * expr) list * lustre_type option
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -382,6 +392,7 @@ type t = declaration list
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
+val pp_print_pattern : Format.formatter -> pattern -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
 val pp_print_expr : Format.formatter -> expr -> unit

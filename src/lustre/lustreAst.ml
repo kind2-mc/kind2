@@ -99,6 +99,11 @@ type access_kind =
   | Tuple
   | Unknown
 
+(** Pattern for match expressions *)
+type pattern =
+  | VarPat of position * ident              (* variable binding *)
+  | Pat of position * ident * pattern list  (* constructor pattern *)
+
 (** A Lustre expression *)
 type expr =
   (* Identifiers *)
@@ -143,6 +148,10 @@ type expr =
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
+  (* ADT constructor application *)
+  | ADTTerm of position * lustre_type list * ident * expr list
+  (* Pattern matching on ADT values *)
+  | Match of position * expr * (pattern * expr) list * lustre_type option
 
 (** A Lustre type *)
 and lustre_type =
@@ -159,10 +168,11 @@ and lustre_type =
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
   | History of position * ident
-  | TArr of position * lustre_type * lustre_type 
+  | TArr of position * lustre_type * lustre_type
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
+  | ADT of position * ident * (ident * lustre_type list) list
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -366,8 +376,16 @@ let pp_print_clock_expr ppf = function
     Format.fprintf ppf "when %a(%a)" pp_print_ident c pp_print_ident s
 
 
+let rec pp_print_pattern ppf = function
+  | VarPat (_, id) -> HString.pp_print_hstring ppf id
+  | Pat (_, c, []) -> HString.pp_print_hstring ppf c
+  | Pat (_, c, pats) ->
+    Format.fprintf ppf "%a(%a)"
+      HString.pp_print_hstring c
+      (pp_print_list pp_print_pattern ", ") pats
+
 (* Pretty-print a Lustre expression *)
-let rec pp_print_expr ppf = 
+and pp_print_expr ppf = 
 
   let ppos ppf p =
     Format.ifprintf ppf "%a" pp_print_position p
@@ -670,6 +688,35 @@ let rec pp_print_expr ppf =
       pp_print_expr e 
       pp_print_lustre_type ty
 
+    | ADTTerm (_, [], c, []) ->
+      HString.pp_print_hstring ppf c
+
+    | ADTTerm (_, ty_args, c, []) ->
+      Format.fprintf ppf "%a@<%a>"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
+
+    | ADTTerm (_, [], c, args) ->
+      Format.fprintf ppf "%a(%a)"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_expr ",@ ") args
+
+    | ADTTerm (_, ty_args, c, args) ->
+      Format.fprintf ppf "%a@<%a>(%a)"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
+        (pp_print_list pp_print_expr ",@ ") args
+
+    | Match (_, e, arms, _) ->
+      let pp_arm ppf (pat, body) =
+        Format.fprintf ppf "| %a : %a"
+          pp_print_pattern pat
+          pp_print_expr body
+      in
+      Format.fprintf ppf "match %a with %a end"
+        pp_print_expr e
+        (pp_print_list pp_arm " ") arms
+
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
     Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
@@ -737,6 +784,16 @@ and pp_print_lustre_type ppf = function
   | History (_, i) ->
     Format.fprintf ppf
       "history(%a)" (pp_print_ident) i
+  | ADT (_, _, constructors) ->
+    let pp_ctor ppf (name, tys) =
+      if tys = [] then HString.pp_print_hstring ppf name
+      else
+        Format.fprintf ppf "%a(%a)"
+          HString.pp_print_hstring name
+          (pp_print_list pp_print_lustre_type ", ") tys
+    in
+    Format.fprintf ppf "%a"
+      (pp_print_list pp_ctor " | ") constructors
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (_, s, t) = 
@@ -1298,6 +1355,10 @@ let pp_print_node_or_fun_decl is_fun ppf (
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
+
+  | TypeDecl (_, (AliasType (_, _, _, ADT _) as t)) -> 
+
+    Format.fprintf ppf "datatype %a;" pp_print_type_decl t
 
   | TypeDecl (_, t) -> 
 

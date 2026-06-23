@@ -1,0 +1,19 @@
+datatype Bit = Zero | One;
+
+node flip(b: Bit) returns (b2: Bit);
+let
+  b2 = match b with
+    | Zero : One
+    | One : Zero
+  end;
+tel
+
+node main(b: Bit) returns (ok: bool);
+var flipped: Bit;
+var double_flipped: Bit;
+let
+  flipped = flip(b);
+  double_flipped = flip(flipped);
+  ok = double_flipped = b;
+  check ok;
+tel

@@ -88,6 +88,9 @@ let rec replace_last acc e =
   | RecordProject (pos, e, idx) -> RecordProject (pos, r e, idx)
   | Extract (pos, e, idx1, idx2) -> Extract (pos, r e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, r e)
+  | ADTTerm (pos, tis, id, es) -> ADTTerm (pos, tis, id, List.map r es)
+  | Match (pos, e, arms, ty_opt) ->
+    Match (pos, r e, List.map (fun (pat, arm_e) -> (pat, r arm_e)) arms, ty_opt)
   | BinaryOp (pos, op, e1, e2) -> BinaryOp (pos, op, r e1, r e2)
   | TernaryOp (pos, op, e1, e2, e3) -> TernaryOp (pos, op, r e1, r e2, r e3)
   | ConvOp (pos, op, e) -> ConvOp (pos, op, r e)
@@ -169,6 +172,8 @@ let rec find_last_expr e = match e with
   | Condact (_, e1, e2, _, l1, l2) -> find_last_first ([e1; e2] @ l1 @ l2)
   | Activate (_, _, e1, e2, l) -> find_last_first ([e1; e2] @ l)
   | RestartEvery (_, _, l, e) -> find_last_first (e :: l)
+  | ADTTerm (_, _, _, l) -> find_last_first l
+  | Match (_, e, arms, _) -> find_last_first (e :: List.map snd arms)
 
 and find_last_first = function
   | [] -> None

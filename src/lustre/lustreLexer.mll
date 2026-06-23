@@ -223,6 +223,7 @@ let keyword_table = mk_hashtbl [
 
   (* Types *)
   "type", TYPE ;
+  "datatype", DATATYPE ;
   "int", INT ;
   "uint", UINT ; 
   "sint", SINT ;
@@ -339,6 +340,7 @@ let keyword_table = mk_hashtbl [
   "decreases", DECREASES;
 
   "with", WITH ;
+  "match", MATCH ;
   ]
 
     

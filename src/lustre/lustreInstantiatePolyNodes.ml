@@ -304,6 +304,7 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
+  | ADT _ -> assert false
   | Bool _ | Int _ | Real _ | UserType _
   | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> ctx, gids, ty, [], node_decls_map
 
@@ -353,7 +354,7 @@ and gen_poly_decls_loi
 
 and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.declaration * A.lustre_type list list) NI.Map.t ->
                              A.expr -> Ctx.tc_context * GI.t NI.Map.t * A.expr *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t
-= fun ctx gids caller_nname node_decls_map expr -> 
+= fun ctx gids caller_nname node_decls_map expr ->
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
   | A.Call (pos, ty :: tys, node_id, exprs) ->
@@ -511,6 +512,19 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) exprs in 
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map
+  | Match (p, e, arms, ty_opt) ->
+    let ctx, gids, e, decls1, node_decls_map = rec_call e in
+    let ctx, gids, arms, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_arms, acc_decls, acc_node_decls_map) (pat, arm_e) ->
+      let ctx, gids, arm_e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arm_e in
+      ctx, gids, acc_arms @ [(pat, arm_e)], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], decls1, node_decls_map) arms in
+    ctx, gids, Match (p, e, arms, ty_opt), decls, node_decls_map
+  | ADTTerm (p, ty_args, ctor, args) ->
+    let ctx, gids, args, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_args, acc_decls, acc_node_decls_map) arg ->
+      let ctx, gids, arg, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map arg in
+      ctx, gids, acc_args @ [arg], decls @ acc_decls, node_decls_map
+    ) (ctx, gids, [], [], node_decls_map) args in
+    ctx, gids, ADTTerm (p, ty_args, ctor, args), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 
@@ -736,7 +750,7 @@ and gen_poly_decls_decls
 
 let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t  * A.declaration list 
 = fun ctx gids decls -> 
-  (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations 
+  (* Initialize node_decls_map (a map from a node name to its declaration and the list of its polymorphic instantiations
      created so far) *)
   let node_decls_map = List.fold_left (fun acc decl -> match decl with 
   | (A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) as decl)

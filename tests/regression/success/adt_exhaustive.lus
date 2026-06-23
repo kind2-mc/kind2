@@ -1,0 +1,7 @@
+datatype Direction = North | South | East | West;
+
+node main(d: Direction) returns (ok: bool);
+let
+  ok = d = North or d = South or d = East or d = West;
+  check ok;
+tel

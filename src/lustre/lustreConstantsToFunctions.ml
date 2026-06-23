@@ -178,6 +178,30 @@ let decl_constants_to_calls new_func_ids decl = match decl with
 let constants_to_calls new_func_ids decls = 
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
+(* Returns true iff the type contains an ADT (algebraic data type). *)
+(* Currently unused by module, since ADTs do not yet create generated identifiers. 
+   However, they will in the near future, once we support abstract types in ADTs. *)
+let rec _type_contains_adt ctx ty =
+  let r = _type_contains_adt ctx in
+  match ty with
+  | A.ADT _ -> true
+  | A.UserType (_, tys, name) ->
+    List.exists r tys ||
+    (match Ctx.lookup_ty_syn ctx name tys with
+    | Some (A.ADT _) -> true
+    | Some ty' -> r ty'
+    | None -> false)
+  | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
+  | A.RecordType (_, _, flds) -> List.exists (fun (_, _, ty) -> r ty) flds
+  | A.ArrayType (_, (ty, _)) -> r ty
+  | A.Set (_, ty) -> r ty
+  | A.Map (_, kt, vt) | A.TArr (_, kt, vt) -> r kt || r vt
+  | A.RefinementType (_, (_, _, ty), _) -> r ty
+  | A.History (_, id) ->
+    (match Ctx.lookup_ty ctx id with None -> false | Some ty -> r ty)
+  | A.Bool _ | A.Int _ | A.Real _
+  | A.UBitVector _ | A.SBitVector _ | A.AbstractType _ | A.EnumType _ -> false
+
 (* Returns true iff the type contains some expression that would induce generated 
    identifiers. In this context, the only way to induce generated identifiers 
    is from set binary operations (union/intersection) *)
@@ -204,16 +228,19 @@ let rec ty_contains_gids ctx ni ty =
   | A.Map (_, ty1, ty2)
   | A.TArr (_, ty1, ty2) ->
     (r ty1) || (r ty2)
-  | A.AbstractType _ | A.EnumType _  
-  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ 
-  | A.UserType _ -> false 
+  | A.ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, tys) -> tys) cons in
+    List.fold_left (||) false (List.map r tys)
+  | A.AbstractType _ | A.EnumType _
+  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
+  | A.UserType _ -> false
 
 (* Convert free constants to imported functions without args if there are (will be) associated 
    generated identifiers *)
 let gen_const_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
-    | A.ConstDecl (s, A.FreeConst (_, id, ty)) -> 
+    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->  
       let ctx = Ctx.add_ty ctx id ty in
       let contains_gids = ty_contains_gids ctx None ty in
       if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then

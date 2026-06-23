@@ -78,6 +78,7 @@ type error_kind = Unknown of string
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
+  | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
@@ -151,6 +152,8 @@ let error_message kind = match kind with
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | DuplicatePatternVariable id -> "Variable '"
+    ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
   | MissingDecreasesClause id -> "Recursive function '"
     ^ HString.string_of_hstring id
     ^ "' must include a decreases clause in its contract"
@@ -195,8 +198,10 @@ type context = {
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
+  pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
+  constructors : StringSet.t;
   lazy_cond_vars : LA.SI.t; }
 
 let empty_ctx () = {
@@ -208,9 +213,11 @@ let empty_ctx () = {
     consts = StringMap.empty;
     locals = StringMap.empty;
     quant_vars = StringMap.empty;
+    pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
-  lazy_cond_vars = LA.SI.empty;
+    constructors = StringSet.empty;
+    lazy_cond_vars = LA.SI.empty;
   }
 
 let ctx_add_node ctx i ty = {
@@ -249,12 +256,20 @@ let ctx_add_quant_var ctx i ty = {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars
   }
 
+let ctx_add_pattern_var ctx i ty = {
+    ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
+  }
+
 let ctx_add_array_index ctx i ty = {
     ctx with array_indices = StringMap.add i ty ctx.array_indices
   }
 
 let ctx_add_symbolic_array_index ctx i ty = {
     ctx with symbolic_array_indices = StringMap.add i ty ctx.symbolic_array_indices
+  }
+
+let ctx_add_constructor ctx i = {
+    ctx with constructors = StringSet.add i ctx.constructors
   }
 
 let ctx_add_lazy_cond_vars ctx vars = {
@@ -333,10 +348,17 @@ function
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
     false l
 
+| Match (_, e, arms, _) ->
+  has_stateful_op ctx e ||
+  List.fold_left (fun acc (_, body) -> acc || has_stateful_op ctx body) false arms
+
+| ADTTerm (_, _, _, args) ->
+  List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
+
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
   match e2 with 
-  | Some e2 -> has_stateful_op ctx e2 
+  | Some e2 -> has_stateful_op ctx e2
   | None -> false 
   ||
   List.fold_left
@@ -357,8 +379,12 @@ let build_global_ctx (decls:LustreAst.t) =
     List.partition (function LA.ContractNodeDecl _ -> true | _ -> false) decls
   in
   let over_decls acc = function
-    | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) -> 
+    | LA.TypeDecl (_, AliasType (_, _, _, (EnumType (_, _, variants) as ty))) ->
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
+    | LA.TypeDecl (_, AliasType (_, _, _, ADT (_, _, cons))) ->
+      List.fold_left (fun a (ctor, _) ->
+        ctx_add_constructor a ctor
+      ) acc cons
     | ConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
@@ -572,10 +598,12 @@ let no_dangling_calls ctx = function
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
-    (match check_nodes, check_funcs with
-    | true, _ -> Ok ()
-    | _, true -> Ok ()
-    | false, false -> syntax_error pos (UndefinedNode (NI.get_user_name node_id)))
+    let check_ctors = StringSet.mem (NI.get_name node_id) ctx.constructors in
+    (match check_nodes, check_funcs, check_ctors with
+    | true, _, _ -> Ok ()
+    | _, true, _ -> Ok ()
+    | _, _, true -> Ok ()
+    | false, false, false -> syntax_error pos (UndefinedNode (NI.get_user_name node_id)))
   | _ -> Ok ()
 
 let no_a_dangling_identifier ctx pos i =
@@ -584,8 +612,10 @@ let no_a_dangling_identifier ctx pos i =
     StringMap.mem i ctx.free_consts;
     StringMap.mem i ctx.locals;
     StringMap.mem i ctx.quant_vars;
+    StringMap.mem i ctx.pattern_vars;
     StringMap.mem i ctx.array_indices;
-    StringMap.mem i ctx.symbolic_array_indices; ]
+    StringMap.mem i ctx.symbolic_array_indices;
+    StringSet.mem i ctx.constructors; ]
   in
   let check_ids = List.filter (fun x -> x) check_ids in
   if List.length check_ids > 0 then Ok ()
@@ -603,10 +633,18 @@ let no_lemma_calls ctx = function
     syntax_error pos (LemmaCallOutsideCallStatement (NI.get_user_name node_id))
   | _ -> Ok ()
 
-let no_node_calls_in_constant i e =
-  if LAH.expr_contains_call e
-  then syntax_error (LAH.pos_of_expr e) (NodeCallInConstant i)
-  else Ok ()
+let no_node_calls_in_constant ctx i = function
+  | LA.Call (pos, _, node_id, _) ->
+    if StringSet.mem (NI.get_name node_id) ctx.constructors
+    then Ok ()
+    else syntax_error pos (NodeCallInConstant i)
+  | LA.Condact (pos, _, _, _, _, _)
+  | LA.RestartEvery (pos, _, _, _)
+  | LA.AnyOp (pos, _, _)
+  | LA.ChooseOp (pos, _, _)
+  | LA.TypeAscription (pos, _, _)
+    -> syntax_error pos (NodeCallInConstant i)
+  | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   (*| LA.Call (pos, _, i, args) ->
@@ -802,6 +840,10 @@ let rec expr_only_supported_in_merge observer expr =
     if observer then Ok ()
     else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
+  | Match (_, e, arms, _) ->
+    r observer e >>
+    Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
+  | ADTTerm (_, _, _, args) -> r_list observer args
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -819,7 +861,8 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_ty_node_calls i ty = 
   match ty with 
-    | LA.RefinementType (_, _, e) ->
+    | LA.RefinementType (_, (_, _, ty), e) ->
+      check_ty_node_calls i ty >>
       if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
@@ -834,19 +877,26 @@ and check_ty_node_calls i ty =
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Set (_, ty) -> check_ty_node_calls i ty
+    | ADT (_, _, cons) ->
+      let tys = List.map snd cons |> List.flatten in
+      Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Bool _ | Int _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
 
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
-  | TypeDecl (span, FreeType (pos, id) ) -> Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
+  | TypeDecl (span, FreeType (pos, id) ) -> 
+    Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ps, ty) ) -> 
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
-      | LA.FreeConst (_, i, ty) -> check_ty_node_calls i ty >> Res.ok [] 
-      | UntypedConst (_, i, e) -> check_const_expr_decl i ctx e
-      | TypedConst (_, i, e, ty) -> check_ty_node_calls i ty >> check_const_expr_decl i ctx e 
+      | LA.FreeConst (_, i, ty) ->
+        check_ty_node_calls i ty >> Res.ok []
+      | UntypedConst (_, i, e) ->
+        check_const_expr_decl i ctx e
+      | TypedConst (_, i, e, ty) ->
+        check_ty_node_calls i ty >> check_const_expr_decl i ctx e
     in
     Ok (warnings, LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -858,7 +908,7 @@ and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  e
 = fun i ctx expr ->
   let composed_checks i ctx e =
     (no_dangling_identifiers ctx e) >> 
-    (no_node_calls_in_constant i e) >> Ok []
+    (no_node_calls_in_constant ctx i e) >> Ok []
   in
   check_expr ctx (composed_checks i) expr
 
@@ -982,7 +1032,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-   (Res.seq_ (List.map check_input_items inputs))
+  (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs)) >> 
     let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
@@ -1164,12 +1214,34 @@ and check_ty ctx f = function
 | Int _ | Bool _ | SBitVector _ | UBitVector _ 
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
+| ADT (_, _, cons) ->
+  let tys = List.map snd cons |> List.flatten in
+  let* warnings = Res.seq (List.map (check_ty ctx f) tys) in
+  Res.ok (List.flatten warnings)
 
 
+
+and check_pattern_no_duplicates ctx pat =
+  let rec collect = function
+    | LA.VarPat (pos, id) ->
+      if StringSet.mem id ctx.constructors then [] else [(pos, id)]
+    | LA.Pat (_, _, pats) -> List.concat_map collect pats
+  in
+  let rec check seen = function
+    | [] -> Ok ()
+    | (pos, id) :: rest ->
+      if List.mem id seen 
+      then syntax_error pos (DuplicatePatternVariable id)
+      else check (id :: seen) rest
+  in
+  check [] (collect pat)
 
 and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
   LA.expr -> ([> warning] list, 'a) result = fun ctx f (expr:LustreAst.expr) ->
   let lazy_ite ctx e =
+    (f ctx e)
+  in
+  let lazy_match ctx e =
     (f ctx e)
   in
   let lazy_bool_op op ctx e =
@@ -1307,7 +1379,32 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Res.ok (warnings1 @ warnings2) 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
-    | Ident _ | Last _ | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
+    | Ident _ | Last (_, _) -> Res.ok []
+    | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
+    | Match (_, e, arms, _) ->
+      let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
+      let* warnings1 = check_expr ctx f e in
+      let pat_vars pat =
+        let rec collect = function
+          | LA.VarPat (_, id) ->
+            if StringSet.mem id ctx.constructors then [] else [id]
+          | LA.Pat (_, _, pats) -> List.concat_map collect pats
+        in collect pat
+      in
+      let* warnings2 = Res.seq (List.map (fun (pat, body) ->
+        let ctx' = List.fold_left
+          (fun c v -> ctx_add_pattern_var c v None)
+          ctx (pat_vars pat)
+        in
+        let* warnings = check_expr ctx' f body in 
+        let* warnings' = check_expr ctx' lazy_match body in 
+        Res.ok (warnings @ warnings')
+      ) arms) in
+      Ok (warnings1 @ List.flatten warnings2)
+    | ADTTerm (_, ty_args, _, args) ->
+      let* warnings1 = check_expr_list ctx f args in
+      let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
+      Ok (warnings1 @ List.flatten warnings2)
   in
   let* warnings1 = res in
   let* warnings2 = check expr in 
@@ -1318,7 +1415,10 @@ and check_expr_list ctx f l =
   Ok(List.flatten warnings)
 
 and ovq_check_expr inlinable_funcs tc_ctx ctx = function
-| LA.Call (pos, _, node_id, args) ->
+| LA.Call (pos, tys, node_id, args) ->
+  if StringSet.mem (NI.get_name node_id) ctx.constructors then 
+    ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
+  else 
   let inlinable_funcs = 
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
@@ -1440,6 +1540,10 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   | LA.Int _ | LA.Bool _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
+  | LA.ADT (_, _, cons) ->
+    let tys = List.map snd cons |> List.flatten in
+    let* warnings = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs is_nested ctx) tys) in
+    Ok (List.flatten warnings)
 
 let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* warnings1 =

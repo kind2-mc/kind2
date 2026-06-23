@@ -101,7 +101,7 @@ val mk_ref_type_expr : TypeCheckerContext.tc_context ->
 val normalize : TypeCheckerContext.tc_context ->
   NodeId.Set.t ->
   LustreAst.t ->
-    GeneratedIdentifiers.t NodeId.Map.t ->
+  GeneratedIdentifiers.t NodeId.Map.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.Map.t *
    [> warning] list, [> error])
   result

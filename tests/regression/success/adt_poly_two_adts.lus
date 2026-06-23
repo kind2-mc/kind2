@@ -1,0 +1,12 @@
+datatype Opt<T> = Absent | Present (T);
+datatype Wrap<T> = Wrap (T);
+
+node main(i: int) returns (ok: bool);
+var o: Opt<int>;
+var w: Wrap<int>;
+let
+  o = Present(i);
+  w = Wrap(i);
+  ok = (o = Present(i)) and (w = Wrap(i));
+  check ok;
+tel

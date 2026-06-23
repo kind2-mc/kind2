@@ -215,3 +215,5 @@ val pos_of_type: lustre_type -> Lib.position
 val node_id_of_decl: declaration -> NodeId.t option
 
 val is_recursive_function : declaration -> bool
+
+val pat_bound_vars : pattern -> LustreAst.SI.t

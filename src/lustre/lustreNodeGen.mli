@@ -21,6 +21,7 @@
 
 val compile : TypeCheckerContext.tc_context
 -> GeneratedIdentifiers.t NodeId.Map.t
+-> LustreDesugarADTs.adt_map
 -> int HString.HStringMap.t
 -> LustreAst.declaration list
 -> LustreNode.t list * LustreGlobals.t

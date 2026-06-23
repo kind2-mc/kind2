@@ -1,0 +1,13 @@
+-- A node named identically to a 0-arg constructor: calling it with an argument
+-- is parsed as a constructor application, giving ConstructorArityMismatch.
+datatype Color = Red | Green | Blue;
+
+node Red(c: Color) returns (r: bool);
+let
+  r = c = Green;
+tel
+
+node main(c: Color) returns (ok: bool);
+let
+  ok = Red(c);
+tel

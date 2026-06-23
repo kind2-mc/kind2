@@ -1,0 +1,14 @@
+datatype IntOpt = None | Some (int);
+
+node main(x: int) returns (ok: bool);
+var opt: IntOpt;
+var out: int;
+let
+  opt = Some(x);
+  out = match opt with
+    | Some(v) : v
+    | None : 0
+  end;
+  ok = out = x;
+  check ok;
+tel

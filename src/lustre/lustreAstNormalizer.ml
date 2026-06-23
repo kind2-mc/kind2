@@ -166,6 +166,13 @@ type info = {
   inlined_expr_ctx : bool;
 }
 
+let add_ty_to_info info id ty =
+  { info with context = Ctx.add_ty info.context id ty }
+
+let infer_type info node_id expr =
+  let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in
+  ty
+
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals in
   let contract_calls_list = StringMap.bindings gids.contract_calls
@@ -197,7 +204,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring output
       A.pp_print_expr cond
       pp_print_context ctx
-      NI.pp_print_node_id_user_name node_id
+      NI.pp_print_node_id_internal_name node_id
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
@@ -239,10 +246,20 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   let pp_print_equation ppf (_, _, lhs, expr, _) = Format.fprintf ppf "%a = %a"
-  A.pp_print_eq_lhs lhs
-  A.pp_print_expr expr
+    A.pp_print_eq_lhs lhs
+    A.pp_print_expr expr
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  let pp_print_set_binops ppf (id, expr1, expr2, _, _, _) = Format.fprintf ppf "binop: (%a, %a, %a)"
+    HString.pp_print_hstring id
+    A.pp_print_expr expr1 
+    A.pp_print_expr expr2
+  in
+  let pp_print_set_insertions ppf (id, expr1, expr2, _, _) = Format.fprintf ppf "set_update: (%a, %a, %a)"
+    HString.pp_print_hstring id
+    A.pp_print_expr expr1 
+    A.pp_print_expr expr2
+  in
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -253,6 +270,8 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
     (pp_print_list pp_print_equation "\n") gids.equations
+    (pp_print_list pp_print_set_binops "\n") gids.set_binops
+    (pp_print_list pp_print_set_insertions "\n") gids.set_insertions
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
@@ -427,7 +446,7 @@ let rec mk_enum_expr ?(mk_enum=true) ctx node_id expr_type expr =
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-   | A.Set (_, kt) -> 
+    | A.Set (_, kt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
       let idx = A.Ident (dpos, idx_str) in
@@ -492,7 +511,7 @@ let rec mk_enum_expr ?(mk_enum=true) ctx node_id expr_type expr =
       erasing bound variables, and does the proper handling to make sure the transformation is type correct. 
       For example, x: [subtype { y: int | P1(y) }, subtype { y: int | P2(y) }] returns two expressions, 
       P1(x[0]) and P2(x[1]). *)
-and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_type -> A.expr list
+and mk_ref_type_expr
  = fun ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
@@ -563,7 +582,7 @@ and mk_ref_type_expr: Ctx.tc_context -> NodeId.t option -> A.expr -> A.lustre_ty
     in
     let exprs2 = mk_ref_type_expr ctx node_id (A.IndexAccess(pos, expr, Ident(pos, dummy_index), Map)) vt in
     let exprs2 =
-      List.map (fun (e) -> 
+      List.map (fun e -> 
         A.Quantifier (dpos, A.Forall, [var], body e assumption)
       ) exprs2
     in
@@ -927,6 +946,18 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, expr_list' = desugar_expr_list map expr_list in
     StringSet.union vars1 vars2,
     RestartEvery (pos, ident, expr_list', e')
+  | Match (pos, scrut, arms, scrut_ty_opt) ->
+    let vars0, scrut' = r map scrut in
+    let vars_list, arms' = List.split (List.map (fun (pat, body) ->
+      let vars, body' = r map body in
+      vars, (pat, body')
+    ) arms) in
+    let all_vars = List.fold_left StringSet.union vars0 vars_list in
+    all_vars, Match (pos, scrut', arms', scrut_ty_opt)
+  | ADTTerm (pos, ty_args, ctor, args) ->
+    let vars, args' = desugar_expr_list map args in
+    vars, ADTTerm (pos, ty_args, ctor, args')
+
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
         expr_list
@@ -982,8 +1013,8 @@ let rec normalize ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
-    inlined_expr_ctx = false }
-  in 
+    inlined_expr_ctx = false; }
+  in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
     let (normal_item, accum, warnings) =
@@ -1056,11 +1087,12 @@ let rec normalize ctx inlinable_funcs (decls:LustreAst.t) gids =
   match NI.Map.find_opt node_id gids_map with
   | None -> empty(), []
   | Some gids -> (
-    let ctx =
+    let info =
       StringMap.fold
-        (fun id ty acc -> Ctx.add_ty acc id ty)
-        gids.locals info.context
+        (fun id ty acc -> add_ty_to_info acc id ty)
+        gids.locals info
     in
+    let ctx = info.context in
     (* Normalize all equations in gids *)
     let gids_list, warnings, eqs = List.map (fun (tis, sc, lhs, expr, source) ->
       match source with 
@@ -1237,8 +1269,7 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids6, interpretation, warnings6 = match contract with
     | Some contract ->
-      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx
-      in
+      let ctx = Chk.tc_ctx_of_contract info.context Ghost node_id contract |> unwrap |> fun (_, ctx, _) -> ctx in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
       let ncontracts, gids, interpretation, warnings =
@@ -1322,7 +1353,7 @@ and desugar_history info expr =
         in
         let ty = get_history_type info.context id in
         let history_vars = StringMap.singleton id name in
-        {info with context = Ctx.add_ty info.context name ty},
+        add_ty_to_info info name ty,
         union gids { (empty ()) with history_vars }
       )
       history_arg_vars
@@ -1451,14 +1482,14 @@ and rename_ghost_variables info contract =
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
-    let info = { info with context = Ctx.add_ty info.context new_id ty } in
+    let info = add_ty_to_info info new_id ty in
     let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
-  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, ty)::tis), e) :: t -> 
+  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, ty)::tis), e) :: t ->
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
-    let info = { info with context = Ctx.add_ty info.context new_id ty } in
+    let info = add_ty_to_info info new_id ty in
     let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
@@ -1823,7 +1854,7 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
   nexpr, union gids1 gids2
 
 and expand_node_call info node_id expr var count =
-  let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in
+  let ty = infer_type info node_id expr in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
   let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
   match ty with
@@ -1889,8 +1920,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let ty = if expr_has_inductive_var ivars expr then
         let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
         ty
-      else 
-        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in
+      else
+        infer_type info node_id expr
+      in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
@@ -2074,9 +2106,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ty, force = if expr_has_inductive_var ivars expr then
         let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
         ty, true
-      else 
-        let ty, _, _ = Chk.infer_type_expr info.context node_id expr |> unwrap in 
-        ty, false
+      else
+        infer_type info node_id expr, false
       in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
     let guard, gids2, warnings2, previously_guarded = match guard with
@@ -2117,9 +2148,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let name = HString.concat2 prefix (HString.mk_hstring "_array_ctor") in
     let gids2 =
       let locals =
-        let expr_type, _, _ =
-          Chk.infer_type_expr info.context node_id e |> unwrap
-        in
+        let expr_type = infer_type info node_id e in
         StringMap.singleton name expr_type
       in
       let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
@@ -2163,16 +2192,16 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
   | ModeRef _ as expr -> expr, empty (), []
-  | StructUpdate (p1, EmptyMap (p2, None), [A.MapIndex (p3, e1)], Some e2) -> 
-    let kt, _, _ = Chk.infer_type_expr info.context node_id e1 |> Result.get_ok in 
-    let vt, _, _ = Chk.infer_type_expr info.context node_id e2 |> Result.get_ok in 
+  | StructUpdate (p1, EmptyMap (p2, None), [A.MapIndex (p3, e1)], Some e2) ->
+    let kt = infer_type info node_id e1 in
+    let vt = infer_type info node_id e2 in
     (* Use base types *)
     let kt = Chk.expand_type_syn_reftype_history info.context kt |> Result.get_ok in
     let vt = Chk.expand_type_syn_reftype_history info.context vt |> Result.get_ok in
     let expr = A.StructUpdate (p1, EmptyMap (p2, Some (kt, vt)), [A.MapIndex (p3, e1)], Some e2) in 
     normalize_expr ?guard info node_id map expr
   | StructUpdate (p1, EmptySet (p2, None), [A.SetIndex (p3, e)], None) ->
-    let ty, _, _ = Chk.infer_type_expr info.context node_id e |> Result.get_ok in
+    let ty = infer_type info node_id e in
     (* Use base types *)
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> Result.get_ok in
     let expr = A.StructUpdate (p1, EmptySet (p2, Some ty), [A.SetIndex (p3, e)], None) in 
@@ -2222,10 +2251,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let kt, vt = match Chk.infer_type_expr info.context node_id expr with 
-    | Ok (A.Map (_, kt, vt), _, _) -> kt, vt 
-    | _ -> assert false 
-    in 
+    let kt, vt = match infer_type info node_id expr with
+    | A.Map (_, kt, vt) -> kt, vt
+    | _ -> assert false
+    in
     (* Use base types *)
     let kt = Chk.expand_type_syn_reftype_history info.context kt |> Result.get_ok in
     let vt = Chk.expand_type_syn_reftype_history info.context vt |> Result.get_ok in
@@ -2250,10 +2279,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_update") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let ty = match Chk.infer_type_expr info.context node_id expr with 
-    | Ok (A.Set (_, ty), _, _) -> ty
-    | _ -> assert false 
-    in 
+    let ty = match infer_type info node_id expr with
+    | A.Set (_, ty) -> ty
+    | _ -> assert false
+    in
     (* Use base types *)
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> Result.get_ok in
     let gids3 = { (empty ()) with   
@@ -2301,7 +2330,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in 
     normalize_expr ?guard info node_id map expr
   | BinaryOp (pos, ((Plus | Times | Minus) as op), expr1, expr2) ->
-    let ty, _, _ = Chk.infer_type_expr info.context node_id expr1 |> unwrap in 
+    let ty = infer_type info node_id expr1 in
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in (
     match ty, op with 
     | Set _, Plus -> 
@@ -2328,13 +2357,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     i := !i + 1; 
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let ty1 = match Chk.infer_type_expr info.context node_id expr1 with 
-    | Ok (ty, _, _) -> (
-      match Chk.expand_type_syn_reftype_history info.context ty with 
+    let ty1 =
+      let ty = infer_type info node_id expr1 in
+      match Chk.expand_type_syn_reftype_history info.context ty with
       | Ok ty -> ty
       | _ -> assert false
-    )
-    | Error _ -> assert false 
     in
     (match op, ty1 with
     | A.Difference, A.Map (_, kt, vt) ->
@@ -2468,6 +2495,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
+  | A.Match _ | A.ADTTerm _ ->
+    assert false (* desugared before normalization by lustreDesugarADTs *)
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
@@ -2523,7 +2552,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
     let expr = AH.substitute_naive id2 (A.Ident (p1, id')) expr in
     let info = match id with 
     | Some _ -> info
-    | None -> { info with context = Ctx.add_ty info.context id' ty2 }
+    | None -> add_ty_to_info info id' ty2
     in 
     let info, h_gids, expr = desugar_history info expr in
     let nexpr, gids, warnings = normalize_expr info node_id map expr in
@@ -2566,6 +2595,7 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | Int _ | History _ | Bool _ | Real _  
-  | UserType _ | AbstractType _ 
+  | ADT _ -> assert false (* desugared before normalization by lustreDesugarADTs *)
+  | Int _ | History _ | Bool _ | Real _ 
+  | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []

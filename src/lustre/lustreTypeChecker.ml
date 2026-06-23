@@ -116,8 +116,14 @@ type error_kind = Unknown of string
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
   | NoIndexAccessInArrayLength of tc_type
-  | NestedTypeTemporal of LustreAst.lustre_type 
-  | NestedTypeNodeCall of LustreAst.lustre_type 
+  | NestedTypeTemporal of LustreAst.lustre_type
+  | NestedTypeNodeCall of LustreAst.lustre_type
+  | UnboundConstructor of HString.t
+  | ConstructorArityMismatch of HString.t * int * int
+  | MatchScrutineeNotADT of tc_type
+  | UnequalMatchArmTypes of tc_type * tc_type
+  | DuplicateConstructor of HString.t * HString.t * HString.t
+  | ConstructorNameClashWithConst of HString.t * HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -244,6 +250,22 @@ let error_message kind = match kind with
   | NestedTypeNodeCall ty ->
     Format.asprintf "Node call not supported under nested type %a"
       LA.pp_print_lustre_type ty
+  | UnboundConstructor id ->
+    "Could not resolve constructor '" ^ HString.string_of_hstring id ^ "'"
+  | ConstructorArityMismatch (id, expected, got) ->
+    "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
+    string_of_int expected ^ " argument(s) but got " ^ string_of_int got
+  | MatchScrutineeNotADT ty ->
+    "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+  | UnequalMatchArmTypes (ty1, ty2) ->
+    "Match arm types do not agree: found " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | DuplicateConstructor (ctor, ty1, ty2) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
+    ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
+    ^ HString.string_of_hstring ty2 ^ "'"
+  | ConstructorNameClashWithConst (ctor, ty_name) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
+    ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -368,6 +390,12 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
     | When (pos, e, c) -> 
       check_clocks clock e >> clocks_match_result pos c clock
+    | LA.Match (_, e, arms, _) ->
+      check_clocks clock e >>
+      Res.seq_ (List.map (fun (_, arm_e) -> check_clocks clock arm_e) arms)
+    | LA.ADTTerm (_, ty_args, _, args) ->
+      Res.seq_ (List.map (check_clocks clock) args) >>
+      Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
     result = function
@@ -413,6 +441,12 @@ let no_mismatched_clock is_bool e =
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
     | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map check_merge es) >> check_merge e
+    | LA.Match (_, e, arms, _) ->
+      check_merge e >>
+      Res.seq_ (List.map (fun (_, arm_e) -> check_merge arm_e) arms)
+    | LA.ADTTerm (_, ty_args, _, args) ->
+      Res.seq_ (List.map check_merge args) >>
+      Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
   in
   check_merge e
 
@@ -490,7 +524,10 @@ let rec infer_const_attr ctx exp =
     | LA.AbstractType _ | LA.EnumType _  
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
     | LA.UserType _ -> [R.ok ()]
-  in 
+    | LA.ADT (_, _, cons) ->
+      let tys = List.concat_map snd cons in
+      List.fold_left combine [R.ok ()] (List.map r2 tys)
+  in
   match exp with
   | LA.Ident (_, i) ->
     let res =
@@ -585,6 +622,12 @@ let rec infer_const_attr ctx exp =
     )
     | _ -> [err]
   )
+  | LA.Match (_, e, arms, _) ->
+    r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
+    let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
+    combine r_args r_tys
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -808,7 +851,20 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.TypeAscription (pos, e, ty))
   | AnyOp _ -> assert false (* Polymorphism is handled after `any` ops are desugared *)
   | ChooseOp _ -> assert false (* Polymorphism is handled after `choose` ops are desugared *)
-
+  | LA.Match (pos, e, arms, ty_opt) ->
+      let* e = call e in
+      let* arms = R.seq (List.map (fun (pat, arm_e) ->
+        let* arm_e = call arm_e in
+        R.ok (pat, arm_e)
+      ) arms) in
+      R.ok (LA.Match (pos, e, arms, ty_opt))
+    | LA.ADTTerm (pos, adt_ty_args, ctor, args) ->
+      let* adt_ty_args = R.seq (List.map (fun ty_arg ->
+        instantiate_type_variables ctx pos nname ty_arg ty_args
+      ) adt_ty_args) in
+      let* args = R.seq (List.map call args) in
+      R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
+      
 let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_history ctx in
   match ty with
@@ -903,8 +959,13 @@ let rec unify_types pos ctx is_type_ascription ty1 ty2 =
   | t, GroupType (_, tys) when List.length tys = 1 ->
     r t (List.hd tys)
 
-  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 -> 
-    R.ok StringMap.empty 
+  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
+    R.ok StringMap.empty
+  | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
+    let tys1 = List.concat_map snd cons1 in
+    let tys2 = List.concat_map snd cons2 in
+    let* maps = R.seq (List.map2 r tys1 tys2) in
+    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
     let* maps = R.seq (List.map2 r tys1 tys2) in 
     R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
@@ -951,10 +1012,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   = fun ctx nname e -> match e with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
-    (match (lookup_ty ctx i) with
-    | None -> type_error pos (UnboundIdentifier i)
-    | Some ty -> R.ok (ty, e, []))
-  (* 'last x' has the same type as 'x' (desugared away before this point) *)
+    (match lookup_constructor ctx i with
+    | Some _ -> infer_type_expr ctx nname (LA.ADTTerm (pos, [], i, []))
+    | None ->
+      match (lookup_ty ctx i) with
+      | None -> type_error pos (UnboundIdentifier i)
+      | Some ty -> R.ok (ty, e, []))
   | LA.Last (pos, i) ->
     (match (lookup_ty ctx i) with
     | None -> type_error pos (UnboundIdentifier i)
@@ -1342,6 +1405,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       (R.ok (exp_ty, LA.TypeAscription (pos, e, exp_ty), warnings1 @ warnings2))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.Call (pos, ty_args, node_id, arg_exprs) -> (
+    let name = NI.get_name node_id in
+    match ty_args, lookup_constructor ctx name with
+    | [], Some _ -> 
+      infer_type_expr ctx nname (LA.ADTTerm (pos, [], name, arg_exprs))
+    | _ ->
     let* _ = if NI.get_node_type node_id = TypeAscription then 
       let is_function = match nname with 
       | None -> false 
@@ -1423,6 +1491,124 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _, Some ty -> type_error pos (ExpectedFunctionType ty)
     | _, None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
   )
+  | LA.Match (pos, scrutinee, arms, _) ->
+    (* Resolves a pattern against [field_ty], extending [ctx] with any variable
+       bindings and returning the annotated pattern. VarPat is ambiguous at
+       parse time: if the identifier is a known constructor it is resolved to
+       Pat(_, id, []) (0-arg constructor), otherwise it remains a VarPat
+       (variable binding). Pat is always for constructors. *)
+    let rec bind_pattern_ty ctx field_ty pat =
+      let* adt_opt = match field_ty with
+        | LA.ADT _ -> R.ok (Some field_ty)
+        | _ ->
+          let* ty = expand_type_syn_reftype_history ctx field_ty in
+          R.ok (Some ty)
+      in
+      match pat with
+      | LA.VarPat (pos, id) ->
+        let is_constructor = Option.is_some (lookup_constructor ctx id) in
+        if is_constructor then (
+          match adt_opt with
+          | Some (LA.ADT (_, _, adt_cons)) ->
+            (match List.assoc_opt id adt_cons with
+            | Some [] -> R.ok (ctx, LA.Pat (pos, id, []))
+            | Some field_tys ->
+              type_error pos (ConstructorArityMismatch (id, List.length field_tys, 0))
+            | None -> type_error pos (UnboundConstructor id)
+            )
+          | _ -> type_error pos (UnboundConstructor id)
+        ) else
+          R.ok (add_ty ctx id field_ty, pat)
+      | LA.Pat (pos, ctor, sub_pats) ->
+        (match adt_opt with
+        | Some (LA.ADT (_, _, adt_cons)) ->
+          (match List.assoc_opt ctor adt_cons with
+          | None -> type_error pos (UnboundConstructor ctor)
+          | Some field_tys ->
+            if List.length sub_pats <> List.length field_tys then
+              type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length sub_pats))
+            else
+              let* ctx', sub_pats' = R.seq_chain
+                (fun (acc_ctx, acc_pats) (ft, sp) ->
+                  let* ctx', sp' = bind_pattern_ty acc_ctx ft sp in
+                  R.ok (ctx', acc_pats @ [sp']))
+                (ctx, []) (List.combine field_tys sub_pats)
+              in
+              R.ok (ctx', LA.Pat (pos, ctor, sub_pats'))
+          )
+        | _ -> type_error pos (MatchScrutineeNotADT field_ty)
+        )
+    in
+    let* scrut_ty, scrutinee, warnings1 = infer_type_expr ctx nname scrutinee in
+    let* scrut_adt_opt = match scrut_ty with
+      | LA.ADT _ -> R.ok (Some scrut_ty)
+      | _ ->
+        let* ty = expand_type_syn_reftype_history ctx scrut_ty in
+        R.ok (Some ty)
+    in
+    (match scrut_adt_opt with
+    | Some (LA.ADT _) ->
+      let* arm_tys, arms', warnings = R.seq (List.map (fun (pat, arm_body) ->
+        let* arm_ctx, pat' = bind_pattern_ty ctx scrut_ty pat in
+        let* arm_ty, arm_body, warnings = infer_type_expr arm_ctx nname arm_body in
+        R.ok (arm_ty, (pat', arm_body), warnings)
+      ) arms) |> R.map Lib.split3 in
+      let main_ty = List.hd arm_tys in
+      let* all_equal = R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys) in
+      if all_equal then
+        R.ok (main_ty, LA.Match (pos, scrutinee, arms', Some scrut_ty), warnings1 @ List.flatten warnings)
+      else
+        let second_ty, second_arm_body = List.find (fun (ty, _) ->
+          match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
+        ) (List.combine arm_tys (List.map snd arms')) in
+        type_error (LH.pos_of_expr second_arm_body) (UnequalMatchArmTypes (main_ty, second_ty))
+    | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
+    )
+  | LA.ADTTerm (pos, ty_args, ctor, args) ->
+    (match lookup_constructor ctx ctor with
+    | None -> type_error pos (UnboundConstructor ctor)
+    | Some (ty_name, field_tys) ->
+      if List.length args <> List.length field_tys then
+        type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length args))
+      else
+        let ty_vars = match lookup_ty_ty_vars ctx ty_name with
+          | None -> []
+          | Some ty_vars -> ty_vars
+        in
+        let* ty_args, field_tys = match ty_args, ty_vars with
+        | [], [] ->
+          R.ok ([], field_tys)
+        | [], _ ->
+          let* arg_inf_tys, _, _ = infer_type_node_args pos ctx args nname in
+          let field_ty_group =
+            if List.length field_tys = 1 then List.hd field_tys
+            else LA.GroupType (pos, field_tys)
+          in
+          let* unif = unify_types pos ctx false field_ty_group arg_inf_tys in
+          let substitution = StringMap.bindings unif in
+          let* inferred_type_args = R.seq (List.map (fun ty_var ->
+            match List.assoc_opt ty_var substitution with
+            | Some ty -> R.ok ty
+            | None -> type_error pos (CallRequiresExplicitAnnotation ty_var)
+          ) ty_vars) in
+          let field_tys = List.map (LH.apply_type_subst_in_type substitution) field_tys in
+          R.ok (inferred_type_args, field_tys)
+        | _, _ ->
+          let* substitution =
+            if List.length ty_vars = List.length ty_args then
+              R.ok (List.combine ty_vars ty_args)
+            else
+              type_error pos (InvalidPolymorphicCall ty_name)
+          in
+          let field_tys = List.map (LH.apply_type_subst_in_type substitution) field_tys in
+          R.ok (ty_args, field_tys)
+        in
+        let* pairs = R.seq (List.map2 (fun arg ft ->
+          check_type_expr ctx nname arg ft
+        ) args field_tys) in
+        let checked_args, warnings = List.split pairs in
+        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
+    )
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1531,17 +1717,19 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
-  | Condact (pos, _, _, _, _, _) 
-  | Activate (pos, _, _, _, _) 
-  | Merge (pos, _, _) 
-  | RestartEvery (pos, _, _, _) 
-  | Arrow (pos, _, _) 
-  | GroupExpr (pos, _, _) 
-  | StructUpdate (pos, _, _, _) 
-  | RecordExpr (pos, _, _, _) 
+  | Condact (pos, _, _, _, _, _)
+  | Activate (pos, _, _, _, _)
+  | Merge (pos, _, _)
+  | RestartEvery (pos, _, _, _)
+  | Arrow (pos, _, _)
+  | GroupExpr (pos, _, _)
+  | StructUpdate (pos, _, _, _)
+  | RecordExpr (pos, _, _, _)
   | Pre (pos, _)
   | Last (pos, _)
   | When (pos, _, _)
+  | LA.Match (pos, _, _, _)
+  | LA.ADTTerm (pos, _, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -2338,6 +2526,16 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
             @ (Lib.list_apply enum_const_bindings Global)))
         else
           type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
+      | LA.ADT (_, _, cons) ->
+        let ctx' = add_ty_syn ctx i ty in
+        let* ctx'' = R.seq_chain
+          (fun acc (ctor, field_tys) ->
+            match lookup_constructor acc ctor with
+            | Some (existing_ty, _) when not (HString.equal existing_ty i) ->
+              type_error pos (DuplicateConstructor (ctor, existing_ty, i))
+            | _ -> R.ok (add_adt_ctor acc ctor i field_tys))
+          ctx' cons in
+        R.ok (LA.AliasType (pos, i, ps, ty), ctx'')
       | _ -> R.ok (LA.AliasType (pos, i, ps, ty), add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
@@ -2565,6 +2763,11 @@ and check_no_index_access ctx nname ty e =
     r e1 >> r e2
   | TypeAscription (_, e, ty') ->
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
+  | LA.Match (_, e, arms, _) ->
+    r e >> Res.seq_ (List.map (fun (_, arm_e) -> r arm_e) arms)
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    Res.seq_ (List.map r args) >>
+    Res.seq_ (List.map (LH.fold_lustre_ty r (R.ok ()) (>>)) ty_args)
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2622,7 +2825,8 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
      the map key and value types for wellformedness. *)
   else R.ok () 
 | AbstractType _ | Bool _ | Int _ 
-| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok () 
+| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
+| ADT _ -> type_error pos (UnsupportedMapType ty)
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -2676,6 +2880,11 @@ and expr_contains_set_binop ctx ni expr =
   | RestartEvery (_, _, expr_list, e) -> 
     r e || 
     List.fold_left (fun acc x -> acc || r x) false expr_list
+  | LA.Match (_, e, arms, _) ->
+    r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
+  | LA.ADTTerm (_, ty_args, _, args) ->
+    List.fold_left (fun acc e -> acc || r e) false args
+    || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
@@ -2746,8 +2955,11 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       then 
         (* Check that we are passing the correct number of type arguments *)
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
-        let ty' = expand_type_syn ctx ty' in
-        check_type_well_formed_rec is_nested ty'
+        let expanded = expand_type_syn ctx ty' in
+        match expanded with
+        | LA.ADT _ (* Already validated at declaration *)
+        | LA.UserType _ -> R.ok (ty', [])  
+        | _ -> check_type_well_formed_rec is_nested expanded
       else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
@@ -2761,6 +2973,21 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           | None, None -> 
             type_error pos (UndeclaredType i)
       )
+    | ADT (pos, new_ty_name, ctors) ->
+      let* ctors, all_warnings = R.seq (List.map (fun (ctor, tys) ->
+        let* _ = (match lookup_constructor ctx ctor with
+          | Some (existing_ty_name, _) ->
+            if existing_ty_name <> new_ty_name then
+              type_error pos (DuplicateConstructor (ctor, existing_ty_name, new_ty_name))
+            else R.ok ()
+          | None ->
+            (match lookup_const ctx ctor with
+            | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
+            | None -> R.ok ())) in
+        let* tys, warnings = R.seq (List.map (check_type_well_formed_rec true) tys) |> R.map List.split in
+        R.ok ((ctor, tys), List.flatten warnings)
+      ) ctors) |> R.map List.split in
+      R.ok (LA.ADT (pos, new_ty_name, ctors), List.flatten all_warnings)
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])
   in
@@ -2801,12 +3028,31 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
   | UBitVector (_, s1), UBitVector (_, s2) -> R.ok (s1 = s2)
 
   (* Lustre V6 features *)
-  | UserType (_, ty_args1, i1), UserType (_, ty_args2, i2) -> 
-    if List.length ty_args1 = List.length ty_args2
-    then (
-      let* r1 = R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2) in 
-      let r2 = i1 = i2 in 
-      R.ok (r1 && r2)
+  | UserType (pos1, ty_args1, i1), UserType (pos2, ty_args2, i2) ->
+    (* UserTypes for datatypes are not yet inlined, so we possibly 
+       need to call lookup_ty_syn *)
+    if i1 = i2 then (
+      if List.length ty_args1 = List.length ty_args2
+      then R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ty_args1 ty_args2)
+      else R.ok false
+    )
+    else if member_ty_syn ctx i1 then (
+      let* ty_alias = match lookup_ty_syn ctx i1 ty_args1 with
+        | None -> type_error pos1
+            (Impossible ("Cannot find definition of Identifier "
+              ^ (HString.string_of_hstring i1)))
+        | Some ty -> R.ok ty
+      in
+      eq_lustre_type ctx ty_alias (UserType (pos2, ty_args2, i2))
+    )
+    else if member_ty_syn ctx i2 then (
+      let* ty_alias = match lookup_ty_syn ctx i2 ty_args2 with
+        | None -> type_error pos2
+            (Impossible ("Cannot find definition of Identifier "
+              ^ (HString.string_of_hstring i2)))
+        | Some ty -> R.ok ty
+      in
+      eq_lustre_type ctx (UserType (pos1, ty_args1, i1)) ty_alias
     )
     else R.ok false
    
@@ -2841,6 +3087,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
         (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
     else
       R.ok false
+  | ADT (_, n1, _), ADT (_, n2, _) -> R.ok (n1 = n2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2

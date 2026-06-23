@@ -158,7 +158,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     | Some e2 -> Some (r e2)
     | None -> None 
     in
-    A.StructUpdate (p, r e1, 
+    A.StructUpdate (p, r e1,
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
               | MapIndex (a, e) -> MapIndex (a, r e)
@@ -167,8 +167,16 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
     e2)
+  | A.Match (p, e, arms, ty_opt) ->
+    A.Match (p, r e,
+      List.combine
+        (List.map fst arms)
+        (List.map r (List.map snd arms)),
+      ty_opt)
+  | A.ADTTerm (p, ty_args, ctor, args) ->
+    A.ADTTerm (p, ty_args, ctor, List.map r args)
 
-(** Helper function to generate node equations when an initialized variable in the 
+(** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)
 let generate_undefined_nes f_pos node_id nis ne = match ne with
   | A.Equation (pos, (StructDef(_, [SingleIdent(_, id)]) as lhs), init) -> 

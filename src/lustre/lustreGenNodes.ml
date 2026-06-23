@@ -127,6 +127,12 @@ fun ctx node_name fun_ids ty ->
     let ty, gen_nodes1 = r ty in
     let e, gen_nodes2 = desugar_expr ctx node_name fun_ids e in
     RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
+  | ADT (p, name, constructors) ->
+    let constructors, gen_nodes = List.map (fun (cname, tys) ->
+      let tys, gen_nodes = List.map r tys |> List.split in
+      (cname, tys), List.flatten gen_nodes
+    ) constructors |> List.split in
+    ADT (p, name, constructors), List.flatten gen_nodes
 
 and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
@@ -343,6 +349,17 @@ fun ctx node_name fun_ids expr ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
     Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+  | Match (pos, e, arms, ty_opt) ->
+    let e, gen_nodes1 = rec_call e in
+    let arms, gen_nodes2 = List.map (fun (pat, arm_e) ->
+      let arm_e, gen_nodes = rec_call arm_e in
+      (pat, arm_e), gen_nodes
+    ) arms |> List.split in
+    Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
+  | ADTTerm (pos, ty_args, ctor, args) ->
+    let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
+    let args, gen_nodes = List.map rec_call args |> List.split in
+    ADTTerm (pos, ty_args, ctor, args), List.flatten gen_nodes_ty @ List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

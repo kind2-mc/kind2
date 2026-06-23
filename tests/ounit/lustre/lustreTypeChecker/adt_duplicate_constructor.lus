@@ -1,0 +1,7 @@
+datatype A = Foo | Bar;
+datatype B = Baz | Foo;
+
+node n (x: int) returns (a: A);
+let
+  a = Foo;
+tel

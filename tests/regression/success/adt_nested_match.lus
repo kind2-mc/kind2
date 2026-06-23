@@ -1,0 +1,14 @@
+datatype Inner = A | B (int);
+datatype Outer = Wrap (Inner) | Empty;
+
+node main(o: Outer) returns (ok: bool);
+var val: int;
+let
+  val = match o with
+    | Wrap(A) : 0
+    | Wrap(B(n)) : n
+    | Empty : -1
+  end;
+  ok = o = Empty => val = -1;
+  check ok;
+tel

@@ -1,0 +1,9 @@
+datatype IntOption = None | Some (int);
+
+node N (x: IntOption) returns (r: bool);
+let
+  r = match x with
+    | None : true
+    | Some (a, b) : false
+  end;
+tel

@@ -250,6 +250,11 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
         | None -> acc)
       empty_
       dep_args
+  | Match (_, e, arms, _) ->
+    let graph = union_ (r e) (arms |> List.map (fun (_, arm_e) -> r arm_e) |> List.fold_left union_ empty_) in
+    graph
+  | ADTTerm (_, _, _, args) ->
+    args |> (List.map r) |> (List.fold_left union_ empty_)
 
 let extract_unknown ids =
   let unknowns =

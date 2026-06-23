@@ -114,6 +114,7 @@ let rec flatten_ref_type ctx ty = match ty with
       ) exprs
     | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _ 
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
+    | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
     in
     let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
@@ -124,6 +125,7 @@ let rec flatten_ref_type ctx ty = match ty with
       | _ -> assert false)
   | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _ 
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> ty
+  | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -189,6 +191,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
+  | ADTTerm _ | Match _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_item ctx item = 
   match item with 
