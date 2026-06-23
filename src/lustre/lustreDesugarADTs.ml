@@ -20,10 +20,10 @@
     For each ADT declaration
       type T = C0 | C1(t1_0, t1_1) | C2(t2_0)
     we produce a discriminant enum type and an equivalent record type:
-      type _adt_T_tag = _adt_T_tag_C0 | _adt_T_tag_C1 | _adt_T_tag_C2;
-      type T = { _adt_T_tag: _adt_T_tag;
-                 _adt_T_C1_0: t1_0; _adt_T_C1_1: t1_1;
-                 _adt_T_C2_0: t2_0 }
+      type T_tag = C0 | C1 | C2;
+      type T = { T_tag: T_tag;
+                 C1_0: t1_0; C1_1: t1_1;
+                 C2_0: t2_0 }
     where the enum tag field encodes the active constructor and the
     payload fields for non-selected constructors carry junk values.
 
