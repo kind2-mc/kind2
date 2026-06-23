@@ -341,7 +341,6 @@ let keyword_table = mk_hashtbl [
 
   "with", WITH ;
   "match", MATCH ;
-  "end", END ;
   ]
 
     
