@@ -1548,10 +1548,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       if all_equal then
         R.ok (main_ty, LA.Match (pos, scrutinee, arms', Some scrut_ty), warnings1 @ List.flatten warnings)
       else
-        let second = List.find (fun ty ->
+        let second_ty, second_arm_body = List.find (fun (ty, _) ->
           match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
-        ) arm_tys in
-        type_error pos (UnequalMatchArmTypes (main_ty, second))
+        ) (List.combine arm_tys (List.map snd arms')) in
+        type_error (LH.pos_of_expr second_arm_body) (UnequalMatchArmTypes (main_ty, second_ty))
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
