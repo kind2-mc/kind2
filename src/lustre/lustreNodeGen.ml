@@ -47,7 +47,6 @@ module TM = Type.TypeMap
 module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
-module StringSet = HString.HStringSet
 
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
@@ -80,8 +79,6 @@ type compiler_state = {
     StateVar.StateVarHashtbl.t;
   global_constraints: LustreExpr.t list;
   adt_map : LDAT.adt_map;
-  disc_field_map : HString.t StringMap.t;
-  payload_fields : StringSet.t;
 }
 
 (*
@@ -147,8 +144,6 @@ let empty_compiler_state () = {
   state_var_bounds = SVT.create 7;
   global_constraints = [];
   adt_map = StringMap.empty;
-  disc_field_map = StringMap.empty;
-  payload_fields = StringSet.empty;
 }
 
 (*
@@ -714,19 +709,14 @@ let create_uf_symbols node_id inputs outputs =
       SVM.add output uf uf_symbols
   ) SVM.empty
 
-let adt_source_for_index disc_field_map payload_fields default_source index =
-  let last_ri = List.fold_left
-    (fun _ e -> match e with X.RecordIndex f -> Some f | _ -> None) None index
-  in
-  match last_ri with
-  | None -> default_source
-  | Some f ->
-    let fhs = HString.mk_hstring f in
-    (match StringMap.find_opt fhs disc_field_map with
-    | Some type_name -> N.Generated (N.Discriminant type_name)
-    | None ->
-      if StringSet.mem fhs payload_fields then N.Generated N.Plain
-      else default_source)
+let adt_source_for_index default_source index =
+  let has_adt = List.exists (function
+    | X.AdtTagIndex _ | X.AdtPayloadIndex _ -> true | _ -> false) index in
+  if not has_adt then default_source
+  else match List.rev index with
+  | X.AdtTagIndex type_name_str :: _ ->
+    N.Generated (N.Discriminant (HString.mk_hstring type_name_str))
+  | _ -> N.Generated N.Plain
 
 let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
   StringMap.map (fun (info : LDAT.adt_info) ->
@@ -782,17 +772,8 @@ let field_name_to_index adt_map field_hs =
   | None -> X.RecordIndex field_str
 
 let rec compile ctx gids adt_map scc_map decls =
-  let disc_field_map, payload_fields =
-    StringMap.fold (fun type_name (info : LDAT.adt_info) (dm, pf) ->
-      let dm' = StringMap.add info.disc_field type_name dm in
-      let pf' = StringMap.fold (fun _ fields acc ->
-        List.fold_left (fun a (fname, _) -> StringSet.add fname a) acc fields
-      ) info.ctor_fields pf in
-      (dm', pf')
-    ) adt_map (StringMap.empty, StringSet.empty)
-  in
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
-  let output = List.fold_left over_decls_1 ({ (empty_compiler_state ()) with adt_map; disc_field_map; payload_fields }) decls in
+  let output = List.fold_left over_decls_1 ({ (empty_compiler_state ()) with adt_map }) decls in
   (* Map each recursive function to its source decreases measure and the names
      of its formal value parameters. Used to render the decrease constraint of
      (possibly mutually) recursive calls at the source level. *)
@@ -1941,7 +1922,7 @@ and process_node_inputs cstate ctx map node_scope inputs =
       let ident = mk_ident i in
       let index_types = compile_ast_type cstate ctx map ast_type in
       let over_indices = fun index index_type (accum1, accum2) ->
-        let source = adt_source_for_index cstate.disc_field_map cstate.payload_fields N.Input index in
+        let source = adt_source_for_index N.Input index in
         let possible_state_var = mk_state_var
           ~is_input:true
           ~is_const
@@ -1979,7 +1960,7 @@ and process_node_outputs cstate ctx map node_scope outputs =
       let ident = mk_ident i in
       let index_types = compile_ast_type cstate ctx map ast_type in
       let over_indices = fun index index_type (accum1, accum2) ->
-        let source = adt_source_for_index cstate.disc_field_map cstate.payload_fields N.Output index in
+        let source = adt_source_for_index N.Output index in
         let possible_state_var = mk_state_var
           ~is_input:false
           map
@@ -2105,7 +2086,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         let over_indices = fun index index_type accum ->
           let source =
             if GI.var_is_last_local i then N.Generated N.Plain
-            else adt_source_for_index cstate.disc_field_map cstate.payload_fields N.Local index
+            else adt_source_for_index N.Local index
           in
           let possible_state_var = mk_state_var
             ~is_input:false

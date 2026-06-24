@@ -1111,14 +1111,10 @@ let rec get_widths_for_contract ident_width values_width contract_trace = match 
   | (a,_,_) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
 
-(* Recursively reconstruct the ADT value string at a given step.
-   root_index: the index prefix for this ADT variable's record (e.g. [] for top-level,
-               [RecordIndex "Cons_1"] for a nested field).
-   type_name:  the ADT type name (key into adt_map).
-   bindings: association list (index -> sv) for searching. *)
 (* Reconstruct the ADT value string for a known disc_sv at a given step.
-   For nested ADT fields, derive the nested disc sv from bindings (the field_index
-   prefix makes those lookups unambiguous). *)
+   root_index is [] for top-level variables and [AdtPayloadIndex ...] for nested ADT fields.
+   For nested ADT fields, the nested disc sv is located via bindings using the
+   field_index prefix, which makes lookups unambiguous within a single variable's D.t. *)
 let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv =
   match G.HStringMap.find_opt type_name adt_map with
   | None -> assert false
@@ -1136,19 +1132,16 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
       in
       if fields = [] then ctor_name
       else
-        let field_strs = List.map (fun (fname, field_kind) ->
+        let field_strs = List.mapi (fun j (_fname, field_kind) ->
           let field_index =
-            root_index @ [D.RecordIndex (HString.string_of_hstring fname)]
+            root_index @ [D.AdtPayloadIndex (ctor_name, j)]
           in
           match field_kind with
           | G.AdtFieldNested nested_type ->
             (* For nested ADT, look up disc sv by index; the field_index prefix
                makes this unambiguous even in a flat bindings list. *)
-            let nested_disc_field = HString.string_of_hstring
-              (match G.HStringMap.find_opt nested_type adt_map with
-               | None -> assert false | Some ai -> ai.G.disc_field) in
             let nested_disc_index =
-              field_index @ [D.RecordIndex nested_disc_field]
+              field_index @ [D.AdtTagIndex (HString.string_of_hstring nested_type)]
             in
             (match List.assoc_opt nested_disc_index bindings with
             | None -> assert false
@@ -1178,31 +1171,19 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
 let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
   if G.HStringMap.is_empty adt_map then []
   else
-    (* Pre-compute the set of all ADT-generated field names (disc + payload) *)
-    let adt_field_set =
-      G.HStringMap.fold (fun _ info acc ->
-        let acc = HString.HStringSet.add info.G.disc_field acc in
-        G.HStringMap.fold (fun _ fields acc ->
-          List.fold_left (fun a (fname, _) -> HString.HStringSet.add fname a) acc fields
-        ) info.G.ctor_fields acc
-      ) adt_map HString.HStringSet.empty
-    in
-    let is_adt_field fname = HString.HStringSet.mem (HString.mk_hstring fname) adt_field_set in
-
-    (* Collect top-level disc svs: Generated (Some type_name) whose root_index
-       contains no ADT-generated fields (i.e., not nested inside a payload). *)
+    (* Collect top-level disc svs: Generated (Discriminant type_name) whose root_index
+       contains no AdtPayloadIndex/AdtTagIndex (i.e., not nested inside a payload). *)
     let disc_entries = List.filter_map (fun (index, sv) ->
       match N.get_state_var_source node sv with
       | N.Generated (N.Discriminant type_name) ->
         let root_index = match List.rev index with _ :: rest -> List.rev rest | [] -> [] in
-        let is_top_level = List.for_all (function
-          | D.RecordIndex f -> not (is_adt_field f)
-          | _ -> true) root_index
+        let is_top_level = not (List.exists (function
+          | D.AdtPayloadIndex _ | D.AdtTagIndex _ -> true | _ -> false) root_index)
         in
         if is_top_level then Some (index, sv, type_name, root_index)
         else None
       | _ -> None
-      | exception Not_found -> None
+      | exception Not_found -> assert false
     ) bindings in
     List.filter_map (fun (_disc_index, disc_sv, type_name, root_index) ->
       (* Derive the user-visible stream name by stripping ".disc_field" from
@@ -1210,13 +1191,13 @@ let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
       let sv_name = StateVar.name_of_state_var disc_sv in
       let root_name =
         match G.HStringMap.find_opt type_name adt_map with
-        | None -> sv_name
+        | None -> assert false
         | Some adt_info ->
           let disc_suffix = "." ^ HString.string_of_hstring adt_info.G.disc_field in
           let n = String.length sv_name and m = String.length disc_suffix in
           if n > m && String.sub sv_name (n - m) m = disc_suffix
           then String.sub sv_name 0 (n - m)
-          else sv_name
+          else assert false
       in
       let disc_sv_values =
         try SVT.find model disc_sv with Not_found -> []
@@ -1376,10 +1357,15 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
   let adt_map = globals.G.adt_map in
   let all_input_bindings = D.bindings inputs in
   let all_output_bindings = D.bindings outputs in
-  let all_local_bindings = List.map D.bindings node.N.locals |> List.flatten in
   let adt_inputs = adt_streams_from_bindings adt_map model node all_input_bindings in
   let adt_outputs = adt_streams_from_bindings adt_map model node all_output_bindings in
-  let adt_locals = adt_streams_from_bindings adt_map model node all_local_bindings in
+  (* Each local is its own D.t with unqualified indices: process per-variable to avoid
+     index collisions when multiple locals share the same ADT type. *)
+  let adt_locals =
+    List.concat_map (fun local_var ->
+      adt_streams_from_bindings adt_map model node (D.bindings local_var)
+    ) node.N.locals
+  in
 
   (* Sample inputs, outputs and locals on clock *)
   let globals', constants', inputs', outputs', ghosts', locals'  = match clock with
@@ -2140,8 +2126,11 @@ let pp_print_streams_json is_top const_map const_funcs globals ppf
   let adt_map = globals.G.adt_map in
   let adt_inputs = adt_streams_from_bindings adt_map model node (D.bindings inputs) in
   let adt_outputs = adt_streams_from_bindings adt_map model node (D.bindings outputs) in
-  let adt_locals = adt_streams_from_bindings adt_map model node
-    (List.map D.bindings node.N.locals |> List.flatten) in
+  let adt_locals =
+    List.concat_map (fun local_var ->
+      adt_streams_from_bindings adt_map model node (D.bindings local_var)
+    ) node.N.locals
+  in
   let adt_tagged =
     List.map (fun s -> ("input", s)) adt_inputs
     @ List.map (fun s -> ("output", s)) adt_outputs
