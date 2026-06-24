@@ -1,19 +1,10 @@
-
-
-function F(inp: Color) returns (out: bool);
-
-node N (c: Color) returns (r: bool)
-let
-  r = match c with
-    | Red --> true
-    | Purple --> F(Green) (*!! This is a pattern. We will need two passes to distinguish constructors *)
-    | Blue --> false
-  end;
-tel
-
-node imported N () returns ();
-
---!! Look into why semicolon is necessary
 datatype Color = Red | Green | Blue;
 
-type T = <...>;
+node N (c: Color) returns (r: bool);
+let
+  r = match c with
+    | Red : true
+    | Purple (f) : false
+    | Blue : false
+  end;
+tel

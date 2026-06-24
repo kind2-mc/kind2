@@ -131,6 +131,12 @@ val lookup_variants: tc_context -> LA.ident -> LA.ident list option
 val lookup_constructor: tc_context -> LA.ident -> (LA.ident * LA.lustre_type list) option
 (** Lookup an ADT constructor and return its ADT type name and field types *)
 
+val add_adt_ctor: tc_context -> LA.ident -> LA.ident -> LA.lustre_type list -> tc_context
+(** Register an ADT constructor with its type name and field types *)
+
+val remove_adt_ctor: tc_context -> LA.ident -> tc_context
+(** Remove an ADT constructor registration *)
+
 val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add a type synonym in the typing context *)
 
@@ -275,19 +281,14 @@ val is_machine_type_of_associated_width: tc_context -> (LA.lustre_type * LA.lust
 (** returns [true] if the first component of the type is of the same width 
   as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
 
-val type_contains_subrange : tc_context -> LA.lustre_type -> bool
-(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
-
-val type_contains_enum_or_subrange : tc_context -> LA.lustre_type -> bool
-(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+val type_contains_enum : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType *)
 
 val type_contains_ref : tc_context -> LA.lustre_type -> bool
 (** Returns true if the lustre type expression contains a RefinementType or if it is an RefinementType *)
 
-val type_contains_ref_or_subrange : tc_context -> LA.lustre_type -> bool
-
-val type_contains_enum_subrange_reftype : tc_context -> LA.lustre_type -> bool
-(** Returns true if the lustre type expression contains an EnumType/IntRange or if it is an EnumType/IntRange *)
+val type_contains_enum_reftype : tc_context -> LA.lustre_type -> bool
+(** Returns true if the lustre type expression contains an EnumType or RefinementType *)
 
 val type_contains_abstract : tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an abstract type (including polymorphic type variable) or if it is an abstract type *)

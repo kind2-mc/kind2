@@ -108,6 +108,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | ConstructorNameClashWithConst of HString.t * HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -195,7 +196,7 @@ val build_node_fun_ty : Lib.position ->
   LA.const_clocked_typed_decl list ->
   LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
 
-val expand_type_syn_reftype : ?expand_subrange:bool -> ?expand_history:bool ->
+val expand_type_syn_reftype : ?expand_history:bool ->
   tc_context ->
   tc_type ->
   ( tc_type,
@@ -209,13 +210,6 @@ val expand_type_syn_reftype_history :
     [> error] )
   result
 
-val expand_type_syn_reftype_history_subrange : 
-  tc_context ->
-  tc_type ->
-  ( tc_type,
-    [> error] )
-  result
-  
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 

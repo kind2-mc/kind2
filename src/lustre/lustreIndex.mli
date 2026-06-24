@@ -60,7 +60,13 @@ type one_index =
   | SetMapIndex of LustreExpr.expr 
 
   | AbstractTypeIndex of string
-    (* Index to the representation field of an abstract type *)
+    (** Index to the representation field of an abstract type *)
+
+  | AdtTagIndex of string
+    (** Discriminant field of a desugared ADT; string is the ADT type name *)
+
+  | AdtPayloadIndex of string * int
+    (** Payload field of a desugared ADT; ctor name and field position *)
 
 (** A sequence of indexes *)
 type index = one_index list

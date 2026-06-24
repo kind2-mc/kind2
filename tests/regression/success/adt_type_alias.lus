@@ -1,0 +1,8 @@
+datatype Option<T> = None | Some (T);
+type ProtocolState = Option<int>;
+node Main () returns (ok: bool)
+const initial_state: ProtocolState = None@<int>;
+let
+  ok = (initial_state = None@<int>);
+  check ok;
+tel

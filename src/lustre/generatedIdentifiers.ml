@@ -52,17 +52,11 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
-  subrange_constraints : (source
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
-    * LustreAst.expr) 
+    * LustreAst.expr
+    * NodeId.t option) (* Node ID for type ascription substitution *)
   list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
@@ -73,7 +67,13 @@ type t = {
     HString.t *
     LustreAst.lustre_type * 
     LustreAst.lustre_type) list;
-  set_insertions: (HString.t * 
+  map_subtractions: (HString.t *
+    LustreAst.expr *
+    LustreAst.expr *
+    HString.t *
+    LustreAst.lustre_type *
+    LustreAst.lustre_type) list;
+  set_insertions: (HString.t *
     LustreAst.expr * 
     LustreAst.expr * 
     HString.t *
@@ -94,6 +94,8 @@ type t = {
     list;
   nonvacuity_props: StringSet.t;
   array_literal_vars: StringSet.t;
+  expr_source_map: LustreAst.expr StringMap.t;
+  type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }
 
@@ -106,12 +108,44 @@ let iboracle =  "iboracle"
 let ctr_id = HString.mk_hstring "*counter"
 
 (* Checks if a variable name corresponds to an iboracle *)
-let var_is_iboracle var = 
-  let 
+let var_is_iboracle var =
+  let
     var = String.split_on_char '_' (HString.string_of_hstring var) |>
     List.rev |> List.hd
   in
   (var = iboracle)
+
+(* String constant used in lustreNameCalls.ml as the suffix of the fresh local
+   variables introduced to capture the discarded results of a call statement
+   (e.g. 'double(n-1);'). Kept distinct from the 'calls' machinery used to
+   abstract calls appearing inside larger expressions. *)
+let discarded_output = "discard"
+
+(* Checks if a variable name corresponds to a discarded call-statement result.
+
+   At the AST level the fresh variables are named with [discarded_output] as a
+   suffix (e.g. '1_discard'), but [LustreNodeGen.mk_ident] turns a leading
+   numeric segment into a trailing index, so the corresponding state variable is
+   named with [discarded_output] as a prefix instead (e.g. 'discard_1'). We
+   therefore look for [discarded_output] as a '_'-separated segment, which
+   matches both forms. *)
+let var_is_discarded_output var =
+  String.split_on_char '_' (HString.string_of_hstring var)
+  |> List.mem discarded_output
+
+(* String constant used in lustreDesugarLast.ml as a segment of the fresh local
+   variables introduced to desugar the 'last' operator (e.g. '0_glast_o'). The
+   leading numeric segment guarantees the generated names cannot clash with
+   user-written identifiers. These locals are invisible (Kind 2 generated). *)
+let last_local = "glast"
+
+(* Checks if a variable name corresponds to a 'last'-operator local. As with
+   [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
+   numeric segment to the end, so we look for [last_local] as a '_'-separated
+   segment, which matches both forms. *)
+let var_is_last_local var =
+  String.split_on_char '_' (HString.string_of_hstring var)
+  |> List.mem last_local
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -130,17 +164,19 @@ let union ids1 ids2 = {
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
-    subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
     refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
+    map_subtractions = ids1.map_subtractions @ ids2.map_subtractions;
     set_binops = ids1.set_binops @ ids2.set_binops;
     set_insertions = ids1.set_insertions @ ids2.set_insertions;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
+    expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
+    type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
     history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
 
@@ -159,16 +195,18 @@ let empty () = {
   ib_oracles = [];
   calls = [];
   contract_calls = StringMap.empty;
-  subrange_constraints = [];
   refinement_type_constraints = [];
   empty_maps = [];
   empty_sets = [];
   map_element_updates = [];
+  map_subtractions = [];
   set_binops = [];
   set_insertions = [];
   expanded_variables = StringSet.empty;
   equations = [];
   nonvacuity_props = StringSet.empty;
   array_literal_vars = StringSet.empty;
+  expr_source_map = StringMap.empty;
+  type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
 }

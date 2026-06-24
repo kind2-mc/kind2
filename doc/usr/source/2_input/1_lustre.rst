@@ -715,11 +715,21 @@ These two calls are the same (the second one is just syntactic sugar). The
 call* is activated when the clock ``c`` is true. Notice that the restart clock
 ``r`` is also sampled by ``c`` in this call.
 
-Partially defined nodes
------------------------
+Underspecified outputs
+----------------------
 
-Kind 2 allows nodes to define their outputs only partially. For instance, the
-node
+Every output (and local variable) of a node or function must be defined in its
+body, either by an equation or by a frame block; leaving an output without a
+definition is rejected. (The only exception is ``imported`` nodes and functions,
+which have no body at all; see :ref:`The imported keyword
+<2_input/1_lustre#imported>`.)
+
+An output need not be given a precise value, however. It can be left
+*underspecified* by assigning it an arbitrary value of the appropriate type with
+the ``any`` (or ``choose``) operator (see `Nondeterministic choice operator`_).
+This is the intended way to express that an output is not fully constrained. For
+instance, the node below defines ``count`` precisely but leaves ``error``
+underspecified, while still being analyzed against its contract:
 
 .. code-block:: none
 
@@ -738,11 +748,11 @@ node
    noc
    let
      count = (if trigger then 1 else 0) + (0 -> pre count) ;
+     error = any@<bool> ;
    tel
 
-can be analyzed: first for mode exhaustiveness, and the body is checked against
-its contract, although it is only *partially* defined.
-Here, both will succeed.
+This node can be analyzed: first for mode exhaustiveness, and then the body is
+checked against its contract. Here, both will succeed.
 
 .. _2_input/1_lustre#imported:
 
@@ -782,22 +792,6 @@ by decomposing it into smaller subnodes and specifying the actual
 dependencies among inputs and outputs.
 
 
-Partially defined nodes VS ``imported``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Kind 2 allows partially defined nodes, that is nodes in which some streams
-do not have a definition. At first glance, it might seem like a node with no
-definitions at all (with an empty body) is the same as an ``imported`` node.
-
-It is not the case. A partially defined node *still has a (potentially
-empty) body* which can be analyzed. The fact that it is not completely defined
-does not change this fact.
-If a partially defined node is at the top level, or is in the cone of
-influence of the top node in a modular analysis, then it's body **will** be analyzed.
-
-An ``imported`` node on the other hand *explicitly does not have a body*. Its
-non-existent body will thus never be analyzed.
-
 Functions
 ---------
 
@@ -810,10 +804,22 @@ A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
 In Kind 2, these restrictions also apply to the contract attached to a function,
-if any. Moreover, Kind 2 enforces that partially defined functions,
-imported functions, and functions abstracted by their contracts
+if any. Moreover, Kind 2 strictly enforces that imported functions
+and functions abstracted by their contracts
 behave as mathematical functions. That is, given the same inputs,
-the functions always produce the same outputs.
+such a function always produces the same outputs, regardless of the step at
+which it is called.
+
+The stateless nature of functions also determines the scope of their contract
+assumptions. For a function, an assumption constrains only the *current*
+timestep: when reasoning about a call, the function's guarantees may rely on its
+assumptions holding at the current step alone. For a node, by contrast, the
+scope extends to all previous timesteps: the node's guarantees may rely on its
+assumptions having held at every step up to and including the current one (the
+"assumptions always hold implies guarantees always hold" semantics described in
+:ref:`Contract Semantics <9_other/2_contract_semantics>`). This mirrors the fact
+that a function's outputs depend only on the current values of its inputs,
+whereas a node may also depend on their previous values.
 
 Benefits and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -851,18 +857,82 @@ the IC3IA engine with the Z3qe or cvc5qe options must shut down,
 since their current implementation cannot reason about the resulting system.
 
 
+Conditional expressions
+-----------------------
+Kind 2 provides two forms of conditional expression. Both select between two
+branches based on a Boolean condition, but they differ in how the branches are
+evaluated.
+
+The ``if ... then ... else ...`` expression has *eager* semantics:
+
+.. code-block:: none
+
+   x = if condition then expr1 else expr2;
+
+The ``when ... then ... else ...`` expression has *lazy* semantics:
+
+.. code-block:: none
+
+   x = when condition then expr1 else expr2;
+
+Both expressions evaluate to ``expr1`` when ``condition`` is true and to
+``expr2`` otherwise. The difference is operational: with the eager ``if`` form,
+both branches are evaluated at every step regardless of the condition, whereas
+with the lazy ``when`` form only the selected branch is evaluated; the branch
+that is not selected is not evaluated at all. The lazy form is useful when one
+branch is only meaningful (for instance, only satisfies the assumptions it
+relies on) when the condition selects it.
+
+The branches of a ``when ... then ... else ...`` expression are subject to the
+following restrictions (the ``if ... then ... else ...`` expression has no such
+restrictions):
+
+* They cannot contain temporal operators (for example ``pre`` or ``->``).
+* They cannot call Lustre nodes (calls to functions are allowed).
+
+Each form has a corresponding statement-level block, described in the next
+section: ``if`` statements desugar to ``if ... then ... else ...`` expressions,
+while ``when`` and ``cond`` blocks desugar to ``when ... then ... else ...``
+expressions.
+
+
+Short-circuit Boolean operators
+-------------------------------
+Besides the standard Boolean operators ``and``, ``or``, and ``=>``, which
+evaluate both of their operands, Kind 2 provides short-circuit (lazy) variants
+that evaluate their right operand only when necessary:
+
+* ``e1 and then e2`` (short-circuit conjunction): if ``e1`` is false, the result
+  is false and ``e2`` is not evaluated.
+* ``e1 or else e2`` (short-circuit disjunction): if ``e1`` is true, the result
+  is true and ``e2`` is not evaluated.
+* ``e1 ==> e2`` (short-circuit implication): if ``e1`` is false, the result is
+  true and ``e2`` is not evaluated.
+
+When the right operand *is* evaluated, these operators agree with their eager
+counterparts: ``and then`` with ``and``, ``or else`` with ``or``, and ``==>``
+with the implication operator ``=>``. As with the lazy ``when ... then ...
+else ...`` expression, the right operand is subject to the following
+restrictions:
+
+* It cannot contain temporal operators (for example ``pre`` or ``->``).
+* It cannot call Lustre nodes (calls to functions are allowed).
+
+These operators are convenient when the right operand is only well-defined, or
+only satisfies its assumptions, when the left operand has the appropriate value,
+as in ``x <> 0 and then y / x > 1``.
+
+
 If statements and frame conditions
 ----------------------------------
-Within node definitions, Kind 2 has support for two features that allow the programmer 
-to use a more imperative style-- (1) ``if`` statements and (2) frame conditions. 
+Within node definitions, Kind 2 has support for two features that allow the programmer
+to use a more imperative style-- (1) ``if`` statements and (2) frame conditions.
 
 If statements
 ^^^^^^^^^^^^^
-Kind 2 has always supported conditional expressions of the form ``x = if condition then expr1
-else expr2``, where the ``if/then/else`` expression either evaluates to ``expression1``
-or ``expression2``, depending on the value of ``condition``. However, in some circumstances,
-it may be more natural to use ``if`` statements that serve as control flow (rather than
-evaluate to a value). For example, Kind 2 now supports statements of the form:
+In addition to the conditional *expressions* described above, in some circumstances
+it may be more natural to use ``if`` *statements* that serve as control flow (rather than
+evaluate to a value). For example, Kind 2 supports statements of the form:
 
 .. code-block:: none
 
@@ -889,6 +959,91 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
 
    y1 = if condition1 then expr1 else (if condition2 then expr3 else expr5);
    y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
+
+
+When blocks
+^^^^^^^^^^^
+Kind 2 also supports ``when`` blocks, which are similar in structure to ``if``
+statements but use *lazy* branch semantics:
+
+.. code-block:: none
+
+   when condition1 then
+      y1 = expr1;
+      y2 = expr2;
+   else
+      y1 = expr3;
+      y2 = expr4;
+   end
+
+
+Additional branches can be expressed by nesting ``when`` blocks inside the ``else`` branch:
+
+.. code-block:: none
+
+   when condition1 then
+      y1 = expr1;
+      y2 = expr2;
+   else
+      when condition2 then
+         y1 = expr3;
+         y2 = expr4;
+      else
+         y1 = expr5;
+         y2 = expr6;
+      end
+   end
+
+**Semantics**
+
+At each step, only the selected branch is evaluated.
+In particular, branch expressions that are not selected are not evaluated.
+This is useful when one branch relies on assumptions that do not hold in other
+cases.
+
+As for ``if`` blocks, ``when`` blocks are statement-level syntax sugar.
+For each assigned variable, the blocks above correspond to nested lazy
+``when ... then ... else ...`` expressions.
+
+Current restrictions for ``when`` blocks are:
+
+* Branch expressions cannot contain temporal operators (for example ``pre`` or
+  ``->``).
+* Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+* ``if`` blocks cannot be nested inside ``when`` blocks, and ``when`` blocks
+  cannot be nested inside ``if`` blocks.
+
+
+Cond blocks
+^^^^^^^^^^^
+Kind 2 also supports ``cond`` blocks, which use a pattern-matching style with
+multiple guarded branches and an ``otherwise`` clause:
+
+.. code-block:: none
+
+   cond
+     | condition1:
+        y1 = expr1;
+        y2 = expr2;
+     | condition2:
+        y1 = expr3;
+        y2 = expr4;
+     otherwise:
+        y1 = expr5;
+        y2 = expr6;
+   end
+
+The semantics of ``cond`` blocks is the same as for ``when`` blocks: at each
+step, only the selected branch is evaluated, and branch expressions that are
+not selected are not evaluated.
+
+Current restrictions for ``cond`` blocks are the same as for ``when`` blocks:
+
+* Branch expressions cannot contain temporal operators (for example ``pre`` or
+   ``->``).
+* Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+* ``if`` blocks cannot be nested inside ``cond`` blocks, and ``cond`` blocks
+   cannot be nested inside ``if`` blocks.
 
 
 Frame conditions
@@ -1038,6 +1193,117 @@ will also generate the two warnings as discussed in the previous paragraph.
       fi
    tel
 
+The ``last`` operator
+^^^^^^^^^^^^^^^^^^^^^
+Within a frame block, the expression ``last x`` (where ``x`` is a variable in
+scope) denotes the value of ``x`` at the *immediately preceding timestep*, with
+the value at the first timestep given by the frame's initialization of ``x`` (or
+left undefined when ``x`` has no initialization). ``last x`` always refers to the
+value of ``x`` one timestep earlier, regardless of any branch conditions under
+which it appears.
+
+.. warning::
+
+   ``last x`` is **not** the same as writing ``init_x -> pre x`` inside a branch
+   of a ``when`` (or ``cond``) block. When ``init_x -> pre x`` is written
+   directly inside a branch, the lazy branch semantics make ``pre x`` refer to
+   the value of ``x`` the *last time that branch was selected*, which may be
+   several timesteps earlier. In contrast, ``last x`` always refers to the value
+   of ``x`` at the immediately preceding timestep. (In a context that is
+   evaluated at every timestep — for example a plain frame-block equation outside
+   any ``when``/``cond`` branch — the two coincide, but ``last x`` is the
+   reliable way to express "value at the previous timestep" in all contexts.)
+
+The ``last`` operator may only be used inside a frame block; using it elsewhere
+is an error.
+
+For example, in the following frame block ``last o`` refers to the value of
+``o`` at the previous timestep, initialized to ``i`` (the initialization of
+``o``):
+
+.. code-block:: none
+
+   frame (o)
+   o = i;
+   let
+      o = last o + 1;
+   tel
+
+Omitting equations in ``when`` blocks within frame blocks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Just as with ``if`` statements, a variable may be left undefined in some branches
+of a ``when`` block when the ``when`` block appears within a frame block.
+When the definition of a variable ``x`` is omitted in a branch, that branch
+behaves as if it contained the equation ``x = last x`` (i.e., ``x`` keeps its
+previous value, initialized by the frame). For example, the following two frame
+blocks are equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+         c2 = last c2;
+      else
+         o = last o - 1;
+         c2 = 1 -> pre c2 + 1;
+         c1 = last c1;
+      end
+   tel
+
+Within a frame block, the ``else`` branch of a ``when`` block (and the
+``otherwise`` branch of a ``cond`` block) may also be omitted entirely. An
+omitted ``else``/``otherwise`` branch behaves as if it defined every frame block
+variable with ``x = last x``. For example, the following two frame blocks are
+equivalent:
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      end
+   tel
+
+.. code-block:: none
+
+   frame (o, c1, c2)
+   o = i; c1 = 0; c2 = 0;
+   let
+      when m then
+         o = last o + 1;
+         c1 = 1 -> pre c1 + 1;
+      else
+         o = last o;
+         c1 = last c1;
+         c2 = last c2;
+      end
+   tel
+
+Outside a frame block, every variable defined in any branch of a ``when`` block
+must still be defined in all branches, and the ``else``/``otherwise`` branch
+cannot be omitted.
+
 Restrictions
 ^^^^^^^^^^^^
 A frame block cannot be nested within an if statement or another frame block, as
@@ -1122,10 +1388,37 @@ call-site polymorphic arguments are specified using the ``@`` instantiation oper
      y2 = SafePre@<bool>(y2);
    tel
 
-Note that ``SafePre`` can be called 
+Note that ``SafePre`` can be called
 with any type, not just primitive types (e.g. ``SafePre@<[int, bool]>(.)`` and ``SafePre@<[int, U]>(.)``,
 where ``U`` is itself a type parameter in the caller's declaration).
-Type arguments *must be passed* at the call site; inference of type arguments is not yet supported.
+
+Kind 2 can also infer the type arguments of a polymorphic call, so the ``@<...>``
+instantiation is optional in most cases. When no type arguments are supplied, Kind 2
+determines them *bottom-up* by unifying the node's input parameter types against the
+types of the actual arguments at the call site. For instance, the two calls in ``Top``
+above can be written without any annotation:
+
+.. code-block:: none
+
+   node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+   let
+     y1 = SafePre(y1);
+     y2 = SafePre(y2);
+   tel
+
+Here ``T`` is inferred to be ``int`` in the first call and ``bool`` in the second.
+
+Inference uses *base types only*: any refinement, subrange, or history information on the
+arguments is stripped before unification, so the inferred type argument is always the
+underlying base type. For example, if an argument has type ``subrange [0, 10] of int`` (or
+a refinement type over ``int``), the corresponding type parameter is inferred as ``int``.
+
+A type argument can be inferred only when the corresponding type parameter appears in an
+*input* position, so that it can be determined from the arguments. If a type parameter
+occurs only in the node's outputs (and thus cannot be recovered from the call arguments),
+the ``@<...>`` annotation must still be provided explicitly; otherwise Kind 2 reports that
+the call requires an explicit annotation. When an explicit annotation is given, it must be
+consistent with the types of the arguments, or a type error is raised.
 
 Another example is a polymorphic node ``PairSwap``, which takes a polymorphic pair tuple as input and 
 returns the corresponding swapped pair tuple as output.

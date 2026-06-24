@@ -1,0 +1,16 @@
+
+datatype D = C1 (int) | C2 (real);
+
+node make(i: int) returns (d: D);
+let
+  d = C1(i);
+tel
+
+node main(i: int) returns (ok: bool);
+var x, y: D;
+let
+  x = make(i);
+  y = make(i);
+  ok = x = y;
+  check ok;
+tel

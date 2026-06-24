@@ -1,0 +1,12 @@
+datatype D = C1 (int) | C2 (real);
+
+node main(i: int; r: real) returns (ok: bool);
+var x, y, a, b: D;
+let
+  x = C1(i);
+  y = C1(i);
+  a = C2(r);
+  b = C2(r);
+  ok = x = y and a = b;
+  check ok;
+tel

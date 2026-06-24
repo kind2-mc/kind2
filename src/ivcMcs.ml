@@ -139,7 +139,6 @@ let rec unannot_pos = function
   | A.Int _ -> A.Int dpos
   | A.SBitVector (_, s) -> A.SBitVector (dpos, s)
   | A.UBitVector (_, s) -> A.UBitVector (dpos, s)
-  | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
   | A.Real _ -> A.Real dpos
   | A.UserType (_,ps,id) -> A.UserType (dpos,ps,id)
   | A.AbstractType (_, id) -> A.AbstractType (dpos,id)
@@ -240,7 +239,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
@@ -274,15 +273,15 @@ let rec minimize_node_call_args ue lst expr =
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
     | A.Match (p, e, arms, ty_opt) ->
       A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms, ty_opt)
-    | A.ADTTerm (p, ctor, args) ->
-      A.ADTTerm (p, ctor, List.map aux args)
+    | A.ADTTerm (p, ty_args, ctor, args) ->
+      A.ADTTerm (p, ty_args, ctor, List.map aux args)
   in aux expr
 
 and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
+    | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args
@@ -316,7 +315,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.Match (_,e,arms,_) ->
       aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
-    | A.ADTTerm (_,_,args) ->
+    | A.ADTTerm (_,_,_,args) ->
       List.exists aux args
   in
   aux ast
@@ -354,6 +353,7 @@ let minimize_node_eq id_typ_map ue lst = function
 
 let rec minimize_item id_typ_map ue lst = function
   | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
+  | A.Auto p -> [A.Auto p]
   | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
   | A.Body eq -> (
     match minimize_node_eq id_typ_map ue lst eq with
@@ -363,6 +363,9 @@ let rec minimize_item id_typ_map ue lst = function
   | A.IfBlock (pos, e, l1, l2) -> 
     [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
                         List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+  | A.WhenBlock (pos, e, l1, l2) ->
+    [A.WhenBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten,
+                         List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
   | A.FrameBlock (pos, vars, nes, nis) -> 
     [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
                                          with | None -> [] | Some eq -> [eq]) 
@@ -421,6 +424,7 @@ let minimize_contract_node_eq ue lst cne =
     in
     [A.Mode (pos,id,req,ens)]
   | A.AssumptionVars _ -> [cne]
+  | A.Decreases _ -> [cne]
 
 let minimize_node_decl ue loc_core
   ((node_id, extern, opac, tparams, inputs, outputs, locals, items, spec) as ndecl) =
@@ -474,8 +478,8 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, (p, body))
 let minimize_decl ue loc_core = function
   | A.NodeDecl (span, ndecl) ->
     A.NodeDecl (span, minimize_node_decl ue loc_core ndecl)
-  | A.FuncDecl (span, ndecl) ->
-    A.FuncDecl (span, minimize_node_decl ue loc_core ndecl)
+  | A.FuncDecl (span, ndecl, is_rec) ->
+    A.FuncDecl (span, minimize_node_decl ue loc_core ndecl, is_rec)
   | A.ContractNodeDecl (span, cdecl) ->
     A.ContractNodeDecl (span, minimize_contract_decl ue loc_core cdecl)
   | decl -> decl 
@@ -486,7 +490,7 @@ let fill_input_types_hashtbl ast =
     Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
   in
   let aux_decl = function
-  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl) -> aux_node_decl ndecl
+  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl, _) -> aux_node_decl ndecl
   | _ -> ()
   in
   List.iter aux_decl ast
@@ -629,6 +633,7 @@ let add_as_candidate os_invs sys =
       prop_term = t ;
       prop_status = PropUnknown ;
       prop_kind = Invariant ;
+      prop_expr = None;
     }
   in
   let props = List.map create_candidate os_invs in

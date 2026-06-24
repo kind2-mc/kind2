@@ -1,0 +1,51 @@
+type Nat = subrange [0,*] of int;
+type Pos = subrange [1,*] of int;
+
+datatype Option<T> = Some (T) | None;
+
+transparent function IsSome<T>(o: Option<T>) returns (r: bool);
+let
+  r = match o with
+    | Some(_) : true
+    | None : false
+  end;
+tel
+
+transparent function GetValue<T>(o: Option<T>) returns (v: T);
+let
+  v = match o with
+    | Some(value) : value
+    | None : choose@<T>
+  end;
+tel
+
+node imported nondet() returns (r: bool);
+
+type Vote = enum {Yes, No};
+
+type Decision = enum {Commit, Abort};
+
+type HostId = int;
+
+datatype Message =
+  | VoteReqMsg
+  | VoteMsg (HostId, Vote)
+  | DecisionMsg (Decision);
+
+type MsgSet = set<Message>;
+
+node Network(send: Option<Message>) returns 
+  (sentMsgs: MsgSet);
+var prevSentMsgs: MsgSet;
+let
+  prevSentMsgs = {}@<Message> -> pre sentMsgs;
+  frame (sentMsgs)
+    sentMsgs = {}@<Message>;
+  let
+    if IsSome@<Message>(send) then
+      sentMsgs = {GetValue@<Message>(send)};
+    fi
+  tel
+
+  check sentMsgs = sentMsgs;
+tel

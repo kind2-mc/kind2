@@ -129,6 +129,11 @@ let remove_mult_assign_from_ni ctx ni =
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
         [A.IfBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
 
+      | WhenBlock (pos, e, l1, l2) ->
+        let nis1, gids1 = List.map (helper ctx) l1 |> List.split in
+        let nis2, gids2 = List.map (helper ctx) l2 |> List.split in
+        [A.WhenBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
+
       | FrameBlock (pos, vars, nes, nis) -> 
         let nes = List.map (fun x -> A.Body x) nes in 
         let nis1, gids1 = List.map (helper ctx) nes |> List.split in
@@ -141,9 +146,10 @@ let remove_mult_assign_from_ni ctx ni =
       (* Don't need to alter these node items as they are not allowed in if
          and frame blocks. If they are present anyway, it will be caught in
          lustreDesugarIfBlocks.ml *)
-      | A.Body (Assert _) 
+      | A.Body (Assert _)
       | A.AnnotProperty _
-      | A.AnnotMain _ -> [ni], []
+      | A.AnnotMain _
+      | A.Auto _ -> [ni], []
   ) in
   let (nis, gids) = helper ctx ni in
   let gids = List.fold_left GI.union (GI.empty ()) gids in
@@ -154,18 +160,20 @@ let remove_mult_assign_from_ni ctx ni =
 
 let desugar_node_item ctx ni = match ni with
   | A.IfBlock _ 
+  | A.WhenBlock _
   | A.FrameBlock _ -> 
     remove_mult_assign_from_ni ctx ni 
   | _ -> ni, GI.empty ()
 
 (** Remove multiple assignment from if and frame blocks in a single declaration. *)
 let desugar_node_decl ctx decl = match decl with
-  | A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)) ->
+  | A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co), is_rec) ->
     let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
     let res = List.map (desugar_node_item ctx) nis in
     let nis, gids = List.split res in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
-    A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)), NI.Map.singleton node_id gids
+    A.FuncDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co), is_rec),
+    NI.Map.singleton node_id gids
   | A.NodeDecl (s, (node_id, b, opac, nps, cctds, ctds, nlds, nis, co)) ->
     let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
     let res = List.map (desugar_node_item ctx) nis in

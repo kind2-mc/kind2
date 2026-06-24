@@ -78,11 +78,17 @@ module type S = sig
   val mem_vertex: t -> vertex -> bool
   (** returns true if the vertex is in the graph *)
 
+  val has_edge: t -> vertex -> vertex -> bool
+  (** Returns true if there is an edge from the first vertex to the second vertex*)
+
   val get_vertices: t -> vertices
   (** get all vertices in the graph *)
 
   val to_vertex_list: vertices -> vertex list
   (** Returns a list of vertex  *)
+
+  val from_vertex_list: vertex list -> vertices
+  (** Returns a set of vertices from a list of vertex *)
 
   val get_edges: t -> edges
   (** get all edges in the graph *)
@@ -114,6 +120,10 @@ module type S = sig
   val sub_graph: t -> vertices -> t    
   (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
+  val extract_cycle: t -> vertex -> vertex list option
+  (** Returns Some list of vertices that form a cycle starting from the given vertex,
+      or None if no such cycle exists *)
+
   val children: t -> vertex -> vertex list
   (** Gets the immediate children of a vertex, those reachable by one edge *)
 
@@ -136,7 +146,12 @@ module type S = sig
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)
+   *  Implementation is of this function is based on Kahn's algorithm *)
+
+  val get_sccs : t -> vertices list
+  (** Computes the strongly connected components (SCCs) of the graph.
+   *  It returns the list of SCCs in topological order.
+   *  Implementation of this function is based on Tarjan's algorithm *)
 
   module VMap : sig
     include (Map.S with type key = vertex)
@@ -330,6 +345,9 @@ module Make (Ord: OrderedType) = struct
         (get_edges g))
   (** Gets a subgraph with appropriate edges of given graph from a given set of vertices *)
 
+  let has_edge: t -> vertex -> vertex -> bool = fun (_, es) v1 v2 ->
+    ESet.mem (mk_edge v1 v2) es
+
   let children: t -> vertex -> vertex list = fun g v ->
     let edges = ESet.filter (fun e -> is_vertex_source e v) (get_edges g) in
     ESet.elements edges |> List.map (fun (_, t) -> t)
@@ -356,14 +374,21 @@ module Make (Ord: OrderedType) = struct
 
   exception CyclicGraphException of vertex list
 
+  let extract_cycle g v =
+    try
+      let rec find_cycle ((_, edges) as g) current seen =
+        if List.mem current seen then seen
+        else
+          let current_edges = ESet.filter (fun e -> is_vertex_source e current) edges in
+          let (_, next) = ESet.choose current_edges in
+          find_cycle g next (current :: seen)
+      in
+      let cycle = List.rev (find_cycle g v []) @ [v] in
+      Some cycle
+    with Not_found ->
+      None
+
   let topological_sort: t -> vertex list = fun g ->
-    let rec find_cycle ((_, edges) as g) current seen =
-      if List.mem current seen then seen
-      else
-        let current_edges = ESet.filter (fun e -> is_vertex_source e current) edges in
-        let (_, next) = ESet.choose current_edges in
-        find_cycle g next (current :: seen)
-    in
 
     let rec topological_sort_helper: t -> vertex list -> vertex list
       = fun ((vs, _) as g) sorted_vs ->
@@ -379,7 +404,11 @@ module Make (Ord: OrderedType) = struct
         if not (is_empty g) then
           let no_incoming_vs = non_target_vertices g in
           let head = VSet.choose (VSet.diff vs no_incoming_vs) in
-          let cycle = List.rev (find_cycle g head []) @ [head] in
+          let cycle =
+            match extract_cycle g head with
+            | Some cycle -> cycle
+            | None -> assert false
+          in
           raise (CyclicGraphException cycle)
         else sorted_vs
       else
@@ -390,6 +419,62 @@ module Make (Ord: OrderedType) = struct
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implementation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
+
+  let get_sccs ((vs, _) as graph) =
+    let rec strongconnect v (index, indices, lowlinks, stack, on_stack, sccs) =
+      let indices = VMap.add v index indices in
+      let lowlinks = VMap.add v index lowlinks in
+      let stack = v :: stack in
+      let on_stack = VSet.add v on_stack in
+      let index = index + 1 in
+  
+      let (index, indices, lowlinks, stack, on_stack, sccs) =
+        List.fold_left (fun (index, indices, lowlinks, stack, on_stack, sccs) w ->
+          if not (VMap.mem w indices) then
+            let (index, indices, lowlinks, stack, on_stack, sccs) =
+              strongconnect w (index, indices, lowlinks, stack, on_stack, sccs)
+            in
+            let lowlink_v = VMap.find v lowlinks in
+            let lowlink_w = VMap.find w lowlinks in
+            let low_links = VMap.add v (min lowlink_v lowlink_w) lowlinks in
+            (index, indices, low_links, stack, on_stack, sccs)
+          else if VSet.mem w on_stack then
+            let lowlink_v = VMap.find v lowlinks in
+            let index_w = VMap.find w indices in
+            let low_links = VMap.add v (min lowlink_v index_w) lowlinks in
+            (index, indices, low_links, stack, on_stack, sccs)
+          else
+            (index, indices, lowlinks, stack, on_stack, sccs)
+        ) (index, indices, lowlinks, stack, on_stack, sccs) (children graph v)
+      in
+  
+      if VMap.find v lowlinks = VMap.find v indices then
+        let rec build_scc acc stack =
+          match stack with
+          | [] -> (acc, [])
+          | x :: xs when Ord.compare x v = 0 -> (x :: acc, xs)
+          | x :: xs -> build_scc (x :: acc) xs
+        in
+        let component, stack = build_scc [] stack in
+        let on_stack =
+          List.fold_left (fun s v -> VSet.remove v s) on_stack component
+        in
+        let sccs = VSet.of_list component :: sccs in
+        (index, indices, lowlinks, stack, on_stack, sccs)
+      else
+        (index, indices, lowlinks, stack, on_stack, sccs)
+    in
+  
+    let (_, _, _, _, _, sccs) =
+      VSet.fold (fun v (index, indices, lowlinks, stack, on_stack, sccs) ->
+        if not (VMap.mem v indices) then
+          strongconnect v (index, indices, lowlinks, stack, on_stack, sccs)
+        else
+          (index, indices, lowlinks, stack, on_stack, sccs)
+      ) vs (0, VMap.empty, VMap.empty, [], VSet.empty, [])
+    in
+    List.rev sccs
+
 
   let memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices =
     fun memo ((vs, _) as g) origin_v ->
@@ -435,6 +520,9 @@ module Make (Ord: OrderedType) = struct
 
   let to_vertex_list: vertices -> vertex list = VSet.elements
   (** returns a list of vertex *)
+
+  let from_vertex_list: vertex list -> vertices = VSet.of_list
+  (** Returns a set of vertices from a list of vertex *)
 
   let to_edge_list = ESet.elements
   (** returns a list of vertex *)

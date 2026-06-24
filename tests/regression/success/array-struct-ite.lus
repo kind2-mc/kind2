@@ -1,11 +1,11 @@
 const N: int = 3;
 
-type rec = {
+type R = {
   x: int;
   y: int;
 };
 
-node N(A: rec^N; e: rec) returns (out: rec^N);
+node N(A: R^N; e: R) returns (out: R^N);
 let
   out[i] = if i = 0 then e else A[i];
   check out[0]=e;

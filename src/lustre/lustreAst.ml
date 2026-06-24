@@ -71,6 +71,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -93,13 +94,15 @@ type group_expr =
   | ArrayExpr (* Array expression *)
 
 type access_kind =
-  | Array
-  | Map
+  | Array 
+  | Map 
   | Tuple
   | Unknown
 
 (** Pattern for match expressions *)
-type pattern = Pat of position * ident * pattern list
+type pattern =
+  | VarPat of position * ident              (* variable binding *)
+  | Pat of position * ident * pattern list  (* constructor pattern *)
 
 (** A Lustre expression *)
 type expr =
@@ -138,12 +141,15 @@ type expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Previous value of a variable in a frame block (desugared early in the
+     pipeline by LustreDesugarLast) *)
+  | Last of position * ident
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
   (* ADT constructor application *)
-  | ADTTerm of position * ident * expr list
+  | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
 
@@ -153,7 +159,6 @@ and lustre_type =
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
@@ -251,9 +256,11 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
+  | WhenBlock of position * expr * node_item list * node_item list
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
+  | Auto of position (* No-op item, only allowed in the body of a lemma *)
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -283,6 +290,8 @@ type contract_call = position * NI.t * lustre_type list * expr list * ident list
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
 
+type decreases_clause = position * expr
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -292,6 +301,7 @@ type contract_node_equation =
   | Mode of contract_mode
   | ContractCall of contract_call
   | AssumptionVars of contract_assump_vars
+  | Decreases of decreases_clause
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
@@ -333,12 +343,17 @@ type span = {
   end_pos : position;
 }
 
+type func_attrs = {
+  is_rec : bool;
+  is_lemma : bool;
+}
+
 (* A declaration as parsed *)
 type declaration = 
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl
+  | FuncDecl of span * node_decl * func_attrs
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 
@@ -362,6 +377,7 @@ let pp_print_clock_expr ppf = function
 
 
 let rec pp_print_pattern ppf = function
+  | VarPat (_, id) -> HString.pp_print_hstring ppf id
   | Pat (_, c, []) -> HString.pp_print_hstring ppf c
   | Pat (_, c, pats) ->
     Format.fprintf ppf "%a(%a)"
@@ -550,6 +566,7 @@ and pp_print_expr ppf =
     | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Union, e1, e2) -> p2 p "+" e1 e2
     | BinaryOp (p, Intersection, e1, e2) -> p2 p "*" e1 e2
+    | BinaryOp (p, Difference, e1, e2) -> p2 p "-" e1 e2
     | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
     | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
     | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
@@ -563,7 +580,7 @@ and pp_print_expr ppf =
 
     | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
-    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "if" "then" "otherwise" e1 e2 e3
+    | TernaryOp (p, LazyIte, e1, e2, e3) -> p3 p "when" "then" "else" e1 e2 e3
 
     | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
     | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
@@ -617,6 +634,9 @@ and pp_print_expr ppf =
 
     | Pre (p, e) -> p1 p "pre" e
 
+    | Last (p, i) ->
+      Format.fprintf ppf "%alast %a" ppos p pp_print_ident i
+
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
 
     | Call (p, [], id, l) ->
@@ -661,24 +681,35 @@ and pp_print_expr ppf =
       idx1 
       idx2
 
-    | TypeAscription (p, e, ty) ->
-      Format.fprintf ppf
+    | TypeAscription (p, e, ty) -> 
+      Format.fprintf ppf 
       "%a(%a : %a)"
-      ppos p
-      pp_print_expr e
+      ppos p 
+      pp_print_expr e 
       pp_print_lustre_type ty
 
-    | ADTTerm (_, c, []) ->
+    | ADTTerm (_, [], c, []) ->
       HString.pp_print_hstring ppf c
 
-    | ADTTerm (_, c, args) ->
+    | ADTTerm (_, ty_args, c, []) ->
+      Format.fprintf ppf "%a@<%a>"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
+
+    | ADTTerm (_, [], c, args) ->
       Format.fprintf ppf "%a(%a)"
         HString.pp_print_hstring c
         (pp_print_list pp_print_expr ",@ ") args
 
+    | ADTTerm (_, ty_args, c, args) ->
+      Format.fprintf ppf "%a@<%a>(%a)"
+        HString.pp_print_hstring c
+        (pp_print_list pp_print_lustre_type ";") ty_args
+        (pp_print_list pp_print_expr ",@ ") args
+
     | Match (_, e, arms, _) ->
       let pp_arm ppf (pat, body) =
-        Format.fprintf ppf "| %a --> %a"
+        Format.fprintf ppf "| %a : %a"
           pp_print_pattern pat
           pp_print_expr body
       in
@@ -704,16 +735,6 @@ and pp_print_lustre_type ppf = function
   | Int _ -> Format.fprintf ppf "int"
   | SBitVector (_, i) -> Format.fprintf ppf "sint<%d>" i
   | UBitVector (_, i) -> Format.fprintf ppf "uint<%d>" i
-  | IntRange (_, l, u) -> 
-    let pp_print_opt ppf expr_opt = (match expr_opt with
-      | Some expr -> pp_print_expr ppf expr
-      | None -> Format.fprintf ppf "%s" unbounded_limit_string
-    )
-    in
-    Format.fprintf ppf 
-      "subrange [%a,%a] of int" 
-      pp_print_opt l
-      pp_print_opt u
   | Real _ -> Format.fprintf ppf "real"
   | UserType (_, [], s) -> 
     Format.fprintf ppf "%a" pp_print_ident s
@@ -1027,10 +1048,23 @@ and pp_print_node_item ppf = function
       (pp_print_list pp_print_node_item " ") l1
       (pp_print_list pp_print_node_item " ") l2
 
+  | WhenBlock (_, e, l1, []) -> 
+    Format.fprintf ppf "when %a then %a end"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+
+  | WhenBlock (_, e, l1, l2) -> 
+    Format.fprintf ppf "when %a then %a else %a end"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+      (pp_print_list pp_print_node_item " ") l2
+
   | FrameBlock (_, vars, nes, nis) -> Format.fprintf ppf "frame (%a) %a let %a tel" 
     (pp_print_list pp_print_ident ", ") (List.map snd vars)
     (pp_print_list pp_print_node_body " ") nes
     (pp_print_list pp_print_node_item " ") nis
+
+  | Auto _ -> Format.fprintf ppf "auto;"
 
   | AnnotMain (_, true) -> Format.fprintf ppf "--%%MAIN;"
 
@@ -1163,6 +1197,12 @@ let pp_print_contract_guarantee ppf (_, n, s, e) =
       ^ "\"")
     pp_print_expr e
 
+
+let pp_print_decreases_clause ppf (_, e) =
+  Format.fprintf
+    ppf
+    "@[<hv 3>decreases@ %a;@]"
+    pp_print_expr e
     
 let pp_print_contract_require ppf (_, n, e) =
   Format.fprintf
@@ -1226,6 +1266,7 @@ let pp_print_contract_item fmt = function
   | Mode m -> pp_print_contract_mode fmt m
   | ContractCall call -> pp_print_contract_call fmt call
   | AssumptionVars vars -> pp_print_contract_assump_vars fmt vars
+  | Decreases e -> pp_print_decreases_clause fmt e
 
 
 let pp_print_contract fmt contract =
@@ -1259,22 +1300,33 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
        pp_print_contract e
     
 let pp_print_node_or_fun_decl is_fun ppf (
-  _, (n, ext, opac, p, i, o, l, e, r)
+  _, (n, ext, opac, p, i, o, l, e, r), func_attrs
 ) =
     if e = [] then
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s%s %a%t@ \
+        "@[<hv>@[<hv 2>%s%s%s%s %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
         %a@?@]@?"
-        (if is_fun then "function" else "node")
-        (if ext then " imported" else "")
-        (match opac with
-         | Default -> ""
-         | Opaque -> "opaque "
-         | Transparent -> "transparent "
+        (if func_attrs.is_lemma then
+          ""
+        else
+          (match opac with
+          | Default -> ""
+          | Opaque -> "opaque "
+          | Transparent -> "transparent "
+          )
         )
+        (if not func_attrs.is_lemma && func_attrs.is_rec then
+          "rec " else ""
+        )
+        (if is_fun then
+          (if func_attrs.is_lemma then "lemma" else "function")
+        else 
+          "node"
+        )
+        (if ext then " imported" else "")
         HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
         (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
@@ -1315,10 +1367,10 @@ let pp_print_declaration ppf = function
   | ConstDecl (_, c) -> pp_print_const_decl ppf c
 
   | NodeDecl (span, decl) ->
-    pp_print_node_or_fun_decl false ppf (span, decl)
+    pp_print_node_or_fun_decl false ppf (span, decl, {is_lemma = false; is_rec = false})
 
-  | FuncDecl (span, decl) ->
-    pp_print_node_or_fun_decl true ppf (span, decl)
+  | FuncDecl (span, decl, func_attrs) ->
+    pp_print_node_or_fun_decl true ppf (span, decl, func_attrs)
 
   | ContractNodeDecl (_, decl) ->
     pp_print_contract_node_decl ppf decl

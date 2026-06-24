@@ -36,10 +36,12 @@ module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
+module LDAT = LustreDesugarADTs
 module LS = LustreSyntaxChecks
-module LIA = LustreAbstractInterpretation
 module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
+module LDL = LustreDesugarLast
+module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
 module LGN = LustreGenNodes 
@@ -48,7 +50,6 @@ module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
 module LCF = LustreConstantsToFunctions
-module LDAT = LustreDesugarADTs
 module LCME = LustreCheckMatchExpressions
 module GI = GeneratedIdentifiers
 
@@ -56,7 +57,6 @@ type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreAbstractInterpretationError of Lib.position * LustreAbstractInterpretation.error_kind
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
@@ -67,6 +67,7 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
+  | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -153,6 +154,11 @@ let fail_or_warn warning =
 
 let type_check declarations =
   let tc_res = (
+    (* Step 0. Desugar the 'last' operator (only allowed within frame blocks).
+       Done before syntax checks and type checking so that the rest of the
+       pipeline never sees 'last'. *)
+    let* declarations = LDL.desugar_last declarations in
+
     (* Step 1. Basic syntax checks on declarations  *)
     let* warnings1, declarations = LS.syntax_check declarations in
 
@@ -172,7 +178,9 @@ let type_check declarations =
     let node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
-    let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
+    let* (sorted_node_contract_decls, toplevel_nodes, scc_map, node_summary) =
+      AD.sort_and_check_nodes_contracts node_contract_src
+    in
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
@@ -184,45 +192,46 @@ let type_check declarations =
     (* Step 9. Check match expressions for exhaustiveness and redundancy *)
     let* sorted_node_contract_decls = LCME.check_match_expressions global_ctx sorted_node_contract_decls in
 
-    (* Step 10. Desugar non-recursive ADTs to record types (Match expressions desugared here) *)
-    let const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map =
+    (* Step 10. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
+    let (const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map) =
       LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
     in
 
     (* Step 11. Generate imported nodes associated with refinement types if realizability checking is enabled *)
-    let* sorted_node_contract_decls, global_ctx, gids = 
-      if List.mem `CONTRACTCK (Flags.enabled ()) 
-      then 
-        let* decls1, ctx1, gids1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in 
+    let* sorted_node_contract_decls, global_ctx, gids =
+      if List.mem `CONTRACTCK (Flags.enabled ())
+      then
+        let* decls1, ctx1, gids1 = LGI.gen_imp_nodes global_ctx const_inlined_type_and_consts in
         let* decls2, ctx2, gids2 = LGI.gen_imp_nodes global_ctx sorted_node_contract_decls in
         Res.ok (
           decls1 @ decls2, 
           TypeCheckerContext.union ctx1 ctx2, 
           NodeId.Map.merge GI.union_keys2 gids1 gids2
         )
-      else Res.ok (sorted_node_contract_decls, global_ctx, NodeId.Map.empty)
+      else Res.ok (sorted_node_contract_decls, global_ctx, NI.Map.empty)
     in
 
-    (* Step 12. Remove multiple assignment from if blocks and frame blocks *)
+    (* Step 12. Introduce a fresh local variable for the result of each call
+       statement (an equation with an empty left-hand side) *)
+    let* sorted_node_contract_decls = LNC.name_calls global_ctx sorted_node_contract_decls in
+
+    (* Step 13. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx gids sorted_node_contract_decls in
 
-    (* Step 13. Desugar imperative if block to ITEs *)
+    (* Step 14. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
-    (* Step 14. Desugar frame blocks by adding node equations and guarding oracles. *)
+    (* Step 15. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in
 
-    (* Step 15. Inline constants in node equations *)
+    (* Step 16. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 16. Check that inductive array equations are well-founded *)
+    (* Step 17. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-    (* Step 17. Infer tighter subrange constraints with abstract interpretation *)
-    let* _ = LIA.interpret_global_consts inlined_global_ctx const_inlined_type_and_consts in
-    let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 18. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
@@ -250,7 +259,7 @@ let type_check declarations =
 
     (* Step 22. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
-      LAN.normalize inlined_global_ctx abstract_interp_ctx inlinable_funcs 
+      LAN.normalize inlined_global_ctx inlinable_funcs 
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 
@@ -258,13 +267,14 @@ let type_check declarations =
       gids,
       normalized_decls,
       toplevel_nodes,
-      adt_map,
-      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6)
+      scc_map,
+      warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5 @ warnings6,
+      adt_map)
     )
   in
   match tc_res with
   | Error e -> Error e
-  | Ok (c, g, d, toplevel, adt_map, warnings) ->
+  | Ok (c, g, d, toplevel, scc_map, warnings, adt_map) ->
     let warnings =
       List.map
         (fun warning -> fail_or_warn warning)
@@ -273,7 +283,7 @@ let type_check declarations =
     let warning = List.fold_left (>>) (Ok ()) warnings in
     Debug.parse "Type checking done";
     Debug.parse "========\n%a\n==========\n" LA.pp_print_program d;
-    warning >> Ok (c, g, d, toplevel, adt_map, warnings)
+    warning >> Ok (c, g, d, toplevel, scc_map, warnings, adt_map)
    (*  *)
 
 
@@ -327,8 +337,10 @@ let of_channel only_parse in_ch =
   )
   else (
     let result =
-      let* (ctx, gids, decls, toplevel_nodes, adt_map, _) = type_check declarations in
-      let nodes, globals = LNG.compile ctx gids adt_map decls in
+      let* (ctx, gids, decls, toplevel_nodes, scc_map, _, adt_map) =
+        type_check declarations
+      in
+      let nodes, globals = LNG.compile ctx gids adt_map scc_map decls in
       let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ()) in
       let main_nodes = match Flags.lus_main () with
         | Some s -> 
