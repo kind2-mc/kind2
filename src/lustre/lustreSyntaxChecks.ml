@@ -83,6 +83,7 @@ type error_kind = Unknown of string
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
+  | InvalidUnderscore 
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -162,6 +163,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
   | CallStatementCallsNonLemma id -> "'"
     ^ HString.string_of_hstring id ^ "' is not a lemma; only lemmas can be invoked in a call statement"
+  | InvalidUnderscore -> "Single underscore identifier '_' can only be used in patterns"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -646,6 +648,12 @@ let no_node_calls_in_constant ctx i = function
     -> syntax_error pos (NodeCallInConstant i)
   | _ -> Ok ()
 
+let no_invalid_underscore id p =
+  if HString.string_of_hstring id = "_" then 
+    syntax_error p InvalidUnderscore
+  else 
+    Res.ok () 
+
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
   (*| LA.Call (pos, _, i, args) ->
     let vars =
@@ -861,7 +869,8 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_ty_node_calls i ty = 
   match ty with 
-    | LA.RefinementType (_, (_, _, ty), e) ->
+    | LA.RefinementType (_, (p, id, ty), e) ->
+      no_invalid_underscore id p >>
       check_ty_node_calls i ty >>
       if LAH.expr_contains_call e
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
@@ -886,8 +895,10 @@ and check_ty_node_calls i ty =
 and check_declaration: context -> LA.declaration -> ([> warning] list * LA.declaration, [> error]) result 
 = fun ctx -> function
   | TypeDecl (span, FreeType (pos, id) ) -> 
+    no_invalid_underscore id pos >>
     Ok ([], LA.TypeDecl (span, FreeType (pos, id)))
   | TypeDecl (span, AliasType (pos, id, ps, ty) ) -> 
+    no_invalid_underscore id pos >>
     check_ty_node_calls id ty >> Ok ([], LA.TypeDecl (span, AliasType (pos, id, ps, ty)))
   | ConstDecl (span, decl) ->
     let* warnings = match decl with
@@ -947,6 +958,7 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+  no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
@@ -974,6 +986,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
+  no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let ctx =
     (* Locals are not visible in contracts *)
@@ -1151,7 +1164,10 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       let* warnings2 = check_list gs in 
       Ok (List.flatten warnings1 @ List.flatten warnings2)
     | GhostVars (_, GhostVarDec (_, l), e) ->
-      let* warnings1 = Res.seq (List.map (fun (_, _, ty) -> oqv_on_ty ctx ty) l) in
+      let* warnings1 = Res.seq (List.map (fun (p, id, ty) -> 
+        no_invalid_underscore id p >>
+        oqv_on_ty ctx ty
+      ) l) in
       let* warnings2 = check_expr ctx f e in
       Ok (List.flatten warnings1 @ warnings2)
     | AssumptionVars (pos, _) ->
@@ -1160,8 +1176,12 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
     | GhostConst decl -> (
       let* warnings1 =
         match decl with
-        | LA.FreeConst (_, _, ty) -> oqv_on_ty ctx ty
-        | LA.TypedConst (_, _, _, ty) -> oqv_on_ty ctx ty
+        | LA.FreeConst (p, id, ty) -> 
+          no_invalid_underscore id p >>
+          oqv_on_ty ctx ty
+        | LA.TypedConst (p, id, _, ty) -> 
+          no_invalid_underscore id p >>
+          oqv_on_ty ctx ty
         | LA.UntypedConst _ -> Ok []
       in
       match decl with
@@ -1230,7 +1250,7 @@ and check_pattern_no_duplicates ctx pat =
   let rec check seen = function
     | [] -> Ok ()
     | (pos, id) :: rest ->
-      if List.mem id seen 
+      if (List.mem id seen && not (id = HString.mk_hstring "_")) 
       then syntax_error pos (DuplicatePatternVariable id)
       else check (id :: seen) rest
   in
@@ -1379,7 +1399,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       Res.ok (warnings1 @ warnings2) 
     | EmptySet (_, Some ty) -> 
       check_ty ctx f ty
-    | Ident _ | Last (_, _) -> Res.ok []
+    | Ident (p, id) -> 
+      let* () = no_invalid_underscore id p in 
+      Res.ok []
+    | Last (_, _) -> Res.ok []
     | ModeRef _ | Const _ | EmptyMap _ | EmptySet _ -> Ok ([])
     | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
@@ -1547,13 +1570,19 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
 
 let oqv_check_inputs oqv_on_ty base_ctx inputs =
   let* warnings1 =
-    Res.seq (List.map (fun (_, _, ty, _, _) -> oqv_on_ty base_ctx ty) inputs)
+    Res.seq (List.map (fun (p, id, ty, _, _) -> 
+      let* _ = no_invalid_underscore id p in 
+      oqv_on_ty base_ctx ty
+    ) inputs)
   in
   Ok (List.flatten warnings1)
 
 let oqv_check_outputs oqv_on_ty base_ctx outputs =
   let* warnings1 =
-    Res.seq (List.map (fun (_, _, ty, _) -> oqv_on_ty base_ctx ty) outputs)
+    Res.seq (List.map (fun (p, id, ty, _) -> 
+      let* _ = no_invalid_underscore id p in 
+      oqv_on_ty base_ctx ty
+    ) outputs)
   in
   Ok (List.flatten warnings1)
 
@@ -1562,11 +1591,13 @@ let oqv_check_locals oqv_on_ty base_ctx locals =
     Res.seq
       (List.map
          (function
-           | LA.NodeConstDecl (_, FreeConst (_, _, ty))
-           | LA.NodeConstDecl (_, TypedConst (_, _, _, ty)) ->
+           | LA.NodeConstDecl (_, FreeConst (p, id, ty))
+           | LA.NodeConstDecl (_, TypedConst (p, id, _, ty)) ->
+             let* _ = no_invalid_underscore id p in 
              oqv_on_ty base_ctx ty
            | LA.NodeConstDecl (_, UntypedConst _) -> Ok []
-           | LA.NodeVarDecl (_, (_, _, ty, _)) ->
+           | LA.NodeVarDecl (_, (p, id, ty, _)) ->
+             let* _ = no_invalid_underscore id p in 
              oqv_on_ty base_ctx ty)
          locals)
   in
