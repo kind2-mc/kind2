@@ -1,0 +1,15 @@
+datatype D = C1 (int) | C2 (real);
+
+node eq<T>(x, y: T) returns (r: bool);
+let
+  r = x = y;
+tel
+
+node main() returns (ok: bool);
+var x, y: D;
+let
+  x = any@<D>;
+  y = any@<D>;
+  ok = eq@<D>(x, y);
+  check ok;
+tel

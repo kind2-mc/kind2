@@ -1,0 +1,20 @@
+datatype D = C1 (int) | C2 (real);
+
+node wrap_c1(i: int) returns (d: D);
+let
+  d = C1(i);
+tel
+
+node wrap_c2(r: real) returns (d: D);
+let
+  d = C2(r);
+tel
+
+node main(i: int; r: real) returns (ok: bool);
+var x, y: D;
+let
+  x = wrap_c1(i);
+  y = wrap_c2(r);
+  ok = x = y;
+  check ok;
+tel

@@ -1,0 +1,10 @@
+datatype D = A (int) | B (int);
+
+node main(i: int) returns (ok: bool);
+var x, y: D;
+let
+  x = A(i);
+  y = B(i);
+  ok = x = y;
+  check ok;
+tel

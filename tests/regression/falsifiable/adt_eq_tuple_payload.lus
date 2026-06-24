@@ -1,0 +1,10 @@
+datatype D = Wrap ([int, int]) | Empty;
+
+node main(a, b, c, d: int) returns (ok: bool);
+var x, y: D;
+let
+  x = Wrap('(a, b));
+  y = Wrap('(c, d));
+  ok = x = y;
+  check ok;
+tel
