@@ -297,7 +297,7 @@ decl:
   }
   | LEMMA; decl = lemma_decl ; def = node_def {
     let (n, p, i, r) = decl in
-    let o = [mk_pos $startpos, HString.mk_hstring "_", A.Bool (mk_pos $startpos), A.ClockTrue] in
+    let o = [mk_pos $startpos, HString.mk_hstring "__", A.Bool (mk_pos $startpos), A.ClockTrue] in
     let (l, e) = def in
     [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
   }
@@ -1014,7 +1014,7 @@ choose_expr:
         | A.RefinementType (_, id, e) ->
           A.ChooseOp(mk_pos $startpos, id, e)
         | _ ->
-          A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty),
+          A.ChooseOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "__", ty),
                       Const(mk_pos $startpos, True))
     }
 
@@ -1028,7 +1028,7 @@ any_expr:
         | A.RefinementType (_, id, e) ->
           A.AnyOp(mk_pos $startpos, id, e)
         | _ ->
-          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "_", ty),
+          A.AnyOp (mk_pos $startpos, (mk_pos $startpos, HString.mk_hstring "__", ty),
                       Const(mk_pos $startpos, True))
     }
 
