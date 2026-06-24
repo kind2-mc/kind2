@@ -56,14 +56,17 @@ fun ctx node_name e ->
         | _ -> true
     ) inputs in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
-    let input_decls = List.map (fun input ->
-      let ty = match Ctx.lookup_ty ctx input with
-        | Some ty -> ty
-        | None -> assert false
-      in
+    let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
+    (* If the type of any free variable cannot be determined here (e.g. a
+       match-arm pattern variable that is only substituted by a later pass),
+       skip the abstraction and leave the branch unchanged. *)
+    if List.exists Option.is_none input_tys then e, []
+    else
+    let input_decls = List.map2 (fun input ty ->
+      let ty = match ty with Some ty -> ty | None -> assert false in
       let is_const = match Ctx.lookup_const ctx input with Some _ -> true | None -> false in
       (pos, input, ty, A.ClockTrue, is_const)
-    ) inputs in
+    ) inputs input_tys in
     (* The output type is the type of the branch expression. If the type cannot
        be inferred here, leave the branch unchanged and let the later
        type-checking pass report the error. *)
@@ -350,10 +353,17 @@ fun ctx node_name fun_ids expr ->
     let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
     Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
   | Match (pos, e, arms, ty_opt) ->
+    (* Each match arm body is evaluated under the clock determined by the
+       scrutinee matching the arm's pattern (the match is desugared into a
+       lazy if-then-else chain later in the pipeline). When a body is a
+       temporal expression (it uses '->' or 'pre'), abstract it into a call
+       to a fresh internal node so that its temporal behavior is driven by
+       that clock, just as is done for when-then-else branches. *)
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun (pat, arm_e) ->
       let arm_e, gen_nodes = rec_call arm_e in
-      (pat, arm_e), gen_nodes
+      let arm_e, gen_nodes' = abstract_temporal_branch ctx node_name arm_e in
+      (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
   | ADTTerm (pos, ty_args, ctor, args) ->
