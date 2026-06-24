@@ -232,7 +232,6 @@ let type_check declarations =
     (* Step 17. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-
     (* Step 18. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
