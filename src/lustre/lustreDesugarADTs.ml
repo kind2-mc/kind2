@@ -557,6 +557,7 @@ let rec rewrite_as_adt_terms adt_map expr =
   | LA.Quantifier (p, k, idents, e) -> LA.Quantifier (p, k, idents, r e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
+  | LA.ADTTerm _ | LA.Match _ -> expr
 
 let string_of_expr_as_source adt_map expr =
   LA.string_of_expr (rewrite_as_adt_terms adt_map expr)
