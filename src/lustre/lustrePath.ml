@@ -2350,7 +2350,6 @@ let rec pp_print_lustre_path_json_testgen' const_map const_funcs ppf = function
        ;
 
     (* Continue *)
-    (*!! Was this (and below) a bug? *)
     pp_print_lustre_path_json_testgen' const_map const_funcs ppf tl
 
   | _ :: tl ->
