@@ -2427,9 +2427,10 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let src_expr =
+      let src_expr_str =
         let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-        try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+        let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
+        LDAT.string_of_expr_as_source cstate.adt_map desugared
       in
       let name, src =
         match name_opt with
@@ -2450,7 +2451,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in
-      sv, name, src, kind, src_expr
+      sv, name, src, kind, src_expr_str
     in List.map op node_props
 
   in let asserts =
@@ -2968,7 +2969,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (a, ac, (contract_sv, false) :: g, gc + 1, p)
         | None, Some gen_src ->
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
+          let rexpr_str = LDAT.string_of_expr_as_source cstate.adt_map rexpr in
+          (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr_str) :: p)
         | _ -> assert false
     in
     let (assumes, _, guarantees, _, props) = 

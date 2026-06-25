@@ -212,7 +212,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * LustreAst.expr) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
 
   (* Contract. *)
   contract : contract option ;
