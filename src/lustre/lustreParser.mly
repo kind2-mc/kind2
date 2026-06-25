@@ -297,7 +297,7 @@ decl:
   }
   | LEMMA; decl = lemma_decl ; def = node_def {
     let (n, p, i, r) = decl in
-    let o = [mk_pos $startpos, HString.mk_hstring "_", A.Bool (mk_pos $startpos), A.ClockTrue] in
+    let o = [mk_pos $startpos, HString.mk_hstring ".out", A.Bool (mk_pos $startpos), A.ClockTrue] in
     let (l, e) = def in
     [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
   }
