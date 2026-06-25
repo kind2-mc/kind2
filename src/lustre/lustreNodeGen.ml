@@ -1570,6 +1570,7 @@ and compile_ast_expr
   | A.Activate _ -> assert false
   | A.Match _ -> assert false
   | A.ADTTerm _ -> assert false
+  | A.ADTTester _ -> assert false
 
 and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
   let ident = NI.get_internal_name node_id |> I.of_hstring in

@@ -1,22 +1,22 @@
 datatype Color = Red | Green | Blue;
 
-datatype Wrapper = | Wrap (bool);
+datatype Wrapper = | Wrap (val: bool);
 
-datatype IntOption = IntNone | IntSome (int);
+datatype IntOption = IntNone | IntSome (val: int);
 
-datatype Option<T> = None | Some (T);
+datatype Option<T> = None | Some (val: T);
 
 datatype Shape = 
   | Point 
-  | Circle (real) 
-  | Rectangle (real, real);
+  | Circle (radius: real) 
+  | Rectangle (width: real, height: real);
 
-datatype Tree = Leaf | Node (int, Tree2, Tree2);
-datatype Tree2 = Leaf2 | Node2 (int, Tree3, Tree3);
+datatype Tree = Leaf | Node (val: int, left: Tree2, right: Tree2);
+datatype Tree2 = Leaf2 | Node2 (val: int, left: Tree3, right: Tree3);
 datatype Tree3 = Leaf3; 
 
-datatype List = Nil | Cons (int, List2);
-datatype List2 = Nil2 | Cons2 (int, List3);
+datatype List = Nil | Cons (hd: int, tl: List2);
+datatype List2 = Nil2 | Cons2 (hd: int, tl: List3);
 datatype List3 = Nil3;
 
 node main (inp: List) returns (out: [Tree, int]; counter: int; )

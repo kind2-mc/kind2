@@ -191,7 +191,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | ADTTerm _ | Match _ -> assert false (* desugared in lustreDesugarADTs *)
+  | ADTTerm _ | Match _ | ADTTester _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_item ctx item = 
   match item with 

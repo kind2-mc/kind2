@@ -875,6 +875,30 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test ADT tester type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT selector type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test polymorphic ADT: same field name works for two monomorphizations" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_selector_same_field.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT tester with non-existent constructor" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_unbound_ctor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector with unknown field name" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_unknown_field.lus" with
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector on non-ADT type" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedRecordProjection _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

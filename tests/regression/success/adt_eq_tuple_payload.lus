@@ -1,4 +1,4 @@
-datatype D = Wrap ([int, int]) | Empty;
+datatype D = Wrap (val: [int, int]) | Empty;
 
 node main(a, b, c, d: int) returns (ok: bool);
 var x, y: D;

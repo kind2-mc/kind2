@@ -275,6 +275,7 @@ let rec minimize_node_call_args ue lst expr =
       A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms, ty_opt)
     | A.ADTTerm (p, ty_args, ctor, args) ->
       A.ADTTerm (p, ty_args, ctor, List.map aux args)
+    | A.ADTTester (p, e, c) -> A.ADTTester (p, aux e, c)
   in aux expr
 
 and ast_contains p ast =
@@ -317,6 +318,7 @@ and ast_contains p ast =
       aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
     | A.ADTTerm (_,_,_,args) ->
       List.exists aux args
+    | A.ADTTester (_, e, _) -> aux e
   in
   aux ast
 

@@ -6,6 +6,6 @@ var xr: Opt<real>;
 let
   xi = Present(i);
   xr = Present(r);
-  ok = (xi = Present(i)) and (xr = Present(r));
+  ok = xi.val = i and xr.val = r;
   check ok;
 tel

@@ -1,7 +1,7 @@
 type Nat = subrange [0,*] of int;
 type Pos = subrange [1,*] of int;
 
-datatype Option<T> = Some (T) | None;
+datatype Option<T> = Some (val: T) | None;
 
 transparent function IsSome<T>(o: Option<T>) returns (r: bool);
 let
@@ -29,8 +29,8 @@ type HostId = int;
 
 datatype Message =
   | VoteReqMsg
-  | VoteMsg (HostId, Vote)
-  | DecisionMsg (Decision);
+  | VoteMsg (host: HostId, vote: Vote)
+  | DecisionMsg (dec: Decision);
 
 type MsgSet = set<Message>;
 
