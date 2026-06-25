@@ -258,7 +258,7 @@ let type_check declarations =
 
     (* Step 22. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
-      LAN.normalize inlined_global_ctx inlinable_funcs 
+      LAN.normalize adt_map inlined_global_ctx inlinable_funcs
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 
