@@ -525,6 +525,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_args @ [arg], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) args in
     ctx, gids, ADTTerm (p, ty_args, ctor, args), decls, node_decls_map
+  | ADTTester (p, e, c) ->
+    let ctx, gids, e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
+    ctx, gids, ADTTester (p, e, c), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 

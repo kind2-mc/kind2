@@ -122,6 +122,7 @@ let rec replace_last acc e =
   | TypeAscription (pos, e, ty) -> TypeAscription (pos, r e, ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map r expr_list)
+  | A.ADTTester (pos, e, c) -> A.ADTTester (pos, r e, c)
 
 let replace_last_eq acc = function
   | A.Assert (pos, e) -> A.Assert (pos, replace_last acc e)
@@ -174,6 +175,7 @@ let rec find_last_expr e = match e with
   | RestartEvery (_, _, l, e) -> find_last_first (e :: l)
   | ADTTerm (_, _, _, l) -> find_last_first l
   | Match (_, e, arms, _) -> find_last_first (e :: List.map snd arms)
+  | ADTTester (_, e, _) -> find_last_expr e
 
 and find_last_first = function
   | [] -> None

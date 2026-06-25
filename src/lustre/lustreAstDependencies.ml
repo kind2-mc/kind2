@@ -358,7 +358,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
     union_dependency_analysis_data (mk_graph_type ty) g_expr
   (* for the future: ADTs can be recursive; relax this check *)
   | ADT (_, _name, cons) ->
-    let tys = List.map snd cons |> List.flatten in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
       (List.map mk_graph_type tys) in
     deps
@@ -504,6 +504,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.flatten (List.map get_node_call_from_expr args)
     @ List.flatten (List.map extract_node_calls_type ty_args)
+  | LA.ADTTester (_, e, _) -> get_node_call_from_expr e
 (** Returns all the node calls from an expression *)
 
 and get_node_call_from_indices: LA.label_or_index list -> (LA.ident * Lib.position) list
@@ -526,7 +527,7 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _  
   | UserType _ | AbstractType _ | EnumType _ | History _ -> []
   | ADT (_, _, cons) ->
-    let tys = List.map snd cons |> List.flatten in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.map extract_node_calls_type tys |> List.flatten
 (** Extracts all the node calls from a type *)
 
@@ -839,6 +840,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | ADTTerm (_, ty_args, _, args) ->
     SI.union (SI.flatten (List.map r args))
       (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
+  | LA.ADTTester (_, e, _) -> r e
 
 (** get all the variables and flatten node calls using (*!! should assert false? *) 
     the node summary for an expression *)
@@ -1091,6 +1093,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     let g_tys = List.map mk_graph_type ty_args in
     let g_args = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat gs) in
     R.ok [List.fold_left union_dependency_analysis_data g_args g_tys]
+  | LA.ADTTester (_, e, _) -> mk_graph_expr2 m e
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.

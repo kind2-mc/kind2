@@ -95,6 +95,7 @@ let rec expr_contains_mode_ref expr =
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
   | ADTTerm (_, _, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
+  | ADTTester (_, e, _) -> r e
 
 let mk_generated_env_contract_eqs ctx node_id base_contract =
   let* res = R.seq (List.map (fun ci -> 

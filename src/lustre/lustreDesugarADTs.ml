@@ -67,19 +67,19 @@ type adt_map = adt_info HStringMap.t
 let disc_field_name type_name =
   HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
-let payload_field_name ctor i =
-  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ string_of_int i)
+let payload_field_name_of ctor user_fname =
+  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring user_fname)
 
 let build_adt_info type_name type_params ctors =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_field_name type_name in
   let ctor_variants = List.map fst ctors in
   let ctor_fields =
-    List.fold_left (fun m (ctor, field_types) ->
-      let fields =
-        List.mapi (fun j ty -> (payload_field_name ctor j, ty)) field_types
+    List.fold_left (fun m (ctor, fields) ->
+      let named_fields =
+        List.map (fun (user_fname, ty) -> (payload_field_name_of ctor user_fname, ty)) fields
       in
-      HStringMap.add ctor fields m
+      HStringMap.add ctor named_fields m
     ) HStringMap.empty ctors
   in
   let all_payload_fields =
@@ -347,6 +347,17 @@ and desugar_expr ctx adt_map expr =
       (cond_opt, r body')
     ) arms in
     build_ite pos desugared_arms
+  | LA.ADTTester (pos, e, c) ->
+    let adt_info =
+      HStringMap.fold (fun _ info acc ->
+        match acc with Some _ -> acc | None ->
+          if List.mem c info.ctor_variants then Some info else None
+      ) adt_map None
+      |> (function Some i -> i | None -> assert false)
+    in
+    LA.CompOp (pos, LA.Eq,
+      tag_of pos adt_info (r e),
+      LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
   | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)

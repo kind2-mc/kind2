@@ -131,9 +131,11 @@ fun ctx node_name fun_ids ty ->
     let e, gen_nodes2 = desugar_expr ctx node_name fun_ids e in
     RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
   | ADT (p, name, constructors) ->
-    let constructors, gen_nodes = List.map (fun (cname, tys) ->
-      let tys, gen_nodes = List.map r tys |> List.split in
-      (cname, tys), List.flatten gen_nodes
+    let constructors, gen_nodes = List.map (fun (cname, fields) ->
+      let fields, gen_nodes = List.map (fun (fn, ty) ->
+        let ty', gn = r ty in ((fn, ty'), gn)
+      ) fields |> List.split in
+      (cname, fields), List.flatten gen_nodes
     ) constructors |> List.split in
     ADT (p, name, constructors), List.flatten gen_nodes
 

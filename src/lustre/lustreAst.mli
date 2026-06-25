@@ -138,7 +138,7 @@ type lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  | ADT of position * ident * (ident * lustre_type list) list
+  | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 (** A Lustre expression *)
 and expr =
@@ -188,6 +188,8 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* ADT tester: e.C? checks whether e was constructed with C *)
+  | ADTTester of position * expr * ident
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
