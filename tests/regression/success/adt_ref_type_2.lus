@@ -1,0 +1,31 @@
+type PostiveReal = subtype { r: real | r > 0.0 };
+
+datatype Shape = Circle (PostiveReal) | Rect (PostiveReal, PostiveReal);
+
+function area(s: Shape) returns (a: real);
+let
+   a =
+     match s with
+     | Circle (r): 3.14159 * r * r
+     | Rect (w, h): w * h
+   end;
+tel
+
+type PosInt = subrange [1,*] of int;
+
+datatype Labeled = Tag (PosInt, Shape) | Unlabeled (Shape);
+
+node top() returns ();
+var c1: Shape;
+    c2: Shape;
+    l1: Labeled;
+    l2: Labeled;
+let
+   c1 = Circle(2.0);
+   c2 = Rect(3.0, 4.0);
+   l1 = Tag(1, Circle(2.0));
+   l2 = Unlabeled(Rect(3.0, 4.0));
+
+   check "P1" area(c1) = 12.56636;
+   check "P2" area(c2) = 12.0;
+tel
