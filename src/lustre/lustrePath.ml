@@ -1111,6 +1111,47 @@ let rec get_widths_for_contract ident_width values_width contract_trace = match 
   | (a,_,_) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
 
+(* Strip a list prefix from an index; returns None if prefix doesn't match. *)
+let strip_index_prefix prefix index =
+  let rec go = function
+    | [], rest -> Some rest
+    | _ :: _, [] -> None
+    | p :: ps, h :: hs when p = h -> go (ps, hs)
+    | _ -> None
+  in
+  go (prefix, index)
+
+
+(* Reconstruct a plain ADT payload field value from a flat list of
+   (remaining_index, state_var) pairs, where the common field prefix has already been
+   stripped.  Handles scalars and arrays (reusing pp_print_value for array formatting).
+   Records and tuples are not natively printed and return "_" since those types are
+   flattened in the Kind 2 model. *)
+let reconstruct_compound_at_step model sub_bindings step =
+  match sub_bindings with
+  | [] -> "_"
+  | [([], sv)] ->
+    (match SVT.find_opt model sv with
+    | None -> "_"
+    | Some vals ->
+      match List.nth_opt vals step with
+      | None -> "_"
+      | Some v ->
+        let ty = StateVar.type_of_state_var sv in
+        string_of_t (pp_print_value ~as_type:ty) v)
+  | ([D.ArrayVarIndex _], sv) :: _ | ([D.ArrayIntIndex _], sv) :: _ ->
+    (* Array stored as a single sv; reuse existing pp_print_value which dispatches
+       to pp_print_map_as_array for Map-valued (array) state variables. *)
+    (match SVT.find_opt model sv with
+    | None -> "_"
+    | Some vals ->
+      match List.nth_opt vals step with
+      | None -> "_"
+      | Some v ->
+        let ty = StateVar.type_of_state_var sv in
+        string_of_t (pp_print_value ~as_type:ty) v)
+  | _ -> "_"
+
 (* Reconstruct the ADT value string for a known disc_sv at a given step.
    root_index is [] for top-level variables and [AdtPayloadIndex ...] for nested ADT fields.
    For nested ADT fields, the nested disc sv is located via bindings using the
@@ -1149,9 +1190,7 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
               reconstruct_adt_at_step model bindings adt_map step
                 field_index nested_type nested_disc_sv)
           | G.AdtFieldPlain ->
-            (* "_" here means the sv is absent: possibly sliced away *)
             (match List.assoc_opt field_index bindings with
-            | None -> "_"
             | Some psv ->
               (match SVT.find_opt model psv with
               | None -> "_"
@@ -1160,7 +1199,15 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
                 | None -> "_"
                 | Some pv ->
                   let pty = StateVar.type_of_state_var psv in
-                  string_of_t (pp_print_value ~as_type:pty) pv))
+                  string_of_t (pp_print_value ~as_type:pty) pv)
+            | None ->
+              (* Compound field: look for sub-bindings with field_index as prefix *)
+              let sub_bindings = List.filter_map (fun (idx, sv) ->
+                match strip_index_prefix field_index idx with
+                | Some (_ :: _ as rest) -> Some (rest, sv)
+                | _ -> None
+              ) bindings in
+              reconstruct_compound_at_step model sub_bindings step)
         ) fields in
         ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")"
     | _ -> assert false)
