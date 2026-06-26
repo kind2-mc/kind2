@@ -1230,7 +1230,8 @@ let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
         if is_top_level then Some (index, sv, type_name, root_index)
         else None
       | _ -> None
-      | exception Not_found -> assert false
+      (* A state var with no recorded source is not a discriminant; skip it. *)
+      | exception Not_found -> None
     ) bindings in
     List.filter_map (fun (_disc_index, disc_sv, type_name, root_index) ->
       (* Derive the user-visible stream name by stripping ".disc_field" from
