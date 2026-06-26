@@ -942,24 +942,36 @@ let ordered_equations_of_node { equations } stateful init =
     List.exists (fun ((sv, _), _) -> StateVar.equal_state_vars svar sv) eqs
   in
 
-  let rec loop postponed ordered = function
+  let rec loop made_progress postponed ordered = function
     | eq :: tail ->
       if svars_of eq |> SVS.for_all (is_known ordered) then
         (* We have ordered all the state vars the lhs of the equation mentions.
            Prepending to ordered. *)
-        loop postponed (eq :: ordered) tail
+        loop true postponed (eq :: ordered) tail
       else
         (* We are missing some equations, postponing the ordering of this
            equation. *)
-        loop (eq :: postponed) ordered tail
+        loop made_progress (eq :: postponed) ordered tail
     | [] -> (
       match postponed with
       | [] -> List.rev ordered
-      | _ -> loop [] ordered postponed
+      | _ ->
+        if made_progress then
+          (* At least one equation was ordered in this pass; some of the
+             postponed equations may now be ready, so make another pass. *)
+          loop false [] ordered postponed
+        else
+          (* No equation could be ordered in this pass, meaning the remaining
+             equations depend on state vars that are neither stateful nor
+             defined by any equation (e.g. results of recursive function
+             instances during counterexample reconstruction). There is no
+             valid order for them, so keep them as-is instead of looping
+             forever. *)
+          List.rev_append ordered postponed
     )
   in
 
-  loop [] [] equations
+  loop false [] [] equations
 
 (** Returns the equation for a state variable if any. *)
 let equation_of_svar { equations } svar =
