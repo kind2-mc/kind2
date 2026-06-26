@@ -2698,15 +2698,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let lhs_bounds = gen_lhs_bounds (AH.pos_of_expr nexpr1) true eq_lhs 1 in 
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
-      let nexpr2 =
+      let nexpr2 = 
         let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex acc_i] e acc, acc_i + 1
-        ) (X.empty, 0) nexpr2_vals |> fst
+        ) (X.empty, 0) nexpr2_vals |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
-      let cond_expr =
-        X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr))
+      let cond_expr = 
+        X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
       in
       let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
       let else_expr = 
