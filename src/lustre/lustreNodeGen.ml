@@ -2792,7 +2792,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (* Flatten nexpr2 to make the indices align (the compilation of map types in
          compile_ast_type flattens indices, so we need to do a corresponding flattening
          of nexpr2 to compile the equality between nexpr2 and fresh_idx_e).
-         For ADT element types, canonicalize junk payload fields to 0 before
+         For ADT element types, canonicalize junk payload fields to default values before
          flattening so that the insertion position is consistent with membership
          checks (which also canonicalize via compile_map_index). *)
       let nexpr2 =
