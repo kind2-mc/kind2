@@ -221,8 +221,11 @@ let rec default_value ctx adt_map pos ty =
   let ty = desugar_type pos ctx adt_map ty in
   match ty with
   | LA.Bool _ -> LA.Const (pos, LA.False)
-  | LA.Int _ | LA.SBitVector _ | LA.UBitVector _ ->
-    LA.Const (pos, LA.Num (HString.mk_hstring "0"))
+  | LA.Int _ -> LA.Const (pos, LA.Num (HString.mk_hstring "0"))
+  | LA.SBitVector (_, n) ->
+    LA.ConvOp (pos, LA.ToBV n, LA.Const (pos, LA.Num (HString.mk_hstring "0")))
+  | LA.UBitVector (_, n) ->
+    LA.ConvOp (pos, LA.ToUBV n, LA.Const (pos, LA.Num (HString.mk_hstring "0")))
   | LA.Real _ -> LA.Const (pos, LA.Dec (HString.mk_hstring "0.0"))
   | LA.EnumType (_, _, v :: _) -> LA.Ident (pos, v)
   | LA.EnumType (_, _, []) -> assert false
