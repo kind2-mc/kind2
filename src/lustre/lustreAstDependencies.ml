@@ -840,7 +840,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     SI.union (SI.flatten (List.map r args))
       (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
 
-(** get all the variables and flatten node calls using (*!! should assert false? *) 
+(** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
 (* We use a contract_node_equation option map. In this map, every identifier is associated

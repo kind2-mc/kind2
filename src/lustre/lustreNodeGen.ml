@@ -709,6 +709,31 @@ let create_uf_symbols node_id inputs outputs =
       SVM.add output uf uf_symbols
   ) SVM.empty
 
+let adt_source_for_index default_source index =
+  let has_adt = List.exists (function
+    | X.AdtTagIndex _ | X.AdtPayloadIndex _ -> true | _ -> false) index in
+  if not has_adt then default_source
+  else match List.rev index with
+  | X.AdtTagIndex type_name_str :: _ ->
+    N.Generated (N.Discriminant (HString.mk_hstring type_name_str))
+  | _ -> N.Generated N.Plain
+
+let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
+  StringMap.map (fun (info : LDAT.adt_info) ->
+    { G.disc_field = info.LDAT.disc_field;
+      G.ctor_fields = StringMap.map (fun fields ->
+        List.map (fun (fname, ftype) ->
+          let field_info = match ftype with
+            | A.UserType (_, _, tname) when StringMap.mem tname ldat_map ->
+              G.AdtFieldNested tname
+            | _ -> G.AdtFieldPlain
+          in
+          (fname, field_info)
+        ) fields
+      ) info.LDAT.ctor_fields
+    }
+  ) ldat_map
+
 (* Given a field name (HString), return the appropriate LustreIndex for it.
    If the field is the discriminant of an ADT, return AdtTagIndex of the ADT type name.
    If the field is a payload field of an ADT constructor, return AdtPayloadIndex (ctor, j).
@@ -776,7 +801,8 @@ let rec compile ctx gids adt_map scc_map decls =
   output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
-      G.global_constraints = output.global_constraints }
+      G.global_constraints = output.global_constraints;
+      G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map }
 
 and compile_ast_type
   ?(expand=false)
@@ -1896,6 +1922,7 @@ and process_node_inputs cstate ctx map node_scope inputs =
       let ident = mk_ident i in
       let index_types = compile_ast_type cstate ctx map ast_type in
       let over_indices = fun index index_type (accum1, accum2) ->
+        let source = adt_source_for_index N.Input index in
         let possible_state_var = mk_state_var
           ~is_input:true
           ~is_const
@@ -1904,7 +1931,7 @@ and process_node_inputs cstate ctx map node_scope inputs =
           ident
           index
           index_type
-          (Some N.Input)
+          (Some source)
         in
         match possible_state_var with
         | Some state_var ->
@@ -1933,6 +1960,7 @@ and process_node_outputs cstate ctx map node_scope outputs =
       let ident = mk_ident i in
       let index_types = compile_ast_type cstate ctx map ast_type in
       let over_indices = fun index index_type (accum1, accum2) ->
+        let source = adt_source_for_index N.Output index in
         let possible_state_var = mk_state_var
           ~is_input:false
           map
@@ -1940,7 +1968,7 @@ and process_node_outputs cstate ctx map node_scope outputs =
           ident
           index
           index_type
-          (Some N.Output)
+          (Some source)
         in
         let index' = if is_single then index
           else X.ListIndex n :: index
@@ -2055,8 +2083,11 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         and index_types = compile_ast_type cstate ctx map ast_type in
         (* Locals introduced to desugar the 'last' operator are Kind 2
            generated and therefore invisible (not shown in counterexamples). *)
-        let source = if GI.var_is_last_local i then N.Generated else N.Local in
         let over_indices = fun index index_type accum ->
+          let source =
+            if GI.var_is_last_local i then N.Generated N.Plain
+            else adt_source_for_index N.Local index
+          in
           let possible_state_var = mk_state_var
             ~is_input:false
             map
@@ -2107,7 +2138,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           index 
           (* (if Type.is_array index_type then index else X.empty_index) *)
           index_type
-          (Some N.Generated)
+          (Some (N.Generated N.Plain))
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -2142,7 +2173,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           ident
           index
           index_type
-          (Some N.Generated)
+          (Some (N.Generated N.Plain))
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -2165,7 +2196,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           ident
           index
           index_type
-          (Some N.Generated)
+          (Some (N.Generated N.Plain))
         in
         match possible_state_var with
         | Some state_var -> X.add index state_var accum
@@ -2396,9 +2427,10 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let src_expr =
+      let src_expr_str =
         let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-        try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+        let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
+        LDAT.string_of_expr_as_source cstate.adt_map desugared
       in
       let name, src =
         match name_opt with
@@ -2419,7 +2451,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in
-      sv, name, src, kind, src_expr
+      sv, name, src, kind, src_expr_str
     in List.map op node_props
 
   in let asserts =
@@ -2937,7 +2969,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (a, ac, (contract_sv, false) :: g, gc + 1, p)
         | None, Some gen_src ->
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr) :: p)
+          let rexpr_str = LDAT.string_of_expr_as_source cstate.adt_map rexpr in
+          (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr_str) :: p)
         | _ -> assert false
     in
     let (assumes, _, guarantees, _, props) = 

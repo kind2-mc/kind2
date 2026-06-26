@@ -2912,7 +2912,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 P.prop_term;
                 P.prop_status;
                 P.prop_kind; 
-                P.prop_expr = Some (LustreAst.string_of_expr prop_expr)}
+                P.prop_expr = Some prop_expr}
             ) props
               
             (* Add to existing properties *)

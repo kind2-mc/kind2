@@ -63,6 +63,10 @@ let add_to_svs set list =
 
 
 (* Source of a state variable *)
+type gen_metadata =
+  | Plain                    (* Generic generated variable, no extra metadata *)
+  | Discriminant of HString.t (* Discriminant field for some ADT *)
+
 type state_var_source =
 
   (* Input stream *)
@@ -80,8 +84,8 @@ type state_var_source =
   (* Local ghost stream *)
   | Ghost
 
-  (* Invisble Kind 2 ghost stream *)
-  | Generated
+  (* Invisible Kind 2 generated stream *)
+  | Generated of gen_metadata
 
   (* Oracle input stream *)
   | Oracle
@@ -208,7 +212,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * LustreAst.expr) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
 
   (* Contract. *)
   contract : contract option ;
@@ -818,7 +822,7 @@ let pp_print_node_debug ppf
       | (sv, Local) -> p sv "loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
-      | (sv, Generated) -> p sv "gen"
+      | (sv, Generated _) -> p sv "gen"
       | (sv, Oracle) -> p sv "or"
       (* | (sv, Alias (sub, _)) -> p sv (
         Format.asprintf "al(%a)"
@@ -1451,7 +1455,7 @@ let pp_print_state_var_source ppf = function
   | Local -> Format.fprintf ppf "local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
-  | Generated -> Format.fprintf ppf "invisible (generated)"
+  | Generated _ -> Format.fprintf ppf "invisible (generated)"
   (* | Alias (sv, _) ->
     Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv *)
 
@@ -1529,7 +1533,7 @@ let state_var_is_visible node =
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Oracle
-    | Generated -> false
+    | Generated _ -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input

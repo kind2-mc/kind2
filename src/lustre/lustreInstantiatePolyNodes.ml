@@ -125,13 +125,19 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
                    NI.t -> A.lustre_type list -> Ctx.tc_context * GI.t NI.Map.t * NI.t *  A.declaration list * (A.declaration * A.lustre_type list list) NI.Map.t 
 = fun ctx gids caller_nname node_decls_map node_id ty_args ->
   (* Get node_id fields *)
-  let node_type = NI.get_node_type node_id in 
+  let node_type = NI.get_node_type node_id in
   let name = NI.get_name node_id in
   let monomorphization = NI.get_monomorphization node_id in
+  (* Print just the type name for records/ADTs (desugared forms), full form for others *)
+  let pp_print_ty_arg ppf = function
+    | A.RecordType (_, n, _) -> HString.pp_print_hstring ppf n
+    | A.ADT (_, n, _) -> HString.pp_print_hstring ppf n
+    | ty -> A.pp_print_lustre_type ppf ty
+  in
   let user_name = Format.asprintf
     "%a<%a>"
     HString.pp_print_hstring name
-    (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args |> HString.mk_hstring
+    (Lib.pp_print_list pp_print_ty_arg ";") ty_args |> HString.mk_hstring
   in
   (* Check for pre-existing instantiation of the node before compiling a new one *)
   let decl, tyss = NI.Map.find node_id node_decls_map in 
