@@ -1,0 +1,35 @@
+type Nat = subrange [0,*] of int;
+
+function rec IsEven(n: Nat) returns (e: bool);
+con
+  decreases n;
+noc
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+con
+  decreases n;
+noc
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+lemma EvenOddSumProperties(a, b: Nat)
+con
+  guarantee "Sum of odds is even"
+    IsOdd(a) and IsOdd(b) ==> IsEven(a + b);
+
+  guarantee "Sum of even and odd is odd"
+    IsEven(a) and IsOdd(b) ==> IsOdd(a + b);
+
+  decreases a;
+noc
+let
+  when a > 0 then
+    EvenOddSumProperties(a - 1, b);
+  else
+    auto;
+  end
+tel
