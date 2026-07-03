@@ -1,0 +1,4 @@
+datatype D = A (int) | B;
+node main() returns (ok: bool);
+var s: set<set<D>>;
+let s = {}@<set<D>>; ok = true; check ok; tel
