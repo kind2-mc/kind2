@@ -230,7 +230,7 @@ let error_message kind = match kind with
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
-  | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs with non-array payloads are supported"
+  | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"

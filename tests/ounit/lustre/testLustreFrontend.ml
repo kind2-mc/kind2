@@ -811,6 +811,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/set_adt_nested_array_payload.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
     | _ -> false);
+  mk_test "test set with ADT set payload is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_adt_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedMapIndex _)) -> true
