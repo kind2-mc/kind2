@@ -1,0 +1,12 @@
+datatype D = A (int) | B (uint16);
+
+function isA(d: D) returns (r: bool);
+let r = match d with | A(_) : true | _ : false end; tel
+
+node main() returns (ok: bool);
+var s: set<D>;
+let
+  s = {}@<D>;
+  ok = true;
+  check forall (d: D) (d in s) => isA(d);
+tel

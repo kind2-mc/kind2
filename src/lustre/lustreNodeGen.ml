@@ -776,34 +776,87 @@ let field_name_to_index adt_map field_hs =
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
 let adt_canonicalize_key adt_map bindings =
-  let default_of_type ty =
+  let rec default_of_type ty =
     if Type.is_bool ty then E.t_false
     else if Type.is_real ty then E.mk_real Decimal.zero
+    else if Type.is_ubitvector ty then E.mk_to_ubv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+    else if Type.is_bitvector ty then E.mk_to_bv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+    else if Type.is_array ty then
+      E.mk_const_array ty (default_of_type (Type.elem_type_of_array ty))
     else match Type.node_of_type ty with
       | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
       | _ -> E.mk_int Numeral.zero
   in
-  List.map (fun (idx, e) ->
-    match List.rev idx with
-    | X.AdtPayloadIndex (ctor, _) :: prefix_rev ->
-      let prefix = List.rev prefix_rev in
-      let disc_info = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
-            let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-            (match List.assoc_opt disc_idx bindings with
-            | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e)
-            | None -> None)
-          else None
-      ) adt_map None in
-      (match disc_info with
-      | Some (disc_e, ctor, disc_ty) ->
-        let default = default_of_type (E.type_of_lustre_expr e) in
+  (* Collect all (prefix, ctor) pairs from AdtPayloadIndex occurrences in the
+     path. The result is innermost-first (longest prefix first), so that
+     fold_left wraps the innermost ITE first and the outermost last, producing
+     ite(outer=A, ite(inner=Y, e, default), default) for doubly-nested ADTs. *)
+  let rec collect_payload_levels acc prefix = function
+    | [] -> acc
+    | X.AdtPayloadIndex (ctor, _) as x :: rest ->
+      collect_payload_levels ((List.rev prefix, ctor) :: acc) (x :: prefix) rest
+    | x :: rest -> collect_payload_levels acc (x :: prefix) rest
+  in
+  let wrap_one_level bindings e (prefix, ctor) =
+    let disc_info = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+        if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
+          let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
+          let disc_e_opt = match List.assoc_opt disc_idx bindings with
+            | Some _ as r -> r
+            | None ->
+              (* For array payloads, the discriminant binding has an ArrayVarIndex
+                 suffix (it is an element-level expression indexed into an array).
+                 Fall back to the first binding whose index starts with disc_idx. *)
+              (match List.find_opt (fun (idx, _) ->
+                let n = List.length disc_idx in
+                List.length idx > n &&
+                List.filteri (fun i _ -> i < n) idx = disc_idx
+              ) bindings with
+              | Some (_, e) -> Some e
+              | None -> None)
+          in
+          (match disc_e_opt with
+          | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e)
+          | None -> None)
+        else None
+    ) adt_map None in
+    match disc_info with
+    | Some (disc_e, ctor, disc_ty) ->
+      let e_ty = E.type_of_lustre_expr e in
+      (* When the discriminant is an array (Inner^N payload), the discriminant and
+         payload expressions are whole arrays. Build an element-wise ITE so that
+         junk fields for the wrong inner constructor are canonicalized per element.
+         Start from the original e to avoid mk_const_array with IntRange index types
+         (which do not parse as valid SMT-LIBv2 sorts in CVC5):
+         store(store(e, 0, ite(disc[0]=ctor, e[0], default)), 1, ite(disc[1]=ctor, e[1], default)). *)
+      if Type.is_array disc_ty && Flags.Arrays.smt () then
+        let disc_idx_ty = Type.index_type_of_array disc_ty in
+        let disc_elem_ty = Type.elem_type_of_array disc_ty in
+        let elem_ty = Type.elem_type_of_array e_ty in
+        let elem_default = default_of_type elem_ty in
+        (match Type.bounds_of_int_range disc_idx_ty with
+        | (_, Some upper) ->
+          let n = Numeral.to_int upper in
+          List.init n (fun i ->
+            let i_e = E.mk_of_expr ~as_type:disc_idx_ty (E.mk_int_expr (Numeral.of_int i)) in
+            let disc_i = E.mk_select disc_e i_e in
+            let e_i = E.mk_select e i_e in
+            (i_e, E.mk_ite (E.mk_eq disc_i (E.mk_constr ctor disc_elem_ty)) e_i elem_default)
+          ) |> List.fold_left (fun arr (i_e, v) -> E.mk_store arr i_e v) e
+        | _ -> e)
+      else if Type.is_array disc_ty then
+        e
+      else
+        let default = default_of_type e_ty in
         E.mk_ite (E.mk_eq disc_e (E.mk_constr ctor disc_ty)) e default
-      | None -> e)
-    | _ -> e
+    | None -> e
+  in
+  List.map (fun (idx, e) ->
+    let levels = collect_payload_levels [] [] idx in
+    List.fold_left (wrap_one_level bindings) e levels
   ) bindings
 
 let rec compile ctx gids adt_map scc_map decls =

@@ -3170,6 +3170,10 @@ let mk_array expr1 expr2 =
   let type_of_array t1 t2 = Type.mk_array t1 t2 in
   mk_binary (fun x _ -> x) type_of_array expr1 expr2
 
+let mk_const_array ty elem =
+  let t = Term.mk_const_array ty elem.expr_init in
+  { expr_init = t; expr_step = t; expr_type = ty }
+
 
 
 (* ********************************************************************** *)
