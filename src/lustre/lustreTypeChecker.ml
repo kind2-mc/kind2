@@ -230,7 +230,7 @@ let error_message kind = match kind with
   | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
-  | UnsupportedMapType ty -> "Unsupported map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, record types, tuples, and refinement types are supported"
+  | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
@@ -2805,7 +2805,7 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
-and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with  
+and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match ty with  
 | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
 | TArr _ -> type_error pos (UnsupportedMapType ty) 
 | RecordType (_, _, tis) -> 
@@ -2826,7 +2826,8 @@ and check_map_type pos ctx ty = let r = check_map_type pos ctx in match ty with
   else R.ok () 
 | AbstractType _ | Bool _ | Int _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
-| ADT _ -> type_error pos (UnsupportedMapType ty)
+| ADT (_, _, cons) ->
+  Res.seq_ (List.map (fun (_, field_tys) -> Res.seq_ (List.map r field_tys)) cons)
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -2903,12 +2904,13 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     in
     match ty' with
     | LA.Map (p, kt, vt) ->
-      let* _ = check_map_type p ctx kt in 
+      let* _ = check_map_set_type p ctx kt in 
       let* kt, warnings1 = check_type_well_formed_rec true kt in
       let* vt, warnings2 = check_type_well_formed_rec true vt in 
       R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
-    | LA.Set (p, ty') -> 
-      let* ty', warnings = check_type_well_formed_rec true ty' in 
+    | LA.Set (p, ty') ->
+      let* _ = check_map_set_type p ctx ty' in
+      let* ty', warnings = check_type_well_formed_rec true ty' in
       R.ok (LA.Set (p, ty'), warnings)
     | LA.TArr (p, arg_ty, res_ty) ->
       let* arg_ty, warnings1 = check_type_well_formed_rec true arg_ty in
