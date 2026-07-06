@@ -577,7 +577,7 @@ let rec arity_of_expr ty_ctx = function
     o
   | Pre (_, e) -> arity_of_expr ty_ctx e
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
-  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
+  | FieldProject (_, e, _, _) -> arity_of_expr ty_ctx e
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
   | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
@@ -885,7 +885,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   )
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> SI.empty
-  | RecordProject (_, e, _) -> call e
+  | FieldProject (_, e, _, _) -> call e
   | TypeAscription (_, e, ty) ->
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Values *)
@@ -977,7 +977,7 @@ let rec expr_contains_node_call ctx expr =
   | EmptyMap (_, Some (kt, vt)) ->
     LH.fold_lustre_ty r false (||) kt || 
     LH.fold_lustre_ty r false (||) vt
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e

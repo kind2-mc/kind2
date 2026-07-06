@@ -49,7 +49,7 @@ let id_of_expr = function
   | _ -> None
 
 let pos_of_expr = function
-  | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
+  | Ident (pos , _) | ModeRef (pos , _ ) | FieldProject (pos , _ , _ , _)
   | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
   | IndexAccess (pos , _, _, _)
@@ -165,7 +165,7 @@ let rec expr_contains_call = function
   | EmptyMap (_, Some (kt, vt)) ->
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_call e
@@ -201,7 +201,7 @@ let rec expr_contains_id id = function
     fold_lustre_ty expr_is_id false (||) kt || 
     fold_lustre_ty expr_is_id false (||) vt 
   | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> expr_contains_id id e
@@ -258,7 +258,7 @@ let rec substitute_naive (var:HString.t) t = function
     EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, substitute_naive var t e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
@@ -350,7 +350,7 @@ let rec apply_subst_in_expr sigma = function
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -447,7 +447,7 @@ let rec apply_type_subst_in_expr
   | Ident _
   | Last _ -> expr
   | ModeRef _  -> expr
-  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -566,7 +566,7 @@ let rec has_unguarded_pre ung = function
     fold_lustre_ty (has_unguarded_pre ung) false (||) vt
   | EmptySet (_, Some ty) ->
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _)
     -> has_unguarded_pre ung e
@@ -679,7 +679,7 @@ let rec has_unguarded_pre_no_warn ung = function
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) vt
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
@@ -793,7 +793,7 @@ let rec has_pre_or_arrow = function
     )
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) 
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Extract (_, e, _, _) -> 
@@ -901,7 +901,7 @@ let rec has_pre_or_arrow = function
 let rec lasts_of_expr acc = function
   | Const _ | Ident _ | ModeRef _ -> acc
     
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
   | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
@@ -1067,7 +1067,7 @@ let rec vars_of_node_calls_h obs =
   function
   | Ident (_, i) | Last (_, i) -> if obs then SI.singleton i else SI.empty
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
-  | RecordProject (_, e, _) -> vars obs e
+  | FieldProject (_, e, _, _) -> vars obs e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
@@ -1127,7 +1127,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   function
   | Ident (_, i) | Last (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
-  | RecordProject (_, e, _) -> vars e
+  | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1197,7 +1197,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Ident _ -> NI.Set.empty
   | Last _ -> NI.Set.empty
   | ModeRef _ -> NI.Set.empty
-  | RecordProject (_, e, _) -> calls_of_expr e
+  | FieldProject (_, e, _, _) -> calls_of_expr e
   | Const _ -> NI.Set.empty
   | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> calls_of_expr e
@@ -1241,7 +1241,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   function
   | Ident (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
-  | RecordProject (_, e, _) -> vars e 
+  | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1398,7 +1398,7 @@ let rec replace_with_constants: expr -> expr =
   | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e
-  | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, replace_with_constants e, i, ty_opt)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1501,7 +1501,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
-  | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, abstract_pre_subexpressions e, i, ty_opt)
   (* Values *)
   | Const _ as e -> e
 
@@ -1614,7 +1614,7 @@ let rec replace_idents locals1 locals2 expr =
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -1764,7 +1764,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
         else false
       in
       Ok t
-    | RecordProject (_, xe, xi), RecordProject (_, ye, yi) ->
+    | FieldProject (_, xe, xi, _), FieldProject (_, ye, yi, _) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
@@ -1965,7 +1965,7 @@ let hash depth_limit expr =
       | ModeRef (_, path) ->
         let path_hash = List.map HString.hash path in
         Hashtbl.hash (2, path_hash)
-      | RecordProject (_, e, i) ->
+      | FieldProject (_, e, i, _) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (3, e_hash, HString.hash i)
       | Const (_, True) -> Hashtbl.hash (5, 0)
@@ -2120,7 +2120,7 @@ let rec rename_contract_vars = function
     EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, rename_contract_vars e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
@@ -2217,7 +2217,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ModeRef _ as e -> e
   | Last _ as e -> e
 
-  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)

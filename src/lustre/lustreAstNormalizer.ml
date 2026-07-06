@@ -442,7 +442,7 @@ let rec mk_enum_expr ?(mk_enum=true) ctx node_id expr_type expr =
          mk ctx n ty (A.IndexAccess (dpos, expr, A.Const (p, A.Num i), A.Tuple))
       ) tys |> List.flatten
     | RecordType (_, _, tys) ->
-      let mk_proj i = A.RecordProject (dpos, expr, i) in
+      let mk_proj i = A.FieldProject (dpos, expr, i, None) in
       let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum ctx ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
@@ -527,7 +527,7 @@ and mk_ref_type_expr
     ) tys |> List.flatten
   | RecordType (p, _, tis) -> 
     List.map (fun (_, id2, ty) -> 
-      let expr = A.RecordProject(p, expr, id2) in
+      let expr = A.FieldProject(p, expr, id2, None) in
       mk_ref_type_expr ctx node_id expr ty
     ) tis |> List.flatten
   | ArrayType (_, (ty, len)) -> 
@@ -850,9 +850,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   )
   | Last _ -> StringSet.empty, expr
   | ModeRef _ -> StringSet.empty, expr
-  | RecordProject (pos, e, idx) ->
+  | FieldProject (pos, e, idx, ty_opt) ->
     let vars, e' = r map e in
-    vars, RecordProject (pos, e', idx)
+    vars, FieldProject (pos, e', idx, ty_opt)
   | Const _ -> StringSet.empty, expr
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
@@ -2296,9 +2296,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
     nexpr, gids, warnings1 @ warnings2 
 
-  | RecordProject (pos, expr, i) ->
+  | FieldProject (pos, expr, i, ty_opt) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    RecordProject (pos, nexpr, i), gids, warnings
+    FieldProject (pos, nexpr, i, ty_opt), gids, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
@@ -2504,7 +2504,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
   match expr with
-  | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
+  | A.FieldProject (p, e, i, ty_opt) -> A.FieldProject (p, r e, i, ty_opt)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)

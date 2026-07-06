@@ -231,7 +231,7 @@ let nodes_input_types = Hashtbl.create 10
 let rec minimize_node_call_args ue lst expr =
   let minimize_arg ident i arg =
     match arg with
-    | A.Ident _ | A.ModeRef _ | A.RecordProject _ -> arg
+    | A.Ident _ | A.ModeRef _ | A.FieldProject _ -> arg
     | _ ->
       let t = Hashtbl.find nodes_input_types ident |> (fun lst -> List.nth lst i) in
       let (_, expr) = minimize_expr ue lst [t] arg in
@@ -243,7 +243,7 @@ let rec minimize_node_call_args ue lst expr =
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
-    | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
+    | A.FieldProject (p,e,i,ty_opt) -> A.FieldProject (p,aux e,i,ty_opt)
     | A.StructUpdate (p,e1,ls,Some e2) -> A.StructUpdate (p,aux e1,ls,Some (aux e2))
     | A.StructUpdate (p,e1,ls,None) -> A.StructUpdate (p,aux e1,ls,None)
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
@@ -287,7 +287,7 @@ and ast_contains p ast =
     | A.Call (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
-    | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
+    | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.FieldProject (_,e,_,_)
       | A.Quantifier (_,_,_,e)
       | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->

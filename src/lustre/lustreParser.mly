@@ -1157,14 +1157,14 @@ pexpr(Q):
     { A.IndexAccess (mk_pos $startpos, e, i, Unknown) }
     
   (* An ADT tester: e.C? tests whether e was built with constructor C.
-     Listed before RecordProject so the parser shifts QUESTION rather than
+     Listed before FieldProject so the parser shifts QUESTION rather than
      reducing prematurely (Menhir resolves the shift-reduce conflict by shifting). *)
   | s = pexpr(Q); DOT; c = ident; QUESTION
     { A.ADTTester (mk_pos $startpos($2), s, c) }
 
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident
-    { A.RecordProject (mk_pos $startpos($2), s, t) }
+    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;

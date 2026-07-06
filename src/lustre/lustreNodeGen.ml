@@ -1514,7 +1514,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.RecordProject (_, expr, field) ->
+  | A.FieldProject (_, expr, field, _) ->
     compile_projection bounds expr (field_name_to_index cstate.adt_map field)
   | A.IndexAccess (_, expr, field, A.Tuple) ->
     let field = match field with 

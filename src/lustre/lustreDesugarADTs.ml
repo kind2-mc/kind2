@@ -110,9 +110,9 @@ let record_type_of_adt pos ?(ty_args = []) info =
   in
   LA.RecordType (pos, info.type_name, disc_fld :: payload_flds)
 
-(* Build a RecordProject accessing the tag field of an expression. *)
+(* Build a FieldProject accessing the tag field of an expression. *)
 let tag_of pos info scrut =
-  LA.RecordProject (pos, scrut, info.disc_field)
+  LA.FieldProject (pos, scrut, info.disc_field, None)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -158,7 +158,7 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     in
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
-        let field_expr = LA.RecordProject (pos, scrut, fname) in
+        let field_expr = LA.FieldProject (pos, scrut, fname, None) in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
           (conds, subs @ [(sub_name, field_expr)])
@@ -359,7 +359,25 @@ and desugar_expr ctx adt_map expr =
       tag_of pos adt_info (r e),
       LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
+  | LA.FieldProject (p, e, fld, Some adt_ty) ->
+    let e' = r e in
+    let info = adt_info_of_type ctx adt_map adt_ty
+      |> (function Some i -> i | None -> assert false)
+    in
+    let ctor = HStringMap.fold (fun ctor internal_fields acc ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+        let target = payload_field_name_of ctor fld in
+        if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
+        then Some ctor
+        else None
+    ) info.ctor_fields None
+    |> (function Some c -> c | None -> assert false)
+    in
+    let internal_fld = payload_field_name_of ctor fld in
+    LA.FieldProject (p, e', internal_fld, None)
+  | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)

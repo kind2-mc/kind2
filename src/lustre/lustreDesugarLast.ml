@@ -85,7 +85,7 @@ let rec replace_last acc e =
   | EmptyMap (_, None) | EmptySet (_, None) -> e
   | EmptyMap (p, Some (kt, vt)) -> EmptyMap (p, Some (kt, vt))
   | EmptySet (p, Some ty) -> EmptySet (p, Some ty)
-  | RecordProject (pos, e, idx) -> RecordProject (pos, r e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, r e, idx, ty_opt)
   | Extract (pos, e, idx1, idx2) -> Extract (pos, r e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, r e)
   | ADTTerm (pos, tis, id, es) -> ADTTerm (pos, tis, id, List.map r es)
@@ -157,7 +157,7 @@ let rec find_last_expr e = match e with
   | A.Last (pos, x) -> Some (pos, x)
   | Ident _ | ModeRef _ | Const _
   | EmptyMap _ | EmptySet _ -> None
-  | RecordProject (_, e, _) | Extract (_, e, _, _)
+  | FieldProject (_, e, _, _) | Extract (_, e, _, _)
   | UnaryOp (_, _, e) | ConvOp (_, _, e)
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Quantifier (_, _, _, e)
   | When (_, e, _) | Pre (_, e) | TypeAscription (_, e, _) -> find_last_expr e

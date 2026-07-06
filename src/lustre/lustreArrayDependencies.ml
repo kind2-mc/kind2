@@ -153,7 +153,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | ModeRef _ -> empty_
   | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
-  | RecordProject (_, e, _) -> r e
+  | FieldProject (_, e, _, _) -> r e
   (* Values *)
   | Const _ -> empty_
   (* Operators *)

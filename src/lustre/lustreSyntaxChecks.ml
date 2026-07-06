@@ -323,7 +323,7 @@ function
 
 | Const _ | Ident _ | ModeRef _  | EmptyMap _ | EmptySet _ -> false
 
-| RecordProject (_, e, _) | ConvOp (_, _, e)
+| FieldProject (_, e, _, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
 | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
@@ -815,7 +815,7 @@ let rec expr_only_supported_in_merge observer expr =
       | LA.When (_, e, _) | e -> r true e)
       e)
   | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
-  | RecordProject (_, e, _)
+  | FieldProject (_, e, _, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
@@ -1254,7 +1254,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
   in
   let res = f ctx expr in
   let check = function
-    | LA.RecordProject (_, e, _)
+    | LA.FieldProject (_, e, _, _)
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)

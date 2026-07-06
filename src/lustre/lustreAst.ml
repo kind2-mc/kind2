@@ -109,7 +109,12 @@ type expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
-  | RecordProject of position * expr * index
+  (* Field projection e.f, used for both record and ADT selector expressions.
+     The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
+     field name is still the user-written name (set by the type checker); the
+     desugarer rewrites it to the internal payload field name and clears it to
+     None. It is None for record projections and for already-desugared ADT ones. *)
+  | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -510,7 +515,7 @@ and pp_print_expr ppf =
         pp_print_expr e
         pp_print_expr l 
 
-    | RecordProject (p, e, f) -> 
+    | FieldProject (p, e, f, _) ->
 
       Format.fprintf ppf 
         "%a%a.%a" 
