@@ -804,8 +804,6 @@ let adt_canonicalize_key adt_map bindings =
       | None ->
         if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
           let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-          (* check_map_type rejects ArrayType as a key type, so disc_ty is
-             always an enum; array-payload ADT keys are unreachable. *)
           (match List.assoc_opt disc_idx bindings with
           | None -> assert false
           | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e))
