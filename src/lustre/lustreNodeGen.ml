@@ -804,54 +804,21 @@ let adt_canonicalize_key adt_map bindings =
       | None ->
         if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
           let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-          let disc_e_opt = match List.assoc_opt disc_idx bindings with
-            | Some _ as r -> r
-            | None ->
-              (* For array payloads, the discriminant binding has an ArrayVarIndex
-                 suffix (it is an element-level expression indexed into an array).
-                 Fall back to the first binding whose index starts with disc_idx. *)
-              (match List.find_opt (fun (idx, _) ->
-                let n = List.length disc_idx in
-                List.length idx > n &&
-                List.filteri (fun i _ -> i < n) idx = disc_idx
-              ) bindings with
-              | Some (_, e) -> Some e
-              | None -> None)
-          in
-          (match disc_e_opt with
-          | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e)
-          | None -> None)
+          (* check_map_type rejects ArrayType as a key type, so disc_ty is
+             always an enum; array-payload ADT keys are unreachable. *)
+          (match List.assoc_opt disc_idx bindings with
+          | None -> assert false
+          | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e))
         else None
     ) adt_map None in
     match disc_info with
     | Some (disc_e, ctor, disc_ty) ->
       let e_ty = E.type_of_lustre_expr e in
-      (* When the discriminant is an array (Inner^N payload), the discriminant and
-         payload expressions are whole arrays. Build an element-wise ITE so that
-         junk fields for the wrong inner constructor are canonicalized per element.
-         Start from the original e to avoid mk_const_array with IntRange index types
-         (which do not parse as valid SMT-LIBv2 sorts in CVC5):
-         store(store(e, 0, ite(disc[0]=ctor, e[0], default)), 1, ite(disc[1]=ctor, e[1], default)). *)
-      if Type.is_array disc_ty && Flags.Arrays.smt () then
-        let disc_idx_ty = Type.index_type_of_array disc_ty in
-        let disc_elem_ty = Type.elem_type_of_array disc_ty in
-        let elem_ty = Type.elem_type_of_array e_ty in
-        let elem_default = default_of_type elem_ty in
-        (match Type.bounds_of_int_range disc_idx_ty with
-        | (_, Some upper) ->
-          let n = Numeral.to_int upper in
-          List.init n (fun i ->
-            let i_e = E.mk_of_expr ~as_type:disc_idx_ty (E.mk_int_expr (Numeral.of_int i)) in
-            let disc_i = E.mk_select disc_e i_e in
-            let e_i = E.mk_select e i_e in
-            (i_e, E.mk_ite (E.mk_eq disc_i (E.mk_constr ctor disc_elem_ty)) e_i elem_default)
-          ) |> List.fold_left (fun arr (i_e, v) -> E.mk_store arr i_e v) e
-        | _ -> e)
-      else if Type.is_array disc_ty then
-        e
-      else
-        let default = default_of_type e_ty in
-        E.mk_ite (E.mk_eq disc_e (E.mk_constr ctor disc_ty)) e default
+      (* Should hold due to restrictions of set element and map 
+         key types in the type checker *)
+      assert (not (Type.is_array disc_ty));
+      let default = default_of_type e_ty in
+      E.mk_ite (E.mk_eq disc_e (E.mk_constr ctor disc_ty)) e default
     | None -> e
   in
   List.map (fun (idx, e) ->
