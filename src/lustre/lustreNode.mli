@@ -116,6 +116,15 @@ type node_call = {
       recursive call (e.g. ["(n - 1 < n)"]), used as the displayed expression
       of the corresponding [decrease_check] property. [None] for non-recursive
       calls or when the source expression could not be reconstructed. *)
+
+  call_ties : (StateVar.t * StateVar.t option * HString.t) list;
+  (** Tuples [(tie, init_tie, x)] where [tie] is a generated boolean local
+      stating that the when-block variable [x] (whose off-branch holds its
+      previous value) agrees with the output of this (activated) call, and
+      [init_tie], if any, is a generated boolean local stating that [x] has
+      its initial value. LustreTransSys turns each tuple into candidate
+      invariants expressing that [tie] holds once the activation clock has
+      ticked, and that [init_tie] holds before the first tick. *)
 }
 
 

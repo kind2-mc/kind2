@@ -141,6 +141,15 @@ type node_call = {
      the corresponding decrease_check property. [None] for non-recursive calls
      or when the source expression could not be reconstructed. *)
   call_rec_decrease_expr : string option;
+
+  (* Tuples [(tie, init_tie, x)] where [tie] is a generated boolean local
+     stating that the when-block variable [x] (whose off-branch holds its
+     previous value) agrees with the output of this (activated) call, and
+     [init_tie], if any, is a generated boolean local stating that [x] has its
+     initial value. LustreTransSys turns each tuple into candidate invariants
+     expressing that [tie] holds once the activation clock has ticked, and
+     that [init_tie] holds before the first tick. *)
+  call_ties : (StateVar.t * StateVar.t option * HString.t) list;
 }
 
 
@@ -1422,7 +1431,8 @@ let stateful_vars_of_node
               call_inputs;
               call_oracles;
               call_outputs;
-              call_defaults } ->
+              call_defaults;
+              call_ties } ->
 
             (* Input and output variables are always stateful *)
             ((D.values call_inputs) @
@@ -1431,6 +1441,15 @@ let stateful_vars_of_node
             |> SVS.of_list
 
             |> SVS.union (match call_context with | None -> SVS.empty | Some sv -> SVS.singleton sv)
+
+            (* Tie variables are referenced by generated candidate
+               properties, so they must remain declared state variables *)
+            |> SVS.union
+              (List.concat_map
+                (fun (tie, init_tie, _) ->
+                  tie :: (match init_tie with Some sv -> [sv] | None -> []))
+                call_ties
+               |> SVS.of_list)
 
             (* Add stateful variables from initial defaults *)
             |> SVS.union

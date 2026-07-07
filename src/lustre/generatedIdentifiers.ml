@@ -101,6 +101,14 @@ type t = {
     * source option) (* Record the source of the equation if generated before normalization step *)
     list;
   nonvacuity_props: StringSet.t;
+  clocked_call_ties:
+    (HString.t * HString.t option * HString.t * HString.t) list;
+  (* Tuples (tie, init_tie, t, x) where x is a when-block variable whose
+     off-branch holds its previous value, t is the local bound to the output
+     of the node call activated on the when-block guard, tie is a generated
+     boolean local defined as (x = t), and init_tie, if any, is a generated
+     boolean local defined as (x = init), where init is the initial value of x
+     (see lustreDesugarIfBlocks.ml). *)
   array_literal_vars: StringSet.t;
   expr_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
@@ -147,6 +155,16 @@ let var_is_discarded_output var =
    user-written identifiers. These locals are invisible (Kind 2 generated). *)
 let last_local = "glast"
 
+(* String constant used in lustreDesugarIfBlocks.ml as the suffix of the fresh
+   locals capturing the output of a node call in a when-block branch
+   (e.g. '1_wbcall'). *)
+let clocked_call_output = "wbcall"
+
+(* String constant used in lustreDesugarIfBlocks.ml as the suffix of the fresh
+   boolean locals stating that a when-block variable agrees with the output of
+   the node call activated on the when-block guard (e.g. '2_wbtie'). *)
+let clocked_call_tie = "wbtie"
+
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
    numeric segment to the end, so we look for [last_local] as a '_'-separated
@@ -182,6 +200,7 @@ let union ids1 ids2 = {
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
     nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
+    clocked_call_ties = ids1.clocked_call_ties @ ids2.clocked_call_ties;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
@@ -213,6 +232,7 @@ let empty () = {
   expanded_variables = StringSet.empty;
   equations = [];
   nonvacuity_props = StringSet.empty;
+  clocked_call_ties = [];
   array_literal_vars = StringSet.empty;
   expr_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
