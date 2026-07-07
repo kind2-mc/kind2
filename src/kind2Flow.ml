@@ -36,9 +36,6 @@ open ProcessCall
 
 (* |===| Helpers. *)
 
-(** TSys name formatter. *)
-let fmt_sys = TSys.pp_print_trans_sys_name
-
 (* |===| Helpers to run stuff. *)
 
 (** Child processes forked.
