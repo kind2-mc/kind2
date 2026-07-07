@@ -360,11 +360,10 @@ let map_top_or_reconstruct_and_add
 let trace_of_contract_item model_top instances sv =
   let model_values = try map_top instances sv |> SVT.find model_top with Not_found -> [] in
   List.map (function
-  | Model.Term t -> t == Term.t_true
-  | _ -> failwith "evaluating mode requirement: value should be a term") model_values
+    | Model.Term t -> t == Term.t_true
+    | _ -> failwith "evaluating mode requirement: value should be a term") model_values
 
-let mk_term_t_or_f b =
-    if b then Term.mk_true () else Term.mk_false ()
+let mk_term_t_or_f b = if b then Term.mk_true () else Term.mk_false ()
 
 let guarantees_of_instances model_top instances = function
   (* No contract. *)
@@ -379,9 +378,9 @@ let guarantees_of_instances model_top instances = function
       | Some s -> s
     in 
     let svar_tform ({C.svar; name; pos}, _) = 
-        ( name_normalize name pos
-            , Type.mk_bool ()
-            , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
+      ( name_normalize name pos
+      , Type.mk_bool ()
+      , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
     in
     List.map svar_tform guarantees
     
@@ -394,23 +393,23 @@ let assumptions_of_instances model_top instances = function
     let trace_of_req = trace_of_contract_item model_top instances in
    
     let name_normalize name pos = match name with 
-    | None -> Format.asprintf "assume%a" Lib.pp_print_line_and_column pos
-    | Some s -> s
-  in 
-   let svar_tform {C.svar; name; pos} = 
-       ( name_normalize name pos
-          , Type.mk_bool ()
-          , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
+      | None -> Format.asprintf "assume%a" Lib.pp_print_line_and_column pos
+      | Some s -> s
+    in 
+    let svar_tform {C.svar; name; pos} = 
+      ( name_normalize name pos
+      , Type.mk_bool ()
+      , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
     in
     List.map svar_tform assumes
 
- let merge_req_traces t1 t2 =
-      let rec loop acc = function
-        | ([], []) -> List.rev acc
-        | (v1 :: t1, v2 :: t2) -> loop ((v1 && v2) :: acc) (t1, t2)
-        | _ -> failwith "while constructing the trace of active modes: tried to merge two traces of inconsistent length"
-      in
-      loop [] (t1, t2)
+let merge_req_traces t1 t2 =
+  let rec loop acc = function
+    | ([], []) -> List.rev acc
+    | (v1 :: t1, v2 :: t2) -> loop ((v1 && v2) :: acc) (t1, t2)
+    | _ -> failwith "while constructing the trace of active modes: tried to merge two traces of inconsistent length"
+  in
+  loop [] (t1, t2)
 
 let mode_requires_of_instances model_top instances = function
   (* No contract. *)
