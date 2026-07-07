@@ -2878,7 +2878,7 @@ and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match 
 | AbstractType _ | Bool _ | Int _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
 | ADT (_, _, cons) ->
-  Res.seq_ (List.map (fun (_, field_tys) -> Res.seq_ (List.map r field_tys)) cons)
+  Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
