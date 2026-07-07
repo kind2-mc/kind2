@@ -1,0 +1,12 @@
+datatype D = A (int8) | B (real) | C (uint16);
+
+function isA(d: D) returns (r: bool);
+let r = match d with | A(_) : true | _ : false end; tel
+
+node main(v: int8; w: real; u: uint16) returns (ok: bool);
+var d: D;
+let
+  d = A(v);
+  ok = isA(d);
+  check ok;
+tel

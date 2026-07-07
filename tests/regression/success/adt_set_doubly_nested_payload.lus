@@ -1,0 +1,13 @@
+datatype Inner = X (int) | Y (bool);
+datatype Outer = A (Inner) | B (real);
+
+function isB(o: Outer) returns (r: bool);
+let r = match o with | A(_) : false | B(_) : true end; tel
+
+node main() returns (ok: bool);
+var s: set<Outer>;
+let
+  s = {}@<Outer>;
+  ok = true;
+  check forall (o: Outer) (o in s) => isB(o);
+tel

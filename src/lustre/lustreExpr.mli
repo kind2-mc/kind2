@@ -520,6 +520,8 @@ val unsafe_expr_of_term : Term.t -> expr
 
 val mk_array : t -> t -> t
 
+val mk_const_array : Type.t -> t -> t
+
 val mk_let : (Var.t * expr) list -> t -> t
 
 val apply_subst : (Var.t * expr) list -> t -> t
