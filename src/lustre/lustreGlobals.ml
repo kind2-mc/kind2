@@ -18,21 +18,38 @@
 
 (* Abbreviations *)
 module E = LustreExpr
+module HStringMap = HString.HStringMap
 
 type state_var_bounds = (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t
 
 
-type t = 
+type adt_field_info =
+  | AdtFieldPlain                (* primitive or enum field *)
+  | AdtFieldNested of HString.t  (* field whose type is the named ADT *)
 
-  { 
+(* Simplified ADT metadata *)
+type adt_info = {
+  disc_field : HString.t;
+  (* constructor name -> list of (field_name, field_type_info) *)
+  ctor_fields : (HString.t * adt_field_info) list HStringMap.t;
+}
+
+type adt_map = adt_info HStringMap.t
+
+type t =
+
+  {
 
     (* Free constants: ident, variable index, is_generated *)
     free_constants : (LustreIdent.t * Var.t LustreIndex.t * bool) list;
-    
+
     (* register bounds of state variables for later use *)
     state_var_bounds : state_var_bounds;
 
     (* Constraints on free constants *)
     global_constraints: E.t list;
+
+    (* ADT type metadata for counterexample reconstruction *)
+    adt_map : adt_map;
   }
 

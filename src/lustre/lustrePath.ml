@@ -31,6 +31,7 @@ module NI = NodeId
 module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
+module G = LustreGlobals
 
 (* Model for a node and its subnodes *)
 type t =
@@ -1110,9 +1111,175 @@ let rec get_widths_for_contract ident_width values_width contract_trace = match 
   | (a,_,_) :: trace_tail -> get_widths_for_contract (max ident_width (String.length a)) (max values_width (5)) trace_tail
   | [] -> (ident_width, values_width)
 
+(* Strip a list prefix from an index; returns None if prefix doesn't match. *)
+let strip_index_prefix prefix index =
+  let rec go = function
+    | [], rest -> Some rest
+    | _ :: _, [] -> None
+    | p :: ps, h :: hs when p = h -> go (ps, hs)
+    | _ -> None
+  in
+  go (prefix, index)
+
+
+(* Reconstruct a plain ADT payload field value from a flat list of
+   (remaining_index, state_var) pairs, where the common field prefix has already been
+   stripped.  Handles scalars and arrays (reusing pp_print_value for array formatting).
+   Records and tuples are not natively printed and return "_" since those types are
+   flattened in the Kind 2 model. *)
+let reconstruct_compound_at_step model sub_bindings step =
+  match sub_bindings with
+  | [] -> "_"
+  | [([], sv)] ->
+    (match SVT.find_opt model sv with
+    | None -> "_"
+    | Some vals ->
+      match List.nth_opt vals step with
+      | None -> "_"
+      | Some v ->
+        let ty = StateVar.type_of_state_var sv in
+        string_of_t (pp_print_value ~as_type:ty) v)
+  | ([D.ArrayVarIndex _], sv) :: _ | ([D.ArrayIntIndex _], sv) :: _ ->
+    (* Array stored as a single sv; reuse existing pp_print_value which dispatches
+       to pp_print_map_as_array for Map-valued (array) state variables. *)
+    (match SVT.find_opt model sv with
+    | None -> "_"
+    | Some vals ->
+      match List.nth_opt vals step with
+      | None -> "_"
+      | Some v ->
+        let ty = StateVar.type_of_state_var sv in
+        string_of_t (pp_print_value ~as_type:ty) v)
+  | _ -> "_"
+
+(* Reconstruct the ADT value string for a known disc_sv at a given step.
+   root_index is [] for top-level variables and [AdtPayloadIndex ...] for nested ADT fields.
+   For nested ADT fields, the nested disc sv is located via bindings using the
+   field_index prefix, which makes lookups unambiguous within a single variable's D.t. *)
+let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv =
+  match G.HStringMap.find_opt type_name adt_map with
+  | None -> assert false
+  | Some adt_info ->
+    let disc_type = StateVar.type_of_state_var disc_sv in
+    let disc_vals = try SVT.find model disc_sv with Not_found -> assert false in
+    (match List.nth_opt disc_vals step with
+    | None -> assert false
+    | Some (Model.Term t) when Type.is_enum disc_type ->
+      let ctor_name = Term.numeral_of_term t |> Type.get_constr_of_num in
+      let ctor_hs = HString.mk_hstring ctor_name in
+      let fields =
+        match G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields with
+        | None -> assert false | Some fs -> fs
+      in
+      if fields = [] then ctor_name
+      else
+        let field_strs = List.mapi (fun j (_fname, field_kind) ->
+          let field_index =
+            root_index @ [D.AdtPayloadIndex (ctor_name, j)]
+          in
+          match field_kind with
+          | G.AdtFieldNested nested_type ->
+            (* For nested ADT, look up disc sv by index; the field_index prefix
+               makes this unambiguous even in a flat bindings list. *)
+            let nested_disc_index =
+              field_index @ [D.AdtTagIndex (HString.string_of_hstring nested_type)]
+            in
+            (match List.assoc_opt nested_disc_index bindings with
+            | None -> assert false
+            | Some nested_disc_sv ->
+              reconstruct_adt_at_step model bindings adt_map step
+                field_index nested_type nested_disc_sv)
+          | G.AdtFieldPlain ->
+            (match List.assoc_opt field_index bindings with
+            | Some psv ->
+              (match SVT.find_opt model psv with
+              | None -> "_"
+              | Some pvals ->
+                match List.nth_opt pvals step with
+                | None -> "_"
+                | Some pv ->
+                  let pty = StateVar.type_of_state_var psv in
+                  string_of_t (pp_print_value ~as_type:pty) pv)
+            | None ->
+              (* Compound field: look for sub-bindings with field_index as prefix *)
+              let sub_bindings = List.filter_map (fun (idx, sv) ->
+                match strip_index_prefix field_index idx with
+                | Some (_ :: _ as rest) -> Some (rest, sv)
+                | _ -> None
+              ) bindings in
+              reconstruct_compound_at_step model sub_bindings step)
+        ) fields in
+        ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")"
+    | _ -> assert false)
+
+(* Reconstruct original ADT constructor values from hidden disc+payload fields.
+   Returns one adt_stream per top-level ADT variable; nested ADT fields are
+   embedded in the parent's value string rather than returned separately. *)
+let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
+  if G.HStringMap.is_empty adt_map then []
+  else
+    (* Collect top-level disc svs: Generated (Discriminant type_name) whose root_index
+       contains no AdtPayloadIndex/AdtTagIndex (i.e., not nested inside a payload). *)
+    let disc_entries = List.filter_map (fun (index, sv) ->
+      match N.get_state_var_source node sv with
+      | N.Generated (N.Discriminant type_name) ->
+        let root_index = match List.rev index with _ :: rest -> List.rev rest | [] -> [] in
+        let is_top_level = not (List.exists (function
+          | D.AdtPayloadIndex _ | D.AdtTagIndex _ -> true | _ -> false) root_index)
+        in
+        if is_top_level then Some (index, sv, type_name, root_index)
+        else None
+      | _ -> None
+      | exception Not_found -> assert false
+    ) bindings in
+    List.filter_map (fun (_disc_index, disc_sv, type_name, root_index) ->
+      (* Derive the user-visible stream name by stripping ".disc_field" from
+         the state var name (which bakes the full index path into its name). *)
+      let sv_name = StateVar.name_of_state_var disc_sv in
+      let root_name =
+        match G.HStringMap.find_opt type_name adt_map with
+        | None -> assert false
+        | Some adt_info ->
+          let disc_suffix = "." ^ HString.string_of_hstring adt_info.G.disc_field in
+          let n = String.length sv_name and m = String.length disc_suffix in
+          if n > m && String.sub sv_name (n - m) m = disc_suffix
+          then String.sub sv_name 0 (n - m)
+          else assert false
+      in
+      let disc_sv_values =
+        try SVT.find model disc_sv with Not_found -> []
+      in
+      let n_steps = List.length disc_sv_values in
+      let step_strings = List.init n_steps (fun step ->
+        reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv
+      ) in
+      if step_strings = [] then None
+      else Some (root_name, step_strings)
+    ) disc_entries
+
+(* Print a section combining regular streams and ADT-reconstructed string streams.
+   Both kinds are printed together under a single section header. *)
+let pp_print_mixed_section_pt ident_width val_width sect ppf (streams, adt_streams) =
+  let val_width = List.fold_left (fun w (_, vals) ->
+    List.fold_left (fun w s -> max w (String.length s)) w vals
+  ) val_width adt_streams in
+  let pp_adt_stream ppf (name, vals) =
+    Format.fprintf ppf "@[<hov %d>@{<blue_b>%-*s@} %a@]"
+      (ident_width + 1) ident_width name
+      (pp_print_list (fun ppf s -> Format.fprintf ppf "%*s" val_width s) "@ ") vals
+  in
+  match streams, adt_streams with
+  | [], [] -> ()
+  | _ ->
+    Format.fprintf ppf "== @{<b>%s@} ==@," sect;
+    (match streams with [] -> ()
+    | _ -> Format.fprintf ppf "%a@," (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") streams);
+    (match adt_streams with [] -> ()
+    | _ -> Format.fprintf ppf "%a@," (pp_print_list pp_adt_stream "@,") adt_streams)
+
   (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_funcs ppf = function
+let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_funcs globals ppf = function
 
 (* All nodes printed *)
 | [] -> ()
@@ -1127,8 +1294,8 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 
   (* Functions derived from constants are printed along with the global constants. 
      Type ascriptions not shown. *)
-  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
-    pp_print_lustre_path_pt' false const_map const_funcs ppf tl 
+  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then
+    pp_print_lustre_path_pt' false const_map const_funcs globals ppf tl
   else 
 
   let is_visible = N.state_var_is_visible node in
@@ -1163,7 +1330,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
   let ident_width, val_width = 0, 0 in
 
   (* Remove index of position in input for printing *)
-  let ident_width, val_width, inputs' = 
+  let ident_width, val_width, inputs' =
     D.bindings inputs
     |> List.map pop_head_index
     |> List.filter (fun (_, sv) -> is_visible sv)
@@ -1171,7 +1338,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
   in
 
   (* Remove index of position in output for printing *)
-  let ident_width, val_width, outputs' = 
+  let ident_width, val_width, outputs' =
     D.bindings outputs
     |> List.map pop_head_index
     |> List.filter (fun (_, sv) -> is_visible sv)
@@ -1220,17 +1387,31 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     locals |> streams_to_values model ident_width val_width []
   in
 
-  let globals = if is_top then get_constants const_map [] else [] in
+  let global_const_svs = if is_top then get_constants const_map [] else [] in
 
   let scope = LustreNode.scope_of_node node in
   let constants = get_constants const_map scope in
 
   let ident_width, val_width, globals' =
-    globals |> streams_to_values model ident_width val_width []
+    global_const_svs |> streams_to_values model ident_width val_width []
   in
 
   let ident_width, val_width, constants' =
     constants |> streams_to_values model ident_width val_width []
+  in
+
+  (* Compute ADT-reconstructed streams from hidden disc/payload fields *)
+  let adt_map = globals.G.adt_map in
+  let all_input_bindings = D.bindings inputs in
+  let all_output_bindings = D.bindings outputs in
+  let adt_inputs = adt_streams_from_bindings adt_map model node all_input_bindings in
+  let adt_outputs = adt_streams_from_bindings adt_map model node all_output_bindings in
+  (* Each local is its own D.t with unqualified indices: process per-variable to avoid
+     index collisions when multiple locals share the same ADT type. *)
+  let adt_locals =
+    List.concat_map (fun local_var ->
+      adt_streams_from_bindings adt_map model node (D.bindings local_var)
+    ) node.N.locals
   in
 
   (* Sample inputs, outputs and locals on clock *)
@@ -1270,22 +1451,23 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     (pp_print_modes_section_pt full_contract ident_width val_width mode_ident) contract_info
     (pp_print_stream_section_pt ident_width val_width "Global Constants") globals'
     (pp_print_stream_section_pt ident_width val_width "Constants") constants'
-    (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
-    (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
+    (pp_print_mixed_section_pt ident_width val_width "Inputs") (inputs', adt_inputs)
+    (pp_print_mixed_section_pt ident_width val_width "Outputs") (outputs', adt_outputs)
     (pp_print_stream_section_pt ident_width val_width "Ghosts") ghosts'
-    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
+    (pp_print_mixed_section_pt ident_width val_width "Locals") (locals', adt_locals);
 
   (* Recurse depth-first to print subnodes *)
   pp_print_lustre_path_pt'
     false
     const_map
     const_funcs
+    globals
     ppf
     (subnodes @ tl)
 
 | _ :: tl ->
-  
-  pp_print_lustre_path_pt' false const_map const_funcs ppf tl
+
+  pp_print_lustre_path_pt' false const_map const_funcs globals ppf tl
 
 let get_const_func_info n = 
   let rec get_const_funcs (Node (top, path, _, _, _, _, _, subnodes)) = 
@@ -1316,13 +1498,13 @@ let get_const_func_info n =
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_pt ?(full_contract = false) ppf (lustre_path, const_map) = 
+let pp_print_lustre_path_pt ?(full_contract = false) globals ppf (lustre_path, const_map) =
   (* Collect information on functions derived from global constants *)
   let const_funcs = get_const_func_info (snd lustre_path) in
   let const_funcs = List.map (fun (id, ty, vals, _) -> id, ty, vals) const_funcs in
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_pt' ~full_contract true const_map const_funcs ppf [lustre_path]
+  pp_print_lustre_path_pt' ~full_contract true const_map const_funcs globals ppf [lustre_path]
 
 
 (* Output a hierarchical model as plain text *)
@@ -1333,7 +1515,7 @@ let pp_print_path_pt
   node_path_of_subsystems
     globals first_is_init trans_sys model subsystems
   (* Output as plain text *)
-  |> pp_print_lustre_path_pt ~full_contract:full_contract ppf
+  |> pp_print_lustre_path_pt ~full_contract:full_contract globals ppf
 
 
 (* ********************************************************************** *)
@@ -1726,21 +1908,21 @@ let pp_print_stream_value_json ty ppf i v =
     i (Model.pp_print_value_json ~as_type:ty) v
 
 
-let pp_print_stream_values_json clock ty ppf l =
+(* Pair each value with its step index, filtering to clock-active steps only.
+   When clock is None all steps are included. *)
+let clock_filter clock values =
   match clock with
-  | None ->
-    (* Show all values if no clock *)
-    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i) "," ppf l
+  | None -> List.mapi (fun i v -> (i, v)) values
   | Some c ->
-    (* Pair each value with its index and clock, and then filter out undefined ones.
-     * This must be done before printing, because otherwise we print commas in-between
-     * filtered elements, which is invalid json. *)
-    let values_on_clock =
-      List.mapi (fun i c -> (i, c)) c
-      |> List.map2 (fun v (i, c) -> (i, v, c)) l
-      |> List.filter (fun (_, _, c) -> c)
-    in
-      pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
+    List.combine values c
+    |> List.mapi (fun i (v, ck) -> (i, v, ck))
+    |> List.filter_map (fun (i, v, ck) -> if ck then Some (i, v) else None)
+
+let pp_print_stream_values_json clock ty ppf l =
+  match clock_filter clock l with
+  | [] -> pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i) "," ppf []
+  | values_on_clock ->
+    pp_print_list (fun ppf (i, v) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
 
 let rec pp_print_type_json ?state_var ?model field ppf stream_type =
@@ -1895,15 +2077,32 @@ let pp_print_stream_json node model clock ppf (index, state_var) =
 
   with Not_found -> assert false
 
-let pp_print_streams_json node model clock ppf = function
-  | [] -> ()
-  | streams ->
-      Format.fprintf ppf ",@,\"streams\" :@,[@[<v 1>%a@]@,]"
-        (pp_print_list
-          (pp_print_stream_json node model clock) ",")
-        streams
+(* Print one reconstructed ADT stream as a JSON stream object. *)
+let pp_adt_stream_json clock class_str ppf (name, step_strings) =
+  let values = clock_filter clock step_strings in
+  Format.fprintf ppf
+    "@,{@[<v 1>@,\"name\" : \"%s\",@,\"type\" : \"adt\",@,\"class\" : \"%s\",@,\
+     \"instantValues\" :%t@]@,}"
+    name class_str
+    (fun ppf ->
+      if values = [] then Format.fprintf ppf " []"
+      else
+        Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
+          (pp_print_list (fun ppf (step, s) ->
+            Format.fprintf ppf "@,[%d, \"%s\"]" step s) ",") values)
 
-let pp_print_streams_json is_top const_map const_funcs ppf
+let pp_print_streams_json node model clock adt_tagged ppf regular =
+  let all_printers =
+    List.map (fun s ppf -> pp_print_stream_json node model clock ppf s) regular
+    @ List.map (fun (class_str, adt_s) ppf -> pp_adt_stream_json clock class_str ppf adt_s) adt_tagged
+  in
+  match all_printers with
+  | [] -> ()
+  | _ ->
+    Format.fprintf ppf ",@,\"streams\" :@,[@[<v 1>%a@]@,]"
+      (pp_print_list (fun ppf f -> f ppf) ",") all_printers
+
+let pp_print_streams_json is_top const_map const_funcs globals ppf
   ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
 
   let is_visible = N.state_var_is_visible node in
@@ -1971,11 +2170,25 @@ let pp_print_streams_json is_top const_map const_funcs ppf
     |> List.rev
   in
 
+  let adt_map = globals.G.adt_map in
+  let adt_inputs = adt_streams_from_bindings adt_map model node (D.bindings inputs) in
+  let adt_outputs = adt_streams_from_bindings adt_map model node (D.bindings outputs) in
+  let adt_locals =
+    List.concat_map (fun local_var ->
+      adt_streams_from_bindings adt_map model node (D.bindings local_var)
+    ) node.N.locals
+  in
+  let adt_tagged =
+    List.map (fun s -> ("input", s)) adt_inputs
+    @ List.map (fun s -> ("output", s)) adt_outputs
+    @ List.map (fun s -> ("local", s)) adt_locals
+  in
+
   Format.fprintf ppf "%a"
-    (pp_print_streams_json node model clock) streams
+    (pp_print_streams_json node model clock adt_tagged) streams
 
 
-let pp_print_var_json_testgen ppf ((name, var_type), value) = 
+let pp_print_var_json_testgen ppf ((name, var_type), value) =
   Format.fprintf ppf
     "@[<h>\"%s\": %a@]"
     name
@@ -2032,7 +2245,7 @@ let pp_print_streams_json_testgen ppf
     streams_with_values
 
 (* Output a list of node models. *)
-let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
+let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = function
 
   | [] -> ()
 
@@ -2044,8 +2257,8 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
 
     (* Functions derived from constants are printed along with the global constants. 
        Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
-      pp_print_lustre_path_json' false const_map const_funcs ppf tl 
+    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then
+      pp_print_lustre_path_json' false const_map const_funcs globals ppf tl
     else
 
     let name = NI.get_user_name node_id |> HString.string_of_hstring in
@@ -2059,9 +2272,9 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
       | [] -> ()
       | subnodes ->
           Format.fprintf ppf ",@,\"subnodes\" :@,[@[<v 1>%a@]@,]"
-            (pp_print_lustre_path_json' false const_map const_funcs) subnodes
+            (pp_print_lustre_path_json' false const_map const_funcs globals) subnodes
     in
-    
+
     let comma = if tl <> [] then "," else "" in
 
     (* Pretty-print this node *)
@@ -2085,31 +2298,31 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs ppf = function
        (pp_print_section_json "assumptionsTrace") contract_assumptions
        (pp_print_section_json "guaranteesTrace") contract_guarantees
        (pp_print_section_json "modesTrace") (interleave (required_modes,ensured_modes))
-       (pp_print_streams_json is_top const_map const_funcs) (node, model, call_conds)
+       (pp_print_streams_json is_top const_map const_funcs globals) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
 
     (* Continue *)
-    pp_print_lustre_path_json' false const_map const_funcs ppf tl
+    pp_print_lustre_path_json' false const_map const_funcs globals ppf tl
 
   | _ :: tl ->
 
     (* Continue *)
-    pp_print_lustre_path_json' false const_map const_funcs ppf tl
+    pp_print_lustre_path_json' false const_map const_funcs globals ppf tl
 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_json ppf (path, const_map) =
+let pp_print_lustre_path_json globals ppf (path, const_map) =
   let const_funcs = get_const_func_info (snd path) in
   let const_funcs = process_const_funcs const_funcs path in
 
   (* Delegate to recursive function *)
   Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
-    (pp_print_lustre_path_json' true const_map const_funcs) [path]
+    (pp_print_lustre_path_json' true const_map const_funcs globals) [path]
 
 
-(* Ouptut a hierarchical model as JSON *)
+(* Output a hierarchical model as JSON *)
 let pp_print_path_json
   trans_sys globals subsystems first_is_init ppf model
 =
@@ -2117,11 +2330,11 @@ let pp_print_path_json
   node_path_of_subsystems
     globals first_is_init trans_sys model subsystems
   (* Output as JSON *)
-  |> pp_print_lustre_path_json ppf
+  |> pp_print_lustre_path_json globals ppf
 
 
 
-let pp_print_lustre_path_json_testgen' const_map const_funcs ppf = function
+let rec pp_print_lustre_path_json_testgen' const_map const_funcs ppf = function
   | [] -> ()
   | (
     _, Node (node,
@@ -2137,11 +2350,11 @@ let pp_print_lustre_path_json_testgen' const_map const_funcs ppf = function
        ;
 
     (* Continue *)
-    pp_print_lustre_path_json' false const_map const_funcs ppf tl
+    pp_print_lustre_path_json_testgen' const_map const_funcs ppf tl
 
   | _ :: tl ->
     (* Continue *)
-      pp_print_lustre_path_json' false const_map const_funcs ppf tl
+    pp_print_lustre_path_json_testgen' const_map const_funcs ppf tl
 
 
 let pp_print_lustre_path_json_testgen ppf (path, const_map) =

@@ -64,6 +64,7 @@ type error_kind = Unknown of string
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
+  | InvalidUnderscore 
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

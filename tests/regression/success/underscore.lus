@@ -1,0 +1,10 @@
+datatype D = C (int, int, int);
+
+node N (inp: D) returns (ok: bool)
+let
+  ok = match inp with
+  | C (_, _, c) : c = c 
+  end; 
+
+  check ok;
+tel

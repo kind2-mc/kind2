@@ -2438,9 +2438,23 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           `trans`. *)
           let function_ufs, function_constraints_at_0 =
             match comp_type with
-            | Function { uf_symbols } when options.add_functional_constraints -> (
+            | Function { uf_symbols; rec_info } when options.add_functional_constraints -> (
+              (* For a recursive function we tie the outputs of *every*
+                 instance (expanded or abstracted) to the global functional
+                 UF, not just the abstracted leaves whose outputs are
+                 undefined. On an expanded instance the output is also
+                 constrained by the body equation, so this forces the UF to
+                 satisfy the function's defining equation at that argument
+                 (one unrolling). Without it the recurrence is only known for
+                 the inlined interior and is lost at the uninterpreted leaf,
+                 so calls to the function at arguments separated by the
+                 induction's shift never relate (see Even_Odd lemma). *)
+              let constrained_outputs =
+                if rec_info <> None then D.values outputs
+                else undefined_outputs
+              in
               let function_ufs =
-                undefined_outputs |> List.map (fun sv ->
+                constrained_outputs |> List.map (fun sv ->
                   match SVM.find_opt sv uf_symbols with
                   | Some uf -> uf
                   | None -> assert false
@@ -2455,7 +2469,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                   let inputs = D.values inputs in
                   List.map (fun input -> term_0_of input) inputs
                 in
-                undefined_outputs
+                constrained_outputs
                 |> List.map (fun output ->
                   let uf = SVM.find output uf_symbols in
                   Term.mk_eq [
@@ -2912,7 +2926,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 P.prop_term;
                 P.prop_status;
                 P.prop_kind; 
-                P.prop_expr = Some (LustreAst.string_of_expr prop_expr)}
+                P.prop_expr = Some prop_expr}
             ) props
               
             (* Add to existing properties *)

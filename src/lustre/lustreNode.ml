@@ -63,6 +63,10 @@ let add_to_svs set list =
 
 
 (* Source of a state variable *)
+type gen_metadata =
+  | Plain                    (* Generic generated variable, no extra metadata *)
+  | Discriminant of HString.t (* Discriminant field for some ADT *)
+
 type state_var_source =
 
   (* Input stream *)
@@ -80,8 +84,8 @@ type state_var_source =
   (* Local ghost stream *)
   | Ghost
 
-  (* Invisble Kind 2 ghost stream *)
-  | Generated
+  (* Invisible Kind 2 generated stream *)
+  | Generated of gen_metadata
 
   (* Oracle input stream *)
   | Oracle
@@ -208,7 +212,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * LustreAst.expr) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
 
   (* Contract. *)
   contract : contract option ;
@@ -818,7 +822,7 @@ let pp_print_node_debug ppf
       | (sv, Local) -> p sv "loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
-      | (sv, Generated) -> p sv "gen"
+      | (sv, Generated _) -> p sv "gen"
       | (sv, Oracle) -> p sv "or"
       (* | (sv, Alias (sub, _)) -> p sv (
         Format.asprintf "al(%a)"
@@ -938,24 +942,36 @@ let ordered_equations_of_node { equations } stateful init =
     List.exists (fun ((sv, _), _) -> StateVar.equal_state_vars svar sv) eqs
   in
 
-  let rec loop postponed ordered = function
+  let rec loop made_progress postponed ordered = function
     | eq :: tail ->
       if svars_of eq |> SVS.for_all (is_known ordered) then
         (* We have ordered all the state vars the lhs of the equation mentions.
            Prepending to ordered. *)
-        loop postponed (eq :: ordered) tail
+        loop true postponed (eq :: ordered) tail
       else
         (* We are missing some equations, postponing the ordering of this
            equation. *)
-        loop (eq :: postponed) ordered tail
+        loop made_progress (eq :: postponed) ordered tail
     | [] -> (
       match postponed with
       | [] -> List.rev ordered
-      | _ -> loop [] ordered postponed
+      | _ ->
+        if made_progress then
+          (* At least one equation was ordered in this pass; some of the
+             postponed equations may now be ready, so make another pass. *)
+          loop false [] ordered postponed
+        else
+          (* No equation could be ordered in this pass, meaning the remaining
+             equations depend on state vars that are neither stateful nor
+             defined by any equation (e.g. results of recursive function
+             instances during counterexample reconstruction). There is no
+             valid order for them, so keep them as-is instead of looping
+             forever. *)
+          List.rev_append ordered postponed
     )
   in
 
-  loop [] [] equations
+  loop false [] [] equations
 
 (** Returns the equation for a state variable if any. *)
 let equation_of_svar { equations } svar =
@@ -1451,7 +1467,7 @@ let pp_print_state_var_source ppf = function
   | Local -> Format.fprintf ppf "local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
-  | Generated -> Format.fprintf ppf "invisible (generated)"
+  | Generated _ -> Format.fprintf ppf "invisible (generated)"
   (* | Alias (sv, _) ->
     Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv *)
 
@@ -1529,7 +1545,7 @@ let state_var_is_visible node =
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Oracle
-    | Generated -> false
+    | Generated _ -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
