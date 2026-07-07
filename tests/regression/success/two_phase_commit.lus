@@ -111,11 +111,11 @@ let
   frame (sentMsgs)
     sentMsgs = {}@<Message>;
   let
-    if IsSome@<Message>(send) then
-      sentMsgs = prevSentMsgs + {GetValue@<Message>(send)};
+    if IsSome(send) then
+      sentMsgs = prevSentMsgs + {GetValue(send)};
     fi
   tel
-  recv = any { m: Option<Message> | IsSome@<Message>(m) => GetValue@<Message>(m) in prevSentMsgs };
+  recv = any { m: Option<Message> | IsSome(m) => GetValue(m) in prevSentMsgs };
 tel
 
 function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
@@ -135,15 +135,15 @@ node Coordinator(my_turn: bool; nw_recv: Option<Message>)
 var sender: HostId;
     vote: Vote;
 let
-  sender = GetMsgSender(GetValue@<Message>(nw_recv));
-  vote = GetMsgVote(GetValue@<Message>(nw_recv));
+  sender = GetMsgSender(GetValue(nw_recv));
+  vote = GetMsgVote(GetValue(nw_recv));
   frame (votes, nw_send, decision)
     decision = None@<Decision>;
     votes = map[]@<HostId,Vote>;
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (IsSome@<Message>(nw_recv) and IsVoteMsg(GetValue@<Message>(nw_recv))) then
+      if (IsSome(nw_recv) and IsVoteMsg(GetValue(nw_recv))) then
         votes = map[]@<HostId,Vote> -> (pre votes)[sender := vote];
         if AllVotesCollected(votes) then
           decision = Some(GetDecision(votes));
@@ -172,13 +172,13 @@ let
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (IsSome@<Message>(nw_recv) and IsVoteReqMsg(GetValue@<Message>(nw_recv))) then
+      if (IsSome(nw_recv) and IsVoteReqMsg(GetValue(nw_recv))) then
         nw_send = Some(VoteMsg(id, Preference[id]));
         if Preference[id] = No then
           decision = Some(Abort);
         fi
-      elsif (IsSome@<Message>(nw_recv) and IsDecisionMsg(GetValue@<Message>(nw_recv))) then
-        decision = Some(GetMsgDecision(GetValue@<Message>(nw_recv)));
+      elsif (IsSome(nw_recv) and IsDecisionMsg(GetValue(nw_recv))) then
+        decision = Some(GetMsgDecision(GetValue(nw_recv)));
         nw_send = None@<Message>;
       else
         nw_send = None@<Message>;
@@ -198,7 +198,7 @@ function imported AllWithDecisionAgreeWithThisOne(
 );
 (*@contract
   guarantee r = (
-    (IsSome@<Decision>(coord_decision) => GetValue@<Decision>(coord_decision) = decision) and
+    (IsSome(coord_decision) => GetValue(coord_decision) = decision) and
     (forall (i: HostId) i in partic_decision => partic_decision[i] = decision)
   );
 *)
@@ -245,10 +245,10 @@ let
     Participant(tk_holder.class = Participant, tk_holder.id, network_recv);
 
   partic_decision = map[]@<HostId,Decision> ->
-    if tk_holder.class = Coordinator or not IsSome@<Decision>(decision_id) then
+    if tk_holder.class = Coordinator or not IsSome(decision_id) then
       pre partic_decision
     else
-      (pre partic_decision)[tk_holder.id := GetValue@<Decision>(decision_id)];
+      (pre partic_decision)[tk_holder.id := GetValue(decision_id)];
 
   if tk_holder.class = Coordinator then
     network_send = coord_send;
@@ -274,10 +274,10 @@ let
       GetDecision(votes) = GetMsgDecision(msg));
 
   check "Participant Commit Decision Agree With Decision Msg"
-    IsSome@<Decision>(decision_id) and GetValue@<Decision>(decision_id) = Commit =>
+    IsSome(decision_id) and GetValue(decision_id) = Commit =>
       DecisionMsg(Commit) in sentMsgs;
 
   check "Participant Decision Agree With Participant Preferences"
-    ((forall (idx: HostId) Preference[idx]=Yes) and IsSome@<Decision>(decision_id)) =>
-      GetValue@<Decision>(decision_id) = Commit;
+    ((forall (idx: HostId) Preference[idx]=Yes) and IsSome(decision_id)) =>
+      GetValue(decision_id) = Commit;
 tel

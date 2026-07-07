@@ -517,6 +517,28 @@ let rec rewrite_as_adt_terms adt_map expr =
     | LA.SetIndex (p, e) -> LA.SetIndex (p, r e)
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
   in
+  (* Rewrite a desugared type back toward its source-level named form so that,
+     e.g., a quantifier over an ADT prints as "Message" rather than the inline
+     record definition, and an enum prints by its declared type name.  Record
+     and enum types always carry their declared type name, so a bare UserType
+     with that name renders correctly. *)
+  let rec rewrite_type ty =
+    match ty with
+    | LA.RecordType (pos, name, _) -> LA.UserType (pos, [], name)
+    | LA.EnumType (pos, name, _) -> LA.UserType (pos, [], name)
+    | LA.UserType (pos, args, name) ->
+      LA.UserType (pos, List.map rewrite_type args, name)
+    | LA.TupleType (pos, ts) -> LA.TupleType (pos, List.map rewrite_type ts)
+    | LA.GroupType (pos, ts) -> LA.GroupType (pos, List.map rewrite_type ts)
+    | LA.ArrayType (pos, (t, e)) -> LA.ArrayType (pos, (rewrite_type t, r e))
+    | LA.TArr (pos, t1, t2) -> LA.TArr (pos, rewrite_type t1, rewrite_type t2)
+    | LA.Map (pos, kt, vt) -> LA.Map (pos, rewrite_type kt, rewrite_type vt)
+    | LA.Set (pos, t) -> LA.Set (pos, rewrite_type t)
+    | LA.RefinementType (pos, (p2, id, t), e) ->
+      LA.RefinementType (pos, (p2, id, rewrite_type t), r e)
+    | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+    | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
+  in
   match expr with
   | LA.RecordExpr (pos, type_name, [], fields) when HStringMap.mem type_name adt_map ->
     let info = HStringMap.find type_name adt_map in
@@ -550,14 +572,17 @@ let rec rewrite_as_adt_terms adt_map expr =
   | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
-  | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, ty)
-  | LA.Call (p, ty_args, id, es) -> LA.Call (p, ty_args, id, rlist es)
+  | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, rewrite_type ty)
+  | LA.Call (p, ty_args, id, es) ->
+    LA.Call (p, List.map rewrite_type ty_args, id, rlist es)
   | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
   | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
   | LA.Condact (p, e1, e2, id, es1, es2) ->
     LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
-  | LA.Quantifier (p, k, idents, e) -> LA.Quantifier (p, k, idents, r e)
+  | LA.Quantifier (p, k, idents, e) ->
+    let idents = List.map (fun (ip, id, ty) -> (ip, id, rewrite_type ty)) idents in
+    LA.Quantifier (p, k, idents, r e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
   | LA.ADTTerm _ | LA.Match _ -> expr
