@@ -2,7 +2,7 @@
 type Nat = subrange [0,*] of int;
 type Pos = subrange [1,*] of int;
 
-datatype Option<T> = Some (T) | None;
+datatype Option<T> = Some (s1: T) | None;
 
 transparent function IsSome<T>(o: Option<T>) returns (r: bool);
 let
@@ -47,8 +47,8 @@ const Preference : subtype { m : map<HostId,Vote> | forall (h:HostId) h in m };
 
 datatype Message =
   | VoteReqMsg
-  | VoteMsg (HostId, Vote)
-  | DecisionMsg (Decision);
+  | VoteMsg (s2: HostId, s3: Vote)
+  | DecisionMsg (s4: Decision);
 
 function IsVoteReqMsg(m: Message) returns (r: bool);
 let
