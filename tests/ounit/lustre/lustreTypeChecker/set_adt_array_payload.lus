@@ -1,0 +1,5 @@
+const N: int = 3;
+datatype D = Vec (int^N) | Empty;
+node main() returns (ok: bool);
+var s: set<D>;
+let s = {}@<D>; ok = true; check ok; tel

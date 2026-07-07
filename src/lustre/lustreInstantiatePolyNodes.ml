@@ -132,6 +132,7 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   let pp_print_ty_arg ppf = function
     | A.RecordType (_, n, _) -> HString.pp_print_hstring ppf n
     | A.ADT (_, n, _) -> HString.pp_print_hstring ppf n
+    | A.EnumType (_, n, _) -> HString.pp_print_hstring ppf n
     | ty -> A.pp_print_lustre_type ppf ty
   in
   let user_name = Format.asprintf
