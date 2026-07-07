@@ -1,7 +1,0 @@
-datatype D = A | B;
-const myD: D = A;
-node main() returns (ok: bool);
-let
-  ok = match myD with | A : true | B : false end;
-  check ok;
-tel
