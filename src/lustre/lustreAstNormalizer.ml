@@ -216,7 +216,8 @@ let pp_print_generated_identifiers ppf gids =
     | Local -> "local"
     | Input -> "input"
     | Output -> "output"
-    | Ghost -> "ghost")
+    | Ghost -> "ghost"
+    | ClockedOutput _ -> "clocked output")
   in
   let pp_print_refinement_type_constraint ppf (source, pos, id, rexpr, _) =
     Format.fprintf ppf "(%a, %a, %a, %a)"
@@ -1150,6 +1151,27 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
       | Some Ghost -> 
         let nexpr, gids, warnings = normalize_expr info (Some node_id) gids_map expr in
         gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
+      (* Equation pulled out of a when-block branch: normalize it under the
+         when-block guard so that node calls are activated on that clock, as
+         they would have been had the call remained inside the branch. *)
+      | Some (ClockedOutput guard) ->
+        let info =
+          { info with context = ctx; interpretation = StringMap.empty; contract_scope = [] }
+        in
+        let nguard, gids0, warnings0 =
+          normalize_expr info (Some node_id) gids_map guard
+        in
+        let info = { info with call_context = nguard :: info.call_context } in
+        let neq, gids, warnings =
+          normalize_equation info node_id gids_map (A.Equation (Lib.dummy_pos, lhs, expr))
+        in
+        let nexpr =
+          match neq with
+          | A.Equation (_, _, nexpr) -> nexpr
+          | _ -> assert false
+        in
+        union gids0 gids, warnings0 @ warnings,
+        (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
       | Some _ -> 
         let info =
           { info with context = ctx; interpretation = StringMap.empty; contract_scope = [] }

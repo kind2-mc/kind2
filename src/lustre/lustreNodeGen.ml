@@ -3001,7 +3001,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let constraint_kind, generated_source = match source with
       | GI.Input -> Some N.Assumption, None
       | Local -> None, Some Property.Body
-      | Output -> Some N.Guarantee, None
+      | Output | ClockedOutput _ -> Some N.Guarantee, None
       | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
     in
     let name = create_constraint_name_pos pos in

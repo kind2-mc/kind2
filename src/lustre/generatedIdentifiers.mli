@@ -23,7 +23,15 @@
 module StringMap = HString.HStringMap
 module StringSet = HString.HStringSet
 
-type source = Local | Input | Output | Ghost
+type source =
+  | Local
+  | Input
+  | Output
+  | Ghost
+  | ClockedOutput of LustreAst.expr
+  (** Output of an equation pulled out of a when-block branch; the expression is
+      the (polarity-adjusted) conjunction of the enclosing when-block guards.
+      Node calls in such an equation must be activated on that clock. *)
 
 type t = {
   node_args : (HString.t (* abstracted variable name *)
