@@ -39,9 +39,11 @@ install:
 
 kind2-doc:
 	@dune build @doc-private
-	@dune build @copy
+	@rm -rf $(LOCAL_DOCDIR)
 	@mkdir -p $(LOCAL_DOCDIR)
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
+	@chmod -R u+w $(LOCAL_DOCDIR)
+	@$(CURDIR)/src/doc/copy.sh $(LOCAL_DOCDIR)
 
 test: build
 	@dune build @runtest
