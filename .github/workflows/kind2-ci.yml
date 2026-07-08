@@ -80,6 +80,12 @@ jobs:
         pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
         make doc
 
+    - name: Build developer documentation
+      if: runner.os == 'Linux'
+      run: |
+        opam install -y odoc
+        opam exec make kind2-doc
+
     - name: Upload kind2 artifact
       if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
       uses: actions/upload-artifact@v7
