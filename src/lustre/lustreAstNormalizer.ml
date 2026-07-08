@@ -447,11 +447,11 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
          if the constructor is selected *)
       (match LDAT.HStringMap.find_opt rname adt_map with
       | Some adt_info ->
-        let tag_expr = A.RecordProject (dpos, expr, adt_info.LDAT.disc_field) in
+        let tag_expr = A.FieldProject (dpos, expr, adt_info.LDAT.disc_field, None) in
         List.concat_map (fun (_, fname, ftype) ->
           if not (Ctx.type_contains_enum ctx ftype) then []
           else
-            let constraints = mk ctx n ftype (A.RecordProject (dpos, expr, fname)) in
+            let constraints = mk ctx n ftype (A.FieldProject (dpos, expr, fname, None)) in
             if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
             else
               let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
@@ -465,7 +465,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
                 List.map (fun (c, is_orig) -> A.BinaryOp (dpos, A.Impl, guard, c), is_orig) constraints
         ) tys
       | None ->
-        let mk_proj i = A.RecordProject (dpos, expr, i) in
+        let mk_proj i = A.FieldProject (dpos, expr, i, None) in
         let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum ctx ty) tys in
         let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
         List.fold_left (@) [] tys)
@@ -551,9 +551,9 @@ and mk_ref_type_expr
        if the constructor is selected *)
     (match LDAT.HStringMap.find_opt rname adt_map with
     | Some adt_info ->
-      let tag_expr = A.RecordProject (p, expr, adt_info.LDAT.disc_field) in
+      let tag_expr = A.FieldProject (p, expr, adt_info.LDAT.disc_field, None) in
       List.concat_map (fun (_, fname, ftype) ->
-        let fexpr = A.RecordProject (p, expr, fname) in
+        let fexpr = A.FieldProject (p, expr, fname, None) in
         let constraints = mk_ref_type_expr adt_map ctx node_id fexpr ftype in
         if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
         else
@@ -569,7 +569,7 @@ and mk_ref_type_expr
       ) tis
     | None ->
       List.map (fun (_, id2, ty) ->
-        let expr = A.RecordProject (p, expr, id2) in
+        let expr = A.FieldProject (p, expr, id2, None) in
         mk_ref_type_expr adt_map ctx node_id expr ty
       ) tis |> List.flatten)
   | ArrayType (_, (ty, len)) -> 
@@ -892,9 +892,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   )
   | Last _ -> StringSet.empty, expr
   | ModeRef _ -> StringSet.empty, expr
-  | RecordProject (pos, e, idx) ->
+  | FieldProject (pos, e, idx, ty_opt) ->
     let vars, e' = r map e in
-    vars, RecordProject (pos, e', idx)
+    vars, FieldProject (pos, e', idx, ty_opt)
   | Const _ -> StringSet.empty, expr
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
@@ -999,6 +999,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
     vars, ADTTerm (pos, ty_args, ctor, args')
+  | ADTTester (pos, e, c) ->
+    let vars, e' = r map e in
+    vars, ADTTester (pos, e', c)
 
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
@@ -2338,9 +2341,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
     nexpr, gids, warnings1 @ warnings2 
 
-  | RecordProject (pos, expr, i) ->
+  | FieldProject (pos, expr, i, ty_opt) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    RecordProject (pos, nexpr, i), gids, warnings
+    FieldProject (pos, nexpr, i, ty_opt), gids, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
@@ -2545,12 +2548,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       normalize_list (normalize_expr ?guard info node_id map) args
     in
     A.ADTTerm (pos, ty_args, ctor, nargs), gids, warnings
-  | A.Match (pos, scrut, arms, scrut_ty_opt) -> assert false
+  | A.ADTTester (pos, e, c) ->
+    let ne, gids, warnings = normalize_expr ?guard info node_id map e in
+    A.ADTTester (pos, ne, c), gids, warnings
+  | A.Match _ -> assert false
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
   match expr with
-  | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
+  | A.FieldProject (p, e, i, ty_opt) -> A.FieldProject (p, r e, i, ty_opt)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)
@@ -2644,12 +2650,15 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | ADT (p, name, constructors) -> 
-    let constructors, gids, warnings = List.map (fun (cname, tys) ->
-      let tys, gids, warnings = List.map (normalize_ty ~guard ~id info node_id map) tys |> Lib.split3 in
+  | ADT (p, name, constructors) ->
+    let constructors, gids, warnings = List.map (fun (cname, fields) ->
+      let fields, gids, warnings = List.map (fun (fname, ty) ->
+        let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in
+        (fname, ty), gids, warnings
+      ) fields |> Lib.split3 in
       let gids = List.fold_left union (empty ()) gids in
       let warnings = List.concat warnings in
-      (cname, tys), gids, warnings
+      (cname, fields), gids, warnings
     ) constructors |> Lib.split3 in
     let gids = List.fold_left union (empty ()) gids in
     let warnings = List.concat warnings in

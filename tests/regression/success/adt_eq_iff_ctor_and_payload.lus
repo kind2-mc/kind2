@@ -1,4 +1,4 @@
-datatype Shape = Circle (real) | Rect (real, real);
+datatype Shape = Circle (radius: real) | Rect (width: real, height: real);
 
 node main(s1, s2: Shape) returns (ok: bool);
 let

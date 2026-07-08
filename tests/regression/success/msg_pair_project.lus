@@ -1,4 +1,4 @@
-datatype Msg = Atomic (int) | Enc (Msg, Msg) | Pair (Msg, Msg);
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg) | Pair (s4: Msg, s5: Msg);
 
 node main(m1: Msg; m2: Msg) returns (ok: bool);
 var m: Msg;

@@ -313,12 +313,12 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, RefinementType (p, (p2, id, ty), expr), decls1 @ decls2, node_decls_map
   | ADT (p, id, cons) ->
-    let ctx, gids, cons, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_cons, acc_decls, acc_node_decls_map) (cname, tys) ->
-      let ctx, gids, tys, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_tys, acc_decls, acc_node_decls_map) ty ->
+    let ctx, gids, cons, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_cons, acc_decls, acc_node_decls_map) (cname, fields) ->
+      let ctx, gids, fields, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_fields, acc_decls, acc_node_decls_map) (fname, ty) ->
         let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids node_id acc_node_decls_map ty in
-        ctx, gids, acc_tys @ [ty], decls @ acc_decls, node_decls_map
-      ) (ctx, gids, [], acc_decls, acc_node_decls_map) tys in
-      ctx, gids, acc_cons @ [(cname, tys)], decls, node_decls_map
+        ctx, gids, acc_fields @ [(fname, ty)], decls @ acc_decls, node_decls_map
+      ) (ctx, gids, [], acc_decls, acc_node_decls_map) fields in
+      ctx, gids, acc_cons @ [(cname, fields)], decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) cons in
     ctx, gids, ADT (p, id, cons), decls, node_decls_map
   | Bool _ | Int _ | Real _ | UserType _
@@ -399,9 +399,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
-  | RecordProject (p, expr, id) ->
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, RecordProject (p, expr, id), decls, node_decls_map
+  | FieldProject (p, expr, id, ty_opt) ->
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in
+    ctx, gids, FieldProject (p, expr, id, ty_opt), decls, node_decls_map
   | ConvOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, ConvOp (p, op, expr), decls, node_decls_map
@@ -541,6 +541,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_args @ [arg], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) args in
     ctx, gids, ADTTerm (p, ty_args, ctor, args), decls, node_decls_map
+  | ADTTester (p, e, c) ->
+    let ctx, gids, e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
+    ctx, gids, ADTTester (p, e, c), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 
@@ -797,8 +800,8 @@ let rec collect_poly_adt_uses_ty ctx acc ty =
   | A.Set (_, ty) -> collect_poly_adt_uses_ty ctx acc ty
   | A.RefinementType (_, (_, _, ty), _) -> collect_poly_adt_uses_ty ctx acc ty
   | A.ADT (_, _, ctors) ->
-    List.fold_left (fun acc (_, fld_tys) ->
-      List.fold_left (collect_poly_adt_uses_ty ctx) acc fld_tys) acc ctors
+    List.fold_left (fun acc (_, fields) ->
+      List.fold_left (fun acc (_, ty) -> collect_poly_adt_uses_ty ctx acc ty) acc fields) acc ctors
   | _ -> acc
 
 let rec collect_poly_adt_uses_expr ctx acc expr =
@@ -820,7 +823,7 @@ let rec collect_poly_adt_uses_expr ctx acc expr =
   | A.EmptySet (_, Some ty) -> rt acc ty
   | A.EmptyMap (_, None) | A.EmptySet (_, None)
   | A.Ident _ | A.ModeRef _ | A.Const _ -> acc
-  | A.RecordProject (_, e, _) | A.UnaryOp (_, _, e) | A.ConvOp (_, _, e)
+  | A.FieldProject (_, e, _, _) | A.UnaryOp (_, _, e) | A.ConvOp (_, _, e)
   | A.Pre (_, e) | A.When (_, e, _) | A.Extract (_, e, _, _) -> re acc e
   | A.BinaryOp (_, _, e1, e2) | A.CompOp (_, _, e1, e2)
   | A.Arrow (_, e1, e2) | A.ArrayConstr (_, e1, e2)
@@ -839,6 +842,7 @@ let rec collect_poly_adt_uses_expr ctx acc expr =
   | A.Match (_, e, arms, ty_opt) ->
     let acc = List.fold_left (fun acc (_, arm_e) -> re acc arm_e) (re acc e) arms in
     (match ty_opt with Some ty -> rt acc ty | None -> acc)
+  | A.ADTTester (_, e, _) -> re acc e
   | A.Last _ -> acc
 
 let collect_poly_adt_uses_node_item ctx acc ni =
@@ -937,14 +941,14 @@ let instantiate_polymorphic_adts ctx decls =
         let sigma = List.combine ty_vars ty_args in
         let concrete_ctors = match Ctx.lookup_ty_syn ctx id [] with
           | Some (A.ADT (_, _, ctors)) ->
-            List.map (fun (ctor, fld_tys) ->
-              ctor, List.map (LH.apply_type_subst_in_type sigma) fld_tys) ctors
+            List.map (fun (ctor, fields) ->
+              ctor, List.map (fun (fname, ty) -> (fname, LH.apply_type_subst_in_type sigma ty)) fields) ctors
           | _ -> assert false
         in
         (* Build the concrete record type. Field types that are themselves polymorphic
            ADT uses (e.g., UserType([Int],"Opt") for Opt<Opt<int>>) are kept in their
            original UserType form; compile_ast_type resolves them via the mono key. *)
-        let adt_info = LDAT.build_adt_info id [] concrete_ctors in
+        let adt_info = LDAT.build_adt_info id [] concrete_ctors ~is_recursive:false in
         let record_ty = match LDAT.record_type_of_adt pos adt_info with
           | A.RecordType (p, _, fields) -> A.RecordType (p, mono_name, fields)
           | _ -> assert false

@@ -154,8 +154,8 @@ let rec unannot_pos = function
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
   | A.Map (_, ty1, ty2) -> Map (dpos, unannot_pos ty1, unannot_pos ty2)
   | A.Set (_, ty) -> Set (dpos, unannot_pos ty)
-  | A.ADT (_, id, cons) -> 
-    A.ADT (dpos, id, List.map (fun (id, tys) -> id, List.map unannot_pos tys) cons)
+  | A.ADT (_, id, cons) ->
+    A.ADT (dpos, id, List.map (fun (id, flds) -> id, List.map (fun (fn, ty) -> fn, unannot_pos ty) flds) cons)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -231,7 +231,7 @@ let nodes_input_types = Hashtbl.create 10
 let rec minimize_node_call_args ue lst expr =
   let minimize_arg ident i arg =
     match arg with
-    | A.Ident _ | A.ModeRef _ | A.RecordProject _ -> arg
+    | A.Ident _ | A.ModeRef _ | A.FieldProject _ -> arg
     | _ ->
       let t = Hashtbl.find nodes_input_types ident |> (fun lst -> List.nth lst i) in
       let (_, expr) = minimize_expr ue lst [t] arg in
@@ -243,7 +243,7 @@ let rec minimize_node_call_args ue lst expr =
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
-    | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
+    | A.FieldProject (p,e,i,ty_opt) -> A.FieldProject (p,aux e,i,ty_opt)
     | A.StructUpdate (p,e1,ls,Some e2) -> A.StructUpdate (p,aux e1,ls,Some (aux e2))
     | A.StructUpdate (p,e1,ls,None) -> A.StructUpdate (p,aux e1,ls,None)
     | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
@@ -275,6 +275,7 @@ let rec minimize_node_call_args ue lst expr =
       A.Match (p, aux e, List.map (fun (pat, arm_e) -> (pat, aux arm_e)) arms, ty_opt)
     | A.ADTTerm (p, ty_args, ctor, args) ->
       A.ADTTerm (p, ty_args, ctor, List.map aux args)
+    | A.ADTTester (p, e, c) -> A.ADTTester (p, aux e, c)
   in aux expr
 
 and ast_contains p ast =
@@ -286,7 +287,7 @@ and ast_contains p ast =
     | A.Call (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
-    | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
+    | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.FieldProject (_,e,_,_)
       | A.Quantifier (_,_,_,e)
       | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
@@ -317,6 +318,7 @@ and ast_contains p ast =
       aux e || List.exists (fun (_,arm_e) -> aux arm_e) arms
     | A.ADTTerm (_,_,_,args) ->
       List.exists aux args
+    | A.ADTTester (_, e, _) -> aux e
   in
   aux ast
 

@@ -1,0 +1,9 @@
+datatype Shape = Circle (radius: real) | Rect (width: real, height: real);
+
+node main(w: real; h: real) returns (ok: bool);
+var s: Shape;
+let
+  s = Rect(w, h);
+  ok = s.width = w and s.height = h;
+  check ok;
+tel

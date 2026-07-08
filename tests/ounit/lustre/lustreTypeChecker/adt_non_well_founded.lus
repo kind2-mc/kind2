@@ -1,4 +1,4 @@
-datatype M = C (M);
+datatype M = C (s1: M);
 
 node n (x: M) returns (y: M);
 let

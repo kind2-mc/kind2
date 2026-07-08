@@ -1,6 +1,6 @@
 type Vote = enum {Yes, No};
 type Pair = struct { v: Vote };
-datatype Message = VoteReqMsg | VoteMsg (Pair) | DecisionMsg (bool);
+datatype Message = VoteReqMsg | VoteMsg (s1: Pair) | DecisionMsg (s2: bool);
 
 function IsDecisionMsg(m: Message) returns (r: bool);
 let r = match m with | DecisionMsg(_) : true | _ : false end; tel

@@ -153,7 +153,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | ModeRef _ -> empty_
   | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
-  | RecordProject (_, e, _) -> r e
+  | FieldProject (_, e, _, _) -> r e
   (* Values *)
   | Const _ -> empty_
   (* Operators *)
@@ -255,6 +255,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
     graph
   | ADTTerm (_, _, _, args) ->
     args |> (List.map r) |> (List.fold_left union_ empty_)
+  | ADTTester (_, e, _) -> r e
 
 let extract_unknown ids =
   let unknowns =

@@ -1,4 +1,4 @@
-datatype D = A (int) | B (bool);
+datatype D = A (s1: int) | B (s2: bool);
 
 node main(n: int) returns (ok: bool);
 var s: set<D>;

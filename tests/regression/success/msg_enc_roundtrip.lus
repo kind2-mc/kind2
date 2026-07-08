@@ -1,5 +1,5 @@
-datatype Msg = Atomic (int) | Enc (Msg, Msg) | Pair (Msg, Msg);
-datatype Option<T> = None | Some (T);
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg) | Pair (s4: Msg, s5: Msg);
+datatype Option<T> = None | Some (s1: T);
 
 function dec(m, k: Msg) returns (out: Option<Msg>)
 let

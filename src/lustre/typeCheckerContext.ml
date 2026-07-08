@@ -577,7 +577,7 @@ let rec arity_of_expr ty_ctx = function
     o
   | Pre (_, e) -> arity_of_expr ty_ctx e
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
-  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
+  | FieldProject (_, e, _, _) -> arity_of_expr ty_ctx e
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
   | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
@@ -721,7 +721,7 @@ let type_contains_enum ctx ty =
       | Some ty -> aux (SI.add id seen) ty
       | None -> false)
     | ADT (_, _, cons) ->
-      let tys = List.concat_map snd cons in
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       List.fold_left (fun acc ty -> acc || aux seen ty) false tys
     | Bool _ | Int _ | Real _
     | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -749,7 +749,7 @@ let type_contains_ref ctx ty =
       | Some ty -> aux (SI.add id seen) ty
       | None -> false)
     | ADT (_, _, cons) ->
-      let tys = List.concat_map snd cons in
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       List.fold_left (fun acc ty -> acc || aux seen ty) false tys
     | Bool _ | Int _ | Real _ | EnumType _ 
     | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -779,7 +779,7 @@ let rec type_contains_enum_reftype ctx = function
     | None -> assert false
   )
   | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_enum_reftype ctx ty) false tys
   | Bool _ | Int _ | Real _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -806,7 +806,7 @@ let rec type_contains_abstract ctx = function
     | Some ty -> type_contains_abstract ctx ty
     | _ -> assert false)
   | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -833,7 +833,7 @@ let rec type_contains_map_or_set ctx = function
     | None -> false
   )
   | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_map_or_set ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _ 
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -860,7 +860,7 @@ let rec type_contains_array ctx = function
     | None -> false
   )
   | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
   | Bool _ | Int _ | Real _ | EnumType _
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
@@ -889,7 +889,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   )
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> SI.empty
-  | RecordProject (_, e, _) -> call e
+  | FieldProject (_, e, _, _) -> call e
   | TypeAscription (_, e, ty) ->
     SI.union (call e) (ty_vars_of_type ctx node_name ty)
   (* Values *)
@@ -925,6 +925,7 @@ let rec ty_vars_of_expr ctx node_name expr =
     SI.union
       (SI.flatten (List.map call args))
       (SI.flatten (List.map (ty_vars_of_type ctx node_name) ty_args))
+  | LA.ADTTester (_, e, _) -> call e
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
@@ -958,7 +959,7 @@ and ty_vars_of_type ctx node_name ty =
       else SI.empty
   )
   | ADT (_, _, cons) ->
-    let tys = List.concat_map snd cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> SI.union acc (ty_vars_of_type ctx node_name ty)) SI.empty tys
   | History _ | Int _ | Bool _ | Real _  | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
@@ -980,7 +981,7 @@ let rec expr_contains_node_call ctx expr =
   | EmptyMap (_, Some (kt, vt)) ->
     LH.fold_lustre_ty r false (||) kt || 
     LH.fold_lustre_ty r false (||) vt
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
@@ -1008,4 +1009,5 @@ let rec expr_contains_node_call ctx expr =
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
     || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
+  | LA.ADTTester (_, e, _) -> r e
 

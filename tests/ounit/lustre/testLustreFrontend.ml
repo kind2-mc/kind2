@@ -859,21 +859,49 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
     | _ -> false);
-  mk_test "test unequal match arm types" (fun () ->
-    match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
-    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
-    | _ -> false);
-  mk_test "test unbound ADT constructor in term position" (fun () ->
-    match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
-    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
-    | _ -> false);
-  mk_test "test ADT constructor arity mismatch in term position" (fun () ->
-    match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
-    | _ -> false);
   mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
+  mk_test "test duplicate field name across constructors of same ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
+    | _ -> false);
+  (*!!mk_test "test refinement type with ADT bound variable is unsupported" (fun () ->
+    match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
+    | Error (`LustreFlattenRefinementTypesError (_, ADTBoundVariable)) -> true
+    | _ -> false);*)
+  mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name clashes with global constant (ADT before const)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const_reversed.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows node name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows function name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_function_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test undeclared type in ADT constructor argument" (fun () ->
+    match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test unbound ADT constructor in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unbound_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test match scrutinee is not an ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
     | _ -> false);
   (*!!mk_test "test refinement type with ADT bound variable is unsupported" (fun () ->
     match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
@@ -927,10 +955,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
     | _ -> false);
-  mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
-    match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
-    | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
-    | _ -> false);
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
@@ -950,6 +974,30 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test ADT tester type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT selector type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test polymorphic ADT: same field name works for two monomorphizations" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_selector_same_field.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT tester with non-existent constructor" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_unbound_ctor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector with unknown field name" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_unknown_field.lus" with
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector on non-ADT type" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
     | _ -> false);
 ])
 

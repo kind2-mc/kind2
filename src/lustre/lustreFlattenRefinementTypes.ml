@@ -73,9 +73,9 @@ let rec flatten_ref_type ctx ty = match ty with
       let cons = chase_refinements ty2 in
       (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
     | RecordType (_, _, tis) ->
-      List.map (fun (_, id2, ty) ->
-        let exprs = chase_refinements ty in
-        List.map (AH.substitute_naive id (A.RecordProject(pos, Ident(pos, id), id2))) exprs
+      List.map (fun (_, id2, ty) -> 
+        let exprs = chase_refinements ty in 
+        List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, None))) exprs
       ) tis |> List.flatten
     | TupleType (pos, tys) | GroupType (pos, tys) ->
       List.mapi (fun i ty ->
@@ -147,7 +147,7 @@ let rec flatten_ref_type ctx ty = match ty with
       | _ -> assert false)
   | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _ 
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ty
-  | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
+  | ADT _ -> (*!! TODO *) Ok ty
 
 let flatten_ref_types_local_decl ctx = function
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -183,9 +183,9 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
   (* Everything else *)
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> Ok e
-  | RecordProject (p, e, i) -> 
+  | FieldProject (p, e, i, ty_opt) -> 
     let* e = rc e in
-    Ok (RecordProject (p, e, i))
+    Ok (FieldProject (p, e, i, ty_opt))
   | Const _ as e -> Ok e
   | UnaryOp (p, op, e) -> 
     let* e = rc e in
@@ -257,6 +257,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
   | ADTTerm (p, ty_args, ctor, args) ->
     let* ty_args = Res.seq (List.map (flatten_ref_type ctx) ty_args) in
     let* args = Res.seq (List.map rc args) in Ok (ADTTerm (p, ty_args, ctor, args))
+  | ADTTester _ -> assert false
 
 let flatten_ref_types_item ctx item =
   match item with

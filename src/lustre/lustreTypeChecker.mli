@@ -33,7 +33,7 @@ type error_kind = Unknown of string
   | NotAFieldOfRecord of HString.t
   | AssumptionOnCurrentOutput of HString.t
   | NoValueForRecordField of HString.t
-  | IlltypedRecordProjection of tc_type
+  | IlltypedFieldProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
   | NonConcreteTupleProjection of LA.expr 
@@ -110,6 +110,7 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
+  | DuplicateFieldName of HString.t * HString.t * HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind

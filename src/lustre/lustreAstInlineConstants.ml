@@ -95,7 +95,7 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   function
   | Const _ -> true
   | RecordExpr (_, _, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
-  | RecordProject (_, e, _) -> is_normal_form ctx e
+  | FieldProject (_, e, _, _) -> is_normal_form ctx e
   | _ -> false
 (** is the expression in a normal form? *)
          
@@ -242,7 +242,7 @@ and push_pre is_guarded pos =
   | ModeRef _ as e -> LA.Pre (pos, e)
   | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
-  | RecordProject (p, e, i) -> RecordProject (p, r e, i)
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, r e, i, ty_opt)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
@@ -294,6 +294,7 @@ and push_pre is_guarded pos =
     Match (p, r e, arms', ty_opt)
   | ADTTerm (p, ty_args, ctor, args) ->
     ADTTerm (p, ty_args, ctor, List.map r args)
+  | ADTTester (p, e, c) -> ADTTester (p, r e, c)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function
@@ -406,8 +407,8 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) lois in 
     let e_opt = Option.map (simplify_expr ~ind_vars ~is_guarded ctx) e_opt in
     StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
-  | RecordProject (p, e, id) -> 
-    RecordProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id)
+  | FieldProject (p, e, id, ty_opt) ->
+    FieldProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id, ty_opt)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
@@ -443,8 +444,8 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     RefinementType (pos, (pos2, id, ty'), expr')
     
   | ADT (pos, name, cons) ->
-    let cons' = List.map (fun (ctor, tys) ->
-        (ctor, List.map (inline_constants_of_lustre_type ~ind_vars ctx) tys)) cons in
+    let cons' = List.map (fun (ctor, flds) ->
+        (ctor, List.map (fun (fn, ty) -> fn, inline_constants_of_lustre_type ~ind_vars ctx ty) flds)) cons in
     ADT (pos, name, cons')
   | History _ | Int _ | Bool _ | Real _
   | UserType _ | AbstractType _ | EnumType _ | SBitVector _ | UBitVector _ -> ty

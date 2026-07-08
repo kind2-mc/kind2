@@ -2,7 +2,7 @@
 type Positive = subtype { x: int | x > 0 };
 
 --datatype Event<T> = Absent | Present (T);
-datatype Event = Absent | Present (Positive);
+datatype Event = Absent | Present (val: Positive);
 
 --node Top(e: Event<Positive>)
 node Top(e: Event)

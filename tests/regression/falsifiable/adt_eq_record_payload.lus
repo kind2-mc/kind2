@@ -1,5 +1,5 @@
 type Point = { x: int; y: int };
-datatype Shape = Pt (Point) | None;
+datatype Shape = Pt (val: Point) | None;
 
 node main(p1, p2: Point) returns (ok: bool);
 var a, b: Shape;

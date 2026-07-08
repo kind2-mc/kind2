@@ -1,4 +1,4 @@
-datatype Opt<T> = Absent | Present (T);
+datatype Opt<T> = Absent | Present (val: T);
 
 node main(i: int) returns (ok: bool);
 var inner: Opt<int>;

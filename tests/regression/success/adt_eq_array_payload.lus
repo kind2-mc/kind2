@@ -1,5 +1,5 @@
 const N: int = 3;
-datatype D = Vec (int^N) | Empty;
+datatype D = Vec (val: int^N) | Empty;
 
 node main(v: int^N) returns (ok: bool);
 var x, y: D;

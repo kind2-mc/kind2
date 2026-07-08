@@ -1,4 +1,4 @@
-datatype Msg = Atom (int) | Enc (Msg, Msg);
+datatype Msg = Atom (s1: int) | Enc (s2: Msg, s3: Msg);
 
 function IsAtom (m: Msg) returns (r: bool)
 let r = match m with | Atom(_) : true | _ : false end; tel

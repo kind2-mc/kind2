@@ -42,6 +42,7 @@ type adt_info = {
   ctor_variants : HString.t list;
   ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
   all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+  is_recursive : bool;
 }
 
 type adt_map = adt_info HStringMap.t
@@ -49,7 +50,8 @@ type adt_map = adt_info HStringMap.t
 val build_adt_info :
   HString.t ->
   HString.t list ->
-  (HString.t * LustreAst.lustre_type list) list ->
+  (HString.t * (HString.t * LustreAst.lustre_type) list) list ->
+  is_recursive:bool ->
   adt_info
 
 val record_type_of_adt :
