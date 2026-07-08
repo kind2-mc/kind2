@@ -110,8 +110,19 @@ type node_call = {
 
   call_inlined : bool;
   (** Whether this call was inlined or not *)
+
+  call_rec_decrease_expr : string option;
+  (** Source-level rendering of the decrease constraint generated for a
+      recursive call (e.g. ["(n - 1 < n)"]), used as the displayed expression
+      of the corresponding [decrease_check] property. [None] for non-recursive
+      calls or when the source expression could not be reconstructed. *)
 }
 
+
+(** Metadata attached to a [Generated] state variable source *)
+type gen_metadata =
+| Plain                     (** Generic generated variable, no extra metadata *)
+| Discriminant of HString.t (** Discriminant field for some ADT *)
 
 (** Source of a state variable *)
 type state_var_source =
@@ -120,7 +131,7 @@ type state_var_source =
 | Local   (** Declared local variable *)
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
-| Generated  (** Kind 2 invisible generated variable *)
+| Generated of gen_metadata (** Kind 2 invisible generated variable *)
 | Oracle  (** Generated non-deterministic input *)
 (*| Alias of
   StateVar.t * state_var_source option (** Alias for another state variable. *) *)
@@ -146,7 +157,9 @@ type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
 type equation = equation_lhs * LustreExpr.t
 
 type func_info = {
-  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
+  rec_info: (int * LustreExpr.expr list) option;
+  is_lemma: bool;
 }
 
 type type_of_component =
@@ -219,7 +232,7 @@ type t = {
   asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * LustreAst.expr) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
   (** Proof obligations for the node *)
 
   contract : contract option ;
@@ -345,6 +358,9 @@ val node_id_of_node : t -> NI.t
 
 (** Return whether the component is a function *)
 val is_function : t -> bool
+
+(** Return whether the component is a recursive function *)
+val is_recursive : t -> bool
 
 (** [ordered_equations_of_node n stateful init]
     Returns the equations of [n], topologically sorted by their base (step)

@@ -1,0 +1,27 @@
+type Nat = subrange [0,*] of int;
+
+function rec IsEven(n: Nat) returns (e: bool);
+(*@contract
+  guarantee "n is even" e = (n mod 2 = 0);
+  decreases n;
+*)
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+(*@contract
+  guarantee "n is odd" o = (n mod 2 = 1);
+  decreases n;
+*)
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+node Obs(a1,a2: Nat) returns ();
+(*@contract
+  assume IsOdd(a1) and IsOdd(a2);
+*)
+let
+  check IsEven(a1 + a2 + 2);
+tel

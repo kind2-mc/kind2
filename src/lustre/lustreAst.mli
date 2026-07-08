@@ -112,7 +112,9 @@ type group_expr =
 type access_kind = Array | Map | Tuple | Unknown
 
 (** Pattern for match expressions *)
-type pattern = Pat of position * ident * pattern list
+type pattern =
+  | VarPat of position * ident              (** variable binding *)
+  | Pat of position * ident * pattern list  (** constructor pattern *)
 
 (** A Lustre type *)
 type lustre_type =
@@ -120,7 +122,6 @@ type lustre_type =
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
@@ -176,6 +177,9 @@ and expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Previous value of a variable in a frame block (desugared early in the
+     pipeline by LustreDesugarLast) *)
+  | Last of position * ident
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
@@ -263,9 +267,10 @@ type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   | WhenBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
+  | Auto of position (** No-op item, only allowed in the body of a lemma *)
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -295,6 +300,8 @@ type contract_call = position * NI.t * lustre_type list * expr list * ident list
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
 
+type decreases_clause = position * expr
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -304,6 +311,7 @@ type contract_node_equation =
   | Mode of contract_mode
   | ContractCall of contract_call
   | AssumptionVars of contract_assump_vars
+  | Decreases of decreases_clause
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
@@ -364,13 +372,18 @@ type span = {
   end_pos : position;
 }
 
+type func_attrs = {
+  is_rec : bool;
+  is_lemma : bool;
+}
+
 (** A declaration of a type, a constant, a node, a function or an
     instance of a parametric node *)
 type declaration =
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl
+  | FuncDecl of span * node_decl * func_attrs
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 

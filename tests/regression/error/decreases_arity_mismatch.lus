@@ -1,0 +1,22 @@
+-- Two mutually recursive functions whose decrease measures have different
+-- arities (a pair vs. a single value). They cannot be compared
+-- lexicographically against each other, so this must be rejected.
+function rec isEven(m, n: int) returns (r: bool);
+(*@contract
+  assume m >= 0 and n >= 0;
+  guarantee true;
+  decreases m, n;
+*)
+let
+  r = when n <= 0 then true else isOdd(n - 1);
+tel
+
+function rec isOdd(n: int) returns (r: bool);
+(*@contract
+  assume n >= 0;
+  guarantee true;
+  decreases n;
+*)
+let
+  r = when n <= 0 then false else isEven(0, n - 1);
+tel

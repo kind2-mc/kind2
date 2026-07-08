@@ -213,3 +213,7 @@ val pos_of_type: lustre_type -> Lib.position
 (** `pos_of_type ty` returns the position of `ty` *)
 
 val node_id_of_decl: declaration -> NodeId.t option
+
+val is_recursive_function : declaration -> bool
+
+val pat_bound_vars : pattern -> LustreAst.SI.t

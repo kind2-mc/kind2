@@ -79,11 +79,17 @@ module type S = sig
   val mem_vertex: t -> vertex -> bool
   (** returns true if the vertex is in the graph *)
 
+  val has_edge: t -> vertex -> vertex -> bool
+  (** Returns true if there is an edge from the first vertex to the second vertex*)
+
   val get_vertices: t -> vertices
   (** get all vertices in the graph *)
 
   val to_vertex_list: vertices -> vertex list
   (** Returns a list of vertex  *)
+
+  val from_vertex_list: vertex list -> vertices
+  (** Returns a set of vertices from a list of vertex *)
 
   val get_edges: t -> edges
   (** get all edges in the graph *)
@@ -115,6 +121,10 @@ module type S = sig
   val sub_graph: t -> vertices -> t
   (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
+  val extract_cycle: t -> vertex -> vertex list option
+  (** Returns Some list of vertices that form a cycle starting from the given vertex,
+      or None if no such cycle exists *)
+
   val children: t -> vertex -> vertex list
   (** Gets the immediate children of a vertex, those reachable by one edge *)
 
@@ -138,7 +148,12 @@ module type S = sig
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implementation is of this function is based on Kahn's algorithm *)    
+   *  Implementation of this function is based on Kahn's algorithm *)    
+
+  val get_sccs : t -> vertices list
+  (** Computes the strongly connected components (SCCs) of the graph.
+   *  It returns the list of SCCs in topological order.
+   *  Implementation of this function is based on Tarjan's algorithm *)
 
   module VMap : sig
     include (Map.S with type key = vertex)

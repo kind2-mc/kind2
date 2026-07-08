@@ -79,6 +79,8 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
     R.ok (A.Assume (p, id, b, AH.constants_to_calls new_func_ids e))
   | Guarantee (p, id, b, e) -> 
     R.ok (A.Guarantee (p, id, b, AH.constants_to_calls new_func_ids e))
+  | Decreases (p, e) -> 
+    R.ok (A.Decreases (p, AH.constants_to_calls new_func_ids e))
   | Mode (p, id, reqs, enss) -> 
     let reqs = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) reqs in 
     let enss = List.map (fun (p, id, e) -> p, id, AH.constants_to_calls new_func_ids e) enss in 
@@ -114,7 +116,8 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   let nis = List.map (ni_constants_to_calls new_func_ids) nis in 
   A.FrameBlock (p, vars, eqs, nis)
 | A.AnnotMain _ -> ni
-| A.AnnotProperty (p, id, e, k) -> 
+| A.Auto _ -> ni
+| A.AnnotProperty (p, id, e, k) ->
   A.AnnotProperty (p, id, AH.constants_to_calls new_func_ids e, k)
 
 let node_decl_constants_to_calls new_func_ids (ni, imp, opac, ps, ips, ops, locals, nis, c) = 
@@ -148,9 +151,9 @@ let decl_constants_to_calls new_func_ids decl = match decl with
 | A.NodeDecl (s, node_decl) -> 
   let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
   R.ok (A.NodeDecl (s, node_decl))
-| A.FuncDecl (s, node_decl) -> 
+| A.FuncDecl (s, node_decl, is_rec) -> 
   let* node_decl = node_decl_constants_to_calls new_func_ids node_decl in
-  R.ok (A.FuncDecl (s, node_decl))
+  R.ok (A.FuncDecl (s, node_decl, is_rec))
 | A.ContractNodeDecl (p, (id, ps, ips, ops, c)) -> 
   let* ips = R.seq (List.map (fun (p, id, ty, c, b) -> 
     let* ty = ty_constants_to_calls_safe new_func_ids ty in 
@@ -176,8 +179,9 @@ let constants_to_calls new_func_ids decls =
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
 (* Returns true iff the type contains an ADT (algebraic data type). *)
-let rec type_contains_adt ctx ty =
-  let r = type_contains_adt ctx in
+(* Currently unused by module, since ADTs do not (currently) create generated identifiers. *)
+let rec _type_contains_adt ctx ty =
+  let r = _type_contains_adt ctx in
   match ty with
   | A.ADT _ -> true
   | A.UserType (_, tys, name) ->
@@ -194,9 +198,8 @@ let rec type_contains_adt ctx ty =
   | A.RefinementType (_, (_, _, ty), _) -> r ty
   | A.History (_, id) ->
     (match Ctx.lookup_ty ctx id with None -> false | Some ty -> r ty)
-  | A.IntRange _ | A.Bool _ | A.Int _ | A.Real _
+  | A.Bool _ | A.Int _ | A.Real _
   | A.UBitVector _ | A.SBitVector _ | A.AbstractType _ | A.EnumType _ -> false
-
 
 (* Returns true iff the type contains some expression that would induce generated 
    identifiers. In this context, the only ways to induce generated identifiers:
@@ -226,13 +229,6 @@ let rec ty_contains_gids ctx ni ty =
   | A.Map (_, ty1, ty2)
   | A.TArr (_, ty1, ty2) ->
     (r ty1) || (r ty2)
-  | A.IntRange (_, e1_opt, e2_opt) -> (
-    match e1_opt, e2_opt with 
-    | None, None -> false 
-    | None, Some e 
-    | Some e, None -> Chk.expr_contains_set_binop ctx ni e 
-    | Some e1, Some e2 -> (Chk.expr_contains_set_binop ctx ni e1) || (Chk.expr_contains_set_binop ctx ni e2)
-    )
   | A.ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, tys) -> tys) cons in
     List.fold_left (||) false (List.map r tys)
@@ -245,9 +241,9 @@ let rec ty_contains_gids ctx ni ty =
 let gen_const_functions ctx decls = 
   let decls, new_func_ids, ctx = 
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
-    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->
+    | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->  
       let ctx = Ctx.add_ty ctx id ty in
-      let contains_gids = ty_contains_gids ctx None ty || type_contains_adt ctx ty in
+      let contains_gids = ty_contains_gids ctx None ty in
       if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then
         (* Generate a function for free constants when the type includes generated identifiers,
            and for realizability checking of free constants. *)
@@ -260,7 +256,7 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let acc_decls =
-          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))]
+          acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })]
         in
         let acc_decls, acc_new_func_ids =
           (* If type does not contain generated identifiers, and we are only generating
@@ -275,8 +271,8 @@ let gen_const_functions ctx decls =
         acc_decls, acc_new_func_ids, acc_ctx
       else 
         acc_decls @ [decl], acc_new_func_ids, acc_ctx
-    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) ->
-      if Ctx.type_contains_ref_or_subrange ctx ty then
+    | A.ConstDecl (s, A.TypedConst (_, id, e, ty)) -> 
+      if Ctx.type_contains_ref ctx ty then 
         let p = s.start_pos in
         let node_type = NI.DefinedConstant in 
         let node_id = NI.mk_node_id ~node_type id in
@@ -287,12 +283,12 @@ let gen_const_functions ctx decls =
         let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let func_decl1 =
-          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None))
+          A.FuncDecl (s, (node_id, false, Transparent, [], [], ops, [], nis, None), { is_lemma = false; is_rec = false })
         in
         (if List.mem `CONTRACTCK (Flags.enabled ()) then
           let func_decl2 =
             let node_id = NI.mk_node_id ~node_type:NI.FreeConstant id in
-            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None))
+            A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })
           in
           acc_decls @ [func_decl1; func_decl2]
         else

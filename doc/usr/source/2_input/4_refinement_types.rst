@@ -106,20 +106,6 @@ Conceptually, the refinement types can be viewed as an augmentation of
       --%MAIN;
    tel
 
-If an output variable with a refinement type is left undefined, Kind 2 will specify that the value 
-ranges over a recursively chased base type.
-
-.. code-block::
-
-   node M() returns (y: Nat | y < 100);
-   let
-   tel
-
-In the above example, ``M``'s return value ``y`` will range over *all integers*, 
-not just natural numbers less than 100. This is because ``y`` is an output variable,
-and therefore its refinement type is viewed as a proof obligation. 
-In this case, Kind 2 will report that ``y`` violates its refinement type. 
-
 Operations
 ----------
 
@@ -195,10 +181,47 @@ You can specify a particular node or function to analyze using
 ``--lus_main_type <type_name>``, or a specific constant using
 ``--lus_main_const <const_name>``.
 
+Constants
+---------
+
+Refinement types can also be assigned to constants, and Kind 2 treats defined and
+free constants differently. Both cases are illustrated with the refinement type:
+
+.. code-block::
+
+   type Pos = subtype { x: int | x > 0 };
+
+A *defined* constant — one given a value — produces a **proof obligation** that
+the value satisfies the refinement predicate:
+
+.. code-block::
+
+   const c: Pos = 5;   -- Kind 2 checks that 5 > 0
+
+A *free* constant — one declared without a value — acts as a *system parameter*:
+its value is left unspecified, but it must satisfy the refinement predicate. For
+such a constant, Kind 2 performs a **realizability check**, verifying that the
+refinement type is realizable, that is, that at least one value satisfies the
+predicate, so that the parameter can be instantiated:
+
+.. code-block::
+
+   const p: Pos;   -- realizable: some integer is positive
+
+By contrast, a free constant whose refinement type is empty is unrealizable:
+
+.. code-block::
+
+   const q: subtype { x: int | x > 0 and x < 0 };   -- unrealizable
+
+As with the other realizability checks described above, free-constant
+realizability is checked with ``kind2 <filename> --enable CONTRACTCK``, and a
+specific constant can be selected using ``--lus_main_const <const_name>``.
+
 Structured types
 ----------------
 
-Refinement types can be arbitrarily nested within structured types 
+Refinement types can be arbitrarily nested within structured types
 (e.g., tuple component types, array and set element types, and 
 map key and value types). For example, consider node `N` below.
 

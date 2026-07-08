@@ -52,13 +52,6 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
-  subrange_constraints : (source
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
@@ -116,6 +109,20 @@ val ctr_id : HString.t
 
 (** Checks if a variable name corresponds to an iboracle *)
 val var_is_iboracle: HString.t -> bool
+
+(* String constant used as the suffix of fresh locals capturing the discarded
+   results of a call statement (see lustreNameCalls.ml). *)
+val discarded_output : string
+
+(** Checks if a variable name corresponds to a discarded call-statement result *)
+val var_is_discarded_output: HString.t -> bool
+
+(* String constant used as a segment of fresh locals introduced to desugar the
+   'last' operator (see lustreDesugarLast.ml). *)
+val last_local : string
+
+(** Checks if a variable name corresponds to a 'last'-operator local *)
+val var_is_last_local: HString.t -> bool
 
 val empty : unit -> t
 

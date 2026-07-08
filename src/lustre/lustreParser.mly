@@ -100,6 +100,8 @@ let mk_span start_pos end_pos =
 %token OPAQUE
 %token TRANSPARENT
 %token IMPORTED
+%token REC
+%token LEMMA
 %token NODE
 %token FUNCTION
 %token RETURNS
@@ -136,6 +138,7 @@ let mk_span start_pos end_pos =
 %token ENSURE
 %token WEAKLY
 %token ASSUMP_VARS
+%token DECREASES
 
 (* Token for assertions *)
 %token ASSERT
@@ -170,6 +173,7 @@ let mk_span start_pos end_pos =
 %token WHEN
 %token COND
 %token OTHERWISE
+%token AUTO
 %token END
 %token FRAME
 
@@ -208,6 +212,7 @@ let mk_span start_pos end_pos =
 
 (* Tokens for temporal operators *)
 %token PRE
+%token LAST
 %token FBY
 %token ARROW
 
@@ -239,8 +244,8 @@ let mk_span start_pos end_pos =
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
-%nonassoc PRE 
-%nonassoc INT REAL 
+%nonassoc PRE
+%nonassoc INT REAL
 %nonassoc NOT
 %nonassoc BVNOT 
 %left CARET 
@@ -264,6 +269,10 @@ opacity_modifier:
   | TRANSPARENT { A.Transparent }
   | { A.Default }
 
+rec_modifier:
+  | REC { true }
+  | { false }
+
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl: 
   | d = const_decl { List.map 
@@ -280,10 +289,16 @@ decl:
     let (l, e) = def in
     [A.NodeDecl ( mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r) )]
   }
-  | opac = opacity_modifier ; FUNCTION ; decl = node_decl ; def = node_def {
+  | opac = opacity_modifier ; FUNCTION ; is_rec = rec_modifier; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), { is_lemma = false; is_rec })]
+  }
+  | LEMMA; decl = lemma_decl ; def = node_def {
+    let (n, p, i, r) = decl in
+    let o = [mk_pos $startpos, HString.mk_hstring ".out", A.Bool (mk_pos $startpos), A.ClockTrue] in
+    let (l, e) = def in
+    [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -291,7 +306,7 @@ decl:
   }
   | opac = opacity_modifier ; FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_span $startpos($2) $endpos, (n, true, opac, p, i, o, [], [], r), { is_lemma = false; is_rec = false })]
   }
   | d = contract_decl { [A.ContractNodeDecl (mk_span $startpos $endpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_span $startpos $endpos, d)] }
@@ -427,7 +442,24 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { A.IntRange (mk_pos $startpos, l, u) }
+    { 
+      let p = mk_pos $startpos in 
+      let id = HString.mk_hstring "id" in (
+      match l, u with 
+      | Some l, Some u -> 
+        let l = A.CompOp (p, A.Lte, l, A.Ident (p, id)) in 
+        let u = A.CompOp (p, A.Lte, A.Ident (p, id), u) in 
+        let e = A.BinaryOp (p, A.And, l, u) in 
+        A.RefinementType (p, (p, id, A.Int p), e) 
+      | Some l, None -> 
+        let l = A.CompOp (p, A.Lte, l, A.Ident (p, id)) in 
+        A.RefinementType (p, (p, id, A.Int p), l) 
+      | None, Some u -> 
+        let u = A.CompOp (p, A.Lte, A.Ident (p, id), u) in 
+        A.RefinementType (p, (p, id, A.Int p), u) 
+      | None, None -> A.Int p
+      ) 
+    }
   | SET; LT; ty = lustre_type; GT; 
     { A.Set (mk_pos $startpos, ty) }
   | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
@@ -495,14 +527,18 @@ adt_constructor:
 
 (* A pattern in a match arm *)
 pat:
-  | i = ident 
-    { A.Pat (mk_pos $startpos, i, []) }
+  | i = ident
+    (* Bare identifiers are parsed as VarPat; the type checker
+       disambiguates them into variable bindings or 0-arg constructor
+       patterns using the constructor context. See pat_bound_vars in
+       lustreAstHelpers.ml for a note on pre-disambiguation behavior. *)
+    { A.VarPat (mk_pos $startpos, i) }
   | c = ident; LPAREN; ps = separated_nonempty_list(COMMA, pat); RPAREN
     { A.Pat (mk_pos $startpos, c, ps) }
 
 (* A single arm of a match expression *)
-match_arm(Q):
-  | BAR; p = pat; COLON; e = pexpr(Q) %prec MATCH_ARM_BODY { (p, e) }
+match_arm:
+  | BAR; p = pat; COLON; e = expr %prec MATCH_ARM_BODY { (p, e) }
 
 
 (* ********************************************************************** *)
@@ -519,6 +555,16 @@ node_decl:
   r = option(contract_spec); 
   {
     (NI.mk_node_id n, p, List.flatten i, List.flatten o, r)
+  }
+
+lemma_decl:
+| n = ident;
+  p = loption(decl_static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  option(SEMICOLON);
+  r = option(contract_spec); 
+  {
+    (NI.mk_node_id n, p, List.flatten i, r)
   }
 
 (* A node definition (locals + body). *)
@@ -592,6 +638,19 @@ assumption_vars:
     A.AssumptionVars (mk_pos $startpos, ids)
   }
 
+decreases_clause:
+  DECREASES ; es = separated_nonempty_list(COMMA, expr); SEMICOLON
+  {
+    let pos = mk_pos $startpos in
+    (* A single measure is kept as a plain expression; a tuple of measures is
+       represented as an expression list, interpreted lexicographically. *)
+    let e = match es with
+      | [e] -> e
+      | _ -> A.GroupExpr (pos, A.ExprList, es)
+    in
+    A.Decreases (pos, e)
+  }
+
 contract_item:
   | e = contract_ghost_vars { e }
   | c = contract_ghost_const { c }
@@ -600,6 +659,7 @@ contract_item:
   | m = mode_equation { m }
   | i = contract_import { i }
   | a = assumption_vars { a }
+  | d = decreases_clause { d }
 
 contract_in_block:
   | c = nonempty_list(contract_item) { c }
@@ -777,6 +837,7 @@ node_item:
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
+  | AUTO; SEMICOLON { A.Auto (mk_pos $startpos) }
 
 
 elsif_list:
@@ -812,19 +873,23 @@ node_if_block:
 
 
 node_when_block:
-  | WHEN; e = expr; THEN; 
+  | WHEN; e = expr; THEN;
       l1 = nonempty_list(node_item);
-    ELSE; 
+    END;
+    { A.WhenBlock (mk_pos $startpos, e, l1, []) }
+  | WHEN; e = expr; THEN;
+      l1 = nonempty_list(node_item);
+    ELSE;
       l2 = nonempty_list(node_item);
     END;
     { A.WhenBlock (mk_pos $startpos, e, l1, l2) }
   | COND;
       BAR; c1 = node_cond_case_colon;
       cs = list(bar_node_cond_case_colon);
-      OTHERWISE; COLON;
-      l_else = nonempty_list(node_item);
+      l_else = option(cond_otherwise);
     END;
     {
+      let l_else = match l_else with Some l -> l | None -> [] in
       let cases = c1 :: cs in
       let nested = List.fold_right
         (fun (cond, l_then) l_otherwise ->
@@ -836,6 +901,10 @@ node_when_block:
       | [A.WhenBlock _ as wb] -> wb
       | _ -> assert false
     }
+
+
+cond_otherwise:
+  | OTHERWISE; COLON; l = nonempty_list(node_item) { l }
 
 
 bar_node_cond_case_colon:
@@ -867,6 +936,15 @@ node_equation:
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
+
+  (* A call statement whose results are discarded. The left-hand side is left
+     empty here; a fresh local variable for each returned value is introduced
+     later in the pipeline (see LustreNameCalls), once types are available. *)
+  | nc = node_call SEMICOLON {
+    let pos = mk_pos $startpos in
+    let lhs = A.StructDef (pos, []) in
+    A.Equation (pos, lhs, nc)
+  }
 
 
 left_side:
@@ -1298,11 +1376,13 @@ pexpr(Q):
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
 
   (* Pattern matching on ADT values *)
-  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm(Q)); END;
+  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
     { A.Match (mk_pos $startpos, e, arms, None) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
+  (* The 'last' operator (only valid inside frame blocks; desugared away early) *)
+  | LAST; i = ident { A.Last (mk_pos $startpos, i) }
   | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
     { let pos = mk_pos $startpos in
       fail_at_position pos "Unsupported operator: fby" }

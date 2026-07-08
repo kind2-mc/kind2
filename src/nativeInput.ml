@@ -428,17 +428,28 @@ let node_def_of_sexpr = function
 
 
 
-let rec mk_subsys_structure sys =
-  { SubSystem.scope = TransSys.scope_of_trans_sys sys;
-    source = sys;
-    opacity = Opacity.Transparent;
-    has_contract = false;
-    has_impl = true;
-    has_modes = false;
-    subsystems =
-      TransSys.get_subsystems sys
-      |> List.map mk_subsys_structure;
-  }
+let rec mk_subsystem map sys =
+  let scope = TransSys.scope_of_trans_sys sys in
+  let subsystems = TransSys.get_subsystems sys in
+  let sub =
+    { SubSystem.scope = scope;
+      source = sys;
+      opacity = Opacity.Transparent;
+      has_contract = false;
+      has_impl = true;
+      has_modes = false;
+      map;
+      subsystems =
+        subsystems |> List.map TransSys.scope_of_trans_sys;
+    }
+  in
+  Scope.Hashtbl.add map scope sub;
+  subsystems |> List.iter (fun s ->
+    let scope = TransSys.scope_of_trans_sys s in
+    if not (Scope.Hashtbl.mem map scope) then
+      mk_subsystem map s |> ignore
+  );
+  sub
 
 
 (* Parse from input channel *)
@@ -577,7 +588,7 @@ let of_channel in_ch =
 
     Debug.native "%a" TransSys.pp_print_trans_sys top_sys ;
 
-    mk_subsys_structure top_sys
+    mk_subsystem (Scope.Hashtbl.create 7) top_sys
       
   | _ -> failwith "No systems"
 

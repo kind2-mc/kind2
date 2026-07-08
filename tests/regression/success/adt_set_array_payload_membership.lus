@@ -1,0 +1,9 @@
+datatype D = A (int) | B (bool);
+
+node main(n: int) returns (ok: bool);
+var s: set<D>;
+let
+  s = {A(n)} -> pre s + {A(n)};
+  ok = A(n) in s;
+  check ok;
+tel

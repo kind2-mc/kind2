@@ -92,7 +92,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr =
           A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Set, Ident(pos, dummy_index), Ident(pos, id)), expr)
         in
-        let ty = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty |> Result.get_ok in
+        let ty = LustreTypeChecker.expand_type_syn_reftype_history ctx ty |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty], expr)
       ) exprs
     | Map (pos, ty1, ty2) ->
@@ -104,7 +104,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr =
           A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr)
         in
-        let ty1 = LustreTypeChecker.expand_type_syn_reftype_history_subrange ctx ty1 |> Result.get_ok in
+        let ty1 = LustreTypeChecker.expand_type_syn_reftype_history ctx ty1 |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
       ) exprs1 in
       let exprs2 = chase_refinements ty2 in
@@ -134,11 +134,9 @@ let rec flatten_ref_type ctx ty = match ty with
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
       ) exprs
-    | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
-    | History _ | TArr _ | SBitVector _ | UBitVector _ -> []
-    | UserType _ -> []
-    | ADT _ -> assert false
-    (* Unreachable: ADTs only appear UserType references. *)
+    | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _ 
+    | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
+    | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
     in
     let constraints = chase_refinements ty in
     let expr = List.fold_left (fun acc expr ->
@@ -147,39 +145,9 @@ let rec flatten_ref_type ctx ty = match ty with
     (match LustreTypeChecker.expand_type_syn_reftype_history ctx ty with
       | Ok ty -> Ok (A.RefinementType (pos, (pos2, id, ty), expr))
       | _ -> assert false)
-  (* Desugar subranges with symbolic bounds to refinement types *)
-  | IntRange (pos, Some lb, None) -> (
-    match LustreAstInlineConstants.eval_int_expr ctx lb with
-    | Ok _ -> Ok ty
-    | Error _ ->
-      let id = HString.mk_hstring "x" in
-      let bound_var = A.Ident (pos, id) in
-      Ok (A.RefinementType (pos, (pos, id, A.Int pos), A.CompOp (pos, A.Lte, lb, bound_var)))
-    )
-  | IntRange (pos, None, Some ub) -> (
-    match LustreAstInlineConstants.eval_int_expr ctx ub with
-    | Ok _ -> Ok ty
-    | Error _ ->
-      let id = HString.mk_hstring "x" in
-      let bound_var = A.Ident (pos, id) in
-      Ok (A.RefinementType (pos, (pos, id, A.Int pos), A.CompOp (pos, A.Lte, bound_var, ub)))
-    )
-  | IntRange (pos, Some lb, Some ub) -> (
-    match LustreAstInlineConstants.eval_int_expr ctx lb,
-          LustreAstInlineConstants.eval_int_expr ctx ub with
-    | Ok _, Ok _ -> Ok ty
-    | Error _, _ | _, Error _ ->
-      let id = HString.mk_hstring "x" in
-      let bound_var = A.Ident (pos, id) in
-      Ok (A.RefinementType (pos, (pos, id, A.Int pos),
-        A.BinaryOp (pos, A.And, A.CompOp (pos, A.Lte, lb, bound_var), A.CompOp (pos, A.Lte, bound_var, ub)))))
-  | Int _ | Bool _ | IntRange _ | Real _ | AbstractType _ | EnumType _
+  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _ 
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ty
-  | ADT (pos, name, cons) ->
-    let* cons = Res.seq (List.map (fun (ctor, tys) ->
-      let* tys = Res.seq (List.map (flatten_ref_type ctx) tys) in Ok (ctor, tys)
-    ) cons) in
-    Ok (A.ADT (pos, name, cons))
+  | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_local_decl ctx = function
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
@@ -213,24 +181,34 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
     let* vt = flatten_ref_type ctx vt in
     Ok (EmptyMap (p, Some (kt, vt)))
   (* Everything else *)
-  | Ident _ | EmptyMap (_, None) | EmptySet (_, None)
+  | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> Ok e
-  | RecordProject (p, e, i) ->
-    let* e = rc e in Ok (RecordProject (p, e, i))
+  | RecordProject (p, e, i) -> 
+    let* e = rc e in
+    Ok (RecordProject (p, e, i))
   | Const _ as e -> Ok e
-  | UnaryOp (p, op, e) ->
-    let* e = rc e in Ok (UnaryOp (p, op, e))
-  | BinaryOp (p, op, e1, e2) ->
-    let* e1 = rc e1 in let* e2 = rc e2 in Ok (BinaryOp (p, op, e1, e2))
-  | TernaryOp (p, op, e1, e2, e3) ->
-    let* e1 = rc e1 in let* e2 = rc e2 in let* e3 = rc e3 in
+  | UnaryOp (p, op, e) -> 
+    let* e = rc e in
+    Ok (UnaryOp (p, op, e))
+  | BinaryOp (p, op, e1, e2) -> 
+    let* e1 = rc e1 in
+    let* e2 = rc e2 in
+    Ok (BinaryOp (p, op, e1, e2))
+  | TernaryOp (p, op, e1, e2, e3) -> 
+    let* e1 = rc e1 in
+    let* e2 = rc e2 in
+    let* e3 = rc e3 in
     Ok (TernaryOp (p, op, e1, e2, e3))
-  | ConvOp (p, op, e) ->
-    let* e = rc e in Ok (ConvOp (p, op, e))
-  | CompOp (p, op, e1, e2) ->
-    let* e1 = rc e1 in let* e2 = rc e2 in Ok (CompOp (p, op, e1, e2))
-  | Extract (p, e, idx1, idx2) ->
-    let* e = rc e in Ok (Extract (p, e, idx1, idx2))
+  | ConvOp  (p, op, e) -> 
+    let* e = rc e in
+    Ok (ConvOp (p, op, e))
+  | CompOp (p, op, e1, e2) -> 
+    let* e1 = rc e1 in
+    let* e2 = rc e2 in
+    Ok (CompOp (p, op, e1, e2))
+  | Extract (p, e, idx1, idx2) -> 
+    let* e = rc e in
+    Ok (Extract (p, e, idx1, idx2))
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RecordExpr (p, i, ps, flds) ->
@@ -285,7 +263,7 @@ let flatten_ref_types_item ctx item =
   | A.AnnotProperty (p, id, expr, k) ->
     let* expr = flatten_ref_types_expr ctx expr in
     Ok (A.AnnotProperty (p, id, expr, k))
-  | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ -> Ok item
+  | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ | Auto _ -> Ok item
 
 let flatten_ref_types_const_decl ctx decl =
   match decl with
@@ -313,6 +291,9 @@ let flatten_ref_types_contract_eq ctx eq =
   | A.Guarantee (p, id, s, expr) ->
     let* expr = flatten_ref_types_expr ctx expr in
     Ok (A.Guarantee (p, id, s, expr))
+  | A.Decreases (p, expr) ->
+    let* expr = flatten_ref_types_expr ctx expr in
+    Ok (A.Decreases (p, expr))
   | A.Mode (p, id, requires, ensures) ->
     let* requires = Res.seq (List.map (fun (p, id, expr) ->
       let* expr = flatten_ref_types_expr ctx expr in Ok (p, id, expr)
@@ -364,14 +345,14 @@ let flatten_ref_types ctx (gids : GI.t NI.Map.t) decls =
       let* items = Res.seq (List.map (flatten_ref_types_item ctx) items) in
       let* contract = flatten_ref_types_contract_opt ctx contract in
       Ok (NodeDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)))
-    | FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)) ->
+    | FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract), is_rec) ->
       let ctx = flatten_node_decl_ctx ctx params in
       let* ips = flatten_inputs ctx ips in
       let* ops = flatten_outputs ctx ops in
       let* locals = Res.seq (List.map (flatten_ref_types_local_decl ctx) locals) in
       let* items = Res.seq (List.map (flatten_ref_types_item ctx) items) in
       let* contract = flatten_ref_types_contract_opt ctx contract in
-      Ok (FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract)))
+      Ok (FuncDecl (pos, (id, imported, opac, params, ips, ops, locals, items, contract), is_rec))
     | NodeParamInst (pos, (id1, id2, tys)) ->
       let* tys = Res.seq (List.map (flatten_ref_type ctx) tys) in
       Ok (NodeParamInst (pos, (id1, id2, tys)))

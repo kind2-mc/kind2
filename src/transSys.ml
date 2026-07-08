@@ -1001,8 +1001,19 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
 
 
 (* Declare other functions symbols *)
-let declare_ufs { ufs } declare =
-  List.iter declare ufs
+let declare_ufs { ufs } declared declare =
+  List.fold_left 
+    (fun acc uf ->
+      if UfSymbol.UfSymbolSet.mem uf acc then
+        acc
+      else (
+        declare uf;
+        UfSymbol.UfSymbolSet.add uf acc
+      )
+    )
+    declared
+    ufs
+
 
 (* Declare other functions symbols *)
 let declare_selects declare sys =
@@ -1035,18 +1046,25 @@ let declare_sorts_ufs_const trans_sys declare declare_sort =
   (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
+  let declared = UfSymbol.UfSymbolSet.empty in
+
   (* Declare other functions of top system *)
-  declare_ufs trans_sys declare;
+  let declared = declare_ufs trans_sys declared declare in
 
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare ;
 
   (* Iterate over all subsystems *)
-  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+  let _ =
+    fold_subsystems ~include_top:false (fun acc t ->
 
-    (* Declare other functions of sub system *)
-    declare_ufs t declare
-  )
+      (* Declare other functions of sub system *)
+      declare_ufs t acc declare
+    )
+    declared
+    trans_sys
+  in
+  ()
 
 (* Declare the init and trans functions of the subsystems *)
 let define_subsystems trans_sys define =
@@ -1087,28 +1105,35 @@ let define_and_declare_of_bounds
     (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
+  let declared = UfSymbol.UfSymbolSet.empty in
+
   (* Declare other functions of top system *)
-  declare_ufs trans_sys declare;
+  let declared = declare_ufs trans_sys declared declare in
 
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
 
   (* Iterate over all subsystems *)
-  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+  let _ = fold_subsystems ~include_top:false (fun acc t ->
 
-    (* Declare constant state variables of subsystem *)
-    if declare_sub_vars then
-      declare_vars_of_bounds t declare lbound ubound ;
-  
-    (* Declare other functions of sub system *)
-    declare_ufs t declare;
+      (* Declare constant state variables of subsystem *)
+      if declare_sub_vars then
+        declare_vars_of_bounds t declare lbound ubound ;
+    
+      (* Declare other functions of sub system *)
+      let acc = declare_ufs t acc declare in
 
-    (* Define initial state predicate *)
-    define_init define t ;
+      (* Define initial state predicate *)
+      define_init define t ;
 
-    (* Define transition relation predicate *)
-    define_trans define t
-  ) ;
+      (* Define transition relation predicate *)
+      define_trans define t;
+
+      acc
+    ) 
+    declared
+    trans_sys
+  in
        
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound

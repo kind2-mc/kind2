@@ -1,3 +1,62 @@
+# Kind 2 v3.0.0
+
+New features:
+- New [map](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/11_maps.html) and [set](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/10_sets.html) types.
+- Support for structural equality for [arrays](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#structural-equality), [maps](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/11_maps.html), and [sets](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/10_sets.html).
+- Bottom-up type inference for [polymorphic](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#polymorphic-nodes) node and function calls (using base types only).
+- New syntax for specifying [contracts](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#contracts).
+- New [type ascription](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/4_refinement_types.html#type-ascription) operator.
+- New [conditional expression](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#conditional-expressions) and [blocks](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#when-blocks) with lazy semantics, and [short-circuiting versions](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#short-circuit-boolean-operators) of 'and', 'or', and '=>'.
+- Support for [machine integers](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/3_machine_ints.html) of arbitrary concrete size, including generation of invariant candidates.
+- New built-in operator [choose](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#nondeterministic-choice-operator). Like `any`, it denotes an arbitrary stream of values, but the value is determined by the free variables in the predicate, effectively behaving like a function of those variables.
+- Support for subranges with [symbolic constant bounds](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/12_subranges.html#symbolic-bounds).
+- Support for quantifiers in refinement type predicates.
+- Support for a [concise refinement type syntax](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#concise-refinement-type-syntax) for quantified variables (e.g. `forall (i: int | i > 0)`).
+- New safety [proof production](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/5_proofs.html) feature based on the new cvc5 CPC proof format (replaces LFSC); compatible with cvc5 1.3.2.
+- Support for Bitwuzla as an [interpolating solver](https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/4_ic3.html#ic3-ia-options).
+- New [contract monitor](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/14_contract_monitor.html) feature to check a given trace satisfies a contract.
+- Verification of constant definitions and realizability checks of free constants (a.k.a system parameters) with refinement types (see [documentation](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/4_refinement_types.html#constants) for more details).
+
+Improvements:
+- Fixed multiple issues across different functionalities, including:
+  - Handling of arrays and quantified formulas.
+  - Monomorphization of polymorphic calls.
+  - Assumption checks for calls to inlined functions in contracts.
+  - Division by zero errors.
+  - Invariant generation engine.
+  - Encoding of history constructor over ghost variables.
+  - Type checking and syntax checks.
+- Minor fixes in JSON output.
+- Property expressions are displayed together with their name in the summary (it can be disabled by passing `--show_props false`).
+- Lifted upper bound constraint for Yojson dependency.
+- Updated parser code for compatibility with Menhir >= 20260112.
+
+Breaking changes:
+- [Frame block](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#frame-conditions) initialization: Initialization values are now only provided in branches of `if` blocks where variables are left undefined.
+- New syntax for [polymorphic types/nodes/contracts](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#polymorphic-nodes).
+- New syntax for constructing/accessing [tuples](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/9_tuples.html).
+- New element update syntax for [tuples](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/9_tuples.html#element-update), [records](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/13_records.html#element-update), and [arrays](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/2_arrays.html#element-update).
+- Abstract [functions](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#functions) are now strictly enforced to behave as mathematical functions.
+  - This behavior is no longer configurable via the `--enforce_func_congruence` flag, which has been removed.
+  - For functions, the scope of assumptions is the current timestep only, as opposed to nodes where the scope extends to all previous timesteps.
+- [Undefined outputs](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#underspecified-outputs) are no longer allowed in node/function bodies. Instead, `choose` or `any` are required to set the variable to an underspecified value.
+- [Abstract types](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/7_abstract_types.html) are no longer assumed to be over infinite domains, and quantification over them is now allowed.
+- Removed old Lustre front end.
+- Removed the option to compile to Rust.
+- Counterexamples:
+  - In terminal output, booleans are now printed as `tt` and `ff`.
+  - In XML/JSON, the "active mode" section is replaced by individual evaluations for assumptions, guarantees, and ensure/require constraints.
+- Test Generation:
+  - [Traces](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/3_test_generation.html#generating-test-cases) now use the same JSON format as the interpreter input.
+  - Oracles for monitoring contract satisfaction are no longer generated (use the new contract monitor instead).
+- Parentheses are no longer allowed for [tuple values](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/8_interpreter.html#tuples) in the JSON interpreter input, as they are not valid JSON.
+- Calls to nodes/functions without outputs are no longer supported.
+
+Other changes:
+- Replace regression test script with one based on `pytest`.
+- The default value of `--bmc_check_unroll` is now false.
+
+
 # Kind 2 v2.3.0
 
 New features:

@@ -238,6 +238,7 @@ and push_pre is_guarded pos =
   let r e = push_pre is_guarded pos e in
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
+  | Last _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
   | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
@@ -412,14 +413,6 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
    all of the constants have been type checked *)
 
 and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
-  | LA.IntRange (pos, lbound, ubound) ->
-    let lbound' = match lbound with 
-      | None -> None
-      | Some lbound -> Some (simplify_expr ~ind_vars ctx lbound) in
-    let ubound' = match ubound with
-      | None -> None
-      | Some ubound -> Some (simplify_expr ~ind_vars ctx ubound) in
-    LA.IntRange (pos, lbound', ubound')
   | LA.TupleType (pos, types) ->
     let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
     LA.TupleType (pos, types')
@@ -535,6 +528,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
     -> (AnnotMain (pos, b)) :: inline_constants_of_node_items ctx items
+  | (Auto pos) :: items
+    -> (Auto pos) :: inline_constants_of_node_items ctx items
 
 let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation list -> LA.contract_node_equation list =
   fun ctx ->
@@ -606,7 +601,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
     let ctx' = TC.add_ty_node ctx i fun_ty false in
     ctx', (LA.NodeDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
-  | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract))) ->
+  | (LA.FuncDecl (span, (i, imported, opac, params, ips, ops, ldecls, items, contract), is_rec)) ->
     let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
     let ops' = inline_constants_of_clocked_type_decl ctx ops in
     let contract' = match contract with
@@ -622,7 +617,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     let ret_ty = if List.length ops_tys = 1 then List.hd ops_tys else LA.GroupType (pos, ops_tys) in
     let fun_ty = LA.TArr (pos, arg_ty, ret_ty) in
     let ctx' = TC.add_ty_node ctx i fun_ty true in
-    ctx', (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract')))
+    ctx', (LA.FuncDecl (span, (i, imported, opac, params, ips', ops', ldecls', items', contract'), is_rec))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, contract)))) ->
      ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, (p, inline_constants_of_contract ctx contract))))
   | e -> (ctx, e)

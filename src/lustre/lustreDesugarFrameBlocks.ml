@@ -115,6 +115,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
+  | Last _ as e -> e
   | EmptyMap _ as e -> e
   | EmptySet _ as e -> e
   | RecordProject (p, e, id) -> RecordProject (p, r e, id)
@@ -387,6 +388,7 @@ match ni with
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
+  | A.Auto pos
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
 
 
@@ -439,7 +441,7 @@ let desugar_frame_blocks sorted_node_contract_decls =
                        (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
                       
     (* Make sure there are no frame blocks in functions *)
-    | A.FuncDecl (_, ((_, _, _, _, _, _, _, nis, _))) -> (
+    | A.FuncDecl (_, ((_, _, _, _, _, _, _, nis, _)), _) -> (
       let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
       match contains_frame_block with
         | Some (FrameBlock (pos, _, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)
