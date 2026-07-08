@@ -358,31 +358,30 @@ let map_top_or_reconstruct_and_add
       to_reconstruct
   )
 
+let trace_of_contract_item model_top instances sv =
+  let model_values = try map_top instances sv |> SVT.find model_top with Not_found -> [] in
+  List.map (function
+    | Model.Term t -> t == Term.t_true
+    | _ -> failwith "evaluating mode requirement: value should be a term") model_values
+
+let mk_term_t_or_f b = if b then Term.mk_true () else Term.mk_false ()
+
 let guarantees_of_instances model_top instances = function
   (* No contract. *)
   | None | Some { C.guarantees = [] } -> []
   (* Contract with some modes. *)
   | Some { C.guarantees } -> 
-    let trace_of_req sv =
-      map_top instances sv
-      |> SVT.find model_top
-      |> List.map (function
-        | Model.Term t -> t == Term.t_true
-        | _ -> failwith "evaluating mode requirement: value should be a term")
-    in
-    let mk_term_t_or_f b =
-      if b then Term.mk_true () else Term.mk_false ()
-    in
+    let trace_of_req = trace_of_contract_item model_top instances in
    
     let name_normalize name pos = 
-    match name with 
-    | None ->  Format.asprintf "guarantee%a" Lib.pp_print_line_and_column pos
-    | Some s -> s
-  in 
-   let svar_tform ({C.svar; name; pos}, _) = 
-       ( name_normalize name pos
-          , Type.mk_bool ()
-          , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
+      match name with 
+      | None ->  Format.asprintf "guarantee%a" Lib.pp_print_line_and_column pos
+      | Some s -> s
+    in 
+    let svar_tform ({C.svar; name; pos}, _) = 
+      ( name_normalize name pos
+      , Type.mk_bool ()
+      , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
     in
     List.map svar_tform guarantees
     
@@ -392,55 +391,33 @@ let assumptions_of_instances model_top instances = function
   | None | Some { C.assumes = [] } -> []
   (* Contract with some modes. *)
   | Some { C.assumes } -> 
-    let trace_of_req sv =
-      map_top instances sv
-      |> SVT.find model_top
-      |> List.map (function
-        | Model.Term t -> t == Term.t_true
-        | _ -> failwith "evaluating mode requirement: value should be a term")
-    in
-    let mk_term_t_or_f b =
-      if b then Term.mk_true () else Term.mk_false ()
-    in
+    let trace_of_req = trace_of_contract_item model_top instances in
    
     let name_normalize name pos = match name with 
-    | None -> Format.asprintf "assume%a" Lib.pp_print_line_and_column pos
-    | Some s -> s
-  in 
-   let svar_tform {C.svar; name; pos} = 
-       ( name_normalize name pos
-          , Type.mk_bool ()
-          , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
+      | None -> Format.asprintf "assume%a" Lib.pp_print_line_and_column pos
+      | Some s -> s
+    in 
+    let svar_tform {C.svar; name; pos} = 
+      ( name_normalize name pos
+      , Type.mk_bool ()
+      , List.map (function bool -> Model.Term (mk_term_t_or_f bool)) (trace_of_req svar))
     in
     List.map svar_tform assumes
-    
+
+let merge_req_traces t1 t2 =
+  let rec loop acc = function
+    | ([], []) -> List.rev acc
+    | (v1 :: t1, v2 :: t2) -> loop ((v1 && v2) :: acc) (t1, t2)
+    | _ -> failwith "while constructing the trace of active modes: tried to merge two traces of inconsistent length"
+  in
+  loop [] (t1, t2)
 
 let mode_requires_of_instances model_top instances = function
   (* No contract. *)
   | None | Some { C.modes = [] } -> ([], 0)
   (* Contract with some modes. *)
   | Some { C.modes } ->
-    let trace_of_req { C.svar } =
-      map_top instances svar
-      |> SVT.find model_top
-      |> List.map (function
-        | Model.Term t -> t == Term.t_true
-        | _ -> failwith "evaluating mode requirement: value should be a term")
-    in
-
-    let merge_req_traces t1 t2 =
-      let rec loop acc = function
-        | ([], []) -> List.rev acc
-        | (v1 :: t1, v2 :: t2) -> loop ((v1 && v2) :: acc) (t1, t2)
-        | _ -> failwith "while constructing the trace of active modes: tried to merge two traces of inconsistent length"
-      in
-      loop [] (t1, t2)
-    in
-
-    let mk_term_t_or_f b =
-      if b then Term.mk_true () else Term.mk_false ()
-    in
-
+    let trace_of_req { C.svar } = trace_of_contract_item model_top instances svar in
     let add_mode_to_trace (mode_trace, max_len) = function
       | { C.requires = head :: tail } as m ->
         let head = trace_of_req head in
@@ -473,26 +450,7 @@ let mode_ensures_of_instances model_top instances = function
   | None | Some { C.modes = [] } -> ([], 0)
   (* Contract with some modes. *)
   | Some { C.modes } ->
-    let trace_of_req { C.svar } =
-      map_top instances svar
-      |> SVT.find model_top
-      |> List.map (function
-        | Model.Term t -> t == Term.t_true
-        | _ -> failwith "evaluating mode requirement: value should be a term")
-    in
-
-    let merge_req_traces t1 t2 =
-      let rec loop acc = function
-        | ([], []) -> List.rev acc
-        | (v1 :: t1, v2 :: t2) -> loop ((v1 && v2) :: acc) (t1, t2)
-        | _ -> failwith "while constructing the trace of active modes: tried to merge two traces of inconsistent length"
-      in
-      loop [] (t1, t2)
-    in
-
-    let mk_term_t_or_f b =
-      if b then Term.mk_true () else Term.mk_false ()
-    in
+    let trace_of_req { C.svar } = trace_of_contract_item model_top instances svar in
 
     let add_mode_to_trace (mode_trace, max_len) = function
       | { C.ensures = head :: tail } as m ->
@@ -529,9 +487,6 @@ let get_constants const_map scope =
   | Some l -> l
 
 let fill_empty_modes t_max modes =
-   let mk_term_t_or_f b =
-      if b then Term.mk_true () else Term.mk_false ()
-    in
   let fill_out_mode = function
     | (name, type_bool, []) ->
         let init_vals = List.init t_max (fun _ ->  Model.Term (mk_term_t_or_f true)) in
