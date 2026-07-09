@@ -24,8 +24,13 @@ tmp_odoc=$(mktemp -d)
 trap 'rm -rf "$tmp_odoc"' EXIT
 odoc compile --pkg="$lib_name" -o "$tmp_odoc/page-index.odoc" "$script_dir/index.mld"
 
-# convert page-index.odoc to index.html and resolve links to other webpages
-odoc html "$tmp_odoc/page-index.odoc" -I "$byte_objs" -o "$html_path"
+# convert page-index.odoc to index.html and resolve links to other webpages.
+# --theme-uri/--support-uri point the page's odoc.css and highlight.pack.js
+# links at dune's support directory ($html_path/odoc.support); without them
+# odoc emits its default paths ($html_path/odoc.css, ...) and the landing page
+# ends up unstyled.
+odoc html "$tmp_odoc/page-index.odoc" -I "$byte_objs" \
+	--theme-uri odoc.support --support-uri odoc.support -o "$html_path"
 
 # drop the kmoxi documentation: it is a separate package, not part of the
 # kind2 developer documentation
