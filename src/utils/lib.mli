@@ -145,8 +145,8 @@ val list_slice : 'a list -> int -> int -> 'a list
 val list_suffix : 'a list -> int -> 'a list
 
 (** [list_split n l] divides list [l] into two at index [n]
-    The first will contain all indices from [0,n) and
-    the second will contain all indices from [n,len) *)
+    The first will contain all indices from \[0,n) and
+    the second will contain all indices from \[n,len) *)
 val list_split : int -> 'a list -> ('a list * 'a list)
 
 (** [split3 l] takes a list of triples and produces a triple of lists *)

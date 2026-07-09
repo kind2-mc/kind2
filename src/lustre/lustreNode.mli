@@ -173,8 +173,8 @@ type type_of_component =
     side of {!t.calls}. If the state variable is of array type, there
     may be more than one occurrence of it in {!t.equations}, each
     defining the index variable at a different value with
-    {!bound_or_fixed.Fixed}. If the state variable is not an array, or
-    all its bounds are {!bound_or_fixed.Bound}, then it occurs at most
+    {!LustreExpr.bound_or_fixed.Fixed}. If the state variable is not an array, or
+    all its bounds are {!LustreExpr.bound_or_fixed.Bound}, then it occurs at most
     once on the left-hand side of {!t.equations}. *)
 type t = {
 
