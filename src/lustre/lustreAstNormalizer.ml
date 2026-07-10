@@ -1146,9 +1146,9 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
       (* Generated equations created during the normalization step don't need to be normalized *)
       | None ->  
          empty (), [], (tis, sc, lhs, expr, source)
-      (* Generated equations created before the normalization step; we need to use the right
+      (* Generated equations created before the normalization step; we need to use the right 
          info.interpretation and info.contract_scope *)
-      | Some Ghost ->
+      | Some Ghost -> 
         let nexpr, gids, warnings = normalize_expr info (Some node_id) gids_map expr in
         gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
       (* Equation pulled out of a when-block branch: normalize it under the
@@ -1172,7 +1172,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
         in
         union gids0 gids, warnings0 @ warnings,
         (info.quantified_variables, info.contract_scope, lhs, nexpr, None)
-      | Some _ ->
+      | Some _ -> 
         let info =
           { info with context = ctx; interpretation = StringMap.empty; contract_scope = [] }
         in 

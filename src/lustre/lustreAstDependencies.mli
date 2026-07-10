@@ -23,7 +23,7 @@
     reorder node and contract declarations to resolve
     forward references as backend cannot handle them.
 
-    Note {!Types of dependency analysis}: There are two different kinds of 
+    Note {b Types of dependency analysis}: There are two different kinds of
     graph dependency analysis and sorting done here. 
 
     1. Top level constants and type declarations (starts at [sort_globals])

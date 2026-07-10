@@ -2,7 +2,7 @@
 
 if command -v uvx >/dev/null 2>&1
 then
-	uvx pytest
+	uvx pytest "$@"
 else
-	pytest
+	pytest "$@"
 fi
