@@ -1652,7 +1652,7 @@ and compile_ast_expr
   | A.ADTTerm _ -> assert false
   | A.ADTTester _ -> assert false
 
-and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined =
+and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
   let called_node_oracles =
     try
@@ -1772,6 +1772,7 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     N.call_defaults = defaults;
     N.call_inlined = inlined;
     N.call_rec_decrease_expr = None;
+    N.call_ties = ties;
   }
   in node_call
 
@@ -2362,6 +2363,51 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
   in
+  (* Resolve the when-block ties recorded in the gids (see
+     lustreDesugarIfBlocks.ml): a tie (tie, init_tie, t, x) is attached to the
+     call whose abstracted output defines t, i.e. the call variable cv such
+     that the generated equations contain t among the left-hand sides of an
+     equation whose right-hand side is cv. *)
+  let call_ties_by_var =
+    match gids.GI.clocked_call_ties with
+    | [] -> []
+    | ties ->
+      let call_vars =
+        List.fold_left
+          (fun acc (_, var, _, _, _, _, _, _, _) -> GI.StringSet.add var acc)
+          GI.StringSet.empty gids.GI.calls
+      in
+      let find_sv name =
+        try Some (H.find !map.state_var (mk_ident name))
+        with Not_found -> None
+      in
+      List.fold_left (fun acc (_, _, lhs, rhs, _) ->
+        match lhs, rhs with
+        | A.StructDef (_, sis), A.Ident (_, cv)
+          when GI.StringSet.mem cv call_vars ->
+          let names =
+            List.filter_map
+              (function A.SingleIdent (_, y) -> Some y | _ -> None)
+              sis
+          in
+          let resolved =
+            List.filter_map (fun (tie, init_tie, t, x) ->
+              if List.exists (HString.equal t) names then
+                match find_sv tie with
+                | Some tie_sv ->
+                  let init_tie_sv = match init_tie with
+                    | Some init_tie -> find_sv init_tie
+                    | None -> None
+                  in
+                  Some (tie_sv, init_tie_sv, x)
+                | None -> None
+              else None
+            ) ties
+          in
+          if resolved = [] then acc else (cv, resolved) :: acc
+        | _ -> acc
+      ) [] gids.GI.equations
+  in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
     let over_calls =
@@ -2409,8 +2455,11 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         in
         X.fold over_vars called_node_outputs X.empty
       in
+      let ties =
+        try List.assoc var call_ties_by_var with Not_found -> []
+      in
       let node_call = compile_node_call
-        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined
+        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties
       in
       (* For a (possibly mutually) recursive call, i.e. a call to a function in
          the same dependency cycle, render the source-level decrease constraint
@@ -3002,7 +3051,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let constraint_kind, generated_source = match source with
       | GI.Input -> Some N.Assumption, None
       | Local -> None, Some Property.Body
-      | Output -> Some N.Guarantee, None
+      | Output | ClockedOutput _ -> Some N.Guarantee, None
       | Ghost -> if is_extern then None, Some Property.Contract else Some N.Guarantee, None
     in
     let name = create_constraint_name_pos pos in

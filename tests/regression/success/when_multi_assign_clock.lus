@@ -1,0 +1,31 @@
+-- A node call assigned through a multiple assignment inside a when-block
+-- branch must be activated on the when-block guard, exactly like a call
+-- assigned through a single assignment: the called node instance only steps
+-- when the guard is true, and its state is frozen otherwise.
+--
+-- 'a' counts the activations of TwoCounters, so it must agree with 'ticks',
+-- which counts the steps where the guard is true.
+
+node TwoCounters() returns (a, b: int);
+let
+  a = 1 -> pre a + 1;
+  b = 2 * a;
+tel
+
+node Main(c: bool) returns (a, b: int);
+var ticks: int;
+let
+  ticks = (if c then 1 else 0) -> pre ticks + (if c then 1 else 0);
+
+  frame (a, b)
+    a = 0;
+    b = 0;
+  let
+    when c then
+      a, b = TwoCounters();
+    end
+  tel
+
+  check "P1" c => a = ticks;
+  check "P2" c => b = 2 * a;
+tel

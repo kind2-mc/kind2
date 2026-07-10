@@ -11,19 +11,15 @@ jobs:
         include:
           - name: linux-x86_64
             os: ubuntu-latest
-            pkg_update: sudo apt-get update -y
             ocaml-version: 4.14.2
           - name: linux-arm64
             os: ubuntu-24.04-arm
-            pkg_update: sudo apt-get update -y
             ocaml-version: 4.14.2
           - name: macos-x86_64
             os: macos-15-intel
-            pkg_update: brew update
             ocaml-version: 4.14.2
           - name: macos-arm64
             os: macos-latest
-            pkg_update: brew update
             ocaml-version: 4.14.2
 
     runs-on: ${{ matrix.os }}
@@ -37,8 +33,17 @@ jobs:
         head -n1 dune-project > dune-workspace
         echo '(profile strict)' >> dune-workspace
 
-    - name: Update package information
-      run: ${{ matrix.pkg_update }}
+    - name: Update package information (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update -y
+
+    - name: Update package information (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Untap aws to silence Homebrew trust warnings
+        # See https://github.com/actions/runner-images/issues/14232
+        brew untap aws/tap || true
+        brew update
 
     - name: Build Kind 2
       uses: ./.github/actions/build-kind2
@@ -71,7 +76,7 @@ jobs:
       run: opam install ounit2
 
     - name: Run ounit and regression tests
-      run: opam exec make test
+      run: opam exec make test TEST_ARGS="--slice-off --slice-experimental"
 
     - name: Build user documentation
       if: runner.os == 'Linux'
@@ -79,6 +84,12 @@ jobs:
         sudo apt-get install -y latexmk texlive-xetex lmodern
         pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
         make doc
+
+    - name: Build developer documentation
+      if: runner.os == 'Linux'
+      run: |
+        opam install -y odoc
+        opam exec make kind2-doc
 
     - name: Upload kind2 artifact
       if: github.event_name == 'push' && github.ref == 'refs/heads/develop'

@@ -19,7 +19,7 @@
 (** Logging and messaging *)
 
 (** Every relevant event must be logged through the functions in this module
-    but only for ingle-process mode. Use {! Event} for multi-process mode.
+    but only for single-process mode. Use {!KEvent} for multi-process mode.
 
     @author Christoph Sticksel, Alain Mebsout
 *)
