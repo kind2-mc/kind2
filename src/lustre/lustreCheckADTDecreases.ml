@@ -127,7 +127,7 @@ let rec collect_rec_calls_items scc_map caller_scc items =
   List.concat_map (fun item -> match item with
     | LA.Body (LA.Assert (_, e)) -> go_expr e
     | LA.Body (LA.Equation (_, _, e)) -> go_expr e
-    | LA.AnnotProperty (_, _, e, _) -> go_expr e
+    | LA.AnnotProperty _ -> []
     | LA.IfBlock (_, e, items1, items2) ->
       go_expr e @ go_items items1 @ go_items items2
     | LA.WhenBlock (_, e, items1, items2) ->
