@@ -620,13 +620,14 @@ let slice_all_of_node
 
 
 (* Add roots of cone of influence from node call to roots *)
-let add_roots_of_node_call 
+let add_roots_of_node_call
     roots
     { N.call_cond;
       N.call_context;
-      N.call_inputs; 
-      N.call_oracles; 
-      N.call_defaults } =
+      N.call_inputs;
+      N.call_oracles;
+      N.call_defaults;
+      N.call_ties } =
 
   (* Add dependencies from defaults as roots *)
   let roots' =
@@ -647,14 +648,23 @@ let add_roots_of_node_call
     | Some sv -> sv :: roots'
   in
 
+  (* The candidate invariants generated for a when-block tie mention the tie
+     variables; keep them (and hence their defining equations) in the cone of
+     influence whenever the call is kept. *)
+  let roots' =
+    List.fold_left (fun roots' (tie, init_tie, _) ->
+      tie :: (match init_tie with Some sv -> sv :: roots' | None -> roots')
+    ) roots' call_ties
+  in
+
   (* Add inputs, oracles and clock as roots *)
-  let roots' = 
+  let roots' =
 
     (* Need dependecies of inputs to node call *)
-    D.values call_inputs @ 
+    D.values call_inputs @
 
     (* Need dependencies of oracles *)
-    call_oracles @ 
+    call_oracles @
 
     (* Need dependencies of clock and restart if call has one *)
     List.fold_left (fun roots' -> function

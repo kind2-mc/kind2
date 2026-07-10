@@ -101,6 +101,15 @@ type t = {
     * source option) (* Record the source of the equation if generated before normalization step *)
     list;
   nonvacuity_props: StringSet.t;
+  clocked_call_ties:
+    (HString.t * HString.t option * HString.t * HString.t) list;
+  (** Tuples [(tie, init_tie, t, x)] where [x] is a when-block variable whose
+      off-branch holds its previous value, [t] is the local bound to the
+      output of the node call activated on the when-block guard, [tie] is a
+      generated boolean local defined as [x = t], and [init_tie], if any, is a
+      generated boolean local defined as [x = init], where [init] is the
+      initial value of [x]. Used to generate candidate invariants tying the
+      held variable to the (frozen) call output. *)
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
   expr_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
@@ -131,6 +140,15 @@ val last_local : string
 
 (** Checks if a variable name corresponds to a 'last'-operator local *)
 val var_is_last_local: HString.t -> bool
+
+(* String constant used as the suffix of fresh locals capturing the output of
+   a node call in a when-block branch (see lustreDesugarIfBlocks.ml). *)
+val clocked_call_output : string
+
+(* String constant used as the suffix of the fresh boolean locals stating that
+   a when-block variable agrees with the output of the node call activated on
+   the when-block guard (see lustreDesugarIfBlocks.ml). *)
+val clocked_call_tie : string
 
 val empty : unit -> t
 
