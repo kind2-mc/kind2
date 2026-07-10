@@ -1156,11 +1156,9 @@ pexpr(Q):
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
     { A.IndexAccess (mk_pos $startpos, e, i, Unknown) }
     
-  (* An ADT tester: e.C? tests whether e was built with constructor C.
-     Listed before FieldProject so the parser shifts QUESTION rather than
-     reducing prematurely (Menhir resolves the shift-reduce conflict by shifting). *)
-  | s = pexpr(Q); DOT; c = ident; QUESTION
-    { A.ADTTester (mk_pos $startpos($2), s, c) }
+  (* An ADT tester: C?(e) tests whether e was built with constructor C. *)
+  | c = ident; QUESTION; LPAREN; e = pexpr(Q); RPAREN
+    { A.ADTTester (mk_pos $startpos, e, c) }
 
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident

@@ -36,11 +36,11 @@ let
   frame (sentMsgs)
     sentMsgs = {}@<Message>;
   let
-    if send.Some? then
+    if Some?(send) then
       sentMsgs = prevSentMsgs + {send.value};
     fi
   tel
-  recv = any { m: Option<Message> | m.Some? => m.value in prevSentMsgs };
+  recv = any { m: Option<Message> | Some?(m) => m.value in prevSentMsgs };
 tel
 
 function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
@@ -68,7 +68,7 @@ let
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (nw_recv.Some? and (nw_recv.value).VoteMsg?) then
+      if (Some?(nw_recv) and VoteMsg?(nw_recv.value)) then
         votes = map[]@<HostId,Vote> -> (pre votes)[sender := vote];
         if AllVotesCollected(votes) then
           decision = Some(GetDecision(votes));
@@ -97,12 +97,12 @@ let
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (nw_recv.Some? and (nw_recv.value).VoteReqMsg?) then
+      if (Some?(nw_recv) and VoteReqMsg?(nw_recv.value)) then
         nw_send = Some(VoteMsg(id, Preference[id]));
         if Preference[id] = No then
           decision = Some(Abort);
         fi
-      elsif (nw_recv.Some? and (nw_recv.value).DecisionMsg?) then
+      elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
         decision = Some(nw_recv.value.decision);
         nw_send = None@<Message>;
       else
@@ -123,7 +123,7 @@ function imported AllWithDecisionAgreeWithThisOne(
 );
 (*@contract
   guarantee r = (
-    (coord_decision.Some? => coord_decision.value = decision) and
+    (Some?(coord_decision) => coord_decision.value = decision) and
     (forall (i: HostId) i in partic_decision => partic_decision[i] = decision)
   );
 *)
@@ -170,7 +170,7 @@ let
     Participant(tk_holder.class = Participant, tk_holder.id, network_recv);
 
   partic_decision = map[]@<HostId,Decision> ->
-    if tk_holder.class = Coordinator or not decision_id.Some? then
+    if tk_holder.class = Coordinator or not Some?(decision_id) then
       pre partic_decision
     else
       (pre partic_decision)[tk_holder.id := decision_id.value];
@@ -186,7 +186,7 @@ let
   network_recv, sentMsgs = Network(network_send);
 
   check "Vote Messages Agree With Participant Preferences"
-    forall (msg: Message) (msg in sentMsgs and msg.VoteMsg?) =>
+    forall (msg: Message) (msg in sentMsgs and VoteMsg?(msg)) =>
       msg.vote = Preference[msg.id];
 
   check "Coordinator State Supported By Vote"
@@ -194,15 +194,15 @@ let
       VoteMsg(idx, votes[idx]) in sentMsgs;
 
   check "Decision Msgs Agree With Decision"
-    forall (msg: Message) (msg in sentMsgs and msg.DecisionMsg?) =>
+    forall (msg: Message) (msg in sentMsgs and DecisionMsg?(msg)) =>
       (AllVotesCollected(votes) and
       GetDecision(votes) = msg.decision);
 
   check "Participant Commit Decision Agree With Decision Msg"
-    decision_id.Some? and decision_id.value = Commit =>
+    Some?(decision_id) and decision_id.value = Commit =>
       DecisionMsg(Commit) in sentMsgs;
 
   check "Participant Decision Agree With Participant Preferences"
-    ((forall (idx: HostId) Preference[idx]=Yes) and decision_id.Some?) =>
+    ((forall (idx: HostId) Preference[idx]=Yes) and Some?(decision_id)) =>
       decision_id.value = Commit;
 tel
