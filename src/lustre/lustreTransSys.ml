@@ -479,8 +479,10 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
 (* The termination checks of a contract as properties. *)
 
 let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
-  [bounded_check call_pos caller_rf;
-   decrease_check call_pos svar_map src_expr caller_rf callee_rf]
+  if caller_rf = [] || callee_rf = [] then []
+  else
+    [bounded_check call_pos caller_rf;
+     decrease_check call_pos svar_map src_expr caller_rf callee_rf]
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is

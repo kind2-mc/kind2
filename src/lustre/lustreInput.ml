@@ -51,6 +51,7 @@ module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
 module LCF = LustreConstantsToFunctions
 module LCME = LustreCheckMatchExpressions
+module LCAD = LustreCheckADTDecreases
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -67,6 +68,7 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
+  | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
   | `LustreFlattenRefinementTypesError of Lib.position * LFR.error_kind
 ]
@@ -196,6 +198,11 @@ let type_check declarations =
     (* Step 10. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
     let (const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map) =
       LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
+    in
+
+    (* Step 10.5. Statically check ADT decreases clauses for structural subterm ordering *)
+    let* sorted_node_contract_decls =
+      LCAD.check global_ctx adt_map scc_map sorted_node_contract_decls
     in
 
     (* Step 11. Generate imported nodes associated with refinement types if realizability checking is enabled *)

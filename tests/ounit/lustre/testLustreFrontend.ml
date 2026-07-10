@@ -1054,3 +1054,17 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
 ])
+
+(* *************************************************************************** *)
+(*                     Lustre Check ADT Decreases Checks                       *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
+  mk_test "direct recursion passing non-subterm rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_direct_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutual recursion with one non-subterm call rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mutual_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+])

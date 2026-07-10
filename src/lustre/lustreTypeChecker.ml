@@ -126,6 +126,7 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
+  | InvalidDecreasesType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -272,6 +273,9 @@ let error_message kind = match kind with
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
+  | InvalidDecreasesType ty ->
+    "Decreases measure must be an integer or algebraic data type expression, but found type "
+    ^ string_of_tc_type ty
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
@@ -2435,17 +2439,22 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
       R.ok (LA.Guarantee (pos, id, b, e), warnings)
     | Decreases (pos, e) ->
-      (* A decreases measure is a single integer expression, or a tuple of
-         integer expressions interpreted lexicographically. Every component
-         must be of integer type. *)
+      (* A decreases measure is a single integer or ADT expression, or a tuple
+         of such expressions interpreted lexicographically. *)
+      let check_decreases_component e =
+        let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
+        let* ty_exp = expand_type_syn_reftype_history ctx ty in
+        (match ty_exp with
+        | LA.Int _ -> R.ok (e, warnings)
+        | LA.ADT _ -> R.ok (e, warnings)
+        | _ -> type_error pos (InvalidDecreasesType ty))
+      in
       let* e, warnings = (match e with
         | LA.GroupExpr (gpos, LA.ExprList, es) ->
-          let* res = R.seq (List.map (fun e ->
-            check_type_expr ctx (Some nname) e (Int pos)) es)
-          in
+          let* res = R.seq (List.map check_decreases_component es) in
           let es, warnings = List.split res in
           R.ok (LA.GroupExpr (gpos, LA.ExprList, es), List.flatten warnings)
-        | _ -> check_type_expr ctx (Some nname) e (Int pos))
+        | _ -> check_decreases_component e)
       in
       R.ok (LA.Decreases (pos, e), warnings)
     | Mode (pos, id, reqs, ensures) ->

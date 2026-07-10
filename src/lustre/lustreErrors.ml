@@ -32,6 +32,7 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
+  | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
   | `LustreFlattenRefinementTypesError of Lib.position * LustreFlattenRefinementTypes.error_kind
 ]
@@ -50,6 +51,7 @@ let error_position error = match error with
   | `LustreGenRefTypeImpNodesError (pos, _) -> pos
   | `LustreDesugarFrameBlocksError (pos, _) -> pos
   | `LustreCheckMatchExpressionsError (pos, _) -> pos
+  | `LustreCheckADTDecreasesError (pos, _) -> pos
   | `LustreDesugarLastError (pos, _) -> pos
   | `LustreFlattenRefinementTypesError (pos, _) -> pos
 
@@ -67,5 +69,6 @@ let error_message error = match error with
   | `LustreGenRefTypeImpNodesError (_, kind) -> LustreGenRefTypeImpNodes.error_message kind
   | `LustreDesugarFrameBlocksError (_, kind) -> LustreDesugarFrameBlocks.error_message kind
   | `LustreCheckMatchExpressionsError (_, kind) -> LustreCheckMatchExpressions.error_message kind
+  | `LustreCheckADTDecreasesError (_, kind) -> LustreCheckADTDecreases.error_message kind
   | `LustreDesugarLastError (_, kind) -> LustreDesugarLast.error_message kind
   | `LustreFlattenRefinementTypesError (_, kind) -> LustreFlattenRefinementTypes.error_message kind

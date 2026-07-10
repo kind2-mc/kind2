@@ -111,6 +111,7 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
+  | InvalidDecreasesType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
