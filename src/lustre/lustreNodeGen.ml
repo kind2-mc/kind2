@@ -1174,13 +1174,19 @@ and compile_ast_expr
           | E.Unbound _ -> 
             acc
         ) E.t_true (List.combine idx_vars bounds) in
-        (* For map value equality we only consider m1[k] = m2[k] for k in the maps. 
-           `acc_guard` collects the constraints that k is in the map (if the equality is over maps) *)
-        let acc_guard' = List.fold_left (fun acc e -> 
-          let e = List.fold_left (fun acc arr_i -> 
+        (* For map value equality we only consider m1[k] = m2[k] for k in the maps.
+           `acc_guard` collects the constraints that k is in the map (if the equality is over maps).
+           A guard array may have fewer index positions than the current leaf (e.g. the
+           domain array of a map whose values are sets, which adds an element index), so
+           select each guard with only the prefix of index variables matching its arity. *)
+        let acc_guard' = List.fold_left (fun acc e ->
+          let guard_arity =
+            List.length (Type.all_index_types_of_array (E.type_of_lustre_expr e))
+          in
+          let e = List.fold_left (fun acc arr_i ->
             E.mk_select_and_push acc arr_i
-          ) e arr_is in
-          E.mk_and acc e 
+          ) e (fst (list_split guard_arity arr_is)) in
+          E.mk_and acc e
         ) E.t_true acc_guard in
         (* For equality:    forall (x: K) conditions =>  arr1[x]  = arr2[x] 
            For disequality: exists (x: K) conditions and arr1[x] <> arr2[x]. 

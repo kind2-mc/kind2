@@ -1,0 +1,32 @@
+-- Minimal reproduction of a frontend bug (now fixed): a map-of-sets state
+-- variable assigned by a node call under a `when` clock inside a frame
+-- block made Kind 2 fail with an internal LustreExpr.Type_mismatch
+-- (reported as "Error opening input file").
+--
+-- Cause: the clocked call generates "held value consistent with clocked
+-- call" definitions containing structural equality over the map value.
+-- LustreNodeGen.compile_equality selected the map's domain guard array
+-- with the full index-variable list of the current value leaf; for
+-- map<int,set<int>> the value leaf has two index positions (key and set
+-- element) while the domain guard has one, so the second select hit a
+-- Bool and LustreExpr.type_of_select raised Type_mismatch. Fixed by
+-- selecting each guard with only the prefix of index variables matching
+-- its own arity (lustreNodeGen.ml, compile_equality). This file is kept
+-- as a regression test; it verifies on the fixed build.
+node Sub(st: map<int,set<int>>) returns (st_after: map<int,set<int>>);
+let
+  st_after = st;
+tel
+node Top(go: bool) returns (ok: bool);
+var st: map<int,set<int>>;
+let
+  frame (st)
+    st = map[]@<int,set<int>>;
+  let
+    when go then
+      st = Sub(last st);
+    end
+  tel
+  ok = true;
+  check "c" ok;
+tel
