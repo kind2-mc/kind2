@@ -2861,7 +2861,7 @@ let generate_frontend_certificates sys dirname =
 
 
 let z3_cmd = "z3 -smt2 -in"
-let cvc5_cmd = "cvc5 --incremental --lang=smt2"
+let cvc5_cmd = "cvc5 --lang=smt2 --incremental --ext-rew-prep=use --full-saturate-quant"
 let yices2_cmd = "yices-smt2 --incremental"
 
 let goto_cert_dir="cd $(dirname \"$(which \"$0\")\")\n"
