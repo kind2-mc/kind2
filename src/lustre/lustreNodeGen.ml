@@ -45,6 +45,7 @@ module SVS = StateVar.StateVarSet
 module TM = Type.TypeMap
 
 module Ctx = TypeCheckerContext
+module Chk = LustreTypeChecker
 
 module StringMap = HString.HStringMap
 
@@ -1114,6 +1115,54 @@ and compile_ast_expr
     let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
       | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
+    (* Map-value leaves must be compared only at keys present in the map. The
+       trie fold below can associate the domain (presence) array of an
+       outermost map with the leaves of its value, but maps nested deeper
+       (inside map values, tuples, records or ADT payloads) contribute domain
+       arrays that cannot be recognized from trie indices alone: a map's
+       domain/value pair is encoded with plain tuple indices, which are
+       ambiguous with actual tuples. Compute the association from the source
+       type of the operands instead: collect, for every map in the type, the
+       trie prefix of its value subtree together with the prefix of its domain
+       leaf. A leaf under a value prefix is then guarded by the corresponding
+       domain array (of the first operand). Falls back to the legacy
+       first-leaf guard if the type of neither operand can be inferred. *)
+    let guard_pairs_opt =
+      let rec collect ty prefix acc =
+        match Ctx.expand_type_syn ctx ty with
+        | A.Map (_, _, vty) ->
+          let acc = (prefix @ [X.TupleIndex 1], prefix @ [X.TupleIndex 0]) :: acc in
+          collect vty (prefix @ [X.TupleIndex 1]) acc
+        | A.TupleType (_, tys) ->
+          List.fold_left (fun (k, acc) t ->
+            succ k, collect t (prefix @ [X.TupleIndex k]) acc) (0, acc) tys
+          |> snd
+        | A.GroupType (_, tys) ->
+          List.fold_left (fun (k, acc) t ->
+            succ k, collect t (prefix @ [X.ListIndex k]) acc) (0, acc) tys
+          |> snd
+        | A.RecordType (_, _, fields) ->
+          List.fold_left (fun acc (_, i, t) ->
+            collect t (prefix @ [field_name_to_index cstate.adt_map i]) acc)
+            acc fields
+        | A.ArrayType (_, (t, _)) ->
+          (* array dimensions are appended after the trailing map dimensions,
+             so the structural prefix of the element type is unchanged *)
+          collect t prefix acc
+        | A.RefinementType (_, (_, _, t), _) -> collect t prefix acc
+        | _ -> acc
+      in
+      match Chk.infer_type_expr ctx None expr1 with
+      | Ok (ty, _, _) -> Some (collect ty [] [])
+      | Error _ ->
+        (match Chk.infer_type_expr ctx None expr2 with
+         | Ok (ty, _, _) -> Some (collect ty [] [])
+         | Error _ -> None)
+    in
+    let is_index_prefix p i =
+      List.length p <= List.length i
+      && X.compare_indexes p (fst (list_split (List.length p) i)) = 0
+    in
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
@@ -1175,10 +1224,25 @@ and compile_ast_expr
             acc
         ) E.t_true (List.combine idx_vars bounds) in
         (* For map value equality we only consider m1[k] = m2[k] for k in the maps.
-           `acc_guard` collects the constraints that k is in the map (if the equality is over maps).
-           A guard array may have fewer index positions than the current leaf (e.g. the
-           domain array of a map whose values are sets, which adds an element index), so
-           select each guard with only the prefix of index variables matching its arity. *)
+           The guards of this leaf are the domain arrays of all its enclosing maps,
+           located from the source type (see guard_pairs_opt above); without type
+           information, fall back to the domain array of the outermost map collected
+           by the fold in `acc_guard`. A guard array may have fewer index positions
+           than the current leaf (e.g. the domain array of a map whose values are
+           sets or maps, which add further index positions), so select each guard
+           with only the prefix of index variables matching its arity. *)
+        let leaf_guards = match guard_pairs_opt with
+          | Some pairs ->
+            List.filter_map (fun (value_prefix, domain_prefix) ->
+              if is_index_prefix value_prefix i then
+                match X.bindings (X.find_prefix domain_prefix eqs) with
+                | [(_, (g1, _))] -> Some g1
+                | _ -> None
+                | exception Not_found -> None
+              else None
+            ) pairs
+          | None -> acc_guard
+        in
         let acc_guard' = List.fold_left (fun acc e ->
           let guard_arity =
             List.length (Type.all_index_types_of_array (E.type_of_lustre_expr e))
@@ -1187,7 +1251,7 @@ and compile_ast_expr
             E.mk_select_and_push acc arr_i
           ) e (fst (list_split guard_arity arr_is)) in
           E.mk_and acc e
-        ) E.t_true acc_guard in
+        ) E.t_true leaf_guards in
         (* For equality:    forall (x: K) conditions =>  arr1[x]  = arr2[x] 
            For disequality: exists (x: K) conditions and arr1[x] <> arr2[x]. 
            For arrays, `conditions` are that the index is in range. 
@@ -2062,6 +2126,22 @@ and compile_node_io cstate ctx node_id params inputs outputs =
 
 and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_lemma opac cstate ctx node_id ext params locals items contract =
   let gids = NI.Map.find node_id gids_map in
+  (* Extend the typing context with the normalizer-generated locals of this
+     node so that source types of equality operands appearing in generated
+     equations can be inferred in compile_equality (used to locate the domain
+     guards of map-value comparisons) *)
+  let ctx =
+    let ctx =
+      GI.StringMap.fold (fun id ty acc -> Ctx.add_ty acc id ty)
+        gids.GI.locals ctx
+    in
+    let ctx =
+      List.fold_left (fun acc (id, _, ty, _) -> Ctx.add_ty acc id ty)
+        ctx gids.GI.node_args
+    in
+    List.fold_left (fun acc (id, ty) -> Ctx.add_ty acc id ty)
+      ctx gids.GI.free_constants
+  in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
   let node_decreases = get_decreases_expr contract in
@@ -3435,11 +3515,16 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec; is_lemma }) -> (
+  | A.FuncDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract), { is_rec; is_lemma }) -> (
+    (* Extend the typing context with the node interface and locals so that
+       source types of equality operands can be inferred in compile_equality
+       (used to locate the domain guards of map-value comparisons) *)
+    let ctx = Chk.add_full_node_ctx ctx i params inputs outputs locals in
     let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec is_lemma opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
-  | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
+  | A.NodeDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let ctx = Chk.add_full_node_ctx ctx i params inputs outputs locals in
     let cstate = compile_node_decl scc_map gids rec_decreases_map false false false opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,

@@ -1,0 +1,25 @@
+-- Regression test: equality over maps whose values contain further maps
+-- (directly or inside tuples) must compare value entries only at keys
+-- present in the enclosing maps. The domain guards of nested maps used to
+-- be dropped — only the outermost map's domain array guarded the
+-- comparison — so structurally equal nested maps could compare unequal
+-- due to junk at keys outside the inner domains. Also checks that an
+-- actual tuple in a map value is not mistaken for a map's internal
+-- domain/value pair encoding.
+type P = [bool, int];
+node Top(x: int) returns (ok: bool);
+var n1, n2, n3: map<int, map<int,int>>;
+var t1, t2, t3: map<int, P>;
+let
+  n1 = (map[]@<int,map<int,int>>)[x := (map[]@<int,int>)[0 := 1]];
+  n2 = (map[]@<int,map<int,int>>)[x := (map[]@<int,int>)[0 := 1]];
+  n3 = (map[]@<int,map<int,int>>)[x := (map[]@<int,int>)[0 := 2]];
+  t1 = (map[]@<int,P>)[x := '(true, 5)];
+  t2 = (map[]@<int,P>)[x := '(true, 5)];
+  t3 = (map[]@<int,P>)[x := '(false, 5)];
+  ok = true;
+  check "nested map equality" (n1 = n2);
+  check "nested map disequality" (not (n1 = n3));
+  check "tuple value equality" (t1 = t2);
+  check "tuple value disequality" (not (t1 = t3));
+tel
