@@ -32,6 +32,10 @@ let cvc5_proof_args () =
     [
       "--lang=smt2";
       "--simplification=none";
+      (* Resort to full effort quantifier instantiation techniques instead of
+         answering unknown; without it, certificates with quantified
+         constraints (e.g. from Lustre maps and sets) are not provable *)
+      "--full-saturate-quant";
       "--dump-proofs";
       "--proof-format-mode=cpc";
     ]

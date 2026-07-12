@@ -242,6 +242,12 @@ let rec split_cmp acc cmp = function
 
 (* Preprocessing of terms for proof producing version of cvc5 *)
 let preproc term =
+  (* Encode select operators over unbounded arrays (Lustre maps and sets) as
+     applications of their uninterpreted select functions when the builtin
+     theory of arrays is disabled, as done for terms sent to solvers (the
+     select symbol is not printable in that mode). No-op when --smt_arrays
+     is on or the term contains no select. *)
+  let term = Term.convert_select term in
   Term.map (fun _ t -> match Term.node_of_term t with
       | Term.T.Node (cmp, (_::_::_::_ as l)) ->
         begin match Symbol.node_of_symbol cmp with
@@ -1266,8 +1272,11 @@ let add_logic ?(compliant=false) fmt sys =
 
   
 let add_arrays fmt =
-  (* Add farray declaration *)
-  fprintf fmt "(declare-sort FArray 2)@.";
+  (* Add farray declaration (only meaningful when the builtin theory of
+     arrays is disabled; with --smt_arrays the certificate uses the native
+     Array sort) *)
+  if not (Flags.Arrays.smt ()) then
+    fprintf fmt "(declare-sort FArray 2)@.";
   (* Add select functions *)
   declare_selects fmt
 
@@ -1321,6 +1330,21 @@ let export_system_defs
       add_section fmt "Constant constraints";
       List.iter (fun c -> assert_expr fmt c) constraints
     )
+  ) ;
+
+  (* Declaring uninterpreted function symbols (e.g. those introduced for
+     imported functions), as done for solvers by
+     TransSys.declare_sorts_ufs_const *)
+  let ufs =
+    TS.fold_subsystems ~include_top:true (fun acc t ->
+      List.fold_left (fun acc uf -> UfSymbol.UfSymbolSet.add uf acc)
+        acc (TS.get_ufs t)
+    ) UfSymbol.UfSymbolSet.empty sys
+    |> UfSymbol.UfSymbolSet.elements
+  in
+  if ufs <> [] then (
+    add_section fmt "Uninterpreted function symbols";
+    List.iter (declare_const fmt) ufs
   ) ;
 
   (* Declaring function symbols *)
