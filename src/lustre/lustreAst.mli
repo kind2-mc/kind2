@@ -138,14 +138,19 @@ type lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  | ADT of position * ident * (ident * lustre_type list) list
+  | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 (** A Lustre expression *)
 and expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
-  | RecordProject of position * expr * index
+  (* Field projection e.f, used for both record and ADT selector expressions.
+     The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
+     field name is still the user-written name (set by the type checker); the
+     desugarer rewrites it to the internal payload field name and clears it to
+     None. It is None for record projections and for already-desugared ADT ones. *)
+  | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -188,6 +193,8 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* ADT tester: C?(e) checks whether e was constructed with C *)
+  | ADTTester of position * expr * ident
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

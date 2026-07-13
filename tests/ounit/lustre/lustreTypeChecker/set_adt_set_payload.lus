@@ -1,4 +1,4 @@
-datatype D = A (set<int>) | B;
+datatype D = A (s: set<int>) | B;
 node main() returns (ok: bool);
 var s: set<D>;
 let s = {}@<D>; ok = true; check ok; tel

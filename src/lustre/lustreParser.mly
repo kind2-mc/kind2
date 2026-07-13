@@ -67,6 +67,7 @@ let mk_span start_pos end_pos =
 (* Tokens for types *)
 %token TYPE
 %token DATATYPE
+%token QUESTION
 %token INT
 %token UINT
 %token SINT
@@ -521,10 +522,14 @@ refinement_type:
 (* An enum type (V6) *)
 enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 
+(* A named field in an ADT constructor: fieldname : type *)
+adt_field:
+  | n = ident; COLON; ty = lustre_type { (n, ty) }
+
 (* A single constructor of an algebraic datatype *)
 adt_constructor:
   | n = ident { (n, []) }
-  | n = ident; LPAREN; tys = separated_nonempty_list(COMMA, lustre_type); RPAREN { (n, tys) }
+  | n = ident; LPAREN; fields = separated_nonempty_list(COMMA, adt_field); RPAREN { (n, fields) }
 
 (* A pattern in a match arm *)
 pat:
@@ -1151,9 +1156,13 @@ pexpr(Q):
   | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
     { A.IndexAccess (mk_pos $startpos, e, i, Unknown) }
     
+  (* An ADT tester: C?(e) tests whether e was built with constructor C. *)
+  | c = ident; QUESTION; LPAREN; e = pexpr(Q); RPAREN
+    { A.ADTTester (mk_pos $startpos, e, c) }
+
   (* A record field projection (not quantified) *)
-  | s = pexpr(Q); DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos($2), s, t) }
+  | s = pexpr(Q); DOT; t = ident
+    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;

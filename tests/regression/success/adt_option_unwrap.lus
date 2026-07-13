@@ -1,4 +1,4 @@
-datatype IntOpt = None | Some (int);
+datatype IntOpt = None | Some (val: int);
 
 node main(x: int) returns (ok: bool);
 var opt: IntOpt;

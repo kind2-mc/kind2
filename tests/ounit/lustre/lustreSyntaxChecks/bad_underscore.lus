@@ -1,4 +1,4 @@
-datatype Color = Red (int);
+datatype Color = Red (v: int);
 
 node N (c: Color) returns (o: int);
 let

@@ -53,7 +53,7 @@ let rec flatten_ref_type ctx ty = match ty with
     | RecordType (_, _, tis) ->
       List.map (fun (_, id2, ty) -> 
         let exprs = chase_refinements ty in 
-        List.map (AH.substitute_naive id (A.RecordProject(pos, Ident(pos, id), id2))) exprs
+        List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, None))) exprs
       ) tis |> List.flatten
     | TupleType (pos, tys) | GroupType (pos, tys) -> 
       List.mapi (fun i ty ->
@@ -152,7 +152,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   (* Everything else *)
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> e
-  | RecordProject (p, e, i) -> RecordProject (p, rec_call e, i)
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, rec_call e, i, ty_opt)
   | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 
@@ -191,7 +191,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
-  | ADTTerm _ | Match _ -> assert false (* desugared in lustreDesugarADTs *)
+  | ADTTerm _ | Match _ | ADTTester _ -> assert false (* desugared in lustreDesugarADTs *)
 
 let flatten_ref_types_item ctx item = 
   match item with 

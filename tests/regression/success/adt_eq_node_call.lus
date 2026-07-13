@@ -1,5 +1,5 @@
 
-datatype D = C1 (int) | C2 (real);
+datatype D = C1 (val: int) | C2 (val: real);
 
 node make(i: int) returns (d: D);
 let

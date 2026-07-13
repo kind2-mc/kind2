@@ -1,4 +1,4 @@
-datatype D = C (int, int, int);
+datatype D = C (s1: int, s2: int, s3: int);
 
 node N (inp: D) returns (ok: bool)
 let

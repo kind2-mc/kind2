@@ -34,6 +34,7 @@ Table of Contents
     2_input/11_maps
     2_input/12_subranges
     2_input/13_records
+    2_input/14_algebraic_datatypes
     3_output/2_machine_readable
     3_output/3_exit_codes
 

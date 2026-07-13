@@ -1,4 +1,4 @@
-datatype IntOption = None | Some(int);
+datatype IntOption = None | Some(val: int);
 
 node n (x: int) returns (r: IntOption);
 let

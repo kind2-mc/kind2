@@ -1,5 +1,5 @@
 type Color = enum { Red, Green, Blue };
-datatype Opt<T> = Absent | Present (T);
+datatype Opt<T> = Absent | Present (val: T);
 
 node main() returns (ok: bool);
 var x: Opt<Color>;

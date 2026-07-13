@@ -1,5 +1,5 @@
-datatype Inner = X (int) | Y (bool);
-datatype Outer = A (Inner) | B (real);
+datatype Inner = X (s1: int) | Y (s2: bool);
+datatype Outer = A (s3: Inner) | B (s4: real);
 
 function isB(o: Outer) returns (r: bool);
 let r = match o with | A(_) : false | B(_) : true end; tel
