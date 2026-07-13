@@ -125,6 +125,8 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
+  | DuplicateFieldNameInCtor of HString.t * HString.t
+  | NotAFieldOfADT of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -268,6 +270,11 @@ let error_message kind = match kind with
     "Selector for field '" ^ HString.string_of_hstring field ^ "' is ambiguous: appears in constructor '"
     ^ HString.string_of_hstring ctor1 ^ "' and constructor '"
     ^ HString.string_of_hstring ctor2 ^ "'"
+  | DuplicateFieldNameInCtor (field, ctor) ->
+    "Duplicate field name '" ^ HString.string_of_hstring field ^ "' in constructor '"
+    ^ HString.string_of_hstring ctor ^ "'"
+  | NotAFieldOfADT id ->
+    "No field named '" ^ HString.string_of_hstring id ^ "' in algebraic datatype"
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
@@ -1084,7 +1091,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         List.map (fun (fn, ty) -> (ctor, fn, ty)) flds) adt_cons in
       let fields_with_name = List.filter (fun (_, fn, _) -> HString.equal fn fld) all_ctor_fields in
       (match fields_with_name with
-      | [] -> type_error pos (NotAFieldOfRecord fld)
+      | [] -> type_error pos (NotAFieldOfADT fld)
       | _ :: (ctor2, _, _) :: _ ->
         let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
         type_error pos (DuplicateFieldName (fld, ctor1, ctor2))
@@ -3038,6 +3045,14 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             (match lookup_const ctx ctor with
             | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
             | None -> R.ok ())) in
+        let* _ =
+          let seen = Hashtbl.create 4 in
+          R.seq (List.map (fun (fn, _) ->
+            if Hashtbl.mem seen fn then
+              type_error pos (DuplicateFieldNameInCtor (fn, ctor))
+            else (Hashtbl.add seen fn (); R.ok ())
+          ) fields)
+        in
         let* fields', warnings = R.seq (List.map (fun (fn, ty) ->
           let* ty', w = check_type_well_formed_rec true ty in
           R.ok ((fn, ty'), w)

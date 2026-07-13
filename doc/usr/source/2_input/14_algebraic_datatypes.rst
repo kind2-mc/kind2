@@ -121,7 +121,7 @@ required:
 
    node main(x: Option<int>) returns (ok: bool);
    let
-     ok = Some?(x) and x.val > 0;
+     ok = Some?(x) and then x.val > 0;
    tel
 
 
@@ -167,5 +167,5 @@ A polymorphic ADT is instantiated by supplying type arguments:
    let
      xi = Some(i);
      xr = Some(r);
-     ok = Present?(xi) and Present?(xr);
+     ok = Some?(xi) and Some?(xr);
    tel
