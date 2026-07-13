@@ -92,7 +92,7 @@ jobs:
         opam exec make kind2-doc
 
     - name: Upload kind2 artifact
-      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v7
       with:
         name: kind2-${{ matrix.os }}

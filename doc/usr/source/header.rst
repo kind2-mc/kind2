@@ -1,4 +1,4 @@
-.. |develop| image:: https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=develop
+.. |main| image:: https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=main
    :target: https://github.com/kind2-mc/kind2/actions?query=workflow%3A%22Kind2+CI%22
    :align: middle
 
@@ -7,12 +7,12 @@
    :align: middle
 
 .. |license| image:: https://img.shields.io/github/license/kind2-mc/kind2?color=green
-   :target: https://github.com/kind2-mc/kind2/blob/develop/LICENSE.rst
+   :target: https://github.com/kind2-mc/kind2/blob/main/LICENSE.rst
    :align: middle
 
 .. https://stackoverflow.com/a/12145490/8261793
 
 .. |nbsp| unicode:: 0xA0
 
-|develop| |nbsp| |release| |nbsp| |license|
+|main| |nbsp| |release| |nbsp| |license|
 

@@ -2,7 +2,7 @@ name: Kind 2 DockerHub
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
     tags: [ 'v[0-9]+.[0-9]+.[0-9]+' ]
 
 jobs:

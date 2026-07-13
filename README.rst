@@ -1,6 +1,6 @@
 .. DO NOT EDIT, see doc/usr/README.rst for details
 
-.. |develop| image:: https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=develop
+.. |main| image:: https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=main
    :target: https://github.com/kind2-mc/kind2/actions?query=workflow%3A%22Kind2+CI%22
    :align: middle
 
@@ -9,14 +9,14 @@
    :align: middle
 
 .. |license| image:: https://img.shields.io/github/license/kind2-mc/kind2?color=green
-   :target: https://github.com/kind2-mc/kind2/blob/develop/LICENSE.rst
+   :target: https://github.com/kind2-mc/kind2/blob/main/LICENSE.rst
    :align: middle
 
 .. https://stackoverflow.com/a/12145490/8261793
 
 .. |nbsp| unicode:: 0xA0
 
-|develop| |nbsp| |release| |nbsp| |license|
+|main| |nbsp| |release| |nbsp| |license|
 
 Kind 2
 ======
@@ -145,8 +145,8 @@ Retrieving / updating the image
 
    docker pull kind2/kind2:dev
 
-Docker will retrieve the *layers* corresponding to the latest version of the
-Kind 2 repository, ``develop`` version. If you are interested in the latest
+Docker will retrieve the *layers* corresponding to the latest development version of the
+Kind 2 repository (``main`` branch). If you are interested in the latest
 release, run
 
 .. code-block:: bash
@@ -186,7 +186,7 @@ where
   with folders already present in the container however, it is recommended to
   use ``/lus``\ ;
 * replace ``kind2:dev`` by ``kind2`` if you want to run the latest release of Kind2
-  instead of the ``develop`` version;
+  instead of the development version (``main`` branch);
 * ``docker run`` does **not** update your local Kind 2 image to the latest one:
   the appropriate ``docker pull`` command does.
 
