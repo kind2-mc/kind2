@@ -3758,9 +3758,7 @@ let exit_code_mode = Global.exit_code_mode
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
-
 let log_format_ijson = Global.log_format_ijson
-
 let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
@@ -3912,7 +3910,7 @@ let parse_clas specs anon_action =
               "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
               fmt_flag spec error
           )
-          | Log.F_xml | Log.F_json | F_ijson -> (
+          | Log.F_xml | Log.F_json | Log.F_ijson -> (
             let flag, _, _ = spec in
             Log.log L_error "Error on flag '%s': %s" flag error
           )
@@ -3929,7 +3927,7 @@ let parse_clas specs anon_action =
           | Log.F_xml -> (
             Log.log L_error "Bad argument:@ @[<v>%s@]@." expl
           )
-          | Log.F_json | F_ijson -> (
+          | Log.F_json | Log.F_ijson -> (
             Log.log L_error "Bad argument: %s" expl
           )
         );
