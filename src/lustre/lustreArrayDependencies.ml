@@ -153,7 +153,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | ModeRef _ -> empty_
   | EmptySet _ -> empty_
   | EmptyMap _ -> empty_
-  | RecordProject (_, e, _) -> r e
+  | FieldProject (_, e, _, _) -> r e
   (* Values *)
   | Const _ -> empty_
   (* Operators *)
@@ -235,6 +235,8 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
     union_ (r e) graph
   (* Temporal operators *)
   | Pre _ -> empty_
+  (* 'last x' refers to the previous value of x: no instantaneous dependency *)
+  | Last _ -> empty_
   | Arrow (_, e1, e2) -> union_ (r e1) (r e2)
   | TypeAscription (_, e, _) -> r e
   (* Node calls *)
@@ -248,6 +250,12 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
         | None -> acc)
       empty_
       dep_args
+  | Match (_, e, arms, _) ->
+    let graph = union_ (r e) (arms |> List.map (fun (_, arm_e) -> r arm_e) |> List.fold_left union_ empty_) in
+    graph
+  | ADTTerm (_, _, _, args) ->
+    args |> (List.map r) |> (List.fold_left union_ empty_)
+  | ADTTester (_, e, _) -> r e
 
 let extract_unknown ids =
   let unknowns =
@@ -265,7 +273,7 @@ let extract_unknown ids =
   | unk :: _ -> Some unk
 
 let rec check_inductive_array_dependencies ctx ns = function
-  | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl)) :: tail ->
+  | (A.NodeDecl (_, decl)) :: tail | (A.FuncDecl (_, decl, _)) :: tail ->
     check_node_decl ctx ns decl
     >> check_inductive_array_dependencies ctx ns tail
   | _ :: tail ->

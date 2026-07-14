@@ -1,0 +1,4 @@
+node N(x: int) returns (r: int);
+let
+  r = x.foo;
+tel

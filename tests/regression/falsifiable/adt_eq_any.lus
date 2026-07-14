@@ -1,0 +1,10 @@
+datatype D = C1 (val: int) | C2 (val: real);
+
+node main() returns (ok: bool);
+var x, y: D;
+let
+  x = any@<D>;
+  y = any@<D>;
+  ok = x = y;
+  check ok;
+tel

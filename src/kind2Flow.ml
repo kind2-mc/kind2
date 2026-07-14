@@ -36,9 +36,6 @@ open ProcessCall
 
 (* |===| Helpers. *)
 
-(** TSys name formatter. *)
-let fmt_sys = TSys.pp_print_trans_sys_name
-
 (* |===| Helpers to run stuff. *)
 
 (** Child processes forked.
@@ -609,9 +606,13 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
 let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
-  ( if TSys.has_real_properties sys |> not && not ignore_props then
+  ( if TSys.has_real_property sys |> not && not ignore_props then
+      let node_name =
+        ISys.get_node_user_name in_sys (TSys.scope_of_trans_sys sys)
+      in
       KEvent.log L_note
-        "System %a has no property, skipping verification step." fmt_sys sys
+        "System %a has no property, skipping verification step."
+        (LustreIdent.pp_print_ident true) node_name
     else
       let props = TSys.props_list_of_bound sys Num.zero in
       (* Issue analysis start notification. *)

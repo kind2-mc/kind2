@@ -1,0 +1,208 @@
+
+type Nat = subrange [0,*] of int;
+type Pos = subrange [1,*] of int;
+
+datatype Option<T> = Some (value: T) | None;
+
+node imported nondet() returns (r: bool);
+
+type Vote = enum {Yes, No};
+
+type Decision = enum {Commit, Abort};
+
+type HostId = int;
+
+type HostClass = enum { Coordinator, Participant, NoHost };
+
+type Token_Holder = struct {
+  class: HostClass;
+  id: HostId;
+};
+
+const Preference : subtype { m : map<HostId,Vote> | forall (h:HostId) h in m };
+
+datatype Message =
+  | VoteReqMsg
+  | VoteMsg (id: HostId, vote: Vote)
+  | DecisionMsg (decision: Decision);
+
+type MsgSet = set<Message>;
+
+node Network(send: Option<Message>) returns 
+  (recv: Option<Message>; sentMsgs: MsgSet);
+var prevSentMsgs: MsgSet;
+let
+  prevSentMsgs = {}@<Message> -> pre sentMsgs;
+  frame (sentMsgs)
+    sentMsgs = {}@<Message>;
+  let
+    if Some?(send) then
+      sentMsgs = prevSentMsgs + {send.value};
+    fi
+  tel
+  recv = any { m: Option<Message> | Some?(m) => m.value in prevSentMsgs };
+tel
+
+function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
+(*@contract
+  guarantee r = (forall (i: HostId) i in votes);
+*)
+
+function imported GetDecision(votes: map<HostId,Vote>) returns (d: Decision);
+(*@contract
+  guarantee (forall (i: HostId) votes[i]=Yes) = (d = Commit);
+  guarantee (not (forall (i: HostId) votes[i]=Yes)) = (d = Abort);
+*)
+
+node Coordinator(my_turn: bool; nw_recv: Option<Message>)
+  returns (nw_send: Option<Message>; decision: Option<Decision>;
+           votes: map<HostId,Vote>);
+var sender: HostId;
+    vote: Vote;
+let
+  sender = nw_recv.value.id;
+  vote = nw_recv.value.vote;
+  frame (votes, nw_send, decision)
+    decision = None@<Decision>;
+    votes = map[]@<HostId,Vote>;
+    nw_send = None@<Message>;
+  let
+    if (my_turn) then
+      if (Some?(nw_recv) and VoteMsg?(nw_recv.value)) then
+        votes = map[]@<HostId,Vote> -> (pre votes)[sender := vote];
+        if AllVotesCollected(votes) then
+          decision = Some(GetDecision(votes));
+          nw_send = Some(DecisionMsg(GetDecision(votes)));
+        else
+          nw_send = None@<Message>;
+        fi
+      else
+        if (nondet()) then
+          nw_send = Some(VoteReqMsg);
+        else
+          nw_send = None@<Message>;
+        fi
+      fi
+    else
+      nw_send = None@<Message>;
+    fi
+  tel
+tel
+
+node Participant(my_turn: bool; id: HostId; nw_recv: Option<Message>)
+  returns (nw_send: Option<Message>; decision: Option<Decision>);
+let
+  frame (nw_send, decision)
+    decision = None@<Decision>;
+    nw_send = None@<Message>;
+  let
+    if (my_turn) then
+      if (Some?(nw_recv) and VoteReqMsg?(nw_recv.value)) then
+        nw_send = Some(VoteMsg(id, Preference[id]));
+        if Preference[id] = No then
+          decision = Some(Abort);
+        fi
+      elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
+        decision = Some(nw_recv.value.decision);
+        nw_send = None@<Message>;
+      else
+        nw_send = None@<Message>;
+      fi
+    else
+      nw_send = None@<Message>;
+    fi
+  tel
+tel
+
+function imported AllWithDecisionAgreeWithThisOne(
+  coord_decision: Option<Decision>;
+  partic_decision: map<HostId,Decision>;
+  decision: Decision
+) returns (
+  r: bool
+);
+(*@contract
+  guarantee r = (
+    (Some?(coord_decision) => coord_decision.value = decision) and
+    (forall (i: HostId) i in partic_decision => partic_decision[i] = decision)
+  );
+*)
+
+node DistributedSystem(tk_holder: Token_Holder) returns (
+  coord_decision: Option<Decision>; partic_decision: map<HostId,Decision>
+);
+(*@contract
+  assume "No one's turn initially, then always somebody's turn"
+    tk_holder.class = NoHost -> tk_holder.class <> NoHost;
+
+  guarantee "SafetyAC1"
+    AllWithDecisionAgreeWithThisOne(
+      coord_decision, partic_decision, Commit)
+    or
+    AllWithDecisionAgreeWithThisOne(
+      coord_decision, partic_decision, Abort);
+
+  guarantee "SafetyAC3" (
+    (exists (hostid:HostId) Preference[hostid] = No)
+    =>
+    AllWithDecisionAgreeWithThisOne(
+      coord_decision, partic_decision, Abort)
+  );
+
+  guarantee "SafetyAC4" (
+    (forall (hostid:HostId) Preference[hostid] = Yes)
+    =>
+    AllWithDecisionAgreeWithThisOne(
+      coord_decision, partic_decision, Commit)
+  );
+*)
+var coord_send, partic_send: Option<Message>;
+var network_send, network_recv: Option<Message>;
+var decision_id: Option<Decision>;
+var votes: map<HostId,Vote>; -- probe
+var sentMsgs: MsgSet; -- probe
+
+let
+  coord_send, coord_decision, votes =
+    Coordinator(tk_holder.class = Coordinator, network_recv);
+
+  partic_send, decision_id =
+    Participant(tk_holder.class = Participant, tk_holder.id, network_recv);
+
+  partic_decision = map[]@<HostId,Decision> ->
+    if tk_holder.class = Coordinator or not Some?(decision_id) then
+      pre partic_decision
+    else
+      (pre partic_decision)[tk_holder.id := decision_id.value];
+
+  if tk_holder.class = Coordinator then
+    network_send = coord_send;
+  elsif tk_holder.class = Participant then
+    network_send = partic_send;
+  else -- tk_holder.class = NoHost
+    network_send = None@<Message>;
+  fi
+
+  network_recv, sentMsgs = Network(network_send);
+
+  check "Vote Messages Agree With Participant Preferences"
+    forall (msg: Message) (msg in sentMsgs and VoteMsg?(msg)) =>
+      msg.vote = Preference[msg.id];
+
+  check "Coordinator State Supported By Vote"
+    forall (idx:HostId) idx in votes => 
+      VoteMsg(idx, votes[idx]) in sentMsgs;
+
+  check "Decision Msgs Agree With Decision"
+    forall (msg: Message) (msg in sentMsgs and DecisionMsg?(msg)) =>
+      (AllVotesCollected(votes) and
+      GetDecision(votes) = msg.decision);
+
+  check "Participant Commit Decision Agree With Decision Msg"
+    Some?(decision_id) and decision_id.value = Commit =>
+      DecisionMsg(Commit) in sentMsgs;
+
+  check "Participant Decision Agree With Participant Preferences"
+    ((forall (idx: HostId) Preference[idx]=Yes) and Some?(decision_id)) =>
+      decision_id.value = Commit;
+tel

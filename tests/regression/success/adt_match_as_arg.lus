@@ -1,0 +1,22 @@
+datatype Sign = Pos | Neg | Zero;
+
+node negate(s: Sign) returns (s2: Sign);
+let
+  s2 = match s with
+    | Pos : Neg
+    | Neg : Pos
+    | Zero : Zero
+  end;
+tel
+
+node main(s: Sign) returns (ok: bool);
+var s2: Sign;
+let
+  s2 = negate(match s with
+    | Pos : Neg
+    | Neg : Pos
+    | Zero : Zero
+  end);
+  ok = s2 = s;
+  check ok;
+tel

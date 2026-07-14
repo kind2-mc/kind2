@@ -44,7 +44,9 @@ type 'a t = {
 
   has_impl : bool ;        (** System has an implementation *)
 
-  subsystems : 'a t list ; (** Sub-systems *)
+  map : 'a t Scope.Hashtbl.t ;
+
+  subsystems : Scope.t list ; (** Sub-systems *)
 }
 
 (** Strategy info of a subsystem. *)

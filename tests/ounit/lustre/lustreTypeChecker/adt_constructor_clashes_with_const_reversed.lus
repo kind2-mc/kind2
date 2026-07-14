@@ -1,0 +1,8 @@
+-- ADT declared before the clashing constant: same error regardless of order.
+datatype Color = Red | Green | Blue;
+const Red: bool = true;
+
+node main(c: Color) returns (ok: bool);
+let
+  ok = true;
+tel

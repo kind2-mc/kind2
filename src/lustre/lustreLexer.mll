@@ -223,6 +223,7 @@ let keyword_table = mk_hashtbl [
 
   (* Types *)
   "type", TYPE ;
+  "datatype", DATATYPE ;
   "int", INT ;
   "uint", UINT ; 
   "sint", SINT ;
@@ -254,6 +255,8 @@ let keyword_table = mk_hashtbl [
   "transparent", TRANSPARENT ;
   "opaque", OPAQUE ;
   "imported", IMPORTED ;
+  "rec", REC ;
+  "lemma", LEMMA ;
   "node", NODE ;
   "function", FUNCTION ;
   "returns", RETURNS ;
@@ -294,9 +297,13 @@ let keyword_table = mk_hashtbl [
   "if", IF ;
   "then", THEN ;
   "else", ELSE ;
-  "otherwise", OTHERWISE;
   "elsif", ELSIF ;
   "fi", FI ;
+  "when", WHEN ; (* Also clock operator *)
+  "cond", COND ;
+  "otherwise", OTHERWISE;
+  "auto", AUTO ;
+  "end", END ;
   "frame", FRAME ;
 
   (* Arithmetic operators *)
@@ -308,7 +315,6 @@ let keyword_table = mk_hashtbl [
   "choose", CHOOSE ;
   
   (* Clock operators *)
-  "when", WHEN ;
   "current", CURRENT ;
   "condact", CONDACT ;
   "activate", ACTIVATE ;
@@ -321,6 +327,7 @@ let keyword_table = mk_hashtbl [
   (* Temporal operators *)
   "pre", PRE ;
   "fby", FBY ;
+  "last", LAST ;
 
   (* Block annotation contract stuff. *)
   "mode", MODE;
@@ -330,8 +337,10 @@ let keyword_table = mk_hashtbl [
   "ensure", ENSURE;
   "weakly", WEAKLY;
   "assumption_vars", ASSUMP_VARS;
+  "decreases", DECREASES;
 
   "with", WITH ;
+  "match", MATCH ;
   ]
 
     
@@ -472,6 +481,7 @@ rule token = parse
   | ')' { RPAREN }
   | '.' { DOT }
   | ".." { DOTDOT }
+  | '?' { QUESTION }
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }

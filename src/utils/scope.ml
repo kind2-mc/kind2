@@ -36,7 +36,7 @@ let pp_print_scope_internal ppf s =
   Format.fprintf 
     ppf
     "@{<blue>%a@}"
-    (pp_print_list Ident.pp_print_ident ".")
+    (pp_print_list Ident.pp_print_ident Lib.StringValues.scope_sep)
     s
 
 module Scope = struct 
@@ -63,6 +63,8 @@ include Scope
 module Set = Set.Make (Scope)
 
 module Map = Map.Make (Scope)
+
+module Hashtbl = Hashtbl.Make (Scope)
 
 (* Construct a scope from a list of identifiers 
 

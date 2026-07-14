@@ -52,20 +52,24 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
     match load_file "./lustreAstInlineConstants/test_access_out_of_bounds.lus" with
     | Error (`LustreAstInlineConstantsError  (_, OutOfBounds _)) -> true
     | _ -> false);
-  mk_test "test symbolic subrange bound 1" (fun () ->
-    match load_file "./lustreTypeChecker/symbolic_subrange_bound.lus" with
-    | Ok _ -> false 
-    | _ -> true);
-  mk_test "test symbolic subrange bound 2" (fun () ->
-    match load_file "./lustreTypeChecker/symbolic_subrange_bound_2.lus" with
-    | Ok _ -> true
-    | _ -> false);
 ])
 
 (* *************************************************************************** *)
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "test bad underscore" (fun () ->
+    match load_file "./lustreSyntaxChecks/bad_underscore.lus" with
+    | Error (`LustreSyntaxChecksError (_, InvalidUnderscore)) -> true
+    | _ -> false);
+  mk_test "test non-inlinable type ascription 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/non_inlinable_ta.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInTypeAscription _)) -> true
+    | _ -> false);
+  mk_test "test non-inlinable type ascription 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/non_inlinable_ta_2.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInTypeAscription _)) -> true
+    | _ -> false);
   mk_test "test any operator in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
@@ -213,6 +217,22 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "symbolic array index passed to non-inlinable function" (fun () ->
     match load_file "./lustreSyntaxChecks/array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
+    | _ -> false);
+  mk_test "node call in nested type" (fun () ->
+    match load_file "./lustreSyntaxChecks/nested_type_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeNodeCall _)) -> true
+    | _ -> false);
+  mk_test "refinement bound var under set passed to non-inlinable function" (fun () ->
+    match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard rejects non-inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_noninlinable_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedNodeCall _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard allows inlinable call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
+    | Ok _ -> true
     | _ -> false);
 ])
 
@@ -467,6 +487,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test type ascription with temporal operator in context of function" (fun () ->
+    match load_file "./lustreTypeChecker/type_ascription_temporal_func.lus" with
+    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncTypeAscription)) -> true
+    | _ -> false);
   mk_test "test map dangling type identifier" (fun () ->
     match load_file "./lustreTypeChecker/map_dangling_type_id.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
@@ -530,10 +554,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test constant reassigned" (fun () ->
     match load_file "./lustreTypeChecker/const_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
-    | _ -> false);
-  mk_test "test empty subrange" (fun () ->
-    match load_file "./lustreTypeChecker/empty_range.lus" with
-    | Error (`LustreTypeCheckerError (_, EmptySubrange _)) -> true
     | _ -> false);
   mk_test "test disallowed resassignment" (fun () ->
     match load_file "./lustreTypeChecker/enum_01.lus" with
@@ -661,7 +681,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test invalid type for bound variable" (fun () ->
     match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerExpression _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
     | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
@@ -718,10 +738,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test provided invalid type" (fun () ->
     match load_file "./lustreTypeChecker/provided.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
-    | _ -> false);
-  mk_test "test open interval with no bounds" (fun () ->
-    match load_file "./lustreTypeChecker/open_interval.lus" with
-    | Error (`LustreTypeCheckerError (_, IntervalMustHaveBound)) -> true
     | _ -> false);
   mk_test "test nondeterministic choice type error" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
@@ -783,6 +799,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/map_array_key_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
     | _ -> false);
+  mk_test "test set of sets is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_of_set.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with ADT array payload is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_adt_array_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with nested ADT array payload is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_adt_nested_array_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with ADT set payload is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_adt_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedMapIndex _)) -> true
@@ -803,6 +835,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_type_const_expr.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test refinement bound variable under pre" (fun () ->
+    match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
+    | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
@@ -810,6 +846,86 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test activate clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
+    | _ -> false);
+  mk_test "test unbound ADT constructor in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unbound_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in match pattern" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test match scrutinee is not an ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
+    | _ -> false);
+  mk_test "test unequal match arm types" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
+    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
+    | _ -> false);
+  mk_test "test unbound ADT constructor in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
+  mk_test "test duplicate field name across constructors of same ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
+    | _ -> false);
+  mk_test "test duplicate field name within constructor of same ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name_in_ctor.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldNameInCtor _)) -> true
+    | _ -> false);
+  mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name clashes with global constant (ADT before const)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const_reversed.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows node name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test constructor name shadows function name at call site" (fun () ->
+    match load_file "./lustreTypeChecker/adt_constructor_shadows_function_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
+  mk_test "test undeclared type in ADT constructor argument" (fun () ->
+    match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test ADT tester type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT selector type-checks" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_basic.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test polymorphic ADT: same field name works for two monomorphizations" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_selector_same_field.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test ADT tester with non-existent constructor" (fun () ->
+    match load_file "./lustreTypeChecker/adt_tester_unbound_ctor.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector with unknown field name" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_unknown_field.lus" with
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfADT _)) -> true
+    | _ -> false);
+  mk_test "test ADT selector on non-ADT type" (fun () ->
+    match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
     | _ -> false);
 ])
 
@@ -836,35 +952,33 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "Uninitialized node item inside frame block 2" (fun () ->
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
-    | _ -> false);  
-])
-
-(* *************************************************************************** *)
-(*                        Lustre Abstract Interpretation Checks                *)
-(* *************************************************************************** *)
-let _ = run_test_tt_main ("frontend LustreAbstractInterpretation error tests" >::: [
-  mk_test "test subrange bug 1" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug1.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 2" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug2.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "If block outside frame block missing else branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_else.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 3" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug3.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "If block outside frame block variable missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/if_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 4" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug4.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "When block variable missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_block_missing_definition.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
-  mk_test "test subrange bug 5" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug5.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "When block variable omitted in branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_block_omitted_in_frame.lus" with
+    | Ok _ -> true
     | _ -> false);
-  mk_test "test subrange bug 6" (fun () ->
-    match load_file "./lustreAbstractInterpretation/subrange_bug6.lus" with
-    | Error (`LustreAbstractInterpretationError (_, ConstantOutOfSubrange _)) -> true
+  mk_test "When block with omitted else branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "Cond block with omitted otherwise branch within frame block is accepted" (fun () ->
+    match load_file "./lustreSyntaxChecks/cond_no_otherwise_in_frame.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "When block with omitted else branch outside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
 ])

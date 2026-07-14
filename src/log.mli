@@ -19,7 +19,7 @@
 (** Logging and messaging *)
 
 (** Every relevant event must be logged through the functions in this module
-    but only for ingle-process mode. Use {! Event} for multi-process mode.
+    but only for single-process mode. Use {!KEvent} for multi-process mode.
 
     @author Christoph Sticksel, Alain Mebsout
 *)
@@ -71,6 +71,12 @@ module type Sig = sig
   (could be nothing for incremental json, or comma 
   for standard json) *)
   val print_json_sep : Format.formatter -> unit
+  
+  (** Returns whether to show properties' constraints*)
+  val get_show_props : unit -> bool
+  
+  (** Set whether to show properties' constraints *)
+  val set_show_props : bool -> unit
 
   (** Relay log messages to invariant manager, takes printing function as
       argument for relay messages. *)

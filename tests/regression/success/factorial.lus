@@ -1,0 +1,9 @@
+
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "fact is positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel

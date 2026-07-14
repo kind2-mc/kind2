@@ -1,0 +1,12 @@
+node H(inp: int) returns (out: int)
+let
+  out = any@<int>;
+tel
+
+const C: int;
+
+node N (inp: set<subtype {x: [int, int] |  H(C) >= 0}>) returns (out: set<[int,int]>)
+let
+  out = inp;
+tel
+

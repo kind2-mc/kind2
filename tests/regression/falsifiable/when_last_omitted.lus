@@ -1,0 +1,28 @@
+
+node two(m: bool; i: int) returns (o, c1, c2: int);
+let
+  frame (o, c1, c2)
+    o = i;
+    c1 = 0;
+    c2 = 0;
+  let
+    -- Omitting an equation in a when branch within a frame block is accepted.
+    -- An omitted variable x in a branch behaves as 'x = last x', so this node
+    -- is equivalent to when_last.lus.
+    when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+    else
+      o = last o - 1;
+      c2 = 1 -> pre c2 + 1;
+    end
+  tel
+tel
+
+node main() returns (o, c1, c2: int);
+var d: bool;
+let
+  d = true -> not (pre d);
+  o, c1, c2 = two(d, 0);
+  check "P1" not (o = 0 and c1 = 5 and c2 = 5);
+tel

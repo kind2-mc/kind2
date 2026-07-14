@@ -274,8 +274,8 @@ let prop_source_of_sexpr prop_term = function
     if c == s_inst then
       let rec prop = {Property.prop_name = p; prop_source = source;
                       prop_term; prop_status = Property.PropUnknown;
-                      prop_kind = Invariant; }
-      and source = Property.Instantiated (scope, prop) in
+                      prop_kind = Invariant; prop_expr = None;}
+      and source = Property.Instantiated ((scope, Lib.dummy_pos), prop) in
       source
     else assert false
 
@@ -305,7 +305,8 @@ let prop_of_sexpr = function
       prop_source = prop_source_of_sexpr prop_term source;
       prop_term;
       prop_status = Property.PropUnknown;
-      prop_kind = Invariant }
+      prop_kind = Invariant ;
+      prop_expr = None}
   | _ -> failwith "Invalid property"
 
 
@@ -427,17 +428,28 @@ let node_def_of_sexpr = function
 
 
 
-let rec mk_subsys_structure sys =
-  { SubSystem.scope = TransSys.scope_of_trans_sys sys;
-    source = sys;
-    opacity = Opacity.Transparent;
-    has_contract = false;
-    has_impl = true;
-    has_modes = false;
-    subsystems =
-      TransSys.get_subsystems sys
-      |> List.map mk_subsys_structure;
-  }
+let rec mk_subsystem map sys =
+  let scope = TransSys.scope_of_trans_sys sys in
+  let subsystems = TransSys.get_subsystems sys in
+  let sub =
+    { SubSystem.scope = scope;
+      source = sys;
+      opacity = Opacity.Transparent;
+      has_contract = false;
+      has_impl = true;
+      has_modes = false;
+      map;
+      subsystems =
+        subsystems |> List.map TransSys.scope_of_trans_sys;
+    }
+  in
+  Scope.Hashtbl.add map scope sub;
+  subsystems |> List.iter (fun s ->
+    let scope = TransSys.scope_of_trans_sys s in
+    if not (Scope.Hashtbl.mem map scope) then
+      mk_subsystem map s |> ignore
+  );
+  sub
 
 
 (* Parse from input channel *)
@@ -576,7 +588,7 @@ let of_channel in_ch =
 
     Debug.native "%a" TransSys.pp_print_trans_sys top_sys ;
 
-    mk_subsys_structure top_sys
+    mk_subsystem (Scope.Hashtbl.create 7) top_sys
       
   | _ -> failwith "No systems"
 
@@ -652,7 +664,7 @@ let pp_print_prop_source sys ppf = function
   | Property.Generated (_, state_vars, _) ->
     Format.fprintf ppf ":generated@ (@[<v>%a@])"
     (pp_print_list (pp_print_state_var sys) "@ ") state_vars  
-  | Property.Instantiated (scope, prop) ->
+  | Property.Instantiated ((scope, _), prop) ->
     let name = prop.Property.prop_name in
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
   | Property.Candidate _ ->

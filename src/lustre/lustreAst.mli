@@ -87,6 +87,7 @@ type binary_operator =
   | And | AndThen | Or | OrElse | Xor | Impl | LazyImpl
   | In of in_kind | Mod | Minus | Plus | Div | Times | IntDiv
   | BVAnd | BVOr | BVShiftL | BVShiftR | BVConcat | Union | Intersection
+  | Difference
 
 type ternary_operator =
   | Ite
@@ -110,13 +111,17 @@ type group_expr =
 
 type access_kind = Array | Map | Tuple | Unknown
 
+(** Pattern for match expressions *)
+type pattern =
+  | VarPat of position * ident              (** variable binding *)
+  | Pat of position * ident * pattern list  (** constructor pattern *)
+
 (** A Lustre type *)
 type lustre_type =
   | Bool of position
   | Int of position
   | SBitVector of position * int
   | UBitVector of position * int
-  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * lustre_type list * ident
   | AbstractType of position * ident
@@ -133,13 +138,19 @@ type lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  
+  | ADT of position * ident * (ident * (ident * lustre_type) list) list
+
 (** A Lustre expression *)
 and expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
-  | RecordProject of position * expr * index
+  (* Field projection e.f, used for both record and ADT selector expressions.
+     The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
+     field name is still the user-written name (set by the type checker); the
+     desugarer rewrites it to the internal payload field name and clears it to
+     None. It is None for record projections and for already-desugared ADT ones. *)
+  | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -171,10 +182,19 @@ and expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* Previous value of a variable in a frame block (desugared early in the
+     pipeline by LustreDesugarLast) *)
+  | Last of position * ident
   (* Node calls *)
   | Call of position * lustre_type list * NI.t * expr list
   (* Type ascription *)
   | TypeAscription of position * expr * lustre_type
+  (* ADT constructor application *)
+  | ADTTerm of position * lustre_type list * ident * expr list
+  (* Pattern matching on ADT values *)
+  | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* ADT tester: C?(e) checks whether e was constructed with C *)
+  | ADTTester of position * expr * ident
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -253,9 +273,11 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
+  | WhenBlock of position * expr * node_item list * node_item list
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
+  | Auto of position (** No-op item, only allowed in the body of a lemma *)
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -285,6 +307,8 @@ type contract_call = position * NI.t * lustre_type list * expr list * ident list
 (* Variables for assumption generation *)
 type contract_assump_vars = position * (position * HString.t) list
 
+type decreases_clause = position * expr
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -294,6 +318,7 @@ type contract_node_equation =
   | Mode of contract_mode
   | ContractCall of contract_call
   | AssumptionVars of contract_assump_vars
+  | Decreases of decreases_clause
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = position * (contract_node_equation list)
@@ -354,13 +379,18 @@ type span = {
   end_pos : position;
 }
 
+type func_attrs = {
+  is_rec : bool;
+  is_lemma : bool;
+}
+
 (** A declaration of a type, a constant, a node, a function or an
     instance of a parametric node *)
 type declaration =
   | TypeDecl of span * type_decl
   | ConstDecl of span * const_decl
   | NodeDecl of span * node_decl
-  | FuncDecl of span * node_decl
+  | FuncDecl of span * node_decl * func_attrs
   | ContractNodeDecl of span * contract_node_decl
   | NodeParamInst of span * node_param_inst
 
@@ -369,6 +399,7 @@ type t = declaration list
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
+val pp_print_pattern : Format.formatter -> pattern -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
 val pp_print_expr : Format.formatter -> expr -> unit

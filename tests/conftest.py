@@ -17,16 +17,49 @@ common_args = {
     "--check_sat_assume": "false",
 }
 
-# All the different test conditions, will override common_args if there is a
-# disagreement
+# The test conditions that are always enabled. These override common_args if
+# there is a disagreement.
 test_cases = {
     "slice_on": {"--slice_nodes": "on"},
-    "slice_off": {"--slice_nodes": "off"},
-    "slice_experimental": {"--slice_nodes": "experimental"},
 }
+
+# Additional, opt-in test conditions. Each is enabled by the command-line flag
+# given below (see `pytest_addoption`).
+optional_test_cases = {
+    "slice_off": ("--slice-off", {"--slice_nodes": "off"}),
+    "slice_experimental": ("--slice-experimental", {"--slice_nodes": "experimental"}),
+}
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--slice-off",
+        action="store_true",
+        default=False,
+        help="Also run regression tests with node slicing off",
+    )
+    parser.addoption(
+        "--slice-experimental",
+        action="store_true",
+        default=False,
+        help="Also run regression tests with experimental node slicing",
+    )
+
+
+def enabled_test_cases(config):
+    cases = dict(test_cases)
+    for case_name, (option, case) in optional_test_cases.items():
+        if config.getoption(option):
+            cases[case_name] = case
+    return cases
 
 # Where to find the regression tests
 regression_dir = Path("regression").absolute()
+
+# Extra files to test with a fixed expected result, as (path, expected) pairs
+extra_files = [
+    (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
+]
 
 # Where to write log files
 log_dir = Path("logs")
@@ -48,7 +81,6 @@ return_codes = (
 expected_to_code = {expected: code for expected, code in return_codes}
 code_to_expected = {code: expected for expected, code in return_codes}
 
-
 def pytest_collect_file(parent, file_path: Path):
     try:
         # We only want to collect lustre files which live under the regression dir
@@ -67,7 +99,7 @@ class LustreFile(pytest.File):
         self.expected = expected
 
     def collect(self):
-        for case_name, case in test_cases.items():
+        for case_name, case in enabled_test_cases(self.config).items():
             test_name = f"{self.path.stem} [{case_name}]"
             yield LustreItem.from_parent(
                 self,
@@ -77,6 +109,17 @@ class LustreFile(pytest.File):
                 case=case,
                 case_name=case_name,
             )
+
+
+# Make `extra_files` visible (they may be outside the `tests` directory)
+def pytest_collection_modifyitems(session, items):
+    extra_items = []
+    for extra_path, expected in extra_files:
+        collector = LustreFile.from_parent(session, path=extra_path, expected=expected)
+        for item in collector.collect():
+            item._nodeid = f"examples/{extra_path.name}::{item.name}"
+            extra_items.append(item)
+    items[:] = extra_items + items
 
 
 class LustreException(Exception): ...

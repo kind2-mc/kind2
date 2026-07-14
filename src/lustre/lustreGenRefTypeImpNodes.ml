@@ -64,11 +64,12 @@ let rec expr_contains_mode_ref expr =
   let r = expr_contains_mode_ref in 
   match expr with 
   | A.ModeRef (_, _) -> true
-  | Ident (_, _) 
+  | Ident (_, _)
+  | Last (_, _)
   | Const (_, _)
   | EmptySet _
   | EmptyMap _ -> false
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | StructUpdate (_, e, _, None)
     -> r e
@@ -87,9 +88,14 @@ let rec expr_contains_mode_ref expr =
     r e1 || r e2
     || List.fold_left (fun acc x -> acc || r x) false expr_list
   | Extract (_, e, _, _) -> r e
-  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) 
+  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _)
   | AnyOp (_, _, _) | ChooseOp (_, _, _)
     -> false
+  | Match (_, e, arms, _) ->
+    r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
+  | ADTTerm (_, _, _, args) ->
+    List.fold_left (fun acc e -> acc || r e) false args
+  | ADTTester (_, e, _) -> r e
 
 let mk_generated_env_contract_eqs ctx node_id base_contract =
   let* res = R.seq (List.map (fun ci -> 
@@ -154,7 +160,7 @@ let mk_generated_env_contract_eqs ctx node_id base_contract =
           List.fold_left GI.union ( GI.empty ()) gids
         )))
       else R.ok None
-    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  -> R.ok None
+    | A.Guarantee _ | A.AssumptionVars _ | A.Mode _  | A.Decreases _ -> R.ok None
   ) base_contract) in
   let contract', gids = List.filter_map (fun x -> x) res |> List.split in
   R.ok (contract', gids)
@@ -167,7 +173,7 @@ let mk_swapped_inputs_and_outputs ctx inputs outputs =
   (* Since we are omitting assumptions from environment realizability checks,
      we need to chase base types for environment inputs *)
   let inputs2 = List.map (fun (p, id, ty, cl, b) -> 
-    let ty = Chk.expand_type_syn_reftype_history_subrange ctx ty |> unwrap in 
+    let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap in 
     (p, id, ty, cl, b)
   ) inputs2 in
   inputs2, outputs2
@@ -192,6 +198,7 @@ let contract_node_decl_to_contracts
 
 let node_decl_to_contracts 
 = fun pos ctx (node_id, extern, _, params, inputs, outputs, locals, _, contract) is_func ->
+  if NI.get_node_type node_id = TypeAscription then R.ok ([], ctx, NI.Map.empty) else
   let base_contract = match contract with | None -> [] | Some (_, contract) -> contract in 
   let contract_ctx = Chk.add_full_node_ctx ctx node_id params inputs outputs locals in
   let* contract', gids =
@@ -277,16 +284,16 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
         A.NodeDecl(span, node_decl) :: decls @ acc_decls, acc_ctx, 
         NI.Map.merge GI.union_keys2 gids acc_gids
       )
-    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl)) ->
+    | A.FuncDecl (span, ((p, e, opac, ps, ips, ops, locs, _, c) as func_decl), func_attrs) ->
       (* Add main annotations to imported functions *)
       let func_decl = 
         if e then p, e, opac, ps, ips, ops, locs, [A.AnnotMain (span.start_pos, true)], c
         else func_decl 
       in
       let* decls, acc_ctx, gids = node_decl_to_contracts span.start_pos acc_ctx func_decl true in
-      let decls = List.map (fun decl -> A.FuncDecl (span, decl)) decls in
+      let decls = List.map (fun decl -> A.FuncDecl (span, decl, { is_lemma = false; is_rec = false })) decls in
       R.ok (
-        A.FuncDecl(span, func_decl) :: decls @ acc_decls, acc_ctx, 
+        A.FuncDecl(span, func_decl, func_attrs) :: decls @ acc_decls, acc_ctx, 
         NI.Map.merge GI.union_keys2 gids acc_gids
       )
     | A.ContractNodeDecl (span, contract_node_decl) -> 

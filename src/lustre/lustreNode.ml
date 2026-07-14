@@ -63,6 +63,10 @@ let add_to_svs set list =
 
 
 (* Source of a state variable *)
+type gen_metadata =
+  | Plain                    (* Generic generated variable, no extra metadata *)
+  | Discriminant of HString.t (* Discriminant field for some ADT *)
+
 type state_var_source =
 
   (* Input stream *)
@@ -80,8 +84,8 @@ type state_var_source =
   (* Local ghost stream *)
   | Ghost
 
-  (* Invisble Kind 2 ghost stream *)
-  | Generated
+  (* Invisible Kind 2 generated stream *)
+  | Generated of gen_metadata
 
   (* Oracle input stream *)
   | Oracle
@@ -131,6 +135,21 @@ type node_call = {
 
   (* Whether this call was inlined or not *)
   call_inlined : bool;
+
+  (* Source-level rendering of the decrease constraint generated for a
+     recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
+     the corresponding decrease_check property. [None] for non-recursive calls
+     or when the source expression could not be reconstructed. *)
+  call_rec_decrease_expr : string option;
+
+  (* Tuples [(tie, init_tie, x)] where [tie] is a generated boolean local
+     stating that the when-block variable [x] (whose off-branch holds its
+     previous value) agrees with the output of this (activated) call, and
+     [init_tie], if any, is a generated boolean local stating that [x] has its
+     initial value. LustreTransSys turns each tuple into candidate invariants
+     expressing that [tie] holds once the activation clock has ticked, and
+     that [init_tie] holds before the first tick. *)
+  call_ties : (StateVar.t * StateVar.t option * HString.t) list;
 }
 
 
@@ -144,7 +163,12 @@ type equation = equation_lhs * E.t
 type contract = C.t
 
 type func_info = {
-  uf_symbols : UfSymbol.t StateVar.StateVarMap.t
+  uf_symbols : UfSymbol.t StateVar.StateVarMap.t;
+  (* SCC identifier together with the decrease measure of the function: a
+     non-empty list of expressions interpreted lexicographically (a single
+     element is the ordinary, non-lexicographic case). *)
+  rec_info: (int * E.expr list) option;
+  is_lemma: bool;
 }
 
 type type_of_component =
@@ -197,7 +221,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source * Property.prop_kind) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
 
   (* Contract. *)
   contract : contract option ;
@@ -465,7 +489,7 @@ let pp_print_assert safe ppf (_,sv) =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf (sv, n, _, k) = 
+let pp_print_prop safe ppf (sv, n, _, k, _) = 
   match k with
     | Property.Invariant -> 
       let sv_string = 
@@ -572,6 +596,11 @@ let is_function { comp_type } =
   match comp_type with
   | Node -> false
   | Function _ -> true
+
+let is_recursive { comp_type } =
+  match comp_type with
+  | Function { rec_info } -> rec_info <> None
+  | _ -> false
 
 (* Pretty-print a node *)
 let pp_print_node safe ppf ({
@@ -734,7 +763,7 @@ let pp_print_node_debug ppf
 
   let pp_print_equation = pp_print_node_equation false in
 
-  let pp_print_prop ppf (state_var, name, source, kind) = 
+  let pp_print_prop ppf (state_var, name, source, kind, _) = 
     match kind with
     | Property.Invariant ->
       Format.fprintf
@@ -802,7 +831,7 @@ let pp_print_node_debug ppf
       | (sv, Local) -> p sv "loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
-      | (sv, Generated) -> p sv "gen"
+      | (sv, Generated _) -> p sv "gen"
       | (sv, Oracle) -> p sv "or"
       (* | (sv, Alias (sub, _)) -> p sv (
         Format.asprintf "al(%a)"
@@ -922,24 +951,36 @@ let ordered_equations_of_node { equations } stateful init =
     List.exists (fun ((sv, _), _) -> StateVar.equal_state_vars svar sv) eqs
   in
 
-  let rec loop postponed ordered = function
+  let rec loop made_progress postponed ordered = function
     | eq :: tail ->
       if svars_of eq |> SVS.for_all (is_known ordered) then
         (* We have ordered all the state vars the lhs of the equation mentions.
            Prepending to ordered. *)
-        loop postponed (eq :: ordered) tail
+        loop true postponed (eq :: ordered) tail
       else
         (* We are missing some equations, postponing the ordering of this
            equation. *)
-        loop (eq :: postponed) ordered tail
+        loop made_progress (eq :: postponed) ordered tail
     | [] -> (
       match postponed with
       | [] -> List.rev ordered
-      | _ -> loop [] ordered postponed
+      | _ ->
+        if made_progress then
+          (* At least one equation was ordered in this pass; some of the
+             postponed equations may now be ready, so make another pass. *)
+          loop false [] ordered postponed
+        else
+          (* No equation could be ordered in this pass, meaning the remaining
+             equations depend on state vars that are neither stateful nor
+             defined by any equation (e.g. results of recursive function
+             instances during counterexample reconstruction). There is no
+             valid order for them, so keep them as-is instead of looping
+             forever. *)
+          List.rev_append ordered postponed
     )
   in
 
-  loop [] [] equations
+  loop false [] [] equations
 
 (** Returns the equation for a state variable if any. *)
 let equation_of_svar { equations } svar =
@@ -1027,165 +1068,75 @@ let has_modes = function
 | { contract = Some { C.modes } } -> modes != []
 
 
+let mk_scope node_id = 
+  [NI.get_internal_name node_id |> HString.string_of_hstring]
 
-(* Return a subsystem from a list of nodes where the top node is at
-   the head of the list. *)
-let rec subsystem_of_nodes' nodes accum = function
+let rec subsystem_of_nodes' map nodes top =
 
-  (* Return subsystems for all nodes *)
-  | [] -> accum
+  let { calls } as node =
+    try
+      node_of_node_id top nodes
+    with Not_found ->
+      raise
+        (Invalid_argument
+            (Format.asprintf
+              "subsystem_of_nodes: node %a not found"
+              NI.pp_print_node_id_input_name top))
+  in
 
-  (* Create subsystem for node *)
-  | top :: tl -> 
+  let subsystems_ids =
+    List.map (fun { call_node_id } -> call_node_id) calls
+  in
 
-    if
+  let subsystems =
+    List.map (fun id -> mk_scope id) subsystems_ids
+  in
 
-      (* Subsystem for node already created? *)
-      List.exists
-        (fun (n, _) -> NI.equal n top)
-        accum
+  (* Scope of the system from node name *)
+  let scope = mk_scope top in
 
-    then
+  (* Does node have contracts? *)
+  let has_contract = has_effective_contract node in
 
-      (* Don't add to accumulator again *)
-      subsystem_of_nodes' nodes accum tl
+  (* Does node have modes? *)
+  let has_modes = has_modes node in
 
-    else
+  (* Does node have an implementation? *)
+  let has_impl = not node.is_extern in
 
-      (* Nodes called by this node *)
-      let { calls } as node =
+  let sub =
+    { SubSystem.scope = scope;
+      source = node;
+      opacity = node.opacity;
+      has_contract;
+      has_modes;
+      has_impl;
+      map;
+      subsystems
+    }
+  in
 
-        try 
+  Scope.Hashtbl.add map scope sub;
 
-          (* Get node by name *)
-          node_of_node_id top nodes 
+  subsystems_ids
+  |> List.iteri (fun i id ->
+    let scope = List.nth subsystems i in
+    if not (Scope.Hashtbl.mem map scope) then (
+      subsystem_of_nodes' map nodes id |> ignore
+    );
+  ) ;
 
-        (* Node must be in the list of nodes *)
-        with Not_found -> 
-
-          raise
-            (Invalid_argument 
-               (Format.asprintf
-                  "subsystem_of_nodes: node %a not found"
-                  NI.pp_print_node_id_input_name top))
-
-      in
-
-      (* For all called nodes, either add the already created
-         subsystem to the [subsystems], or add the name of the called
-         node to [tl']. *)
-      let subsystems, tl' = 
-
-        List.fold_left 
-          (fun (a, tl) { call_node_id; } -> 
-
-             try 
-
-               (* Find subsystem for callee *)
-               let _, callee_subsystem = 
-
-                 List.find
-                   (fun (n, _) -> NI.equal n call_node_id)
-                   accum
-
-               in
-
-               if 
-
-                 (* Callee already seen as a subsystem of this
-                    node? *)
-                 let call_node_id_string =
-                   NI.get_internal_name call_node_id |> HString.string_of_hstring in
-                 List.exists 
-                   (function
-                     | { SubSystem.scope = [i] } ->
-                       String.equal i call_node_id_string
-                     | _ -> false)
-                   a
-
-               then
-
-                 (* Add node as subsystem only once, not for each
-                    call *)
-                 (a, tl)
-
-               else
-
-                 (callee_subsystem :: a, tl)
-
-             (* Subsystem for callee not created yet *)
-             with Not_found -> 
-
-               (* Must visit callee first *)
-               (a, call_node_id :: tl))
-
-
-          ([], [])
-          calls
-
-      in
-
-      (* Subsystem for some callees not created? *)
-      if tl' <> [] then 
-        
-        (* Recurse to create subsystem of callees first *)
-        subsystem_of_nodes' nodes accum (tl' @ (top :: tl))
-          
-      else
-
-        (* Scope of the system from node name *)
-        let scope = [NI.get_internal_name top |> HString.string_of_hstring] in
-
-        let opacity = node.opacity in
-
-        (* Does node have contracts? *)
-        let has_contract = has_effective_contract node in
-
-        (* Does node have modes? *)
-        let has_modes = has_modes node in
-
-        (* Does node have an implementation? *)
-        let has_impl = not node.is_extern in
-
-        (* Construct subsystem of node *)
-        let subsystem = 
-
-          { SubSystem.scope;
-            SubSystem.source = node;
-            SubSystem.opacity;
-            SubSystem.has_contract;
-            SubSystem.has_modes;
-            SubSystem.has_impl;
-            SubSystem.subsystems; }
-
-        in
-
-        (* Add subsystem of node to accumulator and continue *)
-        subsystem_of_nodes' 
-          nodes
-          ((top, subsystem) :: accum)
-          tl
-
-
-let subsystems_of_nodes tops nodes =
-  (* Create subsystems for all nodes *)
-  let all_subsystems = subsystem_of_nodes' nodes [] tops in
-
-  (* Find subsystems of top nodes *)
-  List.filter
-    (fun (n, _) -> List.exists (fun t -> NI.equal n t) tops)
-    all_subsystems
-  |> List.map (fun (_, c) -> c)
+  sub
 
 
 let subsystem_of_nodes top nodes =
   (* Create subsystems for all nodes.
      Raise Invalid_argument if top is not found *)
-  let all_subsystems = subsystem_of_nodes' nodes [] [top] in
+  subsystem_of_nodes' (Scope.Hashtbl.create 7) nodes top
 
-  match List.find_opt (fun (n, _) -> NI.equal n top) all_subsystems with
-  | Some (_, sub) -> sub
-  | None -> assert false
+
+let subsystems_of_nodes tops nodes =
+  List.map (fun top -> subsystem_of_nodes top nodes) tops
 
 
 (* Return list of topologically ordered list of nodes from subsystem.
@@ -1230,29 +1181,40 @@ let rec fold_node_calls_with_trans_sys'
         TransSys.get_subsystem_instances trans_sys 
       in
 
-      let tl' = 
-        List.fold_left 
+      let tl' =
+        List.fold_left
           (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
+
+             (* Find subsystem of this node by name, and the instance of this
+                node call by position.
+
+                The subsystem (or the instance) may be missing when the call
+                was abstracted away rather than concretely encoded, as happens
+                for the (mutually) recursive call of a recursive function. In
+                that case there is no concrete model to reconstruct a path
+                for, so we skip the call. *)
+             let subsystem =
+               List.find_opt
+                 (fun (t, _) ->
+                    Scope.equal
+                      ([TransSys.scope_of_trans_sys t |> List.rev |> List.hd])
+                      (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
+                 subsystems
+               |> (function
+                 | None -> None
+                 | Some (trans_sys', instances') ->
+                   List.find_opt
+                     (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
+                     instances'
+                   |> Option.map (fun instance -> (trans_sys', instance)))
+             in
+
+             match subsystem with
+             | None -> a
+             | Some (trans_sys', instance) ->
 
              (* Find called node by name *)
              let node' = node_of_node_id call_node_id nodes in
-
-             (* Find subsystem of this node by name *)
-             let trans_sys', instances' =
-               List.find 
-                 (fun (t, _) -> 
-                    Scope.equal
-                      (TransSys.scope_of_trans_sys t)
-                      (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring)))
-                 subsystems
-             in
-
-             (* Find instance of this node call by position *)
-             let instance = 
-               List.find 
-                 (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
-                 instances'
-             in
 
              (* Only keep call conditions that effectively sample the node
                 call, i.e. not the ones where default initial values are
@@ -1263,7 +1225,7 @@ let rec fold_node_calls_with_trans_sys'
                  List.filter (function CActivate _ -> false | _ -> true)
                    call_cond
              in
-             
+
              FDown (node', trans_sys',
                     (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)
@@ -1389,7 +1351,7 @@ let stateful_vars_of_node
       let stateful_vars = 
         add_to_svs
           stateful_vars
-          (List.map (fun (sv, _, _, _) -> sv) props) 
+          (List.map (fun (sv, _, _, _, _) -> sv) props) 
       in
 
       (* Add stateful variables from contracts *)
@@ -1469,7 +1431,8 @@ let stateful_vars_of_node
               call_inputs;
               call_oracles;
               call_outputs;
-              call_defaults } ->
+              call_defaults;
+              call_ties } ->
 
             (* Input and output variables are always stateful *)
             ((D.values call_inputs) @
@@ -1478,6 +1441,15 @@ let stateful_vars_of_node
             |> SVS.of_list
 
             |> SVS.union (match call_context with | None -> SVS.empty | Some sv -> SVS.singleton sv)
+
+            (* Tie variables are referenced by generated candidate
+               properties, so they must remain declared state variables *)
+            |> SVS.union
+              (List.concat_map
+                (fun (tie, init_tie, _) ->
+                  tie :: (match init_tie with Some sv -> [sv] | None -> []))
+                call_ties
+               |> SVS.of_list)
 
             (* Add stateful variables from initial defaults *)
             |> SVS.union
@@ -1514,7 +1486,7 @@ let pp_print_state_var_source ppf = function
   | Local -> Format.fprintf ppf "local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
-  | Generated -> Format.fprintf ppf "invisible (generated)"
+  | Generated _ -> Format.fprintf ppf "invisible (generated)"
   (* | Alias (sv, _) ->
     Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv *)
 
@@ -1592,7 +1564,7 @@ let state_var_is_visible node =
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Oracle
-    | Generated -> false
+    | Generated _ -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input

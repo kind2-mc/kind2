@@ -115,9 +115,10 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
+  | Last _ as e -> e
   | EmptyMap _ as e -> e
   | EmptySet _ as e -> e
-  | RecordProject (p, e, id) -> RecordProject (p, r e, id)
+  | FieldProject (p, e, id, ty_opt) -> FieldProject (p, r e, id, ty_opt)
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)
   | UnaryOp (p, b, e) -> UnaryOp (p, b, r e)
@@ -157,7 +158,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     | Some e2 -> Some (r e2)
     | None -> None 
     in
-    A.StructUpdate (p, r e1, 
+    A.StructUpdate (p, r e1,
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
               | MapIndex (a, e) -> MapIndex (a, r e)
@@ -166,8 +167,17 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
     e2)
+  | A.Match (p, e, arms, ty_opt) ->
+    A.Match (p, r e,
+      List.combine
+        (List.map fst arms)
+        (List.map r (List.map snd arms)),
+      ty_opt)
+  | A.ADTTerm (p, ty_args, ctor, args) ->
+    A.ADTTerm (p, ty_args, ctor, List.map r args)
+  | A.ADTTester (p, e, c) -> A.ADTTester (p, r e, c)
 
-(** Helper function to generate node equations when an initialized variable in the 
+(** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)
 let generate_undefined_nes f_pos node_id nis ne = match ne with
   | A.Equation (pos, (StructDef(_, [SingleIdent(_, id)]) as lhs), init) -> 
@@ -373,11 +383,13 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
-  | A.IfBlock (pos, _, _, _) 
+  | A.IfBlock (pos, _, _, _)
+  | A.WhenBlock (pos, _, _, _)
   | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
+  | A.Auto pos
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
 
 
@@ -430,7 +442,7 @@ let desugar_frame_blocks sorted_node_contract_decls =
                        (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
                       
     (* Make sure there are no frame blocks in functions *)
-    | A.FuncDecl (_, ((_, _, _, _, _, _, _, nis, _))) -> (
+    | A.FuncDecl (_, ((_, _, _, _, _, _, _, nis, _)), _) -> (
       let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
       match contains_frame_block with
         | Some (FrameBlock (pos, _, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)

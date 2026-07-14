@@ -19,13 +19,13 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Kind 2'
-copyright = '2015-2025, Board of Trustees of the University of Iowa'
+copyright = '2015-2026, Board of Trustees of the University of Iowa'
 author = 'Kind 2 Team'
 
 # The short X.Y version
-version = 'v2.3'
+version = 'v3.0'
 # The full version, including alpha/beta/rc tags
-release = 'v2.3.0'
+release = 'v3.0.0'
 
 nitpicky = True
 
@@ -250,7 +250,7 @@ latex_elements = {
 
             \sffamily\Large \textbf{\Huge {Kind 2 User Documentation}}
 
-            \sffamily\Large \textbf{Version 2.3.0}
+            \sffamily\Large \textbf{Version 3.0.0}
 
             \newdateformat{monthdayyear}{%
                 \monthname[\THEMONTH] \THEDAY, \THEYEAR}

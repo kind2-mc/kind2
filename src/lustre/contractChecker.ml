@@ -335,6 +335,7 @@ let pp_print_realizability_result_pt
       | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
+      | ClockedExpr -> "clocked expression"
       | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (Realizability.result_to_string result)
@@ -579,6 +580,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
+      | ClockedExpr -> "clocked expression"
       | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
@@ -603,6 +605,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       | TypeAscription -> "Type ascription operator"
       | DefinedConstant -> "Global constant"
       | FreeConstant -> "Global constant"
+      | ClockedExpr -> "clocked expression"
       | Choose -> "'Choose' operator")
       NI.pp_print_node_id_user_name node_id
       (satisfiability_result_to_string result)

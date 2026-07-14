@@ -1,0 +1,8 @@
+transparent function Identity<T>(x: T) returns (r: T);
+let r = x; tel
+
+node N(x: int) returns (s: set<int>);
+let
+  s = {Identity@<int>(x)};
+  check x in s;
+tel

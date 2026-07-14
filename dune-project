@@ -25,10 +25,12 @@ More advanced features include contract-based compositional verification, proof 
   dune
   dune-build-info
   (menhir
-   (>= 20180523)) ; Required by dune when the infer option is used
-                  ; See issue: https://github.com/ocaml/dune/issues/1392
+   (>= 20181026)) ; moxiParser.mly uses "token aliases", which were added in menhir 20181026
   num
-  (odoc :with-doc)
+  (odoc
+   (and
+    :with-doc
+    (>= 3.0))) ; developer docs post-processing assumes odoc 3's odoc.support/ layout
   (ounit2 :with-test)
   yojson
   (zmq
@@ -47,10 +49,12 @@ More advanced features include contract-based compositional verification, proof 
   dune
   dune-build-info
   (menhir
-   (>= 20180523)) ; Required by dune when the infer option is used
-                  ; See issue: https://github.com/ocaml/dune/issues/1392
+   (>= 20181026)) ; moxiParser.mly uses "token aliases", which were added in menhir 20181026
   num
-  (odoc :with-doc)
+  (odoc
+   (and
+    :with-doc
+    (>= 3.0))) ; developer docs post-processing assumes odoc 3's odoc.support/ layout
   (ounit2 :with-test)
   yojson
   (zmq
