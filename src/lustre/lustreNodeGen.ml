@@ -79,6 +79,9 @@ type compiler_state = {
     StateVar.StateVarHashtbl.t;
   global_constraints: LustreExpr.t list;
   adt_map : LDAT.adt_map;
+  (* Maps the canonical key of a named refinement synonym's flattened definition
+     to its type name, so refinement types can be displayed by name. *)
+  ref_type_names : (string * HString.t) list;
 }
 
 (*
@@ -144,6 +147,7 @@ let empty_compiler_state () = {
   state_var_bounds = SVT.create 7;
   global_constraints = [];
   adt_map = StringMap.empty;
+  ref_type_names = [];
 }
 
 (*
@@ -672,7 +676,7 @@ let expand_tuple pos lhs rhs =
   expand_tuple' pos [] []
     (X.bindings lhs) (X.bindings rhs)
 
-let compile_contract_item gids map count scope kind pos name expr =
+let compile_contract_item cstate gids map count scope kind pos name expr =
     let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
@@ -682,8 +686,11 @@ let compile_contract_item gids map count scope kind pos name expr =
     in
     let sexpr =
       let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-      try LustreAst.string_of_expr (GI.StringMap.find key gids.GI.expr_source_map)
-      with Not_found -> LustreAst.string_of_expr expr
+      let source =
+        try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+      in
+      LDAT.string_of_expr_as_source
+        ~ref_type_names:cstate.ref_type_names cstate.adt_map source
     in
     let contract_sv = C.mk_svar pos count name state_var scope sexpr in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
@@ -1862,12 +1869,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
     let over_modes (pos, id, reqs, enss) =
       let id' = HString.string_of_hstring id in
       let reqs = List.mapi
-        (fun i (p, n, e) -> 
-          compile_contract_item gids map (i + 1) contract_scope N.Require p n e)
+        (fun i (p, n, e) ->
+          compile_contract_item cstate gids map (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
-        (fun i (p, n, e) -> 
-          compile_contract_item gids map (i + 1) contract_scope N.Ensure p n e)
+        (fun i (p, n, e) ->
+          compile_contract_item cstate gids map (i + 1) contract_scope N.Ensure p n e)
         enss in
       let contract_scope =
         List.map (fun (_, i) -> HString.string_of_hstring i) contract_scope
@@ -1949,7 +1956,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.assume_count in
       map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
+      compile_contract_item cstate gids map (i + 1) contract_scope kind pos name expr
     in List.map over_assumes assumes
   in
   let guarantees = 
@@ -1957,7 +1964,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.guarantee_count in
       map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item gids map (i + 1) contract_scope kind pos name expr
+      compile_contract_item cstate gids map (i + 1) contract_scope kind pos name expr
     in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
@@ -2539,7 +2546,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let src_expr_str =
         let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
         let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
-        LDAT.string_of_expr_as_source cstate.adt_map desugared
+        LDAT.string_of_expr_as_source
+          ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in
       let name, src =
         match name_opt with
@@ -3081,7 +3089,10 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (a, ac, (contract_sv, false) :: g, gc + 1, p)
         | None, Some gen_src ->
           let src = Property.Generated (Some pos, [sv], gen_src) in
-          let rexpr_str = LDAT.string_of_expr_as_source cstate.adt_map rexpr in
+          let rexpr_str =
+            LDAT.string_of_expr_as_source
+              ~ref_type_names:cstate.ref_type_names cstate.adt_map rexpr
+          in
           (a, ac, g, gc, (sv, name, src, Property.Invariant, rexpr_str) :: p)
         | _ -> assert false
     in
@@ -3295,8 +3306,15 @@ and compile_type_decl pos ctx cstate = function
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in
+    (* Record named refinement synonyms so refinement types can be displayed by
+       name. The declaration's type is already flattened at this point, matching
+       the form quantifier annotations take in property expressions. *)
+    let ref_type_names = match LDAT.ref_type_canonical_key ltype with
+      | Some key -> (key, ident) :: cstate.ref_type_names
+      | None -> cstate.ref_type_names
+    in
     { cstate with
-      type_alias }
+      type_alias; ref_type_names }
   | A.FreeType (_, ident) ->
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in

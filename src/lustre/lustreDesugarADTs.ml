@@ -531,12 +531,30 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
     ) ctx' type_and_const_decls' in
     (type_and_const_decls', node_contract_decls', ctx', adt_map)
 
+(* Canonical string key for a refinement type, used to recognize a refinement
+   type as an instance of a named refinement synonym for display.  The bound
+   variable is renamed to a fixed placeholder so that alpha-equivalent
+   refinements share a key; positions are ignored by the pretty-printer.
+   Returns None for non-refinement types. *)
+let ref_type_canonical_key ty =
+  match ty with
+  | LA.RefinementType (_, (_, id, base), pred) ->
+    let placeholder = LA.Ident (Lib.dummy_pos, HString.mk_hstring "$refvar") in
+    let pred = LH.substitute_naive id placeholder pred in
+    Some (Format.asprintf "%a | %a"
+            LA.pp_print_lustre_type base LA.pp_print_expr pred)
+  | _ -> None
+
 (* Rewrite a desugared expression back toward source-level ADT syntax.
    RecordExprs whose type name is in adt_map are reconstructed as ADTTerm nodes
    so that pp_print_expr renders them as "Ctor(arg1, arg2)" or just "Ctor".
-   This is the partial inverse of desugar_expr for the ADTTerm case. *)
-let rec rewrite_as_adt_terms adt_map expr =
-  let r e = rewrite_as_adt_terms adt_map e in
+   This is the partial inverse of desugar_expr for the ADTTerm case.
+   [ref_type_names] maps the canonical key (see [ref_type_canonical_key]) of a
+   named refinement synonym's flattened definition to its type name, so that a
+   refinement type printed in a quantifier renders as the synonym name (e.g.
+   "HostId") rather than its expansion. *)
+let rec rewrite_as_adt_terms ref_type_names adt_map expr =
+  let r e = rewrite_as_adt_terms ref_type_names adt_map e in
   let rlist = List.map r in
   let rilist = List.map (fun (i, e) -> (i, r e)) in
   let rloi = function
@@ -564,7 +582,11 @@ let rec rewrite_as_adt_terms adt_map expr =
     | LA.Map (pos, kt, vt) -> LA.Map (pos, rewrite_type kt, rewrite_type vt)
     | LA.Set (pos, t) -> LA.Set (pos, rewrite_type t)
     | LA.RefinementType (pos, (p2, id, t), e) ->
-      LA.RefinementType (pos, (p2, id, rewrite_type t), r e)
+      (* Collapse to the named refinement synonym when the type matches one. *)
+      (match ref_type_canonical_key ty with
+       | Some key when List.mem_assoc key ref_type_names ->
+         LA.UserType (pos, [], List.assoc key ref_type_names)
+       | _ -> LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
     | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
   in
@@ -619,5 +641,5 @@ let rec rewrite_as_adt_terms adt_map expr =
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
   | LA.ADTTerm _ | LA.Match _ -> expr
 
-let string_of_expr_as_source adt_map expr =
-  LA.string_of_expr (rewrite_as_adt_terms adt_map expr)
+let string_of_expr_as_source ?(ref_type_names = []) adt_map expr =
+  LA.string_of_expr (rewrite_as_adt_terms ref_type_names adt_map expr)
