@@ -1224,13 +1224,9 @@ and compile_ast_expr
             acc
         ) E.t_true (List.combine idx_vars bounds) in
         (* For map value equality we only consider m1[k] = m2[k] for k in the maps.
-           The guards of this leaf are the domain arrays of all its enclosing maps,
-           located from the source type (see guard_pairs_opt above); without type
-           information, fall back to the domain array of the outermost map collected
-           by the fold in `acc_guard`. A guard array may have fewer index positions
-           than the current leaf (e.g. the domain array of a map whose values are
-           sets or maps, which add further index positions), so select each guard
-           with only the prefix of index variables matching its arity. *)
+           "acc_guard" collects the constraints that k is in the map (if the equality is over maps).
+           "guard_arity" (and its usage) ensures that we only use indices associated
+           with the map key type and not its value type (eg, consider map<int, set<int>>). *)
         let leaf_guards = match guard_pairs_opt with
           | Some pairs ->
             List.filter_map (fun (value_prefix, domain_prefix) ->
