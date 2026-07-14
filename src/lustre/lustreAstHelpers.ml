@@ -115,7 +115,7 @@ let rec map_lustre_ty f ty =
     TupleType (p, List.map r tys)
   | RecordType (p, id, tis) -> 
     RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
-  | RefinementType (p1, (p2, id, ty), e) ->
+  | RefinementType (p1, (p2, id, ty), e) -> 
     RefinementType (p1, (p2, id, r ty), f e)
   | ADT (p, id, cons) ->
     ADT (p, id, List.map (fun (cid, flds) -> cid, List.map (fun (fn, ty) -> fn, r ty) flds) cons)
@@ -141,7 +141,7 @@ let rec contains_subtype_satisfying p ty =
   | RecordType (_, _, tis) -> 
     p ty || 
     List.exists (fun (_, _, ty) -> r ty) tis
-  | RefinementType (_, (_, _, ty'), _) ->
+  | RefinementType (_, (_, _, ty'), _) -> 
     p ty || r ty'
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
@@ -199,7 +199,7 @@ let rec expr_contains_call = function
     expr_contains_call e1 || expr_contains_call e2
     || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
   | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
-  | TypeAscription _
+  | TypeAscription _ 
     -> true
   | Match (_, e, arms, _) ->
     expr_contains_call e ||
@@ -1072,7 +1072,7 @@ let contract_has_pre_or_arrow (_, l) =
   List.map contract_node_equation_has_pre_or_arrow l
   |> some_of_list
 
-let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i
+let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i 
 
 let vars_of_clock_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
@@ -1689,7 +1689,7 @@ let rec replace_idents locals1 locals2 expr =
   | Activate (p, id, e1, e2, l) ->
     Activate (p, id, r e1, r e2, List.map r l)
   | Condact (p, e1, e2, id, l1, l2) ->
-    Condact (p, r e1, r e2, id,
+    Condact (p, r e1, r e2, id, 
              List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, Some e2) ->
@@ -1700,7 +1700,7 @@ let rec replace_idents locals1 locals2 expr =
               | GenericIndex (a, e) -> GenericIndex (a, r e)
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
-             ) li,
+             ) li, 
     Some (r e2))
   | StructUpdate (p, e1, li, None) ->
     StructUpdate (p, r e1,
@@ -1710,7 +1710,7 @@ let rec replace_idents locals1 locals2 expr =
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)
-             ) li,
+             ) li, 
     None)
   | Match (pos, e, arms, ty_opt) ->
     let arms = List.map (fun (pat, arm_e) ->
@@ -2327,7 +2327,7 @@ let rec constants_to_calls: ident list -> expr -> expr
     ADTTerm (pos, ty_args, ctor, List.map r args)
   | ADTTester (pos, e, c) -> ADTTester (pos, r e, c)
 
-let pos_of_type ty = match ty with
+let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
   | EnumType (p, _, _) | AbstractType (p, _)
   | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _)

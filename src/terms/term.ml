@@ -1003,7 +1003,7 @@ let mk_match = T.mk_match
 
 
 (* Import a term from a different instance into this hashcons table *)
-let import = T.import
+let import = T.import 
 
 (* Import a term from a different instance into this hashcons table *)
 let import_lambda = T.import_lambda 

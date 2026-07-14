@@ -273,6 +273,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
       (Invalid_argument "pp_print_lustre_type: BV size not allowed")
 
   | Type.Array (s, _) ->
+
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
   | Type.Datatype (name, _) -> Format.pp_print_string ppf name

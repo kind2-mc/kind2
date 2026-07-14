@@ -77,7 +77,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let exprs = chase_refinements ty in 
         List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, None))) exprs
       ) tis |> List.flatten
-    | TupleType (pos, tys) | GroupType (pos, tys) ->
+    | TupleType (pos, tys) | GroupType (pos, tys) -> 
       List.mapi (fun i ty ->
         let exprs = chase_refinements ty in
         let i = i |> string_of_int |> HString.mk_hstring in
@@ -106,7 +106,7 @@ let rec flatten_ref_type ctx ty = match ty with
         in
         let ty1 = LustreTypeChecker.expand_type_syn_reftype_history ctx ty1 |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
-      ) exprs1 in
+      ) exprs1 in 
       let exprs2 = chase_refinements ty2 in
       let exprs2 = List.map (fun expr ->
         let idx =
@@ -117,7 +117,7 @@ let rec flatten_ref_type ctx ty = match ty with
           A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr)
         in
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
-      ) exprs2 in
+      ) exprs2 in 
       exprs1 @ exprs2
     | ArrayType (pos, (ty, len)) ->
       let dummy_index = mk_fresh_dummy_index () in
@@ -138,7 +138,7 @@ let rec flatten_ref_type ctx ty = match ty with
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     | ADT _ -> assert false (* desugared in lustreDesugarADTs *)
     in
-    let constraints = chase_refinements ty in
+    let constraints = chase_refinements ty in 
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
@@ -149,7 +149,7 @@ let rec flatten_ref_type ctx ty = match ty with
   | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ty
   | ADT _ -> (*!! TODO *) Ok ty
 
-let flatten_ref_types_local_decl ctx = function
+let flatten_ref_types_local_decl ctx = function 
   | A.NodeConstDecl (pos, FreeConst (pos2, id, ty)) ->
     let* ty = flatten_ref_type ctx ty in
     Ok (A.NodeConstDecl (pos, FreeConst (pos2, id, ty)))

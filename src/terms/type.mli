@@ -25,14 +25,14 @@
 (** {1 Types and hash-consing} *)
 
 (** Type of an expression *)
-type kindtype =
+type kindtype = 
   | Bool
   | Int
   | IntRange of Numeral.t option * Numeral.t option
   | Enum of Numeral.t * Numeral.t
   | Real
   | UBV of int
-  | BV of int
+  | BV of int 
   | Array of t * t
   | Abstr of string
   | Datatype of string * (string * t list) list

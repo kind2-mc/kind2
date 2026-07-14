@@ -27,7 +27,7 @@ open Lib
 (* ********************************************************************* *)
 
 (* Type of an expression in KIND *)
-type kindtype =
+type kindtype = 
   | Bool
   | Int
   | IntRange of Numeral.t option * Numeral.t option

@@ -1,4 +1,5 @@
 (* This file is part of the Kind 2 model checker.
+
    Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
@@ -219,14 +220,14 @@ let mk_span start_pos end_pos =
 
 (* Other tokens *)
 %token ANY
-%token CHOOSE
+%token CHOOSE 
 %token WITH
 %token HASH
 %token MATCH
 
 (* Token for end of file marker *)
 %token EOF
-
+       
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT BAR
@@ -1381,7 +1382,7 @@ pexpr(Q):
     l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
 
-  (* Type ascription *)
+  (* Type ascription *) 
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
 
   (* Pattern matching on ADT values *)
@@ -1417,7 +1418,7 @@ pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
       
 (* A node or function call *)
 node_call:
-  | s = ident;
+  | s = ident; 
     ty_args = call_static_params;
     LPAREN;
     a = separated_list(COMMA, expr);

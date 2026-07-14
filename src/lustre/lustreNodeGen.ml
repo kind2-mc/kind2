@@ -134,7 +134,7 @@ let empty_identifier_maps node_name = {
   call_count = 1;
 }
 
-let empty_compiler_state () = {
+let empty_compiler_state () = { 
   nodes = [];
   node_io = NI.Map.empty;
   type_alias = StringMap.empty;
@@ -3400,7 +3400,7 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ps, ltype) ->
-    let cstate = List.fold_left (fun acc p ->
+    let cstate = List.fold_left (fun acc p -> 
       compile_type_decl pos ctx acc (A.FreeType (Lib.dummy_pos, p))
     ) cstate ps in
     let empty_map = ref (empty_identifier_maps None) in

@@ -388,7 +388,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     Quantifier (pos, q, tis, e')
-  | EmptySet (pos, Some ty) ->
+  | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
   | EmptyMap (pos, Some (kt, vt)) ->
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt,

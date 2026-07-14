@@ -251,9 +251,9 @@ let type_check declarations =
     (* Step 21. Convert free constants to functions without args *)
     let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_const_functions inlined_global_ctx const_inlined_type_and_consts in
-    let* const_inlined_type_and_consts =
+    let* const_inlined_type_and_consts = 
       LCF.constants_to_calls new_func_ids const_inlined_type_and_consts in
-    let* const_inlined_nodes_and_contracts =
+    let* const_inlined_nodes_and_contracts = 
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 

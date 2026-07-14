@@ -167,7 +167,7 @@ let error_message kind = match kind with
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
-type warning_kind =
+type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
 
 let warning_message warning = match warning with
@@ -369,7 +369,7 @@ function
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
-      | GenericIndex (_, e)
+      | GenericIndex (_, e) 
       | MapIndex (_, e)
       | SetIndex (_, e)
       | Index (_, e) -> has_stateful_op ctx e
@@ -598,7 +598,7 @@ let outputs_exactly_one_definition outputs items =
 
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, node_id, _, _)
-  | Activate (pos, node_id, _, _, _)
+  | Activate (pos, node_id, _, _, _) 
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
@@ -918,7 +918,7 @@ and check_declaration: context -> LA.declaration -> ([> warning] list * LA.decla
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
-and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result
+and check_const_expr_decl: H.t -> context -> LA.expr -> ([> warning] list, [>  error]) result 
 = fun i ctx expr ->
   let composed_checks i ctx e =
     (no_dangling_identifiers ctx e) >> 
@@ -952,7 +952,7 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
-and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result
+and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
 = fun ctx local -> match local with
   | LA.NodeConstDecl (_, FreeConst (_, _, _)) ->
     Ok ([])
