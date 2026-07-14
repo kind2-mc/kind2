@@ -198,7 +198,7 @@ let print_json_sep ppf = match get_log_format () with
 
 let printf_json_string mdl level s = 
     let sep_printer = (if !first_log_flag then
-         (first_log_flag := false; (fun fmt -> ()))
+         (first_log_flag := false; (fun _ -> ()))
        else
          print_json_sep
       ) in
@@ -242,7 +242,7 @@ let parse_log_json level pos msg =
     with Invalid_argument _ -> ()
   in
   let sep_printer = (if !first_log_flag then
-         (first_log_flag := false; (fun fmt -> ()))
+         (first_log_flag := false; (fun _ -> ()))
        else
          print_json_sep
       ) in
