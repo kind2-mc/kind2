@@ -773,11 +773,15 @@ let prop_status_pt level trans_sys prop_status_kind =
     let sexpr =
       match property.prop_expr with
       | Some e -> e
-      | None -> "unknown"
+      | None -> ""
     in
-  let pp_expr ppf sexpr = if Log.get_show_props () then Format.fprintf ppf "@,@[<v 2>  %s@]@]@,"  sexpr
-                          else () in
-   Format.fprintf
+    let pp_expr ppf sexpr =
+      if Log.get_show_props () && sexpr != "" then
+        Format.fprintf ppf "@,@[<v 2>  %s@]@]@,"  sexpr
+      else
+        ()
+    in
+    Format.fprintf
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
       %a"

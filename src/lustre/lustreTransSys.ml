@@ -911,6 +911,9 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     |> List.filter (fun p ->
       match P.get_prop_original_source p with
       | P.Assumption _ -> true
+      (* Candidate invariants are lifted so that, once proven, they can
+         strengthen the analysis of the calling node *)
+      | P.Candidate _ -> not (Flags.modular ())
       | _ -> Flags.check_subproperties () && not (Flags.modular ())
     )
     |> List.fold_left (
@@ -1644,7 +1647,7 @@ let rec constraints_of_node_calls
       | _ -> assert false
     in
     
-    let node_props = 
+    let node_props =
       List.map
         (fun ({ P.prop_term } as p) ->
            let is_one_state =
@@ -1656,6 +1659,54 @@ let rec constraints_of_node_calls
              P.prop_term =
                Term.mk_implies [guard_prop is_one_state; prop_term] })
         node_props
+    in
+
+    (* Candidate invariants from when-block ties: once the activation clock
+       has ticked, the when-block variable (which holds its previous value
+       whenever the clock is off) and the corresponding call output (which is
+       frozen whenever the clock is off) agree; and before the first tick, the
+       when-block variable still has its initial value. Both hold by
+       construction of the when-block encoding, but stating them as candidate
+       properties (proven before they are used) makes the hold semantics
+       visible to k-induction, which otherwise cannot relate the frozen state
+       of the called node instance to the properties of the calling node. *)
+    let node_props =
+      match node_call.N.call_ties with
+      | [] -> node_props
+      | ties ->
+        let has_ticked_prop =
+          E.cur_term_of_state_var TransSys.prop_base has_ticked
+        in
+        let ticked = Term.mk_or [clock_prop; has_ticked_prop] in
+        let row, col = row_col_of_pos call_pos in
+        let mk_candidate guard tie_sv name =
+          let tie_prop = E.cur_term_of_state_var TransSys.prop_base tie_sv in
+          { P.prop_name = name;
+            P.prop_source =
+              P.Candidate (Some (P.Generated (Some call_pos, [tie_sv], P.Body)));
+            P.prop_term = Term.mk_implies [guard; tie_prop];
+            P.prop_status = P.PropUnknown;
+            P.prop_kind = P.Invariant;
+            P.prop_expr = None;
+          }
+        in
+        List.fold_left (fun acc (tie_sv, init_tie_sv, x) ->
+          let acc =
+            mk_candidate ticked tie_sv
+              (Format.asprintf
+                "Held value of '%s' consistent with clocked call at l%dc%d"
+                (HString.string_of_hstring x) row col)
+            :: acc
+          in
+          match init_tie_sv with
+          | None -> acc
+          | Some init_tie_sv ->
+            mk_candidate (Term.negate ticked) init_tie_sv
+              (Format.asprintf
+                "Held value of '%s' initial before clocked call at l%dc%d"
+                (HString.string_of_hstring x) row col)
+            :: acc
+        ) node_props ties
     in
 
     let guard_clock =

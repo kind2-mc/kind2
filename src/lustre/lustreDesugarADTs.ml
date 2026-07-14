@@ -415,9 +415,9 @@ and desugar_expr ctx adt_map expr =
     if adt_info.is_recursive then
       LA.ADTTester (pos, r e, c)
     else
-    LA.CompOp (pos, LA.Eq,
-      tag_of pos adt_info (r e),
-      LA.Ident (pos, c))
+      LA.CompOp (pos, LA.Eq,
+        tag_of pos adt_info (r e),
+        LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
   | LA.FieldProject (p, e, fld, Some adt_ty) ->
     let e' = r e in
@@ -430,19 +430,19 @@ and desugar_expr ctx adt_map expr =
          generator detects the user-visible name and computes the "ctor_i" selector. *)
       LA.FieldProject (p, e', fld, None)
     else
-    let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-      match acc with
-      | Some _ -> acc
-      | None ->
-        let target = payload_field_name_of ctor fld in
-        if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-        then Some ctor
-        else None
-    ) info.ctor_fields None
-    |> (function Some c -> c | None -> assert false)
-    in
-    let internal_fld = payload_field_name_of ctor fld in
-    LA.FieldProject (p, e', internal_fld, None)
+      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          let target = payload_field_name_of ctor fld in
+          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
+          then Some ctor
+          else None
+      ) info.ctor_fields None
+      |> (function Some c -> c | None -> assert false)
+      in
+      let internal_fld = payload_field_name_of ctor fld in
+      LA.FieldProject (p, e', internal_fld, None)
   | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)

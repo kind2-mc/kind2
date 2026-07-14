@@ -193,7 +193,7 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
-  (* ADT tester: e.C? checks whether e was constructed with C *)
+  (* ADT tester: C?(e) checks whether e was constructed with C *)
   | ADTTester of position * expr * ident
 
 (** An identifier with a type *)

@@ -157,7 +157,7 @@ type expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
-  (* ADT tester: e.C? tests whether e was built with constructor C *)
+  (* ADT tester: C?(e) tests whether e was built with constructor C *)
   | ADTTester of position * expr * ident
 
 (** A Lustre type *)
@@ -725,9 +725,9 @@ and pp_print_expr ppf =
         (pp_print_list pp_arm " ") arms
 
     | ADTTester (_, e, c) ->
-      Format.fprintf ppf "%a.%a?"
-        pp_print_expr e
+      Format.fprintf ppf "%a?(%a)"
         HString.pp_print_hstring c
+        pp_print_expr e
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
