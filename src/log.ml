@@ -278,7 +278,7 @@ let set_log_format_xml () =
 (* Set log format to JSON *)
 let set_log_format_json () = log_format := F_json
 
-(* Set log format to continuous JSON *)
+(* Set log format to incremental JSON *)
 let set_log_format_ijson () = log_format := F_ijson
 
 (* Relay log messages to invariant manager *)

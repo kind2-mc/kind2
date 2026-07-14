@@ -3663,13 +3663,13 @@ let check_nonvacuity_default = true
   let log_format_json () = Log.get_log_format () = Log.F_json
 
 
-  (* JSON continuous log. *)
+  (* JSON incremental log. *)
   let _ = add_format_spec
     "-ijson"
     (Arg.Unit (fun () ->
          Log.set_log_format_ijson ()
        ))
-    (fun fmt -> Format.fprintf fmt "Output in continuous JSON format")
+    (fun fmt -> Format.fprintf fmt "Output in incremental JSON format")
 
     let log_format_ijson () = Log.get_log_format () = Log.F_ijson
 

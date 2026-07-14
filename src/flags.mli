@@ -204,7 +204,7 @@ val log_format_xml : unit -> bool
 (** Output in JSON format *)
 val log_format_json : unit -> bool
 
-(** Output in continuous JSON format *)
+(** Output in incremental JSON format *)
 val log_format_ijson : unit -> bool
 
 (** Wallclock timeout. *)
