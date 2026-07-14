@@ -2475,10 +2475,10 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (X.fold over_indices index_types X.empty) :: ib_oracles
     ) in
     List.fold_left over_ib_oracles [] gids.GI.ib_oracles
-  in
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
+  in
   (* Resolve the when-block ties recorded in the gids (see
      lustreDesugarIfBlocks.ml): a tie (tie, init_tie, t, x) is attached to the
      call whose abstracted output defines t, i.e. the call variable cv such

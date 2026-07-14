@@ -1792,8 +1792,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
 
-(** Type checks an expression and returns [ok]
- * if the expected type is the given type [tc_type]
+(** Type checks an expression and returns [ok] 
+ * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
 (* Convert the GenericIndex to one of the other indices based on the inferred type of ue *)
@@ -2954,8 +2954,8 @@ and expr_contains_set_binop ctx ni expr =
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
     List.fold_left (fun acc x -> acc || r x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) ->
-    r e ||
+  | RestartEvery (_, _, expr_list, e) -> 
+    r e || 
     List.fold_left (fun acc x -> acc || r x) false expr_list
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms
@@ -3031,7 +3031,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
       if (member_ty_syn ctx i || member_u_types ctx i)
-      then (
+      then 
         (* Check that we are passing the correct number of type arguments *)
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
         let expanded = expand_type_syn ctx ty' in
@@ -3039,7 +3039,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | LA.ADT _ (* Already validated at declaration *)
         | LA.UserType _ -> R.ok (ty', [])  
         | _ -> check_type_well_formed_rec is_nested expanded
-      ) else (
+      else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
         | Some nname -> 

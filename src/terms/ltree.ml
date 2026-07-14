@@ -513,8 +513,8 @@ struct
 
 
     (* Bound variables in quantifier are variables in quantified term *)
-    | Exists { H.node = L (i, { H.prop = { bound_vars } }) }
-    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } ->
+    | Exists { H.node = L (i, { H.prop = { bound_vars } }) } 
+    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } -> 
 
       bound_vars_outside_lambda (List.length i) bound_vars
 
@@ -744,8 +744,8 @@ struct
     (* Print a universal quantification *)
     | { H.node = Forall { H.node = L (x, t) } } -> 
 
-      Format.fprintf ppf
-        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]"
+      Format.fprintf ppf 
+        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
         (pp_print_typed_var_list pp_sort db) x
         (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
@@ -980,9 +980,9 @@ struct
 
         (* Push quantified term to the stack followed by a marker for
            the quantifier *)
-        map
-          f
-          ([] :: accum)
+        map 
+          f 
+          ([] :: accum) 
           ((db + (List.length x), MTree t) :: (db, MForall x) :: s)
 
       (* Match expression:

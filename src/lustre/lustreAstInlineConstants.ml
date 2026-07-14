@@ -1,4 +1,4 @@
-(* This file is part of the Kind 2 model checker.astinlin
+(* This file is part of the Kind 2 model checker.
 
    Copyright (c) 2020 by the Board of Trustees of the University of Iowa
 
@@ -390,8 +390,8 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     Quantifier (pos, q, tis, e')
   | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
-  | EmptyMap (pos, Some (kt, vt)) ->
-    EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt,
+  | EmptyMap (pos, Some (kt, vt)) -> 
+    EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
   | Match (pos, e, arms, ty_opt) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in

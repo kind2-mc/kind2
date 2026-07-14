@@ -688,11 +688,11 @@ and pp_print_expr ppf =
       idx1 
       idx2
 
-    | TypeAscription (p, e, ty) ->
-      Format.fprintf ppf
+    | TypeAscription (p, e, ty) -> 
+      Format.fprintf ppf 
       "%a(%a : %a)"
-      ppos p
-      pp_print_expr e
+      ppos p 
+      pp_print_expr e 
       pp_print_lustre_type ty
 
     | ADTTerm (_, [], c, []) ->

@@ -7,8 +7,8 @@ module LH = LustreAstHelpers
 module GI = GeneratedIdentifiers
 module LDAT = LustreDesugarADTs
 
-let unwrap res = match res with
-| Ok res -> res
+let unwrap res = match res with 
+| Ok res -> res 
 | Error _ -> assert false
 
 (* True iff `gen_id` is a monomorphization of `base_id` *)
@@ -522,9 +522,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ) (ctx, gids, [], decls1 @ decls2, node_decls_map) exprs in 
     ctx, gids, Activate (p, id, expr1, expr2, exprs), decls, node_decls_map
   | RestartEvery (p, id, exprs, expr) ->
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in
-    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr ->
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
+    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
+      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) exprs in 
     ctx, gids, RestartEvery (p, id, exprs, expr), decls, node_decls_map

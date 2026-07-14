@@ -127,9 +127,9 @@ let rec flatten_ref_type ctx ty = match ty with
           A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Array)
         in
         let expr = AH.substitute_naive id idx expr in
-        let bound1 =
-          A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index))
-        in
+        let bound1 = 
+          A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
+        in 
         let bound2 = A.CompOp(pos, Lt, A.Ident(pos, dummy_index), len) in
         let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
         A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)

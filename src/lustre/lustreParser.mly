@@ -1423,7 +1423,9 @@ node_call:
     LPAREN;
     a = separated_list(COMMA, expr);
     RPAREN
-    { A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) }
+    { 
+      A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
+    }
 
 
 (* An array slice *)

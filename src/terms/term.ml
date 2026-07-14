@@ -1868,9 +1868,9 @@ let state_vars_at_offset_of_term i term =
 
   (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v
-        when
+    (function 
+      | T.Var v 
+        when 
           Var.is_state_var_instance v &&
           Numeral.(Var.offset_of_state_var_instance v = i) ->
         List.fold_left StateVar.StateVarSet.union
@@ -1943,9 +1943,9 @@ let push_select term =
 let vars_at_offset_of_term i term = 
 
   eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v
-        when
+    (function 
+      | T.Var v 
+        when 
           Var.is_state_var_instance v &&
           Numeral.(Var.offset_of_state_var_instance v = i) ->
         List.fold_left Var.VarSet.union (Var.VarSet.singleton v)

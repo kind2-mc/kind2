@@ -91,8 +91,8 @@ let rec fold_lustre_ty f init op ty =
   | Map (_, kt, vt) -> op (r kt) (r vt)
   | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
   | Set (_, ty) -> r ty
-  | ArrayType (_, (ty, e))
-  | RefinementType (_, (_, _, ty), e) ->
+  | ArrayType (_, (ty, e)) 
+  | RefinementType (_, (_, _, ty), e) -> 
     op (r ty) (f e)
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
@@ -247,8 +247,8 @@ let rec expr_contains_id id = function
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) ->
-    expr_contains_id id e ||
+  | RestartEvery (_, _, expr_list, e) -> 
+    expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
   | Match (_, e, arms, _) ->
     expr_contains_id id e ||
@@ -539,9 +539,9 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
-  | RecordType (pos, name, tis) ->
-    let tis =
-      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis
+  | RecordType (pos, name, tis) -> 
+    let tis = 
+      List.map (fun (p, id, ty) -> (p, id, apply_type_subst_in_type sigma ty)) tis 
     in
     RecordType (pos, name, tis)
   | ADT (pos, name, cons) ->
@@ -1692,8 +1692,8 @@ let rec replace_idents locals1 locals2 expr =
     Condact (p, r e1, r e2, id, 
              List.map r l1, List.map r l2)
 
-  | StructUpdate (p, e1, li, Some e2) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, Some e2) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
               | Index (a, e) -> Index (a, r e)
@@ -1702,8 +1702,8 @@ let rec replace_idents locals1 locals2 expr =
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)
@@ -2305,8 +2305,8 @@ let rec constants_to_calls: ident list -> expr -> expr
               | SetIndex (a, e) -> SetIndex (a, r e)
              ) li, 
     Some (r e2))
-  | StructUpdate (p, e1, li, None) ->
-    StructUpdate (p, r e1,
+  | StructUpdate (p, e1, li, None) -> 
+    StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
               | Index (p, e) -> Index (p, r e)

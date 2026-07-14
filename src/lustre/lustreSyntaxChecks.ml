@@ -111,7 +111,6 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
-  | InvalidUnderscore -> "Single underscore identifier '_' can only be used in patterns"
   | QuantifiedVariableInPre var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
   | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable or refinement type bound variable '"
@@ -164,6 +163,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
   | CallStatementCallsNonLemma id -> "'"
     ^ HString.string_of_hstring id ^ "' is not a lemma; only lemmas can be invoked in a call statement"
+  | InvalidUnderscore -> "Single underscore identifier '_' can only be used in patterns"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
