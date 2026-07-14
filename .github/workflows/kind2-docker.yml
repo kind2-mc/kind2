@@ -2,7 +2,8 @@ name: Kind 2 DockerHub
 
 on:
   push:
-    branches: [ master, develop ]
+    branches: [ main ]
+    tags: [ 'v[0-9]+.[0-9]+.[0-9]+' ]
 
 jobs:
   build-and-publish:
@@ -17,7 +18,7 @@ jobs:
       id: meta
       run: |
         image=kind2/kind2
-        tag=${{ github.ref == 'refs/heads/master' && 'latest' || 'dev' }}
+        tag=${{ startsWith(github.ref, 'refs/tags/') && 'latest' || 'dev' }}
         echo "tag=$image:$tag" >> $GITHUB_OUTPUT
 
     - name: Log in to Docker Hub

@@ -9,7 +9,7 @@
 -- inactive at the counterexample step and its Option-typed streams must be
 -- reconstructed defensively.
 
-datatype Option = Some (int) | None;
+datatype Option = Some (s1: int) | None;
 
 node Sub(o: Option) returns (out: Option);
 let

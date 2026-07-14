@@ -1,4 +1,4 @@
-datatype Option<T> = None | Some (T);
+datatype Option<T> = None | Some (val: T);
 type ProtocolState = Option<int>;
 node Main () returns (ok: bool)
 const initial_state: ProtocolState = None@<int>;

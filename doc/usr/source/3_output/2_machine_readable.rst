@@ -13,7 +13,7 @@ The next sections describe each of these output formats in detail.
 JSON format
 -----------
 
-.. _schemas/kind2-output.json: https://github.com/kind2-mc/kind2/blob/develop/schemas/kind2-output.json
+.. _schemas/kind2-output.json: https://github.com/kind2-mc/kind2/blob/main/schemas/kind2-output.json
 
 The JSON output is activated by running Kind 2 with the ``-json`` option.
 Its syntax is fully specified by the JSON schema available in the
@@ -242,7 +242,7 @@ is contained. The value of its ``objectType`` property is ``modelElementSet``.
 XML format
 ----------
 
-.. _schemas/kind2-output.xsd: https://github.com/kind2-mc/kind2/blob/develop/schemas/kind2-output.xsd
+.. _schemas/kind2-output.xsd: https://github.com/kind2-mc/kind2/blob/main/schemas/kind2-output.xsd
 
 The XML output is activated by running Kind 2 with the ``-xml`` option.
 Its syntax is fully specified by the XML schema available in the

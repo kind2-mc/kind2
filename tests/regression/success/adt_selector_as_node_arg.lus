@@ -1,0 +1,8 @@
+datatype D = A (x: int);
+node double(v: int) returns (r: int);
+let r = 2 * v; tel
+node main(d: D) returns (ok: bool);
+let
+  ok = double(d.x) = 2 * d.x;
+  check ok;
+tel

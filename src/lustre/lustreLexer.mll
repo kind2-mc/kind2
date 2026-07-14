@@ -481,6 +481,7 @@ rule token = parse
   | ')' { RPAREN }
   | '.' { DOT }
   | ".." { DOTDOT }
+  | '?' { QUESTION }
   | '^' { CARET }
   | '{' { LCURLYBRACKET }
   | '}' { RCURLYBRACKET }

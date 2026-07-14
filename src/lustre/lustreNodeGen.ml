@@ -1660,7 +1660,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.RecordProject (_, expr, field) ->
+  | A.FieldProject (_, expr, field, _) ->
     compile_projection bounds expr (field_name_to_index cstate.adt_map field)
   | A.IndexAccess (_, expr, field, A.Tuple) ->
     let field = match field with 
@@ -1716,6 +1716,7 @@ and compile_ast_expr
   | A.Activate _ -> assert false
   | A.Match _ -> assert false
   | A.ADTTerm _ -> assert false
+  | A.ADTTester _ -> assert false
 
 and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in

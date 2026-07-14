@@ -55,3 +55,7 @@ travis_key.pub
 
 # Python stuff
 __pycache__
+
+# Claude
+CLAUDE.md
+.claude

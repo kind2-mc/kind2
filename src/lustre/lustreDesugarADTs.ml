@@ -67,19 +67,19 @@ type adt_map = adt_info HStringMap.t
 let disc_field_name type_name =
   HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
-let payload_field_name ctor i =
-  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ string_of_int i)
+let payload_field_name_of ctor user_fname =
+  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring user_fname)
 
 let build_adt_info type_name type_params ctors =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_field_name type_name in
   let ctor_variants = List.map fst ctors in
   let ctor_fields =
-    List.fold_left (fun m (ctor, field_types) ->
-      let fields =
-        List.mapi (fun j ty -> (payload_field_name ctor j, ty)) field_types
+    List.fold_left (fun m (ctor, fields) ->
+      let named_fields =
+        List.map (fun (user_fname, ty) -> (payload_field_name_of ctor user_fname, ty)) fields
       in
-      HStringMap.add ctor fields m
+      HStringMap.add ctor named_fields m
     ) HStringMap.empty ctors
   in
   let all_payload_fields =
@@ -110,9 +110,9 @@ let record_type_of_adt pos ?(ty_args = []) info =
   in
   LA.RecordType (pos, info.type_name, disc_fld :: payload_flds)
 
-(* Build a RecordProject accessing the tag field of an expression. *)
+(* Build a FieldProject accessing the tag field of an expression. *)
 let tag_of pos info scrut =
-  LA.RecordProject (pos, scrut, info.disc_field)
+  LA.FieldProject (pos, scrut, info.disc_field, None)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -158,7 +158,7 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     in
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
-        let field_expr = LA.RecordProject (pos, scrut, fname) in
+        let field_expr = LA.FieldProject (pos, scrut, fname, None) in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
           (conds, subs @ [(sub_name, field_expr)])
@@ -350,8 +350,37 @@ and desugar_expr ctx adt_map expr =
       (cond_opt, r body')
     ) arms in
     build_ite pos desugared_arms
+  | LA.ADTTester (pos, e, c) ->
+    let adt_info =
+      HStringMap.fold (fun _ info acc ->
+        match acc with Some _ -> acc | None ->
+          if List.mem c info.ctor_variants then Some info else None
+      ) adt_map None
+      |> (function Some i -> i | None -> assert false)
+    in
+    LA.CompOp (pos, LA.Eq,
+      tag_of pos adt_info (r e),
+      LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
+  | LA.FieldProject (p, e, fld, Some adt_ty) ->
+    let e' = r e in
+    let info = adt_info_of_type ctx adt_map adt_ty
+      |> (function Some i -> i | None -> assert false)
+    in
+    let ctor = HStringMap.fold (fun ctor internal_fields acc ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+        let target = payload_field_name_of ctor fld in
+        if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
+        then Some ctor
+        else None
+    ) info.ctor_fields None
+    |> (function Some c -> c | None -> assert false)
+    in
+    let internal_fld = payload_field_name_of ctor fld in
+    LA.FieldProject (p, e', internal_fld, None)
+  | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
@@ -557,7 +586,10 @@ let rec rewrite_as_adt_terms adt_map expr =
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.RecordProject (p, e, i) -> LA.RecordProject (p, r e, i)
+  | LA.FieldProject (p, e, id, ty_opt) -> 
+    let ty_opt = Option.map (LH.map_lustre_ty r) ty_opt in
+    LA.FieldProject (p, r e, id, ty_opt)
+  | LA.ADTTester (p, e, id) -> LA.ADTTester (p, r e, id)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)

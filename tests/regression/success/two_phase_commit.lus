@@ -2,31 +2,7 @@
 type Nat = subrange [0,*] of int;
 type Pos = subrange [1,*] of int;
 
-datatype Option<T> = Some (T) | None;
-
-transparent function IsSome<T>(o: Option<T>) returns (r: bool);
-let
-  r = match o with
-    | Some(_) : true
-    | None : false
-  end;
-tel
-
-transparent function IsNone<T>(o: Option<T>) returns (r: bool);
-let
-  r = match o with
-    | Some(_) : false
-    | None : true
-  end;
-tel
-
-transparent function GetValue<T>(o: Option<T>) returns (v: T);
-let
-  v = match o with
-    | Some(value) : value
-    | None : choose@<T>
-  end;
-tel
+datatype Option<T> = Some (value: T) | None;
 
 node imported nondet() returns (r: bool);
 
@@ -47,59 +23,8 @@ const Preference : subtype { m : map<HostId,Vote> | forall (h:HostId) h in m };
 
 datatype Message =
   | VoteReqMsg
-  | VoteMsg (HostId, Vote)
-  | DecisionMsg (Decision);
-
-function IsVoteReqMsg(m: Message) returns (r: bool);
-let
-  r = match m with
-    | VoteReqMsg : true
-    | _ : false
-  end;
-tel
-
-function IsVoteMsg(m: Message) returns (r: bool);
-let
-  r = match m with
-    | VoteMsg(_, _) : true
-    | _ : false
-  end;
-tel
-
-function IsDecisionMsg(m: Message) returns (r: bool);
-let
-  r = match m with
-    | DecisionMsg(_) : true
-    | _ : false
-  end;
-tel
-
-transparent function GetMsgSender(m: Message) returns (sender: HostId);
-let
-  sender =
-    match m with
-    | VoteMsg(s, v) : s
-    | _ : 0
-  end;
-tel
-
-transparent function GetMsgVote(m: Message) returns (vote: Vote);
-let
-  vote =
-    match m with
-    | VoteMsg(s, v) : v
-    | _ : No
-  end;
-tel
-
-transparent function GetMsgDecision(m: Message) returns (decision: Decision);
-let
-  decision =
-    match m with
-    | DecisionMsg(d) : d
-    | _ : Abort
-  end;
-tel
+  | VoteMsg (id: HostId, vote: Vote)
+  | DecisionMsg (decision: Decision);
 
 type MsgSet = set<Message>;
 
@@ -111,11 +36,11 @@ let
   frame (sentMsgs)
     sentMsgs = {}@<Message>;
   let
-    if IsSome(send) then
-      sentMsgs = prevSentMsgs + {GetValue(send)};
+    if Some?(send) then
+      sentMsgs = prevSentMsgs + {send.value};
     fi
   tel
-  recv = any { m: Option<Message> | IsSome(m) => GetValue(m) in prevSentMsgs };
+  recv = any { m: Option<Message> | Some?(m) => m.value in prevSentMsgs };
 tel
 
 function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
@@ -135,15 +60,15 @@ node Coordinator(my_turn: bool; nw_recv: Option<Message>)
 var sender: HostId;
     vote: Vote;
 let
-  sender = GetMsgSender(GetValue(nw_recv));
-  vote = GetMsgVote(GetValue(nw_recv));
+  sender = nw_recv.value.id;
+  vote = nw_recv.value.vote;
   frame (votes, nw_send, decision)
     decision = None@<Decision>;
     votes = map[]@<HostId,Vote>;
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (IsSome(nw_recv) and IsVoteMsg(GetValue(nw_recv))) then
+      if (Some?(nw_recv) and VoteMsg?(nw_recv.value)) then
         votes = map[]@<HostId,Vote> -> (pre votes)[sender := vote];
         if AllVotesCollected(votes) then
           decision = Some(GetDecision(votes));
@@ -172,13 +97,13 @@ let
     nw_send = None@<Message>;
   let
     if (my_turn) then
-      if (IsSome(nw_recv) and IsVoteReqMsg(GetValue(nw_recv))) then
+      if (Some?(nw_recv) and VoteReqMsg?(nw_recv.value)) then
         nw_send = Some(VoteMsg(id, Preference[id]));
         if Preference[id] = No then
           decision = Some(Abort);
         fi
-      elsif (IsSome(nw_recv) and IsDecisionMsg(GetValue(nw_recv))) then
-        decision = Some(GetMsgDecision(GetValue(nw_recv)));
+      elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
+        decision = Some(nw_recv.value.decision);
         nw_send = None@<Message>;
       else
         nw_send = None@<Message>;
@@ -198,7 +123,7 @@ function imported AllWithDecisionAgreeWithThisOne(
 );
 (*@contract
   guarantee r = (
-    (IsSome(coord_decision) => GetValue(coord_decision) = decision) and
+    (Some?(coord_decision) => coord_decision.value = decision) and
     (forall (i: HostId) i in partic_decision => partic_decision[i] = decision)
   );
 *)
@@ -245,10 +170,10 @@ let
     Participant(tk_holder.class = Participant, tk_holder.id, network_recv);
 
   partic_decision = map[]@<HostId,Decision> ->
-    if tk_holder.class = Coordinator or not IsSome(decision_id) then
+    if tk_holder.class = Coordinator or not Some?(decision_id) then
       pre partic_decision
     else
-      (pre partic_decision)[tk_holder.id := GetValue(decision_id)];
+      (pre partic_decision)[tk_holder.id := decision_id.value];
 
   if tk_holder.class = Coordinator then
     network_send = coord_send;
@@ -261,23 +186,23 @@ let
   network_recv, sentMsgs = Network(network_send);
 
   check "Vote Messages Agree With Participant Preferences"
-    forall (msg: Message) (msg in sentMsgs and IsVoteMsg(msg)) =>
-      GetMsgVote(msg) = Preference[GetMsgSender(msg)];
+    forall (msg: Message) (msg in sentMsgs and VoteMsg?(msg)) =>
+      msg.vote = Preference[msg.id];
 
   check "Coordinator State Supported By Vote"
     forall (idx:HostId) idx in votes => 
       VoteMsg(idx, votes[idx]) in sentMsgs;
 
   check "Decision Msgs Agree With Decision"
-    forall (msg: Message) (msg in sentMsgs and IsDecisionMsg(msg)) =>
+    forall (msg: Message) (msg in sentMsgs and DecisionMsg?(msg)) =>
       (AllVotesCollected(votes) and
-      GetDecision(votes) = GetMsgDecision(msg));
+      GetDecision(votes) = msg.decision);
 
   check "Participant Commit Decision Agree With Decision Msg"
-    IsSome(decision_id) and GetValue(decision_id) = Commit =>
+    Some?(decision_id) and decision_id.value = Commit =>
       DecisionMsg(Commit) in sentMsgs;
 
   check "Participant Decision Agree With Participant Preferences"
-    ((forall (idx: HostId) Preference[idx]=Yes) and IsSome(decision_id)) =>
-      GetValue(decision_id) = Commit;
+    ((forall (idx: HostId) Preference[idx]=Yes) and Some?(decision_id)) =>
+      decision_id.value = Commit;
 tel

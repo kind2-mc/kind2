@@ -390,9 +390,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | Const _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
-  | RecordProject (p, expr, id) ->
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, RecordProject (p, expr, id), decls, node_decls_map
+  | FieldProject (p, expr, id, ty_opt) ->
+    let ctx, gids, expr, decls, node_decls_map = rec_call expr in
+    ctx, gids, FieldProject (p, expr, id, ty_opt), decls, node_decls_map
   | ConvOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, ConvOp (p, op, expr), decls, node_decls_map
@@ -532,6 +532,9 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_args @ [arg], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) args in
     ctx, gids, ADTTerm (p, ty_args, ctor, args), decls, node_decls_map
+  | ADTTester (p, e, c) ->
+    let ctx, gids, e, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map e in
+    ctx, gids, ADTTester (p, e, c), decls, node_decls_map
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 

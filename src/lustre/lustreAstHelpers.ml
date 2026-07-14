@@ -49,7 +49,7 @@ let id_of_expr = function
   | _ -> None
 
 let pos_of_expr = function
-  | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
+  | Ident (pos , _) | ModeRef (pos , _ ) | FieldProject (pos , _ , _ , _)
   | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
   | IndexAccess (pos , _, _, _)
@@ -67,6 +67,7 @@ let pos_of_expr = function
   | TypeAscription (pos, _, _)
   | Match (pos, _, _, _)
   | ADTTerm (pos, _, _, _)
+  | ADTTester (pos, _, _)
   -> pos
 
 (* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
@@ -93,11 +94,9 @@ let rec fold_lustre_ty f init op ty =
   | ArrayType (_, (ty, e)) 
   | RefinementType (_, (_, _, ty), e) -> 
     op (r ty) (f e)
-  | ADT (_, _, cons) -> 
-    let tys = List.map snd cons |> List.flatten in 
-    List.fold_left (fun acc ty -> 
-      op acc (r ty) 
-    ) init tys
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+    List.fold_left (fun acc ty -> op acc (r ty)) init tys
 
 (* `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
 let rec map_lustre_ty f ty = 
@@ -118,8 +117,8 @@ let rec map_lustre_ty f ty =
     RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
   | RefinementType (p1, (p2, id, ty), e) -> 
     RefinementType (p1, (p2, id, r ty), f e)
-  | ADT (p, id, cons) -> 
-    ADT (p, id, List.map (fun (id, tys) -> id, List.map r tys) cons)
+  | ADT (p, id, cons) ->
+    ADT (p, id, List.map (fun (cid, flds) -> cid, List.map (fun (fn, ty) -> fn, r ty) flds) cons)
 
 (* `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
 let rec contains_subtype_satisfying p ty = 
@@ -144,8 +143,8 @@ let rec contains_subtype_satisfying p ty =
     List.exists (fun (_, _, ty) -> r ty) tis
   | RefinementType (_, (_, _, ty'), _) -> 
     p ty || r ty'
-  | ADT (_, _, cons) -> 
-    let tys = List.map snd cons |> List.flatten in
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     p ty || List.exists r tys
 
 let type_arity ty =
@@ -177,7 +176,7 @@ let rec expr_contains_call = function
   | EmptyMap (_, Some (kt, vt)) ->
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
@@ -208,6 +207,7 @@ let rec expr_contains_call = function
   | ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || expr_contains_call e) false args
     || List.fold_left (fun acc ty -> acc || fold_lustre_ty expr_contains_call false (||) ty) false ty_args
+  | ADTTester (_, e, _) -> expr_contains_call e
 
 let rec expr_contains_id id = function
   | Ident (_, id2) | Last (_, id2) -> id = id2
@@ -217,7 +217,7 @@ let rec expr_contains_id id = function
     fold_lustre_ty expr_is_id false (||) kt || 
     fold_lustre_ty expr_is_id false (||) vt 
   | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
   | Extract (_, e, _, _)
     -> expr_contains_id id e
@@ -256,6 +256,7 @@ let rec expr_contains_id id = function
   | ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || expr_contains_id id e) false args
     || List.fold_left (fun acc ty -> acc || fold_lustre_ty (expr_contains_id id) false (||) ty) false ty_args
+  | ADTTester (_, e, _) -> expr_contains_id id e
 
 (* Returns the set of variable names bound by a pattern.
    Before type checking, VarPat is used for both variable bindings and 0-arg
@@ -279,7 +280,7 @@ let rec substitute_naive (var:HString.t) t = function
     EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, substitute_naive var t e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, substitute_naive var t e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
@@ -303,6 +304,7 @@ let rec substitute_naive (var:HString.t) t = function
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty (substitute_naive var t)) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (substitute_naive var t) args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, substitute_naive var t e, c)
   (* Quantifiers introduce bound variables, but we still support substitution 
      because this is only reachable when the bound variable
      is generated by Kind 2 and guaranteed not to clash with other variables *)
@@ -370,7 +372,7 @@ let rec apply_subst_in_expr sigma = function
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_subst_in_expr sigma e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -395,6 +397,7 @@ let rec apply_subst_in_expr sigma = function
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty (apply_subst_in_expr sigma)) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_subst_in_expr sigma) args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, apply_subst_in_expr sigma e, c)
   | RecordExpr (pos, ident, ps, expr_list) ->
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
@@ -462,10 +465,11 @@ let rec apply_type_subst_in_expr
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (apply_type_subst_in_type sigma) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_type_subst_in_expr sigma) args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, apply_type_subst_in_expr sigma e, c)
   | Ident _
   | Last _ -> expr
   | ModeRef _  -> expr
-  | RecordProject (pos, e, idx) -> RecordProject (pos, apply_type_subst_in_expr sigma e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -541,7 +545,7 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     in
     RecordType (pos, name, tis)
   | ADT (pos, name, cons) ->
-    let cons = List.map (fun (ctor, tys) -> ctor, List.map (apply_type_subst_in_type sigma) tys) cons in
+    let cons = List.map (fun (ctor, flds) -> ctor, List.map (fun (fn, ty) -> fn, apply_type_subst_in_type sigma ty) flds) cons in
     ADT (pos, name, cons)
   | RefinementType (pos, (pos2, id, ty), expr) ->
     RefinementType (pos, (pos2, id, apply_type_subst_in_type sigma ty), apply_type_subst_in_expr sigma expr)
@@ -584,7 +588,7 @@ let rec has_unguarded_pre ung = function
     fold_lustre_ty (has_unguarded_pre ung) false (||) vt
   | EmptySet (_, Some ty) ->
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _)
     -> has_unguarded_pre ung e
@@ -680,6 +684,7 @@ let rec has_unguarded_pre ung = function
   | ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc ty -> acc || fold_lustre_ty (has_unguarded_pre ung) false (||) ty) false ty_args
     || List.fold_left (fun acc e -> acc || has_unguarded_pre ung e) false args
+  | ADTTester (_, e, _) -> has_unguarded_pre ung e
 
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
@@ -696,7 +701,7 @@ let rec has_unguarded_pre_no_warn ung = function
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) vt
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
@@ -782,6 +787,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc ty -> acc || fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty) false ty_args
     || List.fold_left (fun acc e -> acc || has_unguarded_pre_no_warn ung e) false args
+  | ADTTester (_, e, _) -> has_unguarded_pre_no_warn ung e
 
 let has_unguarded_pre_no_warn e =
   has_unguarded_pre_no_warn true e 
@@ -809,7 +815,7 @@ let rec has_pre_or_arrow = function
     )
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) 
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Extract (_, e, _, _) -> 
@@ -910,13 +916,14 @@ let rec has_pre_or_arrow = function
   | ADTTerm (_, ty_args, _, args) ->
     let from_tys = List.map (fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2])) ty_args in
     some_of_list (from_tys @ List.map has_pre_or_arrow args)
+  | ADTTester (_, e, _) -> has_pre_or_arrow e
 
 (*
 (** Returns identifiers under a last operator *)
 let rec lasts_of_expr acc = function
   | Const _ | Ident _ | ModeRef _ -> acc
     
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
   | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
@@ -1082,7 +1089,7 @@ let rec vars_of_node_calls_h obs =
   function
   | Ident (_, i) | Last (_, i) -> if obs then SI.singleton i else SI.empty
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
-  | RecordProject (_, e, _) -> vars obs e
+  | FieldProject (_, e, _, _) -> vars obs e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
@@ -1135,6 +1142,7 @@ let rec vars_of_node_calls_h obs =
     SI.union
       (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty (vars obs) SI.empty SI.union ty)) SI.empty ty_args)
       (SI.flatten (List.map (vars obs) args))
+  | ADTTester (_, e, _) -> vars obs e
 
 (** returns all identifiers from the [expr] ast that are inside node calls *)
 let vars_of_node_calls = vars_of_node_calls_h false
@@ -1144,7 +1152,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   function
   | Ident (_, i) | Last (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
-  | RecordProject (_, e, _) -> vars e
+  | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1197,6 +1205,7 @@ let rec vars_without_node_call_ids: expr -> iset =
     SI.union
       (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
       (SI.flatten (List.map vars args))
+  | ADTTester (_, e, _) -> vars e
 
 let rec calls_of_expr: expr -> NI.Set.t =
   function
@@ -1216,7 +1225,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | Ident _ -> NI.Set.empty
   | Last _ -> NI.Set.empty
   | ModeRef _ -> NI.Set.empty
-  | RecordProject (_, e, _) -> calls_of_expr e
+  | FieldProject (_, e, _, _) -> calls_of_expr e
   | Const _ -> NI.Set.empty
   | Extract (_, e, _, _)
   | UnaryOp (_,_,e) -> calls_of_expr e
@@ -1256,6 +1265,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
     NI.Set.union
       (List.fold_left (fun acc ty -> NI.Set.union acc (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty)) NI.Set.empty ty_args)
       (NI.Set.flatten (List.map calls_of_expr args))
+  | ADTTester (_, e, _) -> calls_of_expr e
 
 (* Like 'vars_without_node_calls', but only those vars that are not under a 'pre' expression *)
 let rec vars_without_node_call_ids_current: expr -> iset =
@@ -1263,7 +1273,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   function
   | Ident (_, i) -> SI.singleton i
   | ModeRef (_, is) -> SI.singleton (mk_mode_ref_id is)
-  | RecordProject (_, e, _) -> vars e 
+  | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
     SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
@@ -1318,6 +1328,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
     SI.union
       (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
       (SI.flatten (List.map vars args))
+  | ADTTester (_, e, _) -> vars e
 
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
@@ -1352,8 +1363,8 @@ let rec vars_of_type = function
   | History (_, id) -> SI.singleton id 
   | Int _ | Bool _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
   | SBitVector _ | UBitVector _ -> SI.empty
-  | ADT (_, _, cons) -> 
-    let tys = List.map snd cons |> List.flatten in 
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left SI.union SI.empty (List.map vars_of_type tys)
 
 let rec defined_vars_with_pos = function
@@ -1422,7 +1433,7 @@ let rec replace_with_constants: expr -> expr =
   | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e
-  | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, replace_with_constants e, i, ty_opt)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1510,6 +1521,7 @@ let rec replace_with_constants: expr -> expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty replace_with_constants) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map replace_with_constants args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, replace_with_constants e, c)
 
 (** replaces all the identifiers with constants. This is structure preserving
 and is used inside abstract_pre_subexpressions *)
@@ -1524,7 +1536,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
-  | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
+  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, abstract_pre_subexpressions e, i, ty_opt)
   (* Values *)
   | Const _ as e -> e
 
@@ -1608,6 +1620,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty abstract_pre_subexpressions) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map abstract_pre_subexpressions args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, abstract_pre_subexpressions e, c)
 
 let rec replace_idents locals1 locals2 expr = 
   let r = replace_idents locals1 locals2 in 
@@ -1636,7 +1649,7 @@ let rec replace_idents locals1 locals2 expr =
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -1710,6 +1723,7 @@ let rec replace_idents locals1 locals2 expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty r) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map r args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, r e, c)
 (** For every identifier, if that identifier is position n in locals1,
    replace it with position n in locals2 *)
 
@@ -1785,7 +1799,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
         else false
       in
       Ok t
-    | RecordProject (_, xe, xi), RecordProject (_, ye, yi) ->
+    | FieldProject (_, xe, xi, _), FieldProject (_, ye, yi, _) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
@@ -1986,7 +2000,7 @@ let hash depth_limit expr =
       | ModeRef (_, path) ->
         let path_hash = List.map HString.hash path in
         Hashtbl.hash (2, path_hash)
-      | RecordProject (_, e, i) ->
+      | FieldProject (_, e, i, _) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (3, e_hash, HString.hash i)
       | Const (_, True) -> Hashtbl.hash (5, 0)
@@ -2115,6 +2129,8 @@ let hash depth_limit expr =
       | ADTTerm (_, _, ctor, args) ->
         let args_hash = List.map (r (depth + 1)) args in
         Hashtbl.hash (32, HString.hash ctor, args_hash)
+      | ADTTester (_, e, c) ->
+        Hashtbl.hash (34, r (depth + 1) e, HString.hash c)
       | Last (_, x) -> Hashtbl.hash (33, HString.hash x)
   in
   r 0 expr
@@ -2139,7 +2155,7 @@ let rec rename_contract_vars = function
     EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
-  | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
+  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, rename_contract_vars e, idx, ty_opt)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
@@ -2194,6 +2210,7 @@ let rec rename_contract_vars = function
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty rename_contract_vars) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map rename_contract_vars args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, rename_contract_vars e, c)
 
 let name_of_prop pos name k =
   match name with 
@@ -2235,7 +2252,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ModeRef _ as e -> e
   | Last _ as e -> e
 
-  | RecordProject (p, e, idx) -> RecordProject (p, r e, idx)
+  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -2308,6 +2325,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args = List.map (map_lustre_ty r) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map r args)
+  | ADTTester (pos, e, c) -> ADTTester (pos, r e, c)
 
 let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)

@@ -48,7 +48,7 @@ type error_kind = Unknown of string
   | NotAFieldOfRecord of HString.t
   | AssumptionOnCurrentOutput of HString.t
   | NoValueForRecordField of HString.t
-  | IlltypedRecordProjection of tc_type
+  | IlltypedFieldProjection of tc_type
   | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
   | NonConcreteTupleProjection of LA.expr 
@@ -124,6 +124,9 @@ type error_kind = Unknown of string
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
+  | DuplicateFieldName of HString.t * HString.t * HString.t
+  | DuplicateFieldNameInCtor of HString.t * HString.t
+  | NotAFieldOfADT of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -142,7 +145,7 @@ let error_message kind = match kind with
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | AssumptionOnCurrentOutput id -> "Refinement type references an illegal variable '"  ^ HString.string_of_hstring id ^ "' (either an assumption on the current value of an output, or an out-of-scope type argument)"
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
-  | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
+  | IlltypedFieldProjection ty -> "Cannot project field out of expression of type " ^ string_of_tc_type ty
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | NonConcreteTupleProjection e -> "Tuple projection '" ^ LA.string_of_expr e ^ "' must be a concrete natural number"
@@ -263,6 +266,15 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
     ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
     ^ HString.string_of_hstring ty2 ^ "'"
+  | DuplicateFieldName (field, ctor1, ctor2) ->
+    "Selector for field '" ^ HString.string_of_hstring field ^ "' is ambiguous: appears in constructor '"
+    ^ HString.string_of_hstring ctor1 ^ "' and constructor '"
+    ^ HString.string_of_hstring ctor2 ^ "'"
+  | DuplicateFieldNameInCtor (field, ctor) ->
+    "Duplicate field name '" ^ HString.string_of_hstring field ^ "' in constructor '"
+    ^ HString.string_of_hstring ctor ^ "'"
+  | NotAFieldOfADT id ->
+    "No field named '" ^ HString.string_of_hstring id ^ "' in algebraic datatype"
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
@@ -370,7 +382,7 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
-    | RecordProject (_, e, _) | UnaryOp (_, _, e)
+    | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
     | TypeAscription (_, e, ty) ->
@@ -396,6 +408,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map (check_clocks clock) args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
+    | LA.ADTTester (_, e, _) -> check_clocks clock e
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
     result = function
@@ -420,7 +433,7 @@ let no_mismatched_clock is_bool e =
       (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
     | EmptySet (_, Some ty) -> 
       LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
-    | RecordProject (_, e, _) | UnaryOp (_, _, e)
+    | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
     | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
     | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
     | TypeAscription (_, e, ty) ->
@@ -447,6 +460,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map check_merge args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
+    | LA.ADTTester (_, e, _) -> check_merge e
   in
   check_merge e
 
@@ -525,7 +539,7 @@ let rec infer_const_attr ctx exp =
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ 
     | LA.UserType _ -> [R.ok ()]
     | LA.ADT (_, _, cons) ->
-      let tys = List.concat_map snd cons in
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       List.fold_left combine [R.ok ()] (List.map r2 tys)
   in
   match exp with
@@ -545,7 +559,8 @@ let rec infer_const_attr ctx exp =
     in
     [res]
   | ModeRef _ -> [error exp "mode reference"]
-  | RecordProject (_, e, _) -> r e
+  | FieldProject (_, e, _, _) -> r e
+  | LA.ADTTester (_, e, _) -> r e
   (* Values *)
   | Const _ | EmptyMap (_, None) | EmptySet (_, None) -> [R.ok ()]
   | EmptyMap (_, Some (kt, vt)) -> 
@@ -761,9 +776,12 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.Quantifier (pos, q, tis, e))
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> R.ok expr
-  | RecordProject (pos, e, idx) ->
+  | FieldProject (pos, e, idx, ty_opt) ->
     let* e = call e in
-    R.ok (LA.RecordProject (pos, e, idx))
+    R.ok (LA.FieldProject (pos, e, idx, ty_opt))
+  | LA.ADTTester (pos, e, c) ->
+    let* e = call e in
+    R.ok (LA.ADTTester (pos, e, c))
   | Const (_, _) as e -> R.ok e
   | Extract (pos, e, idx1, idx2) -> 
     let* e = call e in 
@@ -962,8 +980,8 @@ let rec unify_types pos ctx is_type_ascription ty1 ty2 =
   | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
     R.ok StringMap.empty
   | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-    let tys1 = List.concat_map snd cons1 in
-    let tys2 = List.concat_map snd cons2 in
+    let tys1 = List.concat_map (fun (_, flds) -> List.map snd flds) cons1 in
+    let tys2 = List.concat_map (fun (_, flds) -> List.map snd flds) cons2 in
     let* maps = R.seq (List.map2 r tys1 tys2) in
     R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
   | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
@@ -1057,18 +1075,43 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> assert false 
     in
     R.ok (LA.Set (pos, ty), e, warnings)
-  | LA.RecordProject (pos, e, fld) ->
+  | LA.FieldProject (pos, e, fld, _) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
     (match rec_ty with
     | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
-        | Some ty -> 
-          let* ty = expand_type_syn_reftype_history ctx ty in 
-          R.ok (ty, LA.RecordProject (pos, e, fld), warnings)
+        | Some ty ->
+          let* ty = expand_type_syn_reftype_history ctx ty in
+          R.ok (ty, LA.FieldProject (pos, e, fld, None), warnings)
         | None -> type_error pos (NotAFieldOfRecord fld))
-    | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
+    | LA.ADT (_, _, adt_cons) ->
+      let all_ctor_fields = List.concat_map (fun (ctor, flds) ->
+        List.map (fun (fn, ty) -> (ctor, fn, ty)) flds) adt_cons in
+      let fields_with_name = List.filter (fun (_, fn, _) -> HString.equal fn fld) all_ctor_fields in
+      (match fields_with_name with
+      | [] -> type_error pos (NotAFieldOfADT fld)
+      | _ :: (ctor2, _, _) :: _ ->
+        let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
+        type_error pos (DuplicateFieldName (fld, ctor1, ctor2))
+      | [(_, _, ty)] ->
+        let* ty = expand_type_syn_reftype_history ctx ty in
+        R.ok (ty, LA.FieldProject (pos, e, fld, Some rec_ty), warnings))
+    | _ -> type_error (LH.pos_of_expr e) (IlltypedFieldProjection rec_ty))
+  | LA.ADTTester (pos, e, c) ->
+    let* scrut_ty, e', warnings = infer_type_expr ctx nname e in
+    let* scrut_ty_exp = expand_type_syn_reftype_history ctx scrut_ty in
+    (match scrut_ty_exp with
+    | LA.ADT (_, adt_name, _) -> (
+      match lookup_constructor ctx c with
+      | None -> type_error pos (UnboundConstructor c)
+      | Some (ty_name, _) ->
+        if HString.equal adt_name ty_name then
+          R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
+        else
+          type_error pos (UnboundConstructor c))
+    | _ -> type_error pos (MatchScrutineeNotADT scrut_ty))
 
   (* Values *)
   | LA.Const (pos, c) -> 
@@ -1512,8 +1555,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           | Some (LA.ADT (_, _, adt_cons)) ->
             (match List.assoc_opt id adt_cons with
             | Some [] -> R.ok (ctx, LA.Pat (pos, id, []))
-            | Some field_tys ->
-              type_error pos (ConstructorArityMismatch (id, List.length field_tys, 0))
+            | Some fields ->
+              type_error pos (ConstructorArityMismatch (id, List.length fields, 0))
             | None -> type_error pos (UnboundConstructor id)
             )
           | _ -> type_error pos (UnboundConstructor id)
@@ -1524,7 +1567,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         | Some (LA.ADT (_, _, adt_cons)) ->
           (match List.assoc_opt ctor adt_cons with
           | None -> type_error pos (UnboundConstructor ctor)
-          | Some field_tys ->
+          | Some fields ->
+            let field_tys = List.map snd fields in
             if List.length sub_pats <> List.length field_tys then
               type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length sub_pats))
             else
@@ -1653,9 +1697,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (eq_lustre_type ctx inf_ty exp_ty) 
       (R.ok (e, warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-  | RecordProject (pos, expr, fld) -> 
-    let* expr, warnings = check_type_record_proj pos ctx nname expr fld exp_ty in 
-    R.ok (LA.RecordProject (pos, expr, fld), warnings)
+  | FieldProject (pos, expr, fld, _) ->
+    check_type_record_proj pos ctx nname expr fld exp_ty
   (* Operators *)
   | Extract (pos, _, idx1, idx2) as expr -> 
     let* inf_ty, expr, warnings = infer_type_expr ctx nname expr in 
@@ -1730,6 +1773,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | When (pos, _, _)
   | LA.Match (pos, _, _, _)
   | LA.ADTTerm (pos, _, _, _)
+  | LA.ADTTester (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -1950,18 +1994,31 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
 (** infer the type of comparison operator application *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr -> LA.index -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
-  fun pos ctx nname expr idx exp_ty -> 
+  fun pos ctx nname expr idx exp_ty ->
   infer_type_expr ctx nname expr
   >>= function
   | RecordType (_, _, flds), expr, warnings ->
-    (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
+    (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with
     | None -> type_error pos (NotAFieldOfRecord idx)
     | Some f -> R.ok f)
     >>= fun (_, _, fty) ->
     R.ifM (eq_lustre_type ctx fty exp_ty)
-      (R.ok (expr, warnings))
+      (R.ok (LA.FieldProject (pos, expr, idx, None), warnings))
       (type_error pos (UnificationFailed (exp_ty, fty)))
-  | rec_ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
+  | LA.ADT (_, _, adt_cons) as adt_ty, expr, warnings ->
+    let all_ctor_fields = List.concat_map (fun (ctor, flds) ->
+      List.map (fun (fn, ty) -> (ctor, fn, ty)) flds) adt_cons in
+    let fields_with_name = List.filter (fun (_, fn, _) -> HString.equal fn idx) all_ctor_fields in
+    (match fields_with_name with
+    | [] -> type_error pos (NotAFieldOfRecord idx)
+    | _ :: (ctor2, _, _) :: _ ->
+      let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
+      type_error pos (DuplicateFieldName (idx, ctor1, ctor2))
+    | [(_, _, fty)] ->
+      R.ifM (eq_lustre_type ctx fty exp_ty)
+        (R.ok (LA.FieldProject (pos, expr, idx, Some adt_ty), warnings))
+        (type_error pos (UnificationFailed (exp_ty, fty))))
+  | rec_ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedFieldProjection rec_ty)
 
 and check_type_tuple_proj : Lib.position -> tc_context -> NI.t option -> LA.expr -> int -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty ->
@@ -2529,11 +2586,11 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
       | LA.ADT (_, _, cons) ->
         let ctx' = add_ty_syn ctx i ty in
         let* ctx'' = R.seq_chain
-          (fun acc (ctor, field_tys) ->
+          (fun acc (ctor, fields) ->
             match lookup_constructor acc ctor with
             | Some (existing_ty, _) when not (HString.equal existing_ty i) ->
               type_error pos (DuplicateConstructor (ctor, existing_ty, i))
-            | _ -> R.ok (add_adt_ctor acc ctor i field_tys))
+            | _ -> R.ok (add_adt_ctor acc ctor i (List.map snd fields)))
           ctx' cons in
         R.ok (LA.AliasType (pos, i, ps, ty), ctx'')
       | _ -> R.ok (LA.AliasType (pos, i, ps, ty), add_ty_syn ctx i ty))
@@ -2710,7 +2767,7 @@ and check_no_index_access ctx nname ty e =
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) vt
   | EmptySet (_, Some ty') ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
-  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | When (_, e, _)
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
   | AnyOp (_, (_, _, ty'), e) ->
@@ -2768,6 +2825,7 @@ and check_no_index_access ctx nname ty e =
   | LA.ADTTerm (_, ty_args, _, args) ->
     Res.seq_ (List.map r args) >>
     Res.seq_ (List.map (LH.fold_lustre_ty r (R.ok ()) (>>)) ty_args)
+  | LA.ADTTester (_, e, _) -> r e
 
 and check_array_size_expr ctx nname ty e =
   check_const_integer_expr ctx nname "array size expression" e >> 
@@ -2827,7 +2885,7 @@ and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match 
 | AbstractType _ | Bool _ | Int _ 
 | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
 | ADT (_, _, cons) ->
-  Res.seq_ (List.map (fun (_, field_tys) -> Res.seq_ (List.map r field_tys)) cons)
+  Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -2850,7 +2908,7 @@ and expr_contains_set_binop ctx ni expr =
     LH.fold_lustre_ty r false (||) kt ||
     LH.fold_lustre_ty r false (||) vt
   | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
-  | RecordProject (_, e, _) | UnaryOp (_, _, e)
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
@@ -2886,6 +2944,7 @@ and expr_contains_set_binop ctx ni expr =
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
     || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
+  | LA.ADTTester (_, e, _) -> r e
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
@@ -2976,7 +3035,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             type_error pos (UndeclaredType i)
       )
     | ADT (pos, new_ty_name, ctors) ->
-      let* ctors, all_warnings = R.seq (List.map (fun (ctor, tys) ->
+      let* ctors, all_warnings = R.seq (List.map (fun (ctor, fields) ->
         let* _ = (match lookup_constructor ctx ctor with
           | Some (existing_ty_name, _) ->
             if existing_ty_name <> new_ty_name then
@@ -2986,8 +3045,19 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             (match lookup_const ctx ctor with
             | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
             | None -> R.ok ())) in
-        let* tys, warnings = R.seq (List.map (check_type_well_formed_rec true) tys) |> R.map List.split in
-        R.ok ((ctor, tys), List.flatten warnings)
+        let* _ =
+          let seen = Hashtbl.create 4 in
+          R.seq (List.map (fun (fn, _) ->
+            if Hashtbl.mem seen fn then
+              type_error pos (DuplicateFieldNameInCtor (fn, ctor))
+            else (Hashtbl.add seen fn (); R.ok ())
+          ) fields)
+        in
+        let* fields', warnings = R.seq (List.map (fun (fn, ty) ->
+          let* ty', w = check_type_well_formed_rec true ty in
+          R.ok ((fn, ty'), w)
+        ) fields) |> R.map List.split in
+        R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
       R.ok (LA.ADT (pos, new_ty_name, ctors), List.flatten all_warnings)
     | Bool _ | Int _ | Real _

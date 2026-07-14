@@ -109,7 +109,12 @@ type expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
-  | RecordProject of position * expr * index
+  (* Field projection e.f, used for both record and ADT selector expressions.
+     The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
+     field name is still the user-written name (set by the type checker); the
+     desugarer rewrites it to the internal payload field name and clears it to
+     None. It is None for record projections and for already-desugared ADT ones. *)
+  | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -152,6 +157,8 @@ type expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* ADT tester: C?(e) tests whether e was built with constructor C *)
+  | ADTTester of position * expr * ident
 
 (** A Lustre type *)
 and lustre_type =
@@ -172,7 +179,7 @@ and lustre_type =
   | RefinementType of position * typed_ident * expr
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
-  | ADT of position * ident * (ident * lustre_type list) list
+  | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
@@ -508,7 +515,7 @@ and pp_print_expr ppf =
         pp_print_expr e
         pp_print_expr l 
 
-    | RecordProject (p, e, f) -> 
+    | FieldProject (p, e, f, _) ->
 
       Format.fprintf ppf 
         "%a%a.%a" 
@@ -717,6 +724,11 @@ and pp_print_expr ppf =
         pp_print_expr e
         (pp_print_list pp_arm " ") arms
 
+    | ADTTester (_, e, c) ->
+      Format.fprintf ppf "%a?(%a)"
+        HString.pp_print_hstring c
+        pp_print_expr e
+
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
     Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
@@ -785,12 +797,15 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf
       "history(%a)" (pp_print_ident) i
   | ADT (_, _, constructors) ->
-    let pp_ctor ppf (name, tys) =
-      if tys = [] then HString.pp_print_hstring ppf name
+    let pp_field ppf (fname, ty) =
+      Format.fprintf ppf "%a: %a" HString.pp_print_hstring fname pp_print_lustre_type ty
+    in
+    let pp_ctor ppf (name, fields) =
+      if fields = [] then HString.pp_print_hstring ppf name
       else
         Format.fprintf ppf "%a(%a)"
           HString.pp_print_hstring name
-          (pp_print_list pp_print_lustre_type ", ") tys
+          (pp_print_list pp_field ", ") fields
     in
     Format.fprintf ppf "%a"
       (pp_print_list pp_ctor " | ") constructors

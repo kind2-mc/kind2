@@ -118,7 +118,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | Last _ as e -> e
   | EmptyMap _ as e -> e
   | EmptySet _ as e -> e
-  | RecordProject (p, e, id) -> RecordProject (p, r e, id)
+  | FieldProject (p, e, id, ty_opt) -> FieldProject (p, r e, id, ty_opt)
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)
   | UnaryOp (p, b, e) -> UnaryOp (p, b, r e)
@@ -175,6 +175,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
       ty_opt)
   | A.ADTTerm (p, ty_args, ctor, args) ->
     A.ADTTerm (p, ty_args, ctor, List.map r args)
+  | A.ADTTester (p, e, c) -> A.ADTTester (p, r e, c)
 
 (** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)
