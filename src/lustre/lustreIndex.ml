@@ -39,10 +39,8 @@ type one_index =
 
   (* Tuple field, optionally tagged as a map domain/value array entry.
      [TupleIndex (i, None)] is an ordinary Lustre tuple element at position i.
-     [TupleIndex (0, Some MapDomain)] is the presence/domain array of a map
-     (prints as [_0] in safe format).
-     [TupleIndex (1, Some MapValue)] is the value array of a map
-     (prints as [_1] in safe format). *)
+     [TupleIndex (0, Some MapDomain)] is the presence/domain array of a map.
+     [TupleIndex (1, Some MapValue)] is the value array of a map. *)
   | TupleIndex of int * map_index_metadata option
 
   (* List element *)
@@ -73,7 +71,7 @@ let pp_print_one_index' db = function
 
     (function ppf -> function
        | RecordIndex _ -> ()
-       | TupleIndex (i, None) -> Format.fprintf ppf "(%d)" i
+       | TupleIndex (i, None) -> Format.fprintf ppf "(%d)" i 
        | TupleIndex (_, Some MapDomain) -> Format.fprintf ppf "(dom)"
        | TupleIndex (_, Some MapValue) -> Format.fprintf ppf "(val)"
        | ListIndex i -> Format.fprintf ppf "{%d}" i
@@ -89,7 +87,6 @@ let pp_print_one_index' db = function
     (function ppf -> function 
        | RecordIndex i -> Format.fprintf ppf ".%s" i
        | TupleIndex (i, None) -> Format.fprintf ppf "_%d" i
-       (* Print same as TupleIndex (0, None) / (1, None) to preserve state variable names *)
        | TupleIndex (_, Some MapDomain) -> Format.fprintf ppf "_0"
        | TupleIndex (_, Some MapValue) -> Format.fprintf ppf "_1"
        | ListIndex i -> Format.fprintf ppf "_%d" i
@@ -136,11 +133,6 @@ let empty_index = []
 (* An index is a sequence of index entries *)
 type index = one_index list
 
-
-(* Ordering for the optional map metadata tag.
-   None < Some MapDomain < Some MapValue, so within TupleIndex:
-   plain tuple entries sort before map domain entries, which sort before map value entries
-   (when the integer position is the same). *)
 let compare_map_metadata ma mb = match ma, mb with
   | None, None
   | Some MapDomain, Some MapDomain
