@@ -45,7 +45,6 @@ module SVS = StateVar.StateVarSet
 module TM = Type.TypeMap
 
 module Ctx = TypeCheckerContext
-module Chk = LustreTypeChecker
 
 module StringMap = HString.HStringMap
 
@@ -496,9 +495,19 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     expand_tuple' pos accum (E.Unbound (Some b) :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
-  (* Tuple index on left-hand and right-hand side *)
-  | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
-    (X.TupleIndex j :: rhs_index_tl, expr) :: rhs_tl) 
+  (* Tuple index on left-hand and right-hand side.
+     Covers plain tuple entries (metadata = None) and map domain/value entries
+     (metadata = Some MapDomain / Some MapValue). Both the integer and the
+     metadata tag must match. *)
+  | ((X.TupleIndex (i, ma) :: lhs_index_tl, state_var) :: lhs_tl,
+    (X.TupleIndex (j, mb) :: rhs_index_tl, expr) :: rhs_tl) ->
+    if i = j && ma = mb then
+      expand_tuple' pos accum bounds
+        ((lhs_index_tl, state_var) :: lhs_tl)
+        ((rhs_index_tl, expr) :: rhs_tl)
+    else (
+      internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   | ((X.ListIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ListIndex j :: rhs_index_tl, expr) :: rhs_tl) ->
     (* Indexes are sorted, must match *)
@@ -537,10 +546,10 @@ let rec expand_tuple' pos accum bounds lhs rhs =
     else (internal_error pos "Type mismatch in equation: indexes do not match";
           assert false)
   (* Tuple index on left-hand and array index on right-hand side *)
-  | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
+  | ((X.TupleIndex (i, _) :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
     (* Indexes are sorted, must match *)
-    if i = j then 
+    if i = j then
       (* Use tuple index instead of array index on right-hand side *)
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
@@ -578,7 +587,11 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         ((rhs_index_tl, expr) :: rhs_tl)
     else (internal_error pos "Type mismatch in equation: ADT payload indexes do not match";
           assert false)
-  (* Mismatched indexes on left-hand and right-hand sides *)
+  (* Mismatched indexes on left-hand and right-hand sides.
+     TupleIndex _ covers both plain and map-tagged variants; mismatches
+     between a TupleIndex and a non-TupleIndex, or between two TupleIndexes
+     with different (int, metadata) pairs, are caught by the `assert false`
+     in the TupleIndex matching case above or here via cross-constructor patterns. *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ArrayIntIndex _ :: _, _) :: _
@@ -889,7 +902,7 @@ and compile_ast_type
     List.fold_left over_fields X.empty record_fields
   | A.TupleType (_, tuple_fields) ->
     let over_fields = fun (i, a) t ->
-      let over_indices = fun j t a -> X.add (X.TupleIndex i :: j) t a in
+      let over_indices = fun j t a -> X.add (X.TupleIndex (i, None) :: j) t a in
       let compiled_tuple_field_ty = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_tuple_field_ty a
     in
@@ -923,15 +936,22 @@ and compile_ast_type
       )
       base_map_type
       (List.tl types)
-  | A.Map (_, ty1, ty2) -> 
+  | A.Map (_, ty1, ty2) ->
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
     let last_type = List.hd types in
-    let ty2' =
-      A.TupleType (Lib.dummy_pos, [A.Bool Lib.dummy_pos; ty2])
+    (* Build the presence/value trie directly using tagged TupleIndex entries
+       instead of TupleType [Bool; ty2], so map and plain-tuple entries are
+       distinguishable in compiled tries without source-type information.
+       TupleIndex (0, Some MapDomain) is the presence/domain array;
+       TupleIndex (1, Some MapValue) is the value array. *)
+    let domain_type = compile_ast_type cstate ctx map (A.Bool Lib.dummy_pos) in
+    let value_type = compile_ast_type cstate ctx map ty2 in
+    let element_type =
+      X.fold (fun j t a -> X.add (X.TupleIndex (0, Some X.MapDomain) :: j) t a) domain_type
+        (X.fold (fun j t a -> X.add (X.TupleIndex (1, Some X.MapValue) :: j) t a) value_type X.empty)
     in
-    let element_type = compile_ast_type cstate ctx map ty2' in
-    let over_element_type ty j t a = 
+    let over_element_type ty j t a =
       let dummy = (E.mk_free_var (Var.mk_fresh_var ty)).E.expr_init in
       X.add
       (j @ [X.SetMapIndex dummy])
@@ -1115,53 +1135,22 @@ and compile_ast_expr
     let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
       | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
       | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
-    (* Map-value leaves must be compared only at keys present in the map. The
-       trie fold below can associate the domain (presence) array of an
-       outermost map with the leaves of its value, but maps nested deeper
-       (inside map values, tuples, records or ADT payloads) contribute domain
-       arrays that cannot be recognized from trie indices alone: a map's
-       domain/value pair is encoded with plain tuple indices, which are
-       ambiguous with actual tuples. Compute the association from the source
-       type of the operands instead: collect, for every map in the type, the
-       trie prefix of its value subtree together with the prefix of its domain
-       leaf. A leaf under a value prefix is then guarded by the corresponding
-       domain array (of the first operand). Falls back to the legacy
-       first-leaf guard if the type of neither operand can be inferred. *)
-    let guard_pairs_opt =
-      let rec collect ty prefix acc =
-        match Ctx.expand_type_syn ctx ty with
-        | A.Map (_, _, vty) ->
-          let acc = (prefix @ [X.TupleIndex 1], prefix @ [X.TupleIndex 0]) :: acc in
-          collect vty (prefix @ [X.TupleIndex 1]) acc
-        | A.TupleType (_, tys) ->
-          List.fold_left (fun (k, acc) t ->
-            succ k, collect t (prefix @ [X.TupleIndex k]) acc) (0, acc) tys
-          |> snd
-        | A.GroupType (_, tys) ->
-          List.fold_left (fun (k, acc) t ->
-            succ k, collect t (prefix @ [X.ListIndex k]) acc) (0, acc) tys
-          |> snd
-        | A.RecordType (_, _, fields) ->
-          List.fold_left (fun acc (_, i, t) ->
-            collect t (prefix @ [field_name_to_index cstate.adt_map i]) acc)
-            acc fields
-        | A.ArrayType (_, (t, _)) ->
-          (* array dimensions are appended after the trailing map dimensions,
-             so the structural prefix of the element type is unchanged *)
-          collect t prefix acc
-        | A.RefinementType (_, (_, _, t), _) -> collect t prefix acc
-        | _ -> acc
+    (* Map-value leaves must be compared only at keys present in the map.
+       TupleIndex (1, Some MapValue) in a compiled trie index identifies the
+       value array of a map; TupleIndex (0, Some MapDomain) identifies its
+       presence/domain array. For every MapValue-tagged entry at position p in
+       a leaf index, the domain prefix is the index up to (and including)
+       position p with the MapDomain tag. This works for arbitrarily nested
+       maps without any source type information. *)
+    let domain_prefixes_of_leaf idx =
+      let rec scan prefix_rev = function
+        | [] -> []
+        | X.TupleIndex (_, Some X.MapValue) :: rest ->
+          let dpfx = List.rev_append prefix_rev [X.TupleIndex (0, Some X.MapDomain)] in
+          dpfx :: scan (X.TupleIndex (1, Some X.MapValue) :: prefix_rev) rest
+        | hd :: rest -> scan (hd :: prefix_rev) rest
       in
-      match Chk.infer_type_expr ctx None expr1 with
-      | Ok (ty, _, _) -> Some (collect ty [] [])
-      | Error _ ->
-        (match Chk.infer_type_expr ctx None expr2 with
-         | Ok (ty, _, _) -> Some (collect ty [] [])
-         | Error _ -> None)
-    in
-    let is_index_prefix p i =
-      List.length p <= List.length i
-      && X.compare_indexes p (fst (list_split (List.length p) i)) = 0
+      scan [] idx
     in
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
@@ -1191,7 +1180,7 @@ and compile_ast_expr
       | _ -> None
     in
     (* Compile the equality for each pair of `eqs` *)
-    let over_indices = fun i (e1, e2) (fst_flag, acc_guard, acc) ->  
+    let over_indices = fun i (e1, e2) acc ->
       match E.type_of_lustre_expr e1 with 
       (* For LustreNode array types (LustreAst arrays, maps, and sets) we need quantification 
          for structural equality *)
@@ -1224,22 +1213,17 @@ and compile_ast_expr
             acc
         ) E.t_true (List.combine idx_vars bounds) in
         (* For map value equality we only consider m1[k] = m2[k] for k in the maps.
-           "acc_guard" collects the constraints that k is in the map (if the equality is over maps).
            "guard_arity" (and its usage) ensures that we only use indices associated
            with the map key type and not its value type (eg, consider map<int, set<int>>). *)
-        let leaf_guards = match guard_pairs_opt with
-          | Some pairs ->
-            List.filter_map (fun (value_prefix, domain_prefix) ->
-              if is_index_prefix value_prefix i then
-                match X.bindings (X.find_prefix domain_prefix eqs) with
-                | [(_, (g1, _))] -> Some g1
-                | _ -> None
-                | exception Not_found -> None
-              else None
-            ) pairs
-          | None -> acc_guard
+        let leaf_guards =
+          List.filter_map (fun domain_prefix ->
+            match X.bindings (X.find_prefix domain_prefix eqs) with
+            | [(_, (g1, _))] -> Some g1
+            | _ -> None
+            | exception Not_found -> None
+          ) (domain_prefixes_of_leaf i)
         in
-        let acc_guard' = List.fold_left (fun acc e ->
+        let guard' = List.fold_left (fun acc e ->
           let guard_arity =
             List.length (Type.all_index_types_of_array (E.type_of_lustre_expr e))
           in
@@ -1252,13 +1236,8 @@ and compile_ast_expr
            For disequality: exists (x: K) conditions and arr1[x] <> arr2[x]. 
            For arrays, `conditions` are that the index is in range. 
            For maps, `conditions` are that the key is in the map (only for arr1 and arr2 representing map values) *)
-        let e = mk_quant idx_vars (mk_comb (E.mk_and acc_guard' guard) (mk_binary e1' e2')) in 
-        let acc_guard = match fst_flag, bounds with 
-        (* Remember `e1` for `acc_guard` if it represents the Boolean presence/absence array *)
-        | true, E.Unbound _ :: _ -> e1 :: acc_guard 
-        | _ -> acc_guard 
-        in
-        false, acc_guard, X.add i e acc
+        let e = mk_quant idx_vars (mk_comb (E.mk_and guard' guard) (mk_binary e1' e2')) in
+        X.add i e acc
       (* For non-array types, straightforward equality.
          Guard payload fields of ADT records so that junk fields
          (those for non-selected constructors) do not affect the result.
@@ -1277,9 +1256,9 @@ and compile_ast_expr
             mk_comb (E.mk_eq disc_e1 (E.mk_constr ctor disc_ty)) (mk_binary e1 e2)
           | None -> mk_binary e1 e2
         in
-        false, acc_guard, X.add i eq_expr acc
+        X.add i eq_expr acc
     in
-    let _, _, expr = X.fold over_indices eqs (true, [], X.empty) in 
+    let expr = X.fold over_indices eqs X.empty in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
   
   and compile_ite bounds expr1 expr2 expr3 =
@@ -1390,7 +1369,7 @@ and compile_ast_expr
             (match X.choose cexpr_sub with
               | X.ArrayVarIndex _ :: _, _
               | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
-              | X.TupleIndex _ :: _,_ -> X.TupleIndex value
+              | X.TupleIndex _ :: _,_ -> X.TupleIndex (value, None)
               | _ -> assert false (* guaranteed by type checker *))
           else (match X.choose cexpr_sub with
             | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
@@ -1593,7 +1572,7 @@ and compile_ast_expr
     compile_map_index bounds map_expr k
   | A.BinaryOp (_, A.In Map, k, map_expr) ->
     let map_expr = compile_map_index bounds map_expr k in
-    X.find_prefix [(X.TupleIndex 0)] map_expr
+    X.find_prefix [X.TupleIndex (0, Some X.MapDomain)] map_expr
   | A.BinaryOp (_, A.In Unknown, _, _) -> assert false
   | A.BinaryOp (_, A.Mod, expr1, expr2) ->
     compile_binary bounds E.mk_mod expr1 expr2 
@@ -1666,7 +1645,7 @@ and compile_ast_expr
     let field = match field with 
     | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
     | _ -> assert false in (* Tuple accesses are guaranteed concrete integers in type checking *)
-    compile_projection bounds expr (X.TupleIndex field)
+    compile_projection bounds expr (X.TupleIndex (field, None))
   | A.GroupExpr (_, A.ExprList, expr_list) ->
     let rec flatten_expr_list accum = function
       | [] -> List.rev accum
@@ -1676,7 +1655,7 @@ and compile_ast_expr
     in let expr_list = flatten_expr_list [] expr_list in
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
-    compile_group_expr bounds (fun j i -> X.TupleIndex i :: j) expr_list
+    compile_group_expr bounds (fun j i -> X.TupleIndex (i, None) :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
     compile_record_expr bounds expr_list
   | A.StructUpdate (_, _, _, None)  (* SetIndex case *)
@@ -1702,7 +1681,7 @@ and compile_ast_expr
   | A.IndexAccess (_, expr, i, Array) -> compile_array_index bounds expr i
   | A.IndexAccess (_, expr, k, Map) ->
     let expr = compile_map_index bounds expr k in
-    X.find_prefix [(X.TupleIndex 1)] expr
+    X.find_prefix [X.TupleIndex (1, Some X.MapValue)] expr
   | A.IndexAccess (_, _, _, Unknown) -> assert false
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
@@ -2123,22 +2102,6 @@ and compile_node_io cstate ctx node_id params inputs outputs =
 
 and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_lemma opac cstate ctx node_id ext params locals items contract =
   let gids = NI.Map.find node_id gids_map in
-  (* Extend the typing context with the normalizer-generated locals of this
-     node so that source types of equality operands appearing in generated
-     equations can be inferred in compile_equality (used to locate the domain
-     guards of map-value comparisons) *)
-  let ctx =
-    let ctx =
-      GI.StringMap.fold (fun id ty acc -> Ctx.add_ty acc id ty)
-        gids.GI.locals ctx
-    in
-    let ctx =
-      List.fold_left (fun acc (id, _, ty, _) -> Ctx.add_ty acc id ty)
-        ctx gids.GI.node_args
-    in
-    List.fold_left (fun acc (id, ty) -> Ctx.add_ty acc id ty)
-      ctx gids.GI.free_constants
-  in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
   let node_decreases = get_decreases_expr contract in
@@ -2660,13 +2623,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     (* TODO: Old code suggests that shadowing can occur here *)
 
     let num_is = List.fold_left (fun acc i -> 
-    (* In the list of indices `i`, multiple SetMapIndexes are ambiguous: 
-       they can represent either multiple components of a single structured key, or 
+    (* In the list of indices `i`, multiple SetMapIndexes are ambiguous:
+       they can represent either multiple components of a single structured key, or
        separate keys of nested maps.
-       But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row 
-       before encountering the TupleIndex representing the membership/value arrays. 
-       So, we can compute the number of SetMapIndexes associated with the outer map's key type 
-       by finding the minimal number of SetMapIndexes before the first TupleIndex. 
+       But, if it is structured key with N elements, we will always get at least N SetMapIndexes in a row
+       before encountering the TupleIndex (_, Some MapDomain/MapValue) representing the membership/value arrays.
+       So, we can compute the number of SetMapIndexes associated with the outer map's key type
+       by finding the minimal number of SetMapIndexes before the first map-tagged TupleIndex.
 
        Note that this only suffices to find the number of SetMapIndexes for the key type of the outermost map; 
        hence, this function (compile_map_or_set_def) currently can handle only a single input 
@@ -2689,7 +2652,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         if is_set && num_is > 0 then 
           X.add acc_is (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
         else if num_is > 0 then  
-          X.add (acc_is @ [X.TupleIndex acc_i]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1 
+          X.add (acc_is @ [X.TupleIndex (acc_i, None)]) (E.type_of_expr b) acc, acc_is, acc_i + 1, num_is - 1
         else 
           acc, acc_is, acc_i, num_is 
       | _ -> acc, acc_is, acc_i, num_is  
@@ -2823,9 +2786,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let eq_lhs, _ = compile_struct_item (A.SingleIdent (Lib.dummy_pos, id)) in 
       let eq_lhs = flatten_list_indexes eq_lhs in
       (* extract index for boolean flag denoting presence or absence of map item *)
-      let eq_lhs = X.fold (fun k sv acc -> match k with 
-      | X.TupleIndex 0 :: _ -> X.add k sv acc 
-      | _ -> acc 
+      let eq_lhs = X.fold (fun k sv acc -> match k with
+      | X.TupleIndex (_, Some X.MapDomain) :: _ -> X.add k sv acc
+      | _ -> acc
       ) eq_lhs X.empty 
       in
       (* Set boolean flag to false *)
@@ -2851,20 +2814,29 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 = 
         let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
-          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
         X.singleton X.empty_index (List.fold_left E.mk_and E.t_true (X.values expr)) 
       in
-      let then_expr = A.GroupExpr (dummy_pos, TupleExpr, [Const (dummy_pos, True); nexpr3]) in 
-      let else_expr = 
-        A.GroupExpr (dummy_pos, TupleExpr, [A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1); 
-                                            A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)]) 
+      (* Build domain/value tries directly so indices align with the map LHS
+         TupleIndex (_, Some MapDomain/MapValue), not TupleIndex (_, None) from TupleExpr. *)
+      let then_domain = X.singleton X.empty_index E.t_true in
+      let then_value = compile_ast_expr cstate ctx lhs_bounds map nexpr3 in
+      let then_expr =
+        X.fold (fun k v a -> X.add (X.TupleIndex (0, Some X.MapDomain) :: k) v a) then_domain
+          (X.fold (fun k v a -> X.add (X.TupleIndex (1, Some X.MapValue) :: k) v a) then_value X.empty)
+      in
+      let else_domain = compile_ast_expr cstate ctx lhs_bounds map
+          (A.BinaryOp (dummy_pos, In Map, fresh_idx, nexpr1)) in
+      let else_value = compile_ast_expr cstate ctx lhs_bounds map
+          (A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map)) in
+      let else_expr =
+        X.fold (fun k v a -> X.add (X.TupleIndex (0, Some X.MapDomain) :: k) v a) else_domain
+          (X.fold (fun k v a -> X.add (X.TupleIndex (1, Some X.MapValue) :: k) v a) else_value X.empty)
       in 
-      let then_expr = compile_ast_expr cstate ctx lhs_bounds map then_expr in 
-      let else_expr = compile_ast_expr cstate ctx lhs_bounds map else_expr in 
       let cond_expr = match X.bindings cond_expr with
       | [_, expr] -> expr
       | _ -> assert false
@@ -2897,8 +2869,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
             A.BinaryOp (dummy_pos, In Set, fresh_idx, nexpr2)))
       in
       let value_expr = A.IndexAccess (dummy_pos, nexpr1, fresh_idx, Map) in
-      let expr = A.GroupExpr (dummy_pos, TupleExpr, [present_expr; value_expr]) in
-      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map expr in
+      (* Build domain/value tries directly to align with map-tagged TupleIndex entries on LHS. *)
+      let domain_rhs = compile_ast_expr cstate ctx lhs_bounds map present_expr in
+      let value_rhs = compile_ast_expr cstate ctx lhs_bounds map value_expr in
+      let eq_rhs =
+        X.fold (fun k v a -> X.add (X.TupleIndex (0, Some X.MapDomain) :: k) v a) domain_rhs
+          (X.fold (fun k v a -> X.add (X.TupleIndex (1, Some X.MapValue) :: k) v a) value_rhs X.empty)
+      in
       (* Format.fprintf Format.std_formatter "lhs: %a@.rhs: %a@.@.\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
@@ -2945,7 +2922,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 =
         let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
-          X.add [X.TupleIndex acc_i] e acc, acc_i + 1
+          X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
@@ -3512,16 +3489,11 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract), { is_rec; is_lemma }) -> (
-    (* Extend the typing context with the node interface and locals so that
-       source types of equality operands can be inferred in compile_equality
-       (used to locate the domain guards of map-value comparisons) *)
-    let ctx = Chk.add_full_node_ctx ctx i params inputs outputs locals in
+  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec; is_lemma }) -> (
     let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec is_lemma opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
-  | A.NodeDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
-    let ctx = Chk.add_full_node_ctx ctx i params inputs outputs locals in
+  | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
     let cstate = compile_node_decl scc_map gids rec_decreases_map false false false opac cstate ctx i ext params locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
