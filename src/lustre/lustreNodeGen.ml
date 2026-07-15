@@ -549,7 +549,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | ((X.TupleIndex (i, _) :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
     (* Indexes are sorted, must match *)
-    if i = j then
+    if i = j then 
       (* Use tuple index instead of array index on right-hand side *)
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
@@ -936,7 +936,7 @@ and compile_ast_type
       )
       base_map_type
       (List.tl types)
-  | A.Map (_, ty1, ty2) ->
+  | A.Map (_, ty1, ty2) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
     let last_type = List.hd types in

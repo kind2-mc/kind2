@@ -44,7 +44,7 @@
 type map_index_metadata = MapDomain | MapValue
 
 (** An index element *)
-type one_index =
+type one_index = 
 
   | RecordIndex of string
     (** Field name as index of a record *)
@@ -66,7 +66,7 @@ type one_index =
   | ArrayVarIndex of LustreExpr.expr
     (** Variable as index of an array of given size *)
 
-  | SetMapIndex of LustreExpr.expr
+  | SetMapIndex of LustreExpr.expr 
 
   | AbstractTypeIndex of string
     (** Index to the representation field of an abstract type *)

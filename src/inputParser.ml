@@ -229,8 +229,8 @@ let rec read_val ?(only_inputs = true) scope name indexes arr_indexes json  =
       indexes
       |>
       List.filter
-        (function
-          | LustreIndex.ArrayVarIndex _
+        (function 
+          | LustreIndex.ArrayVarIndex _ 
           | LustreIndex.ArrayIntIndex _
           | LustreIndex.SetMapIndex _ -> false
           | LustreIndex.RecordIndex _

@@ -32,7 +32,7 @@ open Lib
 type map_index_metadata = MapDomain | MapValue
 
 (* A single index entry *)
-type one_index =
+type one_index = 
 
   (* Record field *)
   | RecordIndex of string
@@ -54,7 +54,7 @@ type one_index =
   (* Array field indexed by variable *)
   | ArrayVarIndex of E.expr
 
-  | SetMapIndex of E.expr
+  | SetMapIndex of E.expr 
 
   (* Index to the representation field of an abstract type *)
   | AbstractTypeIndex of string
@@ -67,8 +67,8 @@ type one_index =
 
 
 (* Pretty-print a single index *)
-let pp_print_one_index' db = function
-
+let pp_print_one_index' db = function 
+  
   | false ->
 
     (function ppf -> function
@@ -86,7 +86,7 @@ let pp_print_one_index' db = function
 
   | true ->
 
-    (function ppf -> function
+    (function ppf -> function 
        | RecordIndex i -> Format.fprintf ppf ".%s" i
        | TupleIndex (i, None) -> Format.fprintf ppf "_%d" i
        (* Print same as TupleIndex (0, None) / (1, None) to preserve state variable names *)
@@ -151,7 +151,7 @@ let compare_map_metadata ma mb = match ma, mb with
   | Some MapValue, Some MapDomain -> 1
 
 (* Comparison of indexes *)
-let compare_one_index a b = match a, b with
+let compare_one_index a b = match a, b with 
 
   (* Use polymorphic comparison on strings and integers *)
   | RecordIndex a, RecordIndex b
@@ -191,13 +191,13 @@ let compare_one_index a b = match a, b with
 
   (* List indexes are smaller than tuple and record indexes *)
   | ListIndex _, RecordIndex _
-  | ListIndex _, TupleIndex _ -> -1
+  | ListIndex _, TupleIndex _ -> -1 
   | ListIndex _, ArrayIntIndex _
   | ListIndex _, ArrayVarIndex _
   | ListIndex _, SetMapIndex _
   | ListIndex _, AdtTagIndex _
   | ListIndex _, AdtPayloadIndex _
-  | ListIndex _, AbstractTypeIndex _ -> 1
+  | ListIndex _, AbstractTypeIndex _ -> 1 
 
   (* Integer array indexes are greater than array variables, ADT indexes,
      and abstract type indexes *)
@@ -224,7 +224,7 @@ let compare_one_index a b = match a, b with
   | SetMapIndex _, RecordIndex _
   | SetMapIndex _, ArrayIntIndex _
   | SetMapIndex _, ListIndex _
-  | SetMapIndex _, TupleIndex _
+  | SetMapIndex _, TupleIndex _ 
   | SetMapIndex _, ArrayVarIndex _ -> -1
   | SetMapIndex _, AdtTagIndex _
   | SetMapIndex _, AdtPayloadIndex _
@@ -255,14 +255,14 @@ let compare_one_index a b = match a, b with
   | AbstractTypeIndex _, ArrayIntIndex _
   | AbstractTypeIndex _, ListIndex _
   | AbstractTypeIndex _, TupleIndex _
-  | AbstractTypeIndex _, ArrayVarIndex _
+  | AbstractTypeIndex _, ArrayVarIndex _ 
   | AbstractTypeIndex _, SetMapIndex _
   | AbstractTypeIndex _, AdtTagIndex _
   | AbstractTypeIndex _, AdtPayloadIndex _ -> -1
 
 (* Equality of indexes *)
-let equal_one_index a b = match a,b with
-
+let equal_one_index a b = match a,b with 
+  
   (* String indexes are equal if the strings are *)
   | RecordIndex a, RecordIndex b
   | AbstractTypeIndex a, AbstractTypeIndex b -> a = b
@@ -371,8 +371,8 @@ let top_max_index t =
 let filter_array_indices index = List.filter (
   function
   | ArrayVarIndex _
-  | ArrayIntIndex _
-  | SetMapIndex _ -> false
+  | ArrayIntIndex _ 
+  | SetMapIndex _ -> false 
   | RecordIndex _
   | TupleIndex _
   | ListIndex _
