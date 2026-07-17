@@ -1946,7 +1946,9 @@ let vars_at_offset_of_term i term =
         when 
           Var.is_state_var_instance v &&
           Numeral.(Var.offset_of_state_var_instance v = i) ->
-        (function [] -> Var.VarSet.singleton v | _ -> assert false) 
+        (function 
+          | [] -> Var.VarSet.singleton v 
+          | _ -> assert false) 
       | T.Var _
       | T.Const _ ->
         (function [] -> Var.VarSet.empty | _ -> assert false) 
