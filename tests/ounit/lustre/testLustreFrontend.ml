@@ -867,10 +867,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
     | _ -> false);
-  (*!!mk_test "test refinement type with ADT bound variable is unsupported" (fun () ->
-    match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
-    | Error (`LustreFlattenRefinementTypesError (_, ADTBoundVariable)) -> true
-    | _ -> false);*)
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
