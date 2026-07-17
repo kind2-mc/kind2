@@ -155,7 +155,6 @@ sig
     | Let of lambda * t list
     | Exists of lambda
     | Forall of lambda
-    | Match of t * (string * lambda) list
     | Annot of t * attr
 
   (** Properties of a term *)
@@ -222,9 +221,6 @@ sig
   (** Constructor for a universal quantification over an indexed
       free variable *)
   val mk_forall : var list -> t -> t
-
-  (** Constructor for a match expression; arms is (ctor_name, vars, body) list *)
-  val mk_match : t -> (string * var list * t) list -> t
 
   (** Constructor for an annotated term *)
   val mk_annot : t -> attr -> t

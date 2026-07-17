@@ -342,9 +342,6 @@ val mk_is_constructor : string -> t -> t
 (** ADT field selector: (CtorName_i arg) *)
 val mk_selector : string -> Type.t -> t -> t
 
-(** Return a hashconsed match expression *)
-val mk_match : t -> (string * Var.t list * t) list -> t
-
 (** {1 Constant terms} *)
 
 (** The propositional constant [true] *)

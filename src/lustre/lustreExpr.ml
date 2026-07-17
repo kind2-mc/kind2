@@ -3350,16 +3350,6 @@ let mk_selector selector_name result_type e = {
   expr_step = Term.mk_selector selector_name result_type e.expr_step;
   expr_type = result_type }
 
-(* Build a match expression. arms is (ctor_name, vars, arm_body) list; the same
-   vars are used for both init and step sides of the body. *)
-let mk_match scrut arms result_type =
-  let init_arms = List.map (fun (n, vs, body) -> (n, vs, body.expr_init)) arms in
-  let step_arms = List.map (fun (n, vs, body) -> (n, vs, body.expr_step)) arms in
-  { expr_init = Term.mk_match scrut.expr_init init_arms;
-    expr_step = Term.mk_match scrut.expr_step step_arms;
-    expr_type = result_type }
-
-
 let mk_of_expr ?as_type expr = 
 
   let expr_type = match as_type with
