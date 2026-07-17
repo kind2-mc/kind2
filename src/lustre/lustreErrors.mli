@@ -34,7 +34,6 @@ type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
-  | `LustreFlattenRefinementTypesError of Lib.position * LustreFlattenRefinementTypes.error_kind
 ]
 
 val error_position : [< error] -> Lib.position
