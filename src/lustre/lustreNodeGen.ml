@@ -3069,7 +3069,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | Some expr -> LustreAstHelpers.substitute_naive (HString.mk_hstring ".inp") expr rexpr
       | None -> rexpr
       in
-      let srexpr = A.string_of_expr rexpr in
+      let srexpr = LDAT.string_of_expr_as_source cstate.adt_map rexpr in
       match constraint_kind, generated_source with
         | Some N.Assumption, _ ->
           let contract_sv = C.mk_svar pos ac (Some name) sv [] srexpr in

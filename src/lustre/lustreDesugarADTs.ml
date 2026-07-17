@@ -531,12 +531,80 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
     ) ctx' type_and_const_decls' in
     (type_and_const_decls', node_contract_decls', ctx', adt_map)
 
-(* Rewrite a desugared expression back toward source-level ADT syntax.
-   RecordExprs whose type name is in adt_map are reconstructed as ADTTerm nodes
-   so that pp_print_expr renders them as "Ctor(arg1, arg2)" or just "Ctor".
-   This is the partial inverse of desugar_expr for the ADTTerm case. *)
-let rec rewrite_as_adt_terms adt_map expr =
-  let r e = rewrite_as_adt_terms adt_map e in
+(* Given an internal payload field name "Ctor_field", recover the user-written
+   field name "field" by locating the constructor that owns it and stripping the
+   "Ctor_" prefix.  Returns None if the name is not a known payload field. *)
+let user_field_of_payload adt_map fname =
+  HStringMap.fold (fun _ info acc ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      HStringMap.fold (fun ctor fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          if List.exists (fun (fn, _) -> HString.equal fn fname) fields then
+            let prefix = HString.string_of_hstring ctor ^ "_" in
+            let fs = HString.string_of_hstring fname in
+            let plen = String.length prefix in
+            if String.length fs > plen && String.sub fs 0 plen = prefix then
+              Some (HString.mk_hstring (String.sub fs plen (String.length fs - plen)))
+            else None
+          else None
+      ) info.ctor_fields None
+  ) adt_map None
+
+(* Return the adt_info whose discriminant (tag) field has this name, if any. *)
+let adt_of_disc_field adt_map fname =
+  HStringMap.fold (fun _ info acc ->
+    match acc with
+    | Some _ -> acc
+    | None -> if HString.equal info.disc_field fname then Some info else None
+  ) adt_map None
+
+(* True if the expression is a discriminant tag projection "e.<Type>_tag". *)
+let is_disc_field_proj adt_map = function
+  | LA.FieldProject (_, _, fname, _) -> adt_of_disc_field adt_map fname <> None
+  | _ -> false
+
+(* Recognize a tag equality "e.<Type>_tag = Ctor" (in either argument order) and
+   return the scrutinee and constructor, so it can be rendered as a tester
+   "Ctor?(e)". *)
+let tag_equality_as_tester adt_map e1 e2 =
+  let check proj ctor_e =
+    match proj, ctor_e with
+    | LA.FieldProject (_, scrut, fname, _), LA.Ident (_, ctor) ->
+      (match adt_of_disc_field adt_map fname with
+       | Some info when List.mem ctor info.ctor_variants -> Some (scrut, ctor)
+       | _ -> None)
+    | _ -> None
+  in
+  match check e1 e2 with Some r -> Some r | None -> check e2 e1
+
+(* A bound variable is Kind 2-generated iff its name starts with a digit: source
+   Lustre identifiers cannot, so this reliably distinguishes generated names
+   (e.g. "69_index") from user-written ones without risk of misclassification. *)
+let is_generated_bound_var id =
+  let s = HString.string_of_hstring id in
+  String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
+
+(* Rewrite a desugared expression back toward source-level ADT syntax so that
+   pp_print_expr renders it without exposing the internal record encoding:
+     - RecordExprs whose type name is in adt_map become ADTTerm nodes
+       ("Ctor(arg1, arg2)" or just "Ctor");
+     - payload field projections "e.Ctor_field" become ADT selectors "e.field";
+     - tag equalities "e.<Type>_tag = Ctor" become testers "Ctor?(e)";
+     - the always-true discriminant range constraints introduced by enum
+       subrange generation ("FirstCtor <= e.<Type>_tag <= LastCtor") are dropped;
+     - generated bound-variable names ("69_index") are renamed to "$1", "$2", ...,
+       numbered locally within this formula.  The "$" prefix is not a legal source
+       identifier, so these names cannot clash with any variable in the expression.
+   This is the partial inverse of desugar_expr for display purposes. *)
+let rewrite_as_adt_terms adt_map expr =
+  (* Local counter for renamed bound variables ($1, $2, ...), reset per formula. *)
+  let counter = ref 0 in
+  let rec go expr =
+  let r e = go e in
   let rlist = List.map r in
   let rilist = List.map (fun (i, e) -> (i, r e)) in
   let rloi = function
@@ -586,15 +654,37 @@ let rec rewrite_as_adt_terms adt_map expr =
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.FieldProject (p, e, id, ty_opt) -> 
+  | LA.FieldProject (p, e, id, ty_opt) ->
     let ty_opt = Option.map (LH.map_lustre_ty r) ty_opt in
+    (* An internal payload field "Ctor_field" prints as the ADT selector "field". *)
+    let id = match user_field_of_payload adt_map id with Some u -> u | None -> id in
     LA.FieldProject (p, r e, id, ty_opt)
+  | LA.CompOp (p, LA.Eq, e1, e2) ->
+    (* A tag equality "e.<Type>_tag = Ctor" prints as the tester "Ctor?(e)". *)
+    (match tag_equality_as_tester adt_map e1 e2 with
+     | Some (scrut, ctor) -> LA.ADTTester (p, r scrut, ctor)
+     | None -> LA.CompOp (p, LA.Eq, r e1, r e2))
+  | LA.CompOp (p, op, e1, e2)
+    when (match op with LA.Lte | LA.Lt | LA.Gte | LA.Gt -> true | _ -> false)
+         && (is_disc_field_proj adt_map e1 || is_disc_field_proj adt_map e2) ->
+    (* Drop the always-true discriminant range constraint introduced by enum
+       subrange generation; a subsequent And/Impl simplification absorbs it. *)
+    LA.Const (p, LA.True)
+  | LA.CompOp (p, op, e1, e2) -> LA.CompOp (p, op, r e1, r e2)
   | LA.ADTTester (p, e, id) -> LA.ADTTester (p, r e, id)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
+  | LA.BinaryOp (p, LA.And, e1, e2) ->
+    (match r e1, r e2 with
+     | LA.Const (_, LA.True), e | e, LA.Const (_, LA.True) -> e
+     | e1, e2 -> LA.BinaryOp (p, LA.And, e1, e2))
+  | LA.BinaryOp (p, LA.Impl, e1, e2) ->
+    (match r e1, r e2 with
+     | LA.Const (_, LA.True), e -> e
+     | _, (LA.Const (_, LA.True) as t) -> t
+     | e1, e2 -> LA.BinaryOp (p, LA.Impl, e1, e2))
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
   | LA.ConvOp (p, op, e) -> LA.ConvOp (p, op, r e)
-  | LA.CompOp (p, op, e1, e2) -> LA.CompOp (p, op, r e1, r e2)
   | LA.RecordExpr (p, n, ps, flds) -> LA.RecordExpr (p, n, ps, rilist flds)
   | LA.GroupExpr (p, k, es) -> LA.GroupExpr (p, k, rlist es)
   | LA.StructUpdate (p, e1, idx, e2_opt) ->
@@ -613,11 +703,28 @@ let rec rewrite_as_adt_terms adt_map expr =
     LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   | LA.Quantifier (p, k, idents, e) ->
-    let idents = List.map (fun (ip, id, ty) -> (ip, id, rewrite_type ty)) idents in
-    LA.Quantifier (p, k, idents, r e)
+    (* Rename generated bound variables to "$n", substituting the new name for the
+       old one in the body before recursing into it. *)
+    let subst, idents =
+      List.fold_left_map (fun subst (ip, id, ty) ->
+        let ty = rewrite_type ty in
+        if is_generated_bound_var id then begin
+          incr counter;
+          let nid = HString.mk_hstring ("$" ^ string_of_int !counter) in
+          ((id, nid) :: subst, (ip, nid, ty))
+        end else (subst, (ip, id, ty))
+      ) [] idents
+    in
+    let e =
+      List.fold_left (fun b (old_id, new_id) ->
+        LH.substitute_naive old_id (LA.Ident (p, new_id)) b) e subst
+    in
+    LA.Quantifier (p, k, idents, go e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
   | LA.ADTTerm _ | LA.Match _ -> expr
+  in
+  go expr
 
 let string_of_expr_as_source adt_map expr =
   LA.string_of_expr (rewrite_as_adt_terms adt_map expr)
