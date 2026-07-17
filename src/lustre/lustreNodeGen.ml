@@ -1144,8 +1144,6 @@ and compile_ast_expr
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
     with Not_found ->
-      Format.printf "Failed to resolve %a\n"
-        HString.pp_print_hstring id_str;
       assert false
 
   and compile_mode_reference path' =

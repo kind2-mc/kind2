@@ -67,3 +67,4 @@ val desugar_adts :
   LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map
 
 val string_of_expr_as_source : adt_map -> LustreAst.expr -> string
+

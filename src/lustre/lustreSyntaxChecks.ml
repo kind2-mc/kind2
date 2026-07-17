@@ -968,7 +968,6 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
-  no_invalid_underscore (NI.get_user_name node_id) span.start_pos >>
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
