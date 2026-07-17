@@ -356,6 +356,7 @@ function
 
 | ADTTerm (_, _, _, args) ->
   List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
+| AbstractSymConst _ -> assert false 
 
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
@@ -852,6 +853,7 @@ let rec expr_only_supported_in_merge observer expr =
     r observer e >>
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, _, args) -> r_list observer args
+  | AbstractSymConst _ -> assert false 
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -1428,6 +1430,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings1 = check_expr_list ctx f args in
       let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
       Ok (warnings1 @ List.flatten warnings2)
+    | AbstractSymConst _ -> assert false 
   in
   let* warnings1 = res in
   let* warnings2 = check expr in 

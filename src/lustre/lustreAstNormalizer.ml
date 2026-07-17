@@ -1003,6 +1003,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
     vars, ADTTerm (pos, ty_args, ctor, args')
+  | AbstractSymConst _ -> StringSet.empty, expr
 
   and desugar_expr_list map expr_list =
     let vars, expr_list' =
@@ -2565,6 +2566,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
   | A.Match _ | A.ADTTerm _ ->
     assert false (* desugared before normalization by lustreDesugarADTs *)
+  | A.AbstractSymConst _ as e ->
+    (* Pass through to the compiler, which handles it in compile_ast_expr. *)
+    e, empty (), []
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

@@ -370,6 +370,7 @@ fun ctx node_name fun_ids expr ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = List.map rec_call args |> List.split in
     ADTTerm (pos, ty_args, ctor, args), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+  | AbstractSymConst _ -> assert false (* never produced before lustreGenNodes runs *)
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

@@ -294,6 +294,7 @@ and push_pre is_guarded pos =
     Match (p, r e, arms', ty_opt)
   | ADTTerm (p, ty_args, ctor, args) ->
     ADTTerm (p, ty_args, ctor, List.map r args)
+  | AbstractSymConst _ as e -> LA.Pre (pos, e)
 
 and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   function

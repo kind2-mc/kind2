@@ -175,6 +175,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
       ty_opt)
   | A.ADTTerm (p, ty_args, ctor, args) ->
     A.ADTTerm (p, ty_args, ctor, List.map r args)
+  | A.AbstractSymConst _ as e -> e
 
 (** Helper function to generate node equations when an initialized variable in the
     frame block is left undefined in the frame block body. *)

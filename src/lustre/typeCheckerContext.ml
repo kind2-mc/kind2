@@ -921,6 +921,7 @@ let rec ty_vars_of_expr ctx node_name expr =
     SI.union
       (SI.flatten (List.map call args))
       (SI.flatten (List.map (ty_vars_of_type ctx node_name) ty_args))
+  | LA.AbstractSymConst _ -> assert false 
 
 and ty_vars_of_type ctx node_name ty = 
   let call = ty_vars_of_type ctx node_name in 
@@ -1004,4 +1005,5 @@ let rec expr_contains_node_call ctx expr =
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
     || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
+  | LA.AbstractSymConst _ -> assert false (* never produced before type checking *)
 

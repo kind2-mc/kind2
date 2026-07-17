@@ -1,0 +1,14 @@
+type T;
+
+datatype Foo = A(T) | B(T, int);
+const T_val: T;
+const C: Foo = A(T_val);
+
+node main(x: T) returns (ok: bool);
+var f: Foo;
+let
+  f = A(x);
+  ok = match f with | A(v) : v = x | B(v, _) : v = x end;
+  check ok;
+  check C = A(T_val);
+tel
