@@ -1945,14 +1945,14 @@ let vars_at_offset_of_term i term =
       | T.Var v 
         when 
           Var.is_state_var_instance v &&
-          Numeral.(Var.offset_of_state_var_instance v = i) ->
+          Numeral.(Var.offset_of_state_var_instance v = i) -> 
         (function 
-          | [] -> Var.VarSet.singleton v 
-          | _ -> assert false) 
-      | T.Var _
-      | T.Const _ ->
-        (function [] -> Var.VarSet.empty | _ -> assert false) 
-      | T.App _ ->
+          | [] -> Var.VarSet.singleton v
+          | _ -> assert false)
+      | T.Var _ 
+      | T.Const _ -> 
+        (function [] -> Var.VarSet.empty | _ -> assert false)
+      | T.App _ -> 
         List.fold_left Var.VarSet.union Var.VarSet.empty
       (*| T.Attr (t, _) -> 
         (function [s] -> s | _ -> assert false)*))
