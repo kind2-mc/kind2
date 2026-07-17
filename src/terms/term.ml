@@ -1803,19 +1803,19 @@ let bump_and_apply_k f k term =
 
 
 (* Return all state variables in term *)
-let state_vars_of_term term  =
+let state_vars_of_term term  = 
 
-  eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v ->
-        (function
+  eval_t ~fail_on_quantifiers:false 
+    (function 
+      | T.Var v -> 
+        (function 
           | [] ->
             if Var.is_state_var_instance v || Var.is_const_state_var v then
-              StateVar.StateVarSet.singleton
+              StateVar.StateVarSet.singleton 
                 (Var.state_var_of_state_var_instance v)
             else StateVar.StateVarSet.empty
           | _ -> assert false)
-      | T.Const _ ->
+      | T.Const _ -> 
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
       | T.App _ ->
         List.fold_left
@@ -1827,11 +1827,12 @@ let state_vars_of_term term  =
 (* Return all variables in term *)
 let vars_of_term term = 
 
+  (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
     (function
       | T.Var v ->
         (function [] -> Var.VarSet.singleton v | _ -> assert false)
-      | T.Const _ ->
+      | T.Const _ -> 
         (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
     term
@@ -1858,22 +1859,22 @@ let select_terms term =
     term
 
 (* Return set of state variables at given offsets in term *)
-let state_vars_at_offset_of_term i term =
+let state_vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v
-        when
+    (function 
+      | T.Var v 
+        when 
           Var.is_state_var_instance v &&
-          Numeral.(Var.offset_of_state_var_instance v = i) ->
-        (function
-          | [] ->
+          Numeral.(Var.offset_of_state_var_instance v = i) -> 
+        (function 
+          | [] -> 
             StateVar.StateVarSet.singleton
               (Var.state_var_of_state_var_instance v)
           | _ -> assert false)
-      | T.Var _
-      | T.Const _ ->
+      | T.Var _ 
+      | T.Const _ -> 
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
       | T.App _ ->
         List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty)
@@ -1936,7 +1937,7 @@ let push_select term =
 
 
 (* Return set of state variables at given offsets in term *)
-let vars_at_offset_of_term i term =
+let vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
   eval_t ~fail_on_quantifiers:false
@@ -1976,19 +1977,19 @@ let var_offsets_of_term expr =
   in
 
   eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v when Var.is_state_var_instance v ->
-        (function
+    (function 
+      | T.Var v when Var.is_state_var_instance v -> 
+        (function 
           | [] ->
             let o = Var.offset_of_state_var_instance v in
             (Some o, Some o)
           | _ -> assert false)
 
       | T.Const _
-      | T.Var _ ->
+      | T.Var _ -> 
         (function [] -> (None, None) | _ -> assert false)
 
-      | T.App _ ->
+      | T.App _ -> 
         (function l -> List.fold_left min_max_none (None, None) l)
 
       (*| T.Attr _ -> (function [v] -> v | _ -> assert false)*))

@@ -490,8 +490,8 @@ struct
 
 
     (* Bound variables in quantifier are variables in quantified term *)
-    | Exists { H.node = L (i, { H.prop = { bound_vars } }) }
-    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } ->
+    | Exists { H.node = L (i, { H.prop = { bound_vars } }) } 
+    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } -> 
 
       bound_vars_outside_lambda (List.length i) bound_vars
 
@@ -1750,7 +1750,7 @@ struct
     | { H.node = Exists _ }
     | { H.node = Forall _ }
     | { H.node = Let ({ H.node = L (_, { H.node = Exists _ }) }, _ ) }
-    | { H.node = Let ({ H.node = L (_, { H.node = Forall _ }) }, _ ) } ->
+    | { H.node = Let ({ H.node = L (_, { H.node = Forall _ }) }, _ ) } -> 
 
       invalid_arg "destruct: quantified term"
 
@@ -1818,14 +1818,14 @@ struct
       | MTree { H.node = Let ({ H.node = L (x, t)}, b) } :: s -> 
         has_quantifier has (push b ((MTree t) :: (MLet x) :: s)) 
 
-      (* Existential/universal quantifier *)
+      (* Existential quantifier *)
       | MTree ({ H.node = Exists _ }) :: _
       | MTree ({ H.node = Forall _ }) :: _ -> true
-
+        
       (* Function application *)
       | MNode _ :: s | MAnnot _ :: s | MLet _ :: s -> has_quantifier has s
 
-      | MExists _ :: _ | MForall _ :: _ -> true
+      | MExists _ :: _  | MForall _ :: _ -> true
         
     in
 
