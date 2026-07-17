@@ -1828,9 +1828,9 @@ let state_vars_of_term term  =
 let vars_of_term term = 
 
   (* Collect all variables in a set *)
-  eval_t ~fail_on_quantifiers:false
-    (function
-      | T.Var v ->
+  eval_t ~fail_on_quantifiers:false 
+    (function 
+      | T.Var v -> 
         (function [] -> Var.VarSet.singleton v | _ -> assert false)
       | T.Const _ -> 
         (function [] -> Var.VarSet.empty | _ -> assert false)
@@ -1951,7 +1951,9 @@ let vars_at_offset_of_term i term =
       | T.Const _ ->
         (function [] -> Var.VarSet.empty | _ -> assert false) 
       | T.App _ ->
-        List.fold_left Var.VarSet.union Var.VarSet.empty)
+        List.fold_left Var.VarSet.union Var.VarSet.empty
+      (*| T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1980,7 +1982,7 @@ let var_offsets_of_term expr =
     (function 
       | T.Var v when Var.is_state_var_instance v -> 
         (function 
-          | [] ->
+          | [] -> 
             let o = Var.offset_of_state_var_instance v in
             (Some o, Some o)
           | _ -> assert false)

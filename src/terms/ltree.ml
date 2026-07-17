@@ -400,7 +400,7 @@ struct
       | Forall { H.hkey = hl } -> safe_hash_interleave hl 8 6
 
       (* Hash of attribute: delegate *)
-      | Annot ( { H.hkey = ht }, a) ->
+      | Annot ( { H.hkey = ht }, a) -> 
 
         safe_hash_interleave (Hashtbl.hash [T.hash_of_attr a; ht]) 8 7
 
