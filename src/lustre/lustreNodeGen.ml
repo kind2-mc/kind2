@@ -35,6 +35,7 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDAT = LustreDesugarADTs
+module LIPN = LustreInstantiatePolyNodes
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -910,10 +911,7 @@ and compile_ast_type
        the monomorphized concrete type "Opt<int>" that was inserted by
        instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
     let key = if ty_args = [] then ident
-      else
-        HString.mk_hstring (Format.asprintf "%a<%a>"
-          HString.pp_print_hstring ident
-          (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args)
+      else HString.mk_hstring (LIPN.adt_mono_key ident ty_args)
     in
     (match StringMap.find_opt key cstate.type_alias with
     | Some t -> t

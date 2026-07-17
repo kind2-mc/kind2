@@ -769,10 +769,7 @@ and gen_poly_decls_decls
 
 (* ---- ADT Type Monomorphization ---- *)
 
-(* Canonical position-independent key for a (adt_name, ty_args) pair.
-   Used both here (to name the inserted TypeDecl) and in lustreNodeGen
-   (to look up the compiled concrete type). The two sites must use
-   identical formatting so that StringMap.find succeeds. *)
+(* Canonical position-independent key for a (adt_name, ty_args) pair. *)
 let adt_mono_key id ty_args =
   Format.asprintf "%a<%a>"
     HString.pp_print_hstring id

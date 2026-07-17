@@ -22,5 +22,8 @@ module NI = NodeId
 module Ctx = TypeCheckerContext
 module GI = GeneratedIdentifiers
 
+(** Canonical key for a monomorphized ADT instantiation, e.g. ["Opt<int>"]. *)
+val adt_mono_key : HString.t -> A.lustre_type list -> string
+
 val instantiate_polymorphic_nodes :
-  Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list 
+  Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list
