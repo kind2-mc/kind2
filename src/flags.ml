@@ -3112,7 +3112,7 @@ module Global = struct
   
   (* Array printing *)
   let _ = add_spec
-    "--max_array_elements_printed"
+    "--print_container_limit"
     (Arg.Int (fun n -> arr_elements_printed := n))
     (fun fmt ->
       Format.fprintf fmt
