@@ -1,0 +1,136 @@
+name: Kind 2 PR Benchmarks
+
+# Builds the pull request's Kind 2 and the base branch's Kind 2, benchmarks each
+# over a fixed set, and fails the check on a regression or soundness bug. This
+# replaces the old remote-cluster webhook (webhook-handler + test_pr).
+#
+# Runs as its own workflow so it executes concurrently with the main Kind 2 CI.
+# The PR head and base legs run in parallel (matrix); within each leg the
+# benchmark set is run sequentially. Sharding a leg across a matrix is a
+# possible later optimization.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to the PR cancels an in-progress benchmark run for the same PR.
+concurrency:
+  group: kind2-pr-benchmarks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Benchmark set: the Lustre files under FMCAD08/{Bool,Int,Real_Int} on the
+  # main branch of kind2-mc/kind2-benchmarks. BENCHMARKS_SUBDIRS is a
+  # space-separated list of directories (relative to the repo root) to run.
+  BENCHMARKS_REPO: kind2-mc/kind2-benchmarks
+  BENCHMARKS_REF: main
+  BENCHMARKS_SUBDIRS: "FMCAD08/Bool FMCAD08/Int FMCAD08/Real_Int"
+  # Per-benchmark wall-clock timeout (seconds). Lowered from the cluster's 120s
+  # so the sequential run fits within a single GitHub-hosted job for now.
+  BENCH_TIMEOUT: "45"
+  OCAML_VERSION: 4.14.2
+
+jobs:
+  benchmark:
+    # Honor "%notest" in the PR description, matching the old cluster hook.
+    if: ${{ !contains(github.event.pull_request.body, '%notest') }}
+    name: benchmark (${{ matrix.side }})
+    runs-on: ubuntu-latest
+    # GitHub-hosted jobs are capped at 6h; leave headroom.
+    timeout-minutes: 350
+    strategy:
+      # Build/benchmark head and base independently: a failure on one leg still
+      # lets the other finish, which aids diagnosis.
+      fail-fast: false
+      matrix:
+        side: [head, base]
+
+    steps:
+      - name: Checkout Kind 2 (${{ matrix.side }})
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.side == 'head' && github.event.pull_request.head.sha || github.event.pull_request.base.sha }}
+
+      # Always drive the run with the PR head's copy of the harness, so the base
+      # leg works even when the base commit predates these scripts.
+      - name: Checkout benchmark harness (PR head)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: _harness
+          sparse-checkout: scripts/benchmarks
+          sparse-checkout-cone-mode: false
+
+      - name: Update package information
+        run: sudo apt-get update -y
+
+      - name: Set up OCaml ${{ env.OCAML_VERSION }}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ env.OCAML_VERSION }}
+          cache-prefix: pr-benchmarks-${{ matrix.side }}
+
+      - name: Build Kind 2 (${{ matrix.side }})
+        run: |
+          opam install -y . --deps-only
+          opam exec make build
+
+      - name: Install Z3
+        run: |
+          Z3_VERSION=4.15.3
+          Z3_ZIP_NAME=z3-$Z3_VERSION-x64-glibc-2.39
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
+          unzip -q $Z3_ZIP_NAME.zip
+          sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
+
+      - name: Checkout benchmarks
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.BENCHMARKS_REPO }}
+          ref: ${{ env.BENCHMARKS_REF }}
+          path: benchmarks
+          # If the benchmarks repository is private, provide a token with read
+          # access (e.g. a fine-grained PAT stored as a secret):
+          # token: ${{ secrets.BENCHMARKS_TOKEN }}
+
+      - name: Run benchmarks (${{ matrix.side }})
+        run: |
+          bash _harness/scripts/benchmarks/run-benchmarks.sh \
+            "$PWD/bin/kind2" \
+            "${BENCH_TIMEOUT}" \
+            "$RUNNER_TEMP/${{ matrix.side }}.stat" \
+            benchmarks ${BENCHMARKS_SUBDIRS}
+
+      - name: Upload stat file
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-stat-${{ matrix.side }}
+          path: ${{ runner.temp }}/${{ matrix.side }}.stat
+
+  compare:
+    name: compare
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout benchmark harness (PR head)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: scripts/benchmarks
+          sparse-checkout-cone-mode: false
+
+      - name: Download stat files
+        uses: actions/download-artifact@v7
+        with:
+          pattern: benchmark-stat-*
+          merge-multiple: true
+          path: stats
+
+      - name: Compare results
+        run: |
+          bash scripts/benchmarks/compare-benchmarks.sh \
+            stats/head.stat \
+            stats/base.stat \
+            "$GITHUB_STEP_SUMMARY"
