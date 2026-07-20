@@ -81,6 +81,7 @@ base_total=$(total_wall "$BASE_STAT")
 regressions=()
 soundness=()
 improvements=()
+errors=()
 
 while read -r name hr hw br bw; do
   if [ "$br" = "Invalid" ] && [ "$hr" = "Valid" ]; then
@@ -92,14 +93,25 @@ while read -r name hr hw br bw; do
   elif [ "$br" = "Timeout" ] && { [ "$hr" = "Valid" ] || [ "$hr" = "Invalid" ]; }; then
     improvements+=("$name|$br|$hr")
   fi
+
+  # Any error from the PR's binary is a problem in its own right, whether or not
+  # the base also errored on it — an error must never count as a pass.
+  if [ "$hr" = "Error" ]; then
+    errors+=("$name|$br|$hr")
+  fi
 done < "$joined"
 
 # ---- Overall verdict & exit code -------------------------------------------
+# Errors fail the check independently of regressions/soundness; the headline
+# shows the most severe issue but every applicable table is rendered below.
 if [ "${#soundness[@]}" -gt 0 ]; then
   verdict=":x: **Soundness bug** — the PR reports a property Valid that the base found Invalid."
   exit_code=2
 elif [ "${#regressions[@]}" -gt 0 ]; then
   verdict=":x: **Regression** — the PR changes ${#regressions[@]} result(s) for the worse."
+  exit_code=1
+elif [ "${#errors[@]}" -gt 0 ]; then
+  verdict=":x: **Some error occurred during testing** — the PR's Kind 2 errored on ${#errors[@]} benchmark(s); see logs."
   exit_code=1
 else
   verdict=":white_check_mark: **No regressions** — the PR conforms with the base branch."
@@ -150,6 +162,9 @@ if [ "${#soundness[@]}" -gt 0 ]; then
   emit_table ":rotating_light: Soundness bugs" "${soundness[@]}"
 fi
 emit_table "Regressions" "${regressions[@]}"
+if [ "${#errors[@]}" -gt 0 ]; then
+  emit_table ":boom: Errors (PR head)" "${errors[@]}"
+fi
 emit_table "Improvements (Timeout → solved)" "${improvements[@]}"
 
 exit "$exit_code"

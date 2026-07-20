@@ -143,6 +143,15 @@ for f in "${FILES[@]}"; do
 
   printf '%s %s %s\n' "$rel" "$res" "$wall" >> "$OUT_STAT"
   printf '[%d/%d] %-8s %6ss  %s\n' "$i" "$total" "$res" "$wall" "$rel"
+
+  # Surface the Kind 2 output for errored benchmarks so "see logs" is actionable.
+  # `::group::`/`::endgroup::` make it a collapsible section in the CI job log
+  # (and are harmless plain text elsewhere).
+  if [ "$res" = "Error" ]; then
+    echo "::group::Kind 2 output for errored benchmark: $rel"
+    cat "$out_file"
+    echo "::endgroup::"
+  fi
 done
 
 echo "Wrote $OUT_STAT"
