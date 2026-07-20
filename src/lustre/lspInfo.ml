@@ -29,7 +29,7 @@ let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } tyd 
     let ty = TypeCheckerContext.expand_type_syn ctx (LustreAst.UserType (p, ty_args, id)) in
     let contains_ref = TypeCheckerContext.type_contains_ref ctx ty in
     Format.fprintf ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"lsp\",@,\
         \"source\" : \"lsp\",@,\
         \"kind\" : \"typeDecl\",@,\
@@ -39,6 +39,7 @@ let lsp_type_decl_json ppf ctx { Ast.start_pos = spos; Ast.end_pos = epos } tyd 
         \"startColumn\" : %d,@,\
         \"endLine\" : %d,@,\
         \"endColumn\" : %d@]@.}@."
+      Log.print_json_sep
       HString.pp_print_hstring id
       contains_ref
       pp_print_fname_json file
@@ -59,7 +60,7 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } decl =
     let file, slnum, scnum = Lib.file_row_col_of_pos spos in
     let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
     Format.fprintf ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"lsp\",@,\
         \"source\" : \"lsp\",@,\
         \"kind\" : \"%s\",@,\
@@ -68,6 +69,7 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } decl =
         \"startColumn\" : %d,@,\
         \"endLine\" : %d,@,\
         \"endColumn\" : %d@]@.}@."
+      Log.print_json_sep
       type_str
       HString.pp_print_hstring id
       pp_print_fname_json file
@@ -82,7 +84,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
   | Some (cpos, _) ->
     let _, celnum, cecnum = Lib.file_row_col_of_pos cpos in
     Format.fprintf ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"node\",@,\
@@ -94,13 +96,14 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"endColumn\" : %d,@,\
      \"contractStartLine\" : %d,@,\ 
      \"contractStartColumn\" : %d@]@.}@."
+    Log.print_json_sep
     NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
     celnum cecnum
   | None -> 
     Format.fprintf ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"node\",@,\
@@ -110,6 +113,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
+    Log.print_json_sep
     NodeId.pp_print_node_id_user_name node_id
     imported pp_print_fname_json file slnum scnum
     elnum ecnum
@@ -119,7 +123,7 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"%s\",@,\
@@ -130,6 +134,7 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
+    Log.print_json_sep
     (if func_attrs.is_lemma then "lemma" else "function")
     NodeId.pp_print_node_id_user_name node_id
     imported func_attrs.is_rec pp_print_fname_json file slnum scnum
@@ -140,7 +145,7 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
   let file, slnum, scnum = Lib.file_row_col_of_pos spos in
   let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
   Format.fprintf ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"contract\",@,\
@@ -149,6 +154,7 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@."
+    Log.print_json_sep
     NodeId.pp_print_node_id_user_name node_id
     pp_print_fname_json file slnum scnum elnum
     ecnum

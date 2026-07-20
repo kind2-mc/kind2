@@ -44,6 +44,21 @@ through :ref:`Stat<Stat Object>` and :ref:`Progress<Progress Object>` objects.
 Similarly to main analyses, when a post-analysis is enabled, the beginning of the post-analysis
 is indicated by an :ref:`PostAnalysisStart Object`, and its end by an :ref:`PostAnalysisEnd Object`.
 
+
+Incremental JSON format
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The incremental JSON output is activated by running Kind 2 with the ``-ijson``
+option. It contains the same :ref:`Results Objects` as the regular JSON
+output, but prints them as a sequence of independent JSON objects rather than as
+elements of a single enclosing array.
+
+With the ``-json`` option, the output is not a complete, parsable JSON document
+until Kind 2 terminates and closes the root array. The ``-ijson`` option emits
+each object as a complete JSON value as soon as it becomes available. This allows
+external tools to process Kind 2's output incrementally without waiting for the
+entire analysis to finish.
+
 .. _Log Object:
 
 Log Object

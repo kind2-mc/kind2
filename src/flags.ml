@@ -3662,6 +3662,18 @@ let check_nonvacuity_default = true
     (fun fmt -> Format.fprintf fmt "Output in JSON format")
   let log_format_json () = Log.get_log_format () = Log.F_json
 
+
+  (* JSON incremental log. *)
+  let _ = add_format_spec
+    "-ijson"
+    (Arg.Unit (fun () ->
+         Log.set_log_format_ijson ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Output in incremental JSON format")
+
+    let log_format_ijson () = Log.get_log_format () = Log.F_ijson
+
+
   (* Property constraints in output *)
   let show_props_default = Log.get_show_props ()
 
@@ -3758,6 +3770,7 @@ let exit_code_mode = Global.exit_code_mode
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
+let log_format_ijson = Global.log_format_ijson
 let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
@@ -3894,7 +3907,7 @@ let parse_clas specs anon_action =
             Global.print_help () ;
             Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
           )
-          | Log.F_xml | Log.F_json -> (
+          | Log.F_xml | Log.F_json | Log.F_ijson -> (
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
@@ -3909,7 +3922,7 @@ let parse_clas specs anon_action =
               "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
               fmt_flag spec error
           )
-          | Log.F_xml | Log.F_json -> (
+          | Log.F_xml | Log.F_json | Log.F_ijson -> (
             let flag, _, _ = spec in
             Log.log L_error "Error on flag '%s': %s" flag error
           )
@@ -3926,7 +3939,7 @@ let parse_clas specs anon_action =
           | Log.F_xml -> (
             Log.log L_error "Bad argument:@ @[<v>%s@]@." expl
           )
-          | Log.F_json -> (
+          | Log.F_json | Log.F_ijson -> (
             Log.log L_error "Bad argument: %s" expl
           )
         );
@@ -4220,7 +4233,7 @@ let parse_argv () =
 
   (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
-  if color () && not (log_format_xml () || log_format_json ()) then begin
+  if color () && not (log_format_xml () || log_format_json () || log_format_ijson ()) then begin
     pp_set_tags std_formatter true;
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;
