@@ -39,14 +39,23 @@
     @author Christoph Sticksel *)
 
 
+(** Metadata tag that distinguishes map-encoding entries from ordinary tuple
+    fields within a {!TupleIndex}. *)
+type map_index_metadata = MapDomain | MapValue
+
 (** An index element *)
 type one_index = 
 
   | RecordIndex of string
     (** Field name as index of a record *)
 
-  | TupleIndex of int
-    (** Integer literal as index of a tuple *)
+  | TupleIndex of int * map_index_metadata option
+    (** Integer literal as index of a tuple, with an optional tag for map
+        encoding entries.  [TupleIndex (i, None)] is an ordinary Lustre
+        tuple element at position [i].  [TupleIndex (0, Some MapDomain)] is
+        the presence/domain array of a compiled map and prints as [_0] in
+        safe format.  [TupleIndex (1, Some MapValue)] is the value array and
+        prints as [_1] in safe format. *)
 
   | ListIndex of int
     (** Integer literal as index of a list *)
