@@ -66,16 +66,23 @@ n_head=$(wc -l < "$HEAD_STAT")
 n_base=$(wc -l < "$BASE_STAT")
 n_common=$(wc -l < "$joined")
 
+# Per-category counts and total wall time, computed directly from each stat file.
+count_cat() { awk -v c="$2" '$2 == c { n++ } END { print n + 0 }' "$1"; }
+total_wall() { awk '{ t += $3 } END { printf "%.1f", t + 0 }' "$1"; }
+
+h_valid=$(count_cat "$HEAD_STAT" Valid);     b_valid=$(count_cat "$BASE_STAT" Valid)
+h_invalid=$(count_cat "$HEAD_STAT" Invalid); b_invalid=$(count_cat "$BASE_STAT" Invalid)
+h_timeout=$(count_cat "$HEAD_STAT" Timeout); b_timeout=$(count_cat "$BASE_STAT" Timeout)
+h_error=$(count_cat "$HEAD_STAT" Error);     b_error=$(count_cat "$BASE_STAT" Error)
+h_mixed=$(count_cat "$HEAD_STAT" Mixed);     b_mixed=$(count_cat "$BASE_STAT" Mixed)
+head_total=$(total_wall "$HEAD_STAT")
+base_total=$(total_wall "$BASE_STAT")
+
 regressions=()
 soundness=()
 improvements=()
-head_total=0
-base_total=0
 
 while read -r name hr hw br bw; do
-  head_total=$(awk "BEGIN { printf \"%.2f\", $head_total + $hw }")
-  base_total=$(awk "BEGIN { printf \"%.2f\", $base_total + $bw }")
-
   if [ "$br" = "Invalid" ] && [ "$hr" = "Valid" ]; then
     soundness+=("$name|$br|$hr")
   elif [ "$br" = "Valid" ] && [ "$hr" != "Valid" ] && [ "$hr" != "Timeout" ]; then
@@ -104,10 +111,17 @@ emit "## Kind 2 benchmark comparison (PR head vs. base)"
 emit ""
 emit "$verdict"
 emit ""
-emit "| | Benchmarks | Total wall time |"
+emit "| Result | PR head | Base |"
 emit "|---|---:|---:|"
-emit "| PR head | $n_head | ${head_total}s |"
-emit "| Base    | $n_base | ${base_total}s |"
+emit "| Valid | $h_valid | $b_valid |"
+emit "| Invalid | $h_invalid | $b_invalid |"
+emit "| Timeout | $h_timeout | $b_timeout |"
+emit "| Error | $h_error | $b_error |"
+if [ "$h_mixed" -gt 0 ] || [ "$b_mixed" -gt 0 ]; then
+  emit "| Mixed | $h_mixed | $b_mixed |"
+fi
+emit "| **Total** | $n_head | $n_base |"
+emit "| **Wall time** | ${head_total}s | ${base_total}s |"
 emit ""
 if [ "$n_head" -ne "$n_common" ] || [ "$n_base" -ne "$n_common" ]; then
   emit "> :warning: Only $n_common benchmark(s) ran under **both** binaries; unmatched benchmarks are excluded from the comparison."

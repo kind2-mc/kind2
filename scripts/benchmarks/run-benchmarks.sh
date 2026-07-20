@@ -94,9 +94,21 @@ HARD_TIMEOUT=$((TIMEOUT + 15))
 # Deterministic ordering so head/base stat files line up and diffs are stable.
 mapfile -t FILES < <(find "${SEARCH_DIRS[@]}" -type f -iname '*.lus' | sort)
 
+# Optional round-robin sharding so several jobs can split the set. With
+# SHARD_COUNT>1, this job runs only the files whose position in the sorted list
+# satisfies (position mod SHARD_COUNT == SHARD_INDEX). Round-robin spreads
+# adjacent (often similarly hard) benchmarks across shards for balance.
+# SHARD_COUNT<=1 (the default) runs everything.
+SHARD_COUNT=${SHARD_COUNT:-1}
+SHARD_INDEX=${SHARD_INDEX:-0}
+if [ "$SHARD_COUNT" -gt 1 ]; then
+  mapfile -t FILES < <(printf '%s\n' "${FILES[@]}" \
+    | awk -v n="$SHARD_COUNT" -v k="$SHARD_INDEX" 'NR % n == k')
+fi
+
 total=${#FILES[@]}
 if [ "$total" -eq 0 ]; then
-  echo "ERROR: no *.lus benchmarks found under: ${SEARCH_DIRS[*]}" >&2
+  echo "ERROR: no *.lus benchmarks found under: ${SEARCH_DIRS[*]} (shard ${SHARD_INDEX}/${SHARD_COUNT})" >&2
   exit 2
 fi
 

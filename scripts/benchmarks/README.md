@@ -2,10 +2,19 @@
 
 CI harness that replaces the remote-cluster webhook (`webhook-handler` +
 `test_pr`). On every pull request it builds Kind 2 at the PR head **and** at the
-base commit and benchmarks each over a fixed set — the two legs run **in
-parallel** (a `[head, base]` job matrix); within each leg the benchmark set runs
-sequentially. A final `compare` job joins the two stat files and fails the check
-if the PR introduces a **regression** or a **soundness bug**.
+base commit and benchmarks each over a fixed set, then fails the check if the PR
+introduces a **regression** or a **soundness bug**.
+
+Pipeline (`build` → `benchmark` → `compare`):
+
+1. **`build` (matrix: `side`)** — build Kind 2 at each side once; upload the
+   binary as an artifact.
+2. **`benchmark` (matrix: `side` × `shard`)** — download the binary and run one
+   shard of the benchmark set (round-robin over the sorted file list); upload
+   the shard's stat file. All `side × SHARD_COUNT` shards run in parallel.
+3. **`compare`** — concatenate the shard stat files per side, join head vs.
+   base, write a Markdown Step Summary (result counts per version + regressions,
+   soundness bugs, and improvements), and set the check's exit status.
 
 Driven by [`.github/workflows/kind2-pr-benchmarks.yml`](../../.github/workflows/kind2-pr-benchmarks.yml).
 
@@ -19,7 +28,8 @@ Driven by [`.github/workflows/kind2-pr-benchmarks.yml`](../../.github/workflows/
   where the path is relative to `<bench_root>`. Uses Kind 2's `--timeout_wall`
   (soft) wrapped in `timeout` (hard kill), and classifies output with the same
   distinguished strings the cluster's `benchmark-stat` used for the `kind-2`
-  profile. Extra Kind 2 flags can be passed via `KIND2_EXTRA_ARGS`.
+  profile. Extra Kind 2 flags can be passed via `KIND2_EXTRA_ARGS`. Set
+  `SHARD_COUNT`/`SHARD_INDEX` (env) to run only one round-robin shard of the set.
 
 - `compare-benchmarks.sh <head_stat> <base_stat> [summary_file]`
   Joins the two stat files and writes a Markdown report (to
@@ -43,17 +53,21 @@ block in the workflow:
 | `BENCHMARKS_REF`     | branch/tag/sha to pin                                        |
 | `BENCHMARKS_SUBDIRS` | space-separated dirs to run, relative to the repo root       |
 | `BENCH_TIMEOUT`      | per-benchmark wall timeout, seconds (default `45`)           |
+| `SHARD_COUNT`        | shards per side; **must** match the `shard` matrix length    |
 
 Currently set to `FMCAD08/Bool FMCAD08/Int FMCAD08/Real_Int` on the `main`
 branch of `kind2-mc/kind2-benchmarks`.
 
+To change the shard count, edit **both** `SHARD_COUNT` and the `shard: [...]`
+matrix list in the `benchmark` job so their lengths agree.
+
 If the benchmarks repo is private, uncomment `token:` in the *Checkout
 benchmarks* step and add a read-only PAT secret.
 
-## Later optimizations (not done yet)
+## Tuning
 
-The PR head and base legs already run in parallel, but each leg runs its
-benchmark set sequentially. To speed a leg up, shard its file list across a
-sub-matrix (each shard runs a slice of the `*.lus`), then concatenate the shard
-stat files before the `compare` job — recovering more of the parallelism the
-4-node cluster provided.
+Wall-clock time is dominated by the slowest shard. Increasing `SHARD_COUNT`
+shortens each shard but adds fixed per-job overhead (checkout + Z3 install) and
+consumes more concurrent runners. The `Int` subset dominates the set, and the
+~60 benchmarks that hit the timeout are spread across shards by the round-robin
+split.
