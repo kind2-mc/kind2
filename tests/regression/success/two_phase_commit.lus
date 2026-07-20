@@ -10,7 +10,9 @@ type Vote = enum {Yes, No};
 
 type Decision = enum {Commit, Abort};
 
-type HostId = int;
+const N: subrange [1,*] of int; -- Number of Participants
+
+type HostId = subtype { i : Nat | i < N };
 
 type HostClass = enum { Coordinator, Participant, NoHost };
 
