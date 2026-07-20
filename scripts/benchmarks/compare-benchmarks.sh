@@ -53,14 +53,21 @@ done
 
 emit() { printf '%s\n' "$*" >> "$SUMMARY"; }
 
-# Sort by benchmark name so `join` lines up head and base rows.
-sort -k1,1 -o "$HEAD_STAT" "$HEAD_STAT"
-sort -k1,1 -o "$BASE_STAT" "$BASE_STAT"
+# Head shard per benchmark, from the optional 4th column that sharded CI runs
+# write (see run-benchmarks.sh). Lets the Errors table point at the job whose
+# log holds an errored benchmark's output. Absent for unsharded/local runs.
+declare -A head_shard
+while read -r s_name _s_res _s_wall s_shard _rest; do
+  [ -n "${s_shard:-}" ] && head_shard["$s_name"]="$s_shard"
+done < "$HEAD_STAT"
 
-joined=$(mktemp)
-trap 'rm -f "$joined"' EXIT
+# Normalize to <name result wall> so the join is robust to the extra column.
+h3=$(mktemp); b3=$(mktemp); joined=$(mktemp)
+trap 'rm -f "$h3" "$b3" "$joined"' EXIT
+awk '{ print $1, $2, $3 }' "$HEAD_STAT" | sort -k1,1 > "$h3"
+awk '{ print $1, $2, $3 }' "$BASE_STAT" | sort -k1,1 > "$b3"
 # Output columns: name headRes headWall baseRes baseWall
-join -j1 "$HEAD_STAT" "$BASE_STAT" > "$joined"
+join -j1 "$h3" "$b3" > "$joined"
 
 n_head=$(wc -l < "$HEAD_STAT")
 n_base=$(wc -l < "$BASE_STAT")
@@ -97,7 +104,7 @@ while read -r name hr hw br bw; do
   # Any error from the PR's binary is a problem in its own right, whether or not
   # the base also errored on it — an error must never count as a pass.
   if [ "$hr" = "Error" ]; then
-    errors+=("$name|$br|$hr")
+    errors+=("$name|$br|$hr|${head_shard[$name]:-}")
   fi
 done < "$joined"
 
@@ -158,12 +165,27 @@ emit_table() {
   emit ""
 }
 
+# The Errors table has an extra column naming the shard job whose log holds each
+# benchmark's Kind 2 output (dumped there under a "::group::" by run-benchmarks.sh).
+emit_errors_table() {
+  emit "### :boom: Errors (PR head)"
+  emit "| Benchmark | Base | PR head | Output in job |"
+  emit "|---|---|---|---|"
+  local row name base head shard job
+  for row in "$@"; do
+    IFS='|' read -r name base head shard <<< "$row"
+    if [ -n "$shard" ]; then job="\`benchmark (head $shard)\`"; else job="—"; fi
+    emit "| \`$name\` | $base | $head | $job |"
+  done
+  emit ""
+}
+
 if [ "${#soundness[@]}" -gt 0 ]; then
   emit_table ":rotating_light: Soundness bugs" "${soundness[@]}"
 fi
 emit_table "Regressions" "${regressions[@]}"
 if [ "${#errors[@]}" -gt 0 ]; then
-  emit_table ":boom: Errors (PR head)" "${errors[@]}"
+  emit_errors_table "${errors[@]}"
 fi
 emit_table "Improvements (Timeout → solved)" "${improvements[@]}"
 

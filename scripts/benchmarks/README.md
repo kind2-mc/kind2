@@ -25,7 +25,9 @@ Driven by [`.github/workflows/kind2-pr-benchmarks.yml`](../../.github/workflows/
   (or all of `<bench_root>` if no subdir is given) sequentially and writes one
   line per benchmark to `<out_stat>`:
   `<relative/path.lus> <Valid|Invalid|Timeout|Error|Mixed> <wall_seconds>`,
-  where the path is relative to `<bench_root>`. Uses Kind 2's `--timeout_wall`
+  where the path is relative to `<bench_root>` (plus a 4th `<shard>` column when
+  sharding, so the comparison can name the job whose log holds an errored
+  benchmark's output). Uses Kind 2's `--timeout_wall`
   (soft) wrapped in `timeout` (hard kill), and classifies output with the same
   distinguished strings the cluster's `benchmark-stat` used for the `kind-2`
   profile. Extra Kind 2 flags can be passed via `KIND2_EXTRA_ARGS`. Set
@@ -41,6 +43,8 @@ Driven by [`.github/workflows/kind2-pr-benchmarks.yml`](../../.github/workflows/
 
   A head `Timeout` where the base solved the benchmark is reported for
   information only, not treated as a regression (CI runner timing is noisy).
+  The Errors table names the shard job (`benchmark (head <N>)`) whose log
+  contains each errored benchmark's Kind 2 output.
 
 ## Configuration (must be set before enabling)
 

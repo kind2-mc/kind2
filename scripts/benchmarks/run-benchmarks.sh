@@ -106,6 +106,10 @@ if [ "$SHARD_COUNT" -gt 1 ]; then
     | awk -v n="$SHARD_COUNT" -v k="$SHARD_INDEX" 'NR % n == k')
 fi
 
+# When sharding, tag each stat line with this shard's index (4th column) so the
+# comparison can point at the job whose log holds an errored benchmark's output.
+if [ "$SHARD_COUNT" -gt 1 ]; then shard_field=" $SHARD_INDEX"; else shard_field=""; fi
+
 total=${#FILES[@]}
 if [ "$total" -eq 0 ]; then
   echo "ERROR: no *.lus benchmarks found under: ${SEARCH_DIRS[*]} (shard ${SHARD_INDEX}/${SHARD_COUNT})" >&2
@@ -141,7 +145,7 @@ for f in "${FILES[@]}"; do
   else res=Mixed
   fi
 
-  printf '%s %s %s\n' "$rel" "$res" "$wall" >> "$OUT_STAT"
+  printf '%s %s %s%s\n' "$rel" "$res" "$wall" "$shard_field" >> "$OUT_STAT"
   printf '[%d/%d] %-8s %6ss  %s\n' "$i" "$total" "$res" "$wall" "$rel"
 
   # Surface the Kind 2 output for errored benchmarks so "see logs" is actionable.
