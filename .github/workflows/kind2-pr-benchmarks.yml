@@ -15,9 +15,9 @@ on:
 permissions:
   contents: read
 
-# A new push to the PR cancels an in-progress benchmark run for the same PR.
+# A new push to a branch cancels this workflow's in-progress runs for it.
 concurrency:
-  group: kind2-pr-benchmarks-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
