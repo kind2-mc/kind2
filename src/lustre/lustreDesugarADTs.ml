@@ -60,6 +60,9 @@ type adt_info = {
   (* all payload fields across all constructors, in declaration order,
      deduplicated by field name *)
   all_payload_fields : (HString.t * LA.lustre_type) list;
+
+  (* true iff the ADT directly references itself in a constructor field *)
+  is_recursive : bool;
 }
 
 type adt_map = adt_info HStringMap.t
@@ -70,7 +73,7 @@ let disc_field_name type_name =
 let payload_field_name_of ctor user_fname =
   HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring user_fname)
 
-let build_adt_info type_name type_params ctors =
+let build_adt_info type_name type_params ctors ~is_recursive =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_field_name type_name in
   let ctor_variants = List.map fst ctors in
@@ -85,14 +88,26 @@ let build_adt_info type_name type_params ctors =
   let all_payload_fields =
     List.concat_map (fun (ctor, _) -> HStringMap.find ctor ctor_fields) ctors
   in
-  { type_name; type_params; disc_field; disc_enum; ctor_variants; ctor_fields; all_payload_fields }
+  { type_name; type_params; disc_field; disc_enum; ctor_variants; ctor_fields;
+    all_payload_fields; is_recursive }
+
+(* True if any constructor field type directly references type_name itself. *)
+let is_directly_recursive type_name ctors =
+  List.exists (fun (_ctor, fields) ->
+    List.exists (fun (_, ty) ->
+      match ty with
+      | LA.UserType (_, _, n) -> HString.equal n type_name
+      | _ -> false
+    ) fields
+  ) ctors
 
 (* Collect all ADT type declarations from a program into an adt_map. *)
 let build_adt_map decls =
   List.fold_left (fun m decl ->
     match decl with
     | LA.TypeDecl (_, LA.AliasType (_, name, ty_params, LA.ADT (_, _, ctors))) ->
-      HStringMap.add name (build_adt_info name ty_params ctors) m
+      let is_recursive = is_directly_recursive name ctors in
+      HStringMap.add name (build_adt_info name ty_params ctors ~is_recursive) m
     | _ -> m
   ) HStringMap.empty decls
 
@@ -149,7 +164,10 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
   if List.mem name info.ctor_variants then
     let ctor = name in
     let outer_cond =
-      LA.CompOp (pos, LA.Eq, tag_of pos info scrut, LA.Ident (pos, ctor))
+      if info.is_recursive then
+        LA.ADTTester (pos, scrut, ctor)
+      else
+        LA.CompOp (pos, LA.Eq, tag_of pos info scrut, LA.Ident (pos, ctor))
     in
     let ctor_fields =
       match HStringMap.find_opt ctor info.ctor_fields with
@@ -158,7 +176,20 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     in
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
-        let field_expr = LA.FieldProject (pos, scrut, fname, None) in
+        let field_expr =
+          if info.is_recursive then
+            (* For recursive ADTs, use the user-visible field name (strip the "ctor_" prefix
+               from the internal name).  The ADT stays as an SMT-LIB datatype; the node
+               generator detects the user-visible name and computes the "ctor_i" selector. *)
+            let ctor_str = HString.string_of_hstring ctor in
+            let fname_str = HString.string_of_hstring fname in
+            let prefix_len = String.length ctor_str + 1 in
+            let user_fname = HString.mk_hstring
+              (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
+            LA.FieldProject (pos, scrut, user_fname, None)
+          else
+            LA.FieldProject (pos, scrut, fname, None)
+        in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
           (conds, subs @ [(sub_name, field_expr)])
@@ -200,6 +231,8 @@ let rec build_ite pos arms =
 
 let update_context adt_map ctx =
   HStringMap.fold (fun type_name info acc_ctx ->
+    if info.is_recursive then acc_ctx
+    else
     let pos = Lib.dummy_pos in
     let enum_user_ty = LA.UserType (pos, [], info.disc_enum) in
     let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
@@ -250,19 +283,37 @@ let rec default_value ctx adt_map pos ty =
     | Some expanded -> default_value ctx adt_map pos expanded
     | None -> assert false)
   | LA.TArr _ -> assert false
-  | LA.ADT _ -> assert false (* desugar_type should have handled this *)
+  | LA.ADT (_, name, ctors) ->
+    (* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
+       (one with no self-recursive fields) as the default "junk" value.  This
+       junk is only placed in payload slots of non-recursive ADT records where
+       the discriminant guarantees it is never accessed, so any value is correct. *)
+    let is_self_recursive = function
+      | LA.ADT (_, n, _) | LA.UserType (_, _, n) -> HString.equal n name
+      | _ -> false
+    in
+    (match List.find_opt (fun (_, fields) ->
+        not (List.exists (fun (_, ty) -> is_self_recursive ty) fields)) ctors with
+    | Some (ctor, fields) ->
+      let args = List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields in
+      LA.ADTTerm (pos, [], ctor, args)
+    | None -> assert false)
   | LA.AbstractType _ -> failwith "Unsupported: abstract type in ADT constructor"
 
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
   match ty with
   | LA.ADT (_, name, cons) ->
-    let info = build_adt_info name [] cons in
-    record_type_of_adt pos info
+    if is_directly_recursive name cons then 
+      ty 
+    else 
+      let info = build_adt_info name [] cons ~is_recursive:false in
+      record_type_of_adt pos info
   | LA.RefinementType (p, (p2, id, t), e) ->
     LA.RefinementType (p, (p2, id, desugar_type pos ctx adt_map t), desugar_expr ctx adt_map e)
   | _ ->
   match adt_info_of_type_direct adt_map ty with
+  | Some adt_info when adt_info.is_recursive -> ty
   | Some adt_info ->
     let ty_args = match ty with
       | LA.UserType (_, args, _) -> List.map (desugar_type pos ctx adt_map) args
@@ -312,6 +363,9 @@ and desugar_expr ctx adt_map expr =
       ) adt_map None
       |> (function Some i -> i | None -> assert false)
     in
+    if adt_info.is_recursive then
+      LA.ADTTerm (pos, ty_args, ctor, args')
+    else
     let ty_args' = List.map (desugar_type pos ctx adt_map) ty_args in
     let subst =
       if List.length adt_info.type_params = List.length ty_args'
@@ -358,28 +412,37 @@ and desugar_expr ctx adt_map expr =
       ) adt_map None
       |> (function Some i -> i | None -> assert false)
     in
-    LA.CompOp (pos, LA.Eq,
-      tag_of pos adt_info (r e),
-      LA.Ident (pos, c))
+    if adt_info.is_recursive then
+      LA.ADTTester (pos, r e, c)
+    else
+      LA.CompOp (pos, LA.Eq,
+        tag_of pos adt_info (r e),
+        LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
   | LA.FieldProject (p, e, fld, Some adt_ty) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
-    let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-      match acc with
-      | Some _ -> acc
-      | None ->
-        let target = payload_field_name_of ctor fld in
-        if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-        then Some ctor
-        else None
-    ) info.ctor_fields None
-    |> (function Some c -> c | None -> assert false)
-    in
-    let internal_fld = payload_field_name_of ctor fld in
-    LA.FieldProject (p, e', internal_fld, None)
+    if info.is_recursive then
+      (* Recursive ADTs stay as SMT-LIB datatypes.  Keep the user-visible field name but
+         strip the annotation (all FieldProject nodes are None after desugaring).  The node
+         generator detects the user-visible name and computes the "ctor_i" selector. *)
+      LA.FieldProject (p, e', fld, None)
+    else
+      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          let target = payload_field_name_of ctor fld in
+          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
+          then Some ctor
+          else None
+      ) info.ctor_fields None
+      |> (function Some c -> c | None -> assert false)
+      in
+      let internal_fld = payload_field_name_of ctor fld in
+      LA.FieldProject (p, e', internal_fld, None)
   | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
@@ -499,6 +562,7 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
       match decl with
       | LA.TypeDecl (sp, LA.AliasType (_, name, ty_params, LA.ADT (pos, _, _))) ->
         (match HStringMap.find_opt name adt_map with
+        | Some info when info.is_recursive -> [decl]
         | Some info ->
           let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
           let enum_decl = LA.TypeDecl (sp, LA.AliasType (pos, info.disc_enum, [], enum_ty)) in

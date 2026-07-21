@@ -1420,9 +1420,9 @@ pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
 node_call:
   | s = ident; 
     ty_args = call_static_params;
-    LPAREN; 
-    a = separated_list(COMMA, expr); 
-    RPAREN 
+    LPAREN;
+    a = separated_list(COMMA, expr);
+    RPAREN
     { 
       A.Call (mk_pos $startpos, ty_args, NI.mk_node_id s, a) 
     }

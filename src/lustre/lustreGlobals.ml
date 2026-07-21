@@ -32,6 +32,7 @@ type adt_info = {
   disc_field : HString.t;
   (* constructor name -> list of (field_name, field_type_info) *)
   ctor_fields : (HString.t * adt_field_info) list HStringMap.t;
+  is_recursive : bool;
 }
 
 type adt_map = adt_info HStringMap.t

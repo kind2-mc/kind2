@@ -124,6 +124,7 @@ type error_kind = Unknown of string
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
+  | NonWellFoundedDatatype of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -278,6 +279,9 @@ let error_message kind = match kind with
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
+  | NonWellFoundedDatatype ty_name ->
+    "Datatype '" ^ HString.string_of_hstring ty_name
+    ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
 
 type warning_kind = 
   | UnusedBoundVariableWarning of HString.t
@@ -948,67 +952,75 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
     The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
     a boolean. *)
-let rec unify_types pos ctx is_type_ascription ty1 ty2 = 
-  let r = unify_types pos ctx is_type_ascription in
-  let* ty1 = expand_type_syn_reftype_history ctx ty1 in
-  let* ty2 = expand_type_syn_reftype_history ctx ty2 in
-  match ty1, ty2 with 
-  (* UserTypes denote __the callee's__ 
-     type parameters after calling `expand_type_syn_reftype_history` *)
-  | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
-  (* AbstractTypes denote __the caller's__ 
-     type parameters after calling `expand_type_syn_reftype_history` *)
-  | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2) 
+let unify_types pos ctx is_type_ascription ty1 ty2 =
+  let rec aux seen ty1 ty2 =
+    let r = aux seen in
+    let* ty1 = expand_type_syn_reftype_history ctx ty1 in
+    let* ty2 = expand_type_syn_reftype_history ctx ty2 in
+    match ty1, ty2 with
+    (* UserTypes denote __the callee's__
+       type parameters after calling `expand_type_syn_reftype_history` *)
+    | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
+    (* AbstractTypes denote __the caller's__
+       type parameters after calling `expand_type_syn_reftype_history` *)
+    | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
 
-  (* Group types are weird... *)
-  | GroupType (_, tys1), GroupType (_, tys2) ->
-    let (ftys1, ftys2) = LH.flatten_group_types tys1, LH.flatten_group_types tys2 in 
-    if List.length ftys1 = List.length ftys2
-    then 
-      let* maps = R.seq (List.map2 r ftys1 ftys2) in 
-      R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
-    else (
-      if is_type_ascription then 
-        type_error pos (UnificationFailed (ty1, ty2)) 
+    (* Group types are weird... *)
+    | GroupType (_, tys1), GroupType (_, tys2) ->
+      let (ftys1, ftys2) = LH.flatten_group_types tys1, LH.flatten_group_types tys2 in
+      if List.length ftys1 = List.length ftys2
+      then
+        let* maps = R.seq (List.map2 r ftys1 ftys2) in
+        R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+      else (
+        if is_type_ascription then
+          type_error pos (UnificationFailed (ty1, ty2))
+        else
+          type_error pos (IlltypedCall (ty1, ty2))
+      )
+    | GroupType (_, tys), t
+    | t, GroupType (_, tys) when List.length tys = 1 ->
+      r t (List.hd tys)
+
+    | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
+      R.ok StringMap.empty
+    | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
+      (* Guard against infinite recursion on recursive ADTs: expand each ADT
+         name at most once per unification path. *)
+      if HString.HStringSet.mem id1 seen then R.ok StringMap.empty
       else
-        type_error pos (IlltypedCall (ty1, ty2)) 
-    )
-  | GroupType (_, tys), t
-  | t, GroupType (_, tys) when List.length tys = 1 ->
-    r t (List.hd tys)
-
-  | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
-    R.ok StringMap.empty
-  | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-    let tys1 = List.concat_map (fun (_, flds) -> List.map snd flds) cons1 in
-    let tys2 = List.concat_map (fun (_, flds) -> List.map snd flds) cons2 in
-    let* maps = R.seq (List.map2 r tys1 tys2) in
-    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
-  | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 -> 
-    let* maps = R.seq (List.map2 r tys1 tys2) in 
-    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
-  | LA.ArrayType (_, (ty1, _)), LA.ArrayType (_, (ty2, _)) -> 
-    r ty1 ty2
-  | LA.Set (_, ty1), LA.Set (_, ty2) -> r ty1 ty2
-  | LA.Map (_, kt1, vt1), LA.Map (_, kt2, vt2) -> 
-    let* m1 = r kt1 kt2 in 
-    let* m2 = r vt1 vt2 in 
-    R.ok (StringMap.merge union_keys m1 m2) 
-  | LA.RecordType (_, id1, tis1), LA.RecordType (_, id2, tis2) when HString.equal id1 id2 -> 
-    let tys1 = List.map (fun (_, _, ty) -> ty) tis1 in 
-    let tys2 = List.map (fun (_, _, ty) -> ty) tis2 in 
-    let* maps = R.seq (List.map2 r tys1 tys2) in 
-    R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
-  | LA.Int _, LA.Int _
-  | LA.Real _, LA.Real _ 
-  | LA.Bool _, LA.Bool _ 
-  | LA.SBitVector _, LA.SBitVector _
-  | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty 
-  | ty1, ty2 -> 
-    if is_type_ascription then 
-      type_error pos (UnificationFailed (ty1, ty2)) 
-    else
-      type_error pos (IlltypedCall (ty1, ty2)) 
+        let seen' = HString.HStringSet.add id1 seen in
+        let tys1 = List.concat_map (fun (_, flds) -> List.map snd flds) cons1 in
+        let tys2 = List.concat_map (fun (_, flds) -> List.map snd flds) cons2 in
+        let* maps = R.seq (List.map2 (aux seen') tys1 tys2) in
+        R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+    | LA.TupleType (_, tys1), LA.TupleType (_, tys2) when List.length tys1 = List.length tys2 ->
+      let* maps = R.seq (List.map2 r tys1 tys2) in
+      R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+    | LA.ArrayType (_, (ty1, _)), LA.ArrayType (_, (ty2, _)) ->
+      r ty1 ty2
+    | LA.Set (_, ty1), LA.Set (_, ty2) -> r ty1 ty2
+    | LA.Map (_, kt1, vt1), LA.Map (_, kt2, vt2) ->
+      let* m1 = r kt1 kt2 in
+      let* m2 = r vt1 vt2 in
+      R.ok (StringMap.merge union_keys m1 m2)
+    | LA.RecordType (_, id1, tis1), LA.RecordType (_, id2, tis2) when HString.equal id1 id2 ->
+      let tys1 = List.map (fun (_, _, ty) -> ty) tis1 in
+      let tys2 = List.map (fun (_, _, ty) -> ty) tis2 in
+      let* maps = R.seq (List.map2 r tys1 tys2) in
+      R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
+    | LA.Int _, LA.Int _
+    | LA.Real _, LA.Real _
+    | LA.Bool _, LA.Bool _
+    | LA.SBitVector _, LA.SBitVector _
+    | LA.UBitVector _, LA.UBitVector _ -> R.ok StringMap.empty
+    | ty1, ty2 ->
+      if is_type_ascription then
+        type_error pos (UnificationFailed (ty1, ty2))
+      else
+        type_error pos (IlltypedCall (ty1, ty2))
+  in
+  aux HString.HStringSet.empty ty1 ty2
 
 
 let infer_poly_node_type pos ctx is_type_ascription node_ty arg_inf_tys = 
@@ -2556,7 +2568,13 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
     let ctx = add_ty_vars_ty ctx i ps in
-    let* ty, _ = check_type_well_formed ctx' Global None false ty in 
+    (* For recursive ADTs, add the type itself to ctx' before checking so that
+       self-referential field types are recognized as valid *)
+    let ctx' = match ty with
+      | LA.ADT _ -> add_ty_syn ctx' i ty
+      | _ -> ctx'
+    in
+    let* ty, _ = check_type_well_formed ctx' Global None false ty in
     (match ty with
       | LA.EnumType (pos, ename, econsts) ->
         if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
@@ -3059,6 +3077,20 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         ) fields) |> R.map List.split in
         R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
+      (* Well-foundedness: at least one constructor must have no directly
+         self-recursive field, otherwise no finite value of the type exists. *)
+      (* TODO: Extend to handle mutual recursion *)
+      let is_recursive_field = function
+        | LA.UserType (_, [], id) -> HString.equal id new_ty_name
+        | _ -> false
+      in
+      let has_base_case = List.exists
+        (fun (_, tys) -> List.for_all (fun (_, ty) -> not (is_recursive_field ty)) tys)
+        ctors
+      in
+      let* () = if has_base_case then R.ok ()
+                else type_error pos (NonWellFoundedDatatype new_ty_name)
+      in
       R.ok (LA.ADT (pos, new_ty_name, ctors), List.flatten all_warnings)
     | Bool _ | Int _ | Real _
     | AbstractType _ | EnumType _ | History _ | SBitVector _ | UBitVector _ -> R.ok (ty', [])

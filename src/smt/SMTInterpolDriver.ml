@@ -22,6 +22,14 @@ let check_logic logic =
   let open TermLib in
   let open TermLib.FeatureSet in
   match logic with
+  | `Inferred l when mem DT l -> (
+    let msg =
+      Format.asprintf
+        "In %a: SMTInterpol does not support algebraic datatypes"
+        Lib.pp_print_kind_module (KEvent.get_module ())
+    in
+    failwith msg
+  )
   | `Inferred l when mem BV l -> (
     let msg =
     Format.asprintf

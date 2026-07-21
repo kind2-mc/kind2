@@ -38,6 +38,7 @@ type kindtype =
   (* First is element type, second is index type, and third is the size *)
   | Array of t * t
   | Abstr of string
+  | Datatype of string * (string * t list) list
 
 (* A private type that cannot be constructed outside this module
 
@@ -105,7 +106,17 @@ module Kindtype_node = struct
     | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
     | Abstr _, _ -> false
-      
+    | Datatype (n1, ctors1), Datatype (n2, ctors2) ->
+      n1 = n2 &&
+      List.length ctors1 = List.length ctors2 &&
+      List.for_all2
+        (fun (c1, ts1) (c2, ts2) ->
+          c1 = c2 &&
+          List.length ts1 = List.length ts2 &&
+          List.for_all2 (==) ts1 ts2)
+        ctors1 ctors2
+    | Datatype _, _ -> false
+
 end
 
 
@@ -231,6 +242,8 @@ let rec pp_print_type_node ppf = function
 
   | Abstr s -> Format.pp_print_string ppf s
 
+  | Datatype (name, _) -> Format.pp_print_string ppf name
+
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
@@ -289,6 +302,8 @@ let rec pp_print_type_node_debug ppf = function
 
   | Abstr s -> Format.pp_print_string ppf s
 
+  | Datatype (name, _) -> Format.pp_print_string ppf name
+
 (* Pretty-print a hashconsed variable *)
 and pp_print_type_debug ppf { Hashcons.node = t } = pp_print_type_node_debug ppf t
 
@@ -324,6 +339,8 @@ let mk_bv w = Hkindtype.hashcons ht (BV w) ()
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
+
+let mk_datatype name ctors = Hkindtype.hashcons ht (Datatype (name, ctors)) ()
 
 
 module HNum = Hashtbl.Make (struct
@@ -398,6 +415,10 @@ let rec import { Hashcons.node = n } = match n with
 
   | Abstr s -> mk_abstr s
 
+  | Datatype (name, ctors) ->
+    let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
+    mk_type (Datatype (name, ctors'))
+
 
 (* Static values *)
 let t_bool = mk_bool ()
@@ -410,6 +431,12 @@ let t_real = mk_real ()
 let get_all_abstr_types () =
   Hkindtype.fold (fun ty acc -> match ty with
       | { Hashcons.node = Abstr _ } -> ty :: acc
+      | _ -> acc) ht []
+  |> List.rev
+
+let get_all_datatype_types () =
+  Hkindtype.fold (fun ty acc -> match ty with
+      | { Hashcons.node = Datatype (_, ctors) } when ctors <> [] -> ty :: acc
       | _ -> acc) ht []
   |> List.rev
 
@@ -506,6 +533,18 @@ let is_real { Hashcons.node = t } = match t with
 let is_abstr { Hashcons.node = t } = match t with
   | Abstr _ -> true
   | _ -> false
+
+let is_datatype { Hashcons.node = t } = match t with
+  | Datatype _ -> true
+  | _ -> false
+
+let constructors_of_datatype = function
+  | { Hashcons.node = Datatype (_, ctors) } -> ctors
+  | _ -> raise (Invalid_argument "constructors_of_datatype")
+
+let name_of_datatype = function
+  | { Hashcons.node = Datatype (name, _) } -> name
+  | _ -> raise (Invalid_argument "name_of_datatype")
 
 
 let is_array { Hashcons.node = t } = match t with
@@ -619,6 +658,9 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
        are subtype *)
     | Array (i1, _), Array (i2, _) ->
       (check_type i1 i2) (* && (check_type t2 t1) *)
+
+    (* Datatypes are nominally typed *)
+    | Datatype (n1, _), Datatype (n2, _) -> n1 = n2
 
     (* No other subtype relationships *)
     | _ -> false

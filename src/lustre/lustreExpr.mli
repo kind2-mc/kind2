@@ -517,6 +517,15 @@ val numeral_of_expr : expr -> Numeral.t
 val unsafe_term_of_expr : expr -> Term.t
 val unsafe_expr_of_term : Term.t -> expr
 
+(** Build a UF application expression with given return type and arguments *)
+val mk_uf : UfSymbol.t -> Type.t -> t list -> t
+
+(** Build an ADT tester expression: ((_ is CtorName) e) *)
+val mk_is_constructor : string -> t -> t
+
+(** Build an ADT selector expression: (CtorName_i e) with the given result type *)
+val mk_selector : string -> Type.t -> t -> t
+
 
 val mk_array : t -> t -> t
 

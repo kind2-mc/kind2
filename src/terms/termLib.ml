@@ -35,7 +35,7 @@ type cexs = cex list
 (* ********************************************************************** *)
 
 (* Return the default value of the type *)
-let default_of_type t =
+let rec default_of_type t =
 
   match Type.node_of_type t with
 
@@ -59,6 +59,21 @@ let default_of_type t =
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
 
+    (* Apply the first non-self-recursive constructor with default field values *)
+    | Type.Datatype (name, ctors) ->
+      let is_self_recursive ty =
+        match Type.node_of_type ty with
+        | Type.Datatype (n, []) -> n = name
+        | _ -> false
+      in
+      let ctor_name, fields =
+        match List.find_opt (fun (_, fs) -> not (List.exists is_self_recursive fs)) ctors with
+        | Some c -> c
+        | None -> List.hd ctors
+      in
+      let ctor_sym = UfSymbol.mk_uf_symbol ctor_name fields t in
+      Term.mk_uf ctor_sym (List.map default_of_type fields)
+
     (* No defaults *)
     | Type.Abstr _
     | Type.Array _ -> invalid_arg "default_of_type"
@@ -75,6 +90,7 @@ type feature =
   | Q  (* Quantifiers *)
   | UF (* Equality over uninterpreted functions *)
   | A  (* Arrays *)
+  | DT (* Algebraic datatypes *)
   | IA (* Integer arithmetic *)
   | RA (* Real arithmetic *)
   | LA (* Linear arithmetic *)
@@ -118,6 +134,13 @@ let rec logic_of_sort ty =
   | Array (ta, tr) ->
     union (logic_of_sort ta) (logic_of_sort tr)
     |> add A
+
+  | Datatype (_, ctors) ->
+    let field_logic =
+      List.concat_map snd ctors
+      |> List.fold_left (fun acc t -> FeatureSet.union acc (logic_of_sort t)) empty
+    in
+    FeatureSet.union field_logic (FeatureSet.singleton DT)
 
 
 let s_abs = Symbol.mk_symbol `ABS
@@ -232,6 +255,7 @@ let pp_print_features ?(enforce_logic=false) fmt l =
   in
   if smt_arrays then fprintf fmt "A";
   if L.mem UF l || (L.mem A l && not smt_arrays) then fprintf fmt "UF";
+  if L.mem DT l then fprintf fmt "DT";
   if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
@@ -248,7 +272,8 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 let pp_print_logic ?(enforce_logic=false) fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
-      if L.mem BV l && (L.mem IA l || L.mem RA l) then
+      if (L.mem BV l && (L.mem IA l || L.mem RA l))
+         || L.mem DT l then
         pp_print_string fmt "ALL"
       else pp_print_features ~enforce_logic fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)

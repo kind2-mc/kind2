@@ -109,6 +109,7 @@ type error_kind = Unknown of string
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
+  | NonWellFoundedDatatype of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t

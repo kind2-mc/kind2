@@ -206,7 +206,7 @@ let type_check declarations =
         Res.ok (
           decls1 @ decls2, 
           TypeCheckerContext.union ctx1 ctx2, 
-          NodeId.Map.merge GI.union_keys2 gids1 gids2
+          NodeId.Map.merge GI.union_keys2 gids1 gids2 
         )
       else Res.ok (sorted_node_contract_decls, global_ctx, NI.Map.empty)
     in

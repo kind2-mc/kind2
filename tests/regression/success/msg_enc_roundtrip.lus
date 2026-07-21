@@ -1,0 +1,21 @@
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg) | Pair (s4: Msg, s5: Msg);
+datatype Option<T> = None | Some (s1: T);
+
+function dec(m, k: Msg) returns (out: Option<Msg>)
+let
+  out = match m with 
+  | Enc (m2, k2) : if k = k2 then Some (m2) else None@<Msg>
+  | _ : None@<Msg> 
+  end;
+tel
+
+node main(plain: Msg; key: Msg) returns (ok: bool; cipher, decrypted: Msg);
+let
+  cipher = Enc(plain, key);
+  decrypted = match dec(cipher, key) with 
+  | None : choose@<Msg>
+  | Some (plain) : plain
+  end;
+  ok = decrypted = plain;
+  check ok;
+tel

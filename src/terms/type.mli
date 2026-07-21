@@ -35,6 +35,7 @@ type kindtype =
   | BV of int 
   | Array of t * t
   | Abstr of string
+  | Datatype of string * (string * t list) list
 
 (** Hashconsed type *)
 and t
@@ -96,6 +97,10 @@ val mk_abstr : string -> t
 
 (** Return an enumerated datatype type *)
 val mk_enum : string -> string list -> t
+
+(** Return a recursive algebraic datatype. Self-referential field types should
+    be represented as [mk_datatype name []]. *)
+val mk_datatype : string -> (string * t list) list -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -184,6 +189,15 @@ val is_array : t -> bool
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
 
+(** Return [true] if the type is a recursive algebraic datatype *)
+val is_datatype : t -> bool
+
+(** Return the constructors of a datatype, fail if not a datatype *)
+val constructors_of_datatype : t -> (string * t list) list
+
+(** Return the name of a datatype, fail if not a datatype *)
+val name_of_datatype : t -> string
+
 (** {1 Ranges} *)
 
 (** Return bounds of an integer range type, fail with
@@ -231,6 +245,9 @@ val get_constr_of_num : Numeral.t -> string
 
 (** Return abstract types that have been built *)
 val get_all_abstr_types : unit -> t list
+
+(** Return all recursive algebraic datatype types *)
+val get_all_datatype_types : unit -> t list
 
 (** Return the numeral encoding of a construcor of an enumerated datatype *)
 val get_num_of_constr : string -> Numeral.t

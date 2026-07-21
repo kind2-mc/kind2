@@ -190,6 +190,8 @@ type interpreted_symbol =
 
   | `CONST_ARRAY of Type.t (** Constant array (unary) *)
 
+  | `IsConstructor of string          (** ADT tester: (_ is CtorName), unary *)
+  | `Selector of string * Type.t      (** ADT field selector: name and result type, unary *)
   ]
 
 (** Adding uninterpreted function symbols separately for conversions

@@ -51,6 +51,7 @@ type feature =
   | Q  (** Quantifiers *)
   | UF (** Equality over uninterpreted functions *)
   | A  (** Arrays *)
+  | DT (** Algebraic datatypes *)
   | IA (** Integer arithmetic *)
   | RA (** Real arithmetic *)
   | LA (** Linear arithmetic *)

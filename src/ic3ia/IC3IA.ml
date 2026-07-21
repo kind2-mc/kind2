@@ -981,6 +981,12 @@ let main fwd slice_to_prop prop in_sys param sys =
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)
+  | `Inferred l when mem DT l ->
+    let msg =
+      Format.sprintf "IC3IA disabled for property %s: algebraic datatypes are not supported."
+        prop.Property.prop_name
+    in
+    raise (UnsupportedFeature msg)
   | _ -> () ) ;
 
   let check_system_is_supported itp_solver =

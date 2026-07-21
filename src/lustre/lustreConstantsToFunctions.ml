@@ -179,8 +179,7 @@ let constants_to_calls new_func_ids decls =
   R.seq (List.map (decl_constants_to_calls new_func_ids) decls)
 
 (* Returns true iff the type contains an ADT (algebraic data type). *)
-(* Currently unused by module, since ADTs do not yet create generated identifiers. 
-   However, they will in the near future, once we support abstract types in ADTs. *)
+(* Currently unused by module, since ADTs do not (currently) create generated identifiers. *)
 let rec _type_contains_adt ctx ty =
   let r = _type_contains_adt ctx in
   match ty with

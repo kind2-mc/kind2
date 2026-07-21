@@ -699,58 +699,62 @@ let rec is_machine_type_of_associated_width: tc_context -> (tc_type * tc_type) -
       | Some ty -> is_machine_type_of_associated_width ctx (ty, ty2))
   | _ -> Ok false
 
-let rec type_contains_enum ctx = function
-  | LA.EnumType _ -> true
-  | RefinementType (_, (_, _, ty), _) -> type_contains_enum ctx ty
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_enum ctx ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum ctx ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_enum ctx ty
-  | Set (_, ty) -> type_contains_enum ctx ty
-  | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> type_contains_enum ctx ty1 || type_contains_enum ctx ty2
-  | History (_, id) ->
-    (match lookup_ty ctx id with
-    | Some ty -> type_contains_enum ctx ty
-    | _ -> assert false)
-  | UserType (_, ty_args, id) -> (
-    match lookup_ty_syn ctx id ty_args with
-    | Some ty -> type_contains_enum ctx ty
-    | None -> assert false 
-  )
-  | ADT (_, _, cons) ->
-    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-    List.fold_left (fun acc ty -> acc || type_contains_enum ctx ty) false tys
-  | Bool _ | Int _ | Real _ 
-  | AbstractType _ | SBitVector _ | UBitVector _ -> false
-
-  let rec type_contains_ref ctx = function
-  | LA.RefinementType _ -> true
-  | TupleType (_, tys) | GroupType (_, tys) ->
-    List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
-  | RecordType (_, _, tys) ->
-    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_ref ctx ty)
-      false tys
-  | ArrayType (_, (ty, _)) -> type_contains_ref ctx ty
-  | Set (_, ty) -> type_contains_ref ctx ty
-  | Map (_, ty1, ty2)
-  | TArr(_, ty1, ty2) -> type_contains_ref ctx ty1 || type_contains_ref ctx ty2 
-  | History (_, id) -> 
-    (match lookup_ty ctx id with 
-      | Some ty -> type_contains_ref ctx ty
+let type_contains_enum ctx ty =
+  let rec aux seen = function
+    | LA.EnumType _ -> true
+    | RefinementType (_, (_, _, ty), _) -> aux seen ty
+    | TupleType (_, tys) | GroupType (_, tys) ->
+      List.fold_left (fun acc ty -> acc || aux seen ty) false tys
+    | RecordType (_, _, tys) ->
+      List.fold_left (fun acc (_, _, ty) -> acc || aux seen ty) false tys
+    | ArrayType (_, (ty, _)) -> aux seen ty
+    | Set (_, ty) -> aux seen ty
+    | Map (_, ty1, ty2)
+    | TArr (_, ty1, ty2) -> aux seen ty1 || aux seen ty2
+    | History (_, id) ->
+      (match lookup_ty ctx id with
+      | Some ty -> aux seen ty
       | _ -> assert false)
-  | UserType (_, ty_args, id) -> (
-    match lookup_ty_syn ctx id ty_args with
-    | Some ty -> type_contains_ref ctx ty
-    | None -> false
-  )
-  | ADT (_, _, cons) ->
-    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-    List.fold_left (fun acc ty -> acc || type_contains_ref ctx ty) false tys
-  | Bool _ | Int _ | Real _  | EnumType _ 
-  | AbstractType _ | SBitVector _ | UBitVector _ -> false
+    | UserType (_, ty_args, id) ->
+      if SI.mem id seen then false
+      else (match lookup_ty_syn ctx id ty_args with
+      | Some ty -> aux (SI.add id seen) ty
+      | None -> false)
+    | ADT (_, _, cons) ->
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+      List.fold_left (fun acc ty -> acc || aux seen ty) false tys
+    | Bool _ | Int _ | Real _
+    | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  in
+  aux SI.empty ty
+
+let type_contains_ref ctx ty =
+  let rec aux seen = function
+    | LA.RefinementType _ -> true
+    | TupleType (_, tys) | GroupType (_, tys) ->
+      List.fold_left (fun acc ty -> acc || aux seen ty) false tys
+    | RecordType (_, _, tys) ->
+      List.fold_left (fun acc (_, _, ty) -> acc || aux seen ty) false tys
+    | ArrayType (_, (ty, _)) -> aux seen ty
+    | Set (_, ty) -> aux seen ty
+    | Map (_, ty1, ty2)
+    | TArr (_, ty1, ty2) -> aux seen ty1 || aux seen ty2
+    | History (_, id) ->
+      (match lookup_ty ctx id with
+      | Some ty -> aux seen ty
+      | _ -> assert false)
+    | UserType (_, ty_args, id) ->
+      if SI.mem id seen then false
+      else (match lookup_ty_syn ctx id ty_args with
+      | Some ty -> aux (SI.add id seen) ty
+      | None -> false)
+    | ADT (_, _, cons) ->
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+      List.fold_left (fun acc ty -> acc || aux seen ty) false tys
+    | Bool _ | Int _ | Real _ | EnumType _ 
+    | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  in
+  aux SI.empty ty
 
 let rec type_contains_enum_reftype ctx = function
   | LA.EnumType _ 
@@ -797,8 +801,8 @@ let rec type_contains_abstract ctx = function
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
-  | History (_, id) -> 
-    (match lookup_ty ctx id with 
+  | History (_, id) ->
+    (match lookup_ty ctx id with
     | Some ty -> type_contains_abstract ctx ty
     | _ -> assert false)
   | ADT (_, _, cons) ->

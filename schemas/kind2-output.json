@@ -541,7 +541,8 @@
                 "real",
                 "enum",
                 "array",
-                "abstr"
+                "abstr",
+                "datatype"
              ]
         },
         "subrangeTypeInfo": {
@@ -590,12 +591,24 @@
             },
             "required": ["name"]
         },
+        "datatypeTypeInfo": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "constructors": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                }
+            },
+            "required": ["name", "constructors"]
+        },
         "kind2TypeInfo": {
             "anyOf": [
                 { "$ref": "#/definitions/subrangeTypeInfo" },
                 { "$ref": "#/definitions/enumTypeInfo" },
                 { "$ref": "#/definitions/arrayTypeInfo" },
-                { "$ref": "#/definitions/abstrTypeInfo" }
+                { "$ref": "#/definitions/abstrTypeInfo" },
+                { "$ref": "#/definitions/datatypeTypeInfo" }
             ]
         },
         "enumValue": {

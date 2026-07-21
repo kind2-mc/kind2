@@ -636,7 +636,8 @@ let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ | Type.Enum _ -> Type.mk_int ()
   | Type.Bool | Type.Int 
   | Type.UBV _ | Type.BV _
-  | Type.Real | Type.Abstr _ -> t
+  | Type.Real | Type.Abstr _
+  | Type.Datatype _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -865,7 +866,9 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
       Type.pp_print_type ty_array
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-                                
+  | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s
+  | `Selector (s, _) -> Format.pp_print_string ppf s
+
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =

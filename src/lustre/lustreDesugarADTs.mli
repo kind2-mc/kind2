@@ -42,9 +42,23 @@ type adt_info = {
   ctor_variants : HString.t list;
   ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
   all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+  is_recursive : bool;
 }
 
 type adt_map = adt_info HStringMap.t
+
+val build_adt_info :
+  HString.t ->
+  HString.t list ->
+  (HString.t * (HString.t * LustreAst.lustre_type) list) list ->
+  is_recursive:bool ->
+  adt_info
+
+val record_type_of_adt :
+  Lib.position ->
+  ?ty_args:LustreAst.lustre_type list ->
+  adt_info ->
+  LustreAst.lustre_type
 
 val desugar_adts :
   TypeCheckerContext.tc_context ->
@@ -53,3 +67,4 @@ val desugar_adts :
   LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map
 
 val string_of_expr_as_source : adt_map -> LustreAst.expr -> string
+

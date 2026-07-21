@@ -276,6 +276,8 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
+  | Type.Datatype (name, _) -> Format.pp_print_string ppf name
+
 
 (* String representation of a symbol in Lustre *)
 let string_of_symbol = function
@@ -765,8 +767,25 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
-    | `IS_INT
-    | `UF _ -> (function _ -> assert false)
+    | `IS_INT -> (function _ -> assert false)
+
+    | `IsConstructor s ->
+      (function [a] ->
+        Format.fprintf ppf "@[<hv 2>(%s@ %a)@]" ("(_ is " ^ s ^ ")") (pp_print_term_node safe pvar) a
+      | _ -> assert false)
+
+    | `Selector (s, _) ->
+      (function [a] ->
+        Format.fprintf ppf "@[<hv 2>%s(%a)@]" s (pp_print_term_node safe pvar) a
+      | _ -> assert false)
+
+    (* UF application: print as f(arg1, arg2, ...) *)
+    | `UF sym ->
+      let name = UfSymbol.name_of_uf_symbol sym in
+      (function args ->
+        Format.fprintf ppf "@[<hv 2>%s(%a)@]"
+          name
+          (pp_print_list (pp_print_term_node safe pvar) ", ") args)
       
 
 (* Pretty-print a hashconsed term *)
@@ -3316,6 +3335,20 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
 (* Return expression of a numeral *)
 let mk_int_expr n = Term.mk_num n
 
+let mk_uf uf_sym ret_type args =
+  { expr_init = Term.mk_uf uf_sym (List.map (fun e -> e.expr_init) args);
+    expr_step = Term.mk_uf uf_sym (List.map (fun e -> e.expr_step) args);
+    expr_type = ret_type }
+
+let mk_is_constructor ctor_name e = {
+  expr_init = Term.mk_is_constructor ctor_name e.expr_init;
+  expr_step = Term.mk_is_constructor ctor_name e.expr_step;
+  expr_type = Type.mk_bool () }
+
+let mk_selector selector_name result_type e = {
+  expr_init = Term.mk_selector selector_name result_type e.expr_init;
+  expr_step = Term.mk_selector selector_name result_type e.expr_step;
+  expr_type = result_type }
 
 let mk_of_expr ?as_type expr = 
 

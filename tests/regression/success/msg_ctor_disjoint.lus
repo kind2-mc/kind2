@@ -1,0 +1,9 @@
+datatype Msg = Atomic (s1: int) | Enc (s1: Msg, s2: Msg) | Pair (s1: Msg, s2: Msg);
+
+node main(n: int; m1, m2, m3, m4: Msg) returns (ok: bool);
+let
+  ok = Atomic(n) <> Enc(m1, m2)
+       and Atomic(n) <> Pair(m1, m2)
+       and Enc(m1, m2) <> Pair(m3, m4);
+  check ok;
+tel
