@@ -91,7 +91,14 @@ improvements=()
 errors=()
 
 while read -r name hr hw br bw; do
-  if [ "$br" = "Invalid" ] && [ "$hr" = "Valid" ]; then
+  # A property that flips between Valid and Invalid vs. the base is a soundness
+  # discrepancy in one direction or the other:
+  #   base Invalid -> head Valid  : the PR proves a falsifiable property
+  #                                 (unsound for verification).
+  #   base Valid   -> head Invalid: the PR reports a counterexample for a valid
+  #                                 property (unsound for falsification).
+  if { [ "$br" = "Invalid" ] && [ "$hr" = "Valid" ]; } \
+     || { [ "$br" = "Valid" ] && [ "$hr" = "Invalid" ]; }; then
     soundness+=("$name|$br|$hr")
   elif [ "$br" = "Valid" ] && [ "$hr" != "Valid" ] && [ "$hr" != "Timeout" ]; then
     regressions+=("$name|$br|$hr")
@@ -112,7 +119,7 @@ done < "$joined"
 # Errors fail the check independently of regressions/soundness; the headline
 # shows the most severe issue but every applicable table is rendered below.
 if [ "${#soundness[@]}" -gt 0 ]; then
-  verdict=":x: **Soundness bug** — the PR reports a property Valid that the base found Invalid."
+  verdict=":x: **Soundness bug** — the PR flips ${#soundness[@]} property(ies) between Valid and Invalid vs. the base."
   exit_code=2
 elif [ "${#regressions[@]}" -gt 0 ]; then
   verdict=":x: **Regression** — the PR changes ${#regressions[@]} result(s) for the worse."

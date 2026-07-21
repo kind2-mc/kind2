@@ -36,10 +36,13 @@ Driven by [`.github/workflows/kind2-pr-benchmarks.yml`](../../.github/workflows/
 - `compare-benchmarks.sh <head_stat> <base_stat> [summary_file]`
   Joins the two stat files and writes a Markdown report (to
   `$GITHUB_STEP_SUMMARY` in CI). Exit codes:
-  - `2` — soundness bug: base `Invalid` → head `Valid`
-  - `1` — regression: base `Valid` → head not `Valid`/`Timeout`, or
-           base `Invalid` → head not `Invalid`/`Timeout`
-  - `0` — no regressions
+  - `2` — soundness bug: the head flips a property between `Valid` and `Invalid`
+          vs. the base, in either direction — base `Invalid` → head `Valid`
+          (unsound for verification) or base `Valid` → head `Invalid` (unsound
+          for falsification)
+  - `1` — regression: base `Valid`/`Invalid` → head `Error` (a solved benchmark
+          the PR can no longer solve, other than a noisy `Timeout`)
+  - `0` — no regressions or soundness bugs
 
   A head `Timeout` where the base solved the benchmark is reported for
   information only, not treated as a regression (CI runner timing is noisy).
