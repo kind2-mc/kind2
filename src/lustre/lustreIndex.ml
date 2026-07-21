@@ -25,14 +25,23 @@ open Lib
 (* Indexes                                                                *)
 (* ********************************************************************** *)
 
+(* Metadata tag carried by a TupleIndex to distinguish map encoding entries
+   from ordinary Lustre tuple fields. A plain tuple field has [None]; the
+   presence/domain array of a compiled map has [Some MapDomain]; the value
+   array has [Some MapValue]. *)
+type map_index_metadata = MapDomain | MapValue
+
 (* A single index entry *)
 type one_index = 
 
   (* Record field *)
   | RecordIndex of string
 
-  (* Tuple field *)
-  | TupleIndex of int
+  (* Tuple field, optionally tagged as a map domain/value array entry.
+     [TupleIndex (i, None)] is an ordinary Lustre tuple element at position i.
+     [TupleIndex (0, Some MapDomain)] is the presence/domain array of a map.
+     [TupleIndex (1, Some MapValue)] is the value array of a map. *)
+  | TupleIndex of int * map_index_metadata option
 
   (* List element *)
   | ListIndex of int
@@ -60,9 +69,11 @@ let pp_print_one_index' db = function
   
   | false ->
 
-    (function ppf -> function 
+    (function ppf -> function
        | RecordIndex _ -> ()
-       | TupleIndex i -> Format.fprintf ppf "(%d)" i
+       | TupleIndex (i, None) -> Format.fprintf ppf "(%d)" i 
+       | TupleIndex (_, Some MapDomain) -> Format.fprintf ppf "(dom)"
+       | TupleIndex (_, Some MapValue) -> Format.fprintf ppf "(val)"
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
        | ArrayVarIndex _ -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
@@ -75,7 +86,9 @@ let pp_print_one_index' db = function
 
     (function ppf -> function 
        | RecordIndex i -> Format.fprintf ppf ".%s" i
-       | TupleIndex i -> Format.fprintf ppf "_%d" i
+       | TupleIndex (i, None) -> Format.fprintf ppf "_%d" i
+       | TupleIndex (_, Some MapDomain) -> Format.fprintf ppf "_0"
+       | TupleIndex (_, Some MapValue) -> Format.fprintf ppf "_1"
        | ListIndex i -> Format.fprintf ppf "_%d" i
        | ArrayIntIndex i -> Format.fprintf ppf "_%d" i
        | ArrayVarIndex _ ->  Format.fprintf ppf "_X%d" db
@@ -120,6 +133,14 @@ let empty_index = []
 (* An index is a sequence of index entries *)
 type index = one_index list
 
+let compare_map_metadata ma mb = match ma, mb with
+  | None, None
+  | Some MapDomain, Some MapDomain
+  | Some MapValue, Some MapValue -> 0
+  | None, Some _
+  | Some MapDomain, Some MapValue -> -1
+  | Some _, None
+  | Some MapValue, Some MapDomain -> 1
 
 (* Comparison of indexes *)
 let compare_one_index a b = match a, b with 
@@ -127,7 +148,9 @@ let compare_one_index a b = match a, b with
   (* Use polymorphic comparison on strings and integers *)
   | RecordIndex a, RecordIndex b
   | AbstractTypeIndex a, AbstractTypeIndex b -> String.compare a b
-  | TupleIndex a, TupleIndex b
+  | TupleIndex (a, ma), TupleIndex (b, mb) ->
+    let c = Int.compare a b in
+    if c <> 0 then c else compare_map_metadata ma mb
   | ListIndex a, ListIndex b
   | ArrayIntIndex a, ArrayIntIndex b -> Int.compare a b
   | AdtTagIndex a, AdtTagIndex b -> String.compare a b
@@ -168,8 +191,8 @@ let compare_one_index a b = match a, b with
   | ListIndex _, AdtPayloadIndex _
   | ListIndex _, AbstractTypeIndex _ -> 1 
 
-  (* Integer array indexes are greater than array variables, map indexes,
-     ADT indexes, and abstract type indexes *)
+  (* Integer array indexes are greater than array variables, ADT indexes,
+     and abstract type indexes *)
   | ArrayIntIndex _, RecordIndex _
   | ArrayIntIndex _, TupleIndex _
   | ArrayIntIndex _, ListIndex _ -> -1
@@ -179,8 +202,7 @@ let compare_one_index a b = match a, b with
   | ArrayIntIndex _, AdtPayloadIndex _
   | ArrayIntIndex _, AbstractTypeIndex _ -> 1
 
-  (* Array variable indexes are greater than map indexes, ADT indexes,
-   * and abstract type indexes *)
+  (* Array variable indexes are greater than ADT indexes and abstract type indexes *)
   | ArrayVarIndex _, RecordIndex _
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ListIndex _
@@ -190,7 +212,7 @@ let compare_one_index a b = match a, b with
   | ArrayVarIndex _, AdtPayloadIndex _
   | ArrayVarIndex _, AbstractTypeIndex _ -> 1
 
-  (* Map indexes are greater than ADT indexes and abstract type indexes *)
+  (* SetMap indexes are greater than ADT indexes and abstract type indexes *)
   | SetMapIndex _, RecordIndex _
   | SetMapIndex _, ArrayIntIndex _
   | SetMapIndex _, ListIndex _
@@ -210,7 +232,7 @@ let compare_one_index a b = match a, b with
   | AdtTagIndex _, AdtPayloadIndex _
   | AdtTagIndex _, AbstractTypeIndex _ -> 1
 
-  (* ADT payload indexes are greater only than abstract type indexes *)
+  (* ADT payload indexes are greater than abstract type indexes *)
   | AdtPayloadIndex _, RecordIndex _
   | AdtPayloadIndex _, TupleIndex _
   | AdtPayloadIndex _, ListIndex _
@@ -237,8 +259,10 @@ let equal_one_index a b = match a,b with
   | RecordIndex a, RecordIndex b
   | AbstractTypeIndex a, AbstractTypeIndex b -> a = b
 
+  (* TupleIndex: both the integer position and the metadata tag must match *)
+  | TupleIndex (a, ma), TupleIndex (b, mb) -> a = b && ma = mb
+
   (* Integer indexes are equal if the integers are *)
-  | TupleIndex a, TupleIndex b
   | ListIndex a, ListIndex b
   | ArrayIntIndex a, ArrayIntIndex b -> a = b
 
@@ -351,7 +375,7 @@ let filter_array_indices index = List.filter (
 
 let compatible_one_index i1 i2 = match i1, i2 with
   | RecordIndex s1, RecordIndex s2 -> s1 = s2
-  | TupleIndex i1, TupleIndex i2 -> i1 = i2
+  | TupleIndex (i1, ma1), TupleIndex (i2, ma2) -> i1 = i2 && ma1 = ma2
   | ListIndex i1, ListIndex i2 -> i1 = i2
   | ArrayIntIndex i1, ArrayIntIndex i2 -> i1 = i2
   | ArrayIntIndex _, ArrayVarIndex _
