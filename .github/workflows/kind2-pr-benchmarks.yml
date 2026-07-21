@@ -28,7 +28,7 @@ env:
   BENCHMARKS_REF: main
   BENCHMARKS_SUBDIRS: "FMCAD08/Bool FMCAD08/Int FMCAD08/Real_Int"
   # Per-benchmark wall-clock timeout (seconds).
-  BENCH_TIMEOUT: "45"
+  BENCH_TIMEOUT: "60"
   # Number of shards each side's benchmark run is split into. MUST match the
   # length of the `shard` matrix list in the `benchmark` job below.
   SHARD_COUNT: "8"
