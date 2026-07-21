@@ -5,6 +5,12 @@ on:
     branches: [ main ]
     tags: [ 'v[0-9]+.[0-9]+.[0-9]+' ]
 
+# Cancel a superseded build on a new push to main, but never cancel a tag
+# (release) build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
 jobs:
   build-and-publish:
     if: github.repository == 'kind2-mc/kind2'
