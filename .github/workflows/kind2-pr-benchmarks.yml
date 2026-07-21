@@ -33,6 +33,10 @@ env:
   # length of the `shard` matrix list in the `benchmark` job below.
   SHARD_COUNT: "8"
   OCAML_VERSION: 4.14.2
+  # SMT solvers used by the benchmark run (Z3 as solver, MathSAT for
+  # interpolation). Bumping either version invalidates the solver cache.
+  Z3_VERSION: "4.15.3"
+  MATHSAT_VERSION: "5.6.17"
 
 jobs:
   build:
@@ -71,9 +75,36 @@ jobs:
           name: kind2-${{ matrix.side }}
           path: bin/kind2
 
+  # Download Z3 and MathSAT once and cache them, so the many benchmark shards
+  # (and future runs) restore the binaries instead of re-downloading them.
+  solvers:
+    if: ${{ !contains(github.event.pull_request.body, '%notest') }}
+    name: solvers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache SMT solvers
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/solver-bin
+          key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
+
+      - name: Download SMT solvers (on cache miss)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/solver-bin
+          Z3_ZIP_NAME=z3-${Z3_VERSION}-x64-glibc-2.39
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/$Z3_ZIP_NAME.zip
+          unzip -q $Z3_ZIP_NAME.zip
+          cp $Z3_ZIP_NAME/bin/z3 ~/solver-bin/
+          MATHSAT_DIR=mathsat-${MATHSAT_VERSION}-linux-x86_64
+          wget -q https://mathsat.fbk.eu/release/$MATHSAT_DIR.tar.gz
+          tar xzf $MATHSAT_DIR.tar.gz
+          cp $MATHSAT_DIR/bin/mathsat ~/solver-bin/
+
   benchmark:
     name: benchmark (${{ matrix.side }} ${{ matrix.shard }})
-    needs: build
+    needs: [build, solvers]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -104,20 +135,17 @@ jobs:
       - name: Make Kind 2 executable
         run: chmod +x kind2-bin/kind2
 
-      - name: Install Z3
-        run: |
-          Z3_VERSION=4.15.3
-          Z3_ZIP_NAME=z3-$Z3_VERSION-x64-glibc-2.39
-          wget -q https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
-          unzip -q $Z3_ZIP_NAME.zip
-          sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
+      - name: Restore SMT solvers (from cache)
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/solver-bin
+          key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
+          fail-on-cache-miss: true
 
-      - name: Install MathSAT
+      - name: Install SMT solvers
         run: |
-          MATHSAT_DIR=mathsat-5.6.17-linux-x86_64
-          wget -q https://mathsat.fbk.eu/release/$MATHSAT_DIR.tar.gz
-          tar xzf $MATHSAT_DIR.tar.gz
-          sudo cp $MATHSAT_DIR/bin/mathsat /usr/bin/
+          sudo cp ~/solver-bin/z3 ~/solver-bin/mathsat /usr/bin/
+          z3 --version
           mathsat -version | head -1
 
       - name: Checkout benchmarks
