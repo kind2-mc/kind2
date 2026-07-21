@@ -84,7 +84,7 @@ jobs:
     steps:
       - name: Cache SMT solvers
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/solver-bin
           key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
@@ -136,7 +136,7 @@ jobs:
         run: chmod +x kind2-bin/kind2
 
       - name: Restore SMT solvers (from cache)
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/solver-bin
           key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
