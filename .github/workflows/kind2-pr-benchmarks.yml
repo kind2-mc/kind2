@@ -112,6 +112,15 @@ jobs:
           unzip -q $Z3_ZIP_NAME.zip
           sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
 
+      - name: Install cvc5
+        run: |
+          CVC5_VERSION=1.3.4
+          wget -q https://github.com/cvc5/cvc5/releases/download/cvc5-$CVC5_VERSION/cvc5-Linux-x86_64-static.zip
+          unzip -q cvc5-Linux-x86_64-static.zip
+          sudo cp "$(find . -path '*/bin/cvc5' -type f | head -1)" /usr/bin/cvc5
+          sudo chmod +x /usr/bin/cvc5
+          cvc5 --version | head -1
+
       - name: Checkout benchmarks
         uses: actions/checkout@v6
         with:
@@ -125,6 +134,11 @@ jobs:
       - name: Run benchmarks (${{ matrix.side }}, shard ${{ matrix.shard }})
         env:
           SHARD_INDEX: ${{ matrix.shard }}
+          # Use cvc5 as the SMT solver and cvc5's QE for IC3IA interpolation.
+          # cvc5's quantifier elimination stays within the input signature,
+          # avoiding the malformed output (non-linear terms / fresh constants)
+          # that Z3's qe2 can produce on some benchmarks.
+          KIND2_EXTRA_ARGS: "--smt_solver cvc5 --smt_itp_solver cvc5QE"
         run: |
           bash scripts/benchmarks/run-benchmarks.sh \
             "$PWD/kind2-bin/kind2" \
