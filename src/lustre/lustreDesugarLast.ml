@@ -67,6 +67,16 @@ let mk_fresh_last_name x =
   i := !i + 1;
   HString.mk_hstring name
 
+(* Fresh local name holding the (shared) frame-initialization value of [x]. The
+   [last_local] segment makes it a Kind 2 generated (invisible) local, and the
+   leading digit guarantees it cannot clash with user-written identifiers. *)
+let mk_fresh_init_name x =
+  let name =
+    (string_of_int !i) ^ "_" ^ GI.last_local ^ "_init_" ^ (HString.string_of_hstring x)
+  in
+  i := !i + 1;
+  HString.mk_hstring name
+
 (** Returns the fresh local name associated with frame variable [x], creating it
     (and recording it in [acc], together with the position of its first use) on
     first use. [acc] preserves insertion order. *)
@@ -217,31 +227,108 @@ let mk_type_lookup cctds ctds nlds =
   in
   inputs @ outputs @ locals
 
-(** Generates, for each recorded last-variable, its fresh local declaration and
-    defining equation [last_x = init_x -> pre x]. *)
+(* Build the expression [base\[i0\]\[i1\]...] indexing [base_name] by the index
+   variables [inds] (left to right). Returns [base_name] itself when [inds] is
+   empty. *)
+let array_access pos base_name inds =
+  List.fold_left (fun acc ind ->
+    A.IndexAccess (pos, acc, A.Ident (pos, ind), A.Array))
+    (A.Ident (pos, base_name)) inds
+
+(** Generates, for each recorded last-variable [x], its fresh local declaration
+    and defining equation. When [x] is initialized in the frame the definition is
+    [init_x -> pre x] (initialized by the frame, then holding the previous value);
+    with no initialization it is just [pre x].
+
+    A frame variable defined element-wise ([x\[inds\] = ...]) is an array, and its
+    last-variable is defined by the corresponding recursive array equation
+    [last_x\[inds\] = init -> pre x\[inds\]] (a plain [last_x = init -> pre x]
+    would be ill-typed, mixing an element and the whole array). *)
 let gen_last_defs f_pos type_lookup nes last_vars =
   R.seq (List.map (fun (x, (last_name, pos)) ->
     match List.assoc_opt x type_lookup with
     | None -> mk_error pos (UnknownIdentifier x)
     | Some ty ->
-      let pre_x = A.Pre (f_pos, A.Ident (f_pos, x)) in
-      (* Initialization from the frame block, if any. *)
-      let init = List.find_map (function
-        | A.Equation (_, A.StructDef (_, [A.SingleIdent (_, id)]), e) when id = x -> Some e
-        | A.Equation (_, A.StructDef (_, [A.ArrayDef (_, id, _)]), e) when id = x -> Some e
-        | _ -> None) nes
-      in
-      let rhs = match init with
-        | Some init -> A.Arrow (AH.pos_of_expr init, init, pre_x)
-        | None -> pre_x
-      in
       let decl = A.NodeVarDecl (f_pos, (f_pos, last_name, ty, A.ClockTrue)) in
-      let eq =
-        A.Body (A.Equation (f_pos,
-          A.StructDef (f_pos, [A.SingleIdent (f_pos, last_name)]), rhs))
+      (* Find x's initialization equation in the frame block, if any. *)
+      let init_eq = List.find_opt (function
+        | A.Equation (_, A.StructDef (_, [A.SingleIdent (_, id)]), _)
+        | A.Equation (_, A.StructDef (_, [A.ArrayDef (_, id, _)]), _) -> id = x
+        | _ -> false) nes
+      in
+      let eq = match init_eq with
+        | Some (A.Equation (_, A.StructDef (_, [A.ArrayDef (apos, _, inds)]), init)) ->
+          (* Array frame variable: define last_x element-wise. *)
+          let pre_elem = A.Pre (f_pos, array_access f_pos x inds) in
+          let rhs = A.Arrow (AH.pos_of_expr init, init, pre_elem) in
+          A.Body (A.Equation (f_pos,
+            A.StructDef (f_pos, [A.ArrayDef (apos, last_name, inds)]), rhs))
+        | Some (A.Equation (_, _, init)) ->
+          (* Scalar frame variable with initialization. *)
+          let pre_x = A.Pre (f_pos, A.Ident (f_pos, x)) in
+          let rhs = A.Arrow (AH.pos_of_expr init, init, pre_x) in
+          A.Body (A.Equation (f_pos,
+            A.StructDef (f_pos, [A.SingleIdent (f_pos, last_name)]), rhs))
+        | _ ->
+          (* No frame initialization. *)
+          let pre_x = A.Pre (f_pos, A.Ident (f_pos, x)) in
+          A.Body (A.Equation (f_pos,
+            A.StructDef (f_pos, [A.SingleIdent (f_pos, last_name)]), pre_x))
       in
       R.ok (decl, eq)
   ) last_vars)
+
+(** For each frame variable that is referenced through [last] (i.e. appears in
+    [last_vars]) and is initialized in the frame, share the initialization value:
+    introduce a fresh local [init_x] defined by [init_x = <init>] and rewrite the
+    frame initialization [x = <init>] to [x = init_x]. The generated
+    last-definition (see [gen_last_defs]) then also references [init_x] because it
+    reads the rewritten frame initialization. Array frame variables (initialized
+    element-wise by [x\[inds\] = <init>]) are shared the same way, per element
+    ([init_x\[inds\] = <init>], [x\[inds\] = init_x\[inds\]]). Returns the rewritten
+    frame initializations together with the new locals and their defining
+    equations.
+
+    Sharing guarantees the initialization is evaluated exactly once rather than
+    being duplicated into the generated last-definition. This is required for
+    correctness whenever the initialization cannot be freely duplicated, e.g. an
+    'any'/'choose' operator (each of which desugars, in lustreGenNodes, into a
+    call to a fresh internal node named after its source position, so duplicating
+    it introduces both an extra nondeterministic choice and a duplicate-name
+    error). It is done unconditionally so that any such construct, present or
+    future, is handled without special-casing. *)
+let share_frame_inits type_lookup last_vars nes =
+  let last_names = List.map fst last_vars in
+  let shared x = List.mem x last_names && List.mem_assoc x type_lookup in
+  let defs = ref [] in
+  let nes = List.map (fun ne -> match ne with
+    | A.Equation (epos, A.StructDef (spos, [A.SingleIdent (ipos, x)]), init)
+      when shared x ->
+      let ty = List.assoc x type_lookup in
+      let init_name = mk_fresh_init_name x in
+      let decl = A.NodeVarDecl (epos, (epos, init_name, ty, A.ClockTrue)) in
+      let eq = A.Body (A.Equation (epos,
+        A.StructDef (epos, [A.SingleIdent (epos, init_name)]), init))
+      in
+      defs := !defs @ [(decl, eq)];
+      A.Equation (epos, A.StructDef (spos, [A.SingleIdent (ipos, x)]),
+                  A.Ident (ipos, init_name))
+    | A.Equation (epos, A.StructDef (spos, [A.ArrayDef (apos, x, inds)]), init)
+      when shared x ->
+      let ty = List.assoc x type_lookup in
+      let init_name = mk_fresh_init_name x in
+      let decl = A.NodeVarDecl (epos, (epos, init_name, ty, A.ClockTrue)) in
+      (* init_x[inds] = <init> *)
+      let eq = A.Body (A.Equation (epos,
+        A.StructDef (epos, [A.ArrayDef (apos, init_name, inds)]), init))
+      in
+      defs := !defs @ [(decl, eq)];
+      (* x[inds] = init_x[inds] *)
+      A.Equation (epos, A.StructDef (spos, [A.ArrayDef (apos, x, inds)]),
+                  array_access apos init_name inds)
+    | _ -> ne
+  ) nes in
+  (nes, !defs)
 
 (* {1 Node processing} *)
 
@@ -253,10 +340,15 @@ let desugar_node_item type_lookup ni = match ni with
     let acc = ref [] in
     let nes = List.map (replace_last_eq acc) nes in
     let nis = List.map (replace_last_ni acc) nis in
+    (* Share frame initializations with the generated last-variables so that the
+       initialization is evaluated once rather than duplicated (required for
+       non-duplicable initializations such as 'any'/'choose'). *)
+    let nes, share_defs = share_frame_inits type_lookup !acc nes in
     let* defs = gen_last_defs pos type_lookup nes !acc in
-    let decls = List.map fst defs in
+    let decls = List.map fst share_defs @ List.map fst defs in
+    let share_eqs = List.map snd share_defs in
     let last_eqs = List.map snd defs in
-    R.ok (decls, last_eqs @ [A.FrameBlock (pos, vars, nes, nis)])
+    R.ok (decls, share_eqs @ last_eqs @ [A.FrameBlock (pos, vars, nes, nis)])
   | _ ->
     (match find_last_ni ni with
      | Some (pos, x) -> mk_error pos (MisplacedLastError x)
