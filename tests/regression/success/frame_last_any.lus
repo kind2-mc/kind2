@@ -1,0 +1,19 @@
+node count (m: bool) returns (x: int);
+let
+  frame (x)
+    x = any { v: int | v >= 0 };
+  let
+    when m then
+      x = last x + 1;
+    end
+  tel
+  check "nonneg" x >= 0;
+tel
+
+node main (m: bool) returns (ok: bool);
+var x: int;
+let
+  x = count(m);
+  ok = x >= 0;
+  check "ok" ok;
+tel
