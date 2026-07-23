@@ -46,6 +46,7 @@ module type Sig = sig
     | F_pt    (** Plain text *)
     | F_xml   (** XML *)
     | F_json  (** JSON *)
+    | F_ijson (** Incremental JSON object stream *)
     | F_relay (** Relayed *) 
 
   (** Returns the log format *)
@@ -63,6 +64,14 @@ module type Sig = sig
   (** Set log format to JSON *)
   val set_log_format_json : unit -> unit
 
+  (** Set log format to incremental JSON *)
+  val set_log_format_ijson : unit -> unit
+
+  (** Print the separator between JSON objects 
+  (could be nothing for incremental json, or comma 
+  for standard json) *)
+  val print_json_sep : Format.formatter -> unit
+  
   (** Returns whether to show properties' constraints*)
   val get_show_props : unit -> bool
   

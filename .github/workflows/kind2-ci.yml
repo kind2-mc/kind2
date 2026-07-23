@@ -3,6 +3,11 @@ name: Kind2 CI
 
 on: [push, pull_request]
 
+# A new push to a branch cancels this workflow's in-progress runs for it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   kind2-build:
     strategy:

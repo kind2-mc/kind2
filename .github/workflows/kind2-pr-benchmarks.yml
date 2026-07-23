@@ -1,0 +1,211 @@
+name: Kind 2 PR Benchmarks
+
+# Builds the pull request's Kind 2 and the base branch's Kind 2, benchmarks each
+# over a fixed set, and fails the check on a regression or soundness bug. This
+# replaces the old remote-cluster webhook (webhook-handler + test_pr).
+#
+# Runs as its own workflow so it executes concurrently with the main Kind 2 CI.
+# Pipeline: build each side (head/base) once, then fan the benchmark run out
+# across SHARD_COUNT shards per side (round-robin over the sorted file list),
+# then join every shard's results in a final compare job.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to a branch cancels this workflow's in-progress runs for it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Benchmark set: the Lustre files under FMCAD08/{Bool,Int,Real_Int} on the
+  # main branch of kind2-mc/kind2-benchmarks. BENCHMARKS_SUBDIRS is a
+  # space-separated list of directories (relative to the repo root) to run.
+  BENCHMARKS_REPO: kind2-mc/kind2-benchmarks
+  BENCHMARKS_REF: main
+  BENCHMARKS_SUBDIRS: "FMCAD08/Bool FMCAD08/Int FMCAD08/Real_Int"
+  # Per-benchmark wall-clock timeout (seconds).
+  BENCH_TIMEOUT: "120"
+  # Number of shards each side's benchmark run is split into. MUST match the
+  # length of the `shard` matrix list in the `benchmark` job below.
+  SHARD_COUNT: "8"
+  OCAML_VERSION: 4.14.2
+  # SMT solvers used by the benchmark run (Z3 as solver, MathSAT for
+  # interpolation). Bumping either version invalidates the solver cache.
+  Z3_VERSION: "4.15.3"
+  MATHSAT_VERSION: "5.6.17"
+
+jobs:
+  build:
+    # Honor "%notest" in the PR description, matching the old cluster hook.
+    if: ${{ !contains(github.event.pull_request.body, '%notest') }}
+    name: build (${{ matrix.side }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        side: [head, base]
+    steps:
+      - name: Checkout Kind 2 (${{ matrix.side }})
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.side == 'head' && github.event.pull_request.head.sha || github.event.pull_request.base.sha }}
+
+      - name: Update package information
+        run: sudo apt-get update -y
+
+      - name: Set up OCaml ${{ env.OCAML_VERSION }}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ env.OCAML_VERSION }}
+          cache-prefix: pr-benchmarks-${{ matrix.side }}
+
+      - name: Build Kind 2 (${{ matrix.side }})
+        run: |
+          opam install -y . --deps-only
+          opam exec make build
+
+      - name: Upload Kind 2 binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: kind2-${{ matrix.side }}
+          path: bin/kind2
+
+  # Download Z3 and MathSAT once and cache them, so the many benchmark shards
+  # (and future runs) restore the binaries instead of re-downloading them.
+  solvers:
+    if: ${{ !contains(github.event.pull_request.body, '%notest') }}
+    name: solvers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache SMT solvers
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: ~/solver-bin
+          key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
+
+      - name: Download SMT solvers (on cache miss)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/solver-bin
+          Z3_ZIP_NAME=z3-${Z3_VERSION}-x64-glibc-2.39
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/$Z3_ZIP_NAME.zip
+          unzip -q $Z3_ZIP_NAME.zip
+          cp $Z3_ZIP_NAME/bin/z3 ~/solver-bin/
+          MATHSAT_DIR=mathsat-${MATHSAT_VERSION}-linux-x86_64
+          wget -q https://mathsat.fbk.eu/release/$MATHSAT_DIR.tar.gz
+          tar xzf $MATHSAT_DIR.tar.gz
+          cp $MATHSAT_DIR/bin/mathsat ~/solver-bin/
+
+  benchmark:
+    name: benchmark (${{ matrix.side }} ${{ matrix.shard }})
+    needs: [build, solvers]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      # Run every (side, shard) independently; a failure on one shard still lets
+      # the others finish, which aids diagnosis.
+      fail-fast: false
+      matrix:
+        side: [head, base]
+        # This list length MUST equal SHARD_COUNT above.
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+
+    steps:
+      # Drive the run with the PR head's copy of the harness, so it works even
+      # when the base commit predates these scripts.
+      - name: Checkout benchmark harness (PR head)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: scripts/benchmarks
+          sparse-checkout-cone-mode: false
+
+      - name: Download Kind 2 (${{ matrix.side }})
+        uses: actions/download-artifact@v7
+        with:
+          name: kind2-${{ matrix.side }}
+          path: kind2-bin
+
+      - name: Make Kind 2 executable
+        run: chmod +x kind2-bin/kind2
+
+      - name: Restore SMT solvers (from cache)
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/solver-bin
+          key: smt-solvers-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
+          fail-on-cache-miss: true
+
+      - name: Install SMT solvers
+        run: |
+          sudo cp ~/solver-bin/z3 ~/solver-bin/mathsat /usr/bin/
+          z3 --version
+          mathsat -version | head -1
+
+      - name: Checkout benchmarks
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.BENCHMARKS_REPO }}
+          ref: ${{ env.BENCHMARKS_REF }}
+          path: benchmarks
+          # If the benchmarks repository is private, provide a token with read
+          # access (e.g. a fine-grained PAT stored as a secret):
+          # token: ${{ secrets.BENCHMARKS_TOKEN }}
+
+      - name: Run benchmarks (${{ matrix.side }}, shard ${{ matrix.shard }})
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          # Default options: Z3 as the SMT solver, MathSAT as the interpolating
+          # solver (auto-detected). MathSAT produces proper interpolants, so
+          # IC3IA never takes Z3's qe2 QE-interpolation path, avoiding the
+          # malformed output (non-linear terms / fresh constants) it can emit.
+        run: |
+          bash scripts/benchmarks/run-benchmarks.sh \
+            "$PWD/kind2-bin/kind2" \
+            "${BENCH_TIMEOUT}" \
+            "$RUNNER_TEMP/${{ matrix.side }}-${{ matrix.shard }}.stat" \
+            benchmarks ${BENCHMARKS_SUBDIRS}
+
+      - name: Upload stat shard
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-stat-${{ matrix.side }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/${{ matrix.side }}-${{ matrix.shard }}.stat
+
+  compare:
+    name: compare
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout benchmark harness (PR head)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: scripts/benchmarks
+          sparse-checkout-cone-mode: false
+
+      - name: Download stat shards
+        uses: actions/download-artifact@v7
+        with:
+          pattern: benchmark-stat-*
+          merge-multiple: true
+          path: stats
+
+      - name: Assemble per-side stat files
+        run: |
+          cat stats/head-*.stat > head.stat
+          cat stats/base-*.stat > base.stat
+          echo "head: $(wc -l < head.stat) rows, base: $(wc -l < base.stat) rows"
+
+      - name: Compare results
+        run: |
+          bash scripts/benchmarks/compare-benchmarks.sh \
+            head.stat \
+            base.stat \
+            "$GITHUB_STEP_SUMMARY"

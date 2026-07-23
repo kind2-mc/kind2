@@ -93,7 +93,10 @@ let pp_print_term ppf term =
 
 let pp_print_term ppf term =
   if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
-    Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
+        if Flags.log_format_json () || Flags.log_format_ijson () then
+          Format.fprintf ppf "%a" pp_print_term term
+        else
+          Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
   else pp_print_term ppf term
 
 
@@ -143,7 +146,11 @@ let pp_print_map_as_array as_type ppf m =
       Format.fprintf ppf "[@[<hov 0>";
     done;
     let first = ref true in
+    let num_printed = ref 0 in
+    let over_printed = ref false in
+    let max_printed = Flags.arr_elements_printed () in
     MIL.iter (fun l v ->
+        if (!num_printed >= max_printed) && max_printed != -1 then over_printed := true else (
         Array.blit current 0 prev 0 dim;
         Array.blit (Array.of_list l) 0 current 0 dim;
         let cpt = ref 0 in
@@ -165,8 +172,12 @@ let pp_print_map_as_array as_type ppf m =
         in
         Format.fprintf ppf "%*s%a"
           (val_width - w) "" (pp_print_value_term ty) v;
+        incr num_printed;
         first := false;
-      ) m;
+      )) m;
+    if !over_printed then
+      Format.fprintf ppf "%s..."
+        (if !num_printed >= 1 then ", " else "");
     for _ = 1 to dim do
       Format.fprintf ppf "]@]";
     done

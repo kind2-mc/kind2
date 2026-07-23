@@ -165,6 +165,8 @@ val include_dirs : unit -> string list
 type real_precision = [`Rational | `Float]
 val real_precision : unit -> real_precision
 
+val arr_elements_printed : unit -> int
+
 (** Minimizes and logs invariants as contracts. *)
 val log_invs : unit -> bool
 
@@ -201,8 +203,11 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
-(** Output in XML format *)
+(** Output in JSON format *)
 val log_format_json : unit -> bool
+
+(** Output in incremental JSON format *)
+val log_format_ijson : unit -> bool
 
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
