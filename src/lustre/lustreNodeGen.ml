@@ -1360,33 +1360,45 @@ and compile_ast_expr
   and compile_struct_update expr1 index expr2 =
     let cexpr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
-    let rec aux accum = function
-      | [] -> List.rev accum
-      | A.MapIndex _ :: _ -> assert false 
-      | A.SetIndex _ :: _ -> assert false
-      | A.Label (_, index) :: tl ->
-        let index = HString.string_of_hstring index in
-        let accum' = X.RecordIndex index :: accum in
-        if X.mem_prefix (List.rev accum') cexpr1 then
-          aux accum' tl
-        else assert false (* guaranteed by type checker *)
-      | A.Index (_, index_expr) :: tl ->
-        let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
-        let index = (index_cexpr |> X.values |> List.hd).expr_init in
-        let cexpr_sub = X.find_prefix accum cexpr1 in
-        let index_term = (index : E.expr :> Term.t ) in
-        let value = Term.numeral_of_term index_term |> Numeral.to_int in
-        let i = if Term.is_numeral index_term then
-            (match X.choose cexpr_sub with
-              | X.ArrayVarIndex _ :: _, _
-              | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
-              | X.TupleIndex _ :: _,_ -> X.TupleIndex (value, None)
-              | _ -> assert false (* guaranteed by type checker *))
-          else (match X.choose cexpr_sub with
-            | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
-            | _ -> assert false (* guaranteed by type checker *) )
-        in aux (i :: accum) tl
-      | A.GenericIndex _ :: _ -> assert false (* converted to another index in the normalizer *)
+    (* Struct update of an array whose elements are aggregates (records,
+       tuples, sets, maps, ...). The array dimension is encoded as the
+       *trailing* index of every leaf's path (see [compile_ast_type]), with
+       the aggregate structure appearing first. [struct_update_core] only
+       knows how to update when the array index is at the head of the path,
+       so we peel off the aggregate prefix, run the core update on the
+       trailing array dimension for each element value, and put the prefix
+       back. [cexpr2] (the replacement element) has the same aggregate
+       structure but without the trailing array index, so its leaf at a
+       given prefix is exactly the new element value to store. *)
+    let is_array_one_index = function
+      | X.ArrayVarIndex _ | X.ArrayIntIndex _ -> true
+      | _ -> false
+    in
+    let is_aggregate_array () =
+      match index with
+      | [A.Index _] ->
+        (match X.choose cexpr1 with
+         | key, _ ->
+           (match key with
+            (* Map-tagged tuple indices ([TupleIndex (_, Some _)]) mark a
+               map/set encoding, not a Lustre tuple; a plain
+               [TupleIndex (_, None)] is a genuine tuple and is handled by
+               the core (direct element replacement), so it is excluded
+               here. *)
+            | X.RecordIndex _ :: _
+            | X.SetMapIndex _ :: _
+            | X.ListIndex _ :: _
+            | X.AbstractTypeIndex _ :: _
+            | X.AdtTagIndex _ :: _
+            | X.AdtPayloadIndex _ :: _
+            | X.TupleIndex (_, Some _) :: _ ->
+              (* the array dimension must be the trailing index *)
+              (match List.rev key with
+               | last :: _ -> is_array_one_index last
+               | [] -> false)
+            | _ -> false)
+         | exception Not_found -> false)
+      | _ -> false
     in
     let rec mk_cond_indexes (acc, cpt) li ri =
       match li, ri with
@@ -1416,31 +1428,88 @@ and compile_ast_expr
       | _ :: ri' -> mk_store acc a ri' x
       | [] -> x
     in
-    let cindex = aux X.empty_index index in
-    let cexpr2' = X.fold (fun i v a -> X.add (cindex @ i) v a) cexpr2 X.empty in
-    let over_indices = fun i v a ->
-      try let v' = X.find i cexpr2' in X.add i v' a
-      with Not_found -> try
-        (match i with
-          | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
-          | _ -> raise Not_found);
-        let old_v = List.fold_left (fun (acc, cpt) i ->
-          let kt = match i with 
-          | X.ArrayIntIndex _ -> Type.t_int 
-          | X.ArrayVarIndex b -> E.type_of_expr b 
-          | _ -> assert false 
-          in
-          E.mk_select_and_push acc (E.mk_array_index_var cpt kt), cpt + 1
-        ) (v, 0) i |> fst
-        in let new_v = X.find cindex cexpr2' in
-        if Flags.Arrays.smt () then
-          let v' = mk_store [] v cindex new_v in X.add [] v' a
-        else
-          let v' = E.mk_ite (mk_cond_indexes ([], 0) i cindex) new_v old_v in
-          X.add [] v' a
-        with Not_found -> X.add i v a
+    let struct_update_core cexpr1 cexpr2 =
+      let rec aux accum = function
+        | [] -> List.rev accum
+        | A.MapIndex _ :: _ -> assert false
+        | A.SetIndex _ :: _ -> assert false
+        | A.Label (_, index) :: tl ->
+          let index = HString.string_of_hstring index in
+          let accum' = X.RecordIndex index :: accum in
+          if X.mem_prefix (List.rev accum') cexpr1 then
+            aux accum' tl
+          else assert false (* guaranteed by type checker *)
+        | A.Index (_, index_expr) :: tl ->
+          let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
+          let index = (index_cexpr |> X.values |> List.hd).expr_init in
+          let cexpr_sub = X.find_prefix accum cexpr1 in
+          let index_term = (index : E.expr :> Term.t ) in
+          let i = if Term.is_numeral index_term then
+              let value = Term.numeral_of_term index_term |> Numeral.to_int in
+              (match X.choose cexpr_sub with
+                | X.ArrayVarIndex _ :: _, _
+                | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
+                | X.TupleIndex _ :: _,_ -> X.TupleIndex (value, None)
+                | _ -> assert false (* guaranteed by type checker *))
+            else (match X.choose cexpr_sub with
+              | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
+              | _ -> assert false (* guaranteed by type checker *) )
+          in aux (i :: accum) tl
+        | A.GenericIndex _ :: _ -> assert false (* converted to another index in the normalizer *)
+      in
+      let cindex = aux X.empty_index index in
+      let cexpr2' = X.fold (fun i v a -> X.add (cindex @ i) v a) cexpr2 X.empty in
+      let over_indices = fun i v a ->
+        try let v' = X.find i cexpr2' in X.add i v' a
+        with Not_found -> try
+          (match i with
+            | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
+            | _ -> raise Not_found);
+          let old_v = List.fold_left (fun (acc, cpt) i ->
+            let kt = match i with
+            | X.ArrayIntIndex _ -> Type.t_int
+            | X.ArrayVarIndex b -> E.type_of_expr b
+            | _ -> assert false
+            in
+            E.mk_select_and_push acc (E.mk_array_index_var cpt kt), cpt + 1
+          ) (v, 0) i |> fst
+          in let new_v = X.find cindex cexpr2' in
+          if Flags.Arrays.smt () then
+            let v' = mk_store [] v cindex new_v in X.add [] v' a
+          else
+            let v' = E.mk_ite (mk_cond_indexes ([], 0) i cindex) new_v old_v in
+            X.add [] v' a
+          with Not_found -> X.add i v a
+      in
+      X.fold over_indices cexpr1 X.empty
     in
-    X.fold over_indices cexpr1 X.empty
+    if is_aggregate_array () then
+      (* Peel off the aggregate prefix (everything but the trailing array
+         index), update the array dimension of each element with the core
+         logic, then restore the prefix. *)
+      let all_but_last key = match List.rev key with
+        | _ :: rev_prefix -> List.rev rev_prefix
+        | [] -> []
+      in
+      let prefixes =
+        X.fold
+          (fun key _ acc ->
+            let p = all_but_last key in
+            if List.exists (fun p' -> X.equal_index p p') acc then acc
+            else p :: acc)
+          cexpr1 []
+      in
+      List.fold_left
+        (fun result prefix ->
+          let sub1 = X.find_prefix prefix cexpr1 in
+          let elem = X.find prefix cexpr2 in
+          let elem_trie = X.singleton X.empty_index elem in
+          let sub_result = struct_update_core sub1 elem_trie in
+          X.fold (fun k v acc -> X.add (prefix @ k) v acc) sub_result result)
+        X.empty
+        prefixes
+    else
+      struct_update_core cexpr1 cexpr2
 
   and compile_array_ctor bounds expr size_expr =
     let array_size' = compile_ast_expr cstate ctx bounds map size_expr in

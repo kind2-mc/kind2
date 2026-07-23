@@ -1,0 +1,51 @@
+-- Regression test for a struct update (a[i := v]) of an array whose elements
+-- are aggregates: records, sets, or maps, e.g. responses[id := s] for
+-- responses : set<Request>^N.
+--
+-- Such an update used to raise an internal exception in lustreNodeGen:
+--   * a variable index raised Invalid_argument("numeral_of_term") because the
+--     numeral was extracted before the is_numeral guard; and
+--   * once that was fixed, both numeral and variable indices hit an
+--     "assert false", because the array dimension of an aggregate-element array
+--     is encoded as the *trailing* index of every leaf's path (the aggregate
+--     structure comes first), while the update logic assumed the array index
+--     was at the head of the path.
+--
+-- The update now peels off the aggregate prefix and stores into the trailing
+-- array dimension of each element value.
+
+-- Array of records, both a numeral and a variable index.
+type R = struct { a: int; b: int };
+
+node ArrayOfRecord(i: int; v: R) returns ();
+var arr_n, arr_v: R^3;
+let
+  arr_n = (R {a = 9; b = 8}^3)[1 := v];
+  arr_v = (R {a = 9; b = 8}^3)[i := v];
+
+  check "num-updated" arr_n[1].a = v.a and arr_n[1].b = v.b;
+  check "num-kept" arr_n[0].a = 9 and arr_n[0].b = 8 and arr_n[2].a = 9;
+  check "var-updated" (i >= 0 and i < 3) => (arr_v[i].a = v.a and arr_v[i].b = v.b);
+tel
+
+-- Array of sets, variable index.
+node ArrayOfSet(i: int; v: set<int>) returns ();
+var arr: set<int>^3;
+let
+  arr = ({}@<int>^3)[i := v];
+  check "set-updated"
+    (i >= 0 and i < 3) => (forall (x: int) (x in arr[i]) = (x in v));
+tel
+
+-- Array of maps, both a numeral and a variable index.
+node ArrayOfMap(i: int; v: map<int, int>) returns ();
+var arr_n, arr_v: map<int, int>^3;
+let
+  arr_n = (map[]@<int, int>^3)[1 := v];
+  arr_v = (map[]@<int, int>^3)[i := v];
+
+  check "map-num-updated" forall (k: int) arr_n[1][k] = v[k];
+  check "map-num-kept" forall (k: int) not (k in arr_n[0]);
+  check "map-var-updated"
+    (i >= 0 and i < 3) => (forall (k: int) arr_v[i][k] = v[k]);
+tel
