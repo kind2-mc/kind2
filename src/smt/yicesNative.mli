@@ -18,7 +18,7 @@
 
 (** An interface to the Yices SMT solver in native format.
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+    Use this module through the {!SMTSolver.create_instance} function
  *)
 
 

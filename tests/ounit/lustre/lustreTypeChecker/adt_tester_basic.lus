@@ -2,5 +2,5 @@ datatype Shape = Circle (radius: real) | Rect (width: real, height: real);
 
 node N(s: Shape) returns (b: bool);
 let
-  b = s.Circle?;
+  b = Circle?(s);
 tel

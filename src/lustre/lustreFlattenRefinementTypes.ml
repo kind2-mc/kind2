@@ -257,7 +257,8 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> (A.ex
   | ADTTerm (p, ty_args, ctor, args) ->
     let* ty_args = Res.seq (List.map (flatten_ref_type ctx) ty_args) in
     let* args = Res.seq (List.map rc args) in Ok (ADTTerm (p, ty_args, ctor, args))
-  | ADTTester _ -> assert false
+  | ADTTester (p, e, c) ->
+    let* e = rc e in Ok (ADTTester (p, e, c))
 
 let flatten_ref_types_item ctx item =
   match item with

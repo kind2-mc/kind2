@@ -1000,6 +1000,9 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
   |> Var.declare_vars declare 
 
 
+(* Return other function symbols *)
+let get_ufs { ufs } = ufs
+
 (* Declare other functions symbols *)
 let declare_ufs { ufs } declared declare =
   List.fold_left 

@@ -32,6 +32,10 @@ let cvc5_proof_args () =
     [
       "--lang=smt2";
       "--simplification=none";
+      (* Resort to full effort quantifier instantiation techniques instead of
+         answering unknown; without it, certificates with quantified
+         constraints (e.g. from Lustre maps and sets) are not provable *)
+      "--full-saturate-quant";
       "--dump-proofs";
       "--proof-format-mode=cpc";
     ]
@@ -83,6 +87,7 @@ let cpc_proof_from_chan prefix in_ch =
 
 let s_define = HString.mk_hstring "define"
 let s_declare_const = HString.mk_hstring "declare-const"
+let s_declare_sort = HString.mk_hstring "declare-sort"
 let s_assume = HString.mk_hstring "assume"
 let s_assume_push = HString.mk_hstring "assume-push"
 let s_step = HString.mk_hstring "step"
@@ -94,8 +99,9 @@ let is_global_name (s : HString.t) : bool =
 let is_global_def = function
   | HS.List (HS.Atom kw :: HS.Atom name :: _) ->
       (HString.equal kw (s_define)
-      && is_global_name name) 
+      && is_global_name name)
       || HString.equal kw (s_declare_const)
+      || HString.equal kw (s_declare_sort)
   | _ -> false
 
 
@@ -104,6 +110,21 @@ let is_local_def = function
       HString.equal kw (HString.mk_hstring "define")
       && not (is_global_name name)
   | _ -> false
+
+(* Ethos only accepts SMT-LIB's declare-sort in reference files. In proof
+   files, a sort constructor of arity n must be declared as a constant of
+   type (-> Type ... Type) with n arguments *)
+let translate_sort_decl = function
+  | HS.List [HS.Atom kw; HS.Atom name; HS.Atom arity]
+    when HString.equal kw s_declare_sort ->
+      let n = int_of_string (HString.string_of_hstring arity) in
+      let ty = HS.Atom (HString.mk_hstring "Type") in
+      let ty_expr =
+        if n = 0 then ty
+        else HS.List (HS.Atom (HString.mk_hstring "->") :: List.init (n + 1) (fun _ -> ty))
+      in
+      HS.List [HS.Atom s_declare_const; HS.Atom name; ty_expr]
+  | sexpr -> sexpr
 
 let normalize_step = function
   | HS.List (HS.Atom kw :: tl)
@@ -115,7 +136,7 @@ let normalize_step = function
 let get_proof_defs (proof : cpc_step list) =
   let rec aux (acc_global_defs, acc_steps) = function
     | sexpr :: tl when is_global_def sexpr ->
-        aux (sexpr :: acc_global_defs, acc_steps) tl
+        aux (translate_sort_decl sexpr :: acc_global_defs, acc_steps) tl
     | sexpr :: tl when is_local_def sexpr ->
         aux (acc_global_defs, sexpr :: acc_steps) tl
      | sexpr :: tl ->

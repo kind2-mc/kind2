@@ -101,7 +101,6 @@ Overall system architecture.
 {!modules:
   C2I
   C2ICandidate
-  C2Icnf
   C2Imodel
 }
 
@@ -123,7 +122,6 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
 {!modules:
   LustreLexer
   LustreParser
-  LustreParserErrors
   LustreAst
   LustreAstHelpers
   LustreAstDependencies
@@ -258,8 +256,4 @@ Source files live in subdirectory [SMTSolver]
 {2:howto_doc Documentation}
 
 To add a module, edit this file [src/doc/index.mld] and add it to one of the sections above.
-
-{1:indexes Indexes}
-
-{!indexlist}
 

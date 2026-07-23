@@ -520,6 +520,12 @@ val assert_global_constraints : t -> (Term.t -> unit) -> unit
 *)
 val uf_defs : t -> pred_def list
 
+(** Return the uninterpreted function symbols declared in this system (e.g.
+    the symbols introduced for imported functions), excluding the
+    uninterpreted symbols of state variables and the init and trans
+    predicates. *)
+val get_ufs : t -> UfSymbol.t list
+
 (** {1 Properties} *)
 
 val property_of_name : t -> string -> Property.t

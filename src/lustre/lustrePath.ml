@@ -1120,12 +1120,24 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
     (match List.nth_opt disc_vals step with
     | None -> assert false
     | Some (Model.Term t) when Type.is_enum disc_type ->
-      let ctor_name = Term.numeral_of_term t |> Type.get_constr_of_num in
-      let ctor_hs = HString.mk_hstring ctor_name in
-      let fields =
-        match G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields with
-        | None -> assert false | Some fs -> fs
+      (* The discriminant of a clocked node instance is unconstrained while its
+         clock is inactive, so its model value may be an arbitrary enum numeral
+         that does not name a constructor of this ADT (it may belong to another
+         enum, or to no enum at all). When that happens we cannot reconstruct a
+         meaningful value for this step, so display the unknown-value
+         placeholder "_" instead of failing. *)
+      let ctor_and_fields =
+        match Term.numeral_of_term t |> Type.get_constr_of_num with
+        | ctor_name ->
+          let ctor_hs = HString.mk_hstring ctor_name in
+          Option.map
+            (fun fields -> (ctor_name, fields))
+            (G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields)
+        | exception Not_found -> None
       in
+      (match ctor_and_fields with
+      | None -> "_"
+      | Some (ctor_name, fields) ->
       if fields = [] then ctor_name
       else
         let field_strs = List.mapi (fun j (_fname, field_kind) ->
@@ -1164,7 +1176,7 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
               ) bindings in
               reconstruct_compound_at_step model sub_bindings step)
         ) fields in
-        ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")"
+        ctor_name ^ "(" ^ String.concat ", " field_strs ^ ")")
     | _ -> assert false)
 
 (* Reconstruct original ADT constructor values from hidden disc+payload fields.

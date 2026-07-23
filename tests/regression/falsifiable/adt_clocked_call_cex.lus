@@ -1,0 +1,30 @@
+-- Reconstructing a counterexample that includes a node instance called under a
+-- clock (a when-block) must not crash when the instance carries ADT-typed
+-- streams. While the clock is inactive the instance does not step, so its ADT
+-- discriminant state variables are unconstrained and may hold an arbitrary
+-- value that does not name a constructor of the ADT. Counterexample ADT
+-- reconstruction used to assume the discriminant was always a valid
+-- constructor and raised an assertion (or Not_found) failure otherwise. Here
+-- the property is falsified in a state where the clock is off, so 'Sub' is
+-- inactive at the counterexample step and its Option-typed streams must be
+-- reconstructed defensively.
+
+datatype Option = Some (s1: int) | None;
+
+node Sub(o: Option) returns (out: Option);
+let
+  out = o;
+tel
+
+node main(b: bool; o: Option) returns (res: Option);
+let
+  frame (res)
+    res = None;
+  let
+    when b then
+      res = Sub(o);
+    end
+  tel
+
+  check "p" (match res with | Some(x): true | None: false end);
+tel

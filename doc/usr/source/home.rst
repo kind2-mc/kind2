@@ -125,8 +125,8 @@ Retrieving / updating the image
 
    docker pull kind2/kind2:dev
 
-Docker will retrieve the *layers* corresponding to the latest version of the
-Kind 2 repository, ``develop`` version. If you are interested in the latest
+Docker will retrieve the *layers* corresponding to the latest development version of the
+Kind 2 repository (``main`` branch). If you are interested in the latest
 release, run
 
 .. code-block:: bash
@@ -166,7 +166,7 @@ where
   with folders already present in the container however, it is recommended to
   use ``/lus``\ ;
 * replace ``kind2:dev`` by ``kind2`` if you want to run the latest release of Kind2
-  instead of the ``develop`` version;
+  instead of the development version (``main`` branch);
 * ``docker run`` does **not** update your local Kind 2 image to the latest one:
   the appropriate ``docker pull`` command does.
 

@@ -125,8 +125,10 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
-  | DuplicateFieldName of HString.t * HString.t * HString.t
   | InvalidDecreasesType of tc_type
+  | DuplicateFieldName of HString.t * HString.t * HString.t
+  | DuplicateFieldNameInCtor of HString.t * HString.t
+  | NotAFieldOfADT of HString.t
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -270,6 +272,11 @@ let error_message kind = match kind with
     "Selector for field '" ^ HString.string_of_hstring field ^ "' is ambiguous: appears in constructor '"
     ^ HString.string_of_hstring ctor1 ^ "' and constructor '"
     ^ HString.string_of_hstring ctor2 ^ "'"
+  | DuplicateFieldNameInCtor (field, ctor) ->
+    "Duplicate field name '" ^ HString.string_of_hstring field ^ "' in constructor '"
+    ^ HString.string_of_hstring ctor ^ "'"
+  | NotAFieldOfADT id ->
+    "No field named '" ^ HString.string_of_hstring id ^ "' in algebraic datatype"
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
@@ -1100,7 +1107,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         List.map (fun (fn, ty) -> (ctor, fn, ty)) flds) adt_cons in
       let fields_with_name = List.filter (fun (_, fn, _) -> HString.equal fn fld) all_ctor_fields in
       (match fields_with_name with
-      | [] -> type_error pos (NotAFieldOfRecord fld)
+      | [] -> type_error pos (NotAFieldOfADT fld)
       | _ :: (ctor2, _, _) :: _ ->
         let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
         type_error pos (DuplicateFieldName (fld, ctor1, ctor2))
@@ -2883,29 +2890,36 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
-and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match ty with  
-| LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
-| TArr _ -> type_error pos (UnsupportedMapType ty) 
-| RecordType (_, _, tis) -> 
-  Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
-| RefinementType (_, (_, _, ty), _) -> 
-  r ty 
-| TupleType (_, tys) -> 
-  Res.seq_ (List.map r tys)
-| UserType (_, ty_args, i) ->
-  if (member_ty_syn ctx i || member_u_types ctx i)
-  then 
-    let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
-    let ty = expand_type_syn ctx ty in
-      r ty 
-  (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because 
-     this will be caught by `check_type_well_formed`, which recursively checks 
-     the map key and value types for wellformedness. *)
-  else R.ok () 
-| AbstractType _ | Bool _ | Int _ 
-| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
-| ADT (_, _, cons) ->
-  Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
+and check_map_set_type pos ctx ty =
+  (* Guard against infinite recursion on recursive ADTs: expand each type
+     name at most once per traversal path. *)
+  let rec aux seen ty = let r = aux seen in match ty with
+  | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
+  | TArr _ -> type_error pos (UnsupportedMapType ty)
+  | RecordType (_, _, tis) ->
+    Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
+  | RefinementType (_, (_, _, ty), _) ->
+    r ty
+  | TupleType (_, tys) ->
+    Res.seq_ (List.map r tys)
+  | UserType (_, ty_args, i) ->
+    if (member_ty_syn ctx i || member_u_types ctx i)
+    then
+      if HString.HStringSet.mem i seen then R.ok ()
+      else
+        let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
+        let ty = expand_type_syn ctx ty in
+        aux (HString.HStringSet.add i seen) ty
+    (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because
+       this will be caught by `check_type_well_formed`, which recursively checks
+       the map key and value types for wellformedness. *)
+    else R.ok ()
+  | AbstractType _ | Bool _ | Int _
+  | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
+  | ADT (_, _, cons) ->
+    Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
+  in
+  aux HString.HStringSet.empty ty
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -3065,6 +3079,14 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             (match lookup_const ctx ctor with
             | Some _ -> type_error pos (ConstructorNameClashWithConst (ctor, new_ty_name))
             | None -> R.ok ())) in
+        let* _ =
+          let seen = Hashtbl.create 4 in
+          R.seq (List.map (fun (fn, _) ->
+            if Hashtbl.mem seen fn then
+              type_error pos (DuplicateFieldNameInCtor (fn, ctor))
+            else (Hashtbl.add seen fn (); R.ok ())
+          ) fields)
+        in
         let* fields', warnings = R.seq (List.map (fun (fn, ty) ->
           let* ty', w = check_type_well_formed_rec true ty in
           R.ok ((fn, ty'), w)

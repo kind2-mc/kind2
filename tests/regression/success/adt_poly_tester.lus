@@ -6,6 +6,6 @@ var xr: Opt<real>;
 let
   xi = Present(i);
   xr = Present(r);
-  ok = xi.Present? and xr.Present?;
+  ok = Present?(xi) and Present?(xr);
   check ok;
 tel

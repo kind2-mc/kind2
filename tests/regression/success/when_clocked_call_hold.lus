@@ -1,0 +1,29 @@
+-- A node instance activated by a when block freezes its state while the
+-- guard is false. The generated candidate invariants (see
+-- lustreDesugarIfBlocks.ml) express that a when-block variable whose
+-- off-branch holds its previous value agrees with the (frozen) output of the
+-- activated call, and that it still has its initial value before the first
+-- activation. Without them, the property below is not k-inductive for any k
+-- (the frozen instance state is unconstrained at the start of an induction
+-- window), and the quantified map-valued state puts it out of reach of the
+-- other engines.
+
+type K = int;
+
+node Collect(k: K) returns (m: map<K,int>);
+let
+  m = map[]@<K,int> -> (pre m)[k := 0];
+tel
+
+node Main(c: bool; k: K) returns (m: map<K,int>);
+let
+  frame (m)
+    m = map[]@<K,int>;
+  let
+    when c then
+      m = Collect(k);
+    end
+  tel
+
+  check "P" forall (i: K) i in m => m[i] = 0;
+tel

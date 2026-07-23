@@ -4,6 +4,6 @@ node main(r: real) returns (ok: bool);
 var s: Shape;
 let
   s = Circle(r);
-  ok = not s.Rect?;
+  ok = not Rect?(s);
   check ok;
 tel

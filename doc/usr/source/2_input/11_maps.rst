@@ -4,7 +4,7 @@ Maps
 Map types have the syntax ``map<K, V>`` (or ``map<K; V>``), where ``V`` is any type, and 
 ``K`` is any type that does not contain sets, maps, or arrays. 
 For example ``map<int, int>`` denotes (streams of) maps of integers to integers, and 
-``map<set<[bool, int]>, real>`` denotes (streams of) maps of Boolean and integer pairs to reals.
+``map<[bool, int], real>`` denotes (streams of) maps of Boolean and integer pairs to reals.
 
 **Map literals** can be built with the constructor ``map[k1 := v1; ...; kn := v2]`` 
 which creates a map with keys ``k1`` through ``kn``, each mapping to its corresponding value.

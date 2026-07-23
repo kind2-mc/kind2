@@ -1,0 +1,20 @@
+-- A variable used only in the key expression of a map update ('m[k := v]')
+-- inside a temporal branch of a when-block must be collected as a free
+-- variable, so it is passed as an argument to the internal node generated for
+-- that temporal branch. Previously the key expression was ignored, producing a
+-- spurious "Unbound identifier" error for the variable.
+
+node M(k: int; b: bool) returns (m: map<int, int>);
+let
+  frame (m)
+    m = map[]@<int, int>;
+  let
+    when b then
+      m = (pre m)[k := 1];
+    else
+      m = pre m;
+    end
+  tel
+
+  check "key present after update" b => (k in m);
+tel

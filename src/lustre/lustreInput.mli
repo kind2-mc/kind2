@@ -32,7 +32,7 @@
     {!LustreTransSys} with relevant parameters.
 
     The whole input file is parsed and type checked first, then one
-    node is designated as the main node. The returned {!Subsystem.t}
+    node is designated as the main node. The returned {!SubSystem.t}
     has this main node at the top, and all called nodes as
     children. Nodes that are in the input file, but not called by the
     main node are discarded. No further cone of influence reduction is
@@ -93,14 +93,13 @@
     {!LustreNode.find_main}, the definitions in the main node and list
     of nodes is reduced to the nodes in the cone of influence of the
     properties of the main node, see
-    {!LustreNode.reduce_to_property_coi}. Last, the equational
+    {!LustreSlicing.slice_to_abstraction_and_property}. Last, the equational
     definitions of each node are ordered by their dependencies with
-    {!LustreNode.reduce_to_property_coi}.
+    {!LustreNode.ordered_equations_of_node}.
 
     The module {!LustreTransSys} turns the list of nodes into a
-    transition system {!TransSys.t} by means of the functions
-    {!LustreTransSys.trans_sys_of_nodes} and
-    {!LustreTransSys.props_of_nodes}.
+    transition system {!TransSys.t} by means of the function
+    {!LustreTransSys.trans_sys_of_nodes}.
 
     @author Christoph Sticksel
 *)

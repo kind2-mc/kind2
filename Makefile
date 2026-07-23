@@ -39,13 +39,21 @@ install:
 
 kind2-doc:
 	@dune build @doc-private
-	@dune build @copy
+	@rm -rf $(LOCAL_DOCDIR)
 	@mkdir -p $(LOCAL_DOCDIR)
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
+	@chmod -R u+w $(LOCAL_DOCDIR)
+	@$(CURDIR)/src/doc/copy.sh $(LOCAL_DOCDIR)
+
+# By default `make test` only runs the regression tests with the default
+# (on) node slicing. Pass extra pytest flags through TEST_ARGS to also run the
+# optional slicing modes, e.g.:
+#   make test TEST_ARGS="--slice-off --slice-experimental"
+TEST_ARGS ?=
 
 test: build
 	@dune build @runtest
-	@cd $(CURDIR)/tests/ && ./run
+	@cd $(CURDIR)/tests/ && ./run $(TEST_ARGS)
 
 uninstall:
 	@opam remove -y kind2

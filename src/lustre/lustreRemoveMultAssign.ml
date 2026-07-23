@@ -43,12 +43,17 @@ let mk_fresh_temp_var ty =
   name, gids2
 
 
-(** Takes in an equation LHS and returns 
+(** Takes in an equation LHS and returns
     * updated gids with temp variables,
-    * equations setting original variable equal to temp variables, 
+    * equations setting original variable equal to temp variables,
     * updated context
+
+    [source] records where the pulled-out equation comes from: [GI.Output] for
+    equations in if/frame blocks, and [GI.ClockedOutput guard] for equations in
+    when-block branches, so that node calls in the equation are activated on
+    the when-block guard.
    *)
-let create_new_eqs ctx lhs expr = 
+let create_new_eqs ctx source lhs expr =
   let rhs_pos = AH.pos_of_expr expr in
   let convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
@@ -102,8 +107,8 @@ let create_new_eqs ctx lhs expr =
       let arrayids_original = get_array_ids ss in
       let arrayids_new = get_array_ids sis in
       let expr = LAH.replace_idents arrayids_original arrayids_new expr in
-      let gids2 = { (GI.empty ()) with 
-        equations = [([], [], A.StructDef(pos, sis), expr, Some GI.Output)];
+      let gids2 = { (GI.empty ()) with
+        equations = [([], [], A.StructDef(pos, sis), expr, Some source)];
       } in
       let eqs = List.map (fun x -> A.Body x) eqs in
         (
@@ -112,32 +117,45 @@ let create_new_eqs ctx lhs expr =
           gids2::gids
         )
 
-let remove_mult_assign_from_ni ctx ni = 
-  let rec helper ctx ni = (
-    match ni with 
-      | A.Body (Equation (_, lhs, expr)) -> 
+let remove_mult_assign_from_ni ctx ni =
+  (* [wguard] is the (polarity-adjusted) conjunction of the enclosing
+     when-block guards, if any. Equations pulled out of a when-block branch
+     must remember it so that their node calls are activated on that clock. *)
+  let conj_guard wguard e = match wguard with
+    | None -> Some e
+    | Some g -> Some (A.BinaryOp (AH.pos_of_expr e, A.And, e, g))
+  in
+  let rec helper ctx wguard ni = (
+    match ni with
+      | A.Body (Equation (_, lhs, expr)) ->
         let lhs_vars = AH.defined_vars_with_pos ni in
         (* If there is no multiple assignment, we don't alter the node item,
           otherwise, we must remove the multiple assignment. *)
-        if (List.length lhs_vars = 1) 
+        if (List.length lhs_vars = 1)
         then [ni], []
-        else create_new_eqs ctx lhs expr
-      
-      | IfBlock (pos, e, l1, l2) -> 
-        let nis1, gids1 = List.map (helper ctx) l1 |> List.split in
-        let nis2, gids2 = List.map (helper ctx) l2 |> List.split in
+        else
+          let source = match wguard with
+            | None -> GI.Output
+            | Some g -> GI.ClockedOutput g
+          in
+          create_new_eqs ctx source lhs expr
+
+      | IfBlock (pos, e, l1, l2) ->
+        let nis1, gids1 = List.map (helper ctx wguard) l1 |> List.split in
+        let nis2, gids2 = List.map (helper ctx wguard) l2 |> List.split in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
         [A.IfBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
 
       | WhenBlock (pos, e, l1, l2) ->
-        let nis1, gids1 = List.map (helper ctx) l1 |> List.split in
-        let nis2, gids2 = List.map (helper ctx) l2 |> List.split in
+        let not_e = A.UnaryOp (AH.pos_of_expr e, A.Not, e) in
+        let nis1, gids1 = List.map (helper ctx (conj_guard wguard e)) l1 |> List.split in
+        let nis2, gids2 = List.map (helper ctx (conj_guard wguard not_e)) l2 |> List.split in
         [A.WhenBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
 
-      | FrameBlock (pos, vars, nes, nis) -> 
-        let nes = List.map (fun x -> A.Body x) nes in 
-        let nis1, gids1 = List.map (helper ctx) nes |> List.split in
-        let nis2, gids2 = List.map (helper ctx) nis |> List.split in
+      | FrameBlock (pos, vars, nes, nis) ->
+        let nes = List.map (fun x -> A.Body x) nes in
+        let nis1, gids1 = List.map (helper ctx wguard) nes |> List.split in
+        let nis2, gids2 = List.map (helper ctx wguard) nis |> List.split in
         let nis1 = nis1 |> List.flatten |> List.map 
           (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
@@ -151,7 +169,7 @@ let remove_mult_assign_from_ni ctx ni =
       | A.AnnotMain _
       | A.Auto _ -> [ni], []
   ) in
-  let (nis, gids) = helper ctx ni in
+  let (nis, gids) = helper ctx None ni in
   let gids = List.fold_left GI.union (GI.empty ()) gids in
   (* Calling 'remove_mult_assign_from_ib' on an if or frame block (which is always
      the case) will mean that nis2 will always have length 1. *)

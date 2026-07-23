@@ -23,8 +23,8 @@
     contains the value itself. The field [prop] contains properties of
     some type associated with the hashconsed value.
 
-    Hash consing tables are using weak pointers or not depending on the option
-    {! Flags.weakhcons}.
+    Hash consing tables use weak pointers or not depending on the chosen
+    implementation ({!HashconsWeak} or {!HashconsStrong}).
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)

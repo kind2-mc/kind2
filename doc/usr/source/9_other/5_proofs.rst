@@ -89,7 +89,7 @@ Safety proof production requires cvc5 (the binary can be specified
 with ``--cvc5_bin``),
 the Eunoia signatures
 for `CPC proofs <https://github.com/cvc5/cvc5/blob/main/proofs/eo/cpc>`_,
-the Eunoia signatures for `Safety CPC proofs  <https://github.com/kind2-mc/kind2/blob/develop/proofs/signatures>`_
+the Eunoia signatures for `Safety CPC proofs  <https://github.com/kind2-mc/kind2/blob/main/proofs/signatures>`_
 (included in the Kind 2 distribution), and the Ethos checker for
 the final proof checking phase.
 

@@ -1,0 +1,17 @@
+node Sub(st: map<int,set<int>>) returns (st_after: map<int,set<int>>);
+let
+  st_after = st;
+tel
+node Top(go: bool) returns (ok: bool);
+var st: map<int,set<int>>;
+let
+  frame (st)
+    st = map[]@<int,set<int>>;
+  let
+    when go then
+      st = Sub(last st);
+    end
+  tel
+  ok = true;
+  check "c" ok;
+tel

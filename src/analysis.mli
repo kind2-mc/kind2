@@ -28,7 +28,7 @@
     and whether it conforms to the preconditions of all its
     subsystems. 
 
-    Values of type {!param} are produced by a strategy and
+    Values of type {!type:param} are produced by a strategy and
     parameterize the input-specific transitions system generators, in
     particular the slicing ot the cone of influence.
 

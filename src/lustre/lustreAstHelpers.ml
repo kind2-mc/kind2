@@ -156,6 +156,17 @@ let type_arity ty =
   | TArr (_, a, b) -> (inner_types a, inner_types b)
   | _ -> (0, 0)
 
+(* Fold [f] over the index expressions of a [label_or_index list], as used in
+   the update part of a [StructUpdate] (e.g. the key of a map update
+   'm[k := v]'). A [Label] carries no expression; every other kind holds an
+   arbitrary expression that may reference variables or node calls. *)
+let fold_label_or_index empty union f idx =
+  List.fold_left (fun acc loi -> match loi with
+    | Label _ -> acc
+    | Index (_, e) | MapIndex (_, e) | SetIndex (_, e) | GenericIndex (_, e) ->
+      union acc (f e)
+  ) empty idx
+
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | EmptySet (_, Some ty) -> 
@@ -167,9 +178,14 @@ let rec expr_contains_call = function
     fold_lustre_ty expr_contains_call false (||) vt
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
-  | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
+  | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+  | StructUpdate (_, e1, idx, None) ->
+    expr_contains_call e1 || fold_label_or_index false (||) expr_contains_call idx
+  | StructUpdate (_, e1, idx, Some e2) ->
+    expr_contains_call e1 || expr_contains_call e2
+    || fold_label_or_index false (||) expr_contains_call idx
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
   | Arrow (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
@@ -202,12 +218,18 @@ let rec expr_contains_id id = function
     fold_lustre_ty expr_is_id false (||) vt 
   | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e) 
-  | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
+  | Extract (_, e, _, _)
     -> expr_contains_id id e
+  | StructUpdate (_, e1, idx, None) ->
+    expr_contains_id id e1
+    || fold_label_or_index false (||) (expr_contains_id id) idx
+  | StructUpdate (_, e1, idx, Some e2) ->
+    expr_contains_id id e1 || expr_contains_id id e2
+    || fold_label_or_index false (||) (expr_contains_id id) idx
   | TypeAscription (_, e, ty) ->
     fold_lustre_ty (expr_contains_id id) false (||) ty || expr_contains_id id e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
@@ -1089,8 +1111,11 @@ let rec vars_of_node_calls_h obs =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars obs e1) (vars obs e2)
-  | StructUpdate (_, e1, _, None) -> vars obs e1
+  | StructUpdate (_, e1, idx, Some e2) ->
+    SI.union (SI.union (vars obs e1) (vars obs e2))
+             (fold_label_or_index SI.empty SI.union (vars obs) idx)
+  | StructUpdate (_, e1, idx, None) ->
+    SI.union (vars obs e1) (fold_label_or_index SI.empty SI.union (vars obs) idx)
   | ArrayConstr (_, e1, e2) -> SI.union (vars obs e1) (vars obs e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
@@ -1147,12 +1172,15 @@ let rec vars_without_node_call_ids: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
-  | StructUpdate (_, e1, _, None) -> vars e1 
+  | StructUpdate (_, e1, idx, Some e2) ->
+    SI.union (SI.union (vars e1) (vars e2))
+             (fold_label_or_index SI.empty SI.union vars idx)
+  | StructUpdate (_, e1, idx, None) ->
+    SI.union (vars e1) (fold_label_or_index SI.empty SI.union vars idx)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
-  | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+  | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs))
   (* Clock operators *)
   | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
   | Condact (_, e1, e2, _, es1, es2) ->
@@ -1207,8 +1235,12 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | CompOp (_,_,e1, e2) -> (calls_of_expr e1) |> NI.Set.union (calls_of_expr e2)
   | RecordExpr (_, _, _, flds) -> NI.Set.flatten (List.map calls_of_expr (snd (List.split flds)))
   | GroupExpr (_, _, es) -> NI.Set.flatten (List.map calls_of_expr es)
-  | StructUpdate (_, e1, _, Some e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
-  | StructUpdate (_, e1, _, None) -> calls_of_expr e1
+  | StructUpdate (_, e1, idx, Some e2) ->
+    NI.Set.union (NI.Set.union (calls_of_expr e1) (calls_of_expr e2))
+                 (fold_label_or_index NI.Set.empty NI.Set.union calls_of_expr idx)
+  | StructUpdate (_, e1, idx, None) ->
+    NI.Set.union (calls_of_expr e1)
+                 (fold_label_or_index NI.Set.empty NI.Set.union calls_of_expr idx)
   | ArrayConstr (_, e1, e2) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | EmptyMap (_, None) | EmptySet (_, None) -> NI.Set.empty
   | EmptyMap (_, Some (kt, vt)) -> 
@@ -1261,8 +1293,11 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (vars e1) (vars e2)
-  | StructUpdate (_, e1, _, None) -> vars e1
+  | StructUpdate (_, e1, idx, Some e2) ->
+    SI.union (SI.union (vars e1) (vars e2))
+             (fold_label_or_index SI.empty SI.union vars idx)
+  | StructUpdate (_, e1, idx, None) ->
+    SI.union (vars e1) (fold_label_or_index SI.empty SI.union vars idx)
   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
