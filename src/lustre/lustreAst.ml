@@ -187,7 +187,7 @@ and typed_ident = position * ident * lustre_type
 (* A record field or an array or tuple index *)
 and label_or_index = 
   | Label of position * index
-  | Index of position * expr
+  | Index of position * expr * access_kind
   | MapIndex of position * expr (* expr not restricted to integers *)
   | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
@@ -850,7 +850,7 @@ and pp_print_label_or_index ppf = function
   | GenericIndex (_, e)
   | MapIndex (_, e)
   | SetIndex (_, e)
-  | Index (_, e) -> pp_print_expr ppf e
+  | Index (_, e, _) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function

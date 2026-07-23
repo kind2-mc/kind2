@@ -163,7 +163,7 @@ let type_arity ty =
 let fold_label_or_index empty union f idx =
   List.fold_left (fun acc loi -> match loi with
     | Label _ -> acc
-    | Index (_, e) | MapIndex (_, e) | SetIndex (_, e) | GenericIndex (_, e) ->
+    | Index (_, e, _) | MapIndex (_, e) | SetIndex (_, e) | GenericIndex (_, e) ->
       union acc (f e)
   ) empty idx
 
@@ -317,7 +317,7 @@ let rec substitute_naive (var:HString.t) t = function
   | StructUpdate (pos, e1, idx, Some e2) ->
     let idx = List.map (function
       | Label _ as l -> l
-      | Index (p, e) -> Index (p, substitute_naive var t e)
+      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
       | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
       | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
       | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
@@ -326,7 +326,7 @@ let rec substitute_naive (var:HString.t) t = function
   | StructUpdate (pos, e1, idx, None) ->
     let idx = List.map (function
       | Label _ as l -> l
-      | Index (p, e) -> Index (p, substitute_naive var t e)
+      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
       | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
       | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
       | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
@@ -644,7 +644,7 @@ let rec has_unguarded_pre ung = function
         | MapIndex (_, e)
         | SetIndex (_, e)
         | GenericIndex (_, e)
-        | Index (_, e) -> has_unguarded_pre ung e
+        | Index (_, e, _) -> has_unguarded_pre ung e
       ) li in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2 || List.exists Lib.identity us
@@ -656,7 +656,7 @@ let rec has_unguarded_pre ung = function
         | MapIndex (_, e)
         | SetIndex (_, e)
         | GenericIndex (_, e)
-        | Index (_, e) -> has_unguarded_pre ung e
+        | Index (_, e, _) -> has_unguarded_pre ung e
       ) li in
     u1 || List.exists Lib.identity us
 
@@ -754,7 +754,7 @@ let rec has_unguarded_pre_no_warn ung = function
         | MapIndex (_, e)
         | SetIndex (_, e)
         | GenericIndex (_, e)
-        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+        | Index (_, e, _) -> has_unguarded_pre_no_warn ung e
       ) li in
     u1 || List.exists Lib.identity us
 
@@ -765,7 +765,7 @@ let rec has_unguarded_pre_no_warn ung = function
         | MapIndex (_, e)
         | SetIndex (_, e)
         | GenericIndex (_, e)
-        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+        | Index (_, e, _) -> has_unguarded_pre_no_warn ung e
       ) li in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2 || List.exists Lib.identity us
@@ -873,7 +873,7 @@ let rec has_pre_or_arrow = function
               | MapIndex (_, e)
               | SetIndex (_, e)
               | GenericIndex (_, e)
-              | Index (_, e) -> has_pre_or_arrow e
+              | Index (_, e, _) -> has_pre_or_arrow e
             ) li
             |> some_of_list
     )
@@ -890,7 +890,7 @@ let rec has_pre_or_arrow = function
               | MapIndex (_, e)
               | SetIndex (_, e)
               | GenericIndex (_, e)
-              | Index (_, e) -> has_pre_or_arrow e
+              | Index (_, e, _) -> has_pre_or_arrow e
             ) li
             |> some_of_list
         )
@@ -1696,7 +1696,7 @@ let rec replace_idents locals1 locals2 expr =
     StructUpdate (p, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
-              | Index (a, e) -> Index (a, r e)
+              | Index (a, e, k) -> Index (a, r e, k)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
@@ -1706,7 +1706,7 @@ let rec replace_idents locals1 locals2 expr =
     StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
-              | Index (p, e) -> Index (p, r e)
+              | Index (p, e, k) -> Index (p, r e, k)
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)
@@ -1845,7 +1845,8 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       let l = if List.length xl = List.length yl then
           List.map2 (fun x y -> match x, y with
             | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
-            | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
+            | Index (_, xe, xk), Index (_, ye, yk) ->
+              r (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
             | _ -> Ok (false))
           xl yl
         else [Ok (false)]
@@ -1858,7 +1859,8 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       let l = if List.length xl = List.length yl then
           List.map2 (fun x y -> match x, y with
             | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
-            | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
+            | Index (_, xe, xk), Index (_, ye, yk) ->
+              r (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
             | _ -> Ok (false))
           xl yl
         else [Ok (false)]
@@ -2046,7 +2048,7 @@ let hash depth_limit expr =
         let l_hash = List.map (function
           | Label (_, i) -> Hashtbl.hash (0, HString.hash i)
           | MapIndex (_, e) -> Hashtbl.hash (1, r (depth + 1) e)
-          | Index (_, e) -> Hashtbl.hash (2, r (depth + 1) e)
+          | Index (_, e, k) -> Hashtbl.hash (2, k, r (depth + 1) e)
           | GenericIndex (_, e) -> Hashtbl.hash (3, r (depth + 1) e)
           | SetIndex (_, e) -> Hashtbl.hash (4, r (depth + 1) e))
           l
@@ -2299,7 +2301,7 @@ let rec constants_to_calls: ident list -> expr -> expr
     StructUpdate (p, r e1, 
     List.map (function
               | Label (a, b) -> Label (a, b)
-              | Index (a, e) -> Index (a, r e)
+              | Index (a, e, k) -> Index (a, r e, k)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
@@ -2309,7 +2311,7 @@ let rec constants_to_calls: ident list -> expr -> expr
     StructUpdate (p, r e1, 
     List.map (function
               | Label (p, b) -> Label (p, b)
-              | Index (p, e) -> Index (p, r e)
+              | Index (p, e, k) -> Index (p, r e, k)
               | GenericIndex (p, e) -> GenericIndex (p, r e)
               | MapIndex (p, e) -> MapIndex (p, r e)
               | SetIndex (p, e) -> SetIndex (p, r e)

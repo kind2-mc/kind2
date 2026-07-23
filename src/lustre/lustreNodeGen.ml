@@ -1360,87 +1360,102 @@ and compile_ast_expr
   and compile_struct_update expr1 index expr2 =
     let cexpr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
-    let rec aux accum = function
-      | [] -> List.rev accum
-      | A.MapIndex _ :: _ -> assert false 
-      | A.SetIndex _ :: _ -> assert false
-      | A.Label (_, index) :: tl ->
-        let index = HString.string_of_hstring index in
-        let accum' = X.RecordIndex index :: accum in
-        if X.mem_prefix (List.rev accum') cexpr1 then
-          aux accum' tl
-        else assert false (* guaranteed by type checker *)
-      | A.Index (_, index_expr) :: tl ->
-        let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
-        let index = (index_cexpr |> X.values |> List.hd).expr_init in
-        let cexpr_sub = X.find_prefix accum cexpr1 in
-        let index_term = (index : E.expr :> Term.t ) in
-        let value = Term.numeral_of_term index_term |> Numeral.to_int in
-        let i = if Term.is_numeral index_term then
-            (match X.choose cexpr_sub with
-              | X.ArrayVarIndex _ :: _, _
-              | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
-              | X.TupleIndex _ :: _,_ -> X.TupleIndex (value, None)
-              | _ -> assert false (* guaranteed by type checker *))
-          else (match X.choose cexpr_sub with
-            | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
-            | _ -> assert false (* guaranteed by type checker *) )
-        in aux (i :: accum) tl
-      | A.GenericIndex _ :: _ -> assert false (* converted to another index in the normalizer *)
+
+    (* Swap the whole subtree at [prefix] for [new_sub]; leave the rest of
+       [old_trie] alone. *)
+    let replace_prefix prefix old_trie new_sub =
+      let has_prefix key =
+        let rec go prefix key = match prefix, key with
+          | [], _ -> true
+          | p :: ps, k :: ks when X.equal_index [p] [k] -> go ps ks
+          | _ -> false
+        in go prefix key
+      in
+      let kept = X.filter (fun key _ -> not (has_prefix key)) old_trie in
+      X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
-    let rec mk_cond_indexes (acc, cpt) li ri =
-      match li, ri with
-      | X.ArrayVarIndex b :: li', X.ArrayIntIndex vi :: ri' ->
-        let rhs = (E.mk_int (Numeral.of_int vi)) in
-        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
-        mk_cond_indexes (acc, cpt+1) li' ri'
-      | X.ArrayVarIndex b :: li', X.ArrayVarIndex vi :: ri' ->
-        let rhs = (E.mk_of_expr vi) in
-        let acc = E.mk_eq (E.mk_array_index_var cpt (E.type_of_expr b)) rhs :: acc in
-        mk_cond_indexes (acc, cpt+1) li' ri'
-      | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
-      | [], _ | _, [] -> if acc = [] then raise Not_found;
-        List.rev acc |> E.mk_and_n
-    in
-    let rec mk_store acc a ri x = match ri with
-      | X.ArrayIntIndex vi :: ri' ->
-        let i = E.mk_int (Numeral.of_int vi) in
-        let a' = List.fold_left E.mk_select_and_push a acc in
-        let x = mk_store [i] a' ri' x in
-        E.mk_store a i x
-      | X.ArrayVarIndex vi :: ri' ->
-        let i = E.mk_of_expr vi in
-        let a' = List.fold_left E.mk_select_and_push a acc in
-        let x = mk_store [i] a' ri' x in
-        E.mk_store a i x
-      | _ :: ri' -> mk_store acc a ri' x
-      | [] -> x
-    in
-    let cindex = aux X.empty_index index in
-    let cexpr2' = X.fold (fun i v a -> X.add (cindex @ i) v a) cexpr2 X.empty in
-    let over_indices = fun i v a ->
-      try let v' = X.find i cexpr2' in X.add i v' a
-      with Not_found -> try
-        (match i with
-          | X.ArrayIntIndex _ :: _ | X.ArrayVarIndex _ :: _ -> ()
-          | _ -> raise Not_found);
-        let old_v = List.fold_left (fun (acc, cpt) i ->
-          let kt = match i with 
-          | X.ArrayIntIndex _ -> Type.t_int 
-          | X.ArrayVarIndex b -> E.type_of_expr b 
-          | _ -> assert false 
-          in
-          E.mk_select_and_push acc (E.mk_array_index_var cpt kt), cpt + 1
-        ) (v, 0) i |> fst
-        in let new_v = X.find cindex cexpr2' in
+
+    (* Store [new_elem] into [old_sub] at position [sel_term], along the
+       array's own dimension. *)
+    let rec update_array_element old_sub new_elem sel_term =
+      match X.choose old_sub with
+      | (X.RecordIndex _ :: _), _
+      | (X.TupleIndex _ :: _), _
+      | (X.ListIndex _ :: _), _
+      | (X.AbstractTypeIndex _ :: _), _
+      | (X.AdtTagIndex _ :: _), _
+      | (X.AdtPayloadIndex _ :: _), _ ->
+        let over_leaf = fun key v acc -> match key with
+          | top :: tl ->
+            let old_sub' = X.singleton tl v in
+            let new_elem' = X.find_prefix [top] new_elem in
+            let updated = update_array_element old_sub' new_elem' sel_term in
+            X.fold (fun k v acc -> X.add (top :: k) v acc) updated acc
+          | [] -> assert false (* keys are nonempty here, guaranteed by the outer match *)
+        in
+        X.fold over_leaf old_sub X.empty
+      | (X.ArrayVarIndex _ :: _), _
+      | (X.ArrayIntIndex _ :: _), _
+      | (X.SetMapIndex _ :: _), _ ->
+        let key, old_v = X.choose old_sub in
+        let _, new_v = X.choose new_elem in
         if Flags.Arrays.smt () then
-          let v' = mk_store [] v cindex new_v in X.add [] v' a
+          (* This code branch is known to be buggy 
+             (from before this git blame) and should be investigated. *)
+          X.singleton key (E.mk_store old_v sel_term new_v)
         else
-          let v' = E.mk_ite (mk_cond_indexes ([], 0) i cindex) new_v old_v in
-          X.add [] v' a
-        with Not_found -> X.add i v a
+        (* Reduce the old and new values to base-typed terms over fresh
+           index variables. *)
+        let cur_dim, inner_dims = match List.rev key with
+          | last :: rev_inner -> last, List.rev rev_inner
+          | [] -> assert false
+        in
+        let dim_type = function
+          | X.ArrayIntIndex _ -> Type.t_int
+          | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
+          | _ -> assert false
+        in
+        let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
+        let old_v = E.mk_select_and_push old_v pos_var in
+        let old_v, new_v, _ =
+          List.fold_left
+            (fun (old_v, new_v, cpt) idx ->
+              let ivar = E.mk_array_index_var cpt (dim_type idx) in
+              E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
+            (old_v, new_v, 1)
+            inner_dims
+        in
+        let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
+        X.singleton key updated_v
+      | [], _ -> assert false
+        (* an array update always leaves at least its own trailing
+           dimension in the key, guaranteed by the type checker *)
     in
-    X.fold over_indices cexpr1 X.empty
+    match index with
+    | [A.Label (_, field)] ->
+      let field = HString.string_of_hstring field in
+      let prefix = [X.RecordIndex field] in
+      if X.mem_prefix prefix cexpr1 then replace_prefix prefix cexpr1 cexpr2
+      else assert false (* guaranteed by type checker *)
+    | [A.Index (_, index_expr, A.Tuple)] ->
+      let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
+      let index_term = (index_cexpr |> X.values |> List.hd).expr_init in
+      let value = Term.numeral_of_term (index_term :> Term.t) |> Numeral.to_int in
+      let prefix = [X.TupleIndex (value, None)] in
+      if X.mem_prefix prefix cexpr1 then replace_prefix prefix cexpr1 cexpr2
+      else assert false (* guaranteed by type checker *)
+    | [A.Index (_, index_expr, A.Array)] ->
+      let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
+      let index_e = index_cexpr |> X.values |> List.hd in
+      let sel_term = E.mk_of_expr ~as_type:index_e.expr_type index_e.E.expr_init in
+      update_array_element cexpr1 cexpr2 sel_term
+    | [A.Index (_, _, A.Map)] | [A.Index (_, _, A.Unknown)] ->
+      assert false (* never produced for struct updates *)
+    | [A.MapIndex _] | [A.SetIndex _] ->
+      assert false (* handled by the caller before reaching [compile_struct_update] *)
+    | [A.GenericIndex _] ->
+      assert false (* resolved to another index kind during type checking *)
+    | _ -> assert false (* a single label or index is guaranteed by the type checker *)
 
   and compile_array_ctor bounds expr size_expr =
     let array_size' = compile_ast_expr cstate ctx bounds map size_expr in

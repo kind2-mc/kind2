@@ -1,0 +1,38 @@
+node ScalarArrayVarIndex(i: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = (7^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i] = v);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j] = 7));
+tel
+
+node ArrayOfArray(i: int; v: int^3) returns ();
+var arr: int^3^3;
+let
+  arr = (7^3^3)[i := v];
+  check "updated"
+    (i >= 0 and i < 3) => (arr[i][0] = v[0] and arr[i][1] = v[1] and arr[i][2] = v[2]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j][0] = 7 and arr[j][1] = 7 and arr[j][2] = 7));
+tel
+
+node ArrayOfArrayNumeral(v: int^3) returns ();
+var arr: int^3^3;
+let
+  arr = (7^3^3)[1 := v];
+  check "updated" arr[1][0] = v[0] and arr[1][1] = v[1] and arr[1][2] = v[2];
+  check "unchanged" arr[0][0] = 7 and arr[2][0] = 7;
+tel
+
+node ArrayOfTuple(i: int; v: [int, int]) returns ();
+var arr: [int, int]^3;
+let
+  arr = ('(7,7)^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i][0] = v[0] and arr[i][1] = v[1]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j][0] = 7 and arr[j][1] = 7));
+tel
