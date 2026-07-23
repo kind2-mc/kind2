@@ -369,7 +369,7 @@ function
     (fun acc l_or_i -> acc ||
       (match l_or_i with
       | LA.Label _ -> false
-      | GenericIndex (_, e)
+      | GenericIndex (_, e) 
       | MapIndex (_, e)
       | SetIndex (_, e)
       | Index (_, e, _) -> has_stateful_op ctx e

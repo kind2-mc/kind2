@@ -200,7 +200,7 @@ and expr =
 and typed_ident = position * ident * lustre_type
 
 (** A record field or an array or tuple index *)
-and label_or_index =
+and label_or_index = 
   | Label of position * index
   | Index of position * expr * access_kind
     (** [access_kind] is [Tuple] or [Array], set by the type checker from

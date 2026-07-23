@@ -185,7 +185,7 @@ and lustre_type =
 and typed_ident = position * ident * lustre_type
 
 (* A record field or an array or tuple index *)
-and label_or_index =
+and label_or_index = 
   | Label of position * index
   | Index of position * expr * access_kind
   | MapIndex of position * expr (* expr not restricted to integers *)
