@@ -201,6 +201,29 @@ let only_bv trans_sys =
   | `Inferred l -> TermLib.FeatureSet.(mem BV l && not(mem IA l))
 
 
+(* Width of the bitvector encoding a state's temporal offset in
+   [equal_mod_input]. Must match the width used for the codomain of
+   [uf_distinct] below and the width used to build the constant in
+   [term_of_state]. *)
+let equal_mod_input_bv_width = Numeral.of_int 64
+
+(* [2^n] as a [Numeral.t] *)
+let rec pow2_numeral n =
+  if Numeral.equal n Numeral.zero then Numeral.one
+  else Numeral.mult (Numeral.of_int 2) (pow2_numeral (Numeral.pred n))
+
+(* Offsets at or beyond this value can no longer be told apart once
+   encoded as an [equal_mod_input_bv_width]-bit unsigned bitvector *)
+let equal_mod_input_bv_bound = pow2_numeral equal_mod_input_bv_width
+
+(* An offset that doesn't fit in [equal_mod_input_bv_width] bits cannot be
+   soundly used as a distinguishing tag: two different offsets could wrap
+   around to the same bitvector value, which would make the blocking clause
+   in [equal_mod_input] incorrectly force two genuinely distinct states to
+   coincide. Compression is only a search optimization, so it is always
+   safe to fall back to not compressing rather than risk that. *)
+let offset_fits_bv_width n = Numeral.lt n equal_mod_input_bv_bound
+
 (* Declare uninterpreted function symbol *)
 let init_equal_mod_input declare_fun trans_sys =
 
@@ -222,7 +245,9 @@ let init_equal_mod_input declare_fun trans_sys =
          (List.sort 
             StateVar.compare_state_vars
             (TransSys.state_vars trans_sys)))
-      (if only_bv trans_sys then Type.mk_ubv 64 else Type.t_int)
+      (if only_bv trans_sys then 
+         Type.mk_ubv (Numeral.to_int equal_mod_input_bv_width)
+       else Type.t_int)
   in
   
   declare_fun uf_distinct
@@ -257,7 +282,8 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
       (* Count number of clauses *)
       Stat.incr Stat.ind_compress_equal_mod_input;
 
-      (* Blocking term to force states not equivalent *)
+      (* Blocking term to force states not equivalent, or [None] if
+         compression must be skipped for this pair due to BV overflow *)
       let term =
 
         (* Use uninterpreted function symbol or disjunction of equations? *)
@@ -282,9 +308,7 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
             let term_of_state s =
               let n =
                 if only_bv then
-                  let n' = aux s in
-                  let width = Term.sufficiently_large_bit_width (n' |> Numeral.to_int) |> Numeral.of_int in
-                  Term.mk_ubv (Bitvector.num_to_ubv width n')
+                  Term.mk_ubv (Bitvector.num_to_ubv equal_mod_input_bv_width (aux s))
                 else
                   Term.mk_num (aux s)
               in
@@ -303,21 +327,34 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
                  n]
             in              
 
-            (* Equation to force first state distinct from others *)
-            let t1 = term_of_state s1 in
+            if
+              only_bv &&
+              (not (offset_fits_bv_width (aux s1)) || not (offset_fits_bv_width (aux s2)))
+            then
 
-            (* Equation to force second state distinct from others *)
-            let t2 = term_of_state s2 in
+              None
 
-            (* Add conjunction of equations as blocking clause *)
-            Term.mk_and [t1; t2]
+            else
+
+              (
+
+                (* Equation to force first state distinct from others *)
+                let t1 = term_of_state s1 in
+
+                (* Equation to force second state distinct from others *)
+                let t2 = term_of_state s2 in
+
+                (* Add conjunction of equations as blocking clause *)
+                Some (Term.mk_and [t1; t2])
+
+              )
 
           )
 
         else
 
           (* Generate disjunction of disequalities and add to accumulator *)
-          (Term.mk_or
+          Some (Term.mk_or
 
              (List.fold_left2
                 (fun a (v1, _) (v2, _) -> 
@@ -339,10 +376,15 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
 
       in
 
-      Debug.compress
-        "Compression clause@ %a" Term.pp_print_term term;
+      match term with
+      | Some term ->
 
-      term :: accum
+        Debug.compress
+          "Compression clause@ %a" Term.pp_print_term term;
+
+        term :: accum
+
+      | None -> accum
 
     )
 
