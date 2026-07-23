@@ -297,7 +297,7 @@ and desugar_expr ctx adt_map expr =
   let rilist ies = List.map (fun (i, e) -> (i, r e)) ies in
   let rloi = function
     | LA.Label _ as l -> l
-    | LA.Index (p, e) -> LA.Index (p, r e)
+    | LA.Index (p, e, k) -> LA.Index (p, r e, k)
     | LA.MapIndex (p, e) -> LA.MapIndex (p, r e)
     | LA.SetIndex (p, e) -> LA.SetIndex (p, r e)
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
@@ -609,7 +609,7 @@ let rewrite_as_adt_terms adt_map expr =
   let rilist = List.map (fun (i, e) -> (i, r e)) in
   let rloi = function
     | LA.Label _ as l -> l
-    | LA.Index (p, e) -> LA.Index (p, r e)
+    | LA.Index (p, e, k) -> LA.Index (p, r e, k)
     | LA.MapIndex (p, e) -> LA.MapIndex (p, r e)
     | LA.SetIndex (p, e) -> LA.SetIndex (p, r e)
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)

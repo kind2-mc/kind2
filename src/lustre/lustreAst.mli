@@ -200,9 +200,13 @@ and expr =
 and typed_ident = position * ident * lustre_type
 
 (** A record field or an array or tuple index *)
-and label_or_index = 
+and label_or_index =
   | Label of position * index
-  | Index of position * expr
+  | Index of position * expr * access_kind
+    (** [access_kind] is [Tuple] or [Array], set by the type checker from
+        the updated expression's type: whether this replaces a whole tuple
+        slot or a single array element. Never [Map] or [Unknown] once
+        past type checking. *)
   | MapIndex of position * expr (* expr not restricted to integers *)
   | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)

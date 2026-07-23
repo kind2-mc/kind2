@@ -510,7 +510,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
 and get_node_call_from_indices: LA.label_or_index list -> (LA.ident * Lib.position) list
 = fun is ->
   List.concat_map (function
-    | LA.Index (_, e) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
+    | LA.Index (_, e, _) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
       get_node_call_from_expr e
     | LA.Label _ -> []) is
 

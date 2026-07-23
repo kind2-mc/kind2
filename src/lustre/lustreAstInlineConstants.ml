@@ -260,7 +260,7 @@ and push_pre is_guarded pos =
   | StructUpdate (p, e1, l, Some e2) -> 
     let l = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
-    | Index (p, e) -> Index (p, r e)
+    | Index (p, e, k) -> Index (p, r e, k)
     | MapIndex (p, e) -> MapIndex (p, r e)
     | SetIndex (p, e) -> SetIndex (p, r e) 
     | GenericIndex  (p, e) -> GenericIndex (p, r e) 
@@ -269,7 +269,7 @@ and push_pre is_guarded pos =
   | StructUpdate (p, e1, l, None) -> 
     let l = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
-    | Index (p, e) -> Index (p, r e)
+    | Index (p, e, k) -> Index (p, r e, k)
     | MapIndex (p, e) -> MapIndex (p, r e)
     | SetIndex (p, e) -> SetIndex (p, r e) 
     | GenericIndex  (p, e) -> GenericIndex (p, r e) 
@@ -400,7 +400,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
   | StructUpdate (p, e, lois, e_opt) -> 
     let lois = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
-    | Index (p, e) -> Index (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | Index (p, e, k) -> Index (p, simplify_expr ~ind_vars ~is_guarded ctx e, k)
     | MapIndex (p, e) -> MapIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e)
     | SetIndex (p, e) -> SetIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
     | GenericIndex  (p, e) -> GenericIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 

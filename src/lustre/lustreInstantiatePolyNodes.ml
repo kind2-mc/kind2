@@ -346,9 +346,9 @@ and gen_poly_decls_loi
   in
   match loi with
   | A.Label _ -> ctx, gids, loi, [], node_decls_map
-  | A.Index (p, e) ->
+  | A.Index (p, e, k) ->
     let ctx, gids, e, decls, ndm = re e in
-    ctx, gids, A.Index (p, e), decls, ndm
+    ctx, gids, A.Index (p, e, k), decls, ndm
   | A.MapIndex (p, e) ->
     let ctx, gids, e, decls, ndm = re e in
     ctx, gids, A.MapIndex (p, e), decls, ndm
