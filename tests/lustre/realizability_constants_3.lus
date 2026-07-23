@@ -1,0 +1,14 @@
+-- A free constant whose type does not generate identifiers must stay a
+-- constant in the typing context when CONTRACTCK generates the imported
+-- function used to check its realizability. Otherwise, normalizing a
+-- quantifier over a refinement type mentioning the constant fails.
+
+const N: int;
+
+type HostId = subtype { i : int | i < N };
+
+node M(x: bool) returns (y: bool);
+let
+  y = x;
+  check "P" forall (i: HostId) i < N;
+tel
