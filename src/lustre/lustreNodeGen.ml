@@ -49,6 +49,7 @@ module Ctx = TypeCheckerContext
 module StringMap = HString.HStringMap
 
 let abstr_sym_const_counter = ref 0
+let adt_key_default_counter = ref 0
 
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
@@ -71,6 +72,11 @@ type identifier_maps = {
   (* Memo table for AbstractSymConst instances: maps each abstract type name to the
      single free constant that serves as the canonical default value for that type. *)
   abstr_sym_consts : (HString.t, HString.t * Var.t LustreIndex.t) Hashtbl.t;
+  (* Memo table for the junk-payload default constants used by [adt_canonicalize_key]
+     to canonicalize ADT-typed map/set keys with an abstract-typed payload field.
+     Kept separate from [abstr_sym_consts] so these internal placeholders are never
+     aliased with a user-visible [choose@<T>] constant of the same abstract type. *)
+  adt_key_defaults : (HString.t, HString.t * Var.t LustreIndex.t) Hashtbl.t;
 }
 
 type compiler_state = {
@@ -138,6 +144,7 @@ let empty_identifier_maps node_name = {
   poracle_count = 1;
   call_count = 1;
   abstr_sym_consts = Hashtbl.create 4;
+  adt_key_defaults = Hashtbl.create 4;
 }
 
 let empty_compiler_state () = { 
@@ -795,7 +802,39 @@ let field_name_to_index adt_map field_hs =
    replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
-let adt_canonicalize_key adt_map bindings =
+let adt_canonicalize_key map adt_map bindings =
+  (* Abstract (uninterpreted) sorts have no canonical literal, so the default
+     value for an abstract-typed junk field is a dedicated free constant, one
+     per abstract type name, memoized in [map.adt_key_defaults] for the
+     duration of this node's compilation. Any fixed value works here: this
+     default is only ever compared for equality against itself (never
+     observed), so what matters is that occurrences of the same abstract type
+     always resolve to the same constant. *)
+  let default_of_abstract_type ty ident =
+    let ty_name = HString.mk_hstring ident in
+    let (_, vt) =
+      match Hashtbl.find_opt !map.adt_key_defaults ty_name with
+      | Some cached -> cached
+      | None ->
+        incr adt_key_default_counter;
+        let id_str = HString.mk_hstring (Format.sprintf "%d_adt_key_default" !adt_key_default_counter) in
+        let sv_ident = mk_ident id_str in
+        let scope = match !map.node_name with
+          | Some name -> I.to_scope (mk_ident name) @ ["res"] @ I.user_scope
+          | None -> I.user_scope
+        in
+        let vt = match mk_state_var
+          ?is_input:(Some false) ?is_const:(Some true) ?for_inv_gen:(Some true)
+          map scope sv_ident X.empty_index ty None
+        with
+        | Some sv -> X.singleton X.empty_index (Var.mk_const_state_var sv)
+        | None -> assert false
+        in
+        Hashtbl.add !map.adt_key_defaults ty_name (id_str, vt);
+        (id_str, vt)
+    in
+    X.map E.mk_free_var vt |> X.values |> List.hd
+  in
   let rec default_of_type ty =
     if Type.is_bool ty then E.t_false
     else if Type.is_real ty then E.mk_real Decimal.zero
@@ -805,6 +844,7 @@ let adt_canonicalize_key adt_map bindings =
       E.mk_const_array ty (default_of_type (Type.elem_type_of_array ty))
     else match Type.node_of_type ty with
       | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
+      | Type.Abstr ident -> default_of_abstract_type ty ident
       | _ -> E.mk_int Numeral.zero
   in
   (* Collect all (prefix, ctor) pairs from AdtPayloadIndex occurrences in the
@@ -1472,7 +1512,7 @@ and compile_ast_expr
   and compile_map_index bounds expr k =
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let bindings_k = X.bindings compiled_k in
-    let index_exprs = adt_canonicalize_key cstate.adt_map bindings_k in
+    let index_exprs = adt_canonicalize_key map cstate.adt_map bindings_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
@@ -2137,9 +2177,14 @@ and process_node_outputs cstate ctx map node_scope outputs =
 (* Register any AbstractSymConst-derived free constants from map.abstr_sym_consts
    into cstate.free_constants. Called once at the end of each node compilation. *)
 and flush_abstr_sym_consts cstate map =
+  let cstate =
+    Hashtbl.fold (fun _ (id, vt) cs ->
+      { cs with free_constants = (!map.node_name, id, vt, true) :: cs.free_constants }
+    ) !map.abstr_sym_consts cstate
+  in
   Hashtbl.fold (fun _ (id, vt) cs ->
     { cs with free_constants = (!map.node_name, id, vt, true) :: cs.free_constants }
-  ) !map.abstr_sym_consts cstate
+  ) !map.adt_key_defaults cstate
 
 and compile_node_io cstate ctx node_id params inputs outputs =
   let internal_node_name_hstring = NI.get_internal_name node_id in
@@ -2864,7 +2909,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       let nexpr2 = 
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key map cstate.adt_map (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst 
@@ -2972,7 +3017,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
          flattening so that the insertion position is consistent with membership
          checks (which also canonicalize via compile_map_index). *)
       let nexpr2 =
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key map cstate.adt_map (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst
