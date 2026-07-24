@@ -81,7 +81,7 @@ jobs:
       run: opam install ounit2
 
     - name: Run ounit and regression tests
-      run: opam exec make test TEST_ARGS="--slice-off --slice-experimental"
+      run: opam exec make test
 
     - name: Build user documentation
       if: runner.os == 'Linux'
