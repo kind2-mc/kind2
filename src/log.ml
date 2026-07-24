@@ -29,12 +29,14 @@ module type Sig = sig
     Lib.kind_module -> 'a log_printer
   val set_module : Lib.kind_module -> unit 
   val get_module : unit -> Lib.kind_module
-  type log_format = | F_pt | F_xml | F_json | F_relay
+  type log_format = | F_pt | F_xml | F_json | F_ijson | F_relay 
   val get_log_format : unit -> log_format
   val set_log_format : log_format -> unit
   val set_log_format_pt : unit -> unit
   val set_log_format_xml : unit -> unit
   val set_log_format_json : unit -> unit
+  val set_log_format_ijson : unit -> unit
+  val print_json_sep : Format.formatter -> unit
   val get_show_props : unit -> bool
   val set_show_props : bool -> unit
   val set_relay_log : unit -> unit
@@ -79,6 +81,7 @@ type log_format =
   | F_pt
   | F_xml
   | F_json
+  | F_ijson
   | F_relay
 
 
@@ -188,20 +191,26 @@ let parse_log_xml level pos msg =
 (* JSON output                                                            *)
 (* ********************************************************************** *)
 
-let printf_json_string mdl level s =
+let print_json_sep ppf = match get_log_format () with 
+| F_json -> Format.fprintf ppf ",@."
+| F_ijson -> Format.fprintf ppf "@."
+| _ -> assert false
+
+let printf_json_string mdl level s = 
+    let sep_printer = (if !first_log_flag then
+         (first_log_flag := false; (fun _ -> ()))
+       else
+         print_json_sep
+      ) in
   (ignore_or_fprintf level)
     !log_ppf
-    ( (if !first_log_flag then
-         (first_log_flag := false; "")
-       else
-         ",@."
-      ) ^^
-      "{@[<v 1>@," ^^
+      ("%t{@[<v 1>@," ^^
       "\"objectType\" : \"log\",@," ^^
       "\"level\" : \"%s\",@," ^^
       "\"source\" : \"%s\",@," ^^
       "\"value\" : @[<h>\"%s\"@]" ^^
       "@]@.}@.")
+    sep_printer
     (string_of_log_level level)
     (short_name_of_kind_module mdl) s
 
@@ -232,15 +241,15 @@ let parse_log_json level pos msg =
         "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
     with Invalid_argument _ -> ()
   in
+  let sep_printer = (if !first_log_flag then
+         (first_log_flag := false; (fun _ -> ()))
+       else
+         print_json_sep
+      ) in
   let file = file_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
-    ( (if !first_log_flag then
-         (first_log_flag := false; "")
-       else
-         ",@."
-      ) ^^
-      "{@[<v 1>@,\
+    (  "%t{@[<v 1>@,\
        \"objectType\" : \"log\",@,\
        \"level\" : \"%s\",@,\
        \"source\" : \"parse\",@,\
@@ -250,6 +259,7 @@ let parse_log_json level pos msg =
        @]@.}@.\
       "
     )
+    sep_printer
     (string_of_log_level level)
     pp_print_fname file
     pp_print_line_col pos (Lib.escape_json_string msg)
@@ -271,8 +281,13 @@ let set_log_format_xml () =
 (* Set log format to JSON *)
 let set_log_format_json () = log_format := F_json
 
+
+(* Set log format to incremental JSON *)
+let set_log_format_ijson () = log_format := F_ijson
+
 let get_show_props () = !show_props
 let set_show_props value = show_props := value 
+
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () =
@@ -306,7 +321,8 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     match !log_format with 
     | F_pt -> printf_pt level fmt
     | F_xml -> printf_xml mdl level fmt
-    | F_json -> printf_json mdl level fmt
+    | F_json
+    | F_ijson  -> printf_json mdl level fmt
     | F_relay -> R.printf_relay mdl level fmt
 
 
@@ -318,6 +334,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     match !log_format with 
     | F_pt -> printf_pt_uncond fmt
     | F_xml -> printf_xml mdl L_info fmt
+    | F_ijson
     | F_json -> printf_json mdl L_info fmt
     | F_relay -> R.printf_relay mdl L_info fmt
 
@@ -333,6 +350,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     match !log_format with 
     | F_pt -> print pt a
     | F_xml -> print xml a
+    | F_ijson
     | F_json -> print json a
     | F_relay -> ()
  

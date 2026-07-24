@@ -33,6 +33,7 @@ let fail_at_position pos msg =
   (match Log.get_log_format () with
    | Log.F_pt -> fail_at_position_pt pos msg
    | Log.F_xml -> Log.parse_log_xml L_error pos msg
+   | Log.F_ijson
    | Log.F_json -> Log.parse_log_json L_error pos msg
    | Log.F_relay -> ()
   );
@@ -46,6 +47,7 @@ let warn_at_position pos msg =
   match Log.get_log_format () with
   | Log.F_pt -> warn_at_position_pt L_warn pos msg
   | Log.F_xml -> Log.parse_log_xml L_warn pos msg
+  | Log.F_ijson
   | Log.F_json -> Log.parse_log_json L_warn pos msg
   | Log.F_relay -> ()
 
@@ -54,6 +56,7 @@ let note_at_position pos msg =
   match Log.get_log_format () with
   | Log.F_pt -> warn_at_position_pt L_note pos msg
   | Log.F_xml -> Log.parse_log_xml L_note pos msg
+  | Log.F_ijson
   | Log.F_json -> Log.parse_log_json L_note pos msg
   | Log.F_relay -> ()
 

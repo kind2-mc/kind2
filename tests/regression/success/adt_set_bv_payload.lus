@@ -1,4 +1,4 @@
-datatype D = A (int) | B (uint16);
+datatype D = A (s1: int) | B (s2: uint16);
 
 function isA(d: D) returns (r: bool);
 let r = match d with | A(_) : true | _ : false end; tel

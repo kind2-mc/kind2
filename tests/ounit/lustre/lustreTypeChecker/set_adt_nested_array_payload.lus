@@ -1,6 +1,6 @@
 const N: int = 2;
-datatype Inner = X (int) | Y (bool);
-datatype Outer = A (Inner^N) | B;
+datatype Inner = X (s1: int) | Y (s2: bool);
+datatype Outer = A (s3: Inner^N) | B;
 node main() returns (ok: bool);
 var s: set<Outer>;
 let s = {}@<Outer>; ok = true; check ok; tel

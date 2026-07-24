@@ -696,7 +696,7 @@ module RunIVC: PostAnalysis = struct
 
               let pt = ModelElement.pp_print_core_data in_sys param sys in
               let xml = ModelElement.pp_print_core_data_xml in_sys param sys in
-              let json fmt = Format.fprintf fmt ",\n%a"
+              let json fmt = Format.fprintf fmt "%t%a" Log.print_json_sep
                 (ModelElement.pp_print_core_data_json in_sys param sys) in
 
               if Flags.IVC.print_ivc ()
@@ -773,7 +773,7 @@ module RunIVC: PostAnalysis = struct
               KEvent.log_result
                 (fun fmt b -> if not b then Format.fprintf fmt "This enumeration might be incomplete (some IVCs might be missing).")
                 (fun fmt -> Format.fprintf fmt "<ModelSetEnumeration isComplete=\"%b\" />\n")
-                (fun fmt -> Format.fprintf fmt ",\n{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}")
+                (fun fmt -> Format.fprintf fmt "%t{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}" Log.print_json_sep)
                 complete
             )
           end
@@ -801,7 +801,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
         (* Print proved properties *)
         let pt = ModelElement.pp_print_no_solution in
         let xml = ModelElement.pp_print_no_solution_xml "mcs" in
-        let json ~unknown fmt = Format.fprintf fmt ",\n%a"
+        let json ~unknown fmt = Format.fprintf fmt "%t%a" Log.print_json_sep
           (ModelElement.pp_print_no_solution_json "mcs" ~unknown) in
         let aux prop =
           match prop.Property.prop_status with
@@ -845,7 +845,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             let pt = ModelElement.pp_print_core_data in_sys param sys in
             let xml = ModelElement.pp_print_core_data_xml in_sys param sys in
-            let json fmt = Format.fprintf fmt ",\n%a"
+            let json fmt = Format.fprintf fmt "%t%a" Log.print_json_sep
               (ModelElement.pp_print_core_data_json in_sys param sys) in
 
             if Flags.MCS.print_mcs ()
@@ -878,7 +878,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
           KEvent.log_result
             (fun fmt b -> if not b then Format.fprintf fmt "This enumeration might be incomplete (some MCS might be missing).")
             (fun fmt -> Format.fprintf fmt "<ModelSetEnumeration isComplete=\"%b\" />\n")
-            (fun fmt -> Format.fprintf fmt ",\n{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}")
+            (fun fmt -> Format.fprintf fmt "%t{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}" Log.print_json_sep)
             complete
         )
       end

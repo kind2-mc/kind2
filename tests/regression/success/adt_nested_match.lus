@@ -1,5 +1,5 @@
-datatype Inner = A | B (int);
-datatype Outer = Wrap (Inner) | Empty;
+datatype Inner = A | B (val: int);
+datatype Outer = Wrap (val: Inner) | Empty;
 
 node main(o: Outer) returns (ok: bool);
 var val: int;

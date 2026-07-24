@@ -3,6 +3,11 @@ name: Kind2 CI
 
 on: [push, pull_request]
 
+# A new push to a branch cancels this workflow's in-progress runs for it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   kind2-build:
     strategy:
@@ -92,7 +97,7 @@ jobs:
         opam exec make kind2-doc
 
     - name: Upload kind2 artifact
-      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v7
       with:
         name: kind2-${{ matrix.os }}

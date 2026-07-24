@@ -325,7 +325,7 @@ function
 
 | Const _ | Ident _ | ModeRef _  | EmptyMap _ | EmptySet _ -> false
 
-| RecordProject (_, e, _) | ConvOp (_, _, e)
+| FieldProject (_, e, _, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) | When (_, e, _)
 | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
@@ -357,6 +357,8 @@ function
 | ADTTerm (_, _, _, args) ->
   List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
 | AbstractSymConst _ -> assert false 
+
+| ADTTester (_, e, _) -> has_stateful_op ctx e
 
 | StructUpdate (_, e1, li, e2) ->
   has_stateful_op ctx e1 ||
@@ -822,7 +824,7 @@ let rec expr_only_supported_in_merge observer expr =
       | LA.When (_, e, _) | e -> r true e)
       e)
   | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
-  | RecordProject (_, e, _)
+  | FieldProject (_, e, _, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
@@ -854,6 +856,7 @@ let rec expr_only_supported_in_merge observer expr =
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, _, args) -> r_list observer args
   | AbstractSymConst _ -> assert false 
+  | ADTTester (_, e, _) -> r observer e
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -889,7 +892,7 @@ and check_ty_node_calls i ty =
     | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
     | Set (_, ty) -> check_ty_node_calls i ty
     | ADT (_, _, cons) ->
-      let tys = List.map snd cons |> List.flatten in
+      let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       Res.seq_ (List.map (check_ty_node_calls i) tys)
     | Bool _ | Int _ | Real _ | EnumType _
     | AbstractType _ | History _ | TArr _ | SBitVector _ | UBitVector _ -> Ok ()
@@ -1237,7 +1240,7 @@ and check_ty ctx f = function
 | Real _ | AbstractType _ | UserType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
-  let tys = List.map snd cons |> List.flatten in
+  let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
   let* warnings = Res.seq (List.map (check_ty ctx f) tys) in
   Res.ok (List.flatten warnings)
 
@@ -1273,7 +1276,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
   in
   let res = f ctx expr in
   let check = function
-    | LA.RecordProject (_, e, _)
+    | LA.FieldProject (_, e, _, _)
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
     | When (_, e, _)
@@ -1431,9 +1434,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
       Ok (warnings1 @ List.flatten warnings2)
     | AbstractSymConst _ -> assert false 
+    | ADTTester (_, e, _) -> check_expr ctx f e
   in
   let* warnings1 = res in
-  let* warnings2 = check expr in 
+  let* warnings2 = check expr in
   Ok (warnings1 @ warnings2)
 
 and check_expr_list ctx f l =
@@ -1567,7 +1571,7 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   | LA.AbstractType _ | LA.EnumType _ ->
     Ok []
   | LA.ADT (_, _, cons) ->
-    let tys = List.map snd cons |> List.flatten in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     let* warnings = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs is_nested ctx) tys) in
     Ok (List.flatten warnings)
 

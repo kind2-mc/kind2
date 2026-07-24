@@ -1,0 +1,3 @@
+datatype D = A (x: int) | B (x: bool);
+node main(d: D) returns (ok: bool);
+let ok = d.x > 0; tel

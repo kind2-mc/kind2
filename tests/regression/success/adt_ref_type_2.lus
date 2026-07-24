@@ -1,6 +1,6 @@
 type PostiveReal = subtype { r: real | r > 0.0 };
 
-datatype Shape = Circle (PostiveReal) | Rect (PostiveReal, PostiveReal);
+datatype Shape = Circle (r1: PostiveReal) | Rect (r2: PostiveReal, r3: PostiveReal);
 
 function area(s: Shape) returns (a: real);
 let
@@ -13,7 +13,7 @@ tel
 
 type PosInt = subrange [1,*] of int;
 
-datatype Labeled = Tag (PosInt, Shape) | Unlabeled (Shape);
+datatype Labeled = Tag (s1: PosInt, s2: Shape) | Unlabeled (s3: Shape);
 
 node top() returns ();
 var c1: Shape;

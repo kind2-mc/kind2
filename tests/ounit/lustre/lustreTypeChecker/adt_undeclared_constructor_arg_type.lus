@@ -1,1 +1,1 @@
-datatype Foo = Bar (Baz);
+datatype Foo = Bar (f: Baz);

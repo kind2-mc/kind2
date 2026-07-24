@@ -1,4 +1,4 @@
-datatype D = A (int) | B (int);
+datatype D = A (val: int) | B (val: int);
 
 node main(i: int) returns (ok: bool);
 var x, y: D;

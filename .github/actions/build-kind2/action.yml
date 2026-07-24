@@ -7,7 +7,7 @@ inputs:
   cache-prefix:
     description: The prefix of the cache keys.
     required: false
-    default: develop
+    default: main
   flambda:
     default: false
     type: boolean

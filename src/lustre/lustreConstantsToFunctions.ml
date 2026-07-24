@@ -229,7 +229,7 @@ let rec ty_contains_gids ctx ni ty =
   | A.TArr (_, ty1, ty2) ->
     (r ty1) || (r ty2)
   | A.ADT (_, _, cons) ->
-    let tys = List.concat_map (fun (_, tys) -> tys) cons in
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (||) false (List.map r tys)
   | A.AbstractType _ | A.EnumType _
   | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
