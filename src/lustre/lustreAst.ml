@@ -157,6 +157,8 @@ type expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* Symbolic default value for an abstract type, used as a junk payload field in desugared ADTs. *)
+  | AbstractSymConst of position * lustre_type
   (* ADT tester: C?(e) tests whether e was built with constructor C *)
   | ADTTester of position * expr * ident
 
@@ -723,6 +725,9 @@ and pp_print_expr ppf =
       Format.fprintf ppf "match %a with %a end"
         pp_print_expr e
         (pp_print_list pp_arm " ") arms
+
+    | AbstractSymConst (_, ty) ->
+      Format.fprintf ppf "_abstract_sym_const(%a)" pp_print_lustre_type ty
 
     | ADTTester (_, e, c) ->
       Format.fprintf ppf "%a?(%a)"

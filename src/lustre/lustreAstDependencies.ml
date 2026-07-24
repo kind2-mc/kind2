@@ -504,6 +504,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.flatten (List.map get_node_call_from_expr args)
     @ List.flatten (List.map extract_node_calls_type ty_args)
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> get_node_call_from_expr e
 (** Returns all the node calls from an expression *)
 
@@ -840,6 +841,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | ADTTerm (_, ty_args, _, args) ->
     SI.union (SI.flatten (List.map r args))
       (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
+  | AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 (** get all the variables and flatten node calls using 

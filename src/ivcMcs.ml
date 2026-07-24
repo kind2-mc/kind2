@@ -240,6 +240,7 @@ let rec minimize_node_call_args ue lst expr =
   let rec aux expr =
     match expr with
     | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
+    | A.AbstractSymConst _
     -> expr
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
@@ -283,6 +284,7 @@ and ast_contains p ast =
     if p ast then true
     else match ast with
     | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _ | A.EmptySet _
+    | A.AbstractSymConst _
       -> false
     | A.Call (_, _, _, args) ->
       List.map aux args

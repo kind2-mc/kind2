@@ -249,9 +249,9 @@ let rec default_value ctx adt_map pos ty =
     (match Ctx.lookup_ty ctx id with
     | Some expanded -> default_value ctx adt_map pos expanded
     | None -> assert false)
+  | LA.AbstractType _ -> LA.AbstractSymConst (pos, ty)
   | LA.TArr _ -> assert false
   | LA.ADT _ -> assert false (* desugar_type should have handled this *)
-  | LA.AbstractType _ -> failwith "Unsupported: abstract type in ADT constructor"
 
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
@@ -361,7 +361,8 @@ and desugar_expr ctx adt_map expr =
     LA.CompOp (pos, LA.Eq,
       tag_of pos adt_info (r e),
       LA.Ident (pos, c))
-  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
+  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
+  | LA.AbstractSymConst _ -> expr
   | LA.FieldProject (p, e, fld, Some adt_ty) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
@@ -527,6 +528,20 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
       match decl with
       | LA.TypeDecl (_, LA.AliasType (_, name, [], ty)) when not (HStringMap.mem name adt_map) ->
         Ctx.add_ty_syn acc_ctx name ty
+      (* Update the context with the desugared constant values so that step 16's
+         IC.inline_constants sees the desugared form (containing AbstractSymConst)
+         rather than the original ADTTerm form. Without this, inline_constants
+         re-inlines the pre-desugaring value into node equations and the pipeline
+         later crashes when it encounters ADTTerm where it expects a normalized expr. *)
+      | LA.ConstDecl (_, LA.TypedConst (_, id, e, ty)) ->
+        (match Ctx.lookup_const acc_ctx id with
+         | Some (_, _, src) -> Ctx.add_const acc_ctx id e ty src
+         | None -> acc_ctx)
+      | LA.ConstDecl (_, LA.UntypedConst (_, id, e)) ->
+        (match Ctx.lookup_const acc_ctx id with
+         | Some (_, Some ty, src) -> Ctx.add_const acc_ctx id e ty src
+         | Some (_, None, src) -> Ctx.add_untyped_const acc_ctx id e src
+         | None -> acc_ctx)
       | _ -> acc_ctx
     ) ctx' type_and_const_decls' in
     (type_and_const_decls', node_contract_decls', ctx', adt_map)
@@ -723,6 +738,7 @@ let rewrite_as_adt_terms adt_map expr =
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
   | LA.ADTTerm _ | LA.Match _ -> expr
+  | LA.AbstractSymConst _ -> expr
   in
   go expr
 

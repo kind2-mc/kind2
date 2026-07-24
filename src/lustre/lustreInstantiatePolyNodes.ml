@@ -388,7 +388,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
-  | Const _
+  | Const _ | AbstractSymConst _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
   | FieldProject (p, expr, id, ty_opt) ->
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in

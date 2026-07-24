@@ -408,6 +408,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map (check_clocks clock) args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
+    | LA.AbstractSymConst _ -> assert false 
     | LA.ADTTester (_, e, _) -> check_clocks clock e
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
@@ -460,6 +461,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map check_merge args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
+    | LA.AbstractSymConst _ -> assert false 
     | LA.ADTTester (_, e, _) -> check_merge e
   in
   check_merge e
@@ -643,6 +645,7 @@ let rec infer_const_attr ctx exp =
     let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
     let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
     combine r_args r_tys
+  | LA.AbstractSymConst _ -> assert false 
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -882,7 +885,8 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
       ) adt_ty_args) in
       let* args = R.seq (List.map call args) in
       R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
-      
+    | LA.AbstractSymConst _ -> assert false 
+
 let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_history ctx in
   match ty with
@@ -1653,6 +1657,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         let checked_args, warnings = List.split pairs in
         R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
     )
+  | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1779,9 +1784,10 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
+  | LA.AbstractSymConst _ -> R.ok (expr, [])
 
-(** Type checks an expression and returns [ok] 
- * if the expected type is the given type [tc_type]  
+(** Type checks an expression and returns [ok]
+ * if the expected type is the given type [tc_type]
  * returns an [Error of string] otherwise *)
 
 (* Convert the GenericIndex to one of the other indices based on the inferred type of ue *)
@@ -2825,6 +2831,7 @@ and check_no_index_access ctx nname ty e =
   | LA.ADTTerm (_, ty_args, _, args) ->
     Res.seq_ (List.map r args) >>
     Res.seq_ (List.map (LH.fold_lustre_ty r (R.ok ()) (>>)) ty_args)
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 and check_array_size_expr ctx nname ty e =
@@ -2944,6 +2951,7 @@ and expr_contains_set_binop ctx ni expr =
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
     || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result

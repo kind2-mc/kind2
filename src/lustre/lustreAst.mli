@@ -193,6 +193,9 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (** Symbolic default value for an abstract type, used as a junk payload field
+      in desugared ADTs. *)
+  | AbstractSymConst of position * lustre_type
   (* ADT tester: C?(e) checks whether e was constructed with C *)
   | ADTTester of position * expr * ident
 

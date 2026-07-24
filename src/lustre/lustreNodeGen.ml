@@ -48,6 +48,8 @@ module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
 
+let abstr_sym_const_counter = ref 0
+
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   usr_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
@@ -66,6 +68,9 @@ type identifier_maps = {
   guarantee_count : int;
   poracle_count : int;
   call_count : int;
+  (* Memo table for AbstractSymConst instances: maps each abstract type name to the
+     single free constant that serves as the canonical default value for that type. *)
+  abstr_sym_consts : (HString.t, HString.t * Var.t LustreIndex.t) Hashtbl.t;
 }
 
 type compiler_state = {
@@ -132,6 +137,7 @@ let empty_identifier_maps node_name = {
   guarantee_count = 0;
   poracle_count = 1;
   call_count = 1;
+  abstr_sym_consts = Hashtbl.create 4;
 }
 
 let empty_compiler_state () = { 
@@ -1700,6 +1706,34 @@ and compile_ast_expr
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
   | A.EmptySet _ -> assert false
+  | A.AbstractSymConst (_, A.AbstractType (_, ty_name)) ->
+    let (_, vt) =
+      match Hashtbl.find_opt !map.abstr_sym_consts ty_name with
+      | Some cached -> cached
+      | None ->
+        incr abstr_sym_const_counter;
+        let id_str = HString.mk_hstring (Format.sprintf "%d_abstr_const" !abstr_sym_const_counter) in
+        let ident = mk_ident id_str in
+        let cty = compile_ast_type cstate ctx map (A.AbstractType (Lib.dummy_pos, ty_name)) in
+        let scope = match !map.node_name with
+          | Some name -> I.to_scope (mk_ident name) @ ["res"] @ I.user_scope
+          | None -> I.user_scope
+        in
+        let over_index idx ity vt =
+          match mk_state_var
+            ?is_input:(Some false) ?is_const:(Some true) ?for_inv_gen:(Some true)
+            map scope ident idx ity None
+          with
+          | Some sv -> X.add idx (Var.mk_const_state_var sv) vt
+          | None -> vt
+        in
+        let vt = X.fold over_index cty X.empty in
+        Hashtbl.add !map.abstr_sym_consts ty_name (id_str, vt);
+        (id_str, vt)
+    in
+    X.map E.mk_free_var vt
+  | A.AbstractSymConst _ ->
+    assert false (* AbstractSymConst ty must always wrap an AbstractType *)
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
@@ -2100,8 +2134,15 @@ and process_node_outputs cstate ctx map node_scope outputs =
   and is_single = List.length outputs = 1
   in List.fold_left (over_outputs is_single) X.empty outputs
 
+(* Register any AbstractSymConst-derived free constants from map.abstr_sym_consts
+   into cstate.free_constants. Called once at the end of each node compilation. *)
+and flush_abstr_sym_consts cstate map =
+  Hashtbl.fold (fun _ (id, vt) cs ->
+    { cs with free_constants = (!map.node_name, id, vt, true) :: cs.free_constants }
+  ) !map.abstr_sym_consts cstate
+
 and compile_node_io cstate ctx node_id params inputs outputs =
-  let internal_node_name_hstring = NI.get_internal_name node_id in 
+  let internal_node_name_hstring = NI.get_internal_name node_id in
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
   let map = ref (empty_identifier_maps (Some internal_node_name_hstring)) in
@@ -3268,6 +3309,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       TM.empty
       (StringMap.bindings gids.GI.history_vars)
   in
+
+  (* Register any AbstractSymConst-derived free constants into cstate. *)
+  let cstate = flush_abstr_sym_consts cstate map in
 
   let (node:N.t) = { node_id;
     is_extern;
