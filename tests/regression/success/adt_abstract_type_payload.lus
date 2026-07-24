@@ -1,6 +1,6 @@
 type T;
 
-datatype Foo = A(T) | B(T, int);
+datatype Foo = A(s1: T) | B(s2: T, s3: int);
 const T_val: T;
 const C: Foo = A(T_val);
 
