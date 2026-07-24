@@ -62,8 +62,8 @@ node Coordinator(my_turn: bool; nw_recv: Option<Message>)
 var sender: HostId;
     vote: Vote;
 let
-  sender = nw_recv.value.id;
-  vote = nw_recv.value.vote;
+  sender = if Some?(nw_recv) and VoteMsg?(nw_recv.value) then nw_recv.value.id else 0;
+  vote = if Some?(nw_recv) and VoteMsg?(nw_recv.value) then nw_recv.value.vote else Yes;
   frame (votes, nw_send, decision)
     decision = None@<Decision>;
     votes = map[]@<HostId,Vote>;
