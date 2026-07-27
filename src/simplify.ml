@@ -1585,9 +1585,9 @@ let if_then_else = function
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
 
-  (* Evaluate to an opaque atom (array, bitvector, or abstract sort): no
-     polynomial structure to preserve, so just rebuild the ite term. *)
-  | [Bool p; ((Array _ | BV _ | Abstr _) as l); ((Array _ | BV _ | Abstr _) as r)] ->
+  (* Evaluate to an opaque atom of abstract sort: no polynomial structure
+     to preserve, so just rebuild the ite term. *)
+  | [Bool p; (Abstr _ as l); (Abstr _ as r)] ->
 
     atom_of_term (Term.mk_ite p (term_of_nf l) (term_of_nf r))
 
@@ -2112,11 +2112,11 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
                 conjunction [a'; b']
 
-              (* Equation between arrays or abstract-sorted terms: these have
-                 no polynomial normal form, so build generic term equality
+              (* Equation between abstract-sorted terms: these have no
+                 polynomial normal form, so build generic term equality
                  directly instead of going through [relation_eq], which only
                  handles Num/Dec/BV. *)
-              | [((Array _ | Abstr _) as a); ((Array _ | Abstr _) as b)] ->
+              | [(Abstr _ as a); (Abstr _ as b)] ->
 
                 atom_of_term (Term.mk_eq [term_of_nf a; term_of_nf b])
 
@@ -2359,9 +2359,9 @@ let remove_boolean_ite = function
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
 
-  (* Evaluate to an opaque atom (array, bitvector, or abstract sort): no
-     polynomial structure to preserve, so just rebuild the ite term. *)
-  | [Bool p; ((Array _ | BV _ | Abstr _) as l); ((Array _ | BV _ | Abstr _) as r)] ->
+  (* Evaluate to an opaque atom of abstract sort: no polynomial structure
+     to preserve, so just rebuild the ite term. *)
+  | [Bool p; (Abstr _ as l); (Abstr _ as r)] ->
 
     atom_of_term (Term.mk_ite p (term_of_nf l) (term_of_nf r))
 
@@ -2823,11 +2823,11 @@ let rec remove_ite' fterm args =
 
                 binary_equivalence remove_ite' a b
 
-              (* Equation between arrays or abstract-sorted terms: these have
-                 no polynomial normal form, so build generic term equality
+              (* Equation between abstract-sorted terms: these have no
+                 polynomial normal form, so build generic term equality
                  directly instead of going through [ite_rel_eq], which only
                  handles Num/Dec. *)
-              | [((Array _ | Abstr _) as a); ((Array _ | Abstr _) as b)] ->
+              | [(Abstr _ as a); (Abstr _ as b)] ->
 
                 atom_of_term (Term.mk_eq [term_of_nf a; term_of_nf b])
 
