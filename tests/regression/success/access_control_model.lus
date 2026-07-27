@@ -1,7 +1,6 @@
--- Type definition
-type Nssai = [int, int]; -- typedef std::tuple<int, int> Nssai;
-type Plmn = [int, int]; -- typedef std::tuple<int, int> Plmn;
-type NfId = int; -- typedef std::int32_t NfId;
+type Nssai = [int, int]; 
+type Plmn = [int, int]; 
+type NfId = int; 
 
 type NFType = enum { 
     AMF,
@@ -41,7 +40,6 @@ type ScopeToken = struct {
 type CCA = struct {
     sub: NfId;
     aud: NFType;
---    signature / exp / iat omitted (assumed valid — same style as JWT)
 };
 
 type nf_service = struct {
@@ -49,69 +47,53 @@ type nf_service = struct {
     service_status: ServiceStatus;
     oauth2_supported: bool;
 
---  Layer 2 policy
     allowed_nf_types: set<NFType>;
---  allowed_nf_types: [NFType, NFType, NFType];
     allowed_nssais: set<Nssai>;
---  allowed_nssais: [Nssai, Nssai, Nssai];
     allowed_plmns: set<Plmn>;
---  allowed_plmns: [Plmn, Plmn, Plmn];
 
--- Layer 3/4 policy
     allowed_operations_per_nf_type: map<NFType, set<Operation>>; 
     allowed_operations: set<Operation>;
---  allowed_operations: [Operation, Operation, Operation];
     allowed_operations_per_nf_instance: map<NfId, set<Operation>>;
 };
 
 type nf_profile = struct {
     nf_id: NfId;
     nf_type: NFType;
-    --nf_url: string;
     plmn_list: set<Plmn>;
     snssais: set<Nssai>;
     nf_status: bool;
 
---  Layer 1 policy
     allowed_nf_types: set<NFType>;
     allowed_nssais: set<Nssai>;
     allowed_plmn: set<Plmn>;
-    --allowed_nf_domains: set<string>;
 
-    nf_services: [nf_service, nf_service]; --set<nf_service>
+    nf_services: [nf_service, nf_service]; 
 };
 
 type AccessTokenReq = struct {
     consumer_nf_id: NfId;
     consumer_nf_type: NFType;
 
-    --DCCF only (optional);
     source_nf_id: NfId;
     source_nf_type: NFType;
 
-    --Target NF
     target_nf_type: NFType;
     target_nf_id: NfId;
     scope: set<ScopeToken>;
 
-    -- PLMN
     consumer_plmn: Plmn;
     target_plmn: Plmn;
     source_plmn: Plmn;
     consumer_plmn_list: set<Plmn>;
 
-    -- Slice
     consumer_snssai_list: set<Nssai>;
     target_snssai_list: set<Nssai>;
     source_snssai_list: set<Nssai>;
 
-    --Optional
     cca: CCA 
 };
 
 type token_response = struct {
-    --access_token: String;
-    --token_type: String;
     expires_in: int;
     scope: set<ScopeToken>;
 };
@@ -130,14 +112,13 @@ type DiscoveryRequest = struct {
 
 type discovery_response = struct {
     result_found: bool;
-    --nf_profiles: Option<[nf_profile, nf_profile]>; -- set<nf_profile>
-    nf_profiles: Option<[nf_profile, nf_profile]>; -- [nf_profile, nf_profile]
+    nf_profiles: Option<[nf_profile, nf_profile]>; 
 };
 
 type jwt_token = struct {
-    iss: NfId; --NRF's instance id
-    sub: NfId; --consumer instance id
-    aud: NfId; --producer instance id
+    iss: NfId; 
+    sub: NfId; 
+    aud: NfId; 
 
     consumer_nf_type: NFType;
     source_nf_id: NfId;
@@ -157,8 +138,8 @@ type service_request = struct {
     cca: CCA;
     service_name: Service;
     scope: set<ScopeToken>;
-    requested_slice: set<Nssai>; -- Target slice for this call
-    consumer_snssais: set<Nssai>; -- consumer's own slice membership
+    requested_slice: set<Nssai>; 
+    consumer_snssais: set<Nssai>; 
     consumer_plmn_list: set<Plmn>;
 };
 
@@ -179,24 +160,16 @@ datatype nrf_response_type =
 
 datatype Option <D> = None | Some (val: D);
 
--- Global constants
 const initial_nrf_state: nrf_state = nrf_state { 
         nf_profiles = map[]@<NfId, nf_profile>; 
         nf_profiles_by_type = map[]@<NFType, set<NfId>>
     };
 
 
--- Nodes/Functions
-
 node check_membership<T>(inp : [T, T]; x: T) returns (result : bool)
 let
     result = x = inp[0] or x = inp[1];
 tel
-
---node is_subset<T>(inp : set; x : T) returns (result : bool)
---let
---    result = x = inp[0] or x = inp[1];
---tel
 
 node nf() returns ()
 let
@@ -212,13 +185,9 @@ var requester_plmn_is_subset: bool;
 let
     new_state = state;
 
-    -- requester_nf_id is registered
     requester_nf_id_present = discovery_request.requester_nf_id in state.nf_profiles;
-    -- TS 29.510 §6.1.6.2.16 NOTE 2: requester_nf type matches registered profile
     requester_type_match = state.nf_profiles[discovery_request.requester_nf_id].nf_type <> discovery_request.requester_nf_type;
-    -- target_nf_type exists in registered profile?
     requester_nf_id_present = discovery_request.target_nf_type in state.nf_profiles_by_type;
-    -- requester_plmn_list is a subset of registered profile plmn_list
     requester_plmn_is_subset = true;
 
     if not requester_nf_id_present or not requester_type_match or not requester_nf_id_present or not requester_plmn_is_subset then
