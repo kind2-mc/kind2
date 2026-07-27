@@ -1,3 +1,5 @@
+type Rec = { f: int^2 };
+
 node ScalarArrayVarIndex(i: int; v: int) returns ();
 var arr: int^3;
 let
@@ -35,4 +37,14 @@ let
   check "unchanged"
     (i >= 0 and i < 3) =>
     (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j][0] = 7 and arr[j][1] = 7));
+tel
+
+node ArrayOfRecord(i: int; v: Rec) returns ();
+var arr: Rec^3;
+let
+  arr = (Rec { f = 0^2 }^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i].f[0] = v.f[0] and arr[i].f[1] = v.f[1]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j].f[0] = 0 and arr[j].f[1] = 0));
 tel
