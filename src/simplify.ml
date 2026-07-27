@@ -1585,12 +1585,6 @@ let if_then_else = function
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
 
-  (* Evaluate to an opaque atom of abstract sort: no polynomial structure
-     to preserve, so just rebuild the ite term. *)
-  | [Bool p; (Abstr _ as l); (Abstr _ as r)] ->
-
-    atom_of_term (Term.mk_ite p (term_of_nf l) (term_of_nf r))
-
   (* Not well-typed or wrong arity *)
   | _ -> assert false
 
@@ -2112,14 +2106,6 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
                 conjunction [a'; b']
 
-              (* Equation between abstract-sorted terms: these have no
-                 polynomial normal form, so build generic term equality
-                 directly instead of going through [relation_eq], which only
-                 handles Num/Dec/BV. *)
-              | [(Abstr _ as a); (Abstr _ as b)] ->
-
-                atom_of_term (Term.mk_eq [term_of_nf a; term_of_nf b])
-
               | _ ->
 
                 relation_eq
@@ -2358,12 +2344,6 @@ let remove_boolean_ite = function
             p
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
-
-  (* Evaluate to an opaque atom of abstract sort: no polynomial structure
-     to preserve, so just rebuild the ite term. *)
-  | [Bool p; (Abstr _ as l); (Abstr _ as r)] ->
-
-    atom_of_term (Term.mk_ite p (term_of_nf l) (term_of_nf r))
 
   (* Not well-typed or wrong arity *)
   | _ -> assert false
@@ -2822,14 +2802,6 @@ let rec remove_ite' fterm args =
               | [Bool a; Bool b] ->
 
                 binary_equivalence remove_ite' a b
-
-              (* Equation between abstract-sorted terms: these have no
-                 polynomial normal form, so build generic term equality
-                 directly instead of going through [ite_rel_eq], which only
-                 handles Num/Dec. *)
-              | [(Abstr _ as a); (Abstr _ as b)] ->
-
-                atom_of_term (Term.mk_eq [term_of_nf a; term_of_nf b])
 
               (* Equation between integers or reals *)
               | _ -> ite_rel_eq remove_ite' args
