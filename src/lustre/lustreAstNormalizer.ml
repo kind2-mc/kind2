@@ -540,11 +540,12 @@ and mk_ref_type_expr
  = fun adt_map ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
-  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
+  | A.RefinementType (_, (_, id2, ty2), ref_expr) ->
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
-       in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 expr ref_expr in 
-    [expr]
+       in terms of x instead of y. The base type may itself carry constraints
+       (e.g. a subrange or another refinement type), so recurse into it too *)
+    let ref_expr = AH.substitute_naive id2 expr ref_expr in
+    ref_expr :: mk_ref_type_expr adt_map ctx node_id expr ty2
   | TupleType (pos, tys)
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in

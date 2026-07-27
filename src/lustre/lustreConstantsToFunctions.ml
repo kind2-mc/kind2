@@ -250,22 +250,22 @@ let gen_const_functions ctx decls =
         let node_type = NI.FreeConstant in
         let node_id = NI.mk_node_id ~node_type id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
-        let func_ty = A.TArr (p, GroupType (p, []), ty) in 
-        let acc_ctx = Ctx.remove_const acc_ctx id in
-        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in 
+        let func_ty = A.TArr (p, GroupType (p, []), ty) in
+        let acc_ctx = Ctx.add_ty_node acc_ctx node_id func_ty true in
         let acc_ctx = Ctx.add_node_param_attr acc_ctx node_id [] in
         let acc_decls =
           acc_decls @ [A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })]
         in
-        let acc_decls, acc_new_func_ids =
+        let acc_decls, acc_new_func_ids, acc_ctx =
           (* If type does not contain generated identifiers, and we are only generating
              an imported function for realizability checking, then we don't need to
              convert references to this constant to calls, so we keep original declaration,
-             and we don't include the id in new_func_ids *)
+             we don't include the id in new_func_ids, and the identifier must remain a
+             constant in the typing context *)
           if not contains_gids then
-            acc_decls @ [decl], acc_new_func_ids
+            acc_decls @ [decl], acc_new_func_ids, acc_ctx
           else
-            acc_decls, id :: acc_new_func_ids
+            acc_decls, id :: acc_new_func_ids, Ctx.remove_const acc_ctx id
         in
         acc_decls, acc_new_func_ids, acc_ctx
       else 

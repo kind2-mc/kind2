@@ -1,0 +1,23 @@
+-- Regression test: a quantifier whose bound variable has a refinement
+-- type must include the constraints of the *base* type in its guard,
+-- not just the outermost refinement predicate. Here HostId's base type
+-- Nat contributes 0 <= h; if it is dropped, the totality constraint on
+-- InitM demands that every negative integer be a member of the map,
+-- contradicting the map's domain typing (members are valid HostIds).
+-- The resulting inconsistent constraints made every state spuriously
+-- unreachable. With complete guards, setting m[0] is correctly
+-- reachable (set0 at the second step).
+
+type Nat = subrange [0,*] of int;
+const N: int = 1;
+type HostId = subtype { i : Nat | i < N };
+
+const InitM : subtype { mm : map<HostId,bool> |
+  (forall (h: HostId) h in mm) and
+  (forall (h: HostId) not mm[h]) };
+
+node top(set0: bool) returns (m: map<HostId,bool>);
+let
+  m = InitM -> (if set0 then (pre m)[0 := true] else pre m);
+  check reachable "M0 set" m[0];
+tel
