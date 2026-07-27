@@ -3020,7 +3020,11 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         match expanded with
         | LA.ADT _ (* Already validated at declaration *)
         | LA.UserType _ -> R.ok (ty', [])  
-        | _ -> check_type_well_formed_rec is_nested expanded
+        | _ ->
+          (* Validate the expanded form,
+             but don't substitute in the expanded UserType *)
+          let* _, warnings = check_type_well_formed_rec is_nested expanded in
+          R.ok (ty', warnings)
       else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
