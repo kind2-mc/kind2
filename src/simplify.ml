@@ -51,8 +51,8 @@ type 'a polynomial = 'a * 'a monomial list
 type t = 
   | Num of Numeral.t polynomial
   | Dec of Decimal.t polynomial
-  | Bool of Term.t
-  | Array of Term.t
+  | Bool of Term.t 
+  | Array of Term.t 
   | BV of Term.t
   | Abstr of Term.t
 
@@ -179,7 +179,7 @@ let term_of_dec_polynomial =
 
 
 (* Convert a normal form to a term *)
-let term_of_nf = function
+let term_of_nf = function 
   | Num p -> term_of_num_polynomial p
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
@@ -221,7 +221,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | BV _ -> false (* Technically, this isn't right, but it doesn't
+  | BV _ -> false (* Technically, this isn't right, but it doesn't 
   matter in the contexts in which this function is called *)
   | Num _ | Dec _ | Bool _ | Array _ | Abstr _ -> false
 

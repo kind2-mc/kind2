@@ -528,11 +528,6 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
       match decl with
       | LA.TypeDecl (_, LA.AliasType (_, name, [], ty)) when not (HStringMap.mem name adt_map) ->
         Ctx.add_ty_syn acc_ctx name ty
-      (* Update the context with the desugared constant values so that step 16's
-         IC.inline_constants sees the desugared form (containing AbstractSymConst)
-         rather than the original ADTTerm form. Without this, inline_constants
-         re-inlines the pre-desugaring value into node equations and the pipeline
-         later crashes when it encounters ADTTerm where it expects a normalized expr. *)
       | LA.ConstDecl (_, LA.TypedConst (_, id, e, ty)) ->
         (match Ctx.lookup_const acc_ctx id with
          | Some (_, _, src) -> Ctx.add_const acc_ctx id e ty src

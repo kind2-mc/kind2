@@ -48,8 +48,7 @@ module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
 
-let abstr_sym_const_counter = ref 0
-let adt_key_default_counter = ref 0
+let abstract_type_default_counter = ref 0
 
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
@@ -69,9 +68,6 @@ type identifier_maps = {
   guarantee_count : int;
   poracle_count : int;
   call_count : int;
-  (* Memo table for AbstractSymConst instances: maps each abstract type name to the
-     single free constant that serves as the canonical default value for that type. *)
-  abstr_sym_consts : (HString.t, HString.t * Var.t LustreIndex.t) Hashtbl.t;
 }
 
 type compiler_state = {
@@ -138,16 +134,23 @@ let empty_identifier_maps node_name = {
   guarantee_count = 0;
   poracle_count = 1;
   call_count = 1;
-  abstr_sym_consts = Hashtbl.create 4;
 }
 
-(* Memo table for the junk-payload default constants used by [adt_canonicalize_key]
-   to canonicalize ADT-typed map/set keys with an abstract-typed payload field. This
-   is global (not per-node, unlike [abstr_sym_consts]) because the same ADT-typed
-   value can be canonicalized in multiple nodes (e.g. inserted into a set in one node,
-   queried for membership in another): the placeholder for a given abstract type must
-   resolve to the exact same constant everywhere, or canonicalization is unsound. *)
-let adt_key_defaults : (HString.t, HString.t * Var.t) Hashtbl.t = Hashtbl.create 4
+let abstract_type_defaults : (HString.t, HString.t * Var.t) Hashtbl.t = Hashtbl.create 4
+
+let abstract_type_default ty_name ty =
+  match Hashtbl.find_opt abstract_type_defaults ty_name with
+  | Some entry -> entry
+  | None ->
+    incr abstract_type_default_counter;
+    let name = Format.sprintf "%d_abstract_type_default" !abstract_type_default_counter in
+    let sv = StateVar.mk_state_var
+      ~is_input:false ~is_const:true ~for_inv_gen:true
+      name I.user_scope ty
+    in
+    let entry = (HString.mk_hstring name, Var.mk_const_state_var sv) in
+    Hashtbl.add abstract_type_defaults ty_name entry;
+    entry
 
 let empty_compiler_state () = { 
   nodes = [];
@@ -805,31 +808,8 @@ let field_name_to_index adt_map field_hs =
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
 let adt_canonicalize_key adt_map bindings =
-  (* Abstract (uninterpreted) sorts have no canonical literal, so the default
-     value for an abstract-typed junk field is a dedicated free constant, one
-     per abstract type name, memoized globally in [adt_key_defaults] for the
-     whole compilation (not just the current node): the same ADT-typed value
-     can be canonicalized in different nodes (inserted into a set in one,
-     queried for membership in another), so the placeholder must resolve to
-     the same constant everywhere or canonicalization is unsound. Any fixed
-     value works here otherwise: this default is only ever compared for
-     equality against itself, never observed. *)
   let default_of_abstract_type ty ident =
-    let ty_name = HString.mk_hstring ident in
-    let (_, v) =
-      match Hashtbl.find_opt adt_key_defaults ty_name with
-      | Some entry -> entry
-      | None ->
-        incr adt_key_default_counter;
-        let name = Format.sprintf "%d_adt_key_default" !adt_key_default_counter in
-        let sv = StateVar.mk_state_var
-          ~is_input:false ~is_const:true ~for_inv_gen:true
-          name I.user_scope ty
-        in
-        let entry = (HString.mk_hstring name, Var.mk_const_state_var sv) in
-        Hashtbl.add adt_key_defaults ty_name entry;
-        entry
-    in
+    let (_, v) = abstract_type_default (HString.mk_hstring ident) ty in
     E.mk_free_var v
   in
   let rec default_of_type ty =
@@ -905,13 +885,13 @@ let rec compile ctx gids adt_map scc_map decls =
   let over_decls_2 cstate decl =
     compile_declaration_phase2 cstate gids ctx scc_map rec_decreases_map decl in
   let output = List.fold_left over_decls_2 output decls in
-  (* Register the global ADT-key-canonicalization default constants (see
-     [adt_key_defaults]) as free constants, once for the whole compilation. *)
+  (* Register the global abstract-type default constants (see
+     [abstract_type_defaults]) as free constants *)
   let output =
     Hashtbl.fold (fun _ (id, v) cs ->
       { cs with free_constants =
           (None, id, X.singleton X.empty_index v, true) :: cs.free_constants }
-    ) adt_key_defaults output
+    ) abstract_type_defaults output
   in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
@@ -1752,31 +1732,9 @@ and compile_ast_expr
   | A.EmptyMap _ -> assert false
   | A.EmptySet _ -> assert false
   | A.AbstractSymConst (_, A.AbstractType (_, ty_name)) ->
-    let (_, vt) =
-      match Hashtbl.find_opt !map.abstr_sym_consts ty_name with
-      | Some cached -> cached
-      | None ->
-        incr abstr_sym_const_counter;
-        let id_str = HString.mk_hstring (Format.sprintf "%d_abstr_const" !abstr_sym_const_counter) in
-        let ident = mk_ident id_str in
-        let cty = compile_ast_type cstate ctx map (A.AbstractType (Lib.dummy_pos, ty_name)) in
-        let scope = match !map.node_name with
-          | Some name -> I.to_scope (mk_ident name) @ ["res"] @ I.user_scope
-          | None -> I.user_scope
-        in
-        let over_index idx ity vt =
-          match mk_state_var
-            ?is_input:(Some false) ?is_const:(Some true) ?for_inv_gen:(Some true)
-            map scope ident idx ity None
-          with
-          | Some sv -> X.add idx (Var.mk_const_state_var sv) vt
-          | None -> vt
-        in
-        let vt = X.fold over_index cty X.empty in
-        Hashtbl.add !map.abstr_sym_consts ty_name (id_str, vt);
-        (id_str, vt)
-    in
-    X.map E.mk_free_var vt
+    let ty = Type.mk_abstr (HString.string_of_hstring ty_name) in
+    let (_, v) = abstract_type_default ty_name ty in
+    X.singleton X.empty_index (E.mk_free_var v)
   | A.AbstractSymConst _ ->
     assert false (* AbstractSymConst ty must always wrap an AbstractType *)
   (* LustreSyntaxChecks handles these expressions on the first pass,
@@ -2178,13 +2136,6 @@ and process_node_outputs cstate ctx map node_scope outputs =
     | _ -> assert false (* Guaranteed by LustreSyntaxChecks *)
   and is_single = List.length outputs = 1
   in List.fold_left (over_outputs is_single) X.empty outputs
-
-(* Register any AbstractSymConst-derived free constants from map.abstr_sym_consts
-   into cstate.free_constants. Called once at the end of each node compilation. *)
-and flush_abstr_sym_consts cstate map =
-  Hashtbl.fold (fun _ (id, vt) cs ->
-    { cs with free_constants = (!map.node_name, id, vt, true) :: cs.free_constants }
-  ) !map.abstr_sym_consts cstate
 
 and compile_node_io cstate ctx node_id params inputs outputs =
   let internal_node_name_hstring = NI.get_internal_name node_id in
@@ -3354,9 +3305,6 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       TM.empty
       (StringMap.bindings gids.GI.history_vars)
   in
-
-  (* Register any AbstractSymConst-derived free constants into cstate. *)
-  let cstate = flush_abstr_sym_consts cstate map in
 
   let (node:N.t) = { node_id;
     is_extern;
