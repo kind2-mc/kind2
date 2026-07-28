@@ -1225,7 +1225,7 @@ let proved_json mdl level trans_sys k prop =
     let kind = TransSys.get_prop_kind trans_sys prop in
     (ignore_or_fprintf level)
       !log_ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"property\",@,\
         \"name\" : \"%s\",@,\
         %t\
@@ -1241,6 +1241,7 @@ let proved_json mdl level trans_sys k prop =
         }\
         @]@.}@.\
       "
+      Log.print_json_sep
       (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
@@ -1262,7 +1263,7 @@ let unknown_json mdl level trans_sys prop =
   then
     (ignore_or_fprintf level)
       !log_ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"property\",@,\
         \"name\" : \"%s\",@,\
         %t\
@@ -1277,6 +1278,7 @@ let unknown_json mdl level trans_sys prop =
         }\
         @]@.}@.\
       "
+      Log.print_json_sep
       (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
@@ -1348,7 +1350,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"property\",@,\
         \"name\" : \"%s\",@,\
         %t\
@@ -1366,6 +1368,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         %a\
         @]@.}@.\
       "
+      Log.print_json_sep
       (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
@@ -1410,11 +1413,12 @@ let execution_path_json level input_sys trans_sys path=
 
   (ignore_or_fprintf level)
     !log_ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
         \"objectType\" : \"execution\",@,\
         \"trace\" :%a\
        @]@.}@.\
     "
+    Log.print_json_sep
     (InputSystem.pp_print_path_json input_sys trans_sys true)
     (Model.path_of_list path)
 
@@ -1437,7 +1441,7 @@ let prop_status_json level trans_sys prop_status_kind =
          (fun ppf ((p, s, k)) ->
            Format.fprintf
              ppf
-             ",@.{@[<v 1>@,\
+             "%t{@[<v 1>@,\
                \"objectType\" : \"property\",@,\
                \"name\" : \"%s\",@,\
                %t\
@@ -1447,6 +1451,7 @@ let prop_status_json level trans_sys prop_status_kind =
                }\
                @]@.}\
              "
+             Log.print_json_sep
              (Lib.escape_json_string p)
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
@@ -1471,12 +1476,13 @@ let stat_json mdl level stats =
 
   (ignore_or_fprintf level)
     !log_ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
         \"objectType\" : \"stat\",@,\
         \"source\" : \"%s\",@,\
         \"sections\" :%a\
       @]@.}@.\
     "
+    Log.print_json_sep
     (short_name_of_kind_module mdl)
     (pp_print_list_attrib (fun ppf (section, items) ->
       Format.fprintf ppf
@@ -1496,12 +1502,13 @@ let progress_json mdl level k =
 
   (ignore_or_fprintf level)
     !log_ppf
-    ",@.{@[<v 1>@,\
+    "%t{@[<v 1>@,\
         \"objectType\" : \"progress\",@,\
         \"source\" : \"%s\",@,\
         \"k\" : %d\
       @]@.}@.\
     "
+    Log.print_json_sep
     (short_name_of_kind_module mdl) k
 
 
@@ -1555,6 +1562,7 @@ let log_proved mdl level trans_sys k prop =
   match get_log_format () with 
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
+    | F_ijson
     | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()
 
@@ -1562,6 +1570,7 @@ let log_unknown mdl level trans_sys prop =
   match get_log_format () with 
     | F_pt -> unknown_pt mdl level trans_sys prop
     | F_xml -> unknown_xml mdl level trans_sys prop
+    | F_ijson
     | F_json -> unknown_json mdl level trans_sys prop
     | F_relay -> ()
 
@@ -1570,6 +1579,7 @@ let log_with_tag level tag str =
   match get_log_format () with 
     | F_pt -> tag_pt level tag str
     | F_xml -> ()
+    | F_ijson -> ()
     | F_json -> ()
     | F_relay -> ()
 
@@ -1580,7 +1590,8 @@ let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop
     cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_xml ->
     cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_json ->
+  | F_json
+  | F_ijson ->
     cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_relay -> ()
 
@@ -1599,6 +1610,7 @@ let log_execution_path level input_sys full_contract trans_sys path  =
   (match get_log_format () with 
     | F_pt -> execution_path_pt level input_sys trans_sys path full_contract
     | F_xml -> execution_path_xml level input_sys trans_sys path
+    | F_ijson
     | F_json -> execution_path_json level input_sys trans_sys path
     | F_relay -> ())
 
@@ -1608,6 +1620,7 @@ let log_prop_status level trans_sys prop_status_kind =
   match get_log_format () with 
     | F_pt -> prop_status_pt level trans_sys prop_status_kind
     | F_xml -> prop_status_xml level trans_sys prop_status_kind
+    | F_ijson
     | F_json -> prop_status_json level trans_sys prop_status_kind
     | F_relay -> ()
 
@@ -1618,7 +1631,8 @@ let log_stat mdl level stats =
   match get_log_format () with 
     | F_pt -> stat_pt mdl level stats
     | F_xml -> stat_xml mdl level stats
-    | F_json -> stat_json mdl level stats
+    | F_json
+    | F_ijson -> stat_json mdl level stats
     | F_relay -> ()
   
 
@@ -1627,6 +1641,7 @@ let log_progress mdl level k =
   match get_log_format () with 
     | F_pt -> ()
     | F_xml -> progress_xml mdl level k
+    | F_ijson
     | F_json -> progress_json mdl level k
     | F_relay -> ()
   
@@ -1659,7 +1674,8 @@ let log_run_end in_sys results =
 
   | F_xml -> ()
 
-  | F_json -> ()
+  | F_json 
+  | F_ijson -> ()
 
   | F_relay -> failwith "can only be called by supervisor"
 
@@ -1718,14 +1734,16 @@ let log_contractck_analysis_start in_sys scope =
         | Choose -> "'choose' operator");
       analysis_start_not_closed := true
     )
+    | F_ijson
     | F_json -> (
       Format.fprintf !log_ppf "\
-          ,@.{@[<v 1>@,\
+          %t{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
           \"top\" : \"%a\",@,\
           \"context\" : \"%s\"\
           @]@.}@.\
         "
+        Log.print_json_sep
         NI.pp_print_node_id_user_name node_id
         (match (NI.get_node_type node_id) with 
         | Environment -> "environment"
@@ -1792,7 +1810,7 @@ let log_analysis_start in_sys sys param =
           ","
         ) assumption_count ;
       analysis_start_not_closed := true
-
+    | F_ijson
     | F_json ->
       (* Splitting abstract and concrete systems. *)
       let abstract, concrete = split_abstract_and_concrete_systems info in
@@ -1816,7 +1834,7 @@ let log_analysis_start in_sys sys param =
       in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
-          ,@.{@[<v 1>@,\
+          %t{@[<v 1>@,\
           \"objectType\" : \"analysisStart\",@,\
           \"top\" : \"%a\",@,\
           \"concrete\" :%a,@,\
@@ -1824,6 +1842,7 @@ let log_analysis_start in_sys sys param =
           \"assumptions\" :%a\
           @]@.}@.\
         "
+        Log.print_json_sep
         NI.pp_print_node_id_user_name node_id
         (pp_print_list_attrib pp_print_quoted_hstring) concrete
         (pp_print_list_attrib pp_print_quoted_hstring) abstract
@@ -1848,10 +1867,10 @@ let log_analysis_end () =
         Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
         analysis_start_not_closed := false
       ) ;
-
+    | F_ijson
     | F_json ->
       if !analysis_start_not_closed then (
-        Format.fprintf !log_ppf ",@.{\"objectType\" : \"analysisStop\"}@." ;
+        Format.fprintf !log_ppf "%t{\"objectType\" : \"analysisStop\"}@." Log.print_json_sep;
         analysis_start_not_closed := false
       ) ;
 
@@ -1867,13 +1886,15 @@ let log_post_analysis_start name title =
   | F_xml ->
     Format.fprintf !log_ppf "<PostAnalysisStart name=\"%s\"/>@.@."
       name
+  | F_ijson
   | F_json ->
     Format.fprintf !log_ppf
-      ",@.{@[<v 1>@,\
+      "%t{@[<v 1>@,\
         \"objectType\" : \"postAnalysisStart\",@,\
         \"name\" : \"%s\"\
         @]@.}@.\
       "
+      Log.print_json_sep
       name
   | F_relay -> failwith "can only be called by supervisor"
 
@@ -1884,8 +1905,9 @@ let log_post_analysis_end () =
     Format.fprintf !log_ppf "%a@." Pretty.print_line ()
   | F_xml ->
     Format.fprintf !log_ppf "<PostAnalysisEnd/>@.@."
+  | F_ijson
   | F_json ->
-    Format.fprintf !log_ppf ",@.{\"objectType\" : \"postAnalysisEnd\"}@."
+    Format.fprintf !log_ppf "%t{\"objectType\" : \"postAnalysisEnd\"}@." Log.print_json_sep
   | F_relay -> failwith "can only be called by supervisor"
 
 (* Terminate log output *)
@@ -1898,7 +1920,12 @@ let terminate_log () =
       Format.print_flush ()
     | F_json ->
       log_analysis_end () ;
+      (* ENDING SQUARE BRACKET *)
       Format.fprintf !log_ppf "]@.";
+      Format.print_flush ()
+    | F_ijson ->
+      log_analysis_end () ;
+      (* ENDING SQUARE BRACKET *)
       Format.print_flush ()
     | F_relay -> ()
 
@@ -1911,6 +1938,7 @@ let log_timeout b =
       Format.printf "%t %s timeout.@.@." timeout_tag pref 
   | F_xml ->
     log L_fatal "%s timeout." pref
+  | F_ijson
   | F_json ->
     log L_fatal "%s timeout." pref
   | F_relay -> failwith "can only be called by supervisor"
@@ -1930,7 +1958,8 @@ let log_interruption signal =
       Format.printf "%t %s@.@." interruption_tag txt
   | F_xml ->
     log L_fatal "%s" txt
-  | F_json ->
+  | F_json 
+  | F_ijson ->
     log L_fatal "%s" txt
   | F_relay -> failwith "can only be called by supervisor"
 

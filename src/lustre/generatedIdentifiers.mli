@@ -150,6 +150,11 @@ val clocked_call_output : string
    the when-block guard (see lustreDesugarIfBlocks.ml). *)
 val clocked_call_tie : string
 
+(* String constant used as the suffix of the fresh boolean locals capturing an
+   if/when-block guard that contains a node call
+   (see lustreRemoveMultAssign.ml). *)
+val block_guard : string
+
 val empty : unit -> t
 
 val union : t -> t -> t

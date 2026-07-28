@@ -1,0 +1,59 @@
+-- A block guard is evaluated once per timestep: although the desugaring of
+-- if/when blocks gives each assigned variable its own copy of the guards, a
+-- nondeterministic node call in a guard is bound to a single shared local
+-- (see lustreRemoveMultAssign.ml), so all variables assigned by the block
+-- take the same branch.
+node imported nondet() returns (b: bool);
+
+node if_block() returns (ok: bool);
+var x, y: int;
+let
+  frame (x, y)
+    x = 0;
+    y = 0;
+  let
+    if nondet() then
+      x = 1;
+      y = 1;
+    else
+      x = 2;
+      y = 2;
+    fi
+  tel
+  ok = (x = y);
+  check "if_agree" ok;
+tel
+
+node when_block() returns (x, y: int);
+let
+  frame (x, y)
+    x = 0;
+    y = 0;
+  let
+    when nondet() then
+      x = 1; y = 1;
+    else
+      x = 2; y = 2;
+    end
+  tel
+  check "when_agree" x = y;
+tel
+
+-- The guard of a nested when block is also a single shared instance,
+-- activated on the enclosing guard.
+node nested_when(c1: bool) returns (x, y: int);
+let
+  frame (x, y)
+    x = 0;
+    y = 0;
+  let
+    when c1 then
+      when nondet() then
+        x = 1; y = 1;
+      else
+        x = 2; y = 2;
+      end
+    end
+  tel
+  check "nested_agree" x = y;
+tel

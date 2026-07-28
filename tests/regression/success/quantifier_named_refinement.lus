@@ -1,0 +1,23 @@
+-- Property/contract expressions that quantify over a named refinement type
+-- should print the type by name (e.g. "HostId") rather than its expanded form.
+
+const N: subrange [1,*] of int;
+type Nat = subtype { i : int | 0 <= i };
+type HostId = subtype { i : Nat | i < N };
+
+-- Contract guarantee quantifying over a named refinement type (guarantee path).
+node checker(a: bool) returns (ok: bool);
+(*@contract
+  guarantee "g" (forall (h: HostId) (0 <= h));
+*)
+let
+  ok = a;
+tel
+
+node main(a: bool) returns (ok: bool);
+let
+  ok = checker(a);
+  -- User properties quantifying over named refinement types (property path).
+  check "hostid" forall (h: HostId) (0 <= h);
+  check "nat"    forall (n: Nat) (0 <= n);
+tel

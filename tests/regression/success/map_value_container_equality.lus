@@ -1,0 +1,21 @@
+-- Regression test for structural equality of a map value that is itself a
+-- container (a set or an array), e.g. m[c] = <set> for m : map<K, set<V>>.
+--
+-- Compiling such an equality used to raise an internal assertion failure
+-- (lustreNodeGen, "List.length bounds = List.length idx_tys"): the bounds
+-- recorded for the whole map state variable cover both the key dimension and the
+-- value's inner dimensions, but the indexed value m[c] only has the inner ones.
+-- The already-indexed (outer) dimensions are now dropped before pairing bounds
+-- with the value's index types.
+
+node M1() returns (m: map<int,set<int>>);
+let
+  m = any { x : map<int,set<int>> | forall (c: int) x[c] = {}@<int> };
+  check "empty" forall (c: int) not (0 in m[c]);
+tel
+
+node M2() returns (m: map<int,int^2>);
+let
+  m = any { x : map<int,int^2> | forall (c: int) x[c] = [0, 0] };
+  check "zeros" forall (c: int) m[c][0] = 0;
+tel
