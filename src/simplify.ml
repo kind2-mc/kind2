@@ -2088,6 +2088,9 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                   (simplify_term_node default_of_var uf_defs model)
                   a b
 
+              | [Abstr a; Abstr b] ->
+                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+
               (* Equation between integers or reals *)
               | [Num _ as a; Num _ as b] 
               | [Dec _ as a; Dec _ as b] when split_eq ->
