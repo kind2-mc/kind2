@@ -648,11 +648,22 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     | LA.Map (pos, kt, vt) -> LA.Map (pos, rewrite_type kt, rewrite_type vt)
     | LA.Set (pos, t) -> LA.Set (pos, rewrite_type t)
     | LA.RefinementType (pos, (p2, id, t), e) ->
-      (* Collapse to the named refinement synonym when the type matches one. *)
+      (* Collapse to the named refinement synonym when the type matches one
+          unambiguously. Distinct synonyms can share a canonical key (e.g. two
+          separately-declared "subtype { i: int | i > 0 }" aliases): in that
+          case we cannot tell which name the quantifier's type came from, so we
+          fall back to the expansion rather than guess and risk showing the
+          wrong name. *)
       (match ref_type_canonical_key ty with
-       | Some key when List.mem_assoc key ref_type_names ->
-         LA.UserType (pos, [], List.assoc key ref_type_names)
-       | _ -> LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
+        | Some key ->
+          (match List.filter (fun (k, _) -> String.equal k key) ref_type_names
+                |> List.map snd
+                |> List.sort_uniq HString.compare
+          with
+          | [name] -> LA.UserType (pos, [], name)
+          | [] | _ :: _ :: _ ->
+            LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
+        | None -> LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
     | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
   in
