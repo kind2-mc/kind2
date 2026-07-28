@@ -1,0 +1,27 @@
+-- The guard of a when block nested inside another when block is evaluated
+-- lazily: its node calls are activated on the enclosing guard. Here toggle()
+-- must alternate per outer activation (not per timestep), so the inner branch
+-- is taken on every other activation and n2 = ceil(n1/2). If the abstracted
+-- inner guard were evaluated on the base clock instead, a c1 pattern like
+-- true, false, true would make toggle() true at both activations and falsify
+-- the property.
+node toggle() returns (b: bool);
+let
+  b = true -> not (pre b);
+tel
+
+node top(c1: bool) returns (n1, n2: int);
+let
+  frame (n1, n2)
+    n1 = 0;
+    n2 = 0;
+  let
+    when c1 then
+      n1 = last n1 + 1;
+      when toggle() then
+        n2 = last n2 + 1;
+      end
+    end
+  tel
+  check "inner_alternates" (2 * n2 = n1) or (2 * n2 = n1 + 1);
+tel
