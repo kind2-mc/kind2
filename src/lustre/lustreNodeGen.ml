@@ -150,6 +150,20 @@ let abstract_type_default abstract_type_defaults ty_name ty =
     Hashtbl.add abstract_type_defaults ty_name entry;
     entry
 
+let rec default_of_type abstract_type_defaults ty =
+  if Type.is_bool ty then E.t_false
+  else if Type.is_real ty then E.mk_real Decimal.zero
+  else if Type.is_ubitvector ty then E.mk_to_ubv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+  else if Type.is_bitvector ty then E.mk_to_bv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+  else if Type.is_array ty then
+    E.mk_const_array ty (default_of_type abstract_type_defaults (Type.elem_type_of_array ty))
+  else match Type.node_of_type ty with
+    | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
+    | Type.Abstr ident ->
+      let (_, v) = abstract_type_default abstract_type_defaults (HString.mk_hstring ident) ty in
+      E.mk_free_var v
+    | _ -> E.mk_int Numeral.zero
+
 let empty_compiler_state () = {
   nodes = [];
   node_io = NI.Map.empty;
@@ -807,22 +821,7 @@ let field_name_to_index adt_map field_hs =
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
 let adt_canonicalize_key adt_map abstract_type_defaults bindings =
-  let default_of_abstract_type ty ident =
-    let (_, v) = abstract_type_default abstract_type_defaults (HString.mk_hstring ident) ty in
-    E.mk_free_var v
-  in
-  let rec default_of_type ty =
-    if Type.is_bool ty then E.t_false
-    else if Type.is_real ty then E.mk_real Decimal.zero
-    else if Type.is_ubitvector ty then E.mk_to_ubv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
-    else if Type.is_bitvector ty then E.mk_to_bv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
-    else if Type.is_array ty then
-      E.mk_const_array ty (default_of_type (Type.elem_type_of_array ty))
-    else match Type.node_of_type ty with
-      | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
-      | Type.Abstr ident -> default_of_abstract_type ty ident
-      | _ -> E.mk_int Numeral.zero
-  in
+  let default_of_type = default_of_type abstract_type_defaults in
   (* Collect all (prefix, ctor) pairs from AdtPayloadIndex occurrences in the
      path. The result is innermost-first (longest prefix first), so that
      fold_left wraps the innermost ITE first and the outermost last, producing
@@ -1729,12 +1728,10 @@ and compile_ast_expr
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
   | A.EmptySet _ -> assert false
-  | A.AbstractSymConst (_, A.AbstractType (_, ty_name)) ->
-    let ty = Type.mk_abstr (HString.string_of_hstring ty_name) in
-    let (_, v) = abstract_type_default cstate.abstract_type_defaults ty_name ty in
-    X.singleton X.empty_index (E.mk_free_var v)
-  | A.AbstractSymConst _ ->
-    assert false (* AbstractSymConst ty must always wrap an AbstractType *)
+  | A.AbstractSymConst (_, ty) ->
+    (* Could be any type after monomorphization. *)
+    let ty = compile_ast_type cstate ctx map ty in
+    X.map (default_of_type cstate.abstract_type_defaults) ty
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false

@@ -885,7 +885,9 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
       ) adt_ty_args) in
       let* args = R.seq (List.map call args) in
       R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
-    | LA.AbstractSymConst _ -> assert false 
+    | LA.AbstractSymConst (pos, ty) ->
+      let* ty = instantiate_type_variables ctx pos nname ty ty_args in
+      R.ok (LA.AbstractSymConst (pos, ty))
 
 let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_history ctx in
