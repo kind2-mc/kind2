@@ -52,4 +52,12 @@ val desugar_adts :
   LustreAst.declaration list ->
   LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map
 
-val string_of_expr_as_source : adt_map -> LustreAst.expr -> string
+(* Canonical string key of a refinement type, or None if it is not one.  Used to
+   build the [ref_type_names] map passed to [string_of_expr_as_source]: the key of
+   a named refinement synonym's flattened definition maps to the synonym name. *)
+val ref_type_canonical_key : LustreAst.lustre_type -> string option
+
+(* [ref_type_names] maps refinement-type canonical keys to synonym names so that a
+   quantified refinement type prints as the synonym name rather than its expansion. *)
+val string_of_expr_as_source :
+  ?ref_type_names:(string * HString.t) list -> adt_map -> LustreAst.expr -> string
