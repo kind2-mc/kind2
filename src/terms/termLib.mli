@@ -35,13 +35,22 @@ type cexs = cex list
 
 (** {2 Default values } *)
 
-(** Return the default value of the type: 
+(** Return the default value of the type:
 
     By default, a Boolean value is false, integer and real values are
     zero, values in a range are equal to the lower bound of the
-    range. Array scalar types do not have defaults. The function fails
-    with [Invalid_argument] in this case. *)
+    range. Values of an abstract type default to a canonical free
+    constant of that type (see {!abstract_type_default}). Array types
+    do not have defaults. The function fails with [Invalid_argument]
+    in this case. *)
 val default_of_type : Type.t -> Term.t
+
+(** [abstract_type_default name ty] returns the canonical free constant used
+    as the default value for the abstract type [ty] named [name]. The same
+    constant is returned for every call with the same [name] (from any
+    caller), and it must be declared as a free constant of the transition
+    system by the front end that first introduces the abstract type. *)
+val abstract_type_default : string -> Type.t -> Var.t
 
 
 (** {2 Logic fragments } *)

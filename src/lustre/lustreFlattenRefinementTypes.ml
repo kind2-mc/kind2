@@ -199,7 +199,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | ADTTester (p, e, id) -> 
     ADTTester (p, rec_call e, id)
   | Match _ -> assert false (* desugared in lustreDesugarADTs *)
-
+  | AbstractSymConst _ as e -> e
 
 let flatten_ref_types_item ctx item = 
   match item with 

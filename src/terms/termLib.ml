@@ -34,6 +34,14 @@ type cexs = cex list
 (* Properties of transition systems                                       *)
 (* ********************************************************************** *)
 
+let abstract_type_default ty_name ty =
+  let name = Format.sprintf "abstract_type_default_%s" ty_name in
+  let sv = StateVar.mk_state_var
+    ~is_input:false ~is_const:true ~for_inv_gen:true
+    name ["res"] ty
+  in
+  Var.mk_const_state_var sv
+
 (* Return the default value of the type *)
 let rec default_of_type t =
 
@@ -74,8 +82,10 @@ let rec default_of_type t =
       let ctor_sym = UfSymbol.mk_uf_symbol ctor_name fields t in
       Term.mk_uf ctor_sym (List.map default_of_type fields)
 
-    (* No defaults *)
-    | Type.Abstr _
+    (* Abstract types default to a canonical free constant of that type *)
+    | Type.Abstr ident -> Term.mk_var (abstract_type_default ident t)
+
+    (* No default *)
     | Type.Array _ -> invalid_arg "default_of_type"
 
 
