@@ -79,6 +79,7 @@ type compiler_state = {
     StateVar.StateVarHashtbl.t;
   global_constraints: LustreExpr.t list;
   adt_map : LDAT.adt_map;
+  abstract_type_defaults : (HString.t, HString.t * Var.t) Hashtbl.t;
   (* Maps the canonical key of a named refinement synonym's flattened definition
      to its type name, so refinement types can be displayed by name. *)
   ref_type_names : (string * HString.t) list;
@@ -137,7 +138,36 @@ let empty_identifier_maps node_name = {
   call_count = 1;
 }
 
-let empty_compiler_state () = { 
+(* See [compiler_state.abstract_type_defaults] *)
+let abstract_type_default abstract_type_defaults ty_name ty =
+  match Hashtbl.find_opt abstract_type_defaults ty_name with
+  | Some entry -> entry
+  | None ->
+    let v = TermLib.abstract_type_default (HString.string_of_hstring ty_name) ty in
+    let id =
+      Var.state_var_of_state_var_instance v
+      |> StateVar.name_of_state_var
+      |> HString.mk_hstring
+    in
+    let entry = (id, v) in
+    Hashtbl.add abstract_type_defaults ty_name entry;
+    entry
+
+let rec default_of_type abstract_type_defaults ty =
+  if Type.is_bool ty then E.t_false
+  else if Type.is_real ty then E.mk_real Decimal.zero
+  else if Type.is_ubitvector ty then E.mk_to_ubv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+  else if Type.is_bitvector ty then E.mk_to_bv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
+  else if Type.is_array ty then
+    E.mk_const_array ty (default_of_type abstract_type_defaults (Type.elem_type_of_array ty))
+  else match Type.node_of_type ty with
+    | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
+    | Type.Abstr ident ->
+      let (_, v) = abstract_type_default abstract_type_defaults (HString.mk_hstring ident) ty in
+      E.mk_free_var v
+    | _ -> E.mk_int Numeral.zero
+
+let empty_compiler_state () = {
   nodes = [];
   node_io = NI.Map.empty;
   type_alias = StringMap.empty;
@@ -147,6 +177,7 @@ let empty_compiler_state () = {
   state_var_bounds = SVT.create 7;
   global_constraints = [];
   adt_map = StringMap.empty;
+  abstract_type_defaults = Hashtbl.create 4;
   ref_type_names = [];
 }
 
@@ -796,18 +827,8 @@ let field_name_to_index adt_map field_hs =
    replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
-let adt_canonicalize_key adt_map bindings =
-  let rec default_of_type ty =
-    if Type.is_bool ty then E.t_false
-    else if Type.is_real ty then E.mk_real Decimal.zero
-    else if Type.is_ubitvector ty then E.mk_to_ubv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
-    else if Type.is_bitvector ty then E.mk_to_bv (Type.bitvectorsize ty) (E.mk_int Numeral.zero)
-    else if Type.is_array ty then
-      E.mk_const_array ty (default_of_type (Type.elem_type_of_array ty))
-    else match Type.node_of_type ty with
-      | Type.Enum (l, _) -> E.mk_constr (Type.get_constr_of_num l) ty
-      | _ -> E.mk_int Numeral.zero
-  in
+let adt_canonicalize_key adt_map abstract_type_defaults bindings =
+  let default_of_type = default_of_type abstract_type_defaults in
   (* Collect all (prefix, ctor) pairs from AdtPayloadIndex occurrences in the
      path. The result is innermost-first (longest prefix first), so that
      fold_left wraps the innermost ITE first and the outermost last, producing
@@ -869,6 +890,13 @@ let rec compile ctx gids adt_map scc_map decls =
   let over_decls_2 cstate decl =
     compile_declaration_phase2 cstate gids ctx scc_map rec_decreases_map decl in
   let output = List.fold_left over_decls_2 output decls in
+  (* Register the global abstract-type default constants *)
+  let output =
+    Hashtbl.fold (fun _ (id, v) cs ->
+      { cs with free_constants =
+          (None, id, X.singleton X.empty_index v, true) :: cs.free_constants }
+    ) output.abstract_type_defaults output
+  in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
   in
@@ -1473,7 +1501,7 @@ and compile_ast_expr
   and compile_map_index bounds expr k =
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let bindings_k = X.bindings compiled_k in
-    let index_exprs = adt_canonicalize_key cstate.adt_map bindings_k in
+    let index_exprs = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults bindings_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
@@ -1707,6 +1735,10 @@ and compile_ast_expr
   (* Abstracted away in normalization; handled in generated identifiers *)
   | A.EmptyMap _ -> assert false
   | A.EmptySet _ -> assert false
+  | A.AbstractSymConst (_, ty) ->
+    (* Could be any type after monomorphization. *)
+    let ty = compile_ast_type cstate ctx map ty in
+    X.map (default_of_type cstate.abstract_type_defaults) ty
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
@@ -2108,7 +2140,7 @@ and process_node_outputs cstate ctx map node_scope outputs =
   in List.fold_left (over_outputs is_single) X.empty outputs
 
 and compile_node_io cstate ctx node_id params inputs outputs =
-  let internal_node_name_hstring = NI.get_internal_name node_id in 
+  let internal_node_name_hstring = NI.get_internal_name node_id in
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
   let map = ref (empty_identifier_maps (Some internal_node_name_hstring)) in
@@ -2831,7 +2863,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       let nexpr2 = 
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst 
@@ -2939,7 +2971,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
          flattening so that the insertion position is consistent with membership
          checks (which also canonicalize via compile_map_index). *)
       let nexpr2 =
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst

@@ -255,6 +255,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
     graph
   | ADTTerm (_, _, _, args) ->
     args |> (List.map r) |> (List.fold_left union_ empty_)
+  | AbstractSymConst _ -> empty_
   | ADTTester (_, e, _) -> r e
 
 let extract_unknown ids =
