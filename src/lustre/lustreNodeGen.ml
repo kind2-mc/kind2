@@ -48,8 +48,6 @@ module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
 
-let abstract_type_default_counter = ref 0
-
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   usr_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
@@ -81,6 +79,7 @@ type compiler_state = {
     StateVar.StateVarHashtbl.t;
   global_constraints: LustreExpr.t list;
   adt_map : LDAT.adt_map;
+  abstract_type_defaults : (HString.t, HString.t * Var.t) Hashtbl.t;
 }
 
 (*
@@ -136,23 +135,22 @@ let empty_identifier_maps node_name = {
   call_count = 1;
 }
 
-let abstract_type_defaults : (HString.t, HString.t * Var.t) Hashtbl.t = Hashtbl.create 4
-
-let abstract_type_default ty_name ty =
+(* See [compiler_state.abstract_type_defaults] *)
+let abstract_type_default abstract_type_defaults ty_name ty =
   match Hashtbl.find_opt abstract_type_defaults ty_name with
   | Some entry -> entry
   | None ->
-    incr abstract_type_default_counter;
-    let name = Format.sprintf "%d_abstract_type_default" !abstract_type_default_counter in
-    let sv = StateVar.mk_state_var
-      ~is_input:false ~is_const:true ~for_inv_gen:true
-      name I.user_scope ty
+    let v = TermLib.abstract_type_default (HString.string_of_hstring ty_name) ty in
+    let id =
+      Var.state_var_of_state_var_instance v
+      |> StateVar.name_of_state_var
+      |> HString.mk_hstring
     in
-    let entry = (HString.mk_hstring name, Var.mk_const_state_var sv) in
+    let entry = (id, v) in
     Hashtbl.add abstract_type_defaults ty_name entry;
     entry
 
-let empty_compiler_state () = { 
+let empty_compiler_state () = {
   nodes = [];
   node_io = NI.Map.empty;
   type_alias = StringMap.empty;
@@ -162,6 +160,7 @@ let empty_compiler_state () = {
   state_var_bounds = SVT.create 7;
   global_constraints = [];
   adt_map = StringMap.empty;
+  abstract_type_defaults = Hashtbl.create 4;
 }
 
 (*
@@ -807,9 +806,9 @@ let field_name_to_index adt_map field_hs =
    replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
    ensures set/map array indices are consistent with ADT equality semantics:
    junk fields (payload of a non-selected constructor) never affect membership. *)
-let adt_canonicalize_key adt_map bindings =
+let adt_canonicalize_key adt_map abstract_type_defaults bindings =
   let default_of_abstract_type ty ident =
-    let (_, v) = abstract_type_default (HString.mk_hstring ident) ty in
+    let (_, v) = abstract_type_default abstract_type_defaults (HString.mk_hstring ident) ty in
     E.mk_free_var v
   in
   let rec default_of_type ty =
@@ -885,13 +884,12 @@ let rec compile ctx gids adt_map scc_map decls =
   let over_decls_2 cstate decl =
     compile_declaration_phase2 cstate gids ctx scc_map rec_decreases_map decl in
   let output = List.fold_left over_decls_2 output decls in
-  (* Register the global abstract-type default constants (see
-     [abstract_type_defaults]) as free constants *)
+  (* Register the global abstract-type default constants *)
   let output =
     Hashtbl.fold (fun _ (id, v) cs ->
       { cs with free_constants =
           (None, id, X.singleton X.empty_index v, true) :: cs.free_constants }
-    ) abstract_type_defaults output
+    ) output.abstract_type_defaults output
   in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
@@ -1497,7 +1495,7 @@ and compile_ast_expr
   and compile_map_index bounds expr k =
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
     let bindings_k = X.bindings compiled_k in
-    let index_exprs = adt_canonicalize_key cstate.adt_map bindings_k in
+    let index_exprs = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults bindings_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
@@ -1733,7 +1731,7 @@ and compile_ast_expr
   | A.EmptySet _ -> assert false
   | A.AbstractSymConst (_, A.AbstractType (_, ty_name)) ->
     let ty = Type.mk_abstr (HString.string_of_hstring ty_name) in
-    let (_, v) = abstract_type_default ty_name ty in
+    let (_, v) = abstract_type_default cstate.abstract_type_defaults ty_name ty in
     X.singleton X.empty_index (E.mk_free_var v)
   | A.AbstractSymConst _ ->
     assert false (* AbstractSymConst ty must always wrap an AbstractType *)
@@ -2860,7 +2858,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       let nexpr2 = 
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst 
@@ -2968,7 +2966,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
          flattening so that the insertion position is consistent with membership
          checks (which also canonicalize via compile_map_index). *)
       let nexpr2 =
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map (X.bindings nexpr2) in
+        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
         ) (X.empty, 0) nexpr2_vals |> fst
