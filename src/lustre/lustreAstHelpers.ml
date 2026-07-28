@@ -2145,10 +2145,10 @@ let hash depth_limit expr =
       | ADTTerm (_, _, ctor, args) ->
         let args_hash = List.map (r (depth + 1)) args in
         Hashtbl.hash (32, HString.hash ctor, args_hash)
+      | Last (_, x) -> Hashtbl.hash (33, HString.hash x)
       | ADTTester (_, e, c) ->
         Hashtbl.hash (34, r (depth + 1) e, HString.hash c)
-      | Last (_, x) -> Hashtbl.hash (33, HString.hash x)
-      | AbstractSymConst _ -> Hashtbl.hash 34
+      | AbstractSymConst _ -> Hashtbl.hash 35
   in
   r 0 expr
 
