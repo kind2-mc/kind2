@@ -828,33 +828,31 @@ let field_name_to_index adt_map field_hs =
   | Some idx -> idx
   | None -> X.RecordIndex field_str
 
-(* For a FieldProject whose field name is the user-visible name of a recursive ADT
-   selector (e.g. "s3" for Enc(s2: Msg, s3: Msg)), find the SMT-LIB selector name
-   ("Enc_1") and field type by searching all recursive ADTs in adt_map.
-   Returns Some (selector_name, ftype) or None if not found in any recursive ADT. *)
-let find_recursive_selector adt_map user_field =
-  let user_str = HString.string_of_hstring user_field in
-  StringMap.fold (fun _ (info : LDAT.adt_info) acc ->
-    match acc with
-    | Some _ -> acc
-    | None when not info.is_recursive -> None
-    | None ->
+(* For a FieldProject on a recursive ADT whose field name is the user-visible name of a
+   selector (e.g. "s3" for Enc(s2: Msg, s3: Msg)), find the SMT-LIB selector name ("Enc_1")
+   and field type by looking up [ty_name]'s constructors specifically. *)
+let find_recursive_selector adt_map ty_name field =
+  match StringMap.find_opt ty_name adt_map with
+  | None -> None
+  | Some (info : LDAT.adt_info) ->
+    if not info.is_recursive then None
+    else
+      let field_str = HString.string_of_hstring field in
       StringMap.fold (fun ctor_hs fields acc ->
         match acc with
         | Some _ -> acc
         | None ->
           let ctor_str = HString.string_of_hstring ctor_hs in
-          let internal_name = ctor_str ^ "_" ^ user_str in
+          let target = ctor_str ^ "_" ^ field_str in
           let rec find_idx i = function
             | [] -> None
             | (fname, ftype) :: rest ->
-              if HString.string_of_hstring fname = internal_name then
+              if HString.string_of_hstring fname = target then
                 Some (ctor_str ^ "_" ^ string_of_int i, ftype)
               else find_idx (i + 1) rest
           in
           find_idx 0 fields
       ) info.ctor_fields None
-  ) adt_map None
 
 (* For each AdtPayloadIndex (ctor, _) entry in a compiled key binding list,
    replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
@@ -1765,8 +1763,13 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.FieldProject (_, expr, field, _) ->
-    (match find_recursive_selector cstate.adt_map field with
+  | A.FieldProject (_, expr, field, adt_ty_opt) ->
+    let recursive_selector = match adt_ty_opt with
+      | Some (A.UserType (_, _, ty_name)) ->
+        find_recursive_selector cstate.adt_map ty_name field
+      | _ -> None
+    in
+    (match recursive_selector with
     | Some (selector_name, ftype) ->
       let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
       let result_type = X.find X.empty_index (compile_ast_type cstate ctx map ftype) in

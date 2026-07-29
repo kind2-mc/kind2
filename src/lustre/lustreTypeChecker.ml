@@ -3091,6 +3091,21 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         ) fields) |> R.map List.split in
         R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
+      (* Field names must be unique across all constructors, not just within one: dot-
+         notation projection resolves a field by name alone, so reusing a name would be
+         ambiguous. *)
+      let* () =
+        let seen = Hashtbl.create 8 in
+        match List.concat_map (fun (ctor, fields) ->
+          List.filter_map (fun (fn, _) ->
+            match Hashtbl.find_opt seen fn with
+            | Some other_ctor -> Some (fn, other_ctor, ctor)
+            | None -> Hashtbl.add seen fn ctor; None
+          ) fields
+        ) ctors with
+        | (fn, ctor1, ctor2) :: _ -> type_error pos (DuplicateFieldName (fn, ctor1, ctor2))
+        | [] -> R.ok ()
+      in
       (* Well-foundedness: at least one constructor must have no directly
          self-recursive field, otherwise no finite value of the type exists. *)
       (* TODO: Extend to handle mutual recursion *)

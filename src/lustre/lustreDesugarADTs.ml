@@ -178,15 +178,13 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr =
           if info.is_recursive then
-            (* For recursive ADTs, use the user-visible field name (strip the "ctor_" prefix
-               from the internal name).  The ADT stays as an SMT-LIB datatype; the node
-               generator detects the user-visible name and computes the "ctor_i" selector. *)
             let ctor_str = HString.string_of_hstring ctor in
             let fname_str = HString.string_of_hstring fname in
             let prefix_len = String.length ctor_str + 1 in
+            (* Recursive datatypes don't use the "ctor_" prefix *)
             let user_fname = HString.mk_hstring
               (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
-            LA.FieldProject (pos, scrut, user_fname, None)
+            LA.FieldProject (pos, scrut, user_fname, Some (LA.UserType (pos, [], info.type_name)))
           else
             LA.FieldProject (pos, scrut, fname, None)
         in
@@ -426,10 +424,7 @@ and desugar_expr ctx adt_map expr =
       |> (function Some i -> i | None -> assert false)
     in
     if info.is_recursive then
-      (* Recursive ADTs stay as SMT-LIB datatypes.  Keep the user-visible field name but
-         strip the annotation (all FieldProject nodes are None after desugaring).  The node
-         generator detects the user-visible name and computes the "ctor_i" selector. *)
-      LA.FieldProject (p, e', fld, None)
+      LA.FieldProject (p, e', fld, Some (LA.UserType (p, [], info.type_name)))
     else
       let ctor = HStringMap.fold (fun ctor internal_fields acc ->
         match acc with

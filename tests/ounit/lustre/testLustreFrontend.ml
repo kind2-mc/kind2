@@ -867,6 +867,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
     | _ -> false);
+  mk_test "test duplicate field name across constructors is rejected at declaration, even unprojected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name_no_projection.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
+    | _ -> false);
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
