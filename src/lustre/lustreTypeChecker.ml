@@ -126,6 +126,8 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
+  | RecursiveFieldWithTypeArgs of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -289,6 +291,15 @@ let error_message kind = match kind with
     ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
        fields must each be either a scalar type or a direct self-reference, so this is not yet \
        supported"
+  | RecursiveFieldWithTypeArgs (ty_name, field) ->
+    "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
+    ^ HString.string_of_hstring field
+    ^ "' applied to type arguments; polymorphic recursive datatypes are not yet supported"
+  | UnsupportedRefinementInRecursiveAdtField (ty_name, field) ->
+    "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
+    ^ HString.string_of_hstring field
+    ^ "' with a refinement type; refinement types on fields of recursive datatypes \
+       are not yet supported"
 
 type warning_kind =
   | UnusedBoundVariableWarning of HString.t
@@ -3074,6 +3085,18 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             type_error pos (UndeclaredType i)
       )
     | ADT (pos, new_ty_name, ctors) ->
+      (* Reject polymorphic recursive ADTs for now *)
+      let* () =
+        match List.concat_map (fun (_, fields) ->
+          List.filter_map (fun (fn, ty) -> match ty with
+            | LA.UserType (_, (_ :: _), _) when LH.is_direct_self_reference new_ty_name ty ->
+              Some fn
+            | _ -> None
+          ) fields
+        ) ctors with
+        | fn :: _ -> type_error pos (RecursiveFieldWithTypeArgs (new_ty_name, fn))
+        | [] -> R.ok ()
+      in
       let* ctors, all_warnings = R.seq (List.map (fun (ctor, fields) ->
         let* _ = (match lookup_constructor ctx ctor with
           | Some (existing_ty_name, _) ->
@@ -3114,10 +3137,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | [] -> R.ok ()
       in
       (* TODO: Extend to handle mutual recursion *)
-      let is_recursive_field = function
-        | LA.UserType (_, [], id) -> HString.equal id new_ty_name
-        | _ -> false
-      in
+      let is_recursive_field = LH.is_direct_self_reference new_ty_name in
       let mentions_self = LH.contains_subtype_satisfying (function
         | LA.UserType (_, _, id) | LA.ADT (_, id, _) -> HString.equal id new_ty_name
         | _ -> false)
@@ -3146,6 +3166,32 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             ) fields
           ) ctors with
           | fn :: _ -> type_error pos (UnsupportedRecursiveAdtField (new_ty_name, fn))
+          | [] -> R.ok ()
+      in
+      (* Reject refinement types on ADT fields for now *)
+      let rec expand_ty_syn_chain ty = match ty with
+        | LA.UserType (_, ty_args, id) ->
+          (match lookup_ty_syn ctx id ty_args with
+           | Some ty -> expand_ty_syn_chain ty
+           | None -> ty)
+        | _ -> ty
+      in
+      let ty_contains_refinement ty =
+        LH.contains_subtype_satisfying
+          (function LA.RefinementType _ -> true | _ -> false)
+          (expand_ty_syn_chain ty)
+      in
+      let* () =
+        if not is_recursive_adt then R.ok ()
+        else
+          match List.concat_map (fun (_, fields) ->
+            List.filter_map (fun (fn, ty) ->
+              if is_recursive_field ty then None
+              else if ty_contains_refinement ty then Some fn
+              else None
+            ) fields
+          ) ctors with
+          | fn :: _ -> type_error pos (UnsupportedRefinementInRecursiveAdtField (new_ty_name, fn))
           | [] -> R.ok ()
       in
       (* Well-foundedness: at least one constructor must have no directly

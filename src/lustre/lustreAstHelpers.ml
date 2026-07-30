@@ -148,6 +148,10 @@ let rec contains_subtype_satisfying p ty =
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     p ty || List.exists r tys
 
+let is_direct_self_reference type_name = function
+  | UserType (_, _, id) -> HString.equal id type_name
+  | _ -> false
+
 let type_arity ty =
   let inner_types = function
     | GroupType (_, es) -> List.length es

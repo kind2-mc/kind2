@@ -1109,10 +1109,9 @@ and compile_ast_type
   | A.ADT (_, ident, ctors) ->
     let name = HString.string_of_hstring ident in
     let compile_field_type ty =
-      match ty with
-      | A.UserType (_, [], n) when HString.equal n ident ->
+      if AH.is_direct_self_reference ident ty then
         Type.mk_datatype_ref name
-      | _ ->
+      else
         match X.bindings (compile_ast_type cstate ctx map ty) with
         | [(idx, t)] when idx = X.empty_index -> t
         | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
