@@ -1,0 +1,13 @@
+-- Guarding the enum dimension of a set's index must not make structural
+-- equality vacuous: sets that really differ are still unequal.
+
+type Color = enum { Red, Green, Blue };
+
+node main() returns (ok: bool);
+var s, t: set<Color>;
+let
+  s = { Red };
+  t = { Red, Green };
+  ok = s = t;
+  check ok;
+tel

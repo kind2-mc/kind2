@@ -1243,19 +1243,40 @@ and compile_ast_expr
         let e2' = List.fold_left (fun acc arr_i -> 
           E.mk_select_and_push acc arr_i
         ) e2 arr_is in
-        let guard = List.fold_left (fun acc (idx_var, bound) -> 
-          match bound with 
+        (* A dimension whose index type is an enumerated datatype (the
+           discriminant dimension of a set/map over an ADT, or a set/map over
+           an enum) is only *defined* at the values of that enum: the equations
+           defining such a variable are inlined over [l..u] (see
+           [LustreTransSys.constraints_of_arrays]). The index variables
+           introduced here range over the whole integer domain, so without this
+           constraint two structurally equal sets could be told apart at an
+           index outside the enum. *)
+        let enum_range_cond idx_var =
+          let ty = Var.type_of_var idx_var in
+          if not (Type.is_enum ty) then E.t_true
+          else
+            let l, u = Type.bounds_of_enum ty in
+            let ctors = Type.constructors_of_enum ty in
+            let ctor_of n = List.nth ctors (Numeral.(to_int (n - l))) in
+            let idx_var = E.mk_free_var idx_var in
+            E.mk_and
+              (E.mk_lte (E.mk_constr (ctor_of l) ty) idx_var)
+              (E.mk_lte idx_var (E.mk_constr (ctor_of u) ty))
+        in
+        let guard = List.fold_left (fun acc (idx_var, bound) ->
+          let acc = E.mk_and (enum_range_cond idx_var) acc in
+          match bound with
           (* For arrays we only consider indices that are in bounds *)
           | E.Bound n
-          | E.Fixed n -> 
+          | E.Fixed n ->
             let n = E.mk_of_expr n in
             let idx_var = E.mk_free_var idx_var in
-            let cond = E.mk_and 
-              (E.mk_lte (E.mk_int (Numeral.of_int 0)) idx_var) 
-              (E.mk_lt idx_var n) 
+            let cond = E.mk_and
+              (E.mk_lte (E.mk_int (Numeral.of_int 0)) idx_var)
+              (E.mk_lt idx_var n)
             in
-            E.mk_and cond acc 
-          | E.Unbound _ -> 
+            E.mk_and cond acc
+          | E.Unbound _ ->
             acc
         ) E.t_true (List.combine idx_vars bounds) in
         (* For map value equality we only consider m1[k] = m2[k] for k in the maps.
