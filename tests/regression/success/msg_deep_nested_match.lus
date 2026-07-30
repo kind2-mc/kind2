@@ -1,0 +1,10 @@
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg);
+
+node main(a: int; b: int; c: int) returns (ok: bool);
+let
+  ok = match Enc(Enc(Atomic(a), Atomic(b)), Atomic(c)) with
+       | Enc(Enc(Atomic(x), Atomic(y)), Atomic(z)) : x = a and y = b and z = c
+       | _ : false
+       end;
+  check ok;
+tel
