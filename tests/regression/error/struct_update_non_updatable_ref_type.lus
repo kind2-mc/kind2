@@ -1,0 +1,8 @@
+-- A refinement type over a non-updatable base type must still be rejected:
+-- expanding the type before dispatching on its shape must not make every
+-- update type check.
+
+node N(x: subtype { xx: int | xx > 0 }; k, v: int) returns (o: int);
+let
+  o = x[k := v];
+tel

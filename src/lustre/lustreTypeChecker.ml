@@ -1266,25 +1266,27 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
-      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in 
+      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in
       (match List.hd i_or_ls with
       | LA.GenericIndex _ -> assert false (* handled by desugar_generic_index *)
-      | LA.Label (pos, l) ->  
-          infer_type_expr ctx nname ue
-          >>= (function 
-              | RecordType (_, _, flds) as r_ty, ue, warnings1 ->
+      | LA.Label (pos, l) ->
+          let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
+          let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+          (match ue_ty' with
+              | RecordType (_, _, flds) ->
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                     | Some f_ty ->
                       let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
                       R.ifM (eq_lustre_type ctx f_ty e_ty)
-                        (R.ok (r_ty, LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2))
+                        (R.ok (ue_ty', LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2))
                         (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty)))
                     | None -> type_error pos (NotAFieldOfRecord l)))
-              | r_ty, _, _ -> type_error pos (IlltypedUpdateWithLabel r_ty))
+              | _ -> type_error pos (IlltypedUpdateWithLabel ue_ty))
       | LA.Index (pos, i) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-        (match ue_ty with
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+        (match ue_ty' with
         | TupleType _ -> (
           let* idx =
             match LH.get_const_num_value i with
@@ -1293,7 +1295,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           in
           let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* ue, warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
-          R.ok (ue_ty, LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2 @ warnings3)
+          R.ok (ue_ty', LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2 @ warnings3)
         )
         | ArrayType (_, (b_ty, _)) -> (
           let* index_type, i, warnings1 = infer_type_expr ctx nname i in
@@ -1302,35 +1304,37 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           if b then
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
             R.ifM (eq_lustre_type ctx b_ty e_ty)
-              (R.ok (ue_ty, LA.StructUpdate (pos, ue, LA.Index (pos, i) :: List.tl i_or_ls, Some e), warnings1 @ warnings2))
+              (R.ok (ue_ty', LA.StructUpdate (pos, ue, LA.Index (pos, i) :: List.tl i_or_ls, Some e), warnings1 @ warnings2))
               (type_error pos (ExpectedType (e_ty, b_ty)))
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
-      | LA.MapIndex (p, idx_e) -> 
+      | LA.MapIndex (p, idx_e) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-         (match ue_ty with 
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+         (match ue_ty' with
          | Map (_, kt, vt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
               (let* e_ty, e, warnings3 = infer_type_expr ctx nname (Option.get e) in
                 R.ifM (eq_lustre_type ctx e_ty vt)
-                  (R.ok (ue_ty, LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
+                  (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
                   (type_error pos (ExpectedType (e_ty, vt))))
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
-      | LA.SetIndex (p, idx_e) -> 
+      | LA.SetIndex (p, idx_e) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-         (match ue_ty with 
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+         (match ue_ty' with
          | Set (_, kt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
-              (R.ok (ue_ty, LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
+              (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
@@ -2030,17 +2034,18 @@ and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr
 
 and check_type_tuple_proj : Lib.position -> tc_context -> NI.t option -> LA.expr -> int -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty ->
-  infer_type_expr ctx nname expr
-  >>= function
-  | TupleType (_, tys) as ty, expr, warnings ->
+  let* ty, expr', warnings = infer_type_expr ctx nname expr in
+  let* ty' = expand_type_syn_reftype_history ctx ty in
+  match ty' with
+  | TupleType (_, tys) ->
     if List.length tys <= idx
-    then type_error pos (TupleIndexOutOfBounds (idx, ty))
+    then type_error pos (TupleIndexOutOfBounds (idx, ty'))
     else R.ok (List.nth tys idx)
     >>= fun ity ->
     R.ifM (eq_lustre_type ctx ity exp_ty)
-      (R.ok (expr, warnings))
+      (R.ok (expr', warnings))
       (type_error pos (UnificationFailed (exp_ty, ity)))
-  | ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
+  | _ -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
 
 and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type -> (LA.const_decl * [> warning] list, [> error]) result =
   fun ctx nname const_decl exp_ty ->
