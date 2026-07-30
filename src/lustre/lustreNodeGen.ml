@@ -1111,7 +1111,7 @@ and compile_ast_type
     let compile_field_type ty =
       match ty with
       | A.UserType (_, [], n) when HString.equal n ident ->
-        Type.mk_datatype name []
+        Type.mk_datatype_ref name
       | _ ->
         match X.bindings (compile_ast_type cstate ctx map ty) with
         | [(idx, t)] when idx = X.empty_index -> t
@@ -3526,11 +3526,8 @@ and compile_type_decl pos ctx cstate = function
       | None -> cstate.ref_type_names
     in
     let recursive_datatypes = match X.bindings t with
-      | [(idx, ty)] when idx = X.empty_index ->
-        (match Type.node_of_type ty with
-         | Type.Datatype (_, ctors) when ctors <> [] ->
-           cstate.recursive_datatypes @ [ty]
-         | _ -> cstate.recursive_datatypes)
+      | [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty ->
+        cstate.recursive_datatypes @ [ty]
       | _ -> cstate.recursive_datatypes
     in
     { cstate with

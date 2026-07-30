@@ -68,12 +68,8 @@ let rec default_of_type t =
     | Type.Real -> Term.mk_dec Decimal.zero
 
     (* Apply the first non-self-recursive constructor with default field values *)
-    | Type.Datatype (name, ctors) ->
-      let is_self_recursive ty =
-        match Type.node_of_type ty with
-        | Type.Datatype (n, []) -> n = name
-        | _ -> false
-      in
+    | Type.Datatype (_, ctors) ->
+      let is_self_recursive ty = Type.is_datatype_ref ty in
       let ctor_name, fields =
         match List.find_opt (fun (_, fs) -> not (List.exists is_self_recursive fs)) ctors with
         | Some c -> c
@@ -81,6 +77,11 @@ let rec default_of_type t =
       in
       let ctor_sym = UfSymbol.mk_uf_symbol ctor_name fields t in
       Term.mk_uf ctor_sym (List.map default_of_type fields)
+
+    (* A bare self-reference placeholder should never reach here: it only ever
+       appears as a field type inside its own datatype's constructor list, and
+       the case above never recurses into a self-recursive field. *)
+    | Type.DatatypeRef _ -> invalid_arg "default_of_type: unresolved self-reference"
 
     (* Abstract types default to a canonical free constant of that type *)
     | Type.Abstr ident -> Term.mk_var (abstract_type_default ident t)
@@ -151,6 +152,8 @@ let rec logic_of_sort ty =
       |> List.fold_left (fun acc t -> FeatureSet.union acc (logic_of_sort t)) empty
     in
     FeatureSet.union field_logic (FeatureSet.singleton DT)
+
+  | DatatypeRef _ -> singleton DT
 
 
 let s_abs = Symbol.mk_symbol `ABS
