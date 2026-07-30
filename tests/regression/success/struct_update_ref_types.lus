@@ -1,0 +1,35 @@
+-- Structure updates (`e[i := v]`) applied to a value whose type is a
+-- refinement type, either written inline or behind a type synonym.
+-- The updated expression's type must be expanded before dispatching on its
+-- shape, otherwise the refinement type hides the record/tuple/array/map.
+
+type Nat = subtype { x: int | x >= 0 };
+
+type R = struct { f: Nat; g: bool };
+type Pair = [Nat, bool];
+
+type TotalMap = subtype { m: map<int, Nat> | forall (k: int) k in m };
+
+node N(r: subtype { rr: R | rr.f > 0 };
+       p: subtype { pp: Pair | pp[0] > 0 };
+       a: subtype { aa: Nat^3 | aa[0] > 0 };
+       m: TotalMap;
+       m2: map<int, Nat>;
+       k: int)
+returns (r2: R; p2: Pair; a2: Nat^3; m3: map<int, Nat>; n: Nat);
+let
+  r2 = r[f := 7];
+  p2 = p[0 := 7];
+  a2 = a[0 := 7];
+  m3 = m[k := 7];
+
+  -- The refinement type must be usable as an assumption: a lookup in a total
+  -- map yields a Nat even for a key not known to be present.
+  n = m[k];
+
+  check r2.f = 7;
+  check p2[0] = 7;
+  check a2[0] = 7;
+  check m3[k] = 7;
+  check k in m2 => m2[k] >= 0;
+tel
