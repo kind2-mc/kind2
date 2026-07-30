@@ -110,6 +110,7 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
+  | UnsupportedRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t

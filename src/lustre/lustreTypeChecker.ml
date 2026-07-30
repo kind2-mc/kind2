@@ -125,6 +125,7 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
+  | UnsupportedRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -282,8 +283,14 @@ let error_message kind = match kind with
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
+  | UnsupportedRecursiveAdtField (ty_name, field) ->
+    "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
+    ^ HString.string_of_hstring field
+    ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
+       fields must each be either a scalar type or a direct self-reference, so this is not yet \
+       supported"
 
-type warning_kind = 
+type warning_kind =
   | UnusedBoundVariableWarning of HString.t
 
 let warning_message warning = match warning with
@@ -3106,13 +3113,43 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         | (fn, ctor1, ctor2) :: _ -> type_error pos (DuplicateFieldName (fn, ctor1, ctor2))
         | [] -> R.ok ()
       in
-      (* Well-foundedness: at least one constructor must have no directly
-         self-recursive field, otherwise no finite value of the type exists. *)
       (* TODO: Extend to handle mutual recursion *)
       let is_recursive_field = function
         | LA.UserType (_, [], id) -> HString.equal id new_ty_name
         | _ -> false
       in
+      let mentions_self = LH.contains_subtype_satisfying (function
+        | LA.UserType (_, _, id) | LA.ADT (_, id, _) -> HString.equal id new_ty_name
+        | _ -> false)
+      in
+      let is_recursive_adt =
+        List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> mentions_self ty) fields) ctors
+      in
+      let rec is_scalar_field_type ty = match ty with
+        | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+        | LA.EnumType _ | LA.AbstractType _ | LA.ADT _ -> true
+        | LA.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ty
+        | LA.UserType (_, ty_args, id) ->
+          (match lookup_ty_syn ctx id ty_args with
+           | Some ty -> is_scalar_field_type ty
+           | None -> true)
+        | LA.TupleType _ | LA.GroupType _ | LA.RecordType _
+        | LA.ArrayType _ | LA.Set _ | LA.Map _ | LA.TArr _ | LA.History _ -> false
+      in
+      let* () =
+        if not is_recursive_adt then R.ok ()
+        else
+          match List.concat_map (fun (_, fields) ->
+            List.filter_map (fun (fn, ty) ->
+              if is_recursive_field ty || is_scalar_field_type ty then None
+              else Some fn
+            ) fields
+          ) ctors with
+          | fn :: _ -> type_error pos (UnsupportedRecursiveAdtField (new_ty_name, fn))
+          | [] -> R.ok ()
+      in
+      (* Well-foundedness: at least one constructor must have no directly
+         self-recursive field, otherwise no finite value of the type exists. *)
       let has_base_case = List.exists
         (fun (_, tys) -> List.for_all (fun (_, ty) -> not (is_recursive_field ty)) tys)
         ctors

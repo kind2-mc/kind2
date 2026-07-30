@@ -895,6 +895,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_non_well_founded.lus" with
     | Error (`LustreTypeCheckerError (_, NonWellFoundedDatatype _)) -> true
     | _ -> false);
+  mk_test "test ADT recursive field nested in a container type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unsupported_recursive_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an unrelated non-scalar field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unsupported_recursive_unrelated_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
   mk_test "test unequal match arm types" (fun () ->
     match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
     | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true

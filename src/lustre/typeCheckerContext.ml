@@ -751,7 +751,7 @@ let type_contains_ref ctx ty =
     | ADT (_, _, cons) ->
       let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       List.fold_left (fun acc ty -> acc || aux seen ty) false tys
-    | Bool _ | Int _ | Real _ | EnumType _ 
+    | Bool _ | Int _ | Real _ | EnumType _
     | AbstractType _ | SBitVector _ | UBitVector _ -> false
   in
   aux SI.empty ty
