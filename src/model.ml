@@ -277,13 +277,37 @@ let pp_print_map_as_xml as_type ppf m =
     pp_print_array_model_as_xml as_type true ppf 0 arm
 
 
-let pp_print_value_term_json as_type ppf t = match as_type with
+let rec pp_print_value_term_json as_type ppf t = match as_type with
   | Some ty when Term.is_numeral t && Type.is_enum ty -> (
     let num_str =
       try Type.get_constr_of_num (Term.numeral_of_term t)
       with Not_found -> "_"
     in
     Format.fprintf ppf "\"%s\"" num_str
+  )
+  | Some ty when Type.is_datatype ty -> (
+    match Term.destruct t with
+    | Term.T.App (sym, args) -> (
+      match Symbol.node_of_symbol sym with
+      | `UF uf_sym ->
+        let ctor_name = UfSymbol.name_of_uf_symbol uf_sym in
+        let field_types =
+          match List.assoc_opt ctor_name (Type.constructors_of_datatype ty) with
+          | Some tys -> tys
+          | None -> []
+        in
+        let args_as_type =
+          if List.length args = List.length field_types then
+            List.map (fun ty -> Some ty) field_types
+          else List.map (fun _ -> None) args
+        in
+        Format.fprintf ppf "{\"constructor\" : \"%s\", \"args\" : [%a]}"
+          ctor_name
+          (pp_print_list (fun ppf (a, aty) -> pp_print_value_term_json aty ppf a) ", ")
+          (List.combine args args_as_type)
+      | _ -> pp_print_term ppf t
+    )
+    | _ -> pp_print_term ppf t
   )
   | _ when Term.is_decimal t -> (
     let d = Term.decimal_of_term t in

@@ -1638,8 +1638,9 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
         (Type.constructors_of_enum stream_type)
     | Type.Array (_, _) ->
       Format.pp_print_string ppf "type=\"array\""
-    | Type.Datatype (name, _) ->
-      Format.fprintf ppf "type=\"datatype\" name=\"%s\"" name
+    | Type.Datatype (name, ctors) ->
+      Format.fprintf ppf "type=\"datatype\" datatypeName=\"%s\"@ constructors=\"%a\""
+        name (pp_print_list Format.pp_print_string ", ") (List.map fst ctors)
   in
 
   let stream_values = SVT.find model state_var in
