@@ -1232,7 +1232,7 @@ will also generate the two warnings as discussed in the previous paragraph.
 
 The ``last`` operator
 ^^^^^^^^^^^^^^^^^^^^^
-Within a frame block, the expression ``last x`` (where ``x`` is a variable in
+Within a frame block, the expression ``last x`` (where ``x`` is a local or output variable in
 scope) denotes the value of ``x`` at the *immediately preceding timestep*, with
 the value at the first timestep given by the frame's initialization of ``x`` (or
 left undefined when ``x`` has no initialization). ``last x`` always refers to the

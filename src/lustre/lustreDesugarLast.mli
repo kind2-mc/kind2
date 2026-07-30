@@ -21,6 +21,7 @@
 
 type error_kind =
   | MisplacedLastError of HString.t
+  | LastOnInputError of HString.t
   | UnknownIdentifier of HString.t
 
 val error_message : error_kind -> string
@@ -31,5 +32,6 @@ type error = [
 
 (** Replaces each [last x] occurring in a frame block with a fresh local
     variable initialized by the frame and equal to [pre x] afterwards. Returns
-    an error if [last] is used outside of a frame block. *)
+    an error if [last] is used outside of a frame block, or if it is applied to
+    an input of the node. *)
 val desugar_last : LustreAst.t -> (LustreAst.t, [> error]) result
