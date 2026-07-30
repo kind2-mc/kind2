@@ -84,6 +84,10 @@ type compiler_state = {
   (* Maps the canonical key of a named refinement synonym's flattened definition
      to its type name, so refinement types can be displayed by name. *)
   ref_type_names : (string * HString.t) list;
+  (* Recursive ADTs compiled so far, in dependency order (a field type is always
+     compiled, hence appended here, before the type that embeds it). Collected
+     explicitly to preserve ordering *)
+  recursive_datatypes : Type.t list;
 }
 
 (*
@@ -180,6 +184,7 @@ let empty_compiler_state () = {
   adt_map = StringMap.empty;
   abstract_type_defaults = Hashtbl.create 4;
   ref_type_names = [];
+  recursive_datatypes = [];
 }
 
 (*
@@ -935,7 +940,8 @@ let rec compile ctx gids adt_map scc_map decls =
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
       G.global_constraints = output.global_constraints;
-      G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map }
+      G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map;
+      G.recursive_datatypes = output.recursive_datatypes }
 
 and compile_ast_type
   ?(expand=false)
@@ -3519,8 +3525,16 @@ and compile_type_decl pos ctx cstate = function
       | Some key -> (key, ident) :: cstate.ref_type_names
       | None -> cstate.ref_type_names
     in
+    let recursive_datatypes = match X.bindings t with
+      | [(idx, ty)] when idx = X.empty_index ->
+        (match Type.node_of_type ty with
+         | Type.Datatype (_, ctors) when ctors <> [] ->
+           cstate.recursive_datatypes @ [ty]
+         | _ -> cstate.recursive_datatypes)
+      | _ -> cstate.recursive_datatypes
+    in
     { cstate with
-      type_alias; ref_type_names }
+      type_alias; ref_type_names; recursive_datatypes }
   | A.FreeType (_, ident) ->
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in

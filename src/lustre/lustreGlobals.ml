@@ -52,5 +52,8 @@ type t =
 
     (* ADT type metadata for counterexample reconstruction *)
     adt_map : adt_map;
+
+    (* Recursive ADTs, in dependency order *)
+    recursive_datatypes : Type.t list;
   }
 
