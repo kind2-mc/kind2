@@ -773,7 +773,7 @@ and pp_print_app ?as_type safe pvar ppf = function
 
     | `IsConstructor s ->
       (function [a] ->
-        Format.fprintf ppf "@[<hv 2>(%s@ %a)@]" ("(_ is " ^ s ^ ")") (pp_print_term_node safe pvar) a
+        Format.fprintf ppf "@[<hv 2>%s?(%a)@]" s (pp_print_term_node safe pvar) a
       | _ -> assert false)
 
     | `Selector (s, _) ->
