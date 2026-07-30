@@ -1260,7 +1260,7 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   let add_ovars_to info =
     List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
       info ovars in
-  let info = add_exports_to (add_ivars_to (add_ovars_to info)) in
+  let info = add_ovars_to (add_ivars_to (add_exports_to info)) in
   let info = { info with
     interpretation = interp;
     contract_ref; }

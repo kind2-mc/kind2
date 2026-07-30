@@ -859,6 +859,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
     | _ -> false);
+  mk_test "test unequal match arm types" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
+    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
+    | _ -> false);
+  mk_test "test unbound ADT constructor in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test ADT constructor arity mismatch in term position" (fun () ->
+    match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | _ -> false);
   mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
@@ -870,6 +882,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test duplicate field name across constructors is rejected at declaration, even unprojected" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_field_name_no_projection.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
+    | _ -> false);
+  mk_test "test duplicate field name within constructor of same ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name_in_ctor.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldNameInCtor _)) -> true
     | _ -> false);
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
@@ -906,22 +922,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test recursive ADT with a refinement-typed field is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
-    | _ -> false);
-  mk_test "test unequal match arm types" (fun () ->
-    match load_file "./lustreTypeChecker/adt_unequal_match_arm_types.lus" with
-    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
-    | _ -> false);
-  mk_test "test unbound ADT constructor in term position" (fun () ->
-    match load_file "./lustreTypeChecker/adt_term_unbound_constructor.lus" with
-    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
-    | _ -> false);
-  mk_test "test ADT constructor arity mismatch in term position" (fun () ->
-    match load_file "./lustreTypeChecker/adt_term_constructor_arity_mismatch.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
-    | _ -> false);
-  mk_test "test duplicate field name within constructor of same ADT" (fun () ->
-    match load_file "./lustreTypeChecker/adt_duplicate_field_name_in_ctor.lus" with
-    | Error (`LustreTypeCheckerError (_, DuplicateFieldNameInCtor _)) -> true
     | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
