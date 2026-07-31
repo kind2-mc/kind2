@@ -1,0 +1,12 @@
+datatype A = BaseA | MkA (v: int, nextA: A);
+datatype B = BaseB | MkB (v: bool, nextB: B);
+
+node main () returns (ok: bool);
+var a: A;
+var b: B;
+let
+  a = MkA(5, BaseA);
+  b = MkB(true, BaseB);
+  ok = a.v = 5 and b.v = true;
+  check ok;
+tel

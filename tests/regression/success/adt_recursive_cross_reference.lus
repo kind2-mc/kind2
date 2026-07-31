@@ -1,0 +1,8 @@
+datatype A = LeafA (a1: int) | NodeA (a2: A);
+datatype B = LeafB (b1: int) | NodeB (b2: B, b3: A);
+
+node main(i: int; a: A) returns (ok: bool);
+let
+  ok = NodeB(LeafB(i), a) <> LeafB(i);
+  check ok;
+tel

@@ -162,7 +162,9 @@ type t =
 
     is_visible: bool ; 
     (** Is this transition system visible (in the output)? *)
-        
+
+    datatype_types : Type.t list;
+    (** Recursive ADTs used anywhere in this system, in dependency order. *)
 
   }
 
@@ -1034,6 +1036,12 @@ let define_trans define { trans_uf_symbol; trans_formals; trans } =
 (* Declare the sorts, uninterpreted functions and const variables
    of this system and its subsystems. *)
 let declare_sorts_ufs_const trans_sys declare declare_sort =
+  (* declare recursive algebraic datatypes first, in dependency order *)
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
+      | _ -> ());
+
   (* declare uninterpreted sorts *)
   Type.get_all_abstr_types () |>
   List.iter (fun ty -> match Type.node_of_type ty with
@@ -1086,6 +1094,12 @@ let define_and_declare_of_bounds
     declare_sort
     lbound
     ubound =
+
+  (* declare recursive algebraic datatypes first, in dependency order *)
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
+      | _ -> ());
 
   (* declare uninterpreted sorts *)
   Type.get_all_abstr_types () |>
@@ -1722,6 +1736,7 @@ let copy t =
 
 let mk_trans_sys 
   ?(instance_var_id_start = 0)
+  ?(datatype_types = [])
   scope
   instance_state_var
   init_flag_state_var
@@ -1877,7 +1892,12 @@ let mk_trans_sys
               ) global_consts)
            
          (* Join logics to the logic required for this system *)
-         |> TermLib.sup_logics)
+         |> TermLib.sup_logics
+         (* If datatypes are declared, ensure DT is in the logic *)
+         |> (fun features ->
+             if datatype_types <> [] then
+               TermLib.FeatureSet.add TermLib.DT features
+             else features))
 
   in
 
@@ -1926,7 +1946,8 @@ let mk_trans_sys
       mode_requires;
       logic;
       invariants;
-      is_visible;}
+      is_visible;
+      datatype_types;}
   in
 
   trans_sys, instance_var_id_start'

@@ -209,6 +209,10 @@ val constants_to_calls: ident list -> expr -> expr
 val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 (** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
 
+val is_direct_self_reference: ident -> lustre_type -> bool
+(** `is_direct_self_reference type_name ty` returns true iff `ty` is a reference
+    to the type named `type_name` *)
+
 val pos_of_type: lustre_type -> Lib.position 
 (** `pos_of_type ty` returns the position of `ty` *)
 

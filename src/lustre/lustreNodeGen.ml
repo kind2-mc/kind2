@@ -35,6 +35,7 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDAT = LustreDesugarADTs
+module LIPN = LustreInstantiatePolyNodes
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -83,6 +84,10 @@ type compiler_state = {
   (* Maps the canonical key of a named refinement synonym's flattened definition
      to its type name, so refinement types can be displayed by name. *)
   ref_type_names : (string * HString.t) list;
+  (* Recursive ADTs compiled so far, in dependency order (a field type is always
+     compiled, hence appended here, before the type that embeds it). Collected
+     explicitly to preserve ordering *)
+  recursive_datatypes : Type.t list;
 }
 
 (*
@@ -179,6 +184,7 @@ let empty_compiler_state () = {
   adt_map = StringMap.empty;
   abstract_type_defaults = Hashtbl.create 4;
   ref_type_names = [];
+  recursive_datatypes = [];
 }
 
 (*
@@ -782,7 +788,8 @@ let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
           in
           (fname, field_info)
         ) fields
-      ) info.LDAT.ctor_fields
+      ) info.LDAT.ctor_fields;
+      G.is_recursive = info.LDAT.is_recursive;
     }
   ) ldat_map
 
@@ -796,7 +803,8 @@ let field_name_to_index adt_map field_hs =
     match acc with
     | Some _ -> acc
     | None ->
-      if info.disc_field = field_hs
+      if info.is_recursive then None
+      else if info.disc_field = field_hs
       then Some (X.AdtTagIndex (HString.string_of_hstring type_name))
       else None
   ) adt_map None with
@@ -806,6 +814,8 @@ let field_name_to_index adt_map field_hs =
     match acc with
     | Some _ -> acc
     | None ->
+      if info.is_recursive then None
+      else
       StringMap.fold (fun ctor_hs fields acc ->
         match acc with
         | Some _ -> acc
@@ -822,6 +832,32 @@ let field_name_to_index adt_map field_hs =
   ) adt_map None with
   | Some idx -> idx
   | None -> X.RecordIndex field_str
+
+(* For a FieldProject on a recursive ADT whose field name is the user-visible name of a
+   selector (e.g. "s3" for Enc(s2: Msg, s3: Msg)), find the SMT-LIB selector name ("Enc_1")
+   and field type by looking up [ty_name]'s constructors specifically. *)
+let find_recursive_selector adt_map ty_name field =
+  match StringMap.find_opt ty_name adt_map with
+  | None -> None
+  | Some (info : LDAT.adt_info) ->
+    if not info.is_recursive then None
+    else
+      let field_str = HString.string_of_hstring field in
+      StringMap.fold (fun ctor_hs fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          let ctor_str = HString.string_of_hstring ctor_hs in
+          let target = ctor_str ^ "_" ^ field_str in
+          let rec find_idx i = function
+            | [] -> None
+            | (fname, ftype) :: rest ->
+              if HString.string_of_hstring fname = target then
+                Some (ctor_str ^ "_" ^ string_of_int i, ftype)
+              else find_idx (i + 1) rest
+          in
+          find_idx 0 fields
+      ) info.ctor_fields None
 
 (* For each AdtPayloadIndex (ctor, _) entry in a compiled key binding list,
    replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
@@ -904,7 +940,8 @@ let rec compile ctx gids adt_map scc_map decls =
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
       G.global_constraints = output.global_constraints;
-      G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map }
+      G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map;
+      G.recursive_datatypes = output.recursive_datatypes }
 
 and compile_ast_type
   ?(expand=false)
@@ -922,8 +959,39 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, _, ident) ->
-    StringMap.find ident cstate.type_alias 
+  | A.UserType (_, ty_args, ident) ->
+    (* For polymorphic ADT instantiations (e.g., UserType([Int],"Opt")), look up
+       the monomorphized concrete type "Opt<int>" that was inserted by
+       instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
+    let key = if ty_args = [] then ident
+      else HString.mk_hstring (LIPN.adt_mono_key ident ty_args)
+    in
+    (match StringMap.find_opt key cstate.type_alias with
+    | Some t -> t
+    | None ->
+      let generic = StringMap.find ident cstate.type_alias in
+      (match ty_args with
+      | [] -> generic
+      | _ ->
+        match StringMap.find_opt ident cstate.adt_map with
+        | None -> generic
+        | Some adt_info ->
+          let type_params = adt_info.LDAT.type_params in
+          if List.length type_params <> List.length ty_args then generic
+          else
+            let subst = List.fold_left2 (fun acc param arg ->
+              match X.bindings (compile_ast_type cstate ctx map arg) with
+              | [(idx, t)] when idx = X.empty_index -> StringMap.add param t acc
+              | _ -> acc
+            ) StringMap.empty type_params ty_args in
+            X.map (fun ty ->
+              match Type.node_of_type ty with
+              | Type.Abstr s ->
+                (match StringMap.find_opt (HString.mk_hstring s) subst with
+                | Some t -> t
+                | None -> ty)
+              | _ -> ty
+            ) generic))
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
@@ -1038,8 +1106,20 @@ and compile_ast_type
   | A.History _
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
-  | A.ADT _ -> assert false
-      (* Lib.todo "Trying to flatten function type. This should not happen" *)
+  | A.ADT (_, ident, ctors) ->
+    let name = HString.string_of_hstring ident in
+    let compile_field_type ty =
+      if AH.is_direct_self_reference ident ty then
+        Type.mk_datatype_ref name
+      else
+        match X.bindings (compile_ast_type cstate ctx map ty) with
+        | [(idx, t)] when idx = X.empty_index -> t
+        | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
+    in
+    let ctors' = List.map (fun (c, fields) ->
+      (HString.string_of_hstring c, List.map (fun (_, ty) -> compile_field_type ty) fields)
+    ) ctors in
+    X.singleton X.empty_index (Type.mk_datatype name ctors')
 
 and vars_of_quant cstate ctx map avars =
   let avars = List.map (fun (p, s, ty) -> p, HString.string_of_hstring s, ty) avars in
@@ -1106,6 +1186,7 @@ and compile_ast_expr
       let ty = Type.enum_of_constr id_str in
       X.singleton X.empty_index (E.mk_constr id_str ty)
     with Not_found ->
+    try
       let id_str = HString.string_of_hstring id_str in
       (match String.split_on_char '_' id_str with
       | proj :: id :: name :: [] -> (try
@@ -1119,6 +1200,8 @@ and compile_ast_expr
         X.singleton X.empty_index e
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
+    with Not_found ->
+      assert false
 
   and compile_mode_reference path' =
     let path' = List.map HString.string_of_hstring path' in
@@ -1706,8 +1789,19 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.FieldProject (_, expr, field, _) ->
-    compile_projection bounds expr (field_name_to_index cstate.adt_map field)
+  | A.FieldProject (_, expr, field, adt_ty_opt) ->
+    let recursive_selector = match adt_ty_opt with
+      | Some (A.UserType (_, _, ty_name)) ->
+        find_recursive_selector cstate.adt_map ty_name field
+      | _ -> None
+    in
+    (match recursive_selector with
+    | Some (selector_name, ftype) ->
+      let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
+      let result_type = X.find X.empty_index (compile_ast_type cstate ctx map ftype) in
+      X.singleton X.empty_index (E.mk_selector selector_name result_type e')
+    | None ->
+      compile_projection bounds expr (field_name_to_index cstate.adt_map field))
   | A.IndexAccess (_, expr, field, A.Tuple) ->
     let field = match field with 
     | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
@@ -1764,9 +1858,30 @@ and compile_ast_expr
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
+  | A.ADTTerm (_, _ty_args, ctor, arg_exprs) ->
+    let (ty_name, field_tys) =
+      match Ctx.lookup_constructor ctx ctor with
+      | Some r -> r
+      | None -> assert false
+    in
+    let adt_type = X.find X.empty_index (StringMap.find ty_name cstate.type_alias) in
+    let compiled_args = List.map
+      (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
+      arg_exprs
+    in
+    let arg_types = List.map
+      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
+      field_tys
+    in
+    let ctor_sym =
+      UfSymbol.mk_uf_symbol (HString.string_of_hstring ctor) arg_types adt_type
+    in
+    X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
   | A.Match _ -> assert false
-  | A.ADTTerm _ -> assert false
-  | A.ADTTester _ -> assert false
+  | A.ADTTester (_, expr, ctor) ->
+    let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
+    let ctor_str = HString.string_of_hstring ctor in
+    X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
 and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
@@ -3430,8 +3545,13 @@ and compile_type_decl pos ctx cstate = function
       | Some key -> (key, ident) :: cstate.ref_type_names
       | None -> cstate.ref_type_names
     in
+    let recursive_datatypes = match X.bindings t with
+      | [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty ->
+        cstate.recursive_datatypes @ [ty]
+      | _ -> cstate.recursive_datatypes
+    in
     { cstate with
-      type_alias; ref_type_names }
+      type_alias; ref_type_names; recursive_datatypes }
   | A.FreeType (_, ident) ->
     let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in

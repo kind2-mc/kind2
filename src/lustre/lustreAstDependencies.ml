@@ -356,12 +356,12 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RefinementType (_, (_, i, ty), e) ->
     let g_expr = remove (mk_graph_expr e) i in
     union_dependency_analysis_data (mk_graph_type ty) g_expr
-  (* for the future: ADTs can be recursive; relax this check *)
-  | ADT (_, _name, cons) ->
+  | ADT (_, name, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
       (List.map mk_graph_type tys) in
-    deps
+    (* Remove self-reference so directly recursive ADTs are not flagged as cyclic *)
+    remove deps (HString.concat2 ty_prefix name)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
 and mk_graph_expr ?(only_modes = false)

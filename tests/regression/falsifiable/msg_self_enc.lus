@@ -1,0 +1,7 @@
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg);
+
+node main(m: Msg) returns (ok: bool);
+let
+  ok = (m = Enc(m, m));
+  check ok;
+tel

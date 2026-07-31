@@ -956,7 +956,7 @@ and check_output_items (pos, _id, _ty, clock) =
 
 and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
 = fun ctx local -> match local with
-  | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
+  | LA.NodeConstDecl (_, FreeConst (_, _, _)) -> Ok ([])
   | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
   | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])

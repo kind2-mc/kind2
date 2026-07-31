@@ -323,8 +323,7 @@ let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   HString.mk_hstring (string_of_int !contract_ref)
 
-(** Build index type [0, size-1] for one dimension. Uses IntRange if size is
-    concrete, RefinementType otherwise. *)
+(** Build index type [0, size-1] for one dimension. *)
 let mk_index_type pos size_expr =
     let id = HString.mk_hstring "_" in
     let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
@@ -1252,15 +1251,17 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
-  let ctx = List.fold_left (fun c (id, ty) -> Ctx.add_ty c id ty)
-    info.context
-    (Ctx.IMap.bindings type_exports) in
-  let ctx = List.fold_left (fun c (_, id, ty, _, _) -> Ctx.add_ty c id ty)
-    ctx ivars in
-  let ctx = List.fold_left (fun c (_, id, ty, _) -> Ctx.add_ty c id ty)
-    ctx ovars in
+  let add_exports_to info =
+    List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
+      info (Ctx.IMap.bindings type_exports) in
+  let add_ivars_to info =
+    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
+      info ivars in
+  let add_ovars_to info =
+    List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
+      info ovars in
+  let info = add_ovars_to (add_ivars_to (add_exports_to info)) in
   let info = { info with
-    context = ctx;
     interpretation = interp;
     contract_ref; }
   in
@@ -2577,8 +2578,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | A.Match _ | A.ADTTerm _ | A.ADTTester _ ->
-    assert false (* desugared before normalization by lustreDesugarADTs *)
+  | A.ADTTerm (pos, ty_args, ctor, args) ->
+    let nargs, gids, warnings =
+      normalize_list (normalize_expr ?guard info node_id map) args
+    in
+    A.ADTTerm (pos, ty_args, ctor, nargs), gids, warnings
+  | A.ADTTester (pos, e, c) ->
+    let ne, gids, warnings = normalize_expr ?guard info node_id map e in
+    A.ADTTester (pos, ne, c), gids, warnings
+  | A.Match _ -> assert false
   | A.AbstractSymConst _ as e ->
     (* Pass through to the compiler, which handles it in compile_ast_expr. *)
     e, empty (), []
@@ -2680,7 +2688,19 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | ADT _ -> assert false (* desugared before normalization by lustreDesugarADTs *)
-  | Int _ | History _ | Bool _ | Real _ 
+  | ADT (p, name, constructors) ->
+    let constructors, gids, warnings = List.map (fun (cname, fields) ->
+      let fields, gids, warnings = List.map (fun (fname, ty) ->
+        let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in
+        (fname, ty), gids, warnings
+      ) fields |> Lib.split3 in
+      let gids = List.fold_left union (empty ()) gids in
+      let warnings = List.concat warnings in
+      (cname, fields), gids, warnings
+    ) constructors |> Lib.split3 in
+    let gids = List.fold_left union (empty ()) gids in
+    let warnings = List.concat warnings in
+    ADT (p, name, constructors), gids, warnings  
+  | Int _ | History _ | Bool _ | Real _
   | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []

@@ -1,0 +1,11 @@
+datatype Opt<T> = Absent | Present (val: T);
+
+node main(i: int) returns (ok: bool);
+(*@contract
+  var x: Opt<int> = Present(i);
+  guarantee Present?(x) => x.val = i;
+*)
+let
+  ok = true;
+  check ok;
+tel

@@ -3164,8 +3164,9 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* ****************************************************** *)
 
           (* Create transition system *)
-          let trans_sys, _ = 
-            TransSys.mk_trans_sys 
+          let trans_sys, _ =
+            TransSys.mk_trans_sys
+              ~datatype_types:globals.G.recursive_datatypes
               scope
               None (* instance_state_var *)
               init_flag

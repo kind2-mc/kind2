@@ -336,6 +336,12 @@ val mk_exists : ?fundef:bool -> Var.t list -> t -> t
 (** Return a hashconsed universally quantified term *)
 val mk_forall : ?fundef:bool -> Var.t list -> t -> t
 
+(** ADT tester: ((_ is CtorName) arg) *)
+val mk_is_constructor : string -> t -> t
+
+(** ADT field selector: (CtorName_i arg) *)
+val mk_selector : string -> Type.t -> t -> t
+
 (** {1 Constant terms} *)
 
 (** The propositional constant [true] *)
