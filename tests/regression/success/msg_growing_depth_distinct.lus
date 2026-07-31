@@ -1,0 +1,11 @@
+datatype Msg = Atomic (s1: int) | Enc (s2: Msg, s3: Msg);
+
+node main() returns (ok: bool);
+var m: Msg;
+var t: int;
+let
+  t = 0 -> pre t + 1;
+  m = Atomic(0) -> Enc(pre m, pre m);
+  ok = (t < 2) or (m <> pre (pre m));
+  check ok;
+tel

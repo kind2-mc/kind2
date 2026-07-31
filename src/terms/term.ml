@@ -808,6 +808,12 @@ let rec type_of_term' t = match T.destruct t with
               (* Format.eprintf "%a@." pp_print_term t; *)
               assert false)
             
+        (* ADT tester: always returns bool *)
+        | `IsConstructor _ -> Type.mk_bool ()
+
+        (* ADT selector: result type is stored in the symbol *)
+        | `Selector (_, result_type) -> result_type
+
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
   
@@ -1544,6 +1550,12 @@ let mk_named_unsafe t s n =
     T.mk_annot t (TermAttr.mk_named s n)
 
 
+let mk_is_constructor ctor_name arg =
+  mk_app_of_symbol_node (`IsConstructor ctor_name) [arg]
+
+let mk_selector selector_name result_type arg =
+  mk_app_of_symbol_node (`Selector (selector_name, result_type)) [arg]
+
 (* Hashcons an uninterpreted function or constant *)
 let mk_uf s = function 
 
@@ -1805,12 +1817,10 @@ let state_vars_of_term term  =
           | _ -> assert false)
       | T.Const _ -> 
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
-      | T.App _ -> 
-        List.fold_left 
-          StateVar.StateVarSet.union 
-          StateVar.StateVarSet.empty
-      (* | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+      | T.App _ ->
+        List.fold_left
+          StateVar.StateVarSet.union
+          StateVar.StateVarSet.empty)
     term
 
 
@@ -1824,9 +1834,7 @@ let vars_of_term term =
         (function [] -> Var.VarSet.singleton v | _ -> assert false)
       | T.Const _ -> 
         (function [] -> Var.VarSet.empty | _ -> assert false)
-      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-      (*| T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
     term
 
 
@@ -1868,10 +1876,8 @@ let state_vars_at_offset_of_term i term =
       | T.Var _ 
       | T.Const _ -> 
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
-      | T.App _ -> 
-        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
-      (* | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false)*))
+      | T.App _ ->
+        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty)
     term
 
 let indexes_of_state_var sv term =

@@ -113,6 +113,9 @@ type interpreted_symbol =
   | `STORE                (* Update of an array (ternary) *)
 
   | `CONST_ARRAY of Type.t (** Constant array (unary) *)
+
+  | `IsConstructor of string            (* ADT tester: printed as (_ is CtorName), unary *)
+  | `Selector of string * Type.t        (* ADT field selector: name and result type, unary *)
   ]
 
 
@@ -169,6 +172,9 @@ module Symbol_node = struct
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
+    | `IsConstructor s1, `IsConstructor s2 -> s1 = s2
+    | `Selector (s1, t1), `Selector (s2, t2) -> s1 = s2 && Type.equal_types t1 t2
+
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
@@ -176,7 +182,9 @@ module Symbol_node = struct
     | `UBV _, _
     | `BV _, _
 
-    | `UF _, _  -> false
+    | `UF _, _
+    | `IsConstructor _, _
+    | `Selector _, _  -> false
 
     (* Non-parametric symbols *)
     | `TRUE, `TRUE
@@ -492,6 +500,8 @@ let rec pp_print_symbol_node ppf = function
       "(as const %a)"
       Type.pp_print_type a
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+  | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s
+  | `Selector (s, _) -> Format.pp_print_string ppf s
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ppf { Hashcons.node = n } =

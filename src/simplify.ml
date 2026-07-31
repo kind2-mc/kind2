@@ -54,6 +54,8 @@ type t =
   | Bool of Term.t 
   | Array of Term.t 
   | BV of Term.t
+  | ADT of Term.t
+  | Abstr of Term.t
 
 (*
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
@@ -184,6 +186,8 @@ let term_of_nf = function
   | Bool b -> b
   | Array b -> b
   | BV b -> b
+  | ADT b -> b
+  | Abstr b -> b
 
 
 (* ********************************************************************** *)
@@ -221,7 +225,7 @@ let is_constant = function
   | Bool b when b == Term.t_true || b == Term.t_false -> true
   | BV _ -> false (* Technically, this isn't right, but it doesn't 
   matter in the contexts in which this function is called *)
-  | Num _ | Dec _ | Bool _ | Array _ -> false
+  | Num _ | Dec _ | Bool _ | Array _ | ADT _ | Abstr _ -> false
 
 
 (* Return true if value is variable-free *)
@@ -683,7 +687,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ | ADT _| Abstr _) :: _ -> assert false
 
   in
 
@@ -827,8 +831,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
       | `BVSIGNEXT _ , _
-      | `BVZEROEXT _ , _ -> assert false
-    )    
+      | `BVZEROEXT _ , _ 
+      | `IsConstructor _, _ 
+      | `Selector _, _ -> assert false
+    )
 
   (* | Term.T.Attr (t, _) -> t *)
 
@@ -841,7 +847,7 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ | ADT _| Abstr _) :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -1028,7 +1034,7 @@ let [@ocaml.warning "-27"] relation
 
     | BV _ :: _ as args -> relation_to_nf_bv rel_bv args
 
-    | (Bool _ | Array _ ) :: _ -> assert false
+    | (Bool _ | Array _ | ADT _ | Abstr _) :: _ -> assert false
 
 
 (* Normalize equality relation between normal forms *)
@@ -1143,11 +1149,18 @@ let atom_of_term t =
 
     BV t
 
-  (* Term is of some other type  *)
-  else (
+  else if Type.is_datatype tt then
 
-    (* Not implemented *)
-    assert false )
+    ADT t
+
+  (* Term is of an abstract (uninterpreted) sort *)
+  else if Type.is_abstr tt then
+
+    Abstr t
+
+  (* Term is of some other type  *)
+  else 
+    assert false 
 
 
 let store = function
@@ -1518,8 +1531,8 @@ let exclusive_disjunction simplify_term_node' = function
       (Bool term' :: tl)
 
   (* Not well-typed arguments *)
-  | Bool _ :: (Num _ | Dec _ | Array _ | BV _) :: _
-  | (Num _  | Dec _ | Array _ | BV _) :: _  -> assert false
+  | Bool _ :: (Num _ | Dec _ | Array _ | BV _ | ADT _ | Abstr _) :: _
+  | (Num _  | Dec _ | Array _ | BV _ | ADT _ | Abstr _) :: _  -> assert false
 
 
 let binary_equivalence simplify_term_node' a b =
@@ -2081,6 +2094,12 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                   (simplify_term_node default_of_var uf_defs model)
                   a b
 
+              | [Abstr a; Abstr b] ->
+                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+
+              | [ADT a; ADT b] ->
+                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+
               (* Equation between integers or reals *)
               | [Num _ as a; Num _ as b] 
               | [Dec _ as a; Dec _ as b] when split_eq ->
@@ -2287,6 +2306,16 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `BVZEROEXT i -> bv_zeroext i args
 
           | `BVCONCAT -> bv_concat args
+
+          | `IsConstructor s ->
+            (match args with
+             | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+             | _ -> assert false)
+
+          | `Selector (s, ty) ->
+            (match args with
+             | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+             | _ -> assert false)
 
           (* Constant symbols *)
           | `TRUE
@@ -2627,7 +2656,7 @@ let numerical_rel_and_zero rel_num rel_dec = function
     (rrel, Dec (Decimal.zero, []), Term.mk_dec Decimal.zero)
 
   (* Relation must be between integers or reals *)
-  | Bool _ | Array _ | BV _ -> assert false
+  | Bool _ | Array _ | BV _ | ADT _ | Abstr _ -> assert false
 
 
 (* Normalize an n-ary relation by unchaining it into a conjunction of
@@ -2966,6 +2995,16 @@ let rec remove_ite' fterm args =
 
         (* Array store *)
         | `STORE -> store args
+
+        | `IsConstructor s ->
+          (match args with
+           | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+           | _ -> assert false)
+
+        | `Selector (s, ty) ->
+          (match args with
+           | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+           | _ -> assert false)
 
         (* Constant symbols *)
         | `TRUE | `FALSE | `NUMERAL _ | `DECIMAL _ | `BV _ | `UBV _ -> assert false

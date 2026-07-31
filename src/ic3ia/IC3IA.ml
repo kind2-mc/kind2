@@ -448,21 +448,6 @@ let refine fwd solver sys predicates cubes =
     |> Term.TermSet.elements
     |> List.iteri (fun i t -> Format.printf "ATOM%d: %a@." i Term.pp_print_term t);*)
 
-    (* Z3's quantifier elimination can return non-linear atoms (e.g. a product
-       of two integer variables) even when its input is linear; cvc5 does not.
-       For a linear transition system such atoms are spurious, and adding them
-       as predicates would make the SMT solver reject later queries with
-       "logic does not support non-linear arithmetic". Drop them here. *)
-    let atoms =
-      match TransSys.get_logic sys with
-      | `Inferred l when not (TermLib.FeatureSet.mem TermLib.NA l) ->
-        Term.TermSet.filter
-          (fun a ->
-            not (TermLib.FeatureSet.mem TermLib.NA (TermLib.logic_of_term [] a)))
-          atoms
-      | _ -> atoms
-    in
-
     add_predicates solver predicates atoms
   )
 
@@ -978,6 +963,12 @@ let main fwd slice_to_prop prop in_sys param sys =
   | `Inferred l when mem A l ->
     let msg =
       Format.sprintf "IC3IA disabled for property %s: arrays are not supported."
+        prop.Property.prop_name
+    in
+    raise (UnsupportedFeature msg)
+  | `Inferred l when mem DT l ->
+    let msg =
+      Format.sprintf "IC3IA disabled for property %s: algebraic datatypes are not supported."
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)

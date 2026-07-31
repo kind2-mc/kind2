@@ -538,8 +538,10 @@ let ensure_symbol_qf_lira s =
   | `SBV_TO_INT
   | `SELECT _
   | `CONST_ARRAY _
-  | `STORE ->
-    
+  | `STORE
+  | `IsConstructor _
+  | `Selector _ ->
+
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
                               symbol %s is not interpreted correctly in this \
                               mode. Run Kind 2 with --smt_logic none instead."
@@ -611,6 +613,8 @@ let declare_sort solver sort = match Type.node_of_type sort with
   (*   execute_command solver cmd 0 *)
 
 
+  | Type.Datatype _ ->
+    failwith "Yices (native protocol) does not support algebraic datatypes"
   | _ -> failwith "Only declare uninterpreted and enumerated sorts."
 
 

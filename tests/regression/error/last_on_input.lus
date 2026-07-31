@@ -1,0 +1,13 @@
+-- The 'last' operator may not be applied to an input. A frame block only
+-- initializes the variables in its header, which are outputs or locals, so
+-- 'last i' below would denote an arbitrary value at the first timestep.
+node n(i: int; m: bool) returns (o: int);
+let
+  frame (o)
+    o = 0;
+  let
+    if m then
+      o = last i;
+    fi
+  tel
+tel

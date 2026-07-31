@@ -117,14 +117,79 @@ let create_new_eqs ctx source lhs expr =
           gids2::gids
         )
 
+(* [wguard] is the (polarity-adjusted) conjunction of the enclosing when-block
+   guards, if any. Equations pulled out of a when-block branch (and abstracted
+   guards of nested when blocks) must remember it so that their node calls are
+   activated on that clock. *)
+let conj_guard wguard e = match wguard with
+  | None -> Some e
+  | Some g -> Some (A.BinaryOp (AH.pos_of_expr e, A.And, e, g))
+
+(* Node calls are instantiated per syntactic occurrence, and the desugaring of
+   if/when blocks (both here, in the [ClockedOutput] sources of pulled-out
+   equations, and in lustreDesugarIfBlocks.ml, where each variable defined by a
+   block gets its own copy of the guards in its ITE) duplicates block guards. A
+   nondeterministic node call in a guard would thus get an independent instance
+   in each copy, allowing variables assigned in the same branch to disagree on
+   which branch was taken. Bind any guard containing a node call to a fresh
+   local first, so that every copy of the guard refers to the same call
+   instance. Function calls are deterministic (a single UF application) and
+   safe to duplicate.
+
+   The guard of a when block nested inside another when block is evaluated
+   lazily: its node calls are activated on the enclosing guards (in the
+   normalizer, the conditions of nested LazyIte expressions are normalized
+   under the call context of the outer ones). The equation binding such a
+   guard must preserve this, so it is generated with a [ClockedOutput] source
+   on the enclosing (polarity-adjusted) guard conjunction [wguard]. *)
+let abstract_guard ctx wguard cond =
+  if AH.calls_of_expr cond |> NI.Set.exists (Ctx.node_id_is_node ctx) then
+    let pos = AH.pos_of_expr cond in
+    i := !i + 1;
+    let name = HString.mk_hstring (string_of_int !i ^ "_" ^ GI.block_guard) in
+    let source = match wguard with
+      | None -> GI.Local
+      | Some g -> GI.ClockedOutput g
+    in
+    let gids = { (GI.empty ()) with
+      GI.locals = GI.StringMap.singleton name (A.Bool pos);
+      GI.equations =
+        [([], [], A.StructDef (pos, [A.SingleIdent (pos, name)]),
+          cond, Some source)];
+    } in
+    A.Ident (pos, name), gids
+  else cond, GI.empty ()
+
+let rec abstract_block_guards ctx wguard ni = match ni with
+  | A.IfBlock (pos, cond, nis1, nis2) ->
+    let cond, gids = abstract_guard ctx wguard cond in
+    let nis1, gids1 =
+      List.map (abstract_block_guards ctx wguard) nis1 |> List.split in
+    let nis2, gids2 =
+      List.map (abstract_block_guards ctx wguard) nis2 |> List.split in
+    A.IfBlock (pos, cond, nis1, nis2),
+    List.fold_left GI.union gids (gids1 @ gids2)
+  | A.WhenBlock (pos, cond, nis1, nis2) ->
+    (* [cond] below is the abstracted guard when abstraction applies, so the
+       clocks of nested guards refer to the shared instance. *)
+    let cond, gids = abstract_guard ctx wguard cond in
+    let not_cond = A.UnaryOp (AH.pos_of_expr cond, A.Not, cond) in
+    let nis1, gids1 =
+      List.map (abstract_block_guards ctx (conj_guard wguard cond)) nis1
+      |> List.split in
+    let nis2, gids2 =
+      List.map (abstract_block_guards ctx (conj_guard wguard not_cond)) nis2
+      |> List.split in
+    A.WhenBlock (pos, cond, nis1, nis2),
+    List.fold_left GI.union gids (gids1 @ gids2)
+  | A.FrameBlock (pos, vars, nes, nis) ->
+    let nis, gidss =
+      List.map (abstract_block_guards ctx wguard) nis |> List.split in
+    A.FrameBlock (pos, vars, nes, nis),
+    List.fold_left GI.union (GI.empty ()) gidss
+  | _ -> ni, GI.empty ()
+
 let remove_mult_assign_from_ni ctx ni =
-  (* [wguard] is the (polarity-adjusted) conjunction of the enclosing
-     when-block guards, if any. Equations pulled out of a when-block branch
-     must remember it so that their node calls are activated on that clock. *)
-  let conj_guard wguard e = match wguard with
-    | None -> Some e
-    | Some g -> Some (A.BinaryOp (AH.pos_of_expr e, A.And, e, g))
-  in
   let rec helper ctx wguard ni = (
     match ni with
       | A.Body (Equation (_, lhs, expr)) ->
@@ -177,10 +242,12 @@ let remove_mult_assign_from_ni ctx ni =
   ni, gids
 
 let desugar_node_item ctx ni = match ni with
-  | A.IfBlock _ 
+  | A.IfBlock _
   | A.WhenBlock _
-  | A.FrameBlock _ -> 
-    remove_mult_assign_from_ni ctx ni 
+  | A.FrameBlock _ ->
+    let ni, gids1 = abstract_block_guards ctx None ni in
+    let ni, gids2 = remove_mult_assign_from_ni ctx ni in
+    ni, GI.union gids1 gids2
   | _ -> ni, GI.empty ()
 
 (** Remove multiple assignment from if and frame blocks in a single declaration. *)

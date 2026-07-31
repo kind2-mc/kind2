@@ -323,8 +323,7 @@ let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   HString.mk_hstring (string_of_int !contract_ref)
 
-(** Build index type [0, size-1] for one dimension. Uses IntRange if size is
-    concrete, RefinementType otherwise. *)
+(** Build index type [0, size-1] for one dimension. *)
 let mk_index_type pos size_expr =
     let id = HString.mk_hstring "_" in
     let zero = A.Const (pos, A.Num (HString.mk_hstring "0")) in
@@ -540,11 +539,12 @@ and mk_ref_type_expr
  = fun adt_map ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
   match ty with 
-  | A.RefinementType (_, (_, id2, _), ref_expr) -> 
+  | A.RefinementType (_, (_, id2, ty2), ref_expr) ->
     (* For refinement type variable of the form x = { y: int | ... }, write the constraint
-       in terms of x instead of y *)
-    let expr = AH.substitute_naive id2 expr ref_expr in 
-    [expr]
+       in terms of x instead of y. The base type may itself carry constraints
+       (e.g. a subrange or another refinement type), so recurse into it too *)
+    let ref_expr = AH.substitute_naive id2 expr ref_expr in
+    ref_expr :: mk_ref_type_expr adt_map ctx node_id expr ty2
   | TupleType (pos, tys)
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in
@@ -1003,6 +1003,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
     vars, ADTTerm (pos, ty_args, ctor, args')
+  | AbstractSymConst _ -> StringSet.empty, expr
   | ADTTester (pos, e, c) ->
     let vars, e' = r map e in
     vars, ADTTester (pos, e', c)
@@ -1250,15 +1251,17 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   in
   let interp = StringMap.merge union_keys input_interp output_interp in
   let type_exports = Ctx.lookup_contract_exports info.context id |> get in
-  let ctx = List.fold_left (fun c (id, ty) -> Ctx.add_ty c id ty)
-    info.context
-    (Ctx.IMap.bindings type_exports) in
-  let ctx = List.fold_left (fun c (_, id, ty, _, _) -> Ctx.add_ty c id ty)
-    ctx ivars in
-  let ctx = List.fold_left (fun c (_, id, ty, _) -> Ctx.add_ty c id ty)
-    ctx ovars in
+  let add_exports_to info =
+    List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
+      info (Ctx.IMap.bindings type_exports) in
+  let add_ivars_to info =
+    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
+      info ivars in
+  let add_ovars_to info =
+    List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
+      info ovars in
+  let info = add_ovars_to (add_ivars_to (add_exports_to info)) in
   let info = { info with
-    context = ctx;
     interpretation = interp;
     contract_ref; }
   in
@@ -1354,11 +1357,20 @@ and normalize_node info map
   (* Record constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _)) 
-      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
-        let ty = Ctx.lookup_ty info.context id |> get in 
+      | A.NodeVarDecl (_, (_, id, _, _))
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) ->
+        let ty = Ctx.lookup_ty info.context id |> get in
         let ty = Ctx.expand_type_syn info.context ty in
-        Ctx.type_contains_ref ctx ty
+        (* Locals introduced to desugar the 'last' operator are Kind 2 generated
+           and keep the declared type of the variable they shadow (so that
+           'last x' types exactly like 'x'). Their refinement type constraint is
+           implied by the one already generated for that variable: a
+           last-variable is defined by [init_x -> pre x], the frame
+           initialization [init_x] is what [x] is assigned in the initial state,
+           and [pre x] is [x] at the previous instant. Emitting it anyway would
+           only add a redundant proof obligation reported under a generated name
+           the user never wrote. *)
+        not (var_is_last_local id) && Ctx.type_contains_ref ctx ty
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
@@ -2566,8 +2578,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
-  | A.Match _ | A.ADTTerm _ | A.ADTTester _ ->
-    assert false (* desugared before normalization by lustreDesugarADTs *)
+  | A.ADTTerm (pos, ty_args, ctor, args) ->
+    let nargs, gids, warnings =
+      normalize_list (normalize_expr ?guard info node_id map) args
+    in
+    A.ADTTerm (pos, ty_args, ctor, nargs), gids, warnings
+  | A.ADTTester (pos, e, c) ->
+    let ne, gids, warnings = normalize_expr ?guard info node_id map e in
+    A.ADTTester (pos, ne, c), gids, warnings
+  | A.Match _ -> assert false
+  | A.AbstractSymConst _ as e ->
+    (* Pass through to the compiler, which handles it in compile_ast_expr. *)
+    e, empty (), []
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
@@ -2666,7 +2688,19 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
   | Set (p, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
     Set (p, ty), gids, warnings 
-  | ADT _ -> assert false (* desugared before normalization by lustreDesugarADTs *)
-  | Int _ | History _ | Bool _ | Real _ 
+  | ADT (p, name, constructors) ->
+    let constructors, gids, warnings = List.map (fun (cname, fields) ->
+      let fields, gids, warnings = List.map (fun (fname, ty) ->
+        let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in
+        (fname, ty), gids, warnings
+      ) fields |> Lib.split3 in
+      let gids = List.fold_left union (empty ()) gids in
+      let warnings = List.concat warnings in
+      (cname, fields), gids, warnings
+    ) constructors |> Lib.split3 in
+    let gids = List.fold_left union (empty ()) gids in
+    let warnings = List.concat warnings in
+    ADT (p, name, constructors), gids, warnings  
+  | Int _ | History _ | Bool _ | Real _
   | UserType _ | AbstractType _
   | EnumType _ | SBitVector _ | UBitVector _ -> ty, empty (), []

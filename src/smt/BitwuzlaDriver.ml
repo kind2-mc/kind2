@@ -59,7 +59,7 @@ let string_of_logic l =
   let open TermLib.FeatureSet in
   match l with
   | `Inferred fs ->
-      if mem IA fs || mem RA fs then
+      if mem DT fs || mem IA fs || mem RA fs then
         failwith "Bitwuzla only supports BV logics"
       else
         GenericSMTLIBDriver.string_of_logic l

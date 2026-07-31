@@ -41,12 +41,16 @@ let (let*) = R.(>>=)
 
 type error_kind =
   | MisplacedLastError of HString.t
+  | LastOnInputError of HString.t
   | UnknownIdentifier of HString.t
 
 let error_message = function
   | MisplacedLastError id ->
     "The 'last' operator can only be used within a frame block (found 'last "
     ^ HString.string_of_hstring id ^ "')."
+  | LastOnInputError id ->
+    "The 'last' operator cannot be applied to the input '"
+    ^ HString.string_of_hstring id ^ "'"
   | UnknownIdentifier id ->
     "Unknown identifier '" ^ HString.string_of_hstring id ^ "'"
 
@@ -132,6 +136,7 @@ let rec replace_last acc e =
   | TypeAscription (pos, e, ty) -> TypeAscription (pos, r e, ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map r expr_list)
+  | AbstractSymConst _ -> assert false (* never produced before lustreDesugarLast runs *)
   | A.ADTTester (pos, e, c) -> A.ADTTester (pos, r e, c)
 
 let replace_last_eq acc = function
@@ -185,6 +190,7 @@ let rec find_last_expr e = match e with
   | RestartEvery (_, _, l, e) -> find_last_first (e :: l)
   | ADTTerm (_, _, _, l) -> find_last_first l
   | Match (_, e, arms, _) -> find_last_first (e :: List.map snd arms)
+  | AbstractSymConst _ -> assert false (* never produced before lustreDesugarLast runs *)
   | ADTTester (_, e, _) -> find_last_expr e
 
 and find_last_first = function
@@ -227,6 +233,10 @@ let mk_type_lookup cctds ctds nlds =
   in
   inputs @ outputs @ locals
 
+(* The names of the node's inputs. [last] may not be applied to one: see
+   [gen_last_defs]. *)
+let mk_input_names cctds = List.map (fun (_, id, _, _, _) -> id) cctds
+
 (* Build the expression [base\[i0\]\[i1\]...] indexing [base_name] by the index
    variables [inds] (left to right). Returns [base_name] itself when [inds] is
    empty. *)
@@ -244,10 +254,11 @@ let array_access pos base_name inds =
     last-variable is defined by the corresponding recursive array equation
     [last_x\[inds\] = init -> pre x\[inds\]] (a plain [last_x = init -> pre x]
     would be ill-typed, mixing an element and the whole array). *)
-let gen_last_defs f_pos type_lookup nes last_vars =
+let gen_last_defs f_pos type_lookup input_names nes last_vars =
   R.seq (List.map (fun (x, (last_name, pos)) ->
     match List.assoc_opt x type_lookup with
     | None -> mk_error pos (UnknownIdentifier x)
+    | Some _ when List.mem x input_names -> mk_error pos (LastOnInputError x)
     | Some ty ->
       let decl = A.NodeVarDecl (f_pos, (f_pos, last_name, ty, A.ClockTrue)) in
       (* Find x's initialization equation in the frame block, if any. *)
@@ -335,7 +346,7 @@ let share_frame_inits type_lookup last_vars nes =
 (** Processes a single (top-level) node item, returning the new local
     declarations, the (possibly several) replacement node items, after
     desugaring any [last] operators. *)
-let desugar_node_item type_lookup ni = match ni with
+let desugar_node_item type_lookup input_names ni = match ni with
   | A.FrameBlock (pos, vars, nes, nis) ->
     let acc = ref [] in
     let nes = List.map (replace_last_eq acc) nes in
@@ -344,7 +355,7 @@ let desugar_node_item type_lookup ni = match ni with
        initialization is evaluated once rather than duplicated (required for
        non-duplicable initializations such as 'any'/'choose'). *)
     let nes, share_defs = share_frame_inits type_lookup !acc nes in
-    let* defs = gen_last_defs pos type_lookup nes !acc in
+    let* defs = gen_last_defs pos type_lookup input_names nes !acc in
     let decls = List.map fst share_defs @ List.map fst defs in
     let share_eqs = List.map snd share_defs in
     let last_eqs = List.map snd defs in
@@ -356,7 +367,8 @@ let desugar_node_item type_lookup ni = match ni with
 
 let desugar_node_decl (node_id, b, opac, nps, cctds, ctds, nlds, nis, co) =
   let type_lookup = mk_type_lookup cctds ctds nlds in
-  let* res = R.seq (List.map (desugar_node_item type_lookup) nis) in
+  let input_names = mk_input_names cctds in
+  let* res = R.seq (List.map (desugar_node_item type_lookup input_names) nis) in
   let decls, nis = List.split res in
   let decls = List.flatten decls in
   let nis = List.flatten nis in

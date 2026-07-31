@@ -35,6 +35,10 @@ type kindtype =
   | BV of int 
   | Array of t * t
   | Abstr of string
+  | Datatype of string * (string * t list) list
+  (* Placeholder for a direct self-reference in a Datatype's own constructor
+     field list, distinct from a real (populated) Datatype of the same name. *)
+  | DatatypeRef of string
 
 (** Hashconsed type *)
 and t
@@ -96,6 +100,14 @@ val mk_abstr : string -> t
 
 (** Return an enumerated datatype type *)
 val mk_enum : string -> string list -> t
+
+(** Return a recursive algebraic datatype. Self-referential field types should
+    be represented with [mk_datatype_ref name]. *)
+val mk_datatype : string -> (string * t list) list -> t
+
+(** Return a placeholder for a direct self-reference to the named datatype,
+    for use as a field type within that datatype's own constructor list. *)
+val mk_datatype_ref : string -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -183,6 +195,22 @@ val is_array : t -> bool
 
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
+
+(** Return [true] if the type is a recursive algebraic datatype (not a
+    self-reference placeholder -- see [is_datatype_ref]) *)
+val is_datatype : t -> bool
+
+(** Return the constructors of a datatype, fail if not a datatype *)
+val constructors_of_datatype : t -> (string * t list) list
+
+(** Return the name of a datatype, fail if not a datatype *)
+val name_of_datatype : t -> string
+
+(** Return [true] if the type is a self-reference placeholder (see [mk_datatype_ref]) *)
+val is_datatype_ref : t -> bool
+
+(** Return the name of a self-reference placeholder, fail if not one *)
+val name_of_datatype_ref : t -> string
 
 (** {1 Ranges} *)
 

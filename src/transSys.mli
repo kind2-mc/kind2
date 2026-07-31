@@ -240,7 +240,10 @@ val mk_trans_sys :
 
   (* Start value for fresh instance identifiers *)
   ?instance_var_id_start:int ->
-  
+
+  (* Recursive ADTs used anywhere in this system, in dependency order *)
+  ?datatype_types:Type.t list ->
+
   (* Name of the transition system *)
   Scope.t ->
     

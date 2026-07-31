@@ -1274,30 +1274,26 @@ let stateful_vars_of_expr { E.expr_step } =
     (function 
 
       (* Previous state variables have negative offset *)
-      | Term.T.Var v when 
+      | Term.T.Var v when
           Var.is_state_var_instance v &&
           Numeral.(Var.offset_of_state_var_instance v < E.cur_offset) ->
 
-        (function 
-          | [] -> 
-            SVS.singleton 
+        (function
+          | [] ->
+            SVS.singleton
               (Var.state_var_of_state_var_instance v)
           | _ -> assert false)
 
       | Term.T.Var _
-      | Term.T.Const _ -> 
+      | Term.T.Const _ ->
 
-        (function 
+        (function
           | [] -> SVS.empty
           | _ -> assert false)
 
       | Term.T.App _ -> 
 
-        (function l -> 
-          List.fold_left 
-            SVS.union 
-            SVS.empty 
-            l)
+        List.fold_left SVS.union SVS.empty
 
       (* | Term.T.Attr _ ->
         (function | [s] -> s | _ -> assert false)*))

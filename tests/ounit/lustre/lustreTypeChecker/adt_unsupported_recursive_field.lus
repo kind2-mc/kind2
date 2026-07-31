@@ -1,0 +1,3 @@
+datatype T = Leaf (v: int) | Node (kids: T^2);
+node main (x: T) returns (ok: bool);
+let ok = true; tel

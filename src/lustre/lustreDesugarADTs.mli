@@ -42,9 +42,23 @@ type adt_info = {
   ctor_variants : HString.t list;
   ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
   all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+  is_recursive : bool;
 }
 
 type adt_map = adt_info HStringMap.t
+
+val build_adt_info :
+  HString.t ->
+  HString.t list ->
+  (HString.t * (HString.t * LustreAst.lustre_type) list) list ->
+  is_recursive:bool ->
+  adt_info
+
+val record_type_of_adt :
+  Lib.position ->
+  ?ty_args:LustreAst.lustre_type list ->
+  adt_info ->
+  LustreAst.lustre_type
 
 val desugar_adts :
   TypeCheckerContext.tc_context ->
@@ -52,4 +66,12 @@ val desugar_adts :
   LustreAst.declaration list ->
   LustreAst.declaration list * LustreAst.declaration list * TypeCheckerContext.tc_context * adt_map
 
-val string_of_expr_as_source : adt_map -> LustreAst.expr -> string
+(* Canonical string key of a refinement type, or None if it is not one.  Used to
+   build the [ref_type_names] map passed to [string_of_expr_as_source]: the key of
+   a named refinement synonym's flattened definition maps to the synonym name. *)
+val ref_type_canonical_key : LustreAst.lustre_type -> string option
+
+(* [ref_type_names] maps refinement-type canonical keys to synonym names so that a
+   quantified refinement type prints as the synonym name rather than its expansion. *)
+val string_of_expr_as_source :
+  ?ref_type_names:(string * HString.t) list -> adt_map -> LustreAst.expr -> string

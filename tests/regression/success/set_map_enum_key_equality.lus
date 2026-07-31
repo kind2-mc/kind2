@@ -1,0 +1,39 @@
+-- Structural equality of sets and maps whose element/key type contains an
+-- enumerated datatype: the discriminant dimension of the underlying array is
+-- only defined at the values of the enum, so the quantified index variable
+-- must be constrained to that range.
+
+type Color = enum { Red, Green, Blue };
+datatype D = A (a: int) | B (b: bool);
+
+node main(d: D) returns (ok: bool);
+var s, t: set<Color>;
+    u, e: set<D>;
+    m: map<D, int>;
+    ce: set<Color>;
+let
+  s  = { Red };
+  t  = { Red, Green };
+  ce = {}@<Color>;
+  u  = { d };
+  e  = {}@<D>;
+  m  = map[d := 7];
+
+  -- enum element type
+  check "empty enum set" ce = {}@<Color>;
+  check "enum set literal" s = { Red };
+  check "enum set order" t = { Green, Red };
+  check "enum set duplicates" t = { Red, Green, Red };
+  check "enum set union" (s + { Green }) = t;
+  check "enum set difference" (t - { Green }) = s;
+  check "enum set intersection" (t * s) = s;
+  check "enum sets differ" s <> t;
+
+  -- ADT element/key type (the discriminant is an enum)
+  check "empty adt set" e = {}@<D>;
+  check "adt set singleton" u = { d };
+  check "adt sets differ" u <> e;
+  check "adt keyed map" m = map[d := 7];
+
+  ok = true;
+tel

@@ -149,7 +149,7 @@ and expr =
      The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
      field name is still the user-written name (set by the type checker); the
      desugarer rewrites it to the internal payload field name and clears it to
-     None. It is None for record projections and for already-desugared ADT ones. *)
+     None. It is None for record projections and for already-desugared (non-recursive) ADT ones. *)
   | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
@@ -193,6 +193,9 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (** Symbolic default value for an abstract type, used as a junk payload field
+      in desugared ADTs. *)
+  | AbstractSymConst of position * lustre_type
   (* ADT tester: C?(e) checks whether e was constructed with C *)
   | ADTTester of position * expr * ident
 

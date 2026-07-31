@@ -356,6 +356,7 @@ function
 
 | ADTTerm (_, _, _, args) ->
   List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
+| AbstractSymConst _ -> assert false 
 
 | ADTTester (_, e, _) -> has_stateful_op ctx e
 
@@ -854,6 +855,7 @@ let rec expr_only_supported_in_merge observer expr =
     r observer e >>
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, _, args) -> r_list observer args
+  | AbstractSymConst _ -> assert false 
   | ADTTester (_, e, _) -> r observer e
 
 let check_opacity pos node_id contract is_ext = function
@@ -954,7 +956,7 @@ and check_output_items (pos, _id, _ty, clock) =
 
 and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result 
 = fun ctx local -> match local with
-  | LA.NodeConstDecl (_, FreeConst _) -> Ok ([])
+  | LA.NodeConstDecl (_, FreeConst (_, _, _)) -> Ok ([])
   | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
   | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
   | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
@@ -1431,6 +1433,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings1 = check_expr_list ctx f args in
       let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
       Ok (warnings1 @ List.flatten warnings2)
+    | AbstractSymConst _ -> assert false 
     | ADTTester (_, e, _) -> check_expr ctx f e
   in
   let* warnings1 = res in

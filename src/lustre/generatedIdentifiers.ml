@@ -165,6 +165,13 @@ let clocked_call_output = "wbcall"
    the node call activated on the when-block guard (e.g. '2_wbtie'). *)
 let clocked_call_tie = "wbtie"
 
+(* String constant used in lustreRemoveMultAssign.ml as the suffix of the fresh
+   boolean locals capturing an if/when-block guard that contains a node call
+   (e.g. '3_bguard'). Node calls are instantiated per syntactic occurrence and
+   the desugaring of blocks duplicates guards, so a guard with a
+   nondeterministic call must be bound to a single local first. *)
+let block_guard = "bguard"
+
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
    numeric segment to the end, so we look for [last_local] as a '_'-separated
