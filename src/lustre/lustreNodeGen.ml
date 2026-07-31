@@ -1536,36 +1536,40 @@ and compile_ast_expr
       | (X.ArrayVarIndex _ :: _), _
       | (X.ArrayIntIndex _ :: _), _
       | (X.SetMapIndex _ :: _), _ ->
-        let key, old_v = X.choose old_sub in
-        let _, new_v = X.choose new_elem in
-        if Flags.Arrays.smt () then
-          (* This code branch is known to be buggy 
-             (from before this git blame) and should be investigated. *)
-          X.singleton key (E.mk_store old_v sel_term new_v)
-        else
-        (* Reduce the old and new values to base-typed terms over fresh
-           index variables. *)
-        let cur_dim, inner_dims = match List.rev key with
-          | last :: rev_inner -> last, List.rev rev_inner
-          | [] -> assert false
+        (* Mirrors the read side ([compile_array_index']), which folds over
+           every binding at this level rather than assuming a singleton. *)
+        let over_key = fun key old_v acc ->
+          let new_v = X.find key new_elem in
+          if Flags.Arrays.smt () then
+            (* This code branch is known to be buggy
+               (from before this git blame) and should be investigated. *)
+            X.add key (E.mk_store old_v sel_term new_v) acc
+          else
+          (* Reduce the old and new values to base-typed terms over fresh
+             index variables. *)
+          let cur_dim, inner_dims = match List.rev key with
+            | last :: rev_inner -> last, List.rev rev_inner
+            | [] -> assert false
+          in
+          let dim_type = function
+            | X.ArrayIntIndex _ -> Type.t_int
+            | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
+            | _ -> assert false
+          in
+          let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
+          let old_v = E.mk_select_and_push old_v pos_var in
+          let old_v, new_v, _ =
+            List.fold_left
+              (fun (old_v, new_v, cpt) idx ->
+                let ivar = E.mk_array_index_var cpt (dim_type idx) in
+                E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
+              (old_v, new_v, 1)
+              inner_dims
+          in
+          let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
+          X.add key updated_v acc
         in
-        let dim_type = function
-          | X.ArrayIntIndex _ -> Type.t_int
-          | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
-          | _ -> assert false
-        in
-        let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
-        let old_v = E.mk_select_and_push old_v pos_var in
-        let old_v, new_v, _ =
-          List.fold_left
-            (fun (old_v, new_v, cpt) idx ->
-              let ivar = E.mk_array_index_var cpt (dim_type idx) in
-              E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
-            (old_v, new_v, 1)
-            inner_dims
-        in
-        let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
-        X.singleton key updated_v
+        X.fold over_key old_sub X.empty
       | [], _ -> assert false
         (* an array update always leaves at least its own trailing
            dimension in the key, guaranteed by the type checker *)
