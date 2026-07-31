@@ -1333,9 +1333,23 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           let i, b = is_expr_int_type ctx nname i in
           if b then
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
-            R.ifM (eq_lustre_type ctx b_ty e_ty)
-              (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (e_ty, b_ty)))
+            (*** TODO: Address the bug that makes this necessary ***)
+            let nested_array_update_pos = function
+              | LA.StructUpdate (p, _, [LA.Index (_, _, LA.ArrayElem)], Some _) -> Some p
+              | _ -> None
+            in
+            (match nested_array_update_pos ue, nested_array_update_pos e with
+            | Some p, _ | None, Some p ->
+              type_error p
+                (Unsupported "An array-element update whose updated array \
+                              or new value is itself an array-element \
+                              update is not supported; assign the inner \
+                              update to a local variable first")
+            | None, None ->
+              R.ifM (eq_lustre_type ctx b_ty e_ty)
+                (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
+                (type_error pos (ExpectedType (e_ty, b_ty))))
+            (*** (end) ***)
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
