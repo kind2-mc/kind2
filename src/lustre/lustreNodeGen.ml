@@ -1529,10 +1529,12 @@ and compile_ast_expr
       | (X.ArrayVarIndex _ :: _), _
       | (X.ArrayIntIndex _ :: _), _
       | (X.SetMapIndex _ :: _), _ ->
-        (* Mirrors the read side ([compile_array_index']), which folds over
-           every binding at this level rather than assuming a singleton. *)
         let over_key = fun key old_v acc ->
-          let new_v = X.find key new_elem in
+          let cur_dim, inner_dims = match List.rev key with
+            | last :: rev_inner -> last, List.rev rev_inner
+            | [] -> assert false
+          in
+          let new_v = X.find inner_dims new_elem in
           if Flags.Arrays.smt () then
             (* TODO: the genuine SMT array-theory encoding does not compose
                with the scalar, bound-variable-parameterized representation
@@ -1541,10 +1543,6 @@ and compile_ast_expr
           else
             (* Reduce the old and new values to base-typed terms over fresh
                index variables. *)
-            let cur_dim, inner_dims = match List.rev key with
-              | last :: rev_inner -> last, List.rev rev_inner
-              | [] -> assert false
-            in
             let dim_type = function
               | X.ArrayIntIndex _ -> Type.t_int
               | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
