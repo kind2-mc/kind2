@@ -111,6 +111,10 @@ type group_expr =
 
 type access_kind = Array | Map | Tuple | Unknown
 
+(** Whether an [Index] within a structural update ([StructUpdate])
+    replaces a tuple slot or an array element. *)
+type struct_update_index_kind = TupleSlot | ArrayElem
+
 (** Pattern for match expressions *)
 type pattern =
   | VarPat of position * ident              (** variable binding *)
@@ -205,11 +209,9 @@ and typed_ident = position * ident * lustre_type
 (** A record field or an array or tuple index *)
 and label_or_index = 
   | Label of position * index
-  | Index of position * expr * access_kind
-    (** [access_kind] is [Tuple] or [Array], set by the type checker from
-        the updated expression's type: whether this replaces a whole tuple
-        slot or a single array element. Never [Map] or [Unknown] once
-        past type checking. *)
+  | Index of position * expr * struct_update_index_kind
+    (** Set by the type checker from the updated expression's type: whether
+        this replaces a whole tuple slot or a single array element. *)
   | MapIndex of position * expr (* expr not restricted to integers *)
   | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)

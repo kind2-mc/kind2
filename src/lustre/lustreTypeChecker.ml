@@ -1325,7 +1325,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           in
           let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* ue, warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
-          R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.Tuple)], Some e), warnings1 @ warnings2 @ warnings3)
+          R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.TupleSlot)], Some e), warnings1 @ warnings2 @ warnings3)
         )
         | ArrayType (_, (b_ty, _)) -> (
           let* index_type, i, warnings1 = infer_type_expr ctx nname i in
@@ -1334,7 +1334,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           if b then
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
             R.ifM (eq_lustre_type ctx b_ty e_ty)
-              (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.Array)], Some e), warnings1 @ warnings2))
+              (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
               (type_error pos (ExpectedType (e_ty, b_ty)))
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
@@ -1834,8 +1834,8 @@ and desugar_generic_index ctx nname ue idx = match idx with
     let* ty, _, _ = infer_type_expr ctx nname ue in 
     let* ty = expand_type_syn_reftype_history ctx ty in (
     match ty with
-    | LA.TupleType _ -> Ok (LA.Index (pos, e2, LA.Tuple))
-    | LA.ArrayType _ -> Ok (LA.Index (pos, e2, LA.Array))
+    | LA.TupleType _ -> Ok (LA.Index (pos, e2, LA.TupleSlot))
+    | LA.ArrayType _ -> Ok (LA.Index (pos, e2, LA.ArrayElem))
     | LA.Map _ -> Ok (LA.MapIndex (pos, e2))
     | LA.RecordType _ -> (
       match e2 with 

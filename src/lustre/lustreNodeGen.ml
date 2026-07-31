@@ -1503,14 +1503,7 @@ and compile_ast_expr
     (* Swap the whole subtree at [prefix] for [new_sub]; leave the rest of
        [old_trie] alone. *)
     let replace_prefix prefix old_trie new_sub =
-      let has_prefix key =
-        let rec go prefix key = match prefix, key with
-          | [], _ -> true
-          | p :: ps, k :: ks when X.equal_index [p] [k] -> go ps ks
-          | _ -> false
-        in go prefix key
-      in
-      let kept = X.filter (fun key _ -> not (has_prefix key)) old_trie in
+      let _removed, kept = X.subsume old_trie prefix in
       X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
 
@@ -1541,33 +1534,34 @@ and compile_ast_expr
         let over_key = fun key old_v acc ->
           let new_v = X.find key new_elem in
           if Flags.Arrays.smt () then
-            (* This code branch is known to be buggy
-               (from before this git blame) and should be investigated. *)
+            (* TODO: the genuine SMT array-theory encoding does not compose
+               with the scalar, bound-variable-parameterized representation
+               the rest of this function builds; needs its own fix. *)
             X.add key (E.mk_store old_v sel_term new_v) acc
           else
-          (* Reduce the old and new values to base-typed terms over fresh
-             index variables. *)
-          let cur_dim, inner_dims = match List.rev key with
-            | last :: rev_inner -> last, List.rev rev_inner
-            | [] -> assert false
-          in
-          let dim_type = function
-            | X.ArrayIntIndex _ -> Type.t_int
-            | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
-            | _ -> assert false
-          in
-          let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
-          let old_v = E.mk_select_and_push old_v pos_var in
-          let old_v, new_v, _ =
-            List.fold_left
-              (fun (old_v, new_v, cpt) idx ->
-                let ivar = E.mk_array_index_var cpt (dim_type idx) in
-                E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
-              (old_v, new_v, 1)
-              inner_dims
-          in
-          let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
-          X.add key updated_v acc
+            (* Reduce the old and new values to base-typed terms over fresh
+               index variables. *)
+            let cur_dim, inner_dims = match List.rev key with
+              | last :: rev_inner -> last, List.rev rev_inner
+              | [] -> assert false
+            in
+            let dim_type = function
+              | X.ArrayIntIndex _ -> Type.t_int
+              | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
+              | _ -> assert false
+            in
+            let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
+            let old_v = E.mk_select_and_push old_v pos_var in
+            let old_v, new_v, _ =
+              List.fold_left
+                (fun (old_v, new_v, cpt) idx ->
+                  let ivar = E.mk_array_index_var cpt (dim_type idx) in
+                  E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
+                (old_v, new_v, 1)
+                inner_dims
+            in
+            let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
+            X.add key updated_v acc
         in
         X.fold over_key old_sub X.empty
       | [], _ -> assert false
@@ -1580,14 +1574,14 @@ and compile_ast_expr
       let prefix = [X.RecordIndex field] in
       if X.mem_prefix prefix cexpr1 then replace_prefix prefix cexpr1 cexpr2
       else assert false (* guaranteed by type checker *)
-    | [A.Index (_, index_expr, A.Tuple)] ->
+    | [A.Index (_, index_expr, A.TupleSlot)] ->
       let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
       let index_term = (index_cexpr |> X.values |> List.hd).expr_init in
       let value = Term.numeral_of_term (index_term :> Term.t) |> Numeral.to_int in
       let prefix = [X.TupleIndex (value, None)] in
       if X.mem_prefix prefix cexpr1 then replace_prefix prefix cexpr1 cexpr2
       else assert false (* guaranteed by type checker *)
-    | [A.Index (_, index_expr, A.Array)] ->
+    | [A.Index (_, index_expr, A.ArrayElem)] ->
       let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
       let index_e = index_cexpr |> X.values |> List.hd in
       (* TODO: uses only [index_e.expr_init]; if the index's init and step
@@ -1596,8 +1590,6 @@ and compile_ast_expr
          valid. Same issue on the read side at [compile_array_index]. *)
       let sel_term = E.mk_of_expr ~as_type:index_e.expr_type index_e.E.expr_init in
       update_array_element cexpr1 cexpr2 sel_term
-    | [A.Index (_, _, A.Map)] | [A.Index (_, _, A.Unknown)] ->
-      assert false (* never produced for struct updates *)
     | [A.MapIndex _] | [A.SetIndex _] ->
       assert false (* handled by the caller before reaching [compile_struct_update] *)
     | [A.GenericIndex _] ->
