@@ -1586,6 +1586,10 @@ and compile_ast_expr
     | [A.Index (_, index_expr, A.Array)] ->
       let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
       let index_e = index_cexpr |> X.values |> List.hd in
+      (* TODO: uses only [index_e.expr_init]; if the index's init and step
+         values differ (e.g. [(0 -> 2)]), the update targets the wrong slot
+         from the second cycle onward, which can prove a false property
+         valid. Same issue on the read side at [compile_array_index]. *)
       let sel_term = E.mk_of_expr ~as_type:index_e.expr_type index_e.E.expr_init in
       update_array_element cexpr1 cexpr2 sel_term
     | [A.Index (_, _, A.Map)] | [A.Index (_, _, A.Unknown)] ->
