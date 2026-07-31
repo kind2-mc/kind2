@@ -71,8 +71,22 @@ module Hashtbl : Hashtbl.S with type key = t
     list. *)
 type pred_def = UfSymbol.t * (Var.t list * Term.t)
 
+(** Functional congruence group of an (abstracted) function with
+    container-typed arguments: a quantifier-free template over one pair of
+    free variables per function argument, together with the argument state
+    variable tuples of the function's applications in the system's subtree.
+    Substituting two applications (at two bounds) into the template yields a
+    ground congruence instance (see {!fn_congruence_instances}). *)
+type fn_congruence_group =
+  {
+    fcg_template : Term.t;
+    fcg_a_vars : Var.t list;
+    fcg_b_vars : Var.t list;
+    fcg_apps : StateVar.t list list;
+  }
+
 (** Instance of a subsystem *)
-type instance = 
+type instance =
   {
     uid : int;
     (** Unique identifier of the instance *)
@@ -134,6 +148,27 @@ val pp_print_trans_sys_name : Format.formatter -> t -> unit
 
 (** Return global constraints on free constants *)
 val global_constraints : t -> Term.t list
+
+(** Return the functional congruence groups of the system's subtree *)
+val fn_congruence_groups : t -> fn_congruence_group list
+
+(** [fn_congruence_instances t k] returns the ground functional congruence
+    instances pairing every function application at bound [k] with every
+    application at bounds [0..k]. Asserting the result for each bound of a
+    monotone unrolling covers all pairs of applications in the unrolling.
+    Every instance is a valid formula of the intended semantics, so
+    over-approximating the unrolled window is sound. The result is empty
+    when the system's subtree has no function with container-typed
+    arguments. *)
+val fn_congruence_instances : t -> Numeral.t -> Term.t list
+
+(** Return true if the system's subtree has at least one functional
+    congruence group *)
+val has_fn_congruence_groups : t -> bool
+
+(** [fn_congruence_instances_up_to t k] returns the ground functional
+    congruence instances for all pairs of applications at bounds [0..k] *)
+val fn_congruence_instances_up_to : t -> Numeral.t -> Term.t list
 
 (** Close the initial state constraint by binding all instance
     identifiers, and bump the state variable offsets to be at the given
@@ -243,6 +278,9 @@ val mk_trans_sys :
 
   (* Recursive ADTs used anywhere in this system, in dependency order *)
   ?datatype_types:Type.t list ->
+
+  (* Functional congruence groups of the system's subtree *)
+  ?fn_congruence_groups:fn_congruence_group list ->
 
   (* Name of the transition system *)
   Scope.t ->
