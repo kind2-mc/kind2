@@ -1356,11 +1356,20 @@ and normalize_node info map
   (* Record constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _)) 
-      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
-        let ty = Ctx.lookup_ty info.context id |> get in 
+      | A.NodeVarDecl (_, (_, id, _, _))
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) ->
+        let ty = Ctx.lookup_ty info.context id |> get in
         let ty = Ctx.expand_type_syn info.context ty in
-        Ctx.type_contains_ref ctx ty
+        (* Locals introduced to desugar the 'last' operator are Kind 2 generated
+           and keep the declared type of the variable they shadow (so that
+           'last x' types exactly like 'x'). Their refinement type constraint is
+           implied by the one already generated for that variable: a
+           last-variable is defined by [init_x -> pre x], the frame
+           initialization [init_x] is what [x] is assigned in the initial state,
+           and [pre x] is [x] at the previous instant. Emitting it anyway would
+           only add a redundant proof obligation reported under a generated name
+           the user never wrote. *)
+        not (var_is_last_local id) && Ctx.type_contains_ref ctx ty
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
