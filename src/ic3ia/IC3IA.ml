@@ -974,6 +974,27 @@ let main fwd slice_to_prop prop in_sys param sys =
     raise (UnsupportedFeature msg)
   | _ -> () ) ;
 
+  (* Note: IC3IA does not assert the functional congruence instances that
+     enforce determinism of (abstracted) functions with container-typed
+     arguments (see [TransSys.fn_congruence_instances]); without them, the
+     counterexamples it finds for such systems may be spurious with respect
+     to the intended (deterministic) semantics. Today this is subsumed by
+     the array check above, since container-typed arguments put arrays in
+     the system's logic; the explicit check makes the dependency visible in
+     case array support is ever added. To support these systems, the
+     instances would have to be asserted in the solvers (bounds 0 and 1 for
+     the transition queries), and the implicit abstraction would have to
+     account for the difference witness functions the instances contain. *)
+  if TransSys.has_fn_congruence_groups sys then (
+    let msg =
+      Format.sprintf
+        "IC3IA disabled for property %s: system requires functional \
+         congruence instances for functions with container-typed arguments."
+        prop.Property.prop_name
+    in
+    raise (UnsupportedFeature msg)
+  ) ;
+
   let check_system_is_supported itp_solver =
     if TransSys.subsystem_includes_function_symbol sys then
       let msg =
