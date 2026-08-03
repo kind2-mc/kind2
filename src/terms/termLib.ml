@@ -343,12 +343,14 @@ module Signals = struct
        sigint  | %a@ \
        sigquit | %a@ \
        sigterm | %a@ \
+       sigpipe | %a@ \
        timeout | %a@ \
        break   | %b@]"
       pp_print_handler signals.sigalrm
       pp_print_handler signals.sigint
       pp_print_handler signals.sigquit
       pp_print_handler signals.sigterm
+      pp_print_handler signals.sigpipe
       (pp_print_option Format.pp_print_float)
       signals.timeout
       signals.break
