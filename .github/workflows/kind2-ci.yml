@@ -17,16 +17,16 @@ jobs:
         include:
           - name: linux-x86_64
             os: ubuntu-latest
-            ocaml-version: 4.14.2
+            ocaml-version: 5.1.1
           - name: linux-arm64
             os: ubuntu-24.04-arm
-            ocaml-version: 4.14.2
+            ocaml-version: 5.1.1
           - name: macos-x86_64
             os: macos-15-intel
-            ocaml-version: 4.14.2
+            ocaml-version: 5.1.1
           - name: macos-arm64
             os: macos-latest
-            ocaml-version: 4.14.2
+            ocaml-version: 5.1.1
 
     runs-on: ${{ matrix.os }}
 
