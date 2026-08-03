@@ -1,5 +1,6 @@
 type Rec = { f: int^2 };
-type RecArr = { f: int^3 };
+type Inner = { f: int; g: int };
+type RecArr = { a: Inner; f: int^3 };
 
 datatype Shape = Circle (radius: int) | Rect (width: int, height: int);
 
@@ -108,6 +109,7 @@ tel
 node RecordFieldArrayUpdate(v: int^3) returns ();
 var r: RecArr;
 let
-  r = RecArr { f = 7^3 }[f := v];
+  r = RecArr { a = Inner { f = 1; g = 2 }; f = 7^3 }[f := v];
   check "updated" r.f[0] = v[0] and r.f[1] = v[1] and r.f[2] = v[2];
+  check "unchanged" r.a.f = 1 and r.a.g = 2;
 tel

@@ -1503,7 +1503,12 @@ and compile_ast_expr
     (* Swap the whole subtree at [prefix] for [new_sub]; leave the rest of
        [old_trie] alone. *)
     let replace_prefix prefix old_trie new_sub =
-      let _removed, kept = X.subsume old_trie prefix in
+      let kept =
+        X.fold
+          (fun k _ acc -> X.remove (prefix @ k) acc)
+          (X.find_prefix prefix old_trie)
+          old_trie
+      in
       X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
 
