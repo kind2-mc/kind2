@@ -96,7 +96,12 @@ let setup : unit -> any_input = fun () ->
 
   (* Install generic signal handlers for other signals. *)
   Signals.set_sigint () ;
-  Signals.set_sigpipe () ;
+  (* SIGPIPE is ignored, not turned into an exception: signal handlers
+     are global to the process and may run in any domain, so a broken
+     pipe of one engine would crash an arbitrary other engine or the
+     supervisor. With the signal ignored, a write to a broken pipe
+     fails in place with EPIPE in the domain that wrote. *)
+  Signals.ignore_sigpipe () ;
   Signals.set_sigterm () ;
   Signals.set_sigquit () ;
 
