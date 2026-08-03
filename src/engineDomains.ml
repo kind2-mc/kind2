@@ -74,8 +74,15 @@ let set_terminating b =
 let is_terminating () = Atomic.get terminating
 
 (* Signals are handled by the supervisor domain: engine domains keep
-   them blocked. *)
-let signals_to_block = [ Sys.sigalrm; Sys.sigint; Sys.sigterm; Sys.sigquit ]
+   them blocked.
+
+   SIGPIPE must be blocked as well: a write to the pipe of a killed
+   solver would otherwise generate a signal whose OCaml handler (which
+   raises [Signal]) may run in any domain, crashing an unrelated engine
+   or the supervisor. With the signal blocked, the write of the engine
+   fails in place with [EPIPE] instead. *)
+let signals_to_block =
+  [ Sys.sigalrm; Sys.sigint; Sys.sigterm; Sys.sigquit; Sys.sigpipe ]
 
 (* Spawn [f] in a new domain as the engine [mdl] with identifier [id].
    [f] handles its own cleanup and returns the unexpected exception it
