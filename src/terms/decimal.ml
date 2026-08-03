@@ -39,6 +39,27 @@ let one = N (Num.num_of_int 1)
 (* ********************************************************************** *)
 
 
+(* Normalized numerator and denominator of a ratio.
+
+   Unlike [Ratio.normalize_ratio], this does not normalize the ratio in
+   place: ratios may sit inside hashconsed terms shared by several
+   domains, and concurrent in-place normalizations of the same ratio
+   can corrupt its value. *)
+let normalized_parts r =
+  let rn = Ratio.numerator_ratio r in
+  let rd = Ratio.denominator_ratio r in
+  (* Make the denominator non-negative *)
+  let rn, rd =
+    if Big_int.sign_big_int rd < 0 then
+      Big_int.minus_big_int rn, Big_int.minus_big_int rd
+    else
+      rn, rd
+  in
+  let g = Big_int.gcd_big_int rn rd in
+  if Big_int.le_big_int g Big_int.unit_big_int then rn, rd
+  else Big_int.div_big_int rn g, Big_int.div_big_int rd g
+
+
 (* Pretty-print a numeral as an S-expression *)
 let pp_print_positive_decimal_sexpr ppf = function
 
@@ -46,15 +67,11 @@ let pp_print_positive_decimal_sexpr ppf = function
 
   | Num.Big_int n -> Format.fprintf ppf "%s.0" (Big_int.string_of_big_int n)
 
-  | Num.Ratio r -> 
+  | Num.Ratio r ->
 
-    (* Normalize rational number *)
-    let r' = Ratio.normalize_ratio r in
+    (* Get normalized numerator and denominator *)
+    let rn, rd = normalized_parts r in
 
-    (* Get numerator and denominator *)
-    let rn = Ratio.numerator_ratio r' in
-    let rd = Ratio.denominator_ratio r' in
-    
     (* Print with division as prefix operator *)
     Format.fprintf ppf 
       "@[<hv 1>(/@ %s@ %s)@]" 
@@ -79,12 +96,8 @@ let pp_print_positive_decimal_as_json ppf = function
 
   | Num.Ratio r ->
 
-    (* Normalize rational number *)
-    let r' = Ratio.normalize_ratio r in
-
-    (* Get numerator and denominator *)
-    let rn = Ratio.numerator_ratio r' in
-    let rd = Ratio.denominator_ratio r' in
+    (* Get normalized numerator and denominator *)
+    let rn, rd = normalized_parts r in
 
     (* Print with division as prefix operator *)
     Format.fprintf ppf
@@ -108,14 +121,10 @@ let pp_print_positive_decimal ppf = function
 
   | Num.Big_int n -> Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
 
-  | Num.Ratio r -> 
+  | Num.Ratio r ->
 
-    (* Normalize rational number *)
-    let r' = Ratio.normalize_ratio r in
-
-    (* Get numerator and denominator *)
-    let rn = Ratio.numerator_ratio r' in
-    let rd = Ratio.denominator_ratio r' in
+    (* Get normalized numerator and denominator *)
+    let rn, rd = normalized_parts r in
     
     (* Print with division as prefix operator *)
     Format.fprintf ppf 
@@ -140,14 +149,10 @@ let pp_print_decimal_as_float fmt = function
   match d with
   | Num.Int i -> Format.fprintf fmt "%df64" i
   | Num.Big_int n -> Format.fprintf fmt "%sf64" (Big_int.string_of_big_int n)
-  | Num.Ratio r -> 
+  | Num.Ratio r ->
 
-    (* Normalize rational number *)
-    let r' = Ratio.normalize_ratio r in
-
-    (* Get numerator and denominator *)
-    let rn = Ratio.numerator_ratio r' in
-    let rd = Ratio.denominator_ratio r' in
+    (* Get normalized numerator and denominator *)
+    let rn, rd = normalized_parts r in
     
     (* Print with division as prefix operator *)
     Format.fprintf fmt 
@@ -164,14 +169,10 @@ let pp_print_decimal_as_lus_real fmt = function
   match d with
   | Num.Int i -> Format.fprintf fmt "%d.0" i
   | Num.Big_int n -> Format.fprintf fmt "%s.0" (Big_int.string_of_big_int n)
-  | Num.Ratio r -> 
+  | Num.Ratio r ->
 
-    (* Normalize rational number *)
-    let r' = Ratio.normalize_ratio r in
-
-    (* Get numerator and denominator *)
-    let rn = Ratio.numerator_ratio r' in
-    let rd = Ratio.denominator_ratio r' in
+    (* Get normalized numerator and denominator *)
+    let rn, rd = normalized_parts r in
     
     (* Print with division as prefix operator *)
     Format.fprintf fmt 
@@ -196,6 +197,26 @@ let string_of_decimal = string_of_t pp_print_decimal
 
 (* Convert an integer to a rational number *)
 let of_int n = N (Num.num_of_int n)
+
+(* Convert a string of an optionally signed integer to a num.
+
+   Unlike [Num.num_of_string], this does not temporarily modify the
+   global normalization flags of the num library: engines run in
+   domains of a single process and concurrent modifications of those
+   flags race with every other use of the library. *)
+let num_of_int_string s =
+  Num.num_of_big_int (Big_int.big_int_of_string s)
+
+(* Convert a string of an integer or of a fraction [p/q] to a num,
+   without modifying the global flags of the num library (see
+   {!num_of_int_string}) *)
+let num_of_rational_string s =
+  match String.index_opt s '/' with
+  | None -> num_of_int_string s
+  | Some i ->
+    let n = String.sub s 0 i in
+    let d = String.sub s (i + 1) (String.length s - i - 1) in
+    Num.div_num (num_of_int_string n) (num_of_int_string d)
 
 (* Convert a string to a rational number *)
 let of_decimal_string s =
@@ -308,19 +329,19 @@ let of_decimal_string s =
   (* Convert integer buffer to numeral, default to zero if empty *)
   let int_num = 
     if Buffer.length int_buf = 0 then Num.num_of_int 0 else 
-      Num.num_of_string (Buffer.contents int_buf) 
+      num_of_int_string (Buffer.contents int_buf) 
   in
 
   (* Convert fractional buffer to numeral, default to zero if empty *)
   let frac_num = 
     if Buffer.length frac_buf = 0 then Num.num_of_int 0 else 
-      Num.num_of_string (Buffer.contents frac_buf) 
+      num_of_int_string (Buffer.contents frac_buf) 
   in
 
   (* Convert exponent buffer to numeral, default to one if empty *)
   let exp_num = 
     if Buffer.length exp_buf = 0 then Num.num_of_int 0 else 
-      Num.num_of_string (Buffer.contents exp_buf) 
+      num_of_int_string (Buffer.contents exp_buf) 
   in
 
   (* Exponent *)
@@ -366,6 +387,10 @@ let of_string s =
   match Hexadecimal.to_decimal s with
   | Some res -> N res
   | None -> of_decimal_string s
+
+(* Convert a string of an integer or of a fraction [p/q] to a rational
+   number, without modifying the global flags of the num library *)
+let of_rational_string s = N (num_of_rational_string s)
 
 (*
 (* Division symbol *)

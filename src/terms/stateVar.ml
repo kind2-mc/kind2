@@ -514,7 +514,8 @@ let encode_select = encode_select_type
 (* Return select function that were created (this is used for declaration so
    it's better to return more - all - than not enough) *)
 let get_select_ufs () =
-  TyH.fold (fun _ f acc -> f :: acc) array_ty_to_select_fun []
+  Mutex.protect select_fun_lock (fun () ->
+    TyH.fold (fun _ f acc -> f :: acc) array_ty_to_select_fun [])
 
 (* 
    Local Variables:

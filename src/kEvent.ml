@@ -1442,16 +1442,22 @@ let [@ocaml.warning "-27"] log (mdl : kind_module) (lvl : log_level) (msg : stri
 
 
 (* Send message to invariant manager *)
-let printf_relay mdl level fmt = 
+let printf_relay mdl level fmt =
+
+  (* Format the message into a fresh buffer: [Format.str_formatter]
+     belongs to the initial domain and engines relay messages
+     concurrently from their own domains *)
+  let buf = Buffer.create 80 in
+  let ppf = Format.formatter_of_buffer buf in
 
   (ignore_or_kfprintf level)
-    (function _ -> 
+    (function ppf ->
 
-      let s = Format.flush_str_formatter () in
+      Format.pp_print_flush ppf () ;
 
-      if output_on_level level then log mdl level s)
+      if output_on_level level then log mdl level (Buffer.contents buf))
 
-    Format.str_formatter
+    ppf
     fmt
 
 

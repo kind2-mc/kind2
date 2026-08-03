@@ -463,7 +463,10 @@ let update_unrolled_var_map string var =
     unrolled_var_map := StringMap.add string var !unrolled_var_map)
 (* Looks for the value associated to [string]. *)
 let find_unrolled_var_map string =
-  StringMap.find string !unrolled_var_map
+  let map =
+    Mutex.protect unrolled_var_map_lock (fun () -> !unrolled_var_map)
+  in
+  StringMap.find string map
 
 let unrolled_uf_of_state_var_instance = function
   | ({ Hashcons.node = ConstStateVar sv } as var) ->

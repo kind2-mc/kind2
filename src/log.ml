@@ -165,16 +165,23 @@ let printf_xml_string mdl level s =
 
 let printf_xml mdl level fmt =
 
+  (* Format the message into a fresh buffer: [Format.str_formatter]
+     belongs to the initial domain and must not be used from other
+     domains *)
+  let buf = Buffer.create 80 in
+  let ppf = Format.formatter_of_buffer buf in
+
   (ignore_or_kfprintf level)
-    (function _ ->
+    (function ppf ->
+      Format.pp_print_flush ppf () ;
       let s =
-        Format.flush_str_formatter ()
+        Buffer.contents buf
         |> Lib.escape_xml_string
       in
       printf_xml_string mdl level s
     )
 
-    Format.str_formatter
+    ppf
     fmt
 
 
@@ -228,16 +235,21 @@ let printf_json_string mdl level s =
 (* Output message as JSON *)
 let printf_json mdl level fmt =
 
+  (* See [printf_xml] *)
+  let buf = Buffer.create 80 in
+  let ppf = Format.formatter_of_buffer buf in
+
   (ignore_or_kfprintf level)
-    (function _ ->
+    (function ppf ->
+      Format.pp_print_flush ppf () ;
       let s =
-        Format.flush_str_formatter ()
+        Buffer.contents buf
         |> Lib.escape_json_string
       in
       printf_json_string mdl level s
     )
 
-    Format.str_formatter
+    ppf
     fmt
 
 let parse_log_json level pos msg =
