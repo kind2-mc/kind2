@@ -32,7 +32,7 @@ env:
   # Number of shards each side's benchmark run is split into. MUST match the
   # length of the `shard` matrix list in the `benchmark` job below.
   SHARD_COUNT: "8"
-  OCAML_VERSION: 5.1.1
+  OCAML_VERSION: 5.2.1
   # SMT solvers used by the benchmark run (Z3 as solver, MathSAT for
   # interpolation). Bumping either version invalidates the solver cache.
   Z3_VERSION: "4.15.3"
