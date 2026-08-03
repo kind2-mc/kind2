@@ -81,7 +81,7 @@ val log_prop_status : Lib.log_level -> TransSys.t -> (string * Property.prop_sta
 
     Should only be used by the invariant manager, other modules must use
     {!stat} to send it as a message. *)
-val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
+val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.snapshot list) list -> unit
 
 (** Terminate log, called at the very end of a run.
     Output closing tags for XML output. *)
@@ -150,7 +150,7 @@ val pp_print_event : Format.formatter -> event -> unit
 
 (** Return the last statistics received *)
 val all_stats :
-  unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
+  unit -> (Lib.kind_module * (string * Stat.snapshot list) list) list
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
@@ -261,8 +261,23 @@ val run_im :
   in order to get rid of messages from the previous analysis. *)
 val purge_im : messaging_setup -> unit
 
-(** Start messaging for another process *)
-val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
+(** Create and register the mailbox of an engine with the given
+    identifier. Must be called in the supervisor, before the engine
+    domain is spawned, so that no message sent from then on is
+    missed. *)
+val register_worker : Lib.kind_module -> int -> messaging_setup -> mthread
+
+(** Start messaging for a process. Must be called in the domain of the
+    engine with the registration returned by {!register_worker}. *)
+val run_process : Lib.kind_module -> mthread -> (exn -> unit) -> mthread
+
+(** Unregister the mailbox of an engine that never ran because its
+    domain could not be spawned *)
+val unregister_worker : mthread -> unit
+
+(** Send a termination message to the engine with the given
+    identifier *)
+val terminate_worker : int -> unit
 
 (** Send all queued messages and exit the background thread *)
 val exit : mthread -> unit

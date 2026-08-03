@@ -32,11 +32,15 @@ let equal { tag = t1 } { tag = t2 } = t1 = t2
 let hash { hkey = h } = h
 
 
+(* Tag generation must be atomic: all hashcons tables of the process draw
+   from this single counter, and tables are used concurrently by several
+   domains. *)
 let gentag =
-  let r = ref 0 in
-  fun () -> incr r; !r
+  let r = Atomic.make 0 in
+  fun () -> Atomic.fetch_and_add r 1 + 1
 
 type ('a, 'b) t = {
+  lock : Mutex.t;                    (* protects all mutable state below *)
   mutable table : ('a, 'b) hash_consed Weak.t array;
   mutable totsize : int;             (* sum of the bucket sizes *)
   mutable limit : int;               (* max ratio totsize/table length *)
@@ -46,17 +50,19 @@ let create sz =
   let sz = if sz < 7 then 7 else sz in
   let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
   let emptybucket = Weak.create 0 in
-  { table = Array.make sz emptybucket;
+  { lock = Mutex.create ();
+    table = Array.make sz emptybucket;
     totsize = 0;
     limit = 3; }
 
 let clear t =
-  let emptybucket = Weak.create 0 in
-  for i = 0 to Array.length t.table - 1 do t.table.(i) <- emptybucket done;
-  t.totsize <- 0;
-  t.limit <- 3
-  
-let fold f t init =
+  Mutex.protect t.lock (fun () ->
+    let emptybucket = Weak.create 0 in
+    for i = 0 to Array.length t.table - 1 do t.table.(i) <- emptybucket done;
+    t.totsize <- 0;
+    t.limit <- 3)
+
+let unsafe_fold f t init =
   let rec fold_bucket i b accu =
     if i >= Weak.length b then accu else
       match Weak.get b i with
@@ -65,16 +71,20 @@ let fold f t init =
   in
   Array.fold_right (fold_bucket 0) t.table init
 
-let iter f t =
-  let rec iter_bucket i b =
-    if i >= Weak.length b then () else
-      match Weak.get b i with
-	| Some v -> f v; iter_bucket (i+1) b
-	| None -> iter_bucket (i+1) b
-  in
-  Array.iter (iter_bucket 0) t.table
+let fold f t init =
+  Mutex.protect t.lock (fun () -> unsafe_fold f t init)
 
-let count t =
+let iter f t =
+  Mutex.protect t.lock (fun () ->
+    let rec iter_bucket i b =
+      if i >= Weak.length b then () else
+        match Weak.get b i with
+	  | Some v -> f v; iter_bucket (i+1) b
+	  | None -> iter_bucket (i+1) b
+    in
+    Array.iter (iter_bucket 0) t.table)
+
+let unsafe_count t =
   let rec count_bucket i b accu =
     if i >= Weak.length b then accu else
       count_bucket (i+1) b (accu + (if Weak.check b i then 1 else 0))
@@ -89,7 +99,7 @@ let rec resize t =
   if newlen > oldlen then begin
     let newt = create newlen in
     newt.limit <- t.limit + 100;          (* prevent resizing of newt *)
-    fold (fun d () -> add newt d) t ();
+    unsafe_fold (fun d () -> add newt d) t ();
     t.table <- newt.table;
     t.limit <- t.limit + 2;
   end
@@ -118,33 +128,35 @@ and add t d =
   loop 0
 
 let hashcons t d p =
-  let hkey = Hashtbl.hash d land max_int in
-  let index = hkey mod (Array.length t.table) in
-  let bucket = t.table.(index) in
-  let sz = Weak.length bucket in
-  let rec loop i =
-    if i >= sz then begin
-      let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
-      add t hnode;
-      hnode
-    end else begin
-      match Weak.get_copy bucket i with
-        | Some v when v.node = d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
-        | _ -> loop (i+1)
-    end
-  in
-  loop 0
-  
+  Mutex.protect t.lock (fun () ->
+    let hkey = Hashtbl.hash d land max_int in
+    let index = hkey mod (Array.length t.table) in
+    let bucket = t.table.(index) in
+    let sz = Weak.length bucket in
+    let rec loop i =
+      if i >= sz then begin
+        let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
+        add t hnode;
+        hnode
+      end else begin
+        match Weak.get_copy bucket i with
+          | Some v when v.node = d ->
+	      begin match Weak.get bucket i with
+                | Some v -> v
+                | None -> loop (i+1)
+              end
+          | _ -> loop (i+1)
+      end
+    in
+    loop 0)
+
 let stats t =
-  let len = Array.length t.table in
-  let lens = Array.map Weak.length t.table in
-  Array.sort Int.compare lens;
-  let totlen = Array.fold_left ( + ) 0 lens in
-  (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
+  Mutex.protect t.lock (fun () ->
+    let len = Array.length t.table in
+    let lens = Array.map Weak.length t.table in
+    Array.sort Int.compare lens;
+    let totlen = Array.fold_left ( + ) 0 lens in
+    (len, unsafe_count t, totlen, lens.(0), lens.(len/2), lens.(len-1)))
 
 
 (* Functorial interface *)
@@ -181,6 +193,7 @@ struct
   type data = (H.t, H.prop) hash_consed
 
   type t = {
+    lock : Mutex.t;                    (* protects all mutable state below *)
     mutable table : data Weak.t array;
     mutable totsize : int;             (* sum of the bucket sizes *)
     mutable limit : int;               (* max ratio totsize/table length *)
@@ -192,19 +205,21 @@ struct
     let sz = if sz < 7 then 7 else sz in
     let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
     {
+      lock = Mutex.create ();
       table = Array.make sz emptybucket;
       totsize = 0;
       limit = 3;
     }
 
   let clear t =
-    for i = 0 to Array.length t.table - 1 do
-      t.table.(i) <- emptybucket
-    done;
-    t.totsize <- 0;
-    t.limit <- 3
-  
-  let fold f t init =
+    Mutex.protect t.lock (fun () ->
+      for i = 0 to Array.length t.table - 1 do
+        t.table.(i) <- emptybucket
+      done;
+      t.totsize <- 0;
+      t.limit <- 3)
+
+  let unsafe_fold f t init =
     let rec fold_bucket i b accu =
       if i >= Weak.length b then accu else
       match Weak.get b i with
@@ -213,16 +228,20 @@ struct
     in
     Array.fold_right (fold_bucket 0) t.table init
 
-  let iter f t =
-    let rec iter_bucket i b =
-      if i >= Weak.length b then () else
-      match Weak.get b i with
-      | Some v -> f v; iter_bucket (i+1) b
-      | None -> iter_bucket (i+1) b
-    in
-    Array.iter (iter_bucket 0) t.table
+  let fold f t init =
+    Mutex.protect t.lock (fun () -> unsafe_fold f t init)
 
-  let count t =
+  let iter f t =
+    Mutex.protect t.lock (fun () ->
+      let rec iter_bucket i b =
+        if i >= Weak.length b then () else
+        match Weak.get b i with
+        | Some v -> f v; iter_bucket (i+1) b
+        | None -> iter_bucket (i+1) b
+      in
+      Array.iter (iter_bucket 0) t.table)
+
+  let unsafe_count t =
     let rec count_bucket i b accu =
       if i >= Weak.length b then accu else
       count_bucket (i+1) b (accu + (if Weak.check b i then 1 else 0))
@@ -237,7 +256,7 @@ struct
     if newlen > oldlen then begin
       let newt = create newlen in
       newt.limit <- t.limit + 100;          (* prevent resizing of newt *)
-      fold (fun d () -> add newt d) t ();
+      unsafe_fold (fun d () -> add newt d) t ();
       t.table <- newt.table;
       t.limit <- t.limit + 2;
     end
@@ -266,58 +285,61 @@ struct
     loop 0
 
   let hashcons t d p =
-    let hkey = H.hash d land max_int in
-    let index = hkey mod (Array.length t.table) in
-    let bucket = t.table.(index) in
-    let sz = Weak.length bucket in
-    let rec loop i =
-      if i >= sz then begin
-	let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
-	add t hnode;
-	hnode
-      end else begin
-        match Weak.get_copy bucket i with
-        | Some v when H.equal v.node d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
-        | _ -> loop (i+1)
-      end
-    in
-    loop 0
-  
+    Mutex.protect t.lock (fun () ->
+      let hkey = H.hash d land max_int in
+      let index = hkey mod (Array.length t.table) in
+      let bucket = t.table.(index) in
+      let sz = Weak.length bucket in
+      let rec loop i =
+        if i >= sz then begin
+	  let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
+	  add t hnode;
+	  hnode
+        end else begin
+          match Weak.get_copy bucket i with
+          | Some v when H.equal v.node d ->
+	      begin match Weak.get bucket i with
+                | Some v -> v
+                | None -> loop (i+1)
+              end
+          | _ -> loop (i+1)
+        end
+      in
+      loop 0)
+
   (* A version of hashcons that returns existing values, but does not
      insert the value into the table *)
   let find t d =
-    let hkey = H.hash d land max_int in
-    let index = hkey mod (Array.length t.table) in
-    let bucket = t.table.(index) in
-    let sz = Weak.length bucket in
-    let rec loop i =
-      if i >= sz then begin
-        (* [hashcons] inserts the value into the table here, but we
-           raise and exception *)
-	raise (Not_found)
-      end else begin
-        match Weak.get_copy bucket i with
-          | Some v when H.equal v.node d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
-          | _ -> loop (i+1)
-      end
-    in
-    loop 0
-      
+    Mutex.protect t.lock (fun () ->
+      let hkey = H.hash d land max_int in
+      let index = hkey mod (Array.length t.table) in
+      let bucket = t.table.(index) in
+      let sz = Weak.length bucket in
+      let rec loop i =
+        if i >= sz then begin
+          (* [hashcons] inserts the value into the table here, but we
+             raise and exception *)
+	  raise (Not_found)
+        end else begin
+          match Weak.get_copy bucket i with
+            | Some v when H.equal v.node d ->
+	      begin match Weak.get bucket i with
+                | Some v -> v
+                | None -> loop (i+1)
+              end
+            | _ -> loop (i+1)
+        end
+      in
+      loop 0)
+
   let stats t =
-    let len = Array.length t.table in
-    let lens = Array.map Weak.length t.table in
-    Array.sort Int.compare lens;
-    let totlen = Array.fold_left ( + ) 0 lens in
-    (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
-      
+    Mutex.protect t.lock (fun () ->
+      let len = Array.length t.table in
+      let lens = Array.map Weak.length t.table in
+      Array.sort Int.compare lens;
+      let totlen = Array.fold_left ( + ) 0 lens in
+      (len, unsafe_count t, totlen, lens.(0), lens.(len/2), lens.(len-1)))
+
 end
 
 (* 

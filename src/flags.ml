@@ -294,12 +294,18 @@ module Smt = struct
           
   let logic () = !logic
 
-  (* Activates check-sat with assumptions when supported. *)
+  (* Activates check-sat with assumptions when supported.
+     Domain-local with inheritance: solver drivers may disable it from
+     within an engine domain without affecting other engines. *)
   let check_sat_assume_default = true
-  let check_sat_assume = ref check_sat_assume_default
+  let check_sat_assume =
+    Domain.DLS.new_key
+      ~split_from_parent:(fun r -> ref !r)
+      (fun () -> ref check_sat_assume_default)
+  let set_check_sat_assume b = Domain.DLS.get check_sat_assume := b
   let _ = add_spec
     "--check_sat_assume"
-    (bool_arg check_sat_assume)
+    (Arg.Bool set_check_sat_assume)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
@@ -309,8 +315,7 @@ module Smt = struct
         @]"
       fmt_bool check_sat_assume_default
     )
-  let set_check_sat_assume b = check_sat_assume := b
-  let check_sat_assume () = !check_sat_assume
+  let check_sat_assume () = !(Domain.DLS.get check_sat_assume)
 
   (* Use short name for variables at SMT level. *)
   let short_names_default = true
@@ -400,9 +405,14 @@ module Smt = struct
   let set_z3_bin str = z3_bin := str
   let z3_bin () = ! z3_bin
 
-  let z3_qe_light = ref false
-  let set_z3_qe_light b = z3_qe_light := b
-  let z3_qe_light () = !z3_qe_light
+  (* Domain-local with inheritance: IC3IA instances enable it from
+     within their own domain without affecting other engines. *)
+  let z3_qe_light =
+    Domain.DLS.new_key
+      ~split_from_parent:(fun r -> ref !r)
+      (fun () -> ref false)
+  let set_z3_qe_light b = Domain.DLS.get z3_qe_light := b
+  let z3_qe_light () = !(Domain.DLS.get z3_qe_light)
 
   (* cvc5 binary. *)
   let cvc5_bin_default = "cvc5"
@@ -740,21 +750,27 @@ module BmcKind = struct
     )
   let ind_print_cex () = !ind_print_cex
 
+  (* Domain-local with inheritance: the inductive step engine may
+     disable compression from within its own domain without affecting
+     other engines. *)
   let compress_default = true
-  let compress = ref compress_default
+  let compress =
+    Domain.DLS.new_key
+      ~split_from_parent:(fun r -> ref !r)
+      (fun () -> ref compress_default)
+  let set_compress b = Domain.DLS.get compress := b
   let _ = add_spec
     "--ind_compress"
-    (bool_arg compress)
+    (Arg.Bool set_compress)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Compress inductive counterexamples@ Default: %a@]"
         fmt_bool compress_default
     )
 
-  let disable_compress () = compress := false
-  let set_compress b = compress := b
-  
-  let compress () = !compress
+  let disable_compress () = set_compress false
+
+  let compress () = !(Domain.DLS.get compress)
 
   let compress_equal_default = true
   let compress_equal = ref compress_equal_default
@@ -1059,11 +1075,17 @@ module QE = struct
   let qe_method_values = [
     `Precise ; `Impl ; `Impl2 ; `Cooper
   ] |> List.map string_of_qe_method |> String.concat ", "
+  (* Domain-local with inheritance: IC3 falls back to another method
+     from within its own domain without affecting other engines. *)
   let qe_method_default = `Cooper
-  let qe_method = ref qe_method_default
+  let qe_method =
+    Domain.DLS.new_key
+      ~split_from_parent:(fun r -> ref !r)
+      (fun () -> ref qe_method_default)
+  let set_qe_method q = Domain.DLS.get qe_method := q
   let _ = add_spec
     "--qe_method"
-    (Arg.String (fun str -> qe_method := qe_method_of_string str))
+    (Arg.String (fun str -> set_qe_method (qe_method_of_string str)))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
@@ -1073,8 +1095,7 @@ module QE = struct
         @]"
         qe_method_values (string_of_qe_method qe_method_default)
     )
-  let set_qe_method q = qe_method := q
-  let qe_method () = !qe_method
+  let qe_method () = !(Domain.DLS.get qe_method)
 
   type extract = [ `First | `Vars ]
   let extract_of_string = function

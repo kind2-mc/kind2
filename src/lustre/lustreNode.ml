@@ -1623,20 +1623,27 @@ type state_var_instance = position * I.t * StateVar.t
 
 
 (* Map from state variables to identical state variables in other
-   scopes *)
-let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
+   scopes.
+
+   Guarded by [state_var_maps_lock]: transition systems may be built
+   from an engine domain (IC3IA slices its own system) while the
+   supervisor reads the map, e.g. to print a counterexample. *)
+let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t =
   StateVar.StateVarHashtbl.create 7
+
+let state_var_maps_lock = Mutex.create ()
 
 
 (* Return identical state variable in a node instance if any *)
-let get_state_var_instances state_var = 
+let get_state_var_instances state_var =
 
-  try 
+  try
 
     (* Read list of instances from the hash table *)
-    StateVar.StateVarHashtbl.find
-      state_var_instance_map 
-      state_var
+    Mutex.protect state_var_maps_lock (fun () ->
+      StateVar.StateVarHashtbl.find
+        state_var_instance_map
+        state_var)
 
   (* Return empty list *)
   with Not_found -> []
@@ -1663,10 +1670,17 @@ let pp_print_state_var_instances_debug fmt t =
   List.iter print_sv (get_all_state_vars t)
 
 (* State variable is identical to a state variable in a node instance *)
-let set_state_var_instance state_var pos node state_var' = 
+let set_state_var_instance state_var pos node state_var' =
+
+  (* The whole read-modify-write sequence must be atomic *)
+  Mutex.protect state_var_maps_lock @@ fun () ->
 
   (* Get instances of state variable, may return the empty list *)
-  let instances = get_state_var_instances state_var in
+  let instances =
+    try
+      StateVar.StateVarHashtbl.find state_var_instance_map state_var
+    with Not_found -> []
+  in
 
   (* Add to instances of state variable *)
   let instances' =
@@ -1676,21 +1690,21 @@ let set_state_var_instance state_var pos node state_var' =
         Lib.equal_pos p pos
         && I.equal n node
         && StateVar.equal_state_vars sv state_var'
-      ) instances then 
+      ) instances then
 
       (* Do not create duplicates *)
-      instances 
+      instances
 
-    else 
+    else
 
       (* Add new instance *)
-      (pos, node, state_var') :: instances 
+      (pos, node, state_var') :: instances
 
   in
 
   (* Overwrite previous instances with modified list *)
   StateVar.StateVarHashtbl.replace
-    state_var_instance_map 
+    state_var_instance_map
     state_var
     instances'
 
@@ -1708,14 +1722,16 @@ type state_var_def =
 (* The first list contains state var defs where the state variable is explicitly mentioned.
    The second list contains state var defs that are dependencies (the node item does
    not explicitly reference the state variable, but the state variable depends on it) *)
-let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t = 
+(* Also guarded by [state_var_maps_lock] *)
+let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t =
   StateVar.StateVarHashtbl.create 20
 
-let get_state_var_defs state_var = 
-  try 
-    StateVar.StateVarHashtbl.find
-      state_var_defs_map 
-      state_var
+let get_state_var_defs state_var =
+  try
+    Mutex.protect state_var_maps_lock (fun () ->
+      StateVar.StateVarHashtbl.find
+        state_var_defs_map
+        state_var)
   with Not_found -> ([], [])
 
 let state_var_defs_equal d1 d2 =
@@ -1731,20 +1747,26 @@ let state_var_defs_equal d1 d2 =
   | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
   | _ -> false
 
-let add_state_var_def ?(is_dep = false) state_var def  = 
-  let (defs1, defs2) = get_state_var_defs state_var in
+let add_state_var_def ?(is_dep = false) state_var def  =
+  (* The whole read-modify-write sequence must be atomic *)
+  Mutex.protect state_var_maps_lock @@ fun () ->
+  let (defs1, defs2) =
+    try
+      StateVar.StateVarHashtbl.find state_var_defs_map state_var
+    with Not_found -> ([], [])
+  in
   let (defs1, defs2) =
   if not is_dep then
       (if List.exists (fun d -> state_var_defs_equal d def) defs1
       then defs1, defs2
       else def::defs1, defs2)
-  else 
+  else
     (if List.exists (fun d -> state_var_defs_equal d def) defs2
       then defs1, defs2
       else defs1, def::defs2)
     in
   StateVar.StateVarHashtbl.replace
-    state_var_defs_map 
+    state_var_defs_map
     state_var
     (defs1, defs2)
 

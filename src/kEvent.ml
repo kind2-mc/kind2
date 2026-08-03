@@ -90,115 +90,14 @@ let pp_print_event ppf = function
       (Property.length_of_cex cex)
 
 
-(* Module as input to Messaging.Make functor *)
-module EventMessage = 
+(* Module as input to Messaging.Make functor
+
+   Events are passed between domains by reference: terms and other
+   hashconsed values are shared, so no serialization is needed. *)
+module EventMessage =
 struct
 
   type t = event
-
-  type zmsg = string list
-
-  (* Convert strings to a message *)
-  let message_of_strings = function
-  | "INVAR" :: t :: l :: phi :: k :: ts :: _ ->
-      Invariant
-        ( Marshal.from_string l 0,
-          Term.import (Marshal.from_string t 0),
-          (int_of_string k, Term.import (Marshal.from_string phi 0)),
-          Marshal.from_string ts 0 )
-  | "PROP_UNKNOWN" :: p :: _ -> PropStatus (p, Property.PropUnknown)
-  | "PROP_KTRUE" :: p :: k :: _ ->
-      PropStatus (p, Property.PropKTrue (int_of_string k))
-  | "PROP_INVAR" :: p :: k :: phi :: _ ->
-      PropStatus
-        ( p,
-          Property.PropInvariant
-            (int_of_string k, Term.import (Marshal.from_string phi 0)) )
-  | "PROP_FALSE" :: p :: cex_string :: _ ->
-      let cex : (StateVar.t * Model.value list) list =
-        Marshal.from_string cex_string 0
-      in
-      let cex' =
-        (* We use rev_map instead of map to be able to handle long counterexamples *)
-        List.rev_map
-          (fun (sv, t) ->
-            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
-          cex
-        |> List.rev
-      in
-      PropStatus (p, Property.PropFalse cex')
-  | "STEP_CEX" :: p :: cex_string :: _ ->
-      let cex : (StateVar.t * Model.value list) list =
-        Marshal.from_string cex_string 0
-      in
-      let cex' =
-        (* We use rev_map instead of map to be able to handle long counterexamples *)
-        List.rev_map
-          (fun (sv, t) ->
-            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
-          cex
-        |> List.rev
-      in
-      StepCex (p, cex')
-  | ss ->
-      Debug.event "Bad message %s" (String.concat ";@" ss);
-      raise Messaging.BadMessage
-
-
-  (* Convert a message to strings *)
-  let strings_of_message = function 
-
-    | Invariant (s, t, (k, phi), two_state) ->
-
-      (* Serialize term to string *)
-      let term_string = Marshal.to_string t [Marshal.No_sharing] in
-
-      (* Serialize term to string *)
-      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
-      
-      (* Serialize scope to string *)
-      let scope_string = Marshal.to_string s [Marshal.No_sharing] in
-
-      (* Serialize two state flag to string. *)
-      let ts_string = Marshal.to_string two_state [Marshal.No_sharing] in
-
-      [
-        "INVAR" ;
-        term_string ;
-        scope_string ;
-        phi_string ;
-        string_of_int k ;
-        ts_string
-      ]
-
-    | PropStatus (p, Property.PropUnknown) -> 
-
-      ["PROP_UNKNOWN"; p]
-
-    | PropStatus (p, Property.PropKTrue k) -> 
-
-      ["PROP_KTRUE"; p; string_of_int k]
-
-    | PropStatus (p, Property.PropInvariant (k, phi)) -> 
-
-      (* Serialize term to string *)
-      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
-
-      ["PROP_INVAR"; p; string_of_int k; phi_string]
-
-    | PropStatus (p, Property.PropFalse cex) ->
-
-      (* Serialize counterexample to string *)
-      let cex_string = Marshal.to_string cex [Marshal.No_sharing] in
-
-      ["PROP_FALSE"; p; cex_string]
-
-    | StepCex (p, cex) ->
-
-      (* Serialize counterexample to string *)
-      let cex_string = Marshal.to_string cex [Marshal.No_sharing] in
-
-      ["STEP_CEX"; p; cex_string]
 
   (* Pretty-print a message *)
   let pp_print_message = pp_print_event
@@ -214,46 +113,55 @@ module EventMessaging = Messaging.Make (EventMessage)
 (* ********************************************************************** *)
 
 
-(* Module currently running *)
-let this_module = ref `Parser
+(* Module currently running. Domain-local: each engine domain runs a
+   different module. *)
+let this_module =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref `Parser)
 
 (* Set module currently running *)
-let set_module mdl = this_module := mdl 
+let set_module mdl = Domain.DLS.get this_module := mdl
 
 (* Get module currently running *)
-let get_module () = !this_module
+let get_module () = !(Domain.DLS.get this_module)
 
 (* Setup of the messaging: context and sockets of the invariant
    manager, ports to connect to for the workers *)
-type messaging_setup = 
-  (EventMessaging.ctx * EventMessaging.pub_socket * EventMessaging.pull_socket) * (string * string)
+type messaging_setup = EventMessaging.ctx
 
 type mthread = EventMessaging.thread
 
-(* Create contexts and bind ports for all processes *)
-let setup () = 
-
-  (* Create context for invariant manager *)
-  let im_context, (b, m) = EventMessaging.init_im () in
-
-  (* Return contexts *)
-  (im_context, (b, m))
+(* Create the messaging system in the supervisor *)
+let setup () = EventMessaging.init_im ()
 
 
-(* Start messaging for a process *)
-let run_process proc (_, (bcast_port, push_port)) on_exit = 
+(* Create and register the mailbox of an engine with the given
+   identifier. Called in the supervisor, before the engine domain is
+   spawned, so that no message sent from then on is missed. *)
+let register_worker proc id msg_setup =
+  EventMessaging.init_worker proc id msg_setup
 
-  (* Initialize messaging for process *)
-  let ctx = EventMessaging.init_worker proc bcast_port push_port in
 
-  (* Run messaging for process *)
-  EventMessaging.run_worker ctx proc on_exit
+(* Start messaging for a process. Called in the domain of the engine
+   with the registration returned by [register_worker]. *)
+let run_process proc mthread on_exit =
+  EventMessaging.run_worker mthread proc on_exit
+
+
+(* Unregister the mailbox of an engine that never ran because its
+   domain could not be spawned *)
+let unregister_worker mthread = EventMessaging.exit mthread
+
+
+(* Send a termination message to the engine with the given identifier *)
+let terminate_worker id = EventMessaging.send_term_message_to id
 
 
 (* Start messaging for invariant manager *)
 let run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
 =
-  fun (ctx, _) pids on_exit -> EventMessaging.run_im ctx pids on_exit
+  fun ctx pids on_exit -> EventMessaging.run_im ctx pids on_exit
 
 
 (* ********************************************************************** *)
@@ -421,9 +329,11 @@ let unknown_pt mdl level trans_sys prop =
       (Stat.get_float Stat.analysis_time)
 
 
+(* Atomic so that counterexample identifiers generated concurrently in
+   different domains are distinct *)
 let cex_id_counter =
-  let last = ref 0 in
-  (fun () -> last := !last + 1 ; !last)
+  let last = Atomic.make 0 in
+  (fun () -> Atomic.fetch_and_add last 1 + 1)
 
 
 let slice_trans_sys_and_cex_to_property
@@ -667,7 +577,7 @@ let stat_pt mdl level stats =
        (function ppf -> function (section, items) -> 
           Format.fprintf ppf "[%s]@,%a@," 
             section
-            Stat.pp_print_stats items)
+            Stat.pp_print_snapshots items)
        "@,")
     stats
 
@@ -1075,7 +985,7 @@ let stat_xml mdl level stats =
           Format.fprintf ppf 
             "@[<hv 2><Section>@,<name>%s</name>@,%a@;<0 -2></Section>@]"
             section
-            Stat.pp_print_stats_xml items)
+            Stat.pp_print_snapshots_xml items)
        "@,")
     stats
 
@@ -1491,7 +1401,7 @@ let stat_json mdl level stats =
          \"items\" :%a\
          @]@,}\
         "
-        section Stat.pp_print_stats_json items
+        section Stat.pp_print_snapshots_json items
       )
     )
     stats
@@ -2154,12 +2064,15 @@ let progress k =
 
 
 (* Send statistics *)
-let stat stats = 
+let stat stats =
 
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
-  
+
   let mdl = get_module () in
+
+  (* Snapshot the domain-local values of the items *)
+  let stats = Stat.snapshot_of_stats stats in
 
   log_stat mdl L_info stats;
 
@@ -2169,7 +2082,7 @@ let stat stats =
     EventMessaging.send_output_message
       (EventMessaging.Stat (Marshal.to_string stats []))
 
-  (* Don't fail if not initialized *) 
+  (* Don't fail if not initialized *)
   with Messaging.NotInitialized -> ()
   
 
@@ -2178,12 +2091,11 @@ let terminate () =
 
   try
 
-    (* Send termination message *)
-    EventMessaging.send_term_message ();
+    (* Send termination message. Delivery to the mailboxes of the
+       engines is immediate; there is nothing to wait for. *)
+    EventMessaging.send_term_message ()
 
-    minisleep 0.1
-
-  (* Don't fail if not initialized *) 
+  (* Don't fail if not initialized *)
   with Messaging.NotInitialized -> ()
 
 
@@ -2231,7 +2143,7 @@ let recv () =
              | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
 
                (* Unmarshal statistics *)
-               let stats : (string * Stat.stat_item list) list = 
+               let stats : (string * Stat.snapshot list) list =
                  Marshal.from_string stats 0
                in
 
@@ -2276,7 +2188,7 @@ let update_child_processes_list new_process_list =
   with Messaging.NotInitialized -> ()
 
 let purge_im : messaging_setup -> unit =
-  fun (ctx, _) ->
+  fun ctx ->
   try EventMessaging.purge_im_mailbox ctx
   with Messaging.NotInitialized -> ()
 

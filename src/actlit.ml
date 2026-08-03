@@ -38,10 +38,22 @@ let generate_negative_actlit term =
   |> actlit_of_string
 *)
 
-let i = ref 0
+(* The counter is domain-local: each analysis engine numbers its own
+   actlits independently, as each engine process did before engines
+   became domains of a single process. Actlits are only ever declared
+   in the solver instances of the engine that created them, so names
+   may repeat across engines. A spawned domain starts from the value of
+   the spawning domain, like a forked process would: some actlits are
+   created at module initialization time (e.g. the path compression
+   actlit) and must not be recreated by a fresh counter. *)
+let i =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref 0)
 
 (* Creates a fresh actlit as a bool UF constant. *)
 let fresh_actlit () =
+  let i = Domain.DLS.get i in
   let string =
     String.concat
       "_" [ "%fresh" ; "actlit"; string_of_int !i ]
@@ -50,13 +62,13 @@ let fresh_actlit () =
   actlit_of_string string
 
 (** Returns the number of fresh actlits created this far. *)
-let fresh_actlit_count () = !i
+let fresh_actlit_count () = !(Domain.DLS.get i)
 
 (** Resets the internal counter for fresh actlits.
 
     /!\ Dangerous, use only if all solvers do use any of the old actlits or
         will not use any of the new ones. *)
-let reset_fresh_actlit_count () = i := 0
+let reset_fresh_actlit_count () = Domain.DLS.get i := 0
 
 (* Returns the term corresponding to the input actlit. *)
 let term_of_actlit actlit = Term.mk_uf actlit []

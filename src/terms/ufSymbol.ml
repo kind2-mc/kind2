@@ -83,8 +83,10 @@ module Huf_symbol = H.Make (Uf_symbol_node)
 (* Storage for uninterpreted function symbols *)
 let ht = Huf_symbol.create 251
 
-(* We keep a copy of all UF symbols to prevent GC from collecting them *)
+(* We keep a copy of all UF symbols to prevent GC from collecting them.
+   Guarded by [uf_symbs_lock]: symbols may be created from any domain. *)
 let uf_symbs = ref []
+let uf_symbs_lock = Mutex.create ()
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -228,7 +230,7 @@ let mk_uf_symbol s a r =
         s
         { uf_arg_type = a; uf_res_type = r }
     in
-    uf_symbs := s :: !uf_symbs; s
+    Mutex.protect uf_symbs_lock (fun () -> uf_symbs := s :: !uf_symbs); s
 
 
 (* Import an uninterpreted symbol from a different instance into the
@@ -244,18 +246,16 @@ let import u =
     (Type.import (res_type_of_uf_symbol u))
 
 
-(* Counter for index of fresh uninterpreted symbols *)
-let fresh_uf_symbol_id = ref 0
+(* Counter for index of fresh uninterpreted symbols. Atomic so that
+   symbols created concurrently in different domains are distinct. *)
+let fresh_uf_symbol_id = Atomic.make 0
 
 
 (* Return name of a fresh uninterpreted symbol  *)
-let rec next_fresh_uf_symbol () = 
+let rec next_fresh_uf_symbol () =
 
-  (* Candidate name for next fresh symbol *)
-  let s = Format.sprintf "__C%d" !fresh_uf_symbol_id in
-
-  (* Increment counter *)
-  fresh_uf_symbol_id := succ !fresh_uf_symbol_id;
+  (* Candidate name for next fresh symbol, incrementing the counter *)
+  let s = Format.sprintf "__C%d" (Atomic.fetch_and_add fresh_uf_symbol_id 1) in
 
   try 
 

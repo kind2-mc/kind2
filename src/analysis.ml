@@ -18,11 +18,11 @@
 
 open Lib
 
-let uid_cnt = ref 0
-let get_uid () =
-  let res = ! uid_cnt in
-  uid_cnt := 1 + !uid_cnt ;
-  res
+(* Atomic so that analysis identifiers created concurrently in
+   different domains are distinct: IC3IA instances clone their analysis
+   parameter from within their own domain. *)
+let uid_cnt = Atomic.make 0
+let get_uid () = Atomic.fetch_and_add uid_cnt 1
 
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t

@@ -1367,9 +1367,16 @@ let delete_instance
   Unix.close solver_stderr
 
 
+(* Kill the solver process without interacting with it. Safe to call
+   from a different domain than the one interacting with the solver.
+   Death on SIGKILL is prompt, so the process is reaped right away. *)
+let kill_instance { solver_pid } =
+  ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
+  ( try Unix.waitpid [] solver_pid |> ignore with _ -> () )
+
 
 (* Output a comment into the trace *)
-let trace_comment solver comment = 
+let trace_comment solver comment =
   solver.solver_trace_coms comment
 
 
@@ -1386,6 +1393,8 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
       P.logic P.id
 
   let delete_instance () = delete_instance solver
+
+  let kill_instance () = kill_instance solver
 
 
   let declare_sort = declare_sort solver

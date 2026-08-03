@@ -368,9 +368,15 @@ let num_enums = HNum.create 17
 (* Talbe from constructors to their numeral encoding *)
 let constr_nums = Hashtbl.create 7
 
+(* Guards writes to the three enum tables above. Enum types are
+   declared while the input system is built, before analysis domains
+   are spawned, so readers do not need to take the lock. *)
+let enums_lock = Mutex.create ()
+
 let mk_enum =
   let next_n = ref 0 in
   fun name cs ->
+    Mutex.protect enums_lock @@ fun () ->
     try Hashtbl.find enums_table cs |> snd
     with Not_found ->
       let size = List.length cs in

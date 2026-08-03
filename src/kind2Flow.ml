@@ -52,15 +52,14 @@ let all_results = ref ( Anal.mk_results () )
 
 let realizability_results = ref []
 
-(** Renices the current process. Used for invariant generation. *)
+(** Renicing is not possible anymore: engines are domains of a single
+    process, and [Unix.nice] would renice the whole process. *)
 let renice () =
-  let nice =  (Flags.Invgen.renice ()) in
-  if nice < 0 then
+  let nice = (Flags.Invgen.renice ()) in
+  if nice <> 0 then
     KEvent.log L_info
-      "[renice] ignoring negative niceness value."
-  else if nice > 0 then
-    let nice' = Unix.nice nice in
-    KEvent.log L_info "[renice] renicing to %d" nice'
+      "[renice] ignoring niceness value: engines run in threads of a \
+       single process."
 
 
 let fresh_ic3ia_instance_name =
@@ -96,7 +95,7 @@ let main_of_process = function
     | `Parser | `Certif -> ( fun _ _ _ -> () )
   )
   | IC3IA_Call (fwd, slice_to_prop, prop, instance_name) ->
-    SMTLIBSolver.trace_suffix := instance_name ;
+    Domain.DLS.get SMTLIBSolver.trace_suffix := instance_name ;
     IC3IA.main fwd slice_to_prop prop
 
 (** Cleanup function of the process *)
@@ -274,54 +273,60 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
-(** Kill all kids violently. *)
+(** Terminate all engine domains of the current analysis.
+
+    Termination is cooperative: {!InvarManager.on_exit} broadcasts a
+    termination message that engines check on every iteration of their
+    event loop. An engine that does not react within a grace period is
+    stuck in a solver call and is unblocked by killing the solver
+    processes of its domain. *)
 let slaughter_kids process sys =
   Signals.ignoring_sigalrm ( fun _ ->
-    (* Clean exit from invariant manager *)
+    (* From now on, failures of engines are terminations, not
+       crashes. *)
+    EngineDomains.set_terminating true ;
+    (* Clean exit from invariant manager; broadcasts termination
+       message. *)
     InvarManager.on_exit sys ;
-    KEvent.log L_info "Killing all remaining child processes";
-
-    (* Kill all child processes groups *)
-    List.iter (
-      fun (pid, _) ->
-        KEvent.log L_debug "Sending SIGKILL to PID %d" pid ;
-        try Unix.kill (- pid) Sys.sigkill with _ -> ()
-    ) ! child_pids ;
+    KEvent.log L_info "Terminating all remaining child processes";
 
     KEvent.log L_debug "Waiting for remaining child processes to terminate" ;
 
-    let timeout = ref false in
+    (* Grace period before killing the solvers of unresponsive
+       engines, in seconds *)
+    let grace = 1.0 in
+    let start = Unix.gettimeofday () in
+    let solvers_killed = ref false in
 
-    (
-      try
-        while !child_pids <> [] do
-          try
-            (* Wait for child process to terminate *)
-            let pid, status = Unix.wait () in
-            (* Remove killed process from list *)
-            child_pids := List.remove_assoc pid !child_pids ;
-            (* Log termination status *)
-            KEvent.log L_debug
-              "Process %d %a" pid pp_print_process_status status
-          with
-          (* Remember timeout to raise it later. *)
-          | TimeoutWall ->
-            KEvent.log_timeout true ;
-            timeout := true
-        done
+    ( try
+
+        let rec wait_loop () =
+          EngineDomains.take_finished () |> List.iter (fun c ->
+            let id = EngineDomains.id c in
+            child_pids := List.remove_assoc id !child_pids ;
+            KEvent.log L_debug "Process %d terminated" id
+          ) ;
+          match EngineDomains.live () with
+          | [] -> ()
+          | stuck ->
+            if not !solvers_killed
+            && Unix.gettimeofday () -. start > grace then (
+              stuck |> List.iter (fun c ->
+                KEvent.log L_debug
+                  "Killing solvers of %a to unblock it"
+                  pp_print_kind_module (EngineDomains.mdl c) ;
+                EngineDomains.kill_solvers c
+              ) ;
+              solvers_killed := true
+            ) ;
+            minisleep 0.01 ;
+            wait_loop ()
+        in
+        wait_loop () ;
+        KEvent.log L_info "All child processes terminated."
+
       with
-      (* No more child processes, this is the normal exit. *)
-      | Unix.Unix_error (Unix.ECHILD, _, _) ->
-        KEvent.log L_info "All child processes terminated." ;
-        if !timeout then raise TimeoutWall
-      (* Unix.wait was interrupted. *)
-      | Unix.Unix_error (Unix.EINTR, _, _) ->
-        let dummy_status = ExitCodes.error in
-        (* Ignoring exit code, whatever happened does not change the
-        outcome of the analysis. *)
-        Signal 0 |> status_of_exn process dummy_status |> ignore 
-
-      (* Exception in Unix.wait loop. *)
+      (* Exception in the waiting loop. *)
       | e ->
         let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the outcome
@@ -329,10 +334,11 @@ let slaughter_kids process sys =
         status_of_exn process dummy_status e |> ignore ;
     ) ;
 
-    if ! child_pids <> [] then
+    if EngineDomains.live () <> [] then
       KEvent.log L_fatal "Some children did not exit." ;
     (* Cleaning kids list. *)
     child_pids := [] ;
+    EngineDomains.set_terminating false ;
     (* Draining mailbox. *)
     KEvent.recv () |> ignore
   ) ;
@@ -346,8 +352,8 @@ let post_clean_exit process base_status exn =
   let status = status_of_exn process base_status exn in
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
-  (* Kill all live solvers. *)
-  SMTSolver.destroy_all () ;
+  (* Kill all live solvers of the whole process. *)
+  SMTSolver.destroy_all_of_process () ;
   (* Exit with status. *)
   exit status
 
@@ -403,99 +409,132 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
   exit status
 
 
-(** Forks and runs a child process. *)
+(** Cleanup at the end of an engine domain.
+    Give the exception [exn] that was raised or [Exit] on normal
+    termination. Returns the unexpected exception the engine terminated
+    on, if any. *)
+let on_exit_engine messaging_thread process exn =
+  (* Log the reason for the termination of the engine. The status
+     plays the role of the exit status of the engine process: engines
+     used to exit with it. During coordinated termination, exceptions
+     are a consequence of solvers being killed under the engine and are
+     not reported. *)
+  let status =
+    if EngineDomains.is_terminating () then ExitCodes.success
+    else status_of_exn process ExitCodes.success exn
+  in
+  (* Call cleanup of process; destroys the solvers of this domain.
+     During coordinated termination the solvers are killed outright
+     instead of shut down gracefully (see
+     [SMTSolver.set_shutting_down]). *)
+  on_exit_of_process process ;
+  (* Unregister the mailbox of the engine. *)
+  KEvent.exit messaging_thread ;
+  Debug.kind2 "Process %a terminating" pp_print_kind_module process ;
+  if status = ExitCodes.success then None
+  (* Failures while the supervisor is terminating the engines are a
+     consequence of solvers being killed under the engine, not
+     crashes. *)
+  else if EngineDomains.is_terminating () then None
+  else Some exn
+
+
+(** Runs a child process in a new domain. *)
 let run_process in_sys param sys messaging_setup process =
   let kind_module = get_kind_module process in
-  (* Fork a new process. *)
-  let pid = Unix.fork () in
-  match pid with
-  (* We are the child process. *)
-  | 0 -> (
-    (* Ignore SIGALRM in child process. *)
-    Signals.ignore_sigalrm () ;
-    (* Make the process leader of a new session. *)
-    Unix.setsid () |> ignore ;
-    let pid = Unix.getpid () in
-    (* Remove solvers entries (they are owned by the parent) *)
-    SMTSolver.delete_instance_entries () ;
-    (* Initialize messaging system for process. *)
-    let messaging_thread =
-      on_exit_child None kind_module
-      |> KEvent.run_process kind_module messaging_setup
-    in
+  (* Identifier of the engine, taking the place of the PID. *)
+  let id = EngineDomains.next_id () in
+  (* Register the mailbox of the engine before spawning its domain so
+     that no message sent from now on is missed. *)
+  let messaging_thread =
+    KEvent.register_worker kind_module id messaging_setup
+  in
+  (* The engine works on its own copy of the mutable parts of the
+     transition system, as each engine process worked on its
+     copy-on-write image of the supervisor's system when engines were
+     forked. *)
+  let sys = TSys.copy sys in
+  try
+    EngineDomains.spawn kind_module id (fun () ->
+      (* Start messaging for this domain. *)
+      let messaging_thread =
+        KEvent.run_process kind_module messaging_thread (fun _ -> ())
+      in
 
-    try 
+      try
 
-      (* All log messages are sent to the invariant manager now. *)
-      KEvent.set_relay_log ();
+        (* All log messages are sent to the invariant manager now. *)
+        KEvent.set_relay_log ();
 
-      (* Set module currently running. *)
-      KEvent.set_module kind_module;
+        (* Set module currently running. *)
+        KEvent.set_module kind_module;
 
-      (* Record backtraces on log levels debug and higher. *)
-      if output_on_level L_debug then
-        Printexc.record_backtrace true ;
+        (* Record backtraces on log levels debug and higher. *)
+        if output_on_level L_debug then
+          Printexc.record_backtrace true ;
 
-      KEvent.log L_debug
-        "Starting new process %a with PID %d" 
-        pp_print_kind_module kind_module
-        pid;
-
-      ( (* Change debug output to per process file. *)
-        match Flags.debug_log () with 
-        (* Keep if output to stdout. *)
-        | None -> ()
-        
-        (* Open channel to given file and create formatter on channel. *)
-        | Some f ->
-          try (* Output to [f.PROCESS-PID]. *)
-            let f' = 
-              Format.sprintf "%s.%s-%d" 
-                f (debug_ext_of_process kind_module) pid
-            in
-
-            (* Open output channel to file. *)
-            let oc = open_out f' in
-
-            (* Formatter writing to file. *)
-            Format.formatter_of_out_channel oc |> Debug.set_formatter
-
-          with
-          (* Ignore and keep previous file on error. *)
-          | Sys_error _ -> () 
-
-      ) ;
-      (* Retrieve input system. *)
-      (* let in_sys = in_sys in *)
-      (* Run main function of process *)
-      main_of_process process in_sys param sys ;
-      (* Cleanup and exit *)
-      on_exit_child (Some messaging_thread) kind_module Exit
-
-    with
-    (* Termination message received. *)
-    | KEvent.Terminate as e ->
-      on_exit_child (Some messaging_thread) kind_module e
-    (* Catch all other exceptions. *)
-    | e ->
-      (* Get backtrace now, Printf changes it. *)
-      let backtrace = Printexc.get_raw_backtrace () in
-      if Printexc.backtrace_status () then (
-        KEvent.log L_fatal
-          "Caught %s in %a.@ Backtrace:@ %a"
-          (Printexc.to_string e)
+        KEvent.log L_debug
+          "Starting new process %a with id %d"
           pp_print_kind_module kind_module
-          print_backtrace backtrace
-      ) ;
-      (* Cleanup and exit. *)
-      on_exit_child (Some messaging_thread) kind_module e
+          id;
 
-  )
+        ( (* Change debug output to per process file. *)
+          match Flags.debug_log () with
+          (* Keep if output to stdout. *)
+          | None -> ()
 
-  (* We are the parent process. *)
-  | _ ->
-    (* Keep PID of child process and return. *)
-    child_pids := (pid, kind_module) :: !child_pids
+          (* Open channel to given file and create formatter on channel. *)
+          | Some f ->
+            try (* Output to [f.PROCESS-ID]. *)
+              let f' =
+                Format.sprintf "%s.%s-%d"
+                  f (debug_ext_of_process kind_module) id
+              in
+
+              (* Open output channel to file. *)
+              let oc = open_out f' in
+
+              (* Formatter writing to file. *)
+              Format.formatter_of_out_channel oc |> Debug.set_formatter
+
+            with
+            (* Ignore and keep previous file on error. *)
+            | Sys_error _ -> ()
+
+        ) ;
+        (* Run main function of process *)
+        main_of_process process in_sys param sys ;
+        (* Cleanup *)
+        on_exit_engine messaging_thread kind_module Exit
+
+      with
+      (* Termination message received. *)
+      | KEvent.Terminate as e ->
+        on_exit_engine messaging_thread kind_module e
+      (* Catch all other exceptions. *)
+      | e ->
+        (* Get backtrace now, Printf changes it. *)
+        let backtrace = Printexc.get_raw_backtrace () in
+        if Printexc.backtrace_status () then (
+          KEvent.log L_fatal
+            "Caught %s in %a.@ Backtrace:@ %a"
+            (Printexc.to_string e)
+            pp_print_kind_module kind_module
+            print_backtrace backtrace
+        ) ;
+        (* Cleanup *)
+        on_exit_engine messaging_thread kind_module e
+    ) |> ignore ;
+
+    (* Keep identifier of engine and return. *)
+    child_pids := (id, kind_module) :: !child_pids
+
+  with e ->
+    (* The domain could not be spawned: unregister the mailbox. *)
+    KEvent.unregister_worker messaging_thread ;
+    KEvent.log L_fatal "Could not spawn a domain for %a: %s"
+      pp_print_kind_module kind_module
+      (Printexc.to_string e)
 
 
 let create_processes slice_to_prop modules sys =

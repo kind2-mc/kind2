@@ -171,18 +171,28 @@ let offset_of_vars m =
 (* Simulation relation: Equality modulo input variables                   *)
 (* ********************************************************************** *)
 
+(* Atomic so that function symbols created concurrently in different
+   domains get distinct names: uninterpreted function symbols are
+   global to the process and redeclaring a name with a different
+   signature is an error. *)
 let counter =
-  let i = ref 0 in
-  fun () -> i := !i + 1 ; !i
+  let i = Atomic.make 0 in
+  fun () -> Atomic.fetch_and_add i 1 + 1
 
-(* Name of the uninterpreted function symbol *)
-let equal_mod_input_string = ref "__compress_equal_mod_input"
+(* Name of the uninterpreted function symbol. Domain-local: each
+   inductive step engine uses its own current symbol. *)
+let equal_mod_input_string =
+  let key =
+    Domain.DLS.new_key (fun () -> ref "__compress_equal_mod_input")
+  in
+  fun () -> Domain.DLS.get key
 
 let function_symbol_name () =
-  !equal_mod_input_string
+  !(equal_mod_input_string ())
 
 let new_function_symbol_name () =
-  equal_mod_input_string := Printf.sprintf "__compress_equal_mod_input_%i" (counter ())
+  equal_mod_input_string () :=
+    Printf.sprintf "__compress_equal_mod_input_%i" (counter ())
 
 
 let only_bv trans_sys =
@@ -235,7 +245,7 @@ let init_equal_mod_input declare_fun trans_sys =
 
   let uf_distinct = 
     UfSymbol.mk_uf_symbol
-      !equal_mod_input_string
+      !(equal_mod_input_string ())
       (List.fold_left 
          (fun a sv -> 
             if not (StateVar.StateVarSet.mem sv unconstrained_inputs) then
@@ -258,7 +268,7 @@ let init_equal_mod_input declare_fun trans_sys =
 let equal_mod_input only_bv unc_inputs accum s1 s2 =
 
   let uf_distinct = 
-    UfSymbol.uf_symbol_of_string !equal_mod_input_string
+    UfSymbol.uf_symbol_of_string !(equal_mod_input_string ())
   in
 
   if
@@ -396,9 +406,11 @@ let equal_mod_input only_bv unc_inputs accum s1 s2 =
 (* Simulation relation: later state has same successors as earlier state  *)
 (* ********************************************************************** *)
 
-let same_successors_blocked = ref []  
+let same_successors_blocked =
+  let key = Domain.DLS.new_key (fun () -> ref []) in
+  fun () -> Domain.DLS.get key
 
-let same_successors_incr_k () = same_successors_blocked := []
+let same_successors_incr_k () = same_successors_blocked () := []
 
 let instantiate_trans_succ var_uf_map i term = 
 
@@ -494,7 +506,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
     Numeral.(equal i j) 
     || List.exists 
       (fun (s, t) -> Numeral.equal i s && Numeral.equal t j) 
-      !same_successors_blocked 
+      !(same_successors_blocked ()) 
 
   then
 
@@ -555,7 +567,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
          let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
 
          (* Remember state pairs to not block again *)
-         same_successors_blocked := (i, j) :: !same_successors_blocked;
+         same_successors_blocked () := (i, j) :: !(same_successors_blocked ());
 
          (* Count number of clauses *)
          Stat.incr Stat.ind_compress_same_successors;
@@ -583,9 +595,11 @@ let same_successors declare_fun uf_defs trans accum sj si =
       | _ -> assert false
 
 
-let same_predecessors_blocked = ref []  
+let same_predecessors_blocked =
+  let key = Domain.DLS.new_key (fun () -> ref []) in
+  fun () -> Domain.DLS.get key
 
-let same_predecessors_incr_k () = same_predecessors_blocked := []
+let same_predecessors_incr_k () = same_predecessors_blocked () := []
 
 let instantiate_trans_pred var_uf_map i term = 
 
@@ -682,7 +696,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
     Numeral.(equal i j) 
     || List.exists 
       (fun (s, t) -> Numeral.equal i s && Numeral.equal t j) 
-      !same_predecessors_blocked 
+      !(same_predecessors_blocked ()) 
 
   then
 
@@ -743,7 +757,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
          let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
 
          (* Remember state pairs to not block again *)
-         same_predecessors_blocked := (i, j) :: !same_predecessors_blocked;
+         same_predecessors_blocked () := (i, j) :: !(same_predecessors_blocked ());
 
          (* Count number of clauses *)
          Stat.incr Stat.ind_compress_same_predecessors;

@@ -1518,10 +1518,11 @@ let mk_store a i v =
 
 let mk_const_array t v = mk_app_of_symbol_node (`CONST_ARRAY t) [v]
 
-(* Generate a new tag *)
+(* Generate a new tag. Atomic so that names of named terms created
+   concurrently in different domains are distinct. *)
 let newid =
-  let r = ref 0 in
-  fun () -> incr r; !r
+  let r = Atomic.make 0 in
+  fun () -> Atomic.fetch_and_add r 1 + 1
 
 
 (* Hashcons a named term *)

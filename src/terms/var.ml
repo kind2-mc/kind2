@@ -331,24 +331,25 @@ let import = function
     mk_free_var (HString.import s) (Type.import t)
 
 
-(* Counter for index of fresh uninterpreted symbols *)
+(* Counter for index of fresh uninterpreted symbols.
+   Guarded by [fresh_var_ids_lock]: fresh variables may be created
+   concurrently from several domains. *)
 let fresh_var_ids = Type.TypeHashtbl.create 7
+let fresh_var_ids_lock = Mutex.create ()
 
 
 (* Return name of a fresh uninterpreted symbol  *)
-let rec next_fresh_var_node var_type = 
+let rec next_fresh_var_node var_type =
 
-  let fresh_var_id = 
-
-    try 
-      
-      Type.TypeHashtbl.find fresh_var_ids var_type 
-        
-    with Not_found -> 1
-
+  let fresh_var_id =
+    Mutex.protect fresh_var_ids_lock (fun () ->
+      let id =
+        try Type.TypeHashtbl.find fresh_var_ids var_type
+        with Not_found -> 1
+      in
+      Type.TypeHashtbl.replace fresh_var_ids var_type (succ id);
+      id)
   in
-
-  Type.TypeHashtbl.replace fresh_var_ids var_type (succ fresh_var_id);
 
   let fresh_var_name = 
 
@@ -449,12 +450,17 @@ let map_state_var f v = match v with
 
 module StringMap = Map.Make(String)
 
-(* Maps strings to state var instances. *)
+(* Maps strings to state var instances.
+   Updates are guarded by [unrolled_var_map_lock] so that concurrent
+   domains do not lose bindings; reads are lock-free (the map itself is
+   immutable). *)
 let unrolled_var_map = ref StringMap.empty
+let unrolled_var_map_lock = Mutex.create ()
 (* Adds a mapping between [string] and [var]. Returns [true] if
    [string] was already bound in the map. *)
 let update_unrolled_var_map string var =
-  unrolled_var_map := StringMap.add string var !unrolled_var_map
+  Mutex.protect unrolled_var_map_lock (fun () ->
+    unrolled_var_map := StringMap.add string var !unrolled_var_map)
 (* Looks for the value associated to [string]. *)
 let find_unrolled_var_map string =
   StringMap.find string !unrolled_var_map

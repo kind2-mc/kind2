@@ -19,7 +19,12 @@
 open Lib
 open SolverResponse
 
-let trace_suffix = ref ""
+(* Domain-local: IC3IA instances run in separate domains and each sets
+   its own trace suffix *)
+let trace_suffix =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref "")
 
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -761,7 +766,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           (Format.sprintf "%s.%s.%s%d.%s" 
              (Filename.basename (Flags.input_file ()))
              (short_name_of_kind_module (KEvent.get_module ()))
-             !trace_suffix
+             !(Domain.DLS.get trace_suffix)
              id
              trace_extension
           )
@@ -1126,8 +1131,18 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     Unix.close solver_stderr
 
 
+  (* Kill the solver process without interacting with it. Does not touch
+     the solver's channels, so it is safe to call from a different domain
+     than the one interacting with the solver: the owner's blocked read
+     fails and the engine unwinds. Death on SIGKILL is prompt, so the
+     process is reaped right away. *)
+  let kill_instance { solver_pid } =
+    ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
+    ( try Unix.waitpid [] solver_pid |> ignore with _ -> () )
+
+
   (* Output a comment into the trace *)
-  let trace_comment solver comment = 
+  let trace_comment solver comment =
     solver.solver_trace_coms comment
 
     
@@ -1149,6 +1164,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         P.logic P.id
 
     let delete_instance () = delete_instance solver
+
+    let kill_instance () = kill_instance solver
 
 
     let declare_sort = declare_sort solver
