@@ -202,10 +202,8 @@ let rec _type_contains_adt ctx ty =
   | A.UBitVector _ | A.SBitVector _ | A.AbstractType _ | A.EnumType _ -> false
 
 (* Returns true iff the type contains some expression that would induce generated 
-   identifiers. In this context, the only ways to induce generated identifiers:
-    * set binary operations (union/intersection)
-    * ADTs
-    * ADT terms *)
+   identifiers. In this context, the only way to induce generated identifiers 
+   is from set binary operations (union/intersection) *)
 let rec ty_contains_gids ctx ni ty = 
   let r = ty_contains_gids ctx ni in
   match ty with  

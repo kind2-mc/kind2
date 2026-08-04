@@ -1,4 +1,4 @@
-(* This file is part of the Kind 2 model checker.astinlin
+(* This file is part of the Kind 2 model checker.
 
    Copyright (c) 2020 by the Board of Trustees of the University of Iowa
 

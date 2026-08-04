@@ -155,7 +155,6 @@ sig
     | Let of lambda * t list
     | Exists of lambda
     | Forall of lambda
-    | Match of t * (string * lambda) list
     | Annot of t * attr
 
   (** Properties of a term *)
