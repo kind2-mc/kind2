@@ -731,6 +731,9 @@ module Make (Graph : GraphSig) : Out = struct
 
     ) with
     | KEvent.Terminate -> quit ()
+    (* [quit] itself unwinds with [Exit], e.g. when there is no
+       candidate to run on: normal termination, not an error *)
+    | Exit -> quit ()
     | Failure msg -> (
       (* During coordinated termination, failures are a consequence of
          solvers being killed under the engine: quit silently. *)
