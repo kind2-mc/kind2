@@ -200,25 +200,6 @@ struct
      stripes. [nstripes] is a power of two. *)
   let nstripes = 64
 
-  (* In front of the table sits a small cache, private to each domain,
-     which associates the last value hashconsed for a slot with the
-     node it was built from. A hit answers without taking any lock,
-     which is what makes the common case of rebuilding a subterm that
-     was just built cheap.
-
-     A cached value stays correct: the cache holds it by a strong
-     reference, so it cannot be collected, its weak entry in the table
-     cannot be cleared, and it therefore remains the value the table
-     associates with its node. (This assumes the table is not emptied
-     behind our back; [clear] empties the cache of the calling domain,
-     but a table cleared while other domains use it would leave them
-     with a stale cache. Nothing in Kind 2 clears a table.)
-
-     The cache is direct-mapped: a slot holds at most one value, and a
-     new value for a slot replaces the previous one. [cache_size] is a
-     power of two. *)
-  let cache_size = 1024
-
   type t = {
     locks : Mutex.t array;             (* one lock per stripe *)
     mutable table : data Weak.t array; (* replaced by [resize], which
@@ -226,7 +207,6 @@ struct
     totsize : int Atomic.t;            (* sum of the bucket sizes *)
     mutable limit : int;               (* max ratio totsize/table length,
                                           only written by [resize] *)
-    cache : data option array Domain.DLS.key;
   }
 
   let emptybucket = Weak.create 0
@@ -239,21 +219,7 @@ struct
       table = Array.make sz emptybucket;
       totsize = Atomic.make 0;
       limit = 3;
-      cache = Domain.DLS.new_key (fun () -> Array.make cache_size None);
     }
-
-  (* The cache of the calling domain *)
-  let cache_of t = Domain.DLS.get t.cache
-
-  (* Value cached for [d] in [cache], if any. [hkey] is the hash of
-     [d]; comparing it first keeps the frequent miss cheap. *)
-  let cache_find cache hkey d =
-    match Array.unsafe_get cache (hkey land (cache_size - 1)) with
-    | Some v when v.hkey = hkey && H.equal v.node d -> Some v
-    | _ -> None
-
-  let cache_add cache hkey v =
-    Array.unsafe_set cache (hkey land (cache_size - 1)) (Some v)
 
   (* Lock of the stripe protecting the bucket of index [i] *)
   let stripe t i = Array.unsafe_get t.locks (i land (nstripes - 1))
@@ -277,8 +243,7 @@ struct
         t.table.(i) <- emptybucket
       done;
       Atomic.set t.totsize 0;
-      t.limit <- 3;
-      Array.fill (cache_of t) 0 cache_size None)
+      t.limit <- 3)
 
   let unsafe_fold f t init =
     let rec fold_bucket i b accu =
@@ -403,10 +368,6 @@ struct
 
   let hashcons t d p =
     let hkey = H.hash d land max_int in
-    let cache = cache_of t in
-    match cache_find cache hkey d with
-    | Some v -> v
-    | None ->
     let node, need_resize =
       with_bucket t hkey (fun index ->
         let bucket = t.table.(index) in
@@ -429,19 +390,13 @@ struct
         loop 0)
     in
     if need_resize then resize_if_needed t ;
-    cache_add cache hkey node ;
     node
 
   (* A version of hashcons that returns existing values, but does not
      insert the value into the table *)
   let find t d =
     let hkey = H.hash d land max_int in
-    let cache = cache_of t in
-    match cache_find cache hkey d with
-    | Some v -> v
-    | None ->
-    let v =
-      with_bucket t hkey (fun index ->
+    with_bucket t hkey (fun index ->
       let bucket = t.table.(index) in
       let sz = Weak.length bucket in
       let rec loop i =
@@ -460,9 +415,6 @@ struct
         end
       in
       loop 0)
-    in
-    cache_add cache hkey v ;
-    v
 
   let stats t =
     with_all_stripes t (fun () ->
