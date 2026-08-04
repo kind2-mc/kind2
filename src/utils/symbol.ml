@@ -607,12 +607,6 @@ let mk_symbol sym =
   Hsymbol.hashcons ht sym ()
     
 
-(* Import symbol from a different instance into this hashcons table *)
-let import = function 
-  | { Hashcons.node = `UF u } -> mk_symbol (`UF (UfSymbol.import u))
-  | { Hashcons.node = s } -> mk_symbol s
-
-
 (* Constant propositional value *)
 let s_true = mk_symbol `TRUE
 

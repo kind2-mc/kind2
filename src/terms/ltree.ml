@@ -50,12 +50,6 @@ sig
 
   val mk_fresh_var : sort -> var
 
-  val import_symbol : symbol -> symbol
-
-  val import_var : var -> var
-
-  val import_sort : sort -> sort
-
   val pp_print_symbol : Format.formatter -> symbol -> unit
 
   val pp_print_var : Format.formatter -> var -> unit
@@ -156,10 +150,6 @@ sig
   val instantiate : lambda -> t list -> t
 
   val construct : flat -> t
-
-  val import : t -> t
-
-  val import_lambda : lambda -> lambda
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
@@ -1300,36 +1290,6 @@ struct
   let eval_t ?(fail_on_quantifiers=true)f t = 
     fold fail_on_quantifiers f [] [[]] [FTree (0, t)]
 
-
-  let rec import_lambda = function { H.node = L (i, t) } -> 
-
-    let i' = List.map T.import_sort i in
-    
-    let t' = import t in
-
-    hl_lambda i' t'
-    
-
-  (* Import a term into the hashcons table by rebuilding it bottom
-      up *)
-  and import term = 
-
-    map
-      (function _ -> 
-        function { H.node = n } -> 
-          let n' = 
-            match n with 
-              | FreeVar v -> FreeVar (T.import_var v)
-              | BoundVar _ -> n
-              | Leaf s -> Leaf (T.import_symbol s)
-              | Node (s, l) -> Node (T.import_symbol s, l)
-              | Let (l, b) -> Let (import_lambda l, b)
-              | Exists l -> Exists (import_lambda l)
-              | Forall l -> Forall (import_lambda l)
-              | Annot (t, a) -> Annot (import t, a)
-          in
-          Ht.hashcons ht n' (prop_of_term_node n'))
-      term
 
   (*
   (* Bind free variables in a term and adjust de Bruijn indices *)

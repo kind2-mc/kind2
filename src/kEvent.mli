@@ -192,11 +192,6 @@ val terminate : unit -> unit
 (** Receive all queued events *)
 val recv : unit -> (Lib.kind_module * event) list
 
-(** Notifies the background thread of a new list of child
-    processes. Used by the supervisor in a modular analysis when
-    restarting. *)
-val update_child_processes_list: (int * Lib.kind_module) list -> unit
-
 (** Terminates if a termination message was received. Does NOT modify
     received messages. *)
 val check_termination: unit -> unit
@@ -246,41 +241,40 @@ val update_trans_sys :
 (** Setup of the messaging system *)
 type messaging_setup
 
-(** Background thread of the messaging system *)
-type mthread
+(** Registration of the mailbox of an engine *)
+type mworker
 
-(** Create contexts and bind ports for all processes *)
+(** Create the messaging system in the supervisor *)
 val setup : unit -> messaging_setup
 
-(** Start messaging for the invariant manager *)
-val run_im :
-  messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+(** Take the supervisor role in the calling domain *)
+val run_im : messaging_setup -> unit
 
-(** Purge the invariant manager mailbox.
-  Should be called before calling update_child_processes_list
-  in order to get rid of messages from the previous analysis. *)
+(** Purge the invariant manager mailbox. Should be called between two
+    analyses, after all engines of the previous analysis have exited,
+    to get rid of messages from the previous analysis. *)
 val purge_im : messaging_setup -> unit
 
 (** Create and register the mailbox of an engine with the given
     identifier. Must be called in the supervisor, before the engine
     domain is spawned, so that no message sent from then on is
     missed. *)
-val register_worker : Lib.kind_module -> int -> messaging_setup -> mthread
+val register_worker : Lib.kind_module -> int -> messaging_setup -> mworker
 
 (** Start messaging for a process. Must be called in the domain of the
     engine with the registration returned by {!register_worker}. *)
-val run_process : Lib.kind_module -> mthread -> (exn -> unit) -> mthread
+val run_process : mworker -> mworker
 
 (** Unregister the mailbox of an engine that never ran because its
     domain could not be spawned *)
-val unregister_worker : mthread -> unit
+val unregister_worker : mworker -> unit
 
 (** Send a termination message to the engine with the given
     identifier *)
 val terminate_worker : int -> unit
 
-(** Send all queued messages and exit the background thread *)
-val exit : mthread -> unit
+(** Unregister the mailbox of an engine *)
+val exit : mworker -> unit
 
 val pp_print_user_node_name: 'a InputSystem.t -> Format.formatter -> Scope.t -> unit 
 

@@ -50,10 +50,6 @@ module HStringMap : Map.S with type key = t
 (** Hashcons a string *)
 val mk_hstring : string -> t
 
-(** Import a string from a different instance into this hashcons
-    table *)
-val import : t -> t 
-
 (** {1 String functions} 
 
     Omitted functions from the [String] module in the standard library:

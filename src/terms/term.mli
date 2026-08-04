@@ -81,12 +81,6 @@ val mk_term : T.t_node -> t
 (** Create a hashconsed lambda expression *)
 val mk_lambda : Var.t list -> t -> lambda
 
-(** Import a term from a different instance into this hashcons table *)
-val import : t -> t
-
-(** Import a term from a different instance into this hashcons table *)
-val import_lambda : lambda -> lambda
-
 (** Returns true if the lamda expression is the identity, i.e. lambda x.x *)
 val is_lambda_identity : lambda -> bool
 

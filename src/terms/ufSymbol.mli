@@ -71,12 +71,6 @@ val mk_uf_symbol : string -> Type.t list -> Type.t -> t
 (** Return a fresh uninterpreted symbol *)
 val mk_fresh_uf_symbol : Type.t list -> Type.t -> t
 
-(** Import an uninterpreted symbol from a different instance into this
-    hashcons table 
-
-    We may have clashes if we import fresh uninterpreted symbols from
-    one instance to another. *)
-val import : t -> t
 
 (** {1 Accessor functions} *)
 

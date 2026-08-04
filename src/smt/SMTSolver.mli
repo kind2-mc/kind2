@@ -65,9 +65,6 @@ val destroy_all_of_process : unit -> unit
     solver call. *)
 val kill_solvers_of_domain : int -> unit
 
-(** Delete instance entries (should be called after forking, on child processes). *)
-val delete_instance_entries : unit -> unit
-
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
   

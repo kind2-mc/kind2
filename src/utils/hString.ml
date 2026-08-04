@@ -155,10 +155,6 @@ let mk_prop _ = ()
 let mk_hstring s = HString.hashcons ht s (mk_prop s)
 
 
-(* Import a string from a different instance into this hashcons
-   table *)
-let import { Hashcons.node = s } = mk_hstring s
-
 (* ********************************************************************* *)
 (* String functions                                                      *)
 (* ********************************************************************* *)

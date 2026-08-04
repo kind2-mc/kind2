@@ -41,10 +41,6 @@
    reliable by construction. [recv] drains the mailbox of the calling
    domain. *)
 
-exception SocketConnectFailure
-exception SocketBindFailure
-exception BadMessage
-exception InvalidProcessName
 exception NotInitialized
 
 
@@ -73,15 +69,12 @@ sig
     | Progress of int
 
   type control_message =
-    | Ready
-    | Ping
     | Terminate
-    | Resend of int
 
   type message =
     | OutputMessage of output_message
     | ControlMessage of control_message
-    | RelayMessage of int * relay_message
+    | RelayMessage of relay_message
 
   val pp_print_message : Format.formatter -> message -> unit
 
@@ -89,17 +82,16 @@ sig
      supervisor and passed to every engine. *)
   type ctx
 
-  (* Registration of a worker endpoint, needed to leave the messaging
-     system *)
-  type thread
+  (* Registration of a worker mailbox *)
+  type worker
 
   val init_im : unit -> ctx
 
-  val init_worker : Lib.kind_module -> int -> ctx -> thread
+  val init_worker : Lib.kind_module -> int -> ctx -> worker
 
-  val run_im : ctx -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
+  val run_im : ctx -> unit
 
-  val run_worker : thread -> Lib.kind_module -> (exn -> unit) -> thread
+  val run_worker : worker -> worker
 
   val send_relay_message : relay_message -> unit
 
@@ -111,13 +103,11 @@ sig
 
   val recv : unit -> (Lib.kind_module * message) list
 
-  val update_child_processes_list : (int * Lib.kind_module) list -> unit
-
   val purge_im_mailbox : ctx -> unit
 
   val check_termination : unit -> bool
 
-  val exit : thread -> unit
+  val exit : worker -> unit
 
 end
 
@@ -146,17 +136,8 @@ struct
   (* Message internal to the messaging system *)
   type control_message =
 
-    (* Process is ready *)
-    | Ready
-
-    (* Request reply from process *)
-    | Ping
-
     (* Request termination of process *)
     | Terminate
-
-    (* Request resending of relay message *)
-    | Resend of int
 
 
   (* Message *)
@@ -169,7 +150,7 @@ struct
     | ControlMessage of control_message
 
     (* Message to be broadcast to worker processes *)
-    | RelayMessage of int * relay_message
+    | RelayMessage of relay_message
 
 
   (* Pretty-print a message *)
@@ -183,20 +164,11 @@ struct
     | OutputMessage (Progress k) ->
       Format.fprintf ppf "@[<h>PROGRESS %d@]" k
 
-    | ControlMessage Ready ->
-      Format.fprintf ppf "Ready"
-
-    | ControlMessage Ping ->
-      Format.fprintf ppf "Ping"
-
     | ControlMessage Terminate ->
       Format.fprintf ppf "Terminate"
 
-    | ControlMessage (Resend i) ->
-      Format.fprintf ppf "Resend %d" i
-
-    | RelayMessage (i, m) ->
-      Format.fprintf ppf "@[<hv>Relay %d@ %a@]" i T.pp_print_message m
+    | RelayMessage m ->
+      Format.fprintf ppf "@[<hv>Relay@ %a@]" T.pp_print_message m
 
 
   (* ******************************************************************** *)
@@ -242,7 +214,7 @@ struct
     ep_inbox : (Lib.kind_module * message) mailbox ;
   }
 
-  type thread = endpoint
+  type worker = endpoint
 
   (* There is one messaging system per process; the handle only makes
      the dependency of workers on the supervisor's setup explicit. *)
@@ -254,10 +226,6 @@ struct
   (* Live worker endpoints. Guarded by [registry_lock]. *)
   let workers : endpoint list ref = ref []
   let registry_lock = Mutex.create ()
-
-  (* Sequence numbers of relay messages. Only informational: delivery
-     is reliable, the numbers are not used to detect losses. *)
-  let relay_seq = Atomic.make 1
 
   (* The endpoint of the calling domain *)
   type role =
@@ -289,10 +257,9 @@ struct
     match get_role () with
     | Uninitialized -> raise NotInitialized
     | Supervisor ->
-      let msg = RelayMessage (Atomic.fetch_and_add relay_seq 1, m) in
-      broadcast_to_workers (`Supervisor, msg)
+      broadcast_to_workers (`Supervisor, RelayMessage m)
     | Worker ep ->
-      let msg = (ep.ep_mdl, RelayMessage (Atomic.fetch_and_add relay_seq 1, m)) in
+      let msg = (ep.ep_mdl, RelayMessage m) in
       enqueue msg im_inbox ;
       broadcast_to_workers ~excep:ep msg
 
@@ -353,9 +320,8 @@ struct
 
   let init_im () = ()
 
-  (* Take the supervisor role. The list of children is not needed:
-     workers register their own endpoints when they start. *)
-  let run_im () _workers _on_exit = set_role Supervisor
+  (* Take the supervisor role *)
+  let run_im () = set_role Supervisor
 
   (* Create and register the endpoint of a worker *)
   let init_worker mdl id () =
@@ -364,18 +330,13 @@ struct
     ep
 
   (* Take the worker role in the calling domain *)
-  let run_worker ep _mdl _on_exit = set_role (Worker ep) ; ep
+  let run_worker ep = set_role (Worker ep) ; ep
 
   (* Unregister the endpoint of a worker *)
   let exit ep =
     Mutex.protect registry_lock (fun () ->
       workers := List.filter (fun w -> w != ep) !workers) ;
     set_role Uninitialized
-
-  (* The supervisor in a modular analysis notifies the messaging
-     system of the children of a new analysis. Nothing to do: workers
-     register their own endpoints when they start. *)
-  let update_child_processes_list _ = ()
 
   (* Drop the messages of the previous analysis. All workers of the
      previous analysis must have exited. *)

@@ -233,19 +233,6 @@ let mk_uf_symbol s a r =
     Mutex.protect uf_symbs_lock (fun () -> uf_symbs := s :: !uf_symbs); s
 
 
-(* Import an uninterpreted symbol from a different instance into the
-   hashcons table 
-
-   TODO: We may have clashes if we import fresh uninterpreted symbols
-   from one instance to another.*)
-let import u = 
-
-  mk_uf_symbol 
-    (name_of_uf_symbol u)
-    (List.map Type.import (arg_type_of_uf_symbol u))
-    (Type.import (res_type_of_uf_symbol u))
-
-
 (* Counter for index of fresh uninterpreted symbols. Atomic so that
    symbols created concurrently in different domains are distinct. *)
 let fresh_uf_symbol_id = Atomic.make 0

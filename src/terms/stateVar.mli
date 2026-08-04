@@ -103,10 +103,6 @@ val mk_depth_input : string list -> t
 (** Creates a scoped depth input. *)
 val mk_max_depth_input : string list -> t
 
-(** Import a state variable from a different instance into this
-   hashcons table *)
-val import : t -> t
-
 (** {1 Accessor functions} *)
 
 (** Return a unique numerical identifier *)

@@ -27,10 +27,6 @@
 
     @author Jason Oxley, Christoph Sticksel *)
 
-exception SocketConnectFailure
-exception SocketBindFailure
-exception BadMessage
-exception InvalidProcessName
 exception NotInitialized
 
 
@@ -59,17 +55,14 @@ sig
 
   (** A message internal to the messaging system *)
   type control_message =
-    | Ready           (** Process is ready *)
-    | Ping            (** Request reply from process *)
     | Terminate       (** Request termination of process *)
-    | Resend of int   (** Request resending of relay message *)
 
   (** A message *)
   type message =
     | OutputMessage of output_message     (** Output to user *)
     | ControlMessage of control_message   (** Message internal to the
                                               messaging system *)
-    | RelayMessage of int * relay_message (** Message to be broadcast
+    | RelayMessage of relay_message       (** Message to be broadcast
                                               to worker processes *)
 
   (** Pretty-print a message *)
@@ -78,8 +71,8 @@ sig
   (** The messaging system of an analysis, created by the supervisor *)
   type ctx
 
-  (** Registration of a worker endpoint *)
-  type thread
+  (** Registration of a worker mailbox *)
+  type worker
 
   (** Create the messaging system in the supervisor. *)
   val init_im : unit -> ctx
@@ -87,15 +80,13 @@ sig
   (** Create and register the mailbox of a worker with the given kind
       module and identifier. Call {!run_worker} in the domain of the
       worker afterwards. *)
-  val init_worker : Lib.kind_module -> int -> ctx -> thread
+  val init_worker : Lib.kind_module -> int -> ctx -> worker
 
-  (** Take the supervisor role in the calling domain. The second
-      parameter is the list of identifiers and kinds of the engines,
-      the third argument is unused and kept for interface stability. *)
-  val run_im : ctx -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
+  (** Take the supervisor role in the calling domain. *)
+  val run_im : ctx -> unit
 
   (** Take the worker role in the calling domain. *)
-  val run_worker : thread -> Lib.kind_module -> (exn -> unit) -> thread
+  val run_worker : worker -> worker
 
   (** Broadcast a message to the other engines and, from a worker, to
       the supervisor *)
@@ -114,10 +105,6 @@ sig
   (** Receive the messages queued in the mailbox of the calling domain *)
   val recv : unit -> (Lib.kind_module * message) list
 
-  (** Notifies the messaging system of a new list of child processes.
-      Used by the supervisor in a modular analysis when restarting. *)
-  val update_child_processes_list : (int * Lib.kind_module) list -> unit
-
   (** Purge the invariant manager mailbox. Should be called between two
       analyses, after all engines of the previous analysis have
       exited. *)
@@ -128,7 +115,7 @@ sig
   val check_termination : unit -> bool
 
   (** Unregister the mailbox of a worker *)
-  val exit : thread -> unit
+  val exit : worker -> unit
 
 end
 

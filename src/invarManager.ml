@@ -145,8 +145,6 @@ let check_pending_processes run_process pending_processes sys child_pids =
       in
       pending_processes := pending ;
       List.iter (fun m -> run_process m) to_run ;
-      (* Update background thread with new kids. *)
-      KEvent.update_child_processes_list !child_pids ;
   )
 
 

@@ -415,30 +415,6 @@ let get_enum_name_of_num n =
   get_constrs_of_num n |> get_enum_name_of_constrs
 
 
-(* Import a type from a different instance into this hashcons table *)
-let rec import { Hashcons.node = n } = match n with 
-  (* Import leaf types directly *)
-  | Bool
-  | Int
-  | IntRange _
-  | Enum _
-  | UBV _
-  | BV _ 
-  | Real as t -> mk_type t
-
-
-  (* Import index and value types of array type *)
-  | Array (i, t) -> mk_array (import i) (import t)
-
-  | Abstr s -> mk_abstr s
-
-  | Datatype (name, ctors) ->
-    let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
-    mk_type (Datatype (name, ctors'))
-
-  | DatatypeRef name -> mk_datatype_ref name
-
-
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()

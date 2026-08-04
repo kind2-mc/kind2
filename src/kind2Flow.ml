@@ -387,24 +387,17 @@ let on_exit_realiz_results in_sys process exn =
   let base_status = status_of_realiz_results in_sys in
   on_exit None process base_status exn
 
-(** Call cleanup function of process and exit.
-Give the exception [exn] that was raised or [Exit] on normal termination. *)
-let on_exit_child ?(_alone=false) messaging_thread process exn =
+(** Call cleanup function of process and exit. Only for the modes that
+run a single process without engine domains (interpreter, contract
+monitor). Give the exception [exn] that was raised or [Exit] on normal
+termination. *)
+let on_exit_child process exn =
   (* Exit status of process depends on exception *)
   let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
   on_exit_of_process process ;
-  Unix.getpid () |> KEvent.log L_debug "Process %d terminating" ;
-
-  ( match messaging_thread with
-    | Some t -> KEvent.exit t
-    | None -> ()
-  ) ;
-
   Debug.kind2 "Process %a terminating" pp_print_kind_module process ;
   KEvent.terminate_log () ;
-  (* Log stats and statuses of properties if run as a single process *)
-  (* if alone then KEvent.log_result sys_opt; *)
   (* Exit process with status *)
   exit status
 
@@ -413,7 +406,7 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
     Give the exception [exn] that was raised or [Exit] on normal
     termination. Returns the unexpected exception the engine terminated
     on, if any. *)
-let on_exit_engine messaging_thread process exn =
+let on_exit_engine messaging_worker process exn =
   (* Log the reason for the termination of the engine. The status
      plays the role of the exit status of the engine process: engines
      used to exit with it. During coordinated termination, exceptions
@@ -429,7 +422,7 @@ let on_exit_engine messaging_thread process exn =
      [SMTSolver.set_shutting_down]). *)
   on_exit_of_process process ;
   (* Unregister the mailbox of the engine. *)
-  KEvent.exit messaging_thread ;
+  KEvent.exit messaging_worker ;
   Debug.kind2 "Process %a terminating" pp_print_kind_module process ;
   if status = ExitCodes.success then None
   (* Failures while the supervisor is terminating the engines are a
@@ -439,14 +432,29 @@ let on_exit_engine messaging_thread process exn =
   else Some exn
 
 
-(** Runs a child process in a new domain. *)
-let run_process in_sys param sys messaging_setup process =
+(** An engine ready to be spawned: identifier assigned, mailbox
+    registered, transition system copied. *)
+type prepared_process = {
+  prep_process : ProcessCall.t ;
+  prep_module : Lib.kind_module ;
+  prep_id : int ;
+  prep_worker : KEvent.mworker ;
+  prep_sys : TSys.t ;
+}
+
+(** Prepares a child process: assigns its identifier, registers its
+    mailbox and copies the transition system.
+
+    The mailboxes of all engines of an analysis must be registered
+    before any of them is spawned: an engine may broadcast messages as
+    soon as it runs, and a message broadcast before the mailbox of a
+    sibling is registered never reaches that sibling. *)
+let prepare_process sys messaging_setup process =
   let kind_module = get_kind_module process in
   (* Identifier of the engine, taking the place of the PID. *)
   let id = EngineDomains.next_id () in
-  (* Register the mailbox of the engine before spawning its domain so
-     that no message sent from now on is missed. *)
-  let messaging_thread =
+  (* Register the mailbox of the engine. *)
+  let messaging_worker =
     KEvent.register_worker kind_module id messaging_setup
   in
   (* The engine works on its own copy of the mutable parts of the
@@ -454,12 +462,22 @@ let run_process in_sys param sys messaging_setup process =
      copy-on-write image of the supervisor's system when engines were
      forked. *)
   let sys = TSys.copy sys in
+  {
+    prep_process = process ;
+    prep_module = kind_module ;
+    prep_id = id ;
+    prep_worker = messaging_worker ;
+    prep_sys = sys ;
+  }
+
+(** Runs a prepared child process in a new domain. *)
+let spawn_process in_sys param
+    { prep_process = process ; prep_module = kind_module ;
+      prep_id = id ; prep_worker = messaging_worker ; prep_sys = sys } =
   try
     EngineDomains.spawn kind_module id (fun () ->
       (* Start messaging for this domain. *)
-      let messaging_thread =
-        KEvent.run_process kind_module messaging_thread (fun _ -> ())
-      in
+      let messaging_worker = KEvent.run_process messaging_worker in
 
       try
 
@@ -505,12 +523,12 @@ let run_process in_sys param sys messaging_setup process =
         (* Run main function of process *)
         main_of_process process in_sys param sys ;
         (* Cleanup *)
-        on_exit_engine messaging_thread kind_module Exit
+        on_exit_engine messaging_worker kind_module Exit
 
       with
       (* Termination message received. *)
       | KEvent.Terminate as e ->
-        on_exit_engine messaging_thread kind_module e
+        on_exit_engine messaging_worker kind_module e
       (* Catch all other exceptions. *)
       | e ->
         (* Get backtrace now, Printf changes it. *)
@@ -523,7 +541,7 @@ let run_process in_sys param sys messaging_setup process =
             print_backtrace backtrace
         ) ;
         (* Cleanup *)
-        on_exit_engine messaging_thread kind_module e
+        on_exit_engine messaging_worker kind_module e
     ) |> ignore ;
 
     (* Keep identifier of engine and return. *)
@@ -531,10 +549,21 @@ let run_process in_sys param sys messaging_setup process =
 
   with e ->
     (* The domain could not be spawned: unregister the mailbox. *)
-    KEvent.unregister_worker messaging_thread ;
+    KEvent.unregister_worker messaging_worker ;
     KEvent.log L_fatal "Could not spawn a domain for %a: %s"
       pp_print_kind_module kind_module
       (Printexc.to_string e)
+
+
+(** Prepares and runs a child process in a new domain. Only for engines
+    joining a running analysis (pending IC3IA instances): the copied
+    transition system already carries the accumulated invariants and
+    property statuses, so missing earlier messages is harmless. The
+    engines started together at the beginning of an analysis must all
+    be prepared before any of them is spawned, see {!prepare_process}. *)
+let run_process in_sys param sys messaging_setup process =
+  prepare_process sys messaging_setup process
+  |> spawn_process in_sys param
 
 
 let create_processes slice_to_prop modules sys =
@@ -663,8 +692,6 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 
       KEvent.log L_debug "Starting child processes." ;
 
-      (* Disable the reception of messages of the invariant manager. *)
-      KEvent.update_child_processes_list [] ;
       (* Get rid of messages from the previous analysis. *)
       KEvent.purge_im msg_setup ;
 
@@ -676,13 +703,15 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 
       let to_run, pending = create_processes slice_to_prop modules sys in
 
-      (* Start all child processes. *)
-      to_run |> List.iter (
-        fun p -> run_process in_sys param sys msg_setup p
-      ) ;
+      (* Register the mailboxes of all child processes before spawning
+         any of them, so that no engine misses the messages of an
+         earlier-spawned sibling. *)
+      let prepared =
+        to_run |> List.map (prepare_process sys msg_setup)
+      in
 
-      (* Update background thread with new kids. *)
-      KEvent.update_child_processes_list !child_pids ;
+      (* Start all child processes. *)
+      prepared |> List.iter (spawn_process in_sys param) ;
 
       (* Running supervisor. *)
       InvarManager.main 
@@ -750,9 +779,9 @@ let run in_sys =
       (* Ignore SIGALRM from now on *)
       Signals.ignore_sigalrm () ;
       (* Cleanup before exiting process *)
-      on_exit_child None m Exit
+      on_exit_child m Exit
     )
-    with e -> on_exit_child None m e
+    with e -> on_exit_child m e
   )
 
   | [m] when m = `CMonitor -> (
@@ -773,9 +802,9 @@ let run in_sys =
       (* Ignore SIGALRM from now on *)
       Signals.ignore_sigalrm () ;
       (* Cleanup before exiting process *)
-      on_exit_child None m Exit
+      on_exit_child m Exit
     )
-    with e -> on_exit_child None m e
+    with e -> on_exit_child m e
   )
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
@@ -834,7 +863,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit_realiz_results in_sys `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -919,7 +948,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit_success `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -956,7 +985,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit_success `Supervisor);
+      KEvent.run_im msg_setup ;
       Flags.Arrays.set_smt true ;
 
       let params = ISys.moxi_params in_sys in
@@ -1055,10 +1084,8 @@ let run in_sys =
 
     (* Set module currently running *)
     KEvent.set_module `Supervisor ;
-    (* Initialize messaging for invariant manager, obtain a background thread.
-    No kids yet. *)
-    KEvent.run_im msg_setup []
-      (on_exit_safety_results in_sys `Supervisor) |> ignore ;
+    (* Take the supervisor role for messaging. *)
+    KEvent.run_im msg_setup ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (

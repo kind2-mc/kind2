@@ -422,9 +422,6 @@ exception Signal of int
 (** String representation of signal *)
 val string_of_signal : int -> string 
 
-(** Pretty-print the termination status of a process *)
-val pp_print_process_status : Format.formatter -> Unix.process_status -> unit
-
 (** Raise exception on signal *)
 val exception_on_signal : int -> 'a
 

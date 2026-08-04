@@ -418,17 +418,6 @@ let mk_max_depth_input scope =
     Type.t_int
 
 
-(* Import a state variable from a different instance into this
-   hashcons table *)
-let import v = 
-  mk_state_var 
-    ~is_input:(is_input v)
-    ~is_const:(is_const v)
-    ~for_inv_gen:(for_inv_gen v)
-    (name_of_state_var v) 
-    (scope_of_state_var v) 
-    (Type.import (type_of_state_var v))
-    
 (* Return a previously declared state variable *)
 let state_var_of_string (state_var_name, state_var_scope) = 
 

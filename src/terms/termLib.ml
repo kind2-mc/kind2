@@ -462,11 +462,6 @@ module Signals = struct
     signals.sigterm <- Exn ;
     set_sig Sys.sigterm exception_on_signal
 
-  (* Sets a handler for sigpipe. *)
-  let set_sigpipe () =
-    signals.sigpipe <- Exn ;
-    set_sig Sys.sigpipe exception_on_signal
-
 
   (* Sets a timeout. *)
   let set_timeout_value ?(interval = 0.) value =

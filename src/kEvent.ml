@@ -126,11 +126,10 @@ let set_module mdl = Domain.DLS.get this_module := mdl
 (* Get module currently running *)
 let get_module () = !(Domain.DLS.get this_module)
 
-(* Setup of the messaging: context and sockets of the invariant
-   manager, ports to connect to for the workers *)
+(* Setup of the messaging system, created by the supervisor *)
 type messaging_setup = EventMessaging.ctx
 
-type mthread = EventMessaging.thread
+type mworker = EventMessaging.worker
 
 (* Create the messaging system in the supervisor *)
 let setup () = EventMessaging.init_im ()
@@ -145,13 +144,12 @@ let register_worker proc id msg_setup =
 
 (* Start messaging for a process. Called in the domain of the engine
    with the registration returned by [register_worker]. *)
-let run_process proc mthread on_exit =
-  EventMessaging.run_worker mthread proc on_exit
+let run_process mworker = EventMessaging.run_worker mworker
 
 
 (* Unregister the mailbox of an engine that never ran because its
    domain could not be spawned *)
-let unregister_worker mthread = EventMessaging.exit mthread
+let unregister_worker mworker = EventMessaging.exit mworker
 
 
 (* Send a termination message to the engine with the given identifier *)
@@ -159,9 +157,7 @@ let terminate_worker id = EventMessaging.send_term_message_to id
 
 
 (* Start messaging for invariant manager *)
-let run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
-=
-  fun ctx pids on_exit -> EventMessaging.run_im ctx pids on_exit
+let run_im : messaging_setup -> unit = fun ctx -> EventMessaging.run_im ctx
 
 
 (* ********************************************************************** *)
@@ -2125,12 +2121,9 @@ let recv () =
            (function 
 
              (* Terminate on TERM message *)
-             | (_, EventMessaging.ControlMessage EventMessaging.Terminate) -> 
+             | (_, EventMessaging.ControlMessage EventMessaging.Terminate) ->
 
                raise Terminate
-
-             (* Drop other control messages *)
-             | _, EventMessaging.ControlMessage _ -> accum 
 
              (* Output log message *)
              | _, 
@@ -2171,7 +2164,7 @@ let recv () =
                accum
 
              (* Return event message *)
-             | mdl, EventMessaging.RelayMessage (_, msg) ->
+             | mdl, EventMessaging.RelayMessage msg ->
 
                (* Return relay message *)
                (mdl, msg) :: accum
@@ -2183,15 +2176,6 @@ let recv () =
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
-
-(* Notifies the background thread of a new list of child
-   processes. Used by the supervisor in a modular analysis when
-   restarting. *)
-let update_child_processes_list new_process_list =
-  try
-    EventMessaging.update_child_processes_list
-      new_process_list
-  with Messaging.NotInitialized -> ()
 
 let purge_im : messaging_setup -> unit =
   fun ctx ->

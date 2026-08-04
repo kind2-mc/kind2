@@ -70,9 +70,6 @@ val mk_free_var : HString.t -> Type.t -> t
 (** Return a fresh free variable *)
 val mk_fresh_var : Type.t -> t
 
-(** Import a variable from a different instance into this hashcons table *)
-val import : t -> t
-
 (** {1 Accessor functions} *)
 
 (** Return the type of the variable *)

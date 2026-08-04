@@ -315,22 +315,6 @@ let mk_free_var s t =
   Hvar.hashcons ht (FreeVar (s, t)) ()
 
 
-(* Import a variable from a different instance into this hashcons table *)
-let import = function 
-
-  | { Hashcons.node = StateVarInstance (v, o) } ->
-    
-    mk_state_var_instance (StateVar.import v) o
-
-  | { Hashcons.node = ConstStateVar v } ->
-    
-    mk_const_state_var (StateVar.import v)
-
-  | { Hashcons.node = FreeVar (s, t) } ->
-
-    mk_free_var (HString.import s) (Type.import t)
-
-
 (* Counter for index of fresh uninterpreted symbols.
    Guarded by [fresh_var_ids_lock]: fresh variables may be created
    concurrently from several domains. *)

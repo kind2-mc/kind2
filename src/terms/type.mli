@@ -109,9 +109,6 @@ val mk_datatype : string -> (string * t list) list -> t
     for use as a field type within that datatype's own constructor list. *)
 val mk_datatype_ref : string -> t
 
-(** Import a type from a different instance into this hashcons table *)
-val import : t -> t 
-
 (** The boolean type *)
 val t_bool : t
 

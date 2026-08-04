@@ -230,9 +230,6 @@ module SymbolMap : Map.S with type key = t
 (** Create a symbol *)
 val mk_symbol : symbol -> t
 
-(** Import symbol from a different instance into this hashcons table *)
-val import : t -> t
-
 (** {1 Static symbols} *)
 
 (** Constant Boolean value symbol *)

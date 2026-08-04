@@ -995,19 +995,6 @@ let string_of_signal = function
   | s when s = Sys.sigprof -> "SIGPROF"
   | s -> string_of_int s
 
-let pp_print_signal ppf s = fprintf ppf "%s" (string_of_signal s)
-
-(* Pretty-print the termination status of a process *)
-let pp_print_process_status ppf = function 
-  | Unix.WEXITED s -> fprintf ppf "exited with return code %d" s
-
-  | Unix.WSIGNALED s -> 
-    fprintf ppf "killed by signal %a" pp_print_signal s
-
-  | Unix.WSTOPPED s -> 
-    fprintf ppf "stopped by signal %a" pp_print_signal s
-
-
 (* Raise exception on signal *)
 let exception_on_signal signal = 
   (* printf "Signal %a caught" pp_print_signal signal; *)

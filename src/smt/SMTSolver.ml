@@ -258,10 +258,6 @@ let kill_solvers_of_domain owner =
       S.kill_instance ())
     entries
 
-(** Delete instance entries (should be called after forking, on child processes). *)
-let delete_instance_entries () =
-  Mutex.protect all_solvers_lock (fun () -> all_solvers := IntMap.empty)
-
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id
 
