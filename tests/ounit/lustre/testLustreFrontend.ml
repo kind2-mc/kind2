@@ -867,10 +867,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
     | _ -> false);
-  (*!!mk_test "test refinement type with ADT bound variable is unsupported" (fun () ->
-    match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
-    | Error (`LustreFlattenRefinementTypesError (_, ADTBoundVariable)) -> true
-    | _ -> false);*)
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
@@ -903,10 +899,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_match_scrutinee_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, MatchScrutineeNotADT _)) -> true
     | _ -> false);
-  (*!!mk_test "test refinement type with ADT bound variable is unsupported" (fun () ->
-    match load_file "./lustreTypeChecker/adt_ref_type_adt_bound.lus" with
-    | Error (`LustreFlattenRefinementTypesError (_, ADTBoundVariable)) -> true
-    | _ -> false);*)
   mk_test "test constructor name clashes with global constant (const before ADT)" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
@@ -963,6 +955,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
     | _ -> false);
+  mk_test "test duplicate field name across constructors is rejected at declaration, even unprojected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_field_name_no_projection.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
+    | _ -> false);
   mk_test "test duplicate field name within constructor of same ADT" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_field_name_in_ctor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldNameInCtor _)) -> true
@@ -986,6 +982,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test non-well-founded ADT (every constructor has a recursive field)" (fun () ->
+    match load_file "./lustreTypeChecker/adt_non_well_founded.lus" with
+    | Error (`LustreTypeCheckerError (_, NonWellFoundedDatatype _)) -> true
+    | _ -> false);
+  mk_test "test ADT recursive field nested in a container type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unsupported_recursive_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an unrelated non-scalar field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_unsupported_recursive_unrelated_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a refinement-typed field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with

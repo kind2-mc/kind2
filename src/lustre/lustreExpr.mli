@@ -526,9 +526,6 @@ val mk_is_constructor : string -> t -> t
 (** Build an ADT selector expression: (CtorName_i e) with the given result type *)
 val mk_selector : string -> Type.t -> t -> t
 
-(** Build a match expression. arms is (ctor_name, vars, arm_body) list. *)
-val mk_match : t -> (string * Var.t list * t) list -> Type.t -> t
-
 
 val mk_array : t -> t -> t
 

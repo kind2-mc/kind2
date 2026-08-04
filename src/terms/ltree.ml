@@ -134,8 +134,6 @@ sig
 
   val mk_forall : var list -> t -> t
 
-  val mk_match : t -> (string * var list * t) list -> t
-
   val mk_annot : t -> attr -> t
 
   val node_of_t : t -> t_node
@@ -1807,14 +1805,6 @@ struct
   (* Constructor for a universal quantification:
      [forall x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_forall x t = ht_forall (mk_lambda x t)
-
-  (* Constructor for a match expression:
-     arms is a list of (ctor_name, vars, body) where vars are the free
-     variables bound by the pattern and body uses those variables *)
-  let mk_match scrut arms =
-    let arms' = List.map (fun (name, vars, body) ->
-      (name, mk_lambda vars body)) arms in
-    ht_match scrut arms'
 
   (* Constructor for annotated term *)
   let mk_annot t a = ht_annot t a

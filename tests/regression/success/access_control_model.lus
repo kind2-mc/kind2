@@ -1,0 +1,233 @@
+type Nssai = [int, int]; 
+type Plmn = [int, int]; 
+type NfId = int; 
+
+type NFType = enum { 
+    AMF,
+    SMF,
+    UPF,
+    NRF,
+    UDM,
+    UDR,
+    DCCF, 
+    NWDAF
+};
+
+type Service = enum {
+    NsmfPdusession
+};
+
+type ServiceStatus = enum {
+    REGISTERED,
+    SUSPENDED,
+    UNREGISTERED
+};
+
+type Operation = enum {
+    READ,
+    WRITE,
+    DELETE
+};
+
+type Kind = enum { ServiceLevel, OperationLevel };
+
+type ScopeToken = struct {
+    kind : Kind;
+    service: Service;
+    operation: Operation;
+};
+
+type CCA = struct {
+    sub: NfId;
+    aud: NFType;
+};
+
+type nf_service = struct {
+    service_name: Service;
+    service_status: ServiceStatus;
+    oauth2_supported: bool;
+
+    allowed_nf_types: set<NFType>;
+    allowed_nssais: set<Nssai>;
+    allowed_plmns: set<Plmn>;
+
+    allowed_operations_per_nf_type: map<NFType, set<Operation>>; 
+    allowed_operations: set<Operation>;
+    allowed_operations_per_nf_instance: map<NfId, set<Operation>>;
+};
+
+type nf_profile = struct {
+    nf_id: NfId;
+    nf_type: NFType;
+    plmn_list: set<Plmn>;
+    snssais: set<Nssai>;
+    nf_status: bool;
+
+    allowed_nf_types: set<NFType>;
+    allowed_nssais: set<Nssai>;
+    allowed_plmn: set<Plmn>;
+
+    nf_services: [nf_service, nf_service]; 
+};
+
+type AccessTokenReq = struct {
+    consumer_nf_id: NfId;
+    consumer_nf_type: NFType;
+
+    source_nf_id: NfId;
+    source_nf_type: NFType;
+
+    target_nf_type: NFType;
+    target_nf_id: NfId;
+    scope: set<ScopeToken>;
+
+    consumer_plmn: Plmn;
+    target_plmn: Plmn;
+    source_plmn: Plmn;
+    consumer_plmn_list: set<Plmn>;
+
+    consumer_snssai_list: set<Nssai>;
+    target_snssai_list: set<Nssai>;
+    source_snssai_list: set<Nssai>;
+
+    cca: CCA 
+};
+
+type token_response = struct {
+    expires_in: int;
+    scope: set<ScopeToken>;
+};
+
+type DiscoveryRequest = struct {
+    target_nf_type: NFType;
+    requester_nf_type: NFType;
+    requester_nf_id: NfId;
+
+    scope: set<ScopeToken>;
+    requester_snssais: set<Nssai>;
+    target_snssais: set<Nssai>;
+    requester_plmn_list: set<Plmn>;
+    target_plmn_list: set<Plmn>;
+};
+
+type discovery_response = struct {
+    result_found: bool;
+    nf_profiles: Option<[nf_profile, nf_profile]>; 
+};
+
+type jwt_token = struct {
+    iss: NfId; 
+    sub: NfId; 
+    aud: NfId; 
+
+    consumer_nf_type: NFType;
+    source_nf_id: NfId;
+
+    consumer_plmn: Plmn;
+    consumer_plmn_list: set<Plmn>;
+
+    scope: set<ScopeToken>;
+    target_snssais: set<Nssai>;
+    target_plmn_list: set<Plmn>;
+
+    exp: int;
+    iat: int;
+};
+
+type service_request = struct {
+    cca: CCA;
+    service_name: Service;
+    scope: set<ScopeToken>;
+    requested_slice: set<Nssai>; 
+    consumer_snssais: set<Nssai>; 
+    consumer_plmn_list: set<Plmn>;
+};
+
+type nrf_state = struct {
+    nf_profiles: map<NfId, nf_profile>;
+    nf_profiles_by_type: map<NFType, set<NfId>>;
+};
+
+datatype nrf_request_type = 
+    discover_nf(discovery_request: DiscoveryRequest)
+|   register_nf(profile: nf_profile)
+|   request_access_token(acccess_token_req: AccessTokenReq);
+
+datatype nrf_response_type = 
+    discover_nf_response(discovery_response: discovery_response)
+|   register_nf_response
+|   request_access_token_response(acccess_token_response: jwt_token);
+
+datatype Option <D> = None | Some (val: D);
+
+const initial_nrf_state: nrf_state = nrf_state { 
+        nf_profiles = map[]@<NfId, nf_profile>; 
+        nf_profiles_by_type = map[]@<NFType, set<NfId>>
+    };
+
+
+node check_membership<T>(inp : [T, T]; x: T) returns (result : bool)
+let
+    result = x = inp[0] or x = inp[1];
+tel
+
+node nf() returns ()
+let
+    check true;
+tel
+
+function handle_discover_request(state: nrf_state; discovery_request: DiscoveryRequest) returns (new_state: nrf_state; response: nrf_response_type)
+var requester_nf_id_present: bool;
+var requester_type_match: bool;
+var target_nf_type_exists: bool;
+var requester_plmn_is_subset: bool;
+
+let
+    new_state = state;
+
+    requester_nf_id_present = discovery_request.requester_nf_id in state.nf_profiles;
+    requester_type_match = state.nf_profiles[discovery_request.requester_nf_id].nf_type <> discovery_request.requester_nf_type;
+    requester_nf_id_present = discovery_request.target_nf_type in state.nf_profiles_by_type;
+    requester_plmn_is_subset = true;
+
+    if not requester_nf_id_present or not requester_type_match or not requester_nf_id_present or not requester_plmn_is_subset then
+        response = discover_nf_response(discovery_response { result_found = false; nf_profiles = None@<[nf_profile, nf_profile]> });
+    else
+        response = discover_nf_response(choose @<discovery_response>);
+    fi
+tel
+
+function handle_register_nf(state: nrf_state; profile: nf_profile) returns (new_state: nrf_state; response: nrf_response_type)
+let
+    new_state = state;
+    response = register_nf_response;
+tel
+
+function handle_request_access_token(state: nrf_state; acccess_token_req: AccessTokenReq) returns (new_state: nrf_state; response: nrf_response_type)
+let
+    new_state = state;
+    response = request_access_token_response(choose @<jwt_token>);
+tel
+
+function handle_initialization() returns (initial_state: nrf_state; initial_response: nrf_response_type)
+let
+    initial_state = initial_nrf_state;
+    initial_response = choose @<nrf_response_type>;
+tel
+
+node nrf(request: nrf_request_type) returns (response: nrf_response_type)
+var state: nrf_state;
+let
+    state, response = handle_initialization() -> match request with
+    | discover_nf(discovery_request): handle_discover_request(pre state, discovery_request)
+    | register_nf(profile): handle_register_nf(pre state, profile)
+    | request_access_token(acccess_token_req): handle_request_access_token(pre state, acccess_token_req)
+    end;
+
+    check true;
+tel
+
+node main() returns ()
+let
+    check true;
+tel

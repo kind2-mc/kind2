@@ -309,6 +309,9 @@
     <xs:attribute name="values" type="xs:string"/>
     <!-- Additional attributes for abstract type -->
     <xs:attribute name="abstrName" type="xs:string"/>
+    <!-- Additional attributes for datatype -->
+    <xs:attribute name="datatypeName" type="xs:string"/>
+    <xs:attribute name="constructors" type="xs:string"/>
     <!-- -->
     <xs:attribute name="class" type="StreamClass" use="required"/>
   </xs:complexType>

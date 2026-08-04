@@ -356,6 +356,7 @@ function
 
 | ADTTerm (_, _, _, args) ->
   List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
+| AbstractSymConst _ -> assert false 
 
 | ADTTester (_, e, _) -> has_stateful_op ctx e
 
@@ -372,7 +373,7 @@ function
       | GenericIndex (_, e)
       | MapIndex (_, e)
       | SetIndex (_, e)
-      | Index (_, e) -> has_stateful_op ctx e
+      | Index (_, e, _) -> has_stateful_op ctx e
       )
     )
     false li
@@ -854,6 +855,7 @@ let rec expr_only_supported_in_merge observer expr =
     r observer e >>
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, _, args) -> r_list observer args
+  | AbstractSymConst _ -> assert false 
   | ADTTester (_, e, _) -> r observer e
 
 let check_opacity pos node_id contract is_ext = function
@@ -954,16 +956,11 @@ and check_output_items (pos, _id, _ty, clock) =
 
 and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> error]) result
 = fun ctx local -> match local with
-  | LA.NodeConstDecl (_, FreeConst (_, _, _)) ->
-    Ok ([])
-  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) ->
-    check_const_expr_decl i ctx e
-  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) ->
-    check_const_expr_decl i ctx e
-  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) ->
-    Ok ([])
-  | NodeVarDecl (_, (pos, i, _, _)) ->
-    syntax_error pos (UnsupportedClockedLocal i)
+  | LA.NodeConstDecl (_, FreeConst (_, _, _)) -> Ok ([])
+  | LA.NodeConstDecl (_, UntypedConst (_, i, e)) -> check_const_expr_decl i ctx e
+  | LA.NodeConstDecl (_, TypedConst (_, i, e, _)) -> check_const_expr_decl i ctx e
+  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ([])
+  | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
@@ -1377,8 +1374,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       in
       let l =
          List.filter_map
-          (function | LA.Label _ -> None | Index (_, e) 
-                    | GenericIndex (_, e) | MapIndex (_, e) | SetIndex (_, e) -> 
+          (function | LA.Label _ -> None | Index (_, e, _)
+                    | GenericIndex (_, e) | MapIndex (_, e) | SetIndex (_, e) ->
           (* Procrastinate on dangling identifier checks for lone Ident expressions 
              until type checking. This is necessary because we don't have the 
              right context to distinguish a dangling identifier from one referencing 
@@ -1437,6 +1434,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings1 = check_expr_list ctx f args in
       let* warnings2 = Res.seq (List.map (check_ty ctx f) ty_args) in
       Ok (warnings1 @ List.flatten warnings2)
+    | AbstractSymConst _ -> assert false 
     | ADTTester (_, e, _) -> check_expr ctx f e
   in
   let* warnings1 = res in

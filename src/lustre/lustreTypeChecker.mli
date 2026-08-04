@@ -111,6 +111,9 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
+  | UnsupportedRecursiveAdtField of HString.t * HString.t
+  | RecursiveFieldWithTypeArgs of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t

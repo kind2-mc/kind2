@@ -99,6 +99,10 @@ type access_kind =
   | Tuple
   | Unknown
 
+(* Whether an Index within a structural update (StructUpdate) replaces a
+   tuple slot or an array element. *)
+type struct_update_index_kind = TupleSlot | ArrayElem
+
 (** Pattern for match expressions *)
 type pattern =
   | VarPat of position * ident              (* variable binding *)
@@ -157,6 +161,8 @@ type expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (* Symbolic default value for an abstract type, used as a junk payload field in desugared ADTs. *)
+  | AbstractSymConst of position * lustre_type
   (* ADT tester: C?(e) tests whether e was built with constructor C *)
   | ADTTester of position * expr * ident
 
@@ -187,7 +193,7 @@ and typed_ident = position * ident * lustre_type
 (* A record field or an array or tuple index *)
 and label_or_index = 
   | Label of position * index
-  | Index of position * expr
+  | Index of position * expr * struct_update_index_kind
   | MapIndex of position * expr (* expr not restricted to integers *)
   | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)
@@ -724,6 +730,9 @@ and pp_print_expr ppf =
         pp_print_expr e
         (pp_print_list pp_arm " ") arms
 
+    | AbstractSymConst (_, ty) ->
+      Format.fprintf ppf "_abstract_sym_const(%a)" pp_print_lustre_type ty
+
     | ADTTester (_, e, c) ->
       Format.fprintf ppf "%a?(%a)"
         HString.pp_print_hstring c
@@ -850,7 +859,7 @@ and pp_print_label_or_index ppf = function
   | GenericIndex (_, e)
   | MapIndex (_, e)
   | SetIndex (_, e)
-  | Index (_, e) -> pp_print_expr ppf e
+  | Index (_, e, _) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function

@@ -111,6 +111,10 @@ type group_expr =
 
 type access_kind = Array | Map | Tuple | Unknown
 
+(** Whether an [Index] within a structural update ([StructUpdate])
+    replaces a tuple slot or an array element. *)
+type struct_update_index_kind = TupleSlot | ArrayElem
+
 (** Pattern for match expressions *)
 type pattern =
   | VarPat of position * ident              (** variable binding *)
@@ -149,7 +153,7 @@ and expr =
      The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
      field name is still the user-written name (set by the type checker); the
      desugarer rewrites it to the internal payload field name and clears it to
-     None. It is None for record projections and for already-desugared ADT ones. *)
+     None. It is None for record projections and for already-desugared (non-recursive) ADT ones. *)
   | FieldProject of position * expr * index * lustre_type option
   (* Values *)
   | Const of position * constant
@@ -193,6 +197,9 @@ and expr =
   | ADTTerm of position * lustre_type list * ident * expr list
   (* Pattern matching on ADT values *)
   | Match of position * expr * (pattern * expr) list * lustre_type option
+  (** Symbolic default value for an abstract type, used as a junk payload field
+      in desugared ADTs. *)
+  | AbstractSymConst of position * lustre_type
   (* ADT tester: C?(e) checks whether e was constructed with C *)
   | ADTTester of position * expr * ident
 
@@ -202,7 +209,9 @@ and typed_ident = position * ident * lustre_type
 (** A record field or an array or tuple index *)
 and label_or_index = 
   | Label of position * index
-  | Index of position * expr
+  | Index of position * expr * struct_update_index_kind
+    (** Set by the type checker from the updated expression's type: whether
+        this replaces a whole tuple slot or a single array element. *)
   | MapIndex of position * expr (* expr not restricted to integers *)
   | SetIndex of position * expr
   (* Constructor used at parse time before the index type is known *)

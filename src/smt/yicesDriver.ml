@@ -136,7 +136,8 @@ and pp_print_type_node ppf = function
         "(-> %a %a)" 
         pp_print_type ti
         pp_print_type te
-    | Type.Datatype _ -> assert false
+    | Type.Datatype _
+    | Type.DatatypeRef _ -> failwith "Yices does not support algebraic datatypes"
 
 (* Pretty-print a hashconsed variable *)
 
@@ -154,7 +155,8 @@ let rec interpr_type t = match Type.node_of_type t with
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
     else Type.mk_array te' ti'
-  | Type.Datatype _ -> assert false
+  | Type.Datatype _
+  | Type.DatatypeRef _ -> failwith "Yices does not support algebraic datatypes"
 
 
 let pp_print_sort ppf t = pp_print_type ppf (interpr_type t)

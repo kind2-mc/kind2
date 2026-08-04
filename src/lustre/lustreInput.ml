@@ -70,7 +70,6 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
-  | `LustreFlattenRefinementTypesError of Lib.position * LFR.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -244,8 +243,8 @@ let type_check declarations =
     let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 19. Flatten refinement types *)
-    let* const_inlined_type_and_consts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_type_and_consts in
-    let* const_inlined_nodes_and_contracts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_nodes_and_contracts in
+    let const_inlined_type_and_consts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_type_and_consts in
+    let const_inlined_nodes_and_contracts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 20. Check no quantified variable in argument of non-inlinable function *)
     let inlinable_funcs =

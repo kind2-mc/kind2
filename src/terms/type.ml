@@ -39,6 +39,9 @@ type kindtype =
   | Array of t * t
   | Abstr of string
   | Datatype of string * (string * t list) list
+  (* Placeholder for a direct self-reference in a Datatype's own constructor
+     field list, distinct from a real (populated) Datatype of the same name. *)
+  | DatatypeRef of string
 
 (* A private type that cannot be constructed outside this module
 
@@ -116,6 +119,8 @@ module Kindtype_node = struct
           List.for_all2 (==) ts1 ts2)
         ctors1 ctors2
     | Datatype _, _ -> false
+    | DatatypeRef n1, DatatypeRef n2 -> n1 = n2
+    | DatatypeRef _, _ -> false
 
 end
 
@@ -244,6 +249,8 @@ let rec pp_print_type_node ppf = function
 
   | Datatype (name, _) -> Format.pp_print_string ppf name
 
+  | DatatypeRef name -> Format.pp_print_string ppf name
+
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
@@ -304,6 +311,8 @@ let rec pp_print_type_node_debug ppf = function
 
   | Datatype (name, _) -> Format.pp_print_string ppf name
 
+  | DatatypeRef name -> Format.pp_print_string ppf name
+
 (* Pretty-print a hashconsed variable *)
 and pp_print_type_debug ppf { Hashcons.node = t } = pp_print_type_node_debug ppf t
 
@@ -341,6 +350,8 @@ let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
 
 let mk_datatype name ctors = Hkindtype.hashcons ht (Datatype (name, ctors)) ()
+
+let mk_datatype_ref name = Hkindtype.hashcons ht (DatatypeRef name) ()
 
 
 module HNum = Hashtbl.Make (struct
@@ -418,6 +429,8 @@ let rec import { Hashcons.node = n } = match n with
   | Datatype (name, ctors) ->
     let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
     mk_type (Datatype (name, ctors'))
+
+  | DatatypeRef name -> mk_datatype_ref name
 
 
 (* Static values *)
@@ -546,6 +559,14 @@ let name_of_datatype = function
   | { Hashcons.node = Datatype (name, _) } -> name
   | _ -> raise (Invalid_argument "name_of_datatype")
 
+let is_datatype_ref { Hashcons.node = t } = match t with
+  | DatatypeRef _ -> true
+  | _ -> false
+
+let name_of_datatype_ref = function
+  | { Hashcons.node = DatatypeRef name } -> name
+  | _ -> raise (Invalid_argument "name_of_datatype_ref")
+
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
@@ -661,6 +682,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
 
     (* Datatypes are nominally typed *)
     | Datatype (n1, _), Datatype (n2, _) -> n1 = n2
+    | DatatypeRef n1, DatatypeRef n2 -> n1 = n2
 
     (* No other subtype relationships *)
     | _ -> false

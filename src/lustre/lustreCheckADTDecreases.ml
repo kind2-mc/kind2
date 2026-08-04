@@ -101,7 +101,7 @@ let rec collect_rec_calls scc_map caller_scc expr =
     let sub = go_list args in
     if in_scc then (pos, callee_id, args) :: sub else sub
   | LA.Ident _ | LA.ModeRef _ | LA.Const _
-  | LA.Last _ | LA.EmptySet _ | LA.EmptyMap _ -> []
+  | LA.Last _ | LA.EmptySet _ | LA.EmptyMap _ | LA.AbstractSymConst _ -> []
   | LA.Pre (_, e) | LA.UnaryOp (_, _, e) | LA.ConvOp (_, _, e)
   | LA.TypeAscription (_, e, _) | LA.When (_, e, _)
   | LA.FieldProject (_, e, _, _) | LA.ADTTester (_, e, _)

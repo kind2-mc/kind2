@@ -1,0 +1,13 @@
+-- Same as set_enum_key_equality_diff, but the enum dimension comes from the
+-- discriminant of an algebraic datatype element type.
+
+datatype D = A (a: int) | B (b: bool);
+
+node main(i: int) returns (ok: bool);
+var u, v: set<D>;
+let
+  u = { A(i) };
+  v = { B(true) };
+  ok = u = v;
+  check ok;
+tel

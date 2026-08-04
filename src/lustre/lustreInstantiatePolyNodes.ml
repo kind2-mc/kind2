@@ -355,9 +355,9 @@ and gen_poly_decls_loi
   in
   match loi with
   | A.Label _ -> ctx, gids, loi, [], node_decls_map
-  | A.Index (p, e) ->
+  | A.Index (p, e, k) ->
     let ctx, gids, e, decls, ndm = re e in
-    ctx, gids, A.Index (p, e), decls, ndm
+    ctx, gids, A.Index (p, e, k), decls, ndm
   | A.MapIndex (p, e) ->
     let ctx, gids, e, decls, ndm = re e in
     ctx, gids, A.MapIndex (p, e), decls, ndm
@@ -397,7 +397,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, Call (pos, [], node_id, exprs), decls, node_decls_map
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
-  | Const _
+  | Const _ | AbstractSymConst _
   | ModeRef _ -> ctx, gids, expr, [], node_decls_map
   | FieldProject (p, expr, id, ty_opt) ->
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in
@@ -769,10 +769,7 @@ and gen_poly_decls_decls
 
 (* ---- ADT Type Monomorphization ---- *)
 
-(* Canonical position-independent key for a (adt_name, ty_args) pair.
-   Used both here (to name the inserted TypeDecl) and in lustreNodeGen
-   (to look up the compiled concrete type). The two sites must use
-   identical formatting so that StringMap.find succeeds. *)
+(* Canonical position-independent key for a (adt_name, ty_args) pair. *)
 let adt_mono_key id ty_args =
   Format.asprintf "%a<%a>"
     HString.pp_print_hstring id
@@ -844,6 +841,7 @@ let rec collect_poly_adt_uses_expr ctx acc expr =
     (match ty_opt with Some ty -> rt acc ty | None -> acc)
   | A.ADTTester (_, e, _) -> re acc e
   | A.Last _ -> acc
+  | A.AbstractSymConst (_, ty) -> rt acc ty
 
 let collect_poly_adt_uses_node_item ctx acc ni =
   match ni with

@@ -126,6 +126,9 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
+  | UnsupportedRecursiveAdtField of HString.t * HString.t
+  | RecursiveFieldWithTypeArgs of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -280,14 +283,29 @@ let error_message kind = match kind with
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
-  | InvalidDecreasesType ty ->
-    "Decreases measure must be an integer or algebraic data type expression, but found type "
-    ^ string_of_tc_type ty
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
+  | InvalidDecreasesType ty ->
+    "Decreases measure must be an integer or algebraic data type expression, but found type "
+    ^ string_of_tc_type ty
+  | UnsupportedRecursiveAdtField (ty_name, field) ->
+    "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
+    ^ HString.string_of_hstring field
+    ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
+       fields must each be either a scalar type or a direct self-reference, so this is not yet \
+       supported"
+  | RecursiveFieldWithTypeArgs (ty_name, field) ->
+    "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
+    ^ HString.string_of_hstring field
+    ^ "' applied to type arguments; polymorphic recursive datatypes are not yet supported"
+  | UnsupportedRefinementInRecursiveAdtField (ty_name, field) ->
+    "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
+    ^ HString.string_of_hstring field
+    ^ "' with a refinement type; refinement types on fields of recursive datatypes \
+       are not yet supported"
 
-type warning_kind = 
+type warning_kind =
   | UnusedBoundVariableWarning of HString.t
 
 let warning_message warning = match warning with
@@ -416,6 +434,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map (check_clocks clock) args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
+    | LA.AbstractSymConst _ -> assert false 
     | LA.ADTTester (_, e, _) -> check_clocks clock e
   in
   let rec check_merge: LA.expr -> ( unit, [> error])
@@ -468,6 +487,7 @@ let no_mismatched_clock is_bool e =
     | LA.ADTTerm (_, ty_args, _, args) ->
       Res.seq_ (List.map check_merge args) >>
       Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
+    | LA.AbstractSymConst _ -> assert false 
     | LA.ADTTester (_, e, _) -> check_merge e
   in
   check_merge e
@@ -651,6 +671,7 @@ let rec infer_const_attr ctx exp =
     let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
     let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
     combine r_args r_tys
+  | LA.AbstractSymConst _ -> assert false 
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -890,7 +911,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
       ) adt_ty_args) in
       let* args = R.seq (List.map call args) in
       R.ok (LA.ADTTerm (pos, adt_ty_args, ctor, args))
-      
+    | LA.AbstractSymConst (pos, ty) ->
+      let* ty = instantiate_type_variables ctx pos nname ty ty_args in
+      R.ok (LA.AbstractSymConst (pos, ty))
+
 let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
   let rec_call = expand_type_syn_reftype ~expand_history ctx in
   match ty with
@@ -1276,25 +1300,27 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     if List.length i_or_ls != 1
     then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
-      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in 
+      let* i_or_ls = R.seq (List.map (desugar_generic_index ctx nname ue) i_or_ls) in
       (match List.hd i_or_ls with
       | LA.GenericIndex _ -> assert false (* handled by desugar_generic_index *)
-      | LA.Label (pos, l) ->  
-          infer_type_expr ctx nname ue
-          >>= (function 
-              | RecordType (_, _, flds) as r_ty, ue, warnings1 ->
+      | LA.Label (pos, l) ->
+          let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
+          let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+          (match ue_ty' with
+              | RecordType (_, _, flds) ->
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                     | Some f_ty ->
                       let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
                       R.ifM (eq_lustre_type ctx f_ty e_ty)
-                        (R.ok (r_ty, LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2))
+                        (R.ok (ue_ty', LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2))
                         (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty)))
                     | None -> type_error pos (NotAFieldOfRecord l)))
-              | r_ty, _, _ -> type_error pos (IlltypedUpdateWithLabel r_ty))
-      | LA.Index (pos, i) ->
+              | _ -> type_error pos (IlltypedUpdateWithLabel ue_ty))
+      | LA.Index (pos, i, _) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-        (match ue_ty with
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+        (match ue_ty' with
         | TupleType _ -> (
           let* idx =
             match LH.get_const_num_value i with
@@ -1303,7 +1329,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           in
           let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* ue, warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
-          R.ok (ue_ty, LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2 @ warnings3)
+          R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.TupleSlot)], Some e), warnings1 @ warnings2 @ warnings3)
         )
         | ArrayType (_, (b_ty, _)) -> (
           let* index_type, i, warnings1 = infer_type_expr ctx nname i in
@@ -1311,36 +1337,52 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           let i, b = is_expr_int_type ctx nname i in
           if b then
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
-            R.ifM (eq_lustre_type ctx b_ty e_ty)
-              (R.ok (ue_ty, LA.StructUpdate (pos, ue, LA.Index (pos, i) :: List.tl i_or_ls, Some e), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (e_ty, b_ty)))
+            (*** TODO: Address the bug that makes this necessary ***)
+            let nested_array_update_pos = function
+              | LA.StructUpdate (p, _, [LA.Index (_, _, LA.ArrayElem)], Some _) -> Some p
+              | _ -> None
+            in
+            (match nested_array_update_pos ue, nested_array_update_pos e with
+            | Some p, _ | None, Some p ->
+              type_error p
+                (Unsupported "An array-element update whose updated array \
+                              or new value is itself an array-element \
+                              update is not supported; assign the inner \
+                              update to a local variable first")
+            | None, None ->
+              R.ifM (eq_lustre_type ctx b_ty e_ty)
+                (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
+                (type_error pos (ExpectedType (e_ty, b_ty))))
+            (*** (end) ***)
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
         | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty)
         )
-      | LA.MapIndex (p, idx_e) -> 
+      | LA.MapIndex (p, idx_e) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-         (match ue_ty with 
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+         (match ue_ty' with
          | Map (_, kt, vt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
               (let* e_ty, e, warnings3 = infer_type_expr ctx nname (Option.get e) in
                 R.ifM (eq_lustre_type ctx e_ty vt)
-                  (R.ok (ue_ty, LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
+                  (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
                   (type_error pos (ExpectedType (e_ty, vt))))
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
-      | LA.SetIndex (p, idx_e) -> 
+      | LA.SetIndex (p, idx_e) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
-         (match ue_ty with 
+        let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
+         (match ue_ty' with
          | Set (_, kt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
-              (R.ok (ue_ty, LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
+              (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
               (type_error pos (ExpectedType (index_type, kt)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
@@ -1669,6 +1711,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         let checked_args, warnings = List.split pairs in
         R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
     )
+  | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
 and check_array_dimensions pos ctx base_e idxs =
@@ -1795,6 +1838,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
+  | LA.AbstractSymConst _ -> R.ok (expr, [])
 
 (** Type checks an expression and returns [ok]
  * if the expected type is the given type [tc_type]
@@ -1807,9 +1851,9 @@ and desugar_generic_index ctx nname ue idx = match idx with
        (justification for ignoring expression output of `infer_type_expr` *)
     let* ty, _, _ = infer_type_expr ctx nname ue in 
     let* ty = expand_type_syn_reftype_history ctx ty in (
-    match ty with 
-    | LA.TupleType _ 
-    | LA.ArrayType _ -> Ok (LA.Index (pos, e2))
+    match ty with
+    | LA.TupleType _ -> Ok (LA.Index (pos, e2, LA.TupleSlot))
+    | LA.ArrayType _ -> Ok (LA.Index (pos, e2, LA.ArrayElem))
     | LA.Map _ -> Ok (LA.MapIndex (pos, e2))
     | LA.RecordType _ -> (
       match e2 with 
@@ -2038,17 +2082,18 @@ and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr
 
 and check_type_tuple_proj : Lib.position -> tc_context -> NI.t option -> LA.expr -> int -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty ->
-  infer_type_expr ctx nname expr
-  >>= function
-  | TupleType (_, tys) as ty, expr, warnings ->
+  let* ty, expr', warnings = infer_type_expr ctx nname expr in
+  let* ty' = expand_type_syn_reftype_history ctx ty in
+  match ty' with
+  | TupleType (_, tys) ->
     if List.length tys <= idx
-    then type_error pos (TupleIndexOutOfBounds (idx, ty))
+    then type_error pos (TupleIndexOutOfBounds (idx, ty'))
     else R.ok (List.nth tys idx)
     >>= fun ity ->
     R.ifM (eq_lustre_type ctx ity exp_ty)
-      (R.ok (expr, warnings))
+      (R.ok (expr', warnings))
       (type_error pos (UnificationFailed (exp_ty, ity)))
-  | ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
+  | _ -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
 
 and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type -> (LA.const_decl * [> warning] list, [> error]) result =
   fun ctx nname const_decl exp_ty ->
@@ -2829,7 +2874,7 @@ and check_no_index_access ctx nname ty e =
         | LA.MapIndex (_, e)
         | LA.SetIndex (_, e)
         | LA.GenericIndex (_, e)
-        | LA.Index (_, e) -> r e
+        | LA.Index (_, e, _) -> r e
       ) li) >>
     r e2
   | StructUpdate (_, e1, li, None) ->
@@ -2839,7 +2884,7 @@ and check_no_index_access ctx nname ty e =
         | LA.MapIndex (_, e)
         | LA.SetIndex (_, e)
         | LA.GenericIndex (_, e)
-        | LA.Index (_, e) -> r e
+        | LA.Index (_, e, _) -> r e
       ) li)
   | Pre (_, e) ->
     r e
@@ -2852,6 +2897,7 @@ and check_no_index_access ctx nname ty e =
   | LA.ADTTerm (_, ty_args, _, args) ->
     Res.seq_ (List.map r args) >>
     Res.seq_ (List.map (LH.fold_lustre_ty r (R.ok ()) (>>)) ty_args)
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 and check_array_size_expr ctx nname ty e =
@@ -2978,6 +3024,7 @@ and expr_contains_set_binop ctx ni expr =
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || r e) false args
     || List.fold_left (fun acc ty -> acc || LH.fold_lustre_ty r false (||) ty) false ty_args
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
@@ -3054,7 +3101,11 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         match expanded with
         | LA.ADT _ (* Already validated at declaration *)
         | LA.UserType _ -> R.ok (ty', [])  
-        | _ -> check_type_well_formed_rec is_nested expanded
+        | _ ->
+          (* Validate the expanded form,
+             but don't substitute in the expanded UserType *)
+          let* _, warnings = check_type_well_formed_rec is_nested expanded in
+          R.ok (ty', warnings)
       ) else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
@@ -3069,6 +3120,18 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             type_error pos (UndeclaredType i)
       )
     | ADT (pos, new_ty_name, ctors) ->
+      (* Reject polymorphic recursive ADTs for now *)
+      let* () =
+        match List.concat_map (fun (_, fields) ->
+          List.filter_map (fun (fn, ty) -> match ty with
+            | LA.UserType (_, (_ :: _), _) when LH.is_direct_self_reference new_ty_name ty ->
+              Some fn
+            | _ -> None
+          ) fields
+        ) ctors with
+        | fn :: _ -> type_error pos (RecursiveFieldWithTypeArgs (new_ty_name, fn))
+        | [] -> R.ok ()
+      in
       let* ctors, all_warnings = R.seq (List.map (fun (ctor, fields) ->
         let* _ = (match lookup_constructor ctx ctor with
           | Some (existing_ty_name, _) ->
@@ -3093,13 +3156,81 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         ) fields) |> R.map List.split in
         R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
+      (* Field names must be unique across all constructors, not just within one: dot-
+         notation projection resolves a field by name alone, so reusing a name would be
+         ambiguous. *)
+      let* () =
+        let seen = Hashtbl.create 8 in
+        match List.concat_map (fun (ctor, fields) ->
+          List.filter_map (fun (fn, _) ->
+            match Hashtbl.find_opt seen fn with
+            | Some other_ctor -> Some (fn, other_ctor, ctor)
+            | None -> Hashtbl.add seen fn ctor; None
+          ) fields
+        ) ctors with
+        | (fn, ctor1, ctor2) :: _ -> type_error pos (DuplicateFieldName (fn, ctor1, ctor2))
+        | [] -> R.ok ()
+      in
+      (* TODO: Extend to handle mutual recursion *)
+      let is_recursive_field = LH.is_direct_self_reference new_ty_name in
+      let mentions_self = LH.contains_subtype_satisfying (function
+        | LA.UserType (_, _, id) | LA.ADT (_, id, _) -> HString.equal id new_ty_name
+        | _ -> false)
+      in
+      let is_recursive_adt =
+        List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> mentions_self ty) fields) ctors
+      in
+      let rec is_scalar_field_type ty = match ty with
+        | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+        | LA.EnumType _ | LA.AbstractType _ | LA.ADT _ -> true
+        | LA.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ty
+        | LA.UserType (_, ty_args, id) ->
+          (match lookup_ty_syn ctx id ty_args with
+           | Some ty -> is_scalar_field_type ty
+           | None -> true)
+        | LA.TupleType _ | LA.GroupType _ | LA.RecordType _
+        | LA.ArrayType _ | LA.Set _ | LA.Map _ | LA.TArr _ | LA.History _ -> false
+      in
+      let* () =
+        if not is_recursive_adt then R.ok ()
+        else
+          match List.concat_map (fun (_, fields) ->
+            List.filter_map (fun (fn, ty) ->
+              if is_recursive_field ty || is_scalar_field_type ty then None
+              else Some fn
+            ) fields
+          ) ctors with
+          | fn :: _ -> type_error pos (UnsupportedRecursiveAdtField (new_ty_name, fn))
+          | [] -> R.ok ()
+      in
+      (* Reject refinement types on ADT fields for now *)
+      let rec expand_ty_syn_chain ty = match ty with
+        | LA.UserType (_, ty_args, id) ->
+          (match lookup_ty_syn ctx id ty_args with
+           | Some ty -> expand_ty_syn_chain ty
+           | None -> ty)
+        | _ -> ty
+      in
+      let ty_contains_refinement ty =
+        LH.contains_subtype_satisfying
+          (function LA.RefinementType _ -> true | _ -> false)
+          (expand_ty_syn_chain ty)
+      in
+      let* () =
+        if not is_recursive_adt then R.ok ()
+        else
+          match List.concat_map (fun (_, fields) ->
+            List.filter_map (fun (fn, ty) ->
+              if is_recursive_field ty then None
+              else if ty_contains_refinement ty then Some fn
+              else None
+            ) fields
+          ) ctors with
+          | fn :: _ -> type_error pos (UnsupportedRefinementInRecursiveAdtField (new_ty_name, fn))
+          | [] -> R.ok ()
+      in
       (* Well-foundedness: at least one constructor must have no directly
          self-recursive field, otherwise no finite value of the type exists. *)
-      (* TODO: Extend to handle mutual recursion *)
-      let is_recursive_field = function
-        | LA.UserType (_, [], id) -> HString.equal id new_ty_name
-        | _ -> false
-      in
       let has_base_case = List.exists
         (fun (_, tys) -> List.for_all (fun (_, ty) -> not (is_recursive_field ty)) tys)
         ctors

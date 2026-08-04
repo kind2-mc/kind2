@@ -538,10 +538,13 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
 and mk_ref_type_expr
  = fun adt_map ctx node_id expr expr_type ->
   let ty = Ctx.expand_type_syn ctx expr_type in
-  match ty with
-  | A.RefinementType (_, (_, id2, _), ref_expr) ->
-    let expr = AH.substitute_naive id2 expr ref_expr in
-    [expr]
+  match ty with 
+  | A.RefinementType (_, (_, id2, ty2), ref_expr) ->
+    (* For refinement type variable of the form x = { y: int | ... }, write the constraint
+       in terms of x instead of y. The base type may itself carry constraints
+       (e.g. a subrange or another refinement type), so recurse into it too *)
+    let ref_expr = AH.substitute_naive id2 expr ref_expr in
+    ref_expr :: mk_ref_type_expr adt_map ctx node_id expr ty2
   | TupleType (pos, tys)
   | GroupType (pos, tys) -> List.mapi (fun i ty ->
       let i = i |> string_of_int |> HString.mk_hstring in
@@ -1000,6 +1003,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   | ADTTerm (pos, ty_args, ctor, args) ->
     let vars, args' = desugar_expr_list map args in
     vars, ADTTerm (pos, ty_args, ctor, args')
+  | AbstractSymConst _ -> StringSet.empty, expr
   | ADTTester (pos, e, c) ->
     let vars, e' = r map e in
     vars, ADTTester (pos, e', c)
@@ -1256,7 +1260,7 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   let add_ovars_to info =
     List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
       info ovars in
-  let info = add_exports_to (add_ivars_to (add_ovars_to info)) in
+  let info = add_ovars_to (add_ivars_to (add_exports_to info)) in
   let info = { info with
     interpretation = interp;
     contract_ref; }
@@ -1353,11 +1357,20 @@ and normalize_node info map
   (* Record constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, id, _, _)) 
-      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) -> 
-        let ty = Ctx.lookup_ty info.context id |> get in 
+      | A.NodeVarDecl (_, (_, id, _, _))
+      | A.NodeConstDecl (_, TypedConst (_, id, _, _)) ->
+        let ty = Ctx.lookup_ty info.context id |> get in
         let ty = Ctx.expand_type_syn info.context ty in
-        Ctx.type_contains_ref ctx ty
+        (* Locals introduced to desugar the 'last' operator are Kind 2 generated
+           and keep the declared type of the variable they shadow (so that
+           'last x' types exactly like 'x'). Their refinement type constraint is
+           implied by the one already generated for that variable: a
+           last-variable is defined by [init_x -> pre x], the frame
+           initialization [init_x] is what [x] is assigned in the initial state,
+           and [pre x] is [x] at the previous instant. Emitting it anyway would
+           only add a redundant proof obligation reported under a generated name
+           the user never wrote. *)
+        not (var_is_last_local id) && Ctx.type_contains_ref ctx ty
       | A.NodeConstDecl (_, FreeConst _)
       | A.NodeConstDecl (_, UntypedConst _) -> false)
     |> List.fold_left (fun (acc_g, acc_w) l -> match l with
@@ -2574,6 +2587,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ne, gids, warnings = normalize_expr ?guard info node_id map e in
     A.ADTTester (pos, ne, c), gids, warnings
   | A.Match _ -> assert false
+  | A.AbstractSymConst _ as e ->
+    (* Pass through to the compiler, which handles it in compile_ast_expr. *)
+    e, empty (), []
 
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in

@@ -356,7 +356,6 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RefinementType (_, (_, i, ty), e) ->
     let g_expr = remove (mk_graph_expr e) i in
     union_dependency_analysis_data (mk_graph_type ty) g_expr
-  (* for the future: ADTs can be recursive; relax this check *)
   | ADT (_, name, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     let deps = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
@@ -505,13 +504,14 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.ADTTerm (_, ty_args, _, args) ->
     List.flatten (List.map get_node_call_from_expr args)
     @ List.flatten (List.map extract_node_calls_type ty_args)
+  | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> get_node_call_from_expr e
 (** Returns all the node calls from an expression *)
 
 and get_node_call_from_indices: LA.label_or_index list -> (LA.ident * Lib.position) list
 = fun is ->
   List.concat_map (function
-    | LA.Index (_, e) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
+    | LA.Index (_, e, _) | LA.MapIndex (_, e) | LA.SetIndex (_, e) | LA.GenericIndex (_, e) ->
       get_node_call_from_expr e
     | LA.Label _ -> []) is
 
@@ -841,6 +841,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | ADTTerm (_, ty_args, _, args) ->
     SI.union (SI.flatten (List.map r args))
       (List.fold_left SI.union SI.empty (List.map LH.vars_of_type ty_args))
+  | AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
 (** get all the variables and flatten node calls using

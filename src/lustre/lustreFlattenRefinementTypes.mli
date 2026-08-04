@@ -21,10 +21,4 @@ module GI = GeneratedIdentifiers
 module NI = NodeId
 module A = LustreAst 
 
-type error_kind =
-  | ADTBoundVariable
-
-val error_message: error_kind -> string
-
-val flatten_ref_types: TypeCheckerContext.tc_context -> GI.t NI.Map.t -> A.declaration list
-  -> (A.declaration list * GI.t NI.Map.t, [> `LustreFlattenRefinementTypesError of Lib.position * error_kind]) result
+val flatten_ref_types: TypeCheckerContext.tc_context -> GI.t NI.Map.t -> A.declaration list -> A.declaration list * GI.t NI.Map.t

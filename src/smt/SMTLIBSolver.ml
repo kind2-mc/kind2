@@ -535,15 +535,11 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     | Type.Datatype (dt_name, ctors) ->
       let pp_ctor ppf (ctor_name, field_types) =
-        if field_types = [] then
-          Format.pp_print_string ppf ctor_name
-        else begin
-          Format.fprintf ppf "(%s" ctor_name;
-          List.iteri (fun i ft ->
-            Format.fprintf ppf " (%s_%d %s)" ctor_name i (string_of_sort ft)
-          ) field_types;
-          Format.pp_print_string ppf ")"
-        end
+        Format.fprintf ppf "(%s" ctor_name;
+        List.iteri (fun i ft ->
+          Format.fprintf ppf " (%s_%d %s)" ctor_name i (string_of_sort ft)
+        ) field_types;
+        Format.pp_print_string ppf ")"
       in
       let cmd =
         Format.asprintf "(declare-datatypes ((%s 0)) ((%a)))"

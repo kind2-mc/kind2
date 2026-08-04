@@ -1,0 +1,40 @@
+
+node Sofar( X : bool ) returns ( Sofar : bool );
+let
+    Sofar = X -> X or pre Sofar;
+tel
+node excludes2( X1, X2 : bool ) returns ( excludes : bool );
+let
+    excludes = not ( X1 and X2 );
+tel
+node voiture(m,s: bool) returns
+(   toofast, stop, bump: bool;
+    dist, speed, time: int32;
+    move: bool; second, meter: bool );
+let
+  meter = false -> (m and not s);
+  second = false -> s;
+  move = true -> pre(move and not stop and not toofast and not bump);
+  dist = (int32 0) -> if move and meter then pre(dist)+(int32 1)
+			   else pre(dist);
+  speed = (int32 0) -> if not move or second then (int32 0)
+		else if move and meter then pre(speed) - (int32 1)
+		else pre(speed);
+  time = (int32 0) -> if second then pre(time) + (int32 1)
+		else pre(time);
+  toofast = speed >= (int32 3);
+  stop = time >= (int32 4);
+  bump = dist = (int32 10);
+tel
+node top(m, s : bool) returns (OK : bool);
+var toofast, stop, bump: bool;
+    dist, speed, time: int32;
+    move: bool; second, meter: bool;
+    env : bool;
+let
+  (toofast, stop, bump, dist, speed, time, move, second, meter) = voiture(m,s);
+  env = Sofar( excludes2( m, s ) and dist < (int32 32767));
+  OK = env => dist >= (int32 0);
+  --%MAIN;
+  --%PROPERTY OK;
+tel

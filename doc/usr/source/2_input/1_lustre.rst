@@ -960,6 +960,35 @@ as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` 
    y1 = if condition1 then expr1 else (if condition2 then expr3 else expr5);
    y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
 
+Although this desugaring gives each assigned variable its own copy of the
+conditions, the conditions are evaluated only *once* per timestep: all
+variables assigned by the same block see the same condition values, and
+therefore take the same branch. The distinction matters when a condition
+contains a call to a node whose outputs are not uniquely determined by its
+inputs — for example, an imported node with an underspecified (or no)
+contract, or a node whose definition uses the ``any`` operator. Such a call
+is evaluated once per timestep for the whole block, and the resulting value
+is shared by all the equations generated from the block. In the following
+example, the property ``"agree"`` is invariant because ``y1`` and ``y2``
+always take the same branch:
+
+.. code-block:: none
+
+   node imported nondet() returns (b: bool);
+
+   node example() returns (y1, y2: int);
+   let
+      if nondet() then
+         y1 = 1; y2 = 1;
+      else
+         y1 = 2; y2 = 2;
+      fi
+      check "agree" y1 = y2;
+   tel
+
+The same rule applies to the guards of the ``when`` and ``cond`` blocks
+below, and to blocks appearing inside frame conditions (where a variable
+left undefined in a branch holds its previous value).
 
 When blocks
 ^^^^^^^^^^^
@@ -1003,7 +1032,15 @@ cases.
 
 As for ``if`` blocks, ``when`` blocks are statement-level syntax sugar.
 For each assigned variable, the blocks above correspond to nested lazy
-``when ... then ... else ...`` expressions.
+``when ... then ... else ...`` expressions. As with ``if`` blocks, each
+guard is evaluated at most once per timestep, and its value — including any
+nondeterministic choice made by a node call appearing in the guard — is
+shared by all the variables assigned by the block. Consistent with the lazy
+branch semantics, the guard of a nested ``when`` block is itself part of
+the enclosing branch: it is evaluated only when that branch is selected,
+and node calls appearing in it are activated on the enclosing guards (their
+internal state only advances at timesteps where the enclosing branch is
+selected).
 
 Current restrictions for ``when`` blocks are:
 
@@ -1195,7 +1232,7 @@ will also generate the two warnings as discussed in the previous paragraph.
 
 The ``last`` operator
 ^^^^^^^^^^^^^^^^^^^^^
-Within a frame block, the expression ``last x`` (where ``x`` is a variable in
+Within a frame block, the expression ``last x`` (where ``x`` is a local or output variable in
 scope) denotes the value of ``x`` at the *immediately preceding timestep*, with
 the value at the first timestep given by the frame's initialization of ``x`` (or
 left undefined when ``x`` has no initialization). ``last x`` always refers to the
@@ -1228,6 +1265,36 @@ For example, in the following frame block ``last o`` refers to the value of
    let
       o = last o + 1;
    tel
+
+The initialization of a frame block variable is evaluated only *once*, at
+the first timestep, and every reference to it denotes that same evaluation:
+the value a variable holds when the frame initialization applies and the
+value ``last x`` denotes at the first timestep are guaranteed to be the
+same. The distinction matters when the initialization expression is not
+uniquely determined — for example, an ``any`` operator or a call to an
+imported node. In the following example, the initial value of ``x`` is an
+arbitrary non-negative integer *chosen once*: at the first timestep, if
+``m`` is false, ``x`` keeps that value, and if ``m`` is true, ``x`` is that
+same value plus one — there are never two independent choices, one for
+``x`` and another for ``last x``. The property ``"nonneg"`` is invariant:
+
+.. code-block:: none
+
+   node count (m: bool) returns (x: int);
+   let
+      frame (x)
+      x = any { v: int | v >= 0 };
+      let
+         when m then
+            x = last x + 1;
+         end
+      tel
+      check "nonneg" x >= 0;
+   tel
+
+The same guarantee applies element-wise to array initializations (for
+example, ``x[i] = any { v: int | v >= 0 }`` makes one shared choice per
+element).
 
 Omitting equations in ``when`` blocks within frame blocks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

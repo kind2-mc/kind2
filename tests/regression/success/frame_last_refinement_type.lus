@@ -1,0 +1,49 @@
+-- Locals introduced to desugar 'last' must not generate refinement type
+-- proof obligations of their own: they are Kind 2 generated, so the obligation
+-- would be reported under a name the user never wrote, and it is anyway implied
+-- by the obligation already generated for the variable they shadow.
+
+type Nat = subrange [0,*] of int;
+
+datatype Option<T> = Some (value: T) | None;
+
+-- 'last' on a refinement-typed frame variable, both directly and nested in a
+-- datatype.
+node counter (m: bool) returns (x: Nat; y: Option<Nat>);
+let
+  frame (x, y)
+    x = 0;
+    y = None@<Nat>;
+  let
+    if m then
+      x = last x + 1;
+      y = Some(x);
+    fi
+  tel
+  check "nonneg" x >= 0;
+tel
+
+node main (m: bool) returns (ok: bool);
+var x: Nat;
+var y: Option<Nat>;
+let
+  x, y = counter(m);
+  ok = x >= 0 and (Some?(y) => y.value >= 0);
+  check "ok" ok;
+tel
+
+-- 'last' on a refinement-typed frame variable that the frame does *not*
+-- initialize. The generated local is then defined by an unguarded 'pre z', so
+-- an obligation on it would be falsifiable at the initial state even though z
+-- itself always satisfies its refinement type. This node is deliberately left
+-- uncalled so that it is analyzed as a top node: p is unconstrained at the
+-- first timestep, so no caller could observe it without being falsifiable.
+node hold () returns (p: int);
+var z: Nat;
+let
+  frame (z, p)
+  let
+    z = 0;
+    p = last z;
+  tel
+tel

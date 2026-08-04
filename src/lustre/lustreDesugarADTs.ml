@@ -94,11 +94,7 @@ let build_adt_info type_name type_params ctors ~is_recursive =
 (* True if any constructor field type directly references type_name itself. *)
 let is_directly_recursive type_name ctors =
   List.exists (fun (_ctor, fields) ->
-    List.exists (fun (_, ty) ->
-      match ty with
-      | LA.UserType (_, _, n) -> HString.equal n type_name
-      | _ -> false
-    ) fields
+    List.exists (fun (_, ty) -> LH.is_direct_self_reference type_name ty) fields
   ) ctors
 
 (* Collect all ADT type declarations from a program into an adt_map. *)
@@ -178,15 +174,13 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr =
           if info.is_recursive then
-            (* For recursive ADTs, use the user-visible field name (strip the "ctor_" prefix
-               from the internal name).  The ADT stays as an SMT-LIB datatype; the node
-               generator detects the user-visible name and computes the "ctor_i" selector. *)
             let ctor_str = HString.string_of_hstring ctor in
             let fname_str = HString.string_of_hstring fname in
             let prefix_len = String.length ctor_str + 1 in
+            (* Recursive datatypes don't use the "ctor_" prefix *)
             let user_fname = HString.mk_hstring
               (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
-            LA.FieldProject (pos, scrut, user_fname, None)
+            LA.FieldProject (pos, scrut, user_fname, Some (LA.UserType (pos, [], info.type_name)))
           else
             LA.FieldProject (pos, scrut, fname, None)
         in
@@ -282,6 +276,7 @@ let rec default_value ctx adt_map pos ty =
     (match Ctx.lookup_ty ctx id with
     | Some expanded -> default_value ctx adt_map pos expanded
     | None -> assert false)
+  | LA.AbstractType _ -> LA.AbstractSymConst (pos, ty)
   | LA.TArr _ -> assert false
   | LA.ADT (_, name, ctors) ->
     (* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
@@ -298,7 +293,6 @@ let rec default_value ctx adt_map pos ty =
       let args = List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields in
       LA.ADTTerm (pos, [], ctor, args)
     | None -> assert false)
-  | LA.AbstractType _ -> failwith "Unsupported: abstract type in ADT constructor"
 
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
@@ -348,7 +342,7 @@ and desugar_expr ctx adt_map expr =
   let rilist ies = List.map (fun (i, e) -> (i, r e)) ies in
   let rloi = function
     | LA.Label _ as l -> l
-    | LA.Index (p, e) -> LA.Index (p, r e)
+    | LA.Index (p, e, k) -> LA.Index (p, r e, k)
     | LA.MapIndex (p, e) -> LA.MapIndex (p, r e)
     | LA.SetIndex (p, e) -> LA.SetIndex (p, r e)
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
@@ -415,34 +409,32 @@ and desugar_expr ctx adt_map expr =
     if adt_info.is_recursive then
       LA.ADTTester (pos, r e, c)
     else
-    LA.CompOp (pos, LA.Eq,
-      tag_of pos adt_info (r e),
-      LA.Ident (pos, c))
-  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
+      LA.CompOp (pos, LA.Eq,
+        tag_of pos adt_info (r e),
+        LA.Ident (pos, c))
+  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
+  | LA.AbstractSymConst _ -> expr
   | LA.FieldProject (p, e, fld, Some adt_ty) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
     if info.is_recursive then
-      (* Recursive ADTs stay as SMT-LIB datatypes.  Keep the user-visible field name but
-         strip the annotation (all FieldProject nodes are None after desugaring).  The node
-         generator detects the user-visible name and computes the "ctor_i" selector. *)
-      LA.FieldProject (p, e', fld, None)
+      LA.FieldProject (p, e', fld, Some (LA.UserType (p, [], info.type_name)))
     else
-    let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-      match acc with
-      | Some _ -> acc
-      | None ->
-        let target = payload_field_name_of ctor fld in
-        if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-        then Some ctor
-        else None
-    ) info.ctor_fields None
-    |> (function Some c -> c | None -> assert false)
-    in
-    let internal_fld = payload_field_name_of ctor fld in
-    LA.FieldProject (p, e', internal_fld, None)
+      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
+        match acc with
+        | Some _ -> acc
+        | None ->
+          let target = payload_field_name_of ctor fld in
+          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
+          then Some ctor
+          else None
+      ) info.ctor_fields None
+      |> (function Some c -> c | None -> assert false)
+      in
+      let internal_fld = payload_field_name_of ctor fld in
+      LA.FieldProject (p, e', internal_fld, None)
   | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
@@ -591,6 +583,15 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
       match decl with
       | LA.TypeDecl (_, LA.AliasType (_, name, [], ty)) when not (HStringMap.mem name adt_map) ->
         Ctx.add_ty_syn acc_ctx name ty
+      | LA.ConstDecl (_, LA.TypedConst (_, id, e, ty)) ->
+        (match Ctx.lookup_const acc_ctx id with
+         | Some (_, _, src) -> Ctx.add_const acc_ctx id e ty src
+         | None -> acc_ctx)
+      | LA.ConstDecl (_, LA.UntypedConst (_, id, e)) ->
+        (match Ctx.lookup_const acc_ctx id with
+         | Some (_, Some ty, src) -> Ctx.add_const acc_ctx id e ty src
+         | Some (_, None, src) -> Ctx.add_untyped_const acc_ctx id e src
+         | None -> acc_ctx)
       | _ -> acc_ctx
     ) ctx' type_and_const_decls' in
     (type_and_const_decls', node_contract_decls', ctx', adt_map)
@@ -652,6 +653,20 @@ let is_generated_bound_var id =
   let s = HString.string_of_hstring id in
   String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
 
+(* Canonical string key for a refinement type, used to recognize a refinement
+   type as an instance of a named refinement synonym for display.  The bound
+   variable is renamed to a fixed placeholder so that alpha-equivalent
+   refinements share a key; positions are ignored by the pretty-printer.
+   Returns None for non-refinement types. *)
+let ref_type_canonical_key ty =
+  match ty with
+  | LA.RefinementType (_, (_, id, base), pred) ->
+    let placeholder = LA.Ident (Lib.dummy_pos, HString.mk_hstring "$refvar") in
+    let pred = LH.substitute_naive id placeholder pred in
+    Some (Format.asprintf "%a | %a"
+            LA.pp_print_lustre_type base LA.pp_print_expr pred)
+  | _ -> None
+
 (* Rewrite a desugared expression back toward source-level ADT syntax so that
    pp_print_expr renders it without exposing the internal record encoding:
      - RecordExprs whose type name is in adt_map become ADTTerm nodes
@@ -662,9 +677,11 @@ let is_generated_bound_var id =
        subrange generation ("FirstCtor <= e.<Type>_tag <= LastCtor") are dropped;
      - generated bound-variable names ("69_index") are renamed to "$1", "$2", ...,
        numbered locally within this formula.  The "$" prefix is not a legal source
-       identifier, so these names cannot clash with any variable in the expression.
+       identifier, so these names cannot clash with any variable in the expression;
+     - a refinement type matching a named refinement synonym is rendered by name
+       (see [ref_type_names] / [ref_type_canonical_key]) rather than its expansion.
    This is the partial inverse of desugar_expr for display purposes. *)
-let rewrite_as_adt_terms adt_map expr =
+let rewrite_as_adt_terms ref_type_names adt_map expr =
   (* Local counter for renamed bound variables ($1, $2, ...), reset per formula. *)
   let counter = ref 0 in
   let rec go expr =
@@ -673,7 +690,7 @@ let rewrite_as_adt_terms adt_map expr =
   let rilist = List.map (fun (i, e) -> (i, r e)) in
   let rloi = function
     | LA.Label _ as l -> l
-    | LA.Index (p, e) -> LA.Index (p, r e)
+    | LA.Index (p, e, k) -> LA.Index (p, r e, k)
     | LA.MapIndex (p, e) -> LA.MapIndex (p, r e)
     | LA.SetIndex (p, e) -> LA.SetIndex (p, r e)
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
@@ -696,7 +713,22 @@ let rewrite_as_adt_terms adt_map expr =
     | LA.Map (pos, kt, vt) -> LA.Map (pos, rewrite_type kt, rewrite_type vt)
     | LA.Set (pos, t) -> LA.Set (pos, rewrite_type t)
     | LA.RefinementType (pos, (p2, id, t), e) ->
-      LA.RefinementType (pos, (p2, id, rewrite_type t), r e)
+      (* Collapse to the named refinement synonym when the type matches one
+          unambiguously. Distinct synonyms can share a canonical key (e.g. two
+          separately-declared "subtype { i: int | i > 0 }" aliases): in that
+          case we cannot tell which name the quantifier's type came from, so we
+          fall back to the expansion rather than guess and risk showing the
+          wrong name. *)
+      (match ref_type_canonical_key ty with
+        | Some key ->
+          (match List.filter (fun (k, _) -> String.equal k key) ref_type_names
+                |> List.map snd
+                |> List.sort_uniq HString.compare
+          with
+          | [name] -> LA.UserType (pos, [], name)
+          | [] | _ :: _ :: _ ->
+            LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
+        | None -> LA.RefinementType (pos, (p2, id, rewrite_type t), r e))
     | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
     | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
   in
@@ -787,8 +819,9 @@ let rewrite_as_adt_terms adt_map expr =
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
   | LA.AnyOp _ | LA.ChooseOp _ -> expr
   | LA.ADTTerm _ | LA.Match _ -> expr
+  | LA.AbstractSymConst _ -> expr
   in
   go expr
 
-let string_of_expr_as_source adt_map expr =
-  LA.string_of_expr (rewrite_as_adt_terms adt_map expr)
+let string_of_expr_as_source ?(ref_type_names = []) adt_map expr =
+  LA.string_of_expr (rewrite_as_adt_terms ref_type_names adt_map expr)

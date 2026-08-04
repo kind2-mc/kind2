@@ -123,7 +123,6 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
-  | `LustreFlattenRefinementTypesError of Lib.position * LustreFlattenRefinementTypes.error_kind
 ]
 
 (** [of_file only_parse f] parse Lustre model from file [f], and

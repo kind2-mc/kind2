@@ -1,0 +1,115 @@
+type Rec = { f: int^2 };
+type Inner = { f: int; g: int };
+type RecArr = { a: Inner; f: int^3 };
+
+datatype Shape = Circle (radius: int) | Rect (width: int, height: int);
+
+node ScalarArrayVarIndex(i: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = (7^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i] = v);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j] = 7));
+tel
+
+node ArrayOfArray(i: int; v: int^3) returns ();
+var arr: int^3^3;
+let
+  arr = (7^3^3)[i := v];
+  check "updated"
+    (i >= 0 and i < 3) => (arr[i][0] = v[0] and arr[i][1] = v[1] and arr[i][2] = v[2]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j][0] = 7 and arr[j][1] = 7 and arr[j][2] = 7));
+tel
+
+node ArrayOfArrayNumeral(v: int^3) returns ();
+var arr: int^3^3;
+let
+  arr = (7^3^3)[1 := v];
+  check "updated" arr[1][0] = v[0] and arr[1][1] = v[1] and arr[1][2] = v[2];
+  check "unchanged" arr[0][0] = 7 and arr[2][0] = 7;
+tel
+
+node ArrayOfTuple(i: int; v: [int, int]) returns ();
+var arr: [int, int]^3;
+let
+  arr = ('(7,7)^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i][0] = v[0] and arr[i][1] = v[1]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j][0] = 7 and arr[j][1] = 7));
+tel
+
+node ArrayOfRecord(i: int; v: Rec) returns ();
+var arr: Rec^3;
+let
+  arr = (Rec { f = 0^2 }^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i].f[0] = v.f[0] and arr[i].f[1] = v.f[1]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j].f[0] = 0 and arr[j].f[1] = 0));
+tel
+
+node TupleOfArrays(v: int^3) returns ();
+var t: [int^3, int^3];
+let
+  t = '(7^3, 7^3)[0 := v];
+  check "updated" t[0][0] = v[0] and t[0][1] = v[1] and t[0][2] = v[2];
+  check "unchanged" t[1][0] = 7 and t[1][1] = 7 and t[1][2] = 7;
+tel
+
+node ThreeDArrayVarIndex(i: int; v: int^3^3) returns ();
+var arr: int^3^3^3;
+let
+  arr = (7^3^3^3)[i := v];
+  check "updated"
+    (i >= 0 and i < 3) =>
+    (forall (j: int; k: int)
+      ((j >= 0 and j < 3 and k >= 0 and k < 3) => (arr[i][j][k] = v[j][k])));
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (i2: int; j: int; k: int)
+      ((i2 >= 0 and i2 < 3 and i2 <> i and j >= 0 and j < 3 and k >= 0 and k < 3)
+        => (arr[i2][j][k] = 7)));
+tel
+
+node ArrayOfADT(i: int; v: Shape) returns ();
+var arr: Shape^3;
+let
+  arr = (Circle(0)^3)[i := v];
+  check "updated" (i >= 0 and i < 3) => (arr[i] = v);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (arr[j] = Circle(0)));
+tel
+
+node ArrayOfSet(i: int; v: set<int>) returns ();
+var arr: set<int>^3;
+let
+  arr = ({1}^3)[i := v];
+  check "updated" (i >= 0 and i < 3 and 5 in v) => (5 in arr[i]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (1 in arr[j] and not (5 in arr[j])));
+tel
+
+node ArrayOfMap(i: int; v: map<int,int>) returns ();
+var arr: map<int,int>^3;
+let
+  arr = (map[0 := 7]^3)[i := v];
+  check "updated" (i >= 0 and i < 3 and 2 in v) => (arr[i][2] = v[2]);
+  check "unchanged"
+    (i >= 0 and i < 3) =>
+    (forall (j: int) (j >= 0 and j < 3 and j <> i) => (0 in arr[j] and arr[j][0] = 7));
+tel
+
+node RecordFieldArrayUpdate(v: int^3) returns ();
+var r: RecArr;
+let
+  r = RecArr { a = Inner { f = 1; g = 2 }; f = 7^3 }[f := v];
+  check "updated" r.f[0] = v[0] and r.f[1] = v[1] and r.f[2] = v[2];
+  check "unchanged" r.a.f = 1 and r.a.g = 2;
+tel
