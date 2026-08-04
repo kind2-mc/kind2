@@ -445,12 +445,13 @@ let unrolled_var_map_lock = Mutex.create ()
 let update_unrolled_var_map string var =
   Mutex.protect unrolled_var_map_lock (fun () ->
     unrolled_var_map := StringMap.add string var !unrolled_var_map)
-(* Looks for the value associated to [string]. *)
+(* Looks for the value associated to [string].
+
+   The map is immutable and the reference is only ever set to a newer
+   map, so the read needs no lock: it returns a map that was current at
+   some point, which is all a lookup can ask for. *)
 let find_unrolled_var_map string =
-  let map =
-    Mutex.protect unrolled_var_map_lock (fun () -> !unrolled_var_map)
-  in
-  StringMap.find string map
+  StringMap.find string !unrolled_var_map
 
 let unrolled_uf_of_state_var_instance = function
   | ({ Hashcons.node = ConstStateVar sv } as var) ->
