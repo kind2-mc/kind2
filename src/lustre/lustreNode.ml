@@ -1291,7 +1291,7 @@ let stateful_vars_of_expr { E.expr_step } =
           | [] -> SVS.empty
           | _ -> assert false)
 
-      | Term.T.App _ ->
+      | Term.T.App _ -> 
 
         List.fold_left SVS.union SVS.empty
 

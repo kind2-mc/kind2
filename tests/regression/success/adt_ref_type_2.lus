@@ -29,4 +29,3 @@ let
    check "P1" area(c1) = 12.56636;
    check "P2" area(c2) = 12.0;
 tel
-

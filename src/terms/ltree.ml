@@ -96,7 +96,7 @@ sig
 
   and t = private (t_node, t_prop) H.hash_consed
 
-  and t_prop = private { bound_vars : int list }
+  and t_prop = private { bound_vars : int list } 
 
   and flat = private
     | Var of var
@@ -408,11 +408,11 @@ struct
           4
 
       (* Hash of quantifiers: hash of lambda abstraction *)
-      | Exists { H.hkey = hl } -> safe_hash_interleave hl 8 5
+      | Exists { H.hkey = hl } -> safe_hash_interleave hl 8 5 
       | Forall { H.hkey = hl } -> safe_hash_interleave hl 8 6
 
       (* Hash of attribute: delegate *)
-      | Annot ( { H.hkey = ht }, a) ->
+      | Annot ( { H.hkey = ht }, a) -> 
 
         safe_hash_interleave (Hashtbl.hash [T.hash_of_attr a; ht]) 8 7
 
@@ -511,8 +511,8 @@ struct
 
 
     (* Bound variables in quantifier are variables in quantified term *)
-    | Exists { H.node = L (i, { H.prop = { bound_vars } }) }
-    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } ->
+    | Exists { H.node = L (i, { H.prop = { bound_vars } }) } 
+    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } -> 
 
       bound_vars_outside_lambda (List.length i) bound_vars
 
@@ -583,7 +583,7 @@ struct
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for universal quantifier *)
-  let ht_forall l =
+  let ht_forall l = 
     let n = Forall l in
     Ht.hashcons ht n (prop_of_term_node n)
 
@@ -665,7 +665,7 @@ struct
 
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda' pp_symbol pp_var pp_sort db ppf = function
+  let rec pp_print_lambda' pp_symbol pp_var pp_sort db ppf = function 
 
     | { H.node = L (l, t) } ->
 
@@ -740,10 +740,10 @@ struct
         (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
     (* Print a universal quantification *)
-    | { H.node = Forall { H.node = L (x, t) } } ->
+    | { H.node = Forall { H.node = L (x, t) } } -> 
 
-      Format.fprintf ppf
-        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]"
+      Format.fprintf ppf 
+        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
         (pp_print_typed_var_list pp_sort db) x
         (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
@@ -974,13 +974,13 @@ struct
           ((db + (List.length x), MTree t) :: (db, MExists x) :: s)
 
       (* Universal quantifier *)
-      | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s ->
+      | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s -> 
 
         (* Push quantified term to the stack followed by a marker for
            the quantifier *)
-        map
-          f
-          ([] :: accum)
+        map 
+          f 
+          ([] :: accum) 
           ((db + (List.length x), MTree t) :: (db, MForall x) :: s)
 
       (* Match expression:
@@ -998,7 +998,7 @@ struct
           (arm_entries_rev @ ((db, MTree scrut) :: (db, MMatch arms_info) :: s))
 
       (* Function application *)
-      | (db, MNode op) :: s ->
+      | (db, MNode op) :: s -> 
 
         (* Rebuild function application with mapped subterms *)
         (match accum with 
@@ -1034,12 +1034,12 @@ struct
 
           | _ -> assert false)
 
-      | (db, MForall x) :: s ->
+      | (db, MForall x) :: s -> 
 
         (* Rebuild universal quantification with mapped subterm *)
-        (match accum with
+        (match accum with 
 
-          | [t] :: h' :: d ->
+          | [t] :: h' :: d -> 
             map f ((f db (ht_forall (hl_lambda x t)) :: h') :: d) s
 
           | _ -> assert false)
@@ -1085,16 +1085,16 @@ struct
 
 
   (* We need a separate type to store the term when moving bottom-up *)
-  type 'a fold_tstack =
+  type 'a fold_tstack = 
 
     (* Recurse into tree *)
-    | FTree of int * t
+    | FTree of int * t 
 
     (* Combine evaluated arguments from the result stack *)
     | FNode of 'a * t list
 
     (* Pop [n] substitutions from the context *)
-    | FPop of int
+    | FPop of int 
 
     (* Add top of the result stack as substitution for variable [n] to
        the context *)
@@ -1467,7 +1467,7 @@ struct
       (function _ -> 
         function { H.node = n } -> 
           let n' = 
-            match n with
+            match n with 
               | FreeVar v -> FreeVar (T.import_var v)
               | BoundVar _ -> n
               | Leaf s -> Leaf (T.import_symbol s)
@@ -1802,12 +1802,12 @@ struct
      [exists x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_exists x t = ht_exists (mk_lambda x t)
 
-  (* Constructor for a universal quantification:
+  (* Constructor for a universal quantification: 
      [forall x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_forall x t = ht_forall (mk_lambda x t)
 
   (* Constructor for annotated term *)
-  let mk_annot t a = ht_annot t a
+  let mk_annot t a = ht_annot t a 
 
   (* Return the node of a hashconsed term *)
   let node_of_t { Hashcons.node = n } = n
@@ -1982,7 +1982,7 @@ struct
       (* Function application *)
       | MNode _ :: s | MAnnot _ :: s | MLet _ :: s | MMatch _ :: s -> has_quantifier has s
 
-      | MExists _ :: _ | MForall _ :: _ -> true
+      | MExists _ :: _  | MForall _ :: _ -> true
         
     in
 

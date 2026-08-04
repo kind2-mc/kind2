@@ -426,7 +426,7 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map (check_clocks clock) es1) >>  Res.seq_ (List.map (check_clocks clock) es2)
     | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
-    | When (pos, e, c) ->
+    | When (pos, e, c) -> 
       check_clocks clock e >> clocks_match_result pos c clock
     | LA.Match (_, e, arms, _) ->
       check_clocks clock e >>
@@ -479,7 +479,7 @@ let no_mismatched_clock is_bool e =
       Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
     | Activate (_, _, e1, e2, es) -> 
       check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
-    | RestartEvery (_, _, es, e) ->
+    | RestartEvery (_, _, es, e) -> 
       Res.seq_ (List.map check_merge es) >> check_merge e
     | LA.Match (_, e, arms, _) ->
       check_merge e >>
@@ -654,7 +654,7 @@ let rec infer_const_attr ctx exp =
   | ChooseOp _ -> assert false
   | Condact (_, _, _, i, _, _)
   | Activate (_, i, _, _, _)
-  | RestartEvery (_, i, _, _)
+  | RestartEvery (_, i, _, _) 
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
     match lookup_node_ty ctx i with
@@ -1816,7 +1816,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     >> check_type_expr extn_ctx e2 (Bool pos)
     >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
   | IndexAccess (pos, _, _, _)
-  | TypeAscription (pos, _, _)
+  | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
   | Condact (pos, _, _, _, _, _)
@@ -2618,7 +2618,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
       else R.ok ()
     ) () ps in
 
-    let ctx' = List.fold_left (fun acc p ->
+    let ctx' = List.fold_left (fun acc p -> 
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
     let ctx = add_ty_vars_ty ctx i ps in
@@ -3016,8 +3016,8 @@ and expr_contains_set_binop ctx ni expr =
     r e1 || r e2 || 
     List.fold_left (fun acc x -> acc || r x) false expr_list || 
     List.fold_left (fun acc x -> acc || r x) false expr_list2
-  | RestartEvery (_, _, expr_list, e) ->
-    r e ||
+  | RestartEvery (_, _, expr_list, e) -> 
+    r e || 
     List.fold_left (fun acc x -> acc || r x) false expr_list
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms

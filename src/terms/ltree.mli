@@ -222,7 +222,7 @@ sig
   (** Constructor for a universal quantification over an indexed
       free variable *)
   val mk_forall : var list -> t -> t
-  
+
   (** Constructor for an annotated term *)
   val mk_annot : t -> attr -> t
 

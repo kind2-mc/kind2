@@ -27,7 +27,7 @@ open Lib
 (* ********************************************************************* *)
 
 (* Type of an expression in KIND *)
-type kindtype =
+type kindtype = 
   | Bool
   | Int
   | IntRange of Numeral.t option * Numeral.t option
@@ -444,12 +444,6 @@ let t_real = mk_real ()
 let get_all_abstr_types () =
   Hkindtype.fold (fun ty acc -> match ty with
       | { Hashcons.node = Abstr _ } -> ty :: acc
-      | _ -> acc) ht []
-  |> List.rev
-
-let get_all_datatype_types () =
-  Hkindtype.fold (fun ty acc -> match ty with
-      | { Hashcons.node = Datatype (_, ctors) } when ctors <> [] -> ty :: acc
       | _ -> acc) ht []
   |> List.rev
 

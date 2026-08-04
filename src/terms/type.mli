@@ -25,14 +25,14 @@
 (** {1 Types and hash-consing} *)
 
 (** Type of an expression *)
-type kindtype =
+type kindtype = 
   | Bool
   | Int
   | IntRange of Numeral.t option * Numeral.t option
   | Enum of Numeral.t * Numeral.t
   | Real
   | UBV of int
-  | BV of int
+  | BV of int 
   | Array of t * t
   | Abstr of string
   | Datatype of string * (string * t list) list
@@ -259,9 +259,6 @@ val get_constr_of_num : Numeral.t -> string
 
 (** Return abstract types that have been built *)
 val get_all_abstr_types : unit -> t list
-
-(** Return all recursive algebraic datatype types *)
-val get_all_datatype_types : unit -> t list
 
 (** Return the numeral encoding of a construcor of an enumerated datatype *)
 val get_num_of_constr : string -> Numeral.t

@@ -92,12 +92,12 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; u_types: ty_set               (* store of all declared user types,
                                                      this is poor mans kind (type of type) context *)
                   ; contract_export_ctx:          (* stores all the export variables  of the contract *)
-                      contract_exports
+                      contract_exports 
                   ; enum_vars: enum_variants
                   ; ty_vars:                      (* stores the type variables associated with each node *)
                       ty_var_store
                   ; contract_ty_vars:             (* stores  the type variables associated with each contract *)
-                      ty_var_store
+                      ty_var_store  
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
                   ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
                                                   (* ctor -> (type_name, field_types) *)
@@ -808,7 +808,7 @@ let rec type_contains_abstract ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_abstract ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_map_or_set ctx = function
@@ -835,7 +835,7 @@ let rec type_contains_map_or_set ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_map_or_set ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _ 
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
 let rec type_contains_array ctx = function
@@ -862,10 +862,10 @@ let rec type_contains_array ctx = function
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
-  | Bool _ | Int _ | Real _ | EnumType _
+  | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
-let rec ty_vars_of_expr ctx node_name expr =
+let rec ty_vars_of_expr ctx node_name expr = 
   let call = ty_vars_of_expr ctx node_name in match expr with 
   (* Node calls *)
   | LA.Call (_, tys, _, es) -> 

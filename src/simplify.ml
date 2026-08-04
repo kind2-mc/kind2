@@ -2324,6 +2324,7 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `DECIMAL _
           | `UBV _ 
           | `BV _ -> assert false
+          
       )
 
     (* Skip over attributed term *)

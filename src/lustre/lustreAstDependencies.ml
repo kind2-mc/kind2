@@ -844,7 +844,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
-(** get all the variables and flatten node calls using
+(** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
 (* We use a contract_node_equation option map. In this map, every identifier is associated
