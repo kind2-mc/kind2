@@ -1390,28 +1390,8 @@ let syscall cmd =
 
 
 
-(* The garbage collector parameters are global to the process. Only the
-   main (supervisor) domain may change them: an engine domain changing
-   them (e.g. IC3IA rebuilding a sliced system) would affect all
-   engines and race with the supervisor. *)
-let reset_gc_params =
-  let gc_c = Gc.get() in
-  fun () -> if Domain.is_main_domain () then Gc.set gc_c
 
 
-let set_liberal_gc () =
-  if Domain.is_main_domain () then begin
-    Gc.full_major ();
-    let gc_c =
-      { (Gc.get ()) with
-        (* Gc.verbose = 0x3FF; *)
-        Gc.minor_heap_size = 64000000; (* default 32000*)
-        major_heap_increment = 3200000;    (* default 124000*)
-        space_overhead = 100; (* default 80% des donnes vivantes *)
-      }
-    in
-    Gc.set gc_c
-  end
 
 let pp_print_bound_opt ppf bound = match bound with 
   | None -> Format.fprintf ppf "%s" unbounded_limit_string

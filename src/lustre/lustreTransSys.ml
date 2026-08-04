@@ -3232,9 +3232,22 @@ let trans_sys_of_nodes_unsafe
     subsystems analysis_param
   =
 
-  (* Prevent the garbage collector from running too often during the frontend
-     operations *)
-  Lib.set_liberal_gc ();
+  (* Work on a private copy of the bounds of the state variables.
+
+     The table of [globals] is shared by everything that was built from
+     the same input system, and the engines of an analysis read the one
+     of their transition system while they interpret the models of
+     their solver. Building a transition system adds entries to it, and
+     an IC3IA engine builds one of its own, in its own domain, while
+     the other engines are running: they would then be reading a table
+     that another domain is modifying. Every transition system gets its
+     own table instead, which nothing modifies once it is built. *)
+  let globals =
+    { globals with
+      G.state_var_bounds =
+        StateVar.StateVarHashtbl.copy globals.G.state_var_bounds }
+  in
+
   
   let { A.top } =
     A.info_of_param analysis_param
@@ -3326,9 +3339,6 @@ let trans_sys_of_nodes_unsafe
       )
     | _ -> ()
   ) ;
-
-  (* Reset garbage collector to its initial settings *)
-  Lib.reset_gc_params ();
 
   let trans_sys =
     if options.slice_nodes == `Experimental then (

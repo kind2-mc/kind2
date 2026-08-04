@@ -533,12 +533,7 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
-(** Changes garbage collector parameters limit its effect *)
-val set_liberal_gc : unit -> unit
 
-(** Reset the parameters of the GC to its default values. Call after
-    {!set_liberal_gc}. *)
-val reset_gc_params : unit -> unit
 
 (* Print bound of (possibly) open interval *)
 val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
