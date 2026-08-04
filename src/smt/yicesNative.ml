@@ -1380,7 +1380,12 @@ let delete_instance
    Death on SIGKILL is prompt, so the process is reaped right away. *)
 let kill_instance { solver_pid } =
   ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
-  ( try Unix.waitpid [] solver_pid |> ignore with _ -> () )
+  (* Reap without blocking: this runs while an analysis is being torn
+     down, possibly from a domain other than the one that owns the
+     solver, and must never be the reason the supervisor waits. A
+     process killed with SIGKILL that is not reaped here is reaped by
+     the operating system when Kind 2 exits. *)
+  ( try Unix.waitpid [Unix.WNOHANG] solver_pid |> ignore with _ -> () )
 
 
 (* Output a comment into the trace *)

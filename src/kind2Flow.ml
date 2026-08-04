@@ -376,6 +376,22 @@ let slaughter_kids ?(exiting = false) process sys =
 let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
+  (* Last resort: engines abandoned in the background hold no lock the
+     exit path needs, but a deadlock or a solver that refuses to die
+     would otherwise leave Kind 2 hanging forever, since the wall clock
+     timeout is disabled while an analysis is torn down. Leave the
+     process a few seconds to exit in an orderly way, and terminate it
+     the hard way if it does not. *)
+  ( try
+      Thread.create
+        (fun () ->
+          Thread.delay 10.0 ;
+          prerr_endline "Kind 2 did not exit in time, terminating." ;
+          Stdlib.flush_all () ;
+          Unix._exit status)
+        ()
+      |> ignore
+    with _ -> () ) ;
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers of the whole process. *)
