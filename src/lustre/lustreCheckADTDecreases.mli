@@ -23,9 +23,6 @@
     substituted expression is a chain of one or more field projections whose
     base is exactly [t].
 
-    This check runs after Match desugaring (step 10), so pattern variables
-    have already been replaced by [FieldProject] selector chains.
-
     @author Rob Lorch *)
 
 type error_kind =
