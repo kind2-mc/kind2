@@ -147,9 +147,10 @@ let register_worker proc id msg_setup =
 let run_process mworker = EventMessaging.run_worker mworker
 
 
-(* Unregister the mailbox of an engine that never ran because its
-   domain could not be spawned *)
-let unregister_worker mworker = EventMessaging.exit mworker
+(* Unregister the mailbox of an engine from the supervisor: an engine
+   that never ran because its domain could not be spawned, or one that
+   outlived the analysis it belongs to *)
+let unregister_worker mworker = EventMessaging.disconnect mworker
 
 
 (* Send a termination message to the engine with the given identifier *)

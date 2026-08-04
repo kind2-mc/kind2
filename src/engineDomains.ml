@@ -41,6 +41,8 @@ type t = {
   mdl : Lib.kind_module ;
   domain : unit Domain.t ;
   outcome : outcome Atomic.t ;
+  disconnect : unit -> unit ;   (* Detaches the engine from the
+                                   messaging system *)
 }
 
 let id { id } = id
@@ -87,7 +89,7 @@ let signals_to_block =
 (* Spawn [f] in a new domain as the engine [mdl] with identifier [id].
    [f] handles its own cleanup and returns the unexpected exception it
    terminated on, if any. *)
-let spawn mdl id f =
+let spawn mdl id ~disconnect f =
   let outcome = Atomic.make Running in
   let domain =
     Domain.spawn (fun () ->
@@ -95,7 +97,7 @@ let spawn mdl id f =
       let r = try f () with e -> Some e in
       Atomic.set outcome (Done r))
   in
-  let child = { id ; mdl ; domain ; outcome } in
+  let child = { id ; mdl ; domain ; outcome ; disconnect } in
   Mutex.protect lock (fun () -> running := child :: !running) ;
   child
 
@@ -128,6 +130,20 @@ let find id_ =
    call *)
 let kill_solvers { domain } =
   SMTSolver.kill_solvers_of_domain ((Domain.get_id domain :> int))
+
+(* Give up on the engines that are still running: a domain cannot be
+   killed, and an engine busy in a long computation would delay the end
+   of the analysis arbitrarily. They are detached from the messaging
+   system, so that they cannot disturb the next analysis, and their
+   solvers are killed, so that they unwind as soon as they leave the
+   computation they are in. They are removed from the registry and
+   their outcome is never observed; they die with the process.
+
+   Returns the engines that were abandoned. *)
+let abandon_live () =
+  let abandoned = Mutex.protect lock (fun () -> let l = !running in running := [] ; l) in
+  abandoned |> List.iter (fun c -> c.disconnect () ; kill_solvers c) ;
+  abandoned
 
 
 (*

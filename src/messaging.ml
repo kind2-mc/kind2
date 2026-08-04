@@ -107,6 +107,8 @@ sig
 
   val check_termination : unit -> bool
 
+  val disconnect : worker -> unit
+
   val exit : worker -> unit
 
 end
@@ -206,12 +208,17 @@ struct
   (* Endpoints                                                            *)
   (* ******************************************************************** *)
 
-  (* A worker endpoint: the mailbox of one engine domain *)
+  (* A worker endpoint: the mailbox of one engine domain.
+
+     An endpoint that the supervisor disconnected is no longer alive:
+     the messages it sends are dropped, so an engine that outlives the
+     analysis it belongs to cannot disturb the next one. *)
   type endpoint = {
     ep_id : int ;                 (* Identifier of the engine, as in the
                                      supervisor's list of children *)
     ep_mdl : Lib.kind_module ;
     ep_inbox : (Lib.kind_module * message) mailbox ;
+    ep_alive : bool Atomic.t ;
   }
 
   type worker = endpoint
@@ -259,9 +266,11 @@ struct
     | Supervisor ->
       broadcast_to_workers (`Supervisor, RelayMessage m)
     | Worker ep ->
-      let msg = (ep.ep_mdl, RelayMessage m) in
-      enqueue msg im_inbox ;
-      broadcast_to_workers ~excep:ep msg
+      if Atomic.get ep.ep_alive then (
+        let msg = (ep.ep_mdl, RelayMessage m) in
+        enqueue msg im_inbox ;
+        broadcast_to_workers ~excep:ep msg
+      )
 
   (* Send a message to the invariant manager for output to the user *)
   let send_output_message m =
@@ -272,7 +281,8 @@ struct
          to itself would output it twice. *)
       ()
     | Worker ep ->
-      enqueue (ep.ep_mdl, OutputMessage m) im_inbox
+      if Atomic.get ep.ep_alive then
+        enqueue (ep.ep_mdl, OutputMessage m) im_inbox
 
   (* Send a termination message: broadcast to all workers. A worker
      requesting termination also notifies the other workers, as the
@@ -283,9 +293,11 @@ struct
     | Supervisor ->
       broadcast_to_workers (`Supervisor, ControlMessage Terminate)
     | Worker ep ->
-      let msg = (ep.ep_mdl, ControlMessage Terminate) in
-      enqueue msg im_inbox ;
-      broadcast_to_workers ~excep:ep msg
+      if Atomic.get ep.ep_alive then (
+        let msg = (ep.ep_mdl, ControlMessage Terminate) in
+        enqueue msg im_inbox ;
+        broadcast_to_workers ~excep:ep msg
+      )
 
   (* Send a termination message to the worker with the given identifier *)
   let send_term_message_to id =
@@ -325,17 +337,29 @@ struct
 
   (* Create and register the endpoint of a worker *)
   let init_worker mdl id () =
-    let ep = { ep_id = id ; ep_mdl = mdl ; ep_inbox = mk_mailbox () } in
+    let ep =
+      { ep_id = id ; ep_mdl = mdl ; ep_inbox = mk_mailbox () ;
+        ep_alive = Atomic.make true }
+    in
     Mutex.protect registry_lock (fun () -> workers := ep :: !workers) ;
     ep
 
   (* Take the worker role in the calling domain *)
   let run_worker ep = set_role (Worker ep) ; ep
 
-  (* Unregister the endpoint of a worker *)
-  let exit ep =
+  (* Unregister the endpoint of a worker. Safe to call from any
+     domain: the messages the worker sends from now on are dropped,
+     and a termination message is left in its mailbox so that it
+     unwinds at its next event check. *)
+  let disconnect ep =
+    Atomic.set ep.ep_alive false ;
     Mutex.protect registry_lock (fun () ->
       workers := List.filter (fun w -> w != ep) !workers) ;
+    enqueue (`Supervisor, ControlMessage Terminate) ep.ep_inbox
+
+  (* Unregister the endpoint of a worker, from the worker itself *)
+  let exit ep =
+    disconnect ep ;
     set_role Uninitialized
 
   (* Drop the messages of the previous analysis. All workers of the

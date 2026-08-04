@@ -114,7 +114,13 @@ sig
       modify received message in any way. *)
   val check_termination : unit -> bool
 
-  (** Unregister the mailbox of a worker *)
+  (** Unregister the mailbox of a worker, from any domain. The
+      messages the worker sends from now on are dropped and a
+      termination message is left in its mailbox, so that an engine
+      that outlives its analysis cannot disturb the next one. *)
+  val disconnect : worker -> unit
+
+  (** Unregister the mailbox of a worker, from the worker itself *)
   val exit : worker -> unit
 
 end

@@ -280,7 +280,7 @@ let status_of_exn process status = function
     event loop. An engine that does not react within a grace period is
     stuck in a solver call and is unblocked by killing the solver
     processes of its domain. *)
-let slaughter_kids process sys =
+let slaughter_kids ?(exiting = false) process sys =
   Signals.ignoring_sigalrm ( fun _ ->
     (* From now on, failures of engines are terminations, not
        crashes. *)
@@ -293,8 +293,16 @@ let slaughter_kids process sys =
     KEvent.log L_debug "Waiting for remaining child processes to terminate" ;
 
     (* Grace period before killing the solvers of unresponsive
-       engines, in seconds *)
-    let grace = 1.0 in
+       engines, in seconds. When the process is exiting there is
+       nothing left to compute, so the solvers are killed right
+       away. *)
+    let grace = if exiting then 0. else 1.0 in
+    (* Engines are given a bounded time to unwind: a domain cannot be
+       killed, so an engine busy in a long computation would otherwise
+       delay us arbitrarily. Engines that do not react in time are
+       abandoned (see the wait loop). The deadline is shorter when the
+       process is exiting, since nothing remains to be computed. *)
+    let deadline = if exiting then 2.0 else 10.0 in
     let start = Unix.gettimeofday () in
     let solvers_killed = ref false in
 
@@ -307,10 +315,10 @@ let slaughter_kids process sys =
             KEvent.log L_debug "Process %d terminated" id
           ) ;
           match EngineDomains.live () with
-          | [] -> ()
+          | [] -> KEvent.log L_info "All child processes terminated."
           | stuck ->
-            if not !solvers_killed
-            && Unix.gettimeofday () -. start > grace then (
+            let elapsed = Unix.gettimeofday () -. start in
+            if not !solvers_killed && elapsed >= grace then (
               stuck |> List.iter (fun c ->
                 KEvent.log L_debug
                   "Killing solvers of %a to unblock it"
@@ -319,11 +327,28 @@ let slaughter_kids process sys =
               ) ;
               solvers_killed := true
             ) ;
-            minisleep 0.01 ;
-            wait_loop ()
+            if elapsed > deadline then (
+              (* Give up on the engines that do not react: a domain
+                 cannot be killed, and an engine busy in a long
+                 computation would delay us arbitrarily. They are
+                 detached from the messaging system and their solvers
+                 are killed, so they cannot disturb what follows and
+                 unwind on their own; they die with the process. *)
+              let abandoned = EngineDomains.abandon_live () in
+              abandoned |> List.iter (fun c ->
+                child_pids :=
+                  List.remove_assoc (EngineDomains.id c) !child_pids
+              ) ;
+              KEvent.log L_info
+                "@[<hov>Giving up on %d engine(s) still running after \
+                 %.0fs;@ they are left to unwind on their own.@]"
+                (List.length abandoned) elapsed
+            ) else (
+              minisleep 0.01 ;
+              wait_loop ()
+            )
         in
-        wait_loop () ;
-        KEvent.log L_info "All child processes terminated."
+        wait_loop ()
 
       with
       (* Exception in the waiting loop. *)
@@ -334,16 +359,17 @@ let slaughter_kids process sys =
         status_of_exn process dummy_status e |> ignore ;
     ) ;
 
-    if EngineDomains.live () <> [] then
-      KEvent.log L_fatal "Some children did not exit." ;
     (* Cleaning kids list. *)
     child_pids := [] ;
-    EngineDomains.set_terminating false ;
+    (* Engines that outlive the supervisor must keep considering
+       themselves as terminating, so that the failures caused by their
+       killed solvers are not reported as crashes. *)
+    if not exiting then EngineDomains.set_terminating false ;
     (* Draining mailbox. *)
     KEvent.recv () |> ignore
   ) ;
 
-  Signals.set_sigalrm_timeout_from_flag ()
+  if not exiting then Signals.set_sigalrm_timeout_from_flag ()
 
 
 (** Called after everything has been cleaned up. *)
@@ -360,7 +386,7 @@ let post_clean_exit process base_status exn =
 (** Clean up before exit *)
 let on_exit sys process status exn =
   try
-    slaughter_kids process sys;
+    slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
   with TimeoutWall -> post_clean_exit process status TimeoutWall
 
@@ -475,7 +501,9 @@ let spawn_process in_sys param
     { prep_process = process ; prep_module = kind_module ;
       prep_id = id ; prep_worker = messaging_worker ; prep_sys = sys } =
   try
-    EngineDomains.spawn kind_module id (fun () ->
+    EngineDomains.spawn kind_module id
+      ~disconnect:(fun () -> KEvent.unregister_worker messaging_worker)
+      (fun () ->
       (* Start messaging for this domain. *)
       let messaging_worker = KEvent.run_process messaging_worker in
 
