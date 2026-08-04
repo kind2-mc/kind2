@@ -163,7 +163,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
               | A.Label (a, b) -> A.Label (a, b)
               | MapIndex (a, e) -> MapIndex (a, r e)
               | SetIndex (a, e) -> SetIndex (a, r e)
-              | Index (a, e) -> Index (a, r e)
+              | Index (a, e, k) -> Index (a, r e, k)
               | GenericIndex (a, e) -> GenericIndex (a, r e)
              ) li, 
     e2)
