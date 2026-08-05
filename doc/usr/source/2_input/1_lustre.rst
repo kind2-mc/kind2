@@ -821,6 +821,105 @@ assumptions having held at every step up to and including the current one (the
 that a function's outputs depend only on the current values of its inputs,
 whereas a node may also depend on their previous values.
 
+Recursive functions
+^^^^^^^^^^^^^^^^^^^
+
+A function may call itself, directly or through a cycle of other functions,
+if it is declared with the ``rec`` modifier:
+
+.. code-block:: none
+
+   datatype Nat = Succ (pred: Nat) | Zero;
+
+   function rec to_int (n: Nat) returns (out: int)
+   con
+     decreases n;
+   noc
+   let
+     out = match n with
+       | Zero      : 0
+       | Succ (m)  : 1 + to_int (m)
+     end;
+   tel
+
+Every function marked ``rec``\ , and every function reachable from it through
+a call cycle, must carry a ``decreases`` contract item. This measure is what
+lets Kind 2 establish that the recursion terminates (without it, a call could be given a definition
+that has no solution). Kind 2 rejects a ``rec`` function that lacks a
+``decreases`` clause, and rejects a plain (non-\ ``rec``\ ) function that is
+found to actually be part of a (recursive) call cycle.
+
+A ``decreases`` clause takes one of two forms.
+
+**Integer measure.** A single integer expression, or a comma-separated tuple
+of integer expressions read lexicographically:
+
+.. code-block:: none
+
+   function rec sum_to (n: int) returns (out: int)
+   con
+     decreases n;
+   noc
+   let
+     out = if n <= 0 then 0 else n + sum_to (n - 1);
+   tel
+
+For an integer measure, Kind 2 generates two proof obligations per recursive
+call and verifies them like any other property: the measure must be bounded
+below by ``0``\ , and it must strictly decrease (lexicographically, for
+tuples) from caller to callee.
+
+**Algebraic-datatype measure.** A single expression whose type is a
+recursive ADT (see :ref:`2_input/14_algebraic_datatypes`). This form cannot
+be used as a component of a tuple measure. Instead of generating a property,
+Kind 2 checks ADT measures **statically**\ , at compile time: for every
+recursive call, the callee's measure (after substituting the actual call
+arguments for the callee's parameters) must be a strict structural subterm
+of the caller's measure, i.e. a chain of one or more field selectors applied
+to the caller's own measure expression. Pattern matches count towards this:
+a pattern variable bound to a field of the scrutinee is treated as the
+corresponding selector chain. For example:
+
+.. code-block:: none
+
+   datatype Nat = Succ (pred: Nat) | Zero;
+
+   function rec is_even (n: Nat) returns (b: bool)
+   con
+     decreases n;
+   noc
+   let
+     b = match n with
+       | Zero      : true
+       | Succ (m)  : is_odd (m)
+     end;
+   tel
+
+   function rec is_odd (n: Nat) returns (b: bool)
+   con
+     decreases n;
+   noc
+   let
+     b = match n with
+       | Zero      : false
+       | Succ (m)  : is_even (m)
+     end;
+   tel
+
+Here ``is_even``\ 's call to ``is_odd (m)`` type-checks against ``is_odd``\ 's
+measure ``n`` substituted with the actual argument ``m``\ , namely ``m``
+itself; since the match arm binds ``m`` to the ``pred`` field of the
+scrutinee, this is the selector chain ``n.pred``\ , a strict subterm of the
+caller's own measure ``n``. The same reasoning applies to ``is_odd``\ 's call
+back into ``is_even``\ , so the mutual recursion is accepted as terminating.
+
+Because the check is purely syntactic, it only recognizes recursive
+arguments built directly out of field-selector chains on the measure
+expression (as produced by pattern matches or explicit selectors ``e.f``\ );
+an argument computed through an intermediate local variable, an auxiliary
+call, or any other indirection is rejected even if it is semantically
+equal to such a chain.
+
 Benefits and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

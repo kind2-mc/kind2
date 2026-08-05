@@ -481,6 +481,11 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_activate.lus" with
     | Error _ -> false
     | _ -> true);
+
+  mk_test "test 'rec' annotation on a function that does not call itself" (fun () ->
+    match load_file "./lustreAstDependencies/rec_annotation_without_recursion.lus" with
+    | Error (`LustreAstDependenciesError (_, RecursiveAnnotationWithoutRecursion _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -946,6 +951,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test ADT selector on non-ADT type" (fun () ->
     match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
+    | _ -> false);
+  mk_test "test ADT decreases measure referencing an output is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_decreases_output_reference_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTDecreasesReferencesNonInput _)) -> true
     | _ -> false);
 ])
 

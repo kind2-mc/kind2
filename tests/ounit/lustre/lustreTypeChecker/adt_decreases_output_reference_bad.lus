@@ -1,0 +1,10 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec F (n: Nat) returns (out: Nat)
+con decreases out; noc
+let
+  out = match n with
+  | Succ (m) : F(m)
+  | Zero : n
+  end;
+tel
