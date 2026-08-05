@@ -82,6 +82,14 @@ let create sz =
     limit = 3; }
 
 
+(* A table holding what the given one holds, sharing its values. Used
+   to give a new domain the tables of the domain that spawned it. *)
+let copy t =
+  { table = Array.map (fun (n, a) -> (n, Array.copy a)) t.table ;
+    totsize = t.totsize ;
+    limit = t.limit }
+
+
 (* Clear the hashcons table *)
 let clear t =
 
@@ -345,6 +353,7 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit
@@ -398,6 +407,13 @@ struct
     { table = Array.make sz emptybucket;
       totsize = 0;
       limit = 3; }
+
+  (* A table holding what the given one holds, sharing its values. Used
+     to give a new domain the tables of the domain that spawned it. *)
+  let copy t =
+    { table = Array.map (fun (n, a) -> (n, Array.copy a)) t.table ;
+      totsize = t.totsize ;
+      limit = t.limit }
 
   (* Clear the hashcons table *)
   let clear t =

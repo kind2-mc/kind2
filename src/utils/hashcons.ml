@@ -26,6 +26,7 @@ module type HSig = sig
   type ('a, 'b) t
   val create : int -> ('a, 'b) t
   val clear : ('a, 'b) t -> unit
+  val copy : ('a, 'b) t -> ('a, 'b) t
   val hashcons : ('a, 'b) t -> 'a -> 'b -> ('a, 'b) hash_consed
   val iter : (('a, 'b) hash_consed -> unit) -> ('a, 'b) t -> unit
   val fold : (('a, 'b) hash_consed -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
@@ -44,6 +45,7 @@ module type HSig = sig
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit
@@ -53,7 +55,7 @@ module type HSig = sig
   module Make(H : HashedType) : (S with type key = H.t and type prop = H.prop)
 end
 
-include (val (module HashconsWeak : HSig))
+include (val (module HashconsStrong : HSig))
 
   
 (* 

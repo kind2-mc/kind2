@@ -50,6 +50,9 @@ val create : int -> ('a, 'b) t
 (** Removes all elements from the table. *)
 val clear : ('a, 'b) t -> unit
 
+(** A table holding what the given one holds, sharing its values. *)
+val copy : ('a, 'b) t -> ('a, 'b) t
+
 (** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
     any existing value in [t] equal to [n], if any; otherwise, allocates
     a new one hash-consed value of node [n] and returns it. 
@@ -86,6 +89,7 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit

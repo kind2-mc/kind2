@@ -32,12 +32,24 @@ let equal { tag = t1 } { tag = t2 } = t1 = t2
 let hash { hkey = h } = h
 
 
-(* Tag generation must be atomic: all hashcons tables of the process draw
-   from this single counter, and tables are used concurrently by several
-   domains. *)
-let gentag =
-  let r = Atomic.make 0 in
-  fun () -> Atomic.fetch_and_add r 1 + 1
+(* Tags order the sets and maps the engines search with, so a domain
+   draws them from a counter of its own, seeded with the counter of the
+   domain that spawned it. An engine then numbers the values it builds
+   exactly as it would have numbered them as a forked process: in the
+   order it builds them, undisturbed by its siblings.
+
+   Two domains do reach the same tag, for different values. Tags only
+   identify a value within the tables of one domain, and a value that
+   crosses a domain boundary has to be imported into the tables of the
+   receiver, as it had to be imported into the receiving process when
+   the engines were forked. *)
+let tag_counter =
+  Domain.DLS.new_key ~split_from_parent:(fun r -> ref !r) (fun () -> ref 0)
+
+let gentag () =
+  let r = Domain.DLS.get tag_counter in
+  incr r ;
+  !r
 
 type ('a, 'b) t = {
   lock : Mutex.t;                    (* protects all mutable state below *)
@@ -61,6 +73,31 @@ let clear t =
     for i = 0 to Array.length t.table - 1 do t.table.(i) <- emptybucket done;
     t.totsize <- 0;
     t.limit <- 3)
+
+(* A table holding what [t] holds, and nothing of [t] itself.
+
+   The values are shared with [t], which is what makes the copy cheap
+   and what makes it faithful: a value the parent built keeps the tag
+   the parent gave it, so the two domains agree on everything built
+   before they parted. They only disagree on what they build after. *)
+let copy t =
+  Mutex.protect t.lock (fun () ->
+    let table =
+      Array.map
+        (fun b ->
+          let n = Weak.length b in
+          if n = 0 then b
+          else begin
+            let b' = Weak.create n in
+            Weak.blit b 0 b' 0 n ;
+            b'
+          end)
+        t.table
+    in
+    { lock = Mutex.create () ;
+      table ;
+      totsize = t.totsize ;
+      limit = t.limit })
 
 let unsafe_fold f t init =
   let rec fold_bucket i b accu =
@@ -176,6 +213,7 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit
@@ -236,6 +274,27 @@ struct
   let with_all_stripes t f =
     lock_all t ;
     Fun.protect ~finally:(fun () -> unlock_all t) f
+
+  (* A table holding what [t] holds, and nothing of [t] itself. See the
+     copy of the plain tables above. *)
+  let copy t =
+    with_all_stripes t (fun () ->
+      let table =
+        Array.map
+          (fun b ->
+            let n = Weak.length b in
+            if n = 0 then b
+            else begin
+              let b' = Weak.create n in
+              Weak.blit b 0 b' 0 n ;
+              b'
+            end)
+          t.table
+      in
+      { locks = Array.init nstripes (fun _ -> Mutex.create ()) ;
+        table ;
+        totsize = Atomic.make (Atomic.get t.totsize) ;
+        limit = t.limit })
 
   let clear t =
     with_all_stripes t (fun () ->

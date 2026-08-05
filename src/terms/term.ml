@@ -78,6 +78,12 @@ struct
 
   let mk_fresh_var = Var.mk_fresh_var
   
+  let import_symbol = Symbol.import 
+
+  let import_var = Var.import 
+
+  let import_sort = Type.import 
+
   (* Pretty-print a symbol *)
   let pp_print_symbol = Symbol.pp_print_symbol
 
@@ -987,6 +993,12 @@ let mk_forall ?(fundef=false) vars t =
   in
   T.mk_forall vars t
 
+
+(* Import a term from a different instance into this hashcons table *)
+let import = T.import 
+
+(* Import a term from a different instance into this hashcons table *)
+let import_lambda = T.import_lambda 
 
 (* Flatten top node of term *)
 let construct = T.construct

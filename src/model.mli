@@ -57,6 +57,9 @@ val create : int -> t
 (** Create a path of the given size *)
 val create_path : int -> path
 
+(** Import a variable assignment from a different instance *)
+val import_value : value -> value
+
 (** Create a model of an association list *)
 val of_list : (Var.t * value) list -> t
 

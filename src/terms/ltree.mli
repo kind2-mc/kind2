@@ -98,6 +98,12 @@ sig
 
   val mk_fresh_var : sort -> var
 
+  val import_symbol : symbol -> symbol
+
+  val import_var : var -> var
+
+  val import_sort : sort -> sort
+
   (** Pretty-print a symbol *)
   val pp_print_symbol : Format.formatter -> symbol -> unit
 
@@ -258,6 +264,14 @@ sig
 
   (** Convert the flattened representation back into a term *)
   val construct : flat -> t
+
+  (** Import a term into the hashcons table by rebuilding it bottom
+      up *)
+  val import : t -> t
+
+  (** Import a lambda abstraction into the hashcons table by
+      rebuilding it bottom up *)
+  val import_lambda : lambda -> lambda
 
   (*
   (** Pretty-print a term *)

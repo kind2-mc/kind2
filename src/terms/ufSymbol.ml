@@ -81,11 +81,27 @@ module Huf_symbol = H.Make (Uf_symbol_node)
 
 
 (* Storage for uninterpreted function symbols *)
-let ht = Huf_symbol.create 251
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Huf_symbol.copy
+    (fun () -> Huf_symbol.create 251)
+
+let ht () = Domain.DLS.get ht_key
 
 (* We keep a copy of all UF symbols to prevent GC from collecting them.
    Guarded by [uf_symbs_lock]: symbols may be created from any domain. *)
-let uf_symbs = ref []
+(* Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let uf_symbs_key =
+  Domain.DLS.new_key ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref [])
+
+let uf_symbs () = Domain.DLS.get uf_symbs_key
 let uf_symbs_lock = Mutex.create ()
 
 (* ********************************************************************* *)
@@ -190,7 +206,7 @@ let mk_uf_symbol s a r =
   try 
     
     (* Get previous declaration of symbol *)
-    let u = Huf_symbol.find ht s in
+    let u = Huf_symbol.find (ht ()) s in
 
     if 
       
@@ -226,11 +242,24 @@ let mk_uf_symbol s a r =
     (* Hashcons uninterpreted symbol *)
     let s =
       Huf_symbol.hashcons
-        ht
+        (ht ())
         s
         { uf_arg_type = a; uf_res_type = r }
     in
-    Mutex.protect uf_symbs_lock (fun () -> uf_symbs := s :: !uf_symbs); s
+    Mutex.protect uf_symbs_lock (fun () -> (uf_symbs ()) := s :: !(uf_symbs ())); s
+
+
+(* Import an uninterpreted symbol from a different instance into the
+   hashcons table 
+
+   TODO: We may have clashes if we import fresh uninterpreted symbols
+   from one instance to another.*)
+let import u = 
+
+  mk_uf_symbol 
+    (name_of_uf_symbol u)
+    (List.map Type.import (arg_type_of_uf_symbol u))
+    (Type.import (res_type_of_uf_symbol u))
 
 
 (* Counter for index of fresh uninterpreted symbols. Atomic so that
@@ -247,7 +276,7 @@ let rec next_fresh_uf_symbol () =
   try 
 
     (* Check if candidate symbol is already declared *)
-    let _ = Huf_symbol.find ht s in
+    let _ = Huf_symbol.find (ht ()) s in
   
     (* Recurse to get another fresh symbol *)
     next_fresh_uf_symbol ()
@@ -275,7 +304,7 @@ let uf_symbol_of_string s =
   try 
 
     (* Get previous declaration of symbol *)
-    Huf_symbol.find ht s 
+    Huf_symbol.find (ht ()) s 
         
   with Not_found ->
 
@@ -298,7 +327,7 @@ let fold_uf_declarations f a =
           u
       in
       f s t r a)
-    ht
+    (ht ())
     a
 
 
@@ -313,7 +342,7 @@ let iter_uf_declarations f =
           u
       in
       f s t r)
-    ht
+    (ht ())
 
 
 (* 

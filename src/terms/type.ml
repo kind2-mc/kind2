@@ -130,7 +130,16 @@ module Hkindtype = Hashcons.Make (Kindtype_node)
 
 
 (* Storage for uninterpreted function symbols *)
-let ht = Hkindtype.create 7
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Hkindtype.copy
+    (fun () -> Hkindtype.create 7)
+
+let ht () = Domain.DLS.get ht_key
 
 
 (* Return the node of a type *)
@@ -328,30 +337,30 @@ let string_of_type_debug t = string_of_t pp_print_type_debug t
 
 
 (* Return a hashconsed type *)
-let mk_type t = Hkindtype.hashcons ht t ()
+let mk_type t = Hkindtype.hashcons (ht ()) t ()
 
-let mk_bool () = Hkindtype.hashcons ht Bool ()
+let mk_bool () = Hkindtype.hashcons (ht ()) Bool ()
 
-let mk_int () = Hkindtype.hashcons ht Int ()
+let mk_int () = Hkindtype.hashcons (ht ()) Int ()
 
 let mk_int_range l u =
   match l, u with 
-  | Some l', Some u' -> assert (Numeral.(l' <= u')); Hkindtype.hashcons ht (IntRange (l, u)) ()
-  | _ -> Hkindtype.hashcons ht (IntRange (l, u)) ()
+  | Some l', Some u' -> assert (Numeral.(l' <= u')); Hkindtype.hashcons (ht ()) (IntRange (l, u)) ()
+  | _ -> Hkindtype.hashcons (ht ()) (IntRange (l, u)) ()
   
-let mk_real () = Hkindtype.hashcons ht Real ()
+let mk_real () = Hkindtype.hashcons (ht ()) Real ()
 
-let mk_ubv w = Hkindtype.hashcons ht (UBV w) ()
+let mk_ubv w = Hkindtype.hashcons (ht ()) (UBV w) ()
 
-let mk_bv w = Hkindtype.hashcons ht (BV w) ()
+let mk_bv w = Hkindtype.hashcons (ht ()) (BV w) ()
 
-let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
+let mk_array i t = Hkindtype.hashcons (ht ()) (Array (i, t)) ()
 
-let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
+let mk_abstr s = Hkindtype.hashcons (ht ()) (Abstr s) ()
 
-let mk_datatype name ctors = Hkindtype.hashcons ht (Datatype (name, ctors)) ()
+let mk_datatype name ctors = Hkindtype.hashcons (ht ()) (Datatype (name, ctors)) ()
 
-let mk_datatype_ref name = Hkindtype.hashcons ht (DatatypeRef name) ()
+let mk_datatype_ref name = Hkindtype.hashcons (ht ()) (DatatypeRef name) ()
 
 
 module HNum = Hashtbl.Make (struct
@@ -362,7 +371,14 @@ module HNum = Hashtbl.Make (struct
     
 
 (* Table from constructors to name if any and encoding to ranges *)
-let enums_table = Hashtbl.create 7
+(* Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let enums_table_key =
+  Domain.DLS.new_key ~split_from_parent:Hashtbl.copy
+    (fun () -> Hashtbl.create 7)
+
+let enums_table () = Domain.DLS.get enums_table_key
 (* Table from numeral encoding to a constructor and its type *)
 let num_enums = HNum.create 17
 (* Talbe from constructors to their numeral encoding *)
@@ -377,18 +393,18 @@ let mk_enum =
   let next_n = ref 0 in
   fun name cs ->
     Mutex.protect enums_lock @@ fun () ->
-    try Hashtbl.find enums_table cs |> snd
+    try Hashtbl.find (enums_table ()) cs |> snd
     with Not_found ->
       let size = List.length cs in
       let n = !next_n in
       let l, u = Numeral.of_int n, Numeral.of_int (n + size - 1) in
-      let range = Hkindtype.hashcons ht (Enum (l, u)) () in
+      let range = Hkindtype.hashcons (ht ()) (Enum (l, u)) () in
       List.iteri (fun i c ->
           let nu = Numeral.of_int (n + i) in
           HNum.add num_enums nu (c, cs, range);
           Hashtbl.add constr_nums c nu;
         ) cs;
-      Hashtbl.add enums_table cs (name, range);
+      Hashtbl.add (enums_table ()) cs (name, range);
       next_n := n + size;
       range
 
@@ -404,15 +420,39 @@ let get_constrs_of_num n =
 
 let get_num_of_constr c = Hashtbl.find constr_nums c
 
-(* let get_enum_range_of_constrs cs = Hashtbl.find enums_table cs |> snd *)
+(* let get_enum_range_of_constrs cs = Hashtbl.find (enums_table ()) cs |> snd *)
 
-let get_enum_name_of_constrs cs = Hashtbl.find enums_table cs |> fst
+let get_enum_name_of_constrs cs = Hashtbl.find (enums_table ()) cs |> fst
 
 let enum_of_constr c =
   get_num_of_constr c |> get_enum_range_of_num
 
 let get_enum_name_of_num n =
   get_constrs_of_num n |> get_enum_name_of_constrs
+
+
+(* Import a type from a different instance into this hashcons table *)
+let rec import { Hashcons.node = n } = match n with 
+  (* Import leaf types directly *)
+  | Bool
+  | Int
+  | IntRange _
+  | Enum _
+  | UBV _
+  | BV _ 
+  | Real as t -> mk_type t
+
+
+  (* Import index and value types of array type *)
+  | Array (i, t) -> mk_array (import i) (import t)
+
+  | Abstr s -> mk_abstr s
+
+  | Datatype (name, ctors) ->
+    let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
+    mk_type (Datatype (name, ctors'))
+
+  | DatatypeRef name -> mk_datatype_ref name
 
 
 (* Static values *)
@@ -426,7 +466,7 @@ let t_real = mk_real ()
 let get_all_abstr_types () =
   Hkindtype.fold (fun ty acc -> match ty with
       | { Hashcons.node = Abstr _ } -> ty :: acc
-      | _ -> acc) ht []
+      | _ -> acc) (ht ()) []
   |> List.rev
 
 

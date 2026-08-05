@@ -230,6 +230,9 @@ module SymbolMap : Map.S with type key = t
 (** Create a symbol *)
 val mk_symbol : symbol -> t
 
+(** Import a symbol built by another domain into the tables of this one *)
+val import : t -> t
+
 (** {1 Static symbols} *)
 
 (** Constant Boolean value symbol *)

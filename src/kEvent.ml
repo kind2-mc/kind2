@@ -48,10 +48,49 @@ let div_by_zero_text prop_name = [
 ]
 
 (* Messages to be relayed between processes *)
-type event = 
+type event =
   | Invariant of string list * Term.t * Certificate.t * bool
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.value list) list
+
+
+(* Rebuild the hash-consed values of an event in the tables of the
+   calling domain.
+
+   Every domain has tables of its own, so a term another engine built
+   is numbered for the tables of that engine and means nothing here:
+   the tag it carries belongs to one of our terms, and comparing the
+   two would silently answer about the wrong pair. Importing gives the
+   value back in our own numbering, and is what the engines did with
+   the messages they received when they were separate processes.
+
+   Every event coming from another domain must go through this. *)
+
+(* [rev_map] rather than [map]: a counterexample can be long enough for
+   the stack to matter. *)
+let import_cex cex =
+  List.rev_map
+    (fun (sv, vs) ->
+      (StateVar.import sv, List.rev_map Model.import_value vs |> List.rev))
+    cex
+  |> List.rev
+
+let import_event = function
+
+  | Invariant (scope, term, (k, phi), two_state) ->
+    Invariant
+      (scope, Term.import term, (k, Term.import phi), two_state)
+
+  | PropStatus (p, Property.PropInvariant (k, phi)) ->
+    PropStatus (p, Property.PropInvariant (k, Term.import phi))
+
+  | PropStatus (p, Property.PropFalse cex) ->
+    PropStatus (p, Property.PropFalse (import_cex cex))
+
+  | StepCex (p, cex) -> StepCex (p, import_cex cex)
+
+  (* Nothing hash-consed to rebuild *)
+  | PropStatus (_, (Property.PropUnknown | Property.PropKTrue _)) as e -> e
 
 
 (* Pretty-print an event *)
@@ -2167,8 +2206,9 @@ let recv () =
              (* Return event message *)
              | mdl, EventMessaging.RelayMessage msg ->
 
-               (* Return relay message *)
-               (mdl, msg) :: accum
+               (* The message was built by another domain, in tables
+                  that are not ours: rebuild it in ours. *)
+               (mdl, import_event msg) :: accum
 
            )
          )

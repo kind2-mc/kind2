@@ -406,6 +406,16 @@ let create sz = VT.create sz
 (* Create a path of the given size *)
 let create_path sz = SVT.create sz
 
+(* Import a variable assignment from a different instance *)
+let import_value = function
+  | Term t -> Term (Term.import t)
+  | Lambda l -> Lambda (Term.import_lambda l)
+  | Map m ->
+    Map (MIL.fold (fun l v acc ->
+        MIL.add l (Term.import v) acc)
+        m MIL.empty)
+
+
 (* Create a model of an association list *)
 let of_list l = 
 
