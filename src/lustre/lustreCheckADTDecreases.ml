@@ -68,8 +68,8 @@ let get_decreases = function
     ) None items
 
 (* Check whether the type of e is a recursive ADT according to adt_map. *)
-let is_adt_decreases ctx adt_map e =
-  match Chk.infer_type_expr ctx None e with
+let is_adt_decreases ctx adt_map nname e =
+  match Chk.infer_type_expr ctx (Some nname) e with
   | Error _ -> false
   | Ok (ty, _, _) ->
     match Chk.expand_type_syn_reftype_history ctx ty with
@@ -177,9 +177,9 @@ let check_func_decl ctx adt_map scc_map func_map decl =
       Chk.add_full_node_ctx ctx fname_id ty_params inputs outputs locals
     in
     match get_decreases contract with
-    | None -> Ok ()
+    | None -> assert false
     | Some t ->
-      if not (is_adt_decreases local_ctx adt_map t) then Ok ()
+      if not (is_adt_decreases local_ctx adt_map fname_id t) then Ok ()
       else
         let caller_scc = match HStringMap.find_opt fname scc_map with
           | Some id -> id
@@ -189,10 +189,10 @@ let check_func_decl ctx adt_map scc_map func_map decl =
         let check_call (pos, callee_id, args) =
           let callee_name = NI.get_internal_name callee_id in
           match HStringMap.find_opt callee_name func_map with
-          | None -> Ok ()
+          | None -> assert false
           | Some (callee_formals, callee_contract) ->
             match get_decreases callee_contract with
-            | None -> Ok ()
+            | None -> assert false
             | Some t_callee ->
               let substituted = substitute_formals callee_formals args t_callee in
               if is_strict_subterm t substituted then Ok ()
