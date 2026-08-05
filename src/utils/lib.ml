@@ -1491,6 +1491,39 @@ end
 (* |===| Hardcoded strings. *)
 
 (* Internal string values *)
+(* ********************************************************************** *)
+(* Names invented by a domain                                             *)
+(* ********************************************************************** *)
+
+(* Range in which the calling domain numbers the names it invents.
+
+   The names a domain gives to what it builds — the uninterpreted
+   function symbols of its state variables, its fresh symbols, the tags
+   of its named terms — are what [import] matches on when a value
+   crosses a domain boundary, so two domains inventing the same name
+   for different values would quietly conflate them. Drawing the
+   numbers from one counter shared by every domain keeps them apart,
+   but then the names a domain invents depend on how many its siblings
+   invented before it, and so on the order the scheduler happened to
+   run them in.
+
+   Every domain numbers from a base of its own instead. The names stay
+   apart, and the sequence a domain produces depends on nothing but
+   what that domain did, as it did when the engines were separate
+   processes. *)
+let naming_range = Domain.DLS.new_key (fun () -> 0)
+
+(* Give the calling domain a range of its own. The engines pass their
+   identifier, which no other engine of the run is given; the
+   supervisor keeps 0. Call before inventing any name in the domain. *)
+let set_naming_range i = Domain.DLS.set naming_range i
+
+(* The numbers of the calling domain start here. The stride leaves a
+   domain 2^32 names and a run 2^30 engines, both past anything an
+   analysis reaches. *)
+let fresh_name_base () = Domain.DLS.get naming_range lsl 32
+
+
 module StringValues = struct
 
   let scope_sep : (unit, Format.formatter, unit) format = "."

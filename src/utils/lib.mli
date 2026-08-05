@@ -658,6 +658,18 @@ module StringValues: sig
 
     val type_ascription_output_name : string
 end
+(** {1 Names invented by a domain} *)
+
+(** Give the calling domain a range of its own to number the names it
+    invents in, so that no two domains invent the same name and the
+    names a domain invents do not depend on what its siblings did. The
+    engines pass their identifier; the supervisor keeps 0. Call before
+    inventing any name in the domain. *)
+val set_naming_range : int -> unit
+
+(** The numbers of the calling domain start here. *)
+val fresh_name_base : unit -> int
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

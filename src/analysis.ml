@@ -18,11 +18,21 @@
 
 open Lib
 
-(* Atomic so that analysis identifiers created concurrently in
-   different domains are distinct: IC3IA instances clone their analysis
-   parameter from within their own domain. *)
-let uid_cnt = Atomic.make 0
-let get_uid () = Atomic.fetch_and_add uid_cnt 1
+(* Analysis identifiers, numbered in the range of the calling domain.
+
+   IC3IA instances clone their analysis parameter from within their own
+   domain, and the identifier ends up in the names of the initial and
+   transition predicates of the system, which is what [import] matches
+   on: two domains must not hand out the same one. Numbering from a
+   base of their own keeps them apart without making the identifiers an
+   engine hands out depend on what its siblings did. *)
+let uid_key = Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let get_uid () =
+  let r = Domain.DLS.get uid_key in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t

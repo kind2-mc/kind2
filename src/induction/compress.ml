@@ -171,13 +171,16 @@ let offset_of_vars m =
 (* Simulation relation: Equality modulo input variables                   *)
 (* ********************************************************************** *)
 
-(* Atomic so that function symbols created concurrently in different
-   domains get distinct names: uninterpreted function symbols are
-   global to the process and redeclaring a name with a different
-   signature is an error. *)
-let counter =
-  let i = Atomic.make 0 in
-  fun () -> Atomic.fetch_and_add i 1 + 1
+(* Numbered in the range of the calling domain, so that the function
+   symbols of two domains keep distinct names: redeclaring a name with
+   a different signature is an error. *)
+let counter_key =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let counter () =
+  let i = Domain.DLS.get counter_key in
+  i := !i + 1 ;
+  !i
 
 (* Name of the uninterpreted function symbol. Domain-local: each
    inductive step engine uses its own current symbol. *)

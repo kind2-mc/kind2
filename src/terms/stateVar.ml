@@ -268,15 +268,16 @@ let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
 
 
 (* Generate a new identifier for an uninterpreted functions symbol.
-   The counter is atomic so that identifiers generated concurrently in
-   different domains are distinct. *)
-let gen_uf =
-  let r = Atomic.make 1 in
-  fun a s ->
-    UfSymbol.mk_uf_symbol
-      (Format.sprintf "%%f%d" (Atomic.fetch_and_add r 1))
-      a
-      s
+   Numbered in the range of the calling domain, so that the identifiers
+   of two domains stay apart without either depending on the other. *)
+let gen_uf_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base () + 1))
+
+let gen_uf a s =
+  let r = Domain.DLS.get gen_uf_id in
+  let id = !r in
+  r := id + 1 ;
+  UfSymbol.mk_uf_symbol (Format.sprintf "%%f%d" id) a s
 
 (* Hashcons a state variable *)
 let mk_state_var 

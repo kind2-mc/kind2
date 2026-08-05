@@ -1518,11 +1518,16 @@ let mk_store a i v =
 
 let mk_const_array t v = mk_app_of_symbol_node (`CONST_ARRAY t) [v]
 
-(* Generate a new tag. Atomic so that names of named terms created
-   concurrently in different domains are distinct. *)
-let newid =
-  let r = Atomic.make 0 in
-  fun () -> Atomic.fetch_and_add r 1 + 1
+(* Generate a new tag, in the range of the calling domain, so that the
+   names of the named terms of two domains stay apart without either
+   depending on the other. *)
+let newid_key =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let newid () =
+  let r = Domain.DLS.get newid_key in
+  r := !r + 1 ;
+  !r
 
 
 (* Hashcons a named term *)

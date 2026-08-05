@@ -261,16 +261,23 @@ let import u =
     (Type.import (res_type_of_uf_symbol u))
 
 
-(* Counter for index of fresh uninterpreted symbols. Atomic so that
-   symbols created concurrently in different domains are distinct. *)
-let fresh_uf_symbol_id = Atomic.make 0
+(* Counter for index of fresh uninterpreted symbols, in the range of
+   the calling domain. *)
+let fresh_uf_symbol_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let next_fresh_uf_symbol_id () =
+  let r = Domain.DLS.get fresh_uf_symbol_id in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 
 (* Return name of a fresh uninterpreted symbol  *)
 let rec next_fresh_uf_symbol () =
 
   (* Candidate name for next fresh symbol, incrementing the counter *)
-  let s = Format.sprintf "__C%d" (Atomic.fetch_and_add fresh_uf_symbol_id 1) in
+  let s = Format.sprintf "__C%d" (next_fresh_uf_symbol_id ()) in
 
   try 
 

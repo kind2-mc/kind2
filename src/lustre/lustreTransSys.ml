@@ -82,12 +82,17 @@ let index_of_scope s =
   curr
 *)
 
-(* Atomic so that identifiers created concurrently in different domains
-   are distinct: the resulting tag names state variable scopes, and a
-   collision would alias the state variables of two distinct recursive
-   unrollings. *)
-let node_num_id = Atomic.make 0
-let get_node_num_id () = Atomic.fetch_and_add node_num_id 1
+(* Numbered in the range of the calling domain: the resulting tag names
+   state variable scopes, and a collision would alias the state
+   variables of two distinct recursive unrollings. *)
+let node_num_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let get_node_num_id () =
+  let r = Domain.DLS.get node_num_id in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 let get_rec_tag id = Format.asprintf "rec_%d" id
 
