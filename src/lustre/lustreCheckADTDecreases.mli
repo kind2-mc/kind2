@@ -29,14 +29,16 @@ type error_kind =
   | NotAStructuralSubterm of LustreAst.expr * LustreAst.expr
   (** [(callee_measure_after_substitution, caller_measure)]: the recursive
       call's substituted measure is not a strict subterm of the caller's. *)
+  | MixedDecreasesKindsInScc of LustreAst.ident list
+  (** The named functions are mutually recursive but do not all use the same
+      kind of decreases measure (integer vs. algebraic data type). *)
 
 val error_message : error_kind -> string
 
 type error = [`LustreCheckADTDecreasesError of Lib.position * error_kind]
 
 (** Check all recursive [FuncDecl]s in [decls] whose [decreases] clause has a
-    recursive ADT type.  Returns the declarations unchanged on success, or an
-    error if any recursive call fails the structural subterm check. *)
+    recursive ADT type. *)
 val check :
   TypeCheckerContext.tc_context ->
   LustreDesugarADTs.adt_map ->

@@ -1057,4 +1057,12 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
     match load_file "./lustreCheckADTDecreases/adt_decreases_check_stmt_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
     | _ -> false);
+  mk_test "non-decreasing recursive call inside a provided clause rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_provided_clause_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutually recursive group mixing integer and ADT decreases measures rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_scc_kinds_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, MixedDecreasesKindsInScc _)) -> true
+    | _ -> false);
 ])

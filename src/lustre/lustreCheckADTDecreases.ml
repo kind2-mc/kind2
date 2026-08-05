@@ -34,6 +34,7 @@ let (let*) = Res.(>>=)
 type error_kind =
   | NotAStructuralSubterm of LA.expr * LA.expr
   (* (substituted callee measure, caller measure) *)
+  | MixedDecreasesKindsInScc of LA.ident list
 
 type error = [`LustreCheckADTDecreasesError of Lib.position * error_kind]
 
@@ -43,18 +44,21 @@ let error_message = function
       "Recursive call does not structurally decrease the measure: \
        '%a' is not a strict subterm of '%a'"
       LA.pp_print_expr callee_m LA.pp_print_expr caller_m
+  | MixedDecreasesKindsInScc ids ->
+    "Mutually recursive functions "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+    ^ " must all use the same kind of decreases measure (either all integer, \
+       or all algebraic data type); mixing kinds within one mutually \
+       recursive group is not supported"
 
 let check_error pos kind = Error (`LustreCheckADTDecreasesError (pos, kind))
-
-(* Position-independent expression equality via string rendering. *)
-let expr_equal e1 e2 = LA.string_of_expr e1 = LA.string_of_expr e2
 
 (* t' ⊏ t: t' is a strict syntactic subterm of t.
    Strips FieldProject layers from t'; true iff the chain ends exactly at t. *)
 let rec is_strict_subterm base t' =
   match t' with
   | LA.FieldProject (_, inner, _, _) ->
-    expr_equal inner base || is_strict_subterm base inner
+    (LH.syn_expr_equal None inner base |> Result.get_ok) || is_strict_subterm base inner
   | _ -> false
 
 (* Extract the decreases expression from a contract, if any. *)
@@ -127,7 +131,10 @@ let rec collect_rec_calls_items scc_map caller_scc items =
   List.concat_map (fun item -> match item with
     | LA.Body (LA.Assert (_, e)) -> go_expr e
     | LA.Body (LA.Equation (_, _, e)) -> go_expr e
-    | LA.AnnotProperty (_, _, e, _) -> go_expr e
+    | LA.AnnotProperty (_, _, e, kind) ->
+      go_expr e @ (match kind with
+        | LA.Provided e2 -> go_expr e2
+        | LA.Invariant | LA.Reachable _ -> [])
     | LA.IfBlock (_, e, items1, items2) ->
       go_expr e @ go_items items1 @ go_items items2
     | LA.WhenBlock (_, e, items1, items2) ->
@@ -139,6 +146,51 @@ let rec collect_rec_calls_items scc_map caller_scc items =
       eq_calls @ go_items sub_items
     | LA.AnnotMain _ | LA.Auto _ -> []
   ) items
+
+(* Whether decl's decreases measure is ADT-typed; None if decl is not a
+   rec FuncDecl with a decreases clause. *)
+let adt_decreases_kind ctx adt_map decl =
+  match decl with
+  | LA.FuncDecl (_, (fname_id, _, _, ty_params, inputs, outputs, locals, _, contract),
+                 { LA.is_rec = true; _ }) -> (
+    match get_decreases contract with
+    | None -> None
+    | Some t ->
+      let local_ctx = Chk.add_full_node_ctx ctx fname_id ty_params inputs outputs locals in
+      Some (is_adt_decreases local_ctx adt_map fname_id t)
+  )
+  | _ -> None
+
+(* Reject a mutually recursive group (SCC) whose members don't all use the
+   same kind of decreases measure. Mixing an integer measure (verified
+   dynamically, as an SMT proof obligation) with an ADT measure (verified
+   statically, see above) in one SCC would leave the edge from an
+   integer-measured caller into an ADT-measured callee unchecked by either
+   mechanism. *)
+let check_consistent_scc_kinds ctx adt_map scc_map decls =
+  let entries = List.filter_map (fun decl ->
+    match decl, adt_decreases_kind ctx adt_map decl with
+    | LA.FuncDecl (span, (fname_id, _, _, _, _, _, _, _, _), _), Some is_adt ->
+      let fname = NI.get_internal_name fname_id in
+      (match HStringMap.find_opt fname scc_map with
+      | Some scc_id -> Some (scc_id, (span.LA.start_pos, NI.get_user_name fname_id, is_adt))
+      | None -> None)
+    | _ -> None
+  ) decls in
+  let groups = List.fold_left (fun acc (scc_id, entry) ->
+    let prev = match List.assoc_opt scc_id acc with Some l -> l | None -> [] in
+    (scc_id, entry :: prev) :: List.remove_assoc scc_id acc
+  ) [] entries in
+  Res.seq_ (List.map (fun (_, members) ->
+    match members with
+    | [] | [_] -> Ok ()
+    | (_, _, k0) :: _ ->
+      if List.for_all (fun (_, _, k) -> k = k0) members then Ok ()
+      else
+        let pos, _, _ = List.hd members in
+        let ids = List.map (fun (_, id, _) -> id) members in
+        check_error pos (MixedDecreasesKindsInScc ids)
+  ) groups)
 
 (* Build a map from function name → (formals, contract) for all FuncDecls. *)
 let build_func_map decls =
@@ -204,6 +256,7 @@ let check_func_decl ctx adt_map scc_map func_map decl =
   | _ -> Ok ()
 
 let check ctx adt_map scc_map decls =
+  let* () = check_consistent_scc_kinds ctx adt_map scc_map decls in
   let func_map = build_func_map decls in
   let* _ = Res.seq (List.map (check_func_decl ctx adt_map scc_map func_map) decls) in
   Ok decls
