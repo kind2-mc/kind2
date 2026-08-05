@@ -23,11 +23,8 @@
     contains the value itself. The field [prop] contains properties of
     some type associated with the hashconsed value.
 
-    Hash consing tables use weak pointers or not depending on the chosen
-    implementation ({!HashconsWeak} or {!HashconsStrong}). A weak table
-    reclaims what it holds, but hands a new tag to a value it collected
-    and had to build again, so the sets and maps the engines search with
-    are ordered by the collector.
+    Hash consing tables are using weak pointers, so that values that are no
+    more referenced from anywhere else can be erased by the GC. 
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)
@@ -47,13 +44,14 @@ val hash : ('a, 'b) hash_consed -> int
 type ('a, 'b) t
 
 (** [create n] creates an empty table of initial size [n]. The table
-      will grow as needed. *)
+    will grow as needed. *)  
 val create : int -> ('a, 'b) t
-  
+
 (** Removes all elements from the table. *)
 val clear : ('a, 'b) t -> unit
 
-(** A table holding what the given one holds, sharing its values. *)
+(** A table holding what the given one holds, sharing its values. Used
+    to give a new domain the tables of the domain that spawned it. *)
 val copy : ('a, 'b) t -> ('a, 'b) t
 
 (** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns

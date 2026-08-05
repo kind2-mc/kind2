@@ -55,7 +55,7 @@ module type HSig = sig
   module Make(H : HashedType) : (S with type key = H.t and type prop = H.prop)
 end
 
-include (val (module HashconsStrong : HSig))
+include (val (module HashconsWeak : HSig))
 
   
 (* 
