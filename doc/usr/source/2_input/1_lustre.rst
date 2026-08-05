@@ -856,18 +856,31 @@ of integer expressions read lexicographically:
 
 .. code-block:: none
 
-   function rec sum_to (n: int) returns (out: int)
+   type Count = subrange [0,*] of int;
+
+   function rec sum_to (n: Count) returns (out: int)
    con
      decreases n;
    noc
    let
-     out = if n <= 0 then 0 else n + sum_to (n - 1);
+     out = when n = 0 then 0 else n + sum_to (n - 1);
    tel
 
 For an integer measure, Kind 2 generates two proof obligations per recursive
 call and verifies them like any other property: the measure must be bounded
 below by ``0``\ , and it must strictly decrease (lexicographically, for
 tuples) from caller to callee.
+
+Note the use of ``when ... then ... else`` rather than plain ``if ... then
+... else``\ : in Lustre, both branches of an ``if`` are part of the
+expression's definition regardless of which one is selected, so the ``else``
+branch's ``sum_to (n - 1)`` would still need to be well-defined (and its
+argument still in range) even when ``n = 0``. ``when ... then ... else``
+guards the untaken branch instead, so the recursive call is only ever made
+with ``n - 1``\ , which stays within ``Count`` precisely because it is
+guarded by ``n = 0`` being false. This is also why the input is restricted
+to ``Count``: the measure must be bounded below by ``0`` for the recursion
+to be well-founded, and this only holds for non-negative ``n``.
 
 **Algebraic-datatype measure.** A single expression whose type is a
 recursive ADT (see :ref:`2_input/14_algebraic_datatypes`). This form cannot

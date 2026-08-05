@@ -486,6 +486,11 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/rec_annotation_without_recursion.lus" with
     | Error (`LustreAstDependenciesError (_, RecursiveAnnotationWithoutRecursion _)) -> true
     | _ -> false);
+
+  mk_test "test mutually recursive functions with mismatched decreases arity" (fun () ->
+    match load_file "./lustreAstDependencies/mismatched_decreases_arity.lus" with
+    | Error (`LustreAstDependenciesError (_, MismatchedDecreasesArity _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1047,5 +1052,9 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
   mk_test "mixed int/ADT tuple decreases measure rejected" (fun () ->
     match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_tuple_bad.lus" with
     | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call inside a check statement rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_check_stmt_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
     | _ -> false);
 ])

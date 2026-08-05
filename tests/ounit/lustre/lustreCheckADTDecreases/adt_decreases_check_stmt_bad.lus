@@ -1,0 +1,8 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec F (n: Nat) returns (out: int)
+con decreases n; noc
+let
+  out = 0;
+  check F(n) > 3;
+tel
