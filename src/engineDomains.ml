@@ -86,6 +86,38 @@ let is_terminating () = Atomic.get terminating
 let signals_to_block =
   [ Sys.sigalrm; Sys.sigint; Sys.sigterm; Sys.sigquit; Sys.sigpipe ]
 
+(* Size of the minor heap of an engine domain, in words.
+
+   A minor collection stops every domain of the process: the collecting
+   domain waits for all the others to reach a safe point. An engine
+   allocates heavily, and with the default minor heap of 256k words the
+   engines of an analysis collect often enough that, when there are more
+   engines than cores, they spend most of their time waiting for the
+   domains the scheduler has descheduled. The engines then progress
+   noticeably slower than the separate processes they replaced, which
+   had a collector each.
+
+   Collecting four times less often is enough to close that gap, and
+   costs 8MB per engine. The setting is not inherited from the
+   supervisor, so each domain must apply it to itself. *)
+let engine_minor_heap_size = 1 lsl 20
+
+(* Give the minor heap of the supervisor the size the engines use.
+
+   Growing a minor heap past the largest one the runtime has reserved
+   so far stops every domain and reallocates the minor heap of each,
+   promoting everything they hold. An engine sizing its own minor heap
+   would pay that price, once per engine and per analysis, while the
+   engines of the analysis are running: the collections it saves cost
+   less than the ones it forces. Enlarging the minor heap of the
+   supervisor first, while it is the only domain, raises that maximum
+   once and for the whole run, and leaves the engines nothing to
+   reserve.
+
+   Call before spawning any engine. *)
+let reserve_minor_heaps () =
+  Gc.set { (Gc.get ()) with Gc.minor_heap_size = engine_minor_heap_size }
+
 (* Spawn [f] in a new domain as the engine [mdl] with identifier [id].
    [f] handles its own cleanup and returns the unexpected exception it
    terminated on, if any. *)
@@ -93,6 +125,7 @@ let spawn mdl id ~disconnect f =
   let outcome = Atomic.make Running in
   let domain =
     Domain.spawn (fun () ->
+      Gc.set { (Gc.get ()) with Gc.minor_heap_size = engine_minor_heap_size } ;
       ignore (Thread.sigmask Unix.SIG_BLOCK signals_to_block) ;
       let r = try f () with e -> Some e in
       Atomic.set outcome (Done r))

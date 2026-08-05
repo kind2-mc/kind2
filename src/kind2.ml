@@ -161,6 +161,10 @@ let setup : unit -> any_input = fun () ->
 (* Entry point *)
 let main () =
 
+  (* Size the minor heap the engines run with before any of them is
+     spawned. *)
+  EngineDomains.reserve_minor_heaps () ;
+
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
 
