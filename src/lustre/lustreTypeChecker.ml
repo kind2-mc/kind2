@@ -126,6 +126,7 @@ type error_kind = Unknown of string
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
+  | ADTInLexicographicDecreases of tc_type
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -289,6 +290,9 @@ let error_message kind = match kind with
   | InvalidDecreasesType ty ->
     "Decreases measure must be an integer or algebraic data type expression, but found type "
     ^ string_of_tc_type ty
+  | ADTInLexicographicDecreases ty ->
+    "Algebraic data type expressions are not supported as a component of a lexicographic \
+     (tuple) decreases measure, but found type " ^ string_of_tc_type ty
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -2492,21 +2496,23 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       R.ok (LA.Guarantee (pos, id, b, e), warnings)
     | Decreases (pos, e) ->
       (* A decreases measure is a single integer or ADT expression, or a tuple
-         of such expressions interpreted lexicographically. *)
-      let check_decreases_component e =
+         of integer expressions interpreted lexicographically. ADT expressions
+         are not (yet) supported as a tuple component *)
+      let check_decreases_component ~in_tuple e =
         let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
         let* ty_exp = expand_type_syn_reftype_history ctx ty in
         (match ty_exp with
         | LA.Int _ -> R.ok (e, warnings)
-        | LA.ADT _ -> R.ok (e, warnings)
+        | LA.ADT _ when not in_tuple -> R.ok (e, warnings)
+        | LA.ADT _ -> type_error pos (ADTInLexicographicDecreases ty)
         | _ -> type_error pos (InvalidDecreasesType ty))
       in
       let* e, warnings = (match e with
         | LA.GroupExpr (gpos, LA.ExprList, es) ->
-          let* res = R.seq (List.map check_decreases_component es) in
+          let* res = R.seq (List.map (check_decreases_component ~in_tuple:true) es) in
           let es, warnings = List.split res in
           R.ok (LA.GroupExpr (gpos, LA.ExprList, es), List.flatten warnings)
-        | _ -> check_decreases_component e)
+        | _ -> check_decreases_component ~in_tuple:false e)
       in
       R.ok (LA.Decreases (pos, e), warnings)
     | Mode (pos, id, reqs, ensures) ->
