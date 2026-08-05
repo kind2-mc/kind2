@@ -23,8 +23,11 @@
     contains the value itself. The field [prop] contains properties of
     some type associated with the hashconsed value.
 
-    Hash consing tables use weak pointers or not depending on the chosen
-    implementation ({!HashconsWeak} or {!HashconsStrong}).
+    Hash consing tables hold their values strongly ({!HashconsStrong}).
+    A weak table would hand a new tag to a value it collected and had to
+    build again, and the tags order the sets and maps the engines search
+    with: the search would then follow the collector, which does not run
+    the same way twice in a process holding several domains.
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)

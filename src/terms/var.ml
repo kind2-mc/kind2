@@ -341,9 +341,8 @@ let import = function
 
 
 (* Counter for index of fresh uninterpreted symbols.
-   Guarded by [fresh_var_ids_lock]: fresh variables may be created
-   concurrently from several domains. *)
-(* Private to each domain, copied from the parent at spawn: it
+
+   Private to each domain, copied from the parent at spawn: it
    holds hash-consed values, which only mean anything in the
    tables of the domain that built them. *)
 let fresh_var_ids_key =
@@ -351,20 +350,18 @@ let fresh_var_ids_key =
     (fun () -> Type.TypeHashtbl.create 7)
 
 let fresh_var_ids () = Domain.DLS.get fresh_var_ids_key
-let fresh_var_ids_lock = Mutex.create ()
 
 
 (* Return name of a fresh uninterpreted symbol  *)
 let rec next_fresh_var_node var_type =
 
   let fresh_var_id =
-    Mutex.protect fresh_var_ids_lock (fun () ->
-      let id =
-        try Type.TypeHashtbl.find (fresh_var_ids ()) var_type
-        with Not_found -> 1
-      in
-      Type.TypeHashtbl.replace (fresh_var_ids ()) var_type (succ id);
-      id)
+    let id =
+      try Type.TypeHashtbl.find (fresh_var_ids ()) var_type
+      with Not_found -> 1
+    in
+    Type.TypeHashtbl.replace (fresh_var_ids ()) var_type (succ id);
+    id
   in
 
   let fresh_var_name = 
@@ -467,10 +464,8 @@ let map_state_var f v = match v with
 module StringMap = Map.Make(String)
 
 (* Maps strings to state var instances.
-   Updates are guarded by [unrolled_var_map_lock] so that concurrent
-   domains do not lose bindings; reads are lock-free (the map itself is
-   immutable). *)
-(* Private to each domain, copied from the parent at spawn: it
+
+   Private to each domain, copied from the parent at spawn: it
    holds hash-consed values, which only mean anything in the
    tables of the domain that built them. *)
 let unrolled_var_map_key =
@@ -478,12 +473,10 @@ let unrolled_var_map_key =
     (fun () -> ref StringMap.empty)
 
 let unrolled_var_map () = Domain.DLS.get unrolled_var_map_key
-let unrolled_var_map_lock = Mutex.create ()
 (* Adds a mapping between [string] and [var]. Returns [true] if
    [string] was already bound in the map. *)
 let update_unrolled_var_map string var =
-  Mutex.protect unrolled_var_map_lock (fun () ->
-    (unrolled_var_map ()) := StringMap.add string var !(unrolled_var_map ()))
+  (unrolled_var_map ()) := StringMap.add string var !(unrolled_var_map ())
 (* Looks for the value associated to [string].
 
    The map is immutable and the reference is only ever set to a newer

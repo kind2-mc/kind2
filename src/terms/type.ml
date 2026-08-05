@@ -379,20 +379,24 @@ let enums_table_key =
     (fun () -> Hashtbl.create 7)
 
 let enums_table () = Domain.DLS.get enums_table_key
-(* Table from numeral encoding to a constructor and its type *)
-let num_enums = HNum.create 17
-(* Talbe from constructors to their numeral encoding *)
-let constr_nums = Hashtbl.create 7
+(* Table from numeral encoding to a constructor and its type. Private
+   to each domain, like the table above: the three are written
+   together. *)
+let num_enums_key =
+  Domain.DLS.new_key ~split_from_parent:HNum.copy (fun () -> HNum.create 17)
 
-(* Guards writes to the three enum tables above. Enum types are
-   declared while the input system is built, before analysis domains
-   are spawned, so readers do not need to take the lock. *)
-let enums_lock = Mutex.create ()
+let num_enums () = Domain.DLS.get num_enums_key
+
+(* Talbe from constructors to their numeral encoding *)
+let constr_nums_key =
+  Domain.DLS.new_key ~split_from_parent:Hashtbl.copy
+    (fun () -> Hashtbl.create 7)
+
+let constr_nums () = Domain.DLS.get constr_nums_key
 
 let mk_enum =
   let next_n = ref 0 in
   fun name cs ->
-    Mutex.protect enums_lock @@ fun () ->
     try Hashtbl.find (enums_table ()) cs |> snd
     with Not_found ->
       let size = List.length cs in
@@ -401,8 +405,8 @@ let mk_enum =
       let range = Hkindtype.hashcons (ht ()) (Enum (l, u)) () in
       List.iteri (fun i c ->
           let nu = Numeral.of_int (n + i) in
-          HNum.add num_enums nu (c, cs, range);
-          Hashtbl.add constr_nums c nu;
+          HNum.add (num_enums ()) nu (c, cs, range);
+          Hashtbl.add (constr_nums ()) c nu;
         ) cs;
       Hashtbl.add (enums_table ()) cs (name, range);
       next_n := n + size;
@@ -410,15 +414,15 @@ let mk_enum =
 
 
 let get_constr_of_num n =
-  let c, _, _ = HNum.find num_enums n in c
+  let c, _, _ = HNum.find (num_enums ()) n in c
 
 let get_enum_range_of_num n =
-  let _, _, r = HNum.find num_enums n in r
+  let _, _, r = HNum.find (num_enums ()) n in r
 
 let get_constrs_of_num n =
-  let _, cs, _ = HNum.find num_enums n in cs
+  let _, cs, _ = HNum.find (num_enums ()) n in cs
 
-let get_num_of_constr c = Hashtbl.find constr_nums c
+let get_num_of_constr c = Hashtbl.find (constr_nums ()) c
 
 (* let get_enum_range_of_constrs cs = Hashtbl.find (enums_table ()) cs |> snd *)
 

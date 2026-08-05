@@ -3218,15 +3218,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             definition_set
             tl
 
-(* Building a transition system updates shared mutable tables
-   ([globals.state_var_bounds], [LustreNode.set_state_var_instance],
-   [LustreNode.add_state_var_def]) with non-atomic read-modify-write
-   sequences. The supervisor builds one system per analysis, but IC3IA
-   engines slice their own system concurrently from their domains, so
-   the whole construction is serialized by this lock. *)
-let trans_sys_of_nodes_lock = Mutex.create ()
-
-let trans_sys_of_nodes_unsafe
+let trans_sys_of_nodes
     ?(options=default_settings)
     globals
     subsystems analysis_param
@@ -3365,10 +3357,6 @@ let trans_sys_of_nodes_unsafe
 
   trans_sys, subsystem'
 
-
-let trans_sys_of_nodes ?options globals subsystems analysis_param =
-  Mutex.protect trans_sys_of_nodes_lock (fun () ->
-    trans_sys_of_nodes_unsafe ?options globals subsystems analysis_param)
 
 
 (*

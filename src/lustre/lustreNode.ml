@@ -1625,13 +1625,14 @@ type state_var_instance = position * I.t * StateVar.t
 (* Map from state variables to identical state variables in other
    scopes.
 
-   Guarded by [state_var_maps_lock]: transition systems may be built
-   from an engine domain (IC3IA slices its own system) while the
-   supervisor reads the map, e.g. to print a counterexample. *)
-let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t =
-  StateVar.StateVarHashtbl.create 7
+   Private to each domain, copied from the parent at spawn. A forked
+   engine sliced its own system into its own copy of these maps, where
+   the supervisor could not see it; a domain does the same. *)
+let state_var_instance_map_key =
+  Domain.DLS.new_key ~split_from_parent:StateVar.StateVarHashtbl.copy
+    (fun () -> StateVar.StateVarHashtbl.create 7)
 
-let state_var_maps_lock = Mutex.create ()
+let state_var_instance_map () = Domain.DLS.get state_var_instance_map_key
 
 
 (* Return identical state variable in a node instance if any *)
@@ -1640,10 +1641,9 @@ let get_state_var_instances state_var =
   try
 
     (* Read list of instances from the hash table *)
-    Mutex.protect state_var_maps_lock (fun () ->
-      StateVar.StateVarHashtbl.find
-        state_var_instance_map
-        state_var)
+    StateVar.StateVarHashtbl.find
+      (state_var_instance_map ())
+      state_var
 
   (* Return empty list *)
   with Not_found -> []
@@ -1672,13 +1672,10 @@ let pp_print_state_var_instances_debug fmt t =
 (* State variable is identical to a state variable in a node instance *)
 let set_state_var_instance state_var pos node state_var' =
 
-  (* The whole read-modify-write sequence must be atomic *)
-  Mutex.protect state_var_maps_lock @@ fun () ->
-
   (* Get instances of state variable, may return the empty list *)
   let instances =
     try
-      StateVar.StateVarHashtbl.find state_var_instance_map state_var
+      StateVar.StateVarHashtbl.find (state_var_instance_map ()) state_var
     with Not_found -> []
   in
 
@@ -1704,7 +1701,7 @@ let set_state_var_instance state_var pos node state_var' =
 
   (* Overwrite previous instances with modified list *)
   StateVar.StateVarHashtbl.replace
-    state_var_instance_map
+    (state_var_instance_map ())
     state_var
     instances'
 
@@ -1722,16 +1719,18 @@ type state_var_def =
 (* The first list contains state var defs where the state variable is explicitly mentioned.
    The second list contains state var defs that are dependencies (the node item does
    not explicitly reference the state variable, but the state variable depends on it) *)
-(* Also guarded by [state_var_maps_lock] *)
-let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t =
-  StateVar.StateVarHashtbl.create 20
+(* Private to each domain, like the map above *)
+let state_var_defs_map_key =
+  Domain.DLS.new_key ~split_from_parent:StateVar.StateVarHashtbl.copy
+    (fun () -> StateVar.StateVarHashtbl.create 20)
+
+let state_var_defs_map () = Domain.DLS.get state_var_defs_map_key
 
 let get_state_var_defs state_var =
   try
-    Mutex.protect state_var_maps_lock (fun () ->
-      StateVar.StateVarHashtbl.find
-        state_var_defs_map
-        state_var)
+    StateVar.StateVarHashtbl.find
+      (state_var_defs_map ())
+      state_var
   with Not_found -> ([], [])
 
 let state_var_defs_equal d1 d2 =
@@ -1748,11 +1747,9 @@ let state_var_defs_equal d1 d2 =
   | _ -> false
 
 let add_state_var_def ?(is_dep = false) state_var def  =
-  (* The whole read-modify-write sequence must be atomic *)
-  Mutex.protect state_var_maps_lock @@ fun () ->
   let (defs1, defs2) =
     try
-      StateVar.StateVarHashtbl.find state_var_defs_map state_var
+      StateVar.StateVarHashtbl.find (state_var_defs_map ()) state_var
     with Not_found -> ([], [])
   in
   let (defs1, defs2) =
@@ -1766,7 +1763,7 @@ let add_state_var_def ?(is_dep = false) state_var def  =
       else defs1, def::defs2)
     in
   StateVar.StateVarHashtbl.replace
-    state_var_defs_map
+    (state_var_defs_map ())
     state_var
     (defs1, defs2)
 

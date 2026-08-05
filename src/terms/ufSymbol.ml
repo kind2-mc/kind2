@@ -93,8 +93,8 @@ let ht_key =
 let ht () = Domain.DLS.get ht_key
 
 (* We keep a copy of all UF symbols to prevent GC from collecting them.
-   Guarded by [uf_symbs_lock]: symbols may be created from any domain. *)
-(* Private to each domain, copied from the parent at spawn: it
+
+   Private to each domain, copied from the parent at spawn: it
    holds hash-consed values, which only mean anything in the
    tables of the domain that built them. *)
 let uf_symbs_key =
@@ -102,7 +102,6 @@ let uf_symbs_key =
     (fun () -> ref [])
 
 let uf_symbs () = Domain.DLS.get uf_symbs_key
-let uf_symbs_lock = Mutex.create ()
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -246,7 +245,7 @@ let mk_uf_symbol s a r =
         s
         { uf_arg_type = a; uf_res_type = r }
     in
-    Mutex.protect uf_symbs_lock (fun () -> (uf_symbs ()) := s :: !(uf_symbs ())); s
+    (uf_symbs ()) := s :: !(uf_symbs ()); s
 
 
 (* Import an uninterpreted symbol from a different instance into the

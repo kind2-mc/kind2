@@ -167,9 +167,8 @@ module StateVarMap = Map.Make (OrderedStateVar)
 
 
 (* State variable an uninterpreted function symbol is associated with.
-   Guarded by [uf_symbols_map_lock]: state variables may be created and
-   looked up from any domain. *)
-(* Private to each domain, copied from the parent at spawn: it
+
+   Private to each domain, copied from the parent at spawn: it
    holds hash-consed values, which only mean anything in the
    tables of the domain that built them. *)
 let uf_symbols_map_key =
@@ -177,7 +176,6 @@ let uf_symbols_map_key =
     (fun () -> UfSymbol.UfSymbolHashtbl.create 41)
 
 let uf_symbols_map () = Domain.DLS.get uf_symbols_map_key
-let uf_symbols_map_lock = Mutex.create ()
 
 
 (* ********************************************************************* *)
@@ -247,8 +245,7 @@ let uf_symbol_of_state_var { Hashcons.prop = { uf_symbol = u } } = u
 
 (* Uninterpreted function symbol of a state variable *)
 let state_var_of_uf_symbol u =
-  Mutex.protect uf_symbols_map_lock (fun () ->
-    UfSymbol.UfSymbolHashtbl.find (uf_symbols_map ()) u)
+  UfSymbol.UfSymbolHashtbl.find (uf_symbols_map ()) u
   
 (* Return true if state variable is an input *)
 let is_input { Hashcons.prop = { is_input } } = is_input
@@ -378,11 +375,10 @@ let mk_state_var
 
        (* Remember association of uninterpreted function symbol with
           state variable *)
-       Mutex.protect uf_symbols_map_lock (fun () ->
-         UfSymbol.UfSymbolHashtbl.add
-           (uf_symbols_map ())
-           state_var_uf_symbol
-           state_var);
+       UfSymbol.UfSymbolHashtbl.add
+         (uf_symbols_map ())
+         state_var_uf_symbol
+         state_var;
 
        (* Return state variable *)
        state_var
@@ -497,9 +493,8 @@ let select_prefix = "_select"
 module TyH = Type.TypeHashtbl
 
 (* select functions.
-   Guarded by [select_fun_lock]: the table maps array types to select
-   functions and must be consistent across all domains. *)
-(* Private to each domain, copied from the parent at spawn: it
+
+   Private to each domain, copied from the parent at spawn: it
    holds hash-consed values, which only mean anything in the
    tables of the domain that built them. *)
 let array_ty_to_select_fun_key =
@@ -507,7 +502,6 @@ let array_ty_to_select_fun_key =
     (fun () -> TyH.create 7)
 
 let array_ty_to_select_fun () = Domain.DLS.get array_ty_to_select_fun_key
-let select_fun_lock = Mutex.create ()
 
 let encode_select_type =
   let cpt = ref 0 in
@@ -515,18 +509,17 @@ let encode_select_type =
     (* let sv_uf = uf_symbol_of_state_var sv in *)
     let ty = type_of_state_var sv |> Type.generalize in
     assert (Type.is_array ty);
-    Mutex.protect select_fun_lock (fun () ->
-      try TyH.find (array_ty_to_select_fun ()) ty
-      with Not_found ->
-        let ty_indexes = Type.all_index_types_of_array ty in
-        (* add type for array *)
-        let ty_args = ty :: ty_indexes in
-        let ty_elem = Type.last_elem_type_of_array ty in
-        incr cpt;
-        let name = select_prefix ^ "_" ^ string_of_int !cpt in
-        let f = UfSymbol.mk_uf_symbol name ty_args ty_elem in
-        TyH.add (array_ty_to_select_fun ()) ty f;
-        f)
+    try TyH.find (array_ty_to_select_fun ()) ty
+    with Not_found ->
+      let ty_indexes = Type.all_index_types_of_array ty in
+      (* add type for array *)
+      let ty_args = ty :: ty_indexes in
+      let ty_elem = Type.last_elem_type_of_array ty in
+      incr cpt;
+      let name = select_prefix ^ "_" ^ string_of_int !cpt in
+      let f = UfSymbol.mk_uf_symbol name ty_args ty_elem in
+      TyH.add (array_ty_to_select_fun ()) ty f;
+      f
 
 (* Encoding select funtion is done byt type (i.e. one select by array type).
    The select function performs all projections if the array is
@@ -537,8 +530,7 @@ let encode_select = encode_select_type
 (* Return select function that were created (this is used for declaration so
    it's better to return more - all - than not enough) *)
 let get_select_ufs () =
-  Mutex.protect select_fun_lock (fun () ->
-    TyH.fold (fun _ f acc -> f :: acc) (array_ty_to_select_fun ()) [])
+  TyH.fold (fun _ f acc -> f :: acc) (array_ty_to_select_fun ()) []
 
 (* 
    Local Variables:
