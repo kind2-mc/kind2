@@ -1015,4 +1015,28 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
     match load_file "./lustreCheckADTDecreases/adt_decreases_mutual_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
     | _ -> false);
+  mk_test "compound (constructed) decreases measure passed unchanged rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_compound_measure_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "recursive call shrinking a non-measure parameter rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_wrong_variable_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "one of two recursive calls on the same arm not shrinking rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_binary_tree_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "alias indirection through a local variable rejected (known limitation)" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_alias_indirection_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "all-ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_tuple_of_adt_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "mixed int/ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_tuple_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
 ])

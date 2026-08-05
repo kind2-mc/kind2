@@ -1,0 +1,42 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length (l: List) returns (len: int)
+con
+  decreases l;
+  guarantee "nonneg" len >= 0;
+noc
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+function rec Append (l1: List; l2: List) returns (out: List)
+con
+  decreases l1;
+  guarantee "length_additive" Length(out) = Length(l1) + Length(l2);
+noc
+let
+  out = match l1 with
+  | Nil : l2
+  | Cons (h, tl) : Cons(h, Append(tl, l2))
+  end;
+tel
+
+function rec Reverse (l: List) returns (out: List)
+con
+  decreases l;
+  guarantee "length_preserved" Length(out) = Length(l);
+noc
+let
+  out = match l with
+  | Nil : Nil
+  | Cons (h, tl) : Append(Reverse(tl), Cons(h, Nil))
+  end;
+tel
+
+node main (l: List) returns ()
+let
+  check "reverse_preserves_length" Length(Reverse(l)) = Length(l);
+tel
