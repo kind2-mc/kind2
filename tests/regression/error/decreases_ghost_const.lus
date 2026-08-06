@@ -1,0 +1,14 @@
+-- Same as decreases_ghost_var.lus, but for a ghost constant.
+function rec f(n: int) returns (r: int);
+(*@contract
+  const c: int = 0;
+  decreases n - c;
+*)
+let
+  r = when n <= 0 then 0 else 1 + f(n - 1);
+tel
+
+node main() returns ();
+let
+  check "ok" f(3) >= 0;
+tel

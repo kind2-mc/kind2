@@ -80,6 +80,7 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
+  | IllegalDecreasesMeasure of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -158,6 +159,10 @@ let error_message kind = match kind with
   | MissingDecreasesClause id -> "Recursive function '"
     ^ HString.string_of_hstring id
     ^ "' must include a decreases clause in its contract"
+  | IllegalDecreasesMeasure id -> "Identifier '"
+    ^ HString.string_of_hstring id
+    ^ "' cannot occur in a decreases clause; a decreases measure may only "
+    ^ "mention the input parameters of the function and constants"
   | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
   | LemmaCallOutsideCallStatement id -> "Lemma '"
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
@@ -948,6 +953,50 @@ and no_reachability_modifiers item = match item with
     syntax_error pos (IllegalTemporalOperator ("pre", "reachability query modifier")) 
   | _ -> Ok ()
 
+(* A decreases measure is compared across a recursive call by substituting the
+   callee's formal parameters with the actual arguments, so it must be a
+   function of the input parameters (and of constants) alone.
+
+   An output is not a legal measure: its value is what the recursion is
+   supposed to define, so using it to justify termination is circular, and the
+   resulting obligation compares the callee's output with the caller's own
+   while being rendered as if both were the same variable. Ghost variables and
+   ghost constants are not legal either: the measure is compiled before the
+   contract is, so they are not in scope yet and reaching one raises an
+   assertion failure in LustreNodeGen. *)
+and check_decreases_measures inputs outputs contract =
+  let contract_items = match contract with
+    | Some (_, items) -> items
+    | None -> []
+  in
+  let illegal_ids =
+    let add_id set id = LA.SI.add id set in
+    let over_contract_item acc = function
+      | LA.GhostConst (FreeConst (_, id, _))
+      | LA.GhostConst (UntypedConst (_, id, _))
+      | LA.GhostConst (TypedConst (_, id, _, _)) -> add_id acc id
+      | LA.GhostVars (_, GhostVarDec (_, tis), _) ->
+        List.fold_left (fun acc (_, id, _) -> add_id acc id) acc tis
+      | _ -> acc
+    in
+    let ids =
+      List.fold_left over_contract_item LA.SI.empty contract_items
+      |> fun acc -> List.fold_left (fun acc (_, id, _, _) -> add_id acc id) acc outputs
+    in
+    (* An identifier shadowed by an input is legal: it denotes the input. *)
+    List.fold_left (fun acc (_, id, _, _, _) -> LA.SI.remove id acc) ids inputs
+  in
+  let check_measure (pos, e) =
+    let used = LAH.vars_without_node_call_ids e in
+    match LA.SI.elements (LA.SI.inter used illegal_ids) with
+    | [] -> Ok ()
+    | id :: _ -> syntax_error pos (IllegalDecreasesMeasure id)
+  in
+  contract_items
+  |> List.filter_map (function LA.Decreases d -> Some d | _ -> None)
+  |> List.map check_measure
+  |> Res.seq_
+
 and check_input_items (pos, _id, _ty, clock, _const) =
   no_clock_inputs_or_outputs pos clock
 
@@ -1023,7 +1072,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
       else
-        Ok ()
+        check_decreases_measures inputs outputs contract
     else
       Ok ()
   in
