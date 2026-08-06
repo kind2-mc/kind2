@@ -1,0 +1,16 @@
+-- A decreases measure that mentions a ghost variable. The measure is compiled
+-- before the contract is, so the ghost variable is not in scope yet; this used
+-- to raise an assertion failure in LustreNodeGen instead of being reported.
+function rec f(n: int) returns (r: int);
+(*@contract
+  var d: int = n;
+  decreases d;
+*)
+let
+  r = when n <= 0 then 0 else 1 + f(n - 1);
+tel
+
+node main() returns ();
+let
+  check "ok" f(3) >= 0;
+tel

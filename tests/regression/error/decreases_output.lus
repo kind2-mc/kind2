@@ -1,0 +1,16 @@
+-- A decreases measure that mentions an output. The value of an output is what
+-- the recursion is supposed to define, so using it to justify termination is
+-- circular. It was silently accepted, and produced an obligation comparing the
+-- callee's output against the caller's own while being rendered as "r < r".
+function rec f(m, n: int) returns (r: int);
+(*@contract
+  decreases m, r;
+*)
+let
+  r = when m <= 0 then 0 else 1 + f(m - 1, n);
+tel
+
+node main() returns ();
+let
+  check "ok" f(3, 1) >= 0;
+tel

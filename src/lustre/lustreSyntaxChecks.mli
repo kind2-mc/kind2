@@ -61,6 +61,7 @@ type error_kind = Unknown of string
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
+  | IllegalDecreasesMeasure of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
