@@ -248,9 +248,8 @@ if you have OPAM 2.1 or later installed on your system, or run
 if you have an older version of OPAM
 (you can run ``opam --version`` to check the version).
 
-This guides the installation of the ZeroMQ C library
-and any other required external dependencies using
-the default package manager for your OS
+This guides the installation of the required external
+dependencies using the default package manager for your OS
 (may ask sudo permission).
 It also builds and installs a compatible version
 of the OCaml compiler and libraries,
@@ -293,10 +292,9 @@ Direct Installation Using Dune
 To build directly from sources you will also need the following software 
 first:
 
-* OCaml 5.2 or later,
+* OCaml 5.5 or later,
 * `Dune 2.7 or later <https://github.com/ocaml/dune>`_\,
 * dune-build-info,
-* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
 * `Yojson <https://github.com/ocaml-community/yojson>`_\,
 * `num <https://github.com/ocaml/num>`_\,
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
