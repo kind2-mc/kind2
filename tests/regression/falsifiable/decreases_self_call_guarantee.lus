@@ -1,0 +1,21 @@
+-- Same as decreases_self_call_lemma.lus, but for a plain recursive function
+-- with a contract. At the recursion cutoff the callee is sliced to its
+-- contract abstraction, so the call assumes the unsatisfiable guarantee; that
+-- assumption is only justified if the recursion is well founded.
+--
+-- "vacuity" detects an inconsistent transition system: it must be falsified,
+-- as must the decrease check.
+function rec h(n: int) returns (r: int);
+con
+  guarantee "bogus" 1 = 0;
+  decreases n;
+noc
+let
+  r = h(n);
+tel
+
+node main(k: int) returns ();
+let
+  check "vacuity" false;
+  check "sanity" h(k) = 0;
+tel
