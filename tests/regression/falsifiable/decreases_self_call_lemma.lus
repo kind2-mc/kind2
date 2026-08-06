@@ -1,0 +1,17 @@
+-- A recursive lemma whose measure does not decrease: it invokes itself on its
+-- own argument, so its inductive hypothesis is the goal itself. The decrease
+-- check must be falsified, and the guarantee must not be provable from that
+-- hypothesis.
+--
+-- The guarantee is unsatisfiable on purpose: assuming it unconditionally at
+-- the recursion cutoff makes the whole transition system inconsistent, which
+-- would report every property -- including the termination checks themselves
+-- -- as vacuously valid.
+lemma Bad(a: int)
+con
+  guarantee "bogus" 1 = 0;
+  decreases a;
+noc
+let
+  Bad(a);
+tel
