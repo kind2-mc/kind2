@@ -2467,6 +2467,9 @@ module Invgen = struct
     )
   let arith_eq_only () = !arith_eq_only
 
+  (* Renicing invariant generation is gone with the process it reniced.
+     See the note on [renice] in kind2Flow.ml before bringing it back. *)
+  (*
   let renice_default = 0
   let renice = ref renice_default
   let _ = add_spec
@@ -2480,6 +2483,7 @@ module Invgen = struct
         @]"
     )
   let renice () = !renice
+  *)
 end
 
 

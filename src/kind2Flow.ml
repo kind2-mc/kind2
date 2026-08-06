@@ -52,14 +52,48 @@ let all_results = ref ( Anal.mk_results () )
 
 let realizability_results = ref []
 
-(** Renicing is not possible anymore: engines are domains of a single
-    process, and [Unix.nice] would renice the whole process. *)
+(** Renicing invariant generation, should it ever be wanted again.
+
+    The engines were processes and [--invgen_renice] reniced the one
+    running invariant generation. They are domains of a single process
+    now, so what the option needs is the priority of a thread.
+
+    [Unix.nice] is not it, whatever it appears to do. POSIX gives the
+    nice value to the process, and macOS and the BSDs implement that:
+    the call would slow every engine down, not the one asked for. Linux
+    gives it to the calling thread instead, which is what an engine
+    would want, but its own manual page files that under BUGS —
+    "portable applications should avoid relying on the Linux behavior,
+    which may be made standards conformant in the future" — so an
+    implementation resting on it would be Linux-only, silently inert on
+    macOS and Windows, and built on something documented as liable to
+    change.
+
+    Doing it properly means asking each platform for a thread priority:
+    [setpriority] on the thread id on Linux, [setpriority] with
+    [PRIO_DARWIN_THREAD] on macOS, [SetThreadPriority] on Windows. None
+    of the three is in [Unix], so all three need stubs.
+
+    It does work, measured with [Unix.nice] on Linux on four cores with
+    every engine running: rounds of invariant generation fell by about a
+    third and the other engines gained a little. Two things to check
+    before trusting that. A domain still has to reach the safe point of
+    every minor collection, which stops all of them, so an engine left
+    waiting by the scheduler can hold up the rest; that did not show at
+    eight engines on four cores but was not looked for under heavier
+    load. And invariant generation feeds k-induction, so taking time
+    away from it can cost more proofs than the time it gives back.
+
+    The calls were at the head of every invariant-generation engine and
+    of C2I, in [run_process] below. *)
+(*
 let renice () =
   let nice = (Flags.Invgen.renice ()) in
   if nice <> 0 then
     KEvent.log L_info
       "[renice] ignoring niceness value: engines run in threads of a \
        single process."
+*)
 
 
 let fresh_ic3ia_instance_name =
@@ -77,17 +111,17 @@ let main_of_process = function
     | `BMCSKIP -> BMC.main true
     | `IND -> IND.main
     | `IND2 -> IND2.main
-    | `INVGEN -> renice () ; InvGen.main_bool true
-    | `INVGENOS -> renice () ; InvGen.main_bool false
-    | `INVGENINT -> renice () ; InvGen.main_int true
-    | `INVGENINTOS -> renice () ; InvGen.main_int false
-    | `INVGENBV width -> renice () ; InvGen.main_bv true width
-    | `INVGENBVOS width -> renice () ; InvGen.main_bv false width
-    | `INVGENUBV width -> renice () ; InvGen.main_ubv true width 
-    | `INVGENUBVOS width -> renice () ; InvGen.main_ubv false width
-    | `INVGENREAL -> renice () ; InvGen.main_real true
-    | `INVGENREALOS -> renice () ; InvGen.main_real false
-    | `C2I -> renice () ; C2I.main
+    | `INVGEN -> InvGen.main_bool true
+    | `INVGENOS -> InvGen.main_bool false
+    | `INVGENINT -> InvGen.main_int true
+    | `INVGENINTOS -> InvGen.main_int false
+    | `INVGENBV width -> InvGen.main_bv true width
+    | `INVGENBVOS width -> InvGen.main_bv false width
+    | `INVGENUBV width -> InvGen.main_ubv true width 
+    | `INVGENUBVOS width -> InvGen.main_ubv false width
+    | `INVGENREAL -> InvGen.main_real true
+    | `INVGENREALOS -> InvGen.main_real false
+    | `C2I -> C2I.main
     | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
     | `CMonitor ->  Flags.ContractMonitor.input_file () |> Interpreter.main ~contract_monitor:true
     | `Supervisor -> assert false
