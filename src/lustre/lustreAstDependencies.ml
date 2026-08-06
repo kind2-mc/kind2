@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | CyclicDependency of HString.t list
   | ImportedCyclicDependency of (HString.t list * NI.t)
   | MismatchedDecreasesArity of HString.t list
+  | RecursiveAnnotationWithoutRecursion of HString.t
 
 let error_message error = match error with
   | Unknown s -> s
@@ -75,6 +76,11 @@ let error_message error = match error with
     ^ "arity for the lexicographic termination check to be well defined, but "
     ^ "mismatching arities were found among: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+  | RecursiveAnnotationWithoutRecursion id ->
+    "Function '" ^ HString.string_of_hstring id
+    ^ "' is declared with 'rec' but does not call itself, directly or through "
+    ^ "a cycle of other functions; remove the 'rec' modifier, or add the "
+    ^ "recursive call that was intended"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -1371,7 +1377,19 @@ let topological_sort_with_rec_funs decl_map ad =
         | [id] -> (
           if G.has_edge ad.graph_data id id
           then check_all_rec_funcs acc scc
-          else acc
+          else
+            (* [id] does not call itself, so it is not actually part of a
+               recursive cycle: a 'rec' annotation on it is a lie that would
+               otherwise surface much later as a missing scc_map entry. *)
+            match IMap.find_opt id decl_map with
+            | Some (Some decl) when LH.is_recursive_function decl ->
+              let pos =
+                match find_id_pos ad.id_pos_data id with
+                | Some p -> p
+                | None -> assert false
+              in
+              graph_error pos (RecursiveAnnotationWithoutRecursion id)
+            | _ -> acc
         )
         | _ -> check_all_rec_funcs acc scc
       )

@@ -481,6 +481,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_activate.lus" with
     | Error _ -> false
     | _ -> true);
+
+  mk_test "test 'rec' annotation on a function that does not call itself" (fun () ->
+    match load_file "./lustreAstDependencies/rec_annotation_without_recursion.lus" with
+    | Error (`LustreAstDependenciesError (_, RecursiveAnnotationWithoutRecursion _)) -> true
+    | _ -> false);
+
+  mk_test "test mutually recursive functions with mismatched decreases arity" (fun () ->
+    match load_file "./lustreAstDependencies/mismatched_decreases_arity.lus" with
+    | Error (`LustreAstDependenciesError (_, MismatchedDecreasesArity _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1000,5 +1010,55 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "When block with omitted else branch outside frame block" (fun () ->
     match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                     Lustre Check ADT Decreases Checks                       *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
+  mk_test "direct recursion passing non-subterm rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_direct_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutual recursion with one non-subterm call rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mutual_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "compound (constructed) decreases measure passed unchanged rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_compound_measure_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "recursive call shrinking a non-measure parameter rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_wrong_variable_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "one of two recursive calls on the same arm not shrinking rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_binary_tree_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "alias indirection through a local variable rejected (known limitation)" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_alias_indirection_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "all-ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_tuple_of_adt_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "mixed int/ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_tuple_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call inside a check statement rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_check_stmt_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call inside a provided clause rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_provided_clause_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutually recursive group mixing integer and ADT decreases measures rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_scc_kinds_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, MixedDecreasesKindsInScc _)) -> true
     | _ -> false);
 ])
