@@ -985,6 +985,34 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
 
   let node_props = node_assume_props @ func_termination_props @ node_props in
 
+  (* Guard the constraints of a recursive call with its termination checks.
+
+     At the recursion cutoff the callee is sliced to its contract abstraction,
+     so calling it *assumes* its guarantees: that is the inductive hypothesis
+     of the recursion, and it is only justified if the recursion is well
+     founded. Asserting it unconditionally lets a non-decreasing function or
+     lemma assume its own guarantees at the very same argument. With an
+     unsatisfiable guarantee the whole transition system becomes inconsistent
+     and every property is vacuously valid -- including the termination checks
+     meant to detect the problem, which are then of no help either.
+
+     Guarding leaves the caller's own variables untouched, so the termination
+     checks themselves (stated over the actual arguments) are unaffected and
+     stay falsifiable. *)
+  let guard_rec_call offset term =
+    match func_termination_props with
+    | [] -> term
+    | props ->
+      let guard =
+        props
+        |> List.map (fun { P.prop_term } -> prop_term)
+        |> Term.mk_and
+        (* The checks are stated at [TransSys.prop_base]. *)
+        |> Term.bump_state Numeral.(offset - TransSys.prop_base)
+      in
+      Term.mk_implies [guard; term]
+  in
+
   let node_assumes =
     if node_assume_props = [] then None
     else (
@@ -1051,15 +1079,17 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       (E.base_term_of_state_var TransSys.init_base)
 
     |> Term.mk_uf init_uf_symbol
+    |> guard_rec_call TransSys.init_base
 
   in
 
   (* Term for initial state constraint at current state *)
-  let init_call_term_trans = 
+  let init_call_term_trans =
     init_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
 
     |> Term.mk_uf init_uf_symbol
+    |> guard_rec_call TransSys.trans_base
 
   in
 
@@ -1069,6 +1099,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       (E.cur_term_of_state_var TransSys.trans_base)
       (E.pre_term_of_state_var TransSys.trans_base)
     |> Term.mk_uf trans_uf_symbol
+    |> guard_rec_call TransSys.trans_base
   in
 
   (* apply subsitutions on bounds also *)
@@ -2609,30 +2640,20 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               (E.base_term_of_t TransSys.init_base)
               contract_asserts
 
-            (* Add functional constraints on ouputs if any. *)
-            |> List.rev_append function_constraints_at_0
-
           in
 
           (* Transition relation *)
-          let trans_terms = 
+          let trans_terms =
 
             (* Init flag becomes and stays false at the second
                tick *)
             (E.cur_term_of_state_var TransSys.trans_base init_flag
-             |> Term.negate) :: 
+             |> Term.negate) ::
 
             (* Add invariants from contracts as assertions *)
             List.map
               (E.cur_term_of_t TransSys.trans_base)
               contract_asserts
-
-            (* Add functional constraints on ouputs if any. *)
-            |> List.rev_append (
-              (* Bump to `1`. *)
-              function_constraints_at_0
-              |> List.map (Term.bump_state Numeral.one)
-            )
 
           in
 
@@ -2756,6 +2777,50 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               init_terms
               trans_terms
               calls
+          in
+
+          (* Add functional constraints on outputs if any.
+
+             For an expanded instance of a recursive function, tying the
+             output to the functional UF asserts the function's defining
+             equation at the instance's argument. That is only justified once
+             the recursion is known to be well founded: for a non-terminating
+             definition such as [f(n) = 1 + f(n)] the equation is
+             unsatisfiable, and an inconsistent transition system makes every
+             property vacuously valid -- including the very termination
+             checks meant to detect the non-termination.
+
+             We therefore guard the constraint with the termination checks of
+             the instance's recursive calls. The guarded axiom is satisfiable
+             for any recursive definition (define the function by
+             well-founded recursion on the measure wherever the guard holds,
+             and arbitrarily elsewhere), and it is as strong as the unguarded
+             one on functions whose measure does decrease. *)
+          let init_terms, trans_terms =
+            match function_constraints_at_0 with
+            | [] -> init_terms, trans_terms
+            | _ -> (
+              let termination_guards =
+                lifted_props |> List.filter_map (fun { P.prop_source; P.prop_term } ->
+                  match prop_source with
+                  | P.TerminationCheck _ -> Some prop_term
+                  | _ -> None
+                )
+              in
+              let function_constraints_at_0 =
+                match termination_guards with
+                | [] -> function_constraints_at_0
+                | _ ->
+                  let guard = Term.mk_and termination_guards in
+                  function_constraints_at_0
+                  |> List.map (fun c -> Term.mk_implies [guard; c])
+              in
+              List.rev_append function_constraints_at_0 init_terms,
+              List.rev_append
+                (* Bump to `1`. *)
+                (List.map (Term.bump_state Numeral.one) function_constraints_at_0)
+                trans_terms
+            )
           in
 
           let history_svars =
