@@ -957,10 +957,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
     | _ -> false);
-  mk_test "test ADT decreases measure referencing an output is rejected" (fun () ->
-    match load_file "./lustreTypeChecker/adt_decreases_output_reference_bad.lus" with
-    | Error (`LustreTypeCheckerError (_, ADTDecreasesReferencesNonInput _)) -> true
-    | _ -> false);
 ])
 
 (* *************************************************************************** *)

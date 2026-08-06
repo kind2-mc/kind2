@@ -127,7 +127,6 @@ type error_kind = Unknown of string
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type
-  | ADTDecreasesReferencesNonInput of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -294,10 +293,6 @@ let error_message kind = match kind with
   | ADTInLexicographicDecreases ty ->
     "Algebraic data type expressions are not supported as a component of a lexicographic \
      (tuple) decreases measure, but found type " ^ string_of_tc_type ty
-  | ADTDecreasesReferencesNonInput id ->
-    "Algebraic data type decreases measure references '" ^ HString.string_of_hstring id
-    ^ "', which is not an input of this function; an algebraic data type decreases measure \
-       must be expressed only in terms of the function's inputs"
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -2505,21 +2500,16 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
          are not (yet) supported as a tuple component. Unlike integer measures
          (whose decrease is verified dynamically, as a real proof obligation
          against the function's actual equations), ADT measures are verified
-         statically and purely syntactically (see LustreCheckADTDecreases):
-         the check only makes sense if the measure is expressed solely in
-         terms of the function's own inputs, since those are the only values
-         a recursive call can be shown to receive a genuine substructure of. *)
+         statically and purely syntactically (see LustreCheckADTDecreases),
+         which rejects any measure not built from the function's own inputs
+         since those are the only values a recursive call can be shown to
+         receive a genuine substructure of. *)
       let check_decreases_component ~in_tuple e =
         let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
         let* ty_exp = expand_type_syn_reftype_history ctx ty in
         (match ty_exp with
         | LA.Int _ -> R.ok (e, warnings)
-        | LA.ADT _ when not in_tuple ->
-          let (node_in_params, _) = node_params in
-          let non_inputs = LA.SI.diff (LH.vars_without_node_call_ids e) node_in_params in
-          (match LA.SI.choose_opt non_inputs with
-          | Some id -> type_error pos (ADTDecreasesReferencesNonInput id)
-          | None -> R.ok (e, warnings))
+        | LA.ADT _ when not in_tuple -> R.ok (e, warnings)
         | LA.ADT _ -> type_error pos (ADTInLexicographicDecreases ty)
         | _ -> type_error pos (InvalidDecreasesType ty))
       in
