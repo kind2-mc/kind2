@@ -40,6 +40,13 @@ let on_exit _ =
   (* Output statistics *)
   print_stats ()
 
+(* Whether the functional congruence instances have been asserted in the
+   solver. They are activated lazily: only when a candidate counterexample
+   is found, to check whether it is spurious with respect to the intended
+   (deterministic) semantics of functions with container-typed arguments
+   (see [TransSys.fn_congruence_instances]). *)
+let fn_congruence_activated = ref false
+
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
@@ -48,10 +55,17 @@ let shall_keep trans (s,_) =
   | _ -> true
 
 (* Check-sat and splits properties.. *)
-let split trans solver k to_split actlit =
+let rec split trans solver k to_split actlit =
 
   (* Function to run if sat. *)
   let if_sat _ =
+
+    (* A candidate counterexample without the functional congruence
+       instances may be spurious; activate them and check again. *)
+    if not !fn_congruence_activated
+       && TransSys.has_fn_congruence_groups trans
+    then `Activate
+    else `Split (
 
     (* Get the full model *)
     let model =
@@ -80,11 +94,12 @@ let split trans solver k to_split actlit =
     in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
+    )
   in
 
   (* Function to run if unsat. *)
   let if_unsat _ =
-    None
+    `Split None
   in
 
   Format.asprintf
@@ -93,7 +108,15 @@ let split trans solver k to_split actlit =
   |> SMTSolver.trace_comment solver ;
 
   (* Check sat assuming with actlits. *)
-  SMTSolver.check_sat_assuming solver if_sat if_unsat [actlit]
+  match SMTSolver.check_sat_assuming solver if_sat if_unsat [actlit] with
+  | `Split res -> res
+  | `Activate ->
+    SMTSolver.trace_comment solver
+      "Activating functional congruence instances." ;
+    TransSys.fn_congruence_instances_up_to trans k
+    |> List.iter (SMTSolver.assert_term solver) ;
+    fn_congruence_activated := true ;
+    split trans solver k to_split actlit
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
@@ -162,6 +185,12 @@ let skip_steps_next trans solver k unknowns =
     (* Asserting transition relation for next iteration. *)
     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
     |> SMTSolver.assert_term solver ;
+
+    (* Asserting functional congruence instances for the new bound, if
+       they have been activated. *)
+    if !fn_congruence_activated then
+      TransSys.fn_congruence_instances trans !step
+      |> List.iter (SMTSolver.assert_term solver) ;
 
     (* Assert the value of the counter at each timestep *)
     match TransSys.get_ctr trans with
@@ -337,6 +366,12 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver ;
 
+    (* Asserting functional congruence instances for the new bound, if
+       they have been activated. *)
+    if !fn_congruence_activated then
+      TransSys.fn_congruence_instances trans k_p_1
+      |> List.iter (SMTSolver.assert_term solver) ;
+
     (* Assert the value of the counter at each timestep *)
     (match TransSys.get_ctr trans with
     | Some ctr ->
@@ -394,6 +429,9 @@ let init input_sys aparam trans skip =
   TransSys.init_of_bound
     (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver ;
+
+  (* Functional congruence instances start deactivated (see [split]). *)
+  fn_congruence_activated := false ;
 
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 

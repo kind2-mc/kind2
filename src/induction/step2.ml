@@ -24,6 +24,13 @@ module Sys = TransSys
 module Prop = Property
 module Num = Numeral
 
+(* Whether the functional congruence instances have been asserted in the
+   solver. They are activated lazily: only when a counterexample to
+   2-induction is found, to check whether it is spurious with respect to the
+   intended (deterministic) semantics of functions with container-typed
+   arguments (see [TransSys.fn_congruence_instances]). *)
+let fn_congruence_activated = ref false
+
 let zero = Num.zero
 let one = Num.one
 let two = Num.(succ one)
@@ -122,6 +129,9 @@ let mk_ctx in_sys param sys =
   Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.(succ one)
   |> Smt.assert_term solver ;
 
+  (* Functional congruence instances start deactivated (see [split]). *)
+  fn_congruence_activated := false ;
+
   {
     solver ; in_sys ; param ; sys ;
     (* Creating map from properties to positive actlit/term pairs. *)
@@ -208,7 +218,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
       )
 
 (* Returns the properties that cannot be falsified. *)
-let split { solver ; map } =
+let split { solver ; sys ; map ; _ } =
 
   let rec loop falsifiable =
     if (List.length falsifiable) = (List.length map) then
@@ -268,6 +278,18 @@ let split { solver ; map } =
       | None -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;
         unknowns |> List.map (fun t -> List.assq t map_back)
+      | Some _
+        when not !fn_congruence_activated
+             && Sys.has_fn_congruence_groups sys ->
+        (* A counterexample to 2-induction without the functional congruence
+           instances may be spurious; activate them and check again. *)
+        deactivate () ;
+        Smt.trace_comment solver
+          "Activating functional congruence instances." ;
+        Sys.fn_congruence_instances_up_to sys Num.(succ one)
+        |> List.iter (Smt.assert_term solver) ;
+        fn_congruence_activated := true ;
+        loop falsifiable
       | Some [] ->
         failwith "got empty list of falsifiable properties"
       | Some nu_falsifiable ->

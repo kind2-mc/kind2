@@ -2294,6 +2294,210 @@ let constraints_of_equations node init stateful_vars terms equations definition_
      |> Term.convert_select], definition_set
 
 
+(* Functional congruence template for the UF symbols of a function with
+   container-typed (array-compiled) inputs.
+
+   Functional determinism of an (imported or abstracted) function normally
+   follows from congruence of its UF symbols. Under the default array
+   encoding, a container is an uninterpreted array constrained only at its
+   canonical positions (in-range enum dimensions, keys present in a map), so
+   two containers holding the same elements are in general distinct terms and
+   congruence never fires. The template states congruence modulo structural
+   equality of the containers over one pair of free variables per argument:
+
+     (\/_scalar-args a_i <> b_i)
+     \/ (\/_container-args inRange(w(a,b)) /\ select(a,w) <> select(b,w))
+     \/ /\_outputs f_out(as) = f_out(bs)
+
+   where each [w] is a fresh difference witness function (an explicit Skolem
+   function: witnesses shared between instances over the same argument pair
+   are sound precisely because they are functions of the pair). Substituting
+   the argument tuples of two applications for the a/b variables yields a
+   ground, quantifier-free congruence instance; the engines assert these for
+   the application pairs of their unrolling
+   (see [TransSys.fn_congruence_instances]). A quantified version of the
+   template was measured to be intractable: satisfiable queries (e.g.
+   counterexamples to induction) require the solver to build a model of a
+   quantified formula over uninterpreted array sorts, which neither
+   skolemization nor instantiation patterns can help.
+
+   Mirroring structural equality of containers, index dimensions of enum or
+   bounded integer type are compared only within their range (with a fixed
+   array bound taken from the bounds table when the index type is
+   unbounded), and the value arrays of a map are compared only at keys
+   present in the map (guarded by its domain array). *)
+let function_congruence_group state_var_bounds inputs uf_symbols
+    constrained_outputs =
+  let bindings = D.bindings inputs in
+  if constrained_outputs = [] ||
+     not (
+       List.exists
+         (fun (_, sv) -> StateVar.type_of_state_var sv |> Type.is_array)
+         bindings
+     )
+  then None
+  else (
+    (* One pair of free variables per argument *)
+    let arg_vars =
+      List.map (fun (idx, sv) ->
+        let ty = StateVar.type_of_state_var sv in
+        idx, sv, ty, Var.mk_fresh_var ty, Var.mk_fresh_var ty
+      ) bindings
+    in
+    (* [Term.convert_select] cannot rewrite a select whose array is a free
+       variable, so apply the select function of the argument's array type
+       directly (it performs all projections in a single application) *)
+    let mk_sel sv v iterms =
+      if Flags.Arrays.smt () then
+        List.fold_left Term.mk_select (Term.mk_var v) iterms
+      else
+        Term.mk_uf (StateVar.encode_select sv) (Term.mk_var v :: iterms)
+    in
+    let args_a = List.map (fun (_, _, _, a, _) -> Term.mk_var a) arg_vars in
+    let args_b = List.map (fun (_, _, _, _, b) -> Term.mk_var b) arg_vars in
+    (* The domain prefixes of a leaf index: for every MapValue-tagged entry,
+       the index up to that position with the MapDomain tag instead (cf.
+       [LustreNodeGen.compile_equality]) *)
+    let domain_prefixes_of_leaf idx =
+      let rec scan prefix_rev = function
+        | [] -> []
+        | D.TupleIndex (_, Some D.MapValue) :: rest ->
+          let dpfx =
+            List.rev_append prefix_rev [D.TupleIndex (0, Some D.MapDomain)]
+          in
+          dpfx :: scan (D.TupleIndex (1, Some D.MapValue) :: prefix_rev) rest
+        | hd :: rest -> scan (hd :: prefix_rev) rest
+      in
+      scan [] idx
+    in
+    (* The domain array of a map value leaf: the container argument whose
+       index extends the domain prefix with (only) its own key dimensions *)
+    let find_domain_container dpfx =
+      let n = List.length dpfx in
+      List.find_opt (fun (idx, sv, _, _, _) ->
+        Type.is_array (StateVar.type_of_state_var sv) &&
+        List.length idx > n &&
+        (let pfx, rest = Lib.list_split n idx in
+         D.equal_index pfx dpfx &&
+         List.for_all (function D.SetMapIndex _ -> true | _ -> false) rest)
+      ) arg_vars
+    in
+    (* Difference witness for each container argument: "the two sides are
+       pointwise equal at all canonical positions" is used negatively, so its
+       universal index quantifier is an existential of the instances.
+       Skolemize it explicitly with a fresh witness function per dimension,
+       applied to the two sides. *)
+    let witness_ufs = ref [] in
+    let container_diffs =
+      arg_vars |> List.filter_map (fun (idx, sv, ty, a, b) ->
+        if not (Type.is_array ty) then None
+        else begin
+          let idx_tys = Type.all_index_types_of_array ty in
+          let iterms =
+            idx_tys |> List.map (fun ity ->
+              let wuf = UfSymbol.mk_fresh_uf_symbol [ty; ty] ity in
+              witness_ufs := wuf :: !witness_ufs ;
+              Term.mk_uf wuf [Term.mk_var a; Term.mk_var b]
+            )
+          in
+          let sel v = mk_sel sv v iterms in
+          (* Bounds of the dimensions from the bounds table (a fixed-size
+             array's index type is a plain integer; its size is only recorded
+             there). Only an instant-independent bound can be used in a
+             global constraint. *)
+          let dim_bounds =
+            match StateVar.StateVarHashtbl.find state_var_bounds sv with
+            | bounds when List.length bounds = List.length idx_tys ->
+              bounds |> List.map (function
+                | E.Bound e | E.Fixed e ->
+                  let t = E.unsafe_term_of_expr e in
+                  if Term.var_offsets_of_term t = (None, None) then Some t
+                  else None
+                | E.Unbound _ -> None)
+            | _ | exception Not_found ->
+              List.map (fun _ -> None) idx_tys
+          in
+          (* The guard of a dimension must cover at least every canonical
+             position: a too-narrow guard would equate containers that
+             actually differ and could make the system inconsistent. An
+             array dimension is recognized by its entry in the bounds table
+             and guarded by [0, n) (its index type uses the exclusive-upper
+             convention); a set/map dimension has no bound entry and is
+             guarded by its type: the inclusive range of an enum (e.g. the
+             discriminant of an ADT element type) or of a subrange. *)
+          let range_guards =
+            List.map2 (fun (it, bnd) ity ->
+              match bnd with
+              | Some n ->
+                Term.mk_and [
+                  Term.mk_leq [Term.mk_num Numeral.zero; it];
+                  Term.mk_lt [it; n]
+                ]
+              | None -> (
+                match Type.node_of_type ity with
+                | Type.IntRange (Some l, Some u) | Type.Enum (l, u) ->
+                  Term.mk_leq [Term.mk_num l; it; Term.mk_num u]
+                | Type.IntRange (Some l, None) ->
+                  Term.mk_leq [Term.mk_num l; it]
+                | Type.IntRange (None, Some u) ->
+                  Term.mk_leq [it; Term.mk_num u]
+                | _ -> Term.t_true
+              )
+            ) (List.combine iterms dim_bounds) idx_tys
+            |> List.filter (fun t -> not (Term.equal t Term.t_true))
+          in
+          (* Compare map values only at keys present in the map *)
+          let domain_guards =
+            domain_prefixes_of_leaf idx |> List.filter_map (fun dpfx ->
+              match find_domain_container dpfx with
+              | Some (_, dsv, dty, da, _) ->
+                let arity =
+                  List.length (Type.all_index_types_of_array dty)
+                in
+                let dom_iterms, _ = Lib.list_split arity iterms in
+                Some (mk_sel dsv da dom_iterms)
+              | None -> None
+            )
+          in
+          (* The two sides differ at an in-range (and, for a map value,
+             present) witness position *)
+          let neq = Term.mk_not (Term.mk_eq [sel a; sel b]) in
+          Some (Term.mk_and (range_guards @ domain_guards @ [neq]))
+        end
+      )
+    in
+    let scalar_diffs =
+      arg_vars |> List.filter_map (fun (_, _, ty, a, b) ->
+        if Type.is_array ty then None
+        else Some (Term.mk_not (Term.mk_eq [Term.mk_var a; Term.mk_var b]))
+      )
+    in
+    let outputs_eq =
+      constrained_outputs |> List.map (fun output ->
+        let uf = SVM.find output uf_symbols in
+        Term.mk_eq [Term.mk_uf uf args_a; Term.mk_uf uf args_b]
+      ) |> Term.mk_and
+    in
+    let template =
+      Term.mk_or (scalar_diffs @ container_diffs @ [outputs_eq])
+    in
+    Some (
+      { TransSys.fcg_template = template;
+        TransSys.fcg_a_vars = List.map (fun (_, _, _, a, _) -> a) arg_vars;
+        TransSys.fcg_b_vars = List.map (fun (_, _, _, _, b) -> b) arg_vars;
+        TransSys.fcg_apps = [List.map snd bindings] },
+      List.rev !witness_ufs
+    )
+  )
+
+(* Functional congruence groups of the subtree of an already created
+   transition system, keyed by its scope. Reset at each [trans_sys_of_nodes]
+   entry; used to lift the application tuples of the functions of a subtree
+   into each ancestor system. *)
+let fn_congruence_groups_tbl
+    : (Scope.t, TransSys.fn_congruence_group list) Hashtbl.t =
+  Hashtbl.create 7
+
 let rec trans_sys_of_node' options globals top_name analysis_param
   trans_sys_defs output_input_dep nodes definition_set = function
 
@@ -2518,7 +2722,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* If node is a function, for each undefined output,
           create the term `(= (f <inputs>) output)` to add it to `init` and
           `trans`. *)
-          let function_ufs, function_constraints_at_0 =
+          let function_ufs, function_constraints_at_0, fn_congruence_group =
             match comp_type with
             | Function { uf_symbols; rec_info } when options.add_functional_constraints -> (
               (* For a recursive function we tie the outputs of *every*
@@ -2560,9 +2764,21 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                   ]
                 )
               in
-              function_ufs, constraints
+              let congruence_group, witness_ufs =
+                match
+                  function_congruence_group
+                    globals.G.state_var_bounds inputs uf_symbols
+                    constrained_outputs
+                with
+                | Some (group, wufs) -> Some group, wufs
+                | None -> None, []
+              in
+              (* The difference witness functions occur only in the
+                 congruence instances; declare them wherever the function
+                 symbols are declared *)
+              function_ufs @ witness_ufs, constraints, congruence_group
             )
-            | _ -> [], []
+            | _ -> [], [], None
           in
 
 
@@ -3228,10 +3444,76 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* Create transition system                               *)
           (* ****************************************************** *)
 
+          (* Functional congruence groups of this system's subtree: this
+             node's own group (if it is a function with container-typed
+             inputs) with its formal inputs as the single application, plus
+             the groups of its subsystems with their application tuples
+             lifted to this system's state variables through each call
+             instance. Groups originating from the same function (same
+             template) are merged so that applications reached through
+             different call paths are paired with each other. *)
+          let fn_congruence_groups =
+            let lift_svar map_up sv =
+              match SVM.find_opt sv map_up with
+              | Some sv' -> Some sv'
+              | None ->
+                (* Global constants are not in the instance maps *)
+                if StateVar.is_const sv then Some sv else None
+            in
+            let lifted =
+              List.concat_map (fun (t, instances) ->
+                match
+                  Hashtbl.find_opt fn_congruence_groups_tbl
+                    (TransSys.scope_of_trans_sys t)
+                with
+                | None -> []
+                | Some groups ->
+                  groups |> List.map (fun g ->
+                    let apps =
+                      List.concat_map (fun { TransSys.map_up; _ } ->
+                        g.TransSys.fcg_apps |> List.filter_map (fun app ->
+                          let app' =
+                            List.filter_map (lift_svar map_up) app
+                          in
+                          if List.length app' = List.length app then
+                            Some app'
+                          else None
+                        )
+                      ) instances
+                    in
+                    { g with TransSys.fcg_apps = apps }
+                  )
+              ) subsystems
+            in
+            let all =
+              (match fn_congruence_group with Some g -> [g] | None -> [])
+              @ lifted
+            in
+            List.fold_left (fun acc g ->
+              match
+                List.partition
+                  (fun g' ->
+                     g'.TransSys.fcg_template == g.TransSys.fcg_template)
+                  acc
+              with
+              | [g'], rest ->
+                { g' with
+                  TransSys.fcg_apps =
+                    (* Applications may be duplicated when the same call is
+                       reachable through several paths; deduplicate *)
+                    List.sort_uniq compare
+                      (g.TransSys.fcg_apps @ g'.TransSys.fcg_apps) }
+                :: rest
+              | _ -> g :: acc
+            ) [] all
+          in
+          Hashtbl.replace fn_congruence_groups_tbl scope fn_congruence_groups ;
+
           (* Create transition system *)
           let trans_sys, _ =
             TransSys.mk_trans_sys
               ~datatype_types:globals.G.recursive_datatypes
+              ~fn_congruence_groups
               scope
               None (* instance_state_var *)
               init_flag
@@ -3291,7 +3573,11 @@ let trans_sys_of_nodes
   (* Prevent the garbage collector from running too often during the frontend
      operations *)
   Lib.set_liberal_gc ();
-  
+
+  (* The same scope can recur across analyses with a different abstraction,
+     changing which outputs are undefined and thus which axioms exist *)
+  Hashtbl.reset fn_congruence_groups_tbl ;
+
   let { A.top } =
     A.info_of_param analysis_param
   in
