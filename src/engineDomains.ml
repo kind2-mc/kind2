@@ -130,7 +130,10 @@ let spawn mdl id ~disconnect f =
          the others, and independently of them. Before anything it
          builds. *)
       Lib.set_naming_range id ;
-      ignore (Thread.sigmask Unix.SIG_BLOCK signals_to_block) ;
+      (* No signal masks on Windows; the signals of the list do not
+         exist there anyway *)
+      if not Sys.win32 then
+        ignore (Thread.sigmask Unix.SIG_BLOCK signals_to_block) ;
       let r = try f () with e -> Some e in
       Atomic.set outcome (Done r))
   in
