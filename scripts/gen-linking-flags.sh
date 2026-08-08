@@ -13,7 +13,7 @@ case "$LINKING_MODE" in
     static)
         case "$OS" in
             linux) # Assuming Alpine here
-                CCLIB="-static";;
+                CCLIB="-static -no-pie";;
             macosx)
                 FLAGS="-noautolink"
                 NAT=$(echo $OCAML_VERSION | awk -F. '{print ($1 <= 4 || ($1 == 5 && $2 == 0)) ? "" : "nat"}')

@@ -1,4 +1,4 @@
-FROM ocaml/opam:alpine-3.22-ocaml-5.5-flambda AS builder
+FROM ocaml/opam:alpine-3.23-ocaml-5.5-flambda AS builder
 
 USER root
 
