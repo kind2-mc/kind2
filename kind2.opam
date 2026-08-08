@@ -39,4 +39,3 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/kind2-mc/kind2.git"
-available: os != "win32"
