@@ -15,7 +15,7 @@ homepage: "https://kind2-mc.github.io/kind2"
 doc: "https://kind.cs.uiowa.edu/kind2_user_doc"
 bug-reports: "https://github.com/kind2-mc/kind2/issues"
 depends: [
-  "ocaml" {>= "4.14"}
+  "ocaml" {>= "5.5"}
   "dune" {>= "2.7"}
   "dune-build-info"
   "menhir" {>= "20181026"}
@@ -23,7 +23,6 @@ depends: [
   "odoc" {with-doc & >= "3.0"}
   "ounit2" {with-test}
   "yojson"
-  "zmq" {>= "5.1.0"}
 ]
 build: [
   ["dune" "subst"] {dev}

@@ -23,7 +23,7 @@
 
  *)
 
-val trace_suffix : string ref
+val trace_suffix : string ref Domain.DLS.key
 
 module type SMTLIBSolverDriver = sig
   include SolverDriver.S

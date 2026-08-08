@@ -422,9 +422,6 @@ exception Signal of int
 (** String representation of signal *)
 val string_of_signal : int -> string 
 
-(** Pretty-print the termination status of a process *)
-val pp_print_process_status : Format.formatter -> Unix.process_status -> unit
-
 (** Raise exception on signal *)
 val exception_on_signal : int -> 'a
 
@@ -536,12 +533,7 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
-(** Changes garbage collector parameters limit its effect *)
-val set_liberal_gc : unit -> unit
 
-(** Reset the parameters of the GC to its default values. Call after
-    {!set_liberal_gc}. *)
-val reset_gc_params : unit -> unit
 
 (* Print bound of (possibly) open interval *)
 val pp_print_bound_opt : Format.formatter -> Numeral.t option -> unit
@@ -666,6 +658,18 @@ module StringValues: sig
 
     val type_ascription_output_name : string
 end
+(** {1 Names invented by a domain} *)
+
+(** Give the calling domain a range of its own to number the names it
+    invents in, so that no two domains invent the same name and the
+    names a domain invents do not depend on what its siblings did. The
+    engines pass their identifier; the supervisor keeps 0. Call before
+    inventing any name in the domain. *)
+val set_naming_range : int -> unit
+
+(** The numbers of the calling domain start here. *)
+val fresh_name_base : unit -> int
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -1518,10 +1518,16 @@ let mk_store a i v =
 
 let mk_const_array t v = mk_app_of_symbol_node (`CONST_ARRAY t) [v]
 
-(* Generate a new tag *)
-let newid =
-  let r = ref 0 in
-  fun () -> incr r; !r
+(* Generate a new tag, in the range of the calling domain, so that the
+   names of the named terms of two domains stay apart without either
+   depending on the other. *)
+let newid_key =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let newid () =
+  let r = Domain.DLS.get newid_key in
+  r := !r + 1 ;
+  !r
 
 
 (* Hashcons a named term *)

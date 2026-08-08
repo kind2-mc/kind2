@@ -1,9 +1,8 @@
-FROM ocaml/opam:alpine-3.22-ocaml-5.4-flambda AS builder
+FROM ocaml/opam:alpine-3.22-ocaml-5.5-flambda AS builder
 
 USER root
 
-RUN apk add make m4 g++ musl-dev git \
-    zeromq-dev libzmq-static libsodium-static
+RUN apk add make m4 g++ musl-dev git
 
 USER opam
 

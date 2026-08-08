@@ -32,11 +32,27 @@ let equal { tag = t1 } { tag = t2 } = t1 = t2
 let hash { hkey = h } = h
 
 
-let gentag =
-  let r = ref 0 in
-  fun () -> incr r; !r
+(* Tags order the sets and maps the engines search with, so a domain
+   draws them from a counter of its own, seeded with the counter of the
+   domain that spawned it. An engine then numbers the values it builds
+   exactly as it would have numbered them as a forked process: in the
+   order it builds them, undisturbed by its siblings.
+
+   Two domains do reach the same tag, for different values. Tags only
+   identify a value within the tables of one domain, and a value that
+   crosses a domain boundary has to be imported into the tables of the
+   receiver, as it had to be imported into the receiving process when
+   the engines were forked. *)
+let tag_counter =
+  Domain.DLS.new_key ~split_from_parent:(fun r -> ref !r) (fun () -> ref 0)
+
+let gentag () =
+  let r = Domain.DLS.get tag_counter in
+  incr r ;
+  !r
 
 type ('a, 'b) t = {
+  lock : Mutex.t;                    (* protects all mutable state below *)
   mutable table : ('a, 'b) hash_consed Weak.t array;
   mutable totsize : int;             (* sum of the bucket sizes *)
   mutable limit : int;               (* max ratio totsize/table length *)
@@ -46,17 +62,44 @@ let create sz =
   let sz = if sz < 7 then 7 else sz in
   let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
   let emptybucket = Weak.create 0 in
-  { table = Array.make sz emptybucket;
+  { lock = Mutex.create ();
+    table = Array.make sz emptybucket;
     totsize = 0;
     limit = 3; }
 
 let clear t =
-  let emptybucket = Weak.create 0 in
-  for i = 0 to Array.length t.table - 1 do t.table.(i) <- emptybucket done;
-  t.totsize <- 0;
-  t.limit <- 3
-  
-let fold f t init =
+  Mutex.protect t.lock (fun () ->
+    let emptybucket = Weak.create 0 in
+    for i = 0 to Array.length t.table - 1 do t.table.(i) <- emptybucket done;
+    t.totsize <- 0;
+    t.limit <- 3)
+
+(* A table holding what [t] holds, and nothing of [t] itself.
+
+   The values are shared with [t], which is what makes the copy cheap
+   and what makes it faithful: a value the parent built keeps the tag
+   the parent gave it, so the two domains agree on everything built
+   before they parted. They only disagree on what they build after. *)
+let copy t =
+  Mutex.protect t.lock (fun () ->
+    let table =
+      Array.map
+        (fun b ->
+          let n = Weak.length b in
+          if n = 0 then b
+          else begin
+            let b' = Weak.create n in
+            Weak.blit b 0 b' 0 n ;
+            b'
+          end)
+        t.table
+    in
+    { lock = Mutex.create () ;
+      table ;
+      totsize = t.totsize ;
+      limit = t.limit })
+
+let unsafe_fold f t init =
   let rec fold_bucket i b accu =
     if i >= Weak.length b then accu else
       match Weak.get b i with
@@ -65,16 +108,20 @@ let fold f t init =
   in
   Array.fold_right (fold_bucket 0) t.table init
 
-let iter f t =
-  let rec iter_bucket i b =
-    if i >= Weak.length b then () else
-      match Weak.get b i with
-	| Some v -> f v; iter_bucket (i+1) b
-	| None -> iter_bucket (i+1) b
-  in
-  Array.iter (iter_bucket 0) t.table
+let fold f t init =
+  Mutex.protect t.lock (fun () -> unsafe_fold f t init)
 
-let count t =
+let iter f t =
+  Mutex.protect t.lock (fun () ->
+    let rec iter_bucket i b =
+      if i >= Weak.length b then () else
+        match Weak.get b i with
+	  | Some v -> f v; iter_bucket (i+1) b
+	  | None -> iter_bucket (i+1) b
+    in
+    Array.iter (iter_bucket 0) t.table)
+
+let unsafe_count t =
   let rec count_bucket i b accu =
     if i >= Weak.length b then accu else
       count_bucket (i+1) b (accu + (if Weak.check b i then 1 else 0))
@@ -89,7 +136,7 @@ let rec resize t =
   if newlen > oldlen then begin
     let newt = create newlen in
     newt.limit <- t.limit + 100;          (* prevent resizing of newt *)
-    fold (fun d () -> add newt d) t ();
+    unsafe_fold (fun d () -> add newt d) t ();
     t.table <- newt.table;
     t.limit <- t.limit + 2;
   end
@@ -118,33 +165,35 @@ and add t d =
   loop 0
 
 let hashcons t d p =
-  let hkey = Hashtbl.hash d land max_int in
-  let index = hkey mod (Array.length t.table) in
-  let bucket = t.table.(index) in
-  let sz = Weak.length bucket in
-  let rec loop i =
-    if i >= sz then begin
-      let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
-      add t hnode;
-      hnode
-    end else begin
-      match Weak.get_copy bucket i with
-        | Some v when v.node = d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
-        | _ -> loop (i+1)
-    end
-  in
-  loop 0
-  
+  Mutex.protect t.lock (fun () ->
+    let hkey = Hashtbl.hash d land max_int in
+    let index = hkey mod (Array.length t.table) in
+    let bucket = t.table.(index) in
+    let sz = Weak.length bucket in
+    let rec loop i =
+      if i >= sz then begin
+        let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
+        add t hnode;
+        hnode
+      end else begin
+        match Weak.get_copy bucket i with
+          | Some v when v.node = d ->
+	      begin match Weak.get bucket i with
+                | Some v -> v
+                | None -> loop (i+1)
+              end
+          | _ -> loop (i+1)
+      end
+    in
+    loop 0)
+
 let stats t =
-  let len = Array.length t.table in
-  let lens = Array.map Weak.length t.table in
-  Array.sort Int.compare lens;
-  let totlen = Array.fold_left ( + ) 0 lens in
-  (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
+  Mutex.protect t.lock (fun () ->
+    let len = Array.length t.table in
+    let lens = Array.map Weak.length t.table in
+    Array.sort Int.compare lens;
+    let totlen = Array.fold_left ( + ) 0 lens in
+    (len, unsafe_count t, totlen, lens.(0), lens.(len/2), lens.(len-1)))
 
 
 (* Functorial interface *)
@@ -164,6 +213,7 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit
@@ -180,6 +230,12 @@ struct
 
   type data = (H.t, H.prop) hash_consed
 
+  (* No lock anywhere. A table belongs to the domain that created it,
+     and a domain spawned to run an engine starts from a copy of the
+     tables of its parent, so nothing else ever reaches it. What is
+     left is the plain algorithm, as it runs in a program of one
+     domain. *)
+
   type t = {
     mutable table : data Weak.t array;
     mutable totsize : int;             (* sum of the bucket sizes *)
@@ -191,11 +247,24 @@ struct
   let create sz =
     let sz = if sz < 7 then 7 else sz in
     let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
-    {
-      table = Array.make sz emptybucket;
-      totsize = 0;
-      limit = 3;
-    }
+    { table = Array.make sz emptybucket ; totsize = 0 ; limit = 3 }
+
+  (* A table holding what [t] holds, and nothing of [t] itself. See the
+     copy of the plain tables above. *)
+  let copy t =
+    let table =
+      Array.map
+        (fun b ->
+          let n = Weak.length b in
+          if n = 0 then b
+          else begin
+            let b' = Weak.create n in
+            Weak.blit b 0 b' 0 n ;
+            b'
+          end)
+        t.table
+    in
+    { table ; totsize = t.totsize ; limit = t.limit }
 
   let clear t =
     for i = 0 to Array.length t.table - 1 do
@@ -203,7 +272,7 @@ struct
     done;
     t.totsize <- 0;
     t.limit <- 3
-  
+
   let fold f t init =
     let rec fold_bucket i b accu =
       if i >= Weak.length b then accu else
@@ -231,37 +300,68 @@ struct
 
   let next_sz n = min (3*n/2 + 3) (Sys.max_array_length - 1)
 
-  let rec resize t =
+  (* Insert [d] in [table], which is the table being built by a
+     resize *)
+  let raw_add table totsize d =
+    let index = d.hkey mod (Array.length table) in
+    let bucket = table.(index) in
+    let sz = Weak.length bucket in
+    let rec loop i =
+      if i >= sz then begin
+        let newsz = min (sz + 3) (Sys.max_array_length - 1) in
+        if newsz <= sz then
+          failwith "Hashcons.Make: hash bucket cannot grow more";
+        let newbucket = Weak.create newsz in
+        Weak.blit bucket 0 newbucket 0 sz;
+        Weak.set newbucket i (Some d);
+        table.(index) <- newbucket;
+        totsize := !totsize + (newsz - sz)
+      end else if Weak.check bucket i then loop (i+1)
+      else Weak.set bucket i (Some d)
+    in
+    loop 0
+
+  (* Grow the table if it has become too dense *)
+  let resize t =
     let oldlen = Array.length t.table in
-    let newlen = next_sz oldlen in
-    if newlen > oldlen then begin
-      let newt = create newlen in
-      newt.limit <- t.limit + 100;          (* prevent resizing of newt *)
-      fold (fun d () -> add newt d) t ();
-      t.table <- newt.table;
-      t.limit <- t.limit + 2;
+    if t.totsize > t.limit * oldlen then begin
+      let newlen = next_sz oldlen in
+      if newlen > oldlen then begin
+        let newtable = Array.make newlen emptybucket in
+        let newtotsize = ref 0 in
+        (* Entries collected in the meantime are dropped *)
+        Array.iter
+          (fun b ->
+            for i = 0 to Weak.length b - 1 do
+              match Weak.get b i with
+              | Some d -> raw_add newtable newtotsize d
+              | None -> ()
+            done)
+          t.table ;
+        t.table <- newtable ;
+        t.totsize <- !newtotsize ;
+        t.limit <- t.limit + 2
+      end
     end
 
-  and add t d =
-    let index = d.hkey mod (Array.length t.table) in
+  (* Insert [d] in the bucket of index [index]. Returns whether the
+     table has become too dense. *)
+  let add_at t index d =
     let bucket = t.table.(index) in
     let sz = Weak.length bucket in
     let rec loop i =
       if i >= sz then begin
         let newsz = min (sz + 3) (Sys.max_array_length - 1) in
-        if newsz <= sz then 
-	  failwith "Hashcons.Make: hash bucket cannot grow more";
+        if newsz <= sz then
+          failwith "Hashcons.Make: hash bucket cannot grow more";
         let newbucket = Weak.create newsz in
         Weak.blit bucket 0 newbucket 0 sz;
         Weak.set newbucket i (Some d);
         t.table.(index) <- newbucket;
         t.totsize <- t.totsize + (newsz - sz);
-        if t.totsize > t.limit * Array.length t.table then resize t;
-      end else begin
-        if Weak.check bucket i
-        then loop (i+1)
-        else Weak.set bucket i (Some d)
-      end
+        t.totsize > t.limit * Array.length t.table
+      end else if Weak.check bucket i then loop (i+1)
+      else (Weak.set bucket i (Some d); false)
     in
     loop 0
 
@@ -272,21 +372,21 @@ struct
     let sz = Weak.length bucket in
     let rec loop i =
       if i >= sz then begin
-	let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
-	add t hnode;
-	hnode
+        let hnode = { hkey = hkey; tag = gentag (); node = d; prop = p } in
+        if add_at t index hnode then resize t ;
+        hnode
       end else begin
         match Weak.get_copy bucket i with
-        | Some v when H.equal v.node d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
+        | Some v when H.equal v.node d ->
+          begin match Weak.get bucket i with
+            | Some v -> v
+            | None -> loop (i+1)
+          end
         | _ -> loop (i+1)
       end
     in
     loop 0
-  
+
   (* A version of hashcons that returns existing values, but does not
      insert the value into the table *)
   let find t d =
@@ -295,29 +395,26 @@ struct
     let bucket = t.table.(index) in
     let sz = Weak.length bucket in
     let rec loop i =
-      if i >= sz then begin
-        (* [hashcons] inserts the value into the table here, but we
-           raise and exception *)
-	raise (Not_found)
-      end else begin
+      if i >= sz then raise Not_found
+      else begin
         match Weak.get_copy bucket i with
-          | Some v when H.equal v.node d -> 
-	    begin match Weak.get bucket i with
-              | Some v -> v
-              | None -> loop (i+1)
-            end
-          | _ -> loop (i+1)
+        | Some v when H.equal v.node d ->
+          begin match Weak.get bucket i with
+            | Some v -> v
+            | None -> loop (i+1)
+          end
+        | _ -> loop (i+1)
       end
     in
     loop 0
-      
+
   let stats t =
     let len = Array.length t.table in
     let lens = Array.map Weak.length t.table in
     Array.sort Int.compare lens;
     let totlen = Array.fold_left ( + ) 0 lens in
     (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
-      
+
 end
 
 (* 

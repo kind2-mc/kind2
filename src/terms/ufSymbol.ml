@@ -81,10 +81,27 @@ module Huf_symbol = H.Make (Uf_symbol_node)
 
 
 (* Storage for uninterpreted function symbols *)
-let ht = Huf_symbol.create 251
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Huf_symbol.copy
+    (fun () -> Huf_symbol.create 251)
 
-(* We keep a copy of all UF symbols to prevent GC from collecting them *)
-let uf_symbs = ref []
+let ht () = Domain.DLS.get ht_key
+
+(* We keep a copy of all UF symbols to prevent GC from collecting them.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let uf_symbs_key =
+  Domain.DLS.new_key ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref [])
+
+let uf_symbs () = Domain.DLS.get uf_symbs_key
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -188,7 +205,7 @@ let mk_uf_symbol s a r =
   try 
     
     (* Get previous declaration of symbol *)
-    let u = Huf_symbol.find ht s in
+    let u = Huf_symbol.find (ht ()) s in
 
     if 
       
@@ -224,11 +241,11 @@ let mk_uf_symbol s a r =
     (* Hashcons uninterpreted symbol *)
     let s =
       Huf_symbol.hashcons
-        ht
+        (ht ())
         s
         { uf_arg_type = a; uf_res_type = r }
     in
-    uf_symbs := s :: !uf_symbs; s
+    (uf_symbs ()) := s :: !(uf_symbs ()); s
 
 
 (* Import an uninterpreted symbol from a different instance into the
@@ -244,23 +261,28 @@ let import u =
     (Type.import (res_type_of_uf_symbol u))
 
 
-(* Counter for index of fresh uninterpreted symbols *)
-let fresh_uf_symbol_id = ref 0
+(* Counter for index of fresh uninterpreted symbols, in the range of
+   the calling domain. *)
+let fresh_uf_symbol_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
+let next_fresh_uf_symbol_id () =
+  let r = Domain.DLS.get fresh_uf_symbol_id in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 
 (* Return name of a fresh uninterpreted symbol  *)
-let rec next_fresh_uf_symbol () = 
+let rec next_fresh_uf_symbol () =
 
-  (* Candidate name for next fresh symbol *)
-  let s = Format.sprintf "__C%d" !fresh_uf_symbol_id in
-
-  (* Increment counter *)
-  fresh_uf_symbol_id := succ !fresh_uf_symbol_id;
+  (* Candidate name for next fresh symbol, incrementing the counter *)
+  let s = Format.sprintf "__C%d" (next_fresh_uf_symbol_id ()) in
 
   try 
 
     (* Check if candidate symbol is already declared *)
-    let _ = Huf_symbol.find ht s in
+    let _ = Huf_symbol.find (ht ()) s in
   
     (* Recurse to get another fresh symbol *)
     next_fresh_uf_symbol ()
@@ -288,7 +310,7 @@ let uf_symbol_of_string s =
   try 
 
     (* Get previous declaration of symbol *)
-    Huf_symbol.find ht s 
+    Huf_symbol.find (ht ()) s 
         
   with Not_found ->
 
@@ -311,7 +333,7 @@ let fold_uf_declarations f a =
           u
       in
       f s t r a)
-    ht
+    (ht ())
     a
 
 
@@ -326,7 +348,7 @@ let iter_uf_declarations f =
           u
       in
       f s t r)
-    ht
+    (ht ())
 
 
 (* 

@@ -6,42 +6,36 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
-   permissions and limitations under the License. 
+   permissions and limitations under the License.
 
 *)
 
-(** Low-level handling of messages 
+(** Low-level handling of messages between the supervisor and the
+    engines of an analysis.
+
+    Engines run in domains of a single process; a message is an OCaml
+    value dropped into the in-memory mailbox of the receiver, without
+    any serialization. There are no background threads: sending is a
+    mutex-protected queue operation and {!S.recv} drains the mailbox of
+    the calling domain.
 
     @author Jason Oxley, Christoph Sticksel *)
 
-exception SocketConnectFailure
-exception SocketBindFailure
-exception BadMessage
-exception InvalidProcessName
 exception NotInitialized
 
 
-(** A message to be relayed to other processes and conversions *)
-module type RelayMessage = 
+(** A message to be relayed to other processes *)
+module type RelayMessage =
 sig
 
   (** Message *)
   type t
-
-  (** ZMQ's representation of a multipart message *)
-  type zmsg = string list
-
-  (** Convert a message to a strings for message frames *)
-  val message_of_strings : zmsg -> t
-
-  (** Convert string from message frames to a message *)
-  val strings_of_message : t -> zmsg
 
   (** Pretty-print a message *)
   val pp_print_message : Format.formatter -> t -> unit
@@ -51,96 +45,83 @@ end
 module type S =
 sig
 
-  type relay_message 
+  type relay_message
 
   (** A message to be output to the user *)
-  type output_message = 
+  type output_message =
     | Log of int * string  (** Log message with level *)
     | Stat of string       (** Statistics *)
     | Progress of int      (** Progress *)
 
   (** A message internal to the messaging system *)
-  type control_message = 
-    | Ready           (** Process is ready *)
-    | Ping            (** Request reply from process *)
+  type control_message =
     | Terminate       (** Request termination of process *)
-    | Resend of int   (** Request resending of relay message *)
 
   (** A message *)
-  type message = 
+  type message =
     | OutputMessage of output_message     (** Output to user *)
     | ControlMessage of control_message   (** Message internal to the
                                               messaging system *)
-    | RelayMessage of int * relay_message (** Message to be broadcast
+    | RelayMessage of relay_message       (** Message to be broadcast
                                               to worker processes *)
 
-  (** Messaging context *)
+  (** Pretty-print a message *)
+  val pp_print_message : Format.formatter -> message -> unit
+
+  (** The messaging system of an analysis, created by the supervisor *)
   type ctx
 
-  (** Sockets *)
-  type pub_socket
-  type pull_socket
-  type sub_socket
-  type push_socket
+  (** Registration of a worker mailbox *)
+  type worker
 
-  (** Thread *)
-  type thread
+  (** Create the messaging system in the supervisor. *)
+  val init_im : unit -> ctx
 
-  (** Create a messaging context and bind ports for the invariant
-      manager. Return a pair of pub socket and pull socket and pair of
-      addresses of pub and pull sockets for workers to connect to. 
+  (** Create and register the mailbox of a worker with the given kind
+      module and identifier. Call {!run_worker} in the domain of the
+      worker afterwards. *)
+  val init_worker : Lib.kind_module -> int -> ctx -> worker
 
-      Call this function before forking the processes, the first
-      return argument must only be used by the parent process, the
-      child processes must use the socket addresses in the second
-      return argument. *)
-  val init_im : unit -> (ctx * pub_socket * pull_socket) * (string * string)
+  (** Take the supervisor role in the calling domain. *)
+  val run_im : ctx -> unit
 
-  (** Create a messaging context and bind given ports for a worker
-      process. Return a messaging context and a pair of sub and push
-      sockets. *)
-  val init_worker : Lib.kind_module -> string -> string -> ctx * sub_socket * push_socket
+  (** Take the worker role in the calling domain. *)
+  val run_worker : worker -> worker
 
-  (** Start the background thread for the invariant manager, using the
-      given context and sockets. The second parameter is a list of
-      PIDs and the kind of worker processes to watch, the third
-      argument is the function to call to handle exceptions. *)
-  val run_im : ctx * pub_socket * pull_socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
-
-  (** Start the background thread for a worker process, using the
-      given context and sockets. The second parameter is type of
-      worker process, the third is the function to call to handle
-      exceptions. *)
-  val run_worker : ctx * sub_socket * push_socket -> Lib.kind_module -> (exn -> unit) -> thread
-
-  (** Broadcast a message to the worker processes *)
+  (** Broadcast a message to the other engines and, from a worker, to
+      the supervisor *)
   val send_relay_message : relay_message -> unit
 
   (** Send a message to the invariant manager for output to the user *)
   val send_output_message : output_message -> unit
 
-  (** Send a termination message to the invariant manager *)
+  (** Broadcast a termination message to all engines *)
   val send_term_message : unit -> unit
 
-  (** Receive messages queued by the background thread *)
+  (** Send a termination message to the engine with the given
+      identifier *)
+  val send_term_message_to : int -> unit
+
+  (** Receive the messages queued in the mailbox of the calling domain *)
   val recv : unit -> (Lib.kind_module * message) list
 
-  (** Notifies the background thread of a new list of child
-      processes. Used by the supervisor in a modular analysis when
-      restarting. *)
-  val update_child_processes_list : (int * Lib.kind_module) list -> unit
-
-  (** Purge the invariant manager mailbox.
-    Should be called before calling update_child_processes_list
-    in order to get rid of messages from the previous analysis. *)
-  val purge_im_mailbox : ctx * pub_socket * pull_socket -> unit
+  (** Purge the invariant manager mailbox. Should be called between two
+      analyses, after all engines of the previous analysis have
+      exited. *)
+  val purge_im_mailbox : ctx -> unit
 
   (** Returns true if a termination message was received. Does NOT
       modify received message in any way. *)
   val check_termination : unit -> bool
 
-  (** Request the background thread of a worker process to terminate *)
-  val exit : thread -> unit
+  (** Unregister the mailbox of a worker, from any domain. The
+      messages the worker sends from now on are dropped and a
+      termination message is left in its mailbox, so that an engine
+      that outlives its analysis cannot disturb the next one. *)
+  val disconnect : worker -> unit
+
+  (** Unregister the mailbox of a worker, from the worker itself *)
+  val exit : worker -> unit
 
 end
 
@@ -148,10 +129,10 @@ end
 module Make (T: RelayMessage) : S with type relay_message = T.t
 
 
-(* 
+(*
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
-   End: 
+   End:
 *)

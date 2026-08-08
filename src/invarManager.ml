@@ -94,17 +94,19 @@ let pids_depend_on m child_pids =
   let deps = needed_by m in
   List.filter (fun (_, md) -> List.mem md deps) child_pids
 
-(* Terminate a module and then kill it if it did not exit. *)
-let term_kill (pid, dep) =
-  KEvent.log L_warn "Terminating useless %a (PID %d)"
-    pp_print_kind_module dep pid;
-  (try Unix.kill pid Sys.sigterm with _ -> ());
-  minisleep 0.1; 
-  (try
-     Unix.kill (- pid) Sys.sigkill;
-     KEvent.log L_warn "Killed not responding useless %a (PID %d)"
-       pp_print_kind_module dep pid;
-   with _ -> ())
+(* Terminate an engine, and kill the solvers of its domain to unblock
+   it if it did not exit. *)
+let term_kill (id, dep) =
+  KEvent.log L_warn "Terminating useless %a (%d)"
+    pp_print_kind_module dep id;
+  KEvent.terminate_worker id;
+  minisleep 0.1;
+  (match EngineDomains.find id with
+   | Some c ->
+     EngineDomains.kill_solvers c;
+     KEvent.log L_warn "Killed solvers of not responding useless %a (%d)"
+       pp_print_kind_module dep id
+   | None -> ())
 
 (* Kill engines that are not needed anymore because some of their dependencies
    have crashed. This function returns a boolean that is true when it is no
@@ -143,70 +145,63 @@ let check_pending_processes run_process pending_processes sys child_pids =
       in
       pending_processes := pending ;
       List.iter (fun m -> run_process m) to_run ;
-      (* Update background thread with new kids. *)
-      KEvent.update_child_processes_list !child_pids ;
   )
 
 
-(* Remove terminated child processed from list of analysisning processes
+(* Remove terminated engines from the list of running engines
 
-   Return [true] if the last child processes has terminated or some
-   process exited with a runtime error or was killed. *)
-let rec wait_for_children run_process pending_processes sys child_pids = 
+   Return [true] if the last engine has terminated or some engine
+   terminated with a runtime error. *)
+let wait_for_children run_process pending_processes sys child_pids =
 
-  match 
-    
-    (try 
+  match EngineDomains.take_finished () with
 
-       (* Check if any child process has died, return immediately *)
-       Unix.waitpid [Unix.WNOHANG] (- 1) 
+    (* No engine terminated *)
+    | [] ->
 
-     (* Catch error if there is no child process *)
-     with Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0)
-
-  with 
-
-    (* No child process died *)
-    | 0, _ -> 
-
-      (* Terminate if the last child process has died *)
+      (* Terminate if the last engine has terminated *)
       !child_pids = []
 
-    (* Child process exited normally *)
-    | child_pid, (Unix.WEXITED 0 as status) -> (
+    | finished -> (
 
-      KEvent.log L_info
-        "Child process %d (%a) %a" 
-        child_pid 
-        pp_print_kind_module (List.assoc child_pid !child_pids) 
-        pp_print_process_status status ;
+      (* Process every engine that terminated *)
+      let crashed =
+        finished |> List.fold_left (fun crashed child ->
 
-      (* Remove child process from list *)
-      child_pids := List.remove_assoc child_pid !child_pids;
+          let child_id = EngineDomains.id child in
 
-      check_pending_processes run_process pending_processes sys child_pids ;
+          let crashed_too =
+            match EngineDomains.outcome child with
+            | EngineDomains.Done None ->
+              KEvent.log L_info
+                "Child process %d (%a) terminated normally"
+                child_id
+                pp_print_kind_module (EngineDomains.mdl child) ;
+              false
+            | EngineDomains.Done (Some e) ->
+              KEvent.log L_warn
+                "Child process %d (%a) terminated on exception: %s"
+                child_id
+                pp_print_kind_module (EngineDomains.mdl child)
+                (Printexc.to_string e) ;
+              true
+            | EngineDomains.Running -> assert false
+          in
 
-      (* Check if more child processes have died *)
-      wait_for_children run_process pending_processes sys child_pids
+          (* Remove engine from list *)
+          child_pids := List.remove_assoc child_id !child_pids ;
 
-    )
+          check_pending_processes run_process pending_processes sys child_pids ;
 
-    (* Child process dies with non-zero exit status or was killed *)
-    | child_pid, status -> (
-      KEvent.log L_warn
-        "Child process %d (%a) %a" 
-        child_pid 
-        pp_print_kind_module (List.assoc child_pid !child_pids) 
-        pp_print_process_status status ;
+          crashed || crashed_too
 
-      (* Remove child process from list *)
-      child_pids := List.remove_assoc child_pid !child_pids ;
+        ) false
+      in
 
-      check_pending_processes run_process pending_processes sys child_pids ;
-
-      (* Check if more child processes have died *)
-      kill_useless_engines !child_pids ||
-      wait_for_children run_process pending_processes sys child_pids
+      (* If some engine crashed, terminate the engines that depend on
+         it, and stop the analysis if no core engine is left *)
+      (crashed && kill_useless_engines !child_pids) ||
+      !child_pids = []
 
     )
 
@@ -238,7 +233,14 @@ let rec loop
             @]"
             (Stat.get_float Stat.total_time) ;
 
+          (* Solvers of terminating engines are killed outright instead
+             of shut down gracefully, as the engine processes and their
+             solvers used to be killed. Solvers of the running engines
+             are killed right away to unblock engines that are inside a
+             solver call and would not see the termination message. *)
+          EngineDomains.set_terminating true ;
           KEvent.terminate () ;
+          EngineDomains.live () |> List.iter EngineDomains.kill_solvers ;
           Some (Unix.gettimeofday ())
 
       | Some t -> Some t
@@ -257,7 +259,9 @@ let rec loop
             Waiting for children to terminate.
           @]" timeout_analysis ;
 
+        EngineDomains.set_terminating true ;
         KEvent.terminate () ;
+        EngineDomains.live () |> List.iter EngineDomains.kill_solvers ;
         Some (Unix.gettimeofday ())
 
       | Some t -> Some t

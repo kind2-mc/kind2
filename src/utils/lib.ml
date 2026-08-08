@@ -995,19 +995,6 @@ let string_of_signal = function
   | s when s = Sys.sigprof -> "SIGPROF"
   | s -> string_of_int s
 
-let pp_print_signal ppf s = fprintf ppf "%s" (string_of_signal s)
-
-(* Pretty-print the termination status of a process *)
-let pp_print_process_status ppf = function 
-  | Unix.WEXITED s -> fprintf ppf "exited with return code %d" s
-
-  | Unix.WSIGNALED s -> 
-    fprintf ppf "killed by signal %a" pp_print_signal s
-
-  | Unix.WSTOPPED s -> 
-    fprintf ppf "stopped by signal %a" pp_print_signal s
-
-
 (* Raise exception on signal *)
 let exception_on_signal signal = 
   (* printf "Signal %a caught" pp_print_signal signal; *)
@@ -1403,22 +1390,8 @@ let syscall cmd =
 
 
 
-let reset_gc_params =
-  let gc_c = Gc.get() in
-  fun () -> Gc.set gc_c
-  
 
-let set_liberal_gc () =
-  Gc.full_major ();
-  let gc_c =
-    { (Gc.get ()) with
-      (* Gc.verbose = 0x3FF; *)
-      Gc.minor_heap_size = 64000000; (* default 32000*)
-      major_heap_increment = 3200000;    (* default 124000*)
-      space_overhead = 100; (* default 80% des donnes vivantes *)
-    }
-  in
-  Gc.set gc_c
+
 
 let pp_print_bound_opt ppf bound = match bound with 
   | None -> Format.fprintf ppf "%s" unbounded_limit_string
@@ -1518,6 +1491,39 @@ end
 (* |===| Hardcoded strings. *)
 
 (* Internal string values *)
+(* ********************************************************************** *)
+(* Names invented by a domain                                             *)
+(* ********************************************************************** *)
+
+(* Range in which the calling domain numbers the names it invents.
+
+   The names a domain gives to what it builds — the uninterpreted
+   function symbols of its state variables, its fresh symbols, the tags
+   of its named terms — are what [import] matches on when a value
+   crosses a domain boundary, so two domains inventing the same name
+   for different values would quietly conflate them. Drawing the
+   numbers from one counter shared by every domain keeps them apart,
+   but then the names a domain invents depend on how many its siblings
+   invented before it, and so on the order the scheduler happened to
+   run them in.
+
+   Every domain numbers from a base of its own instead. The names stay
+   apart, and the sequence a domain produces depends on nothing but
+   what that domain did, as it did when the engines were separate
+   processes. *)
+let naming_range = Domain.DLS.new_key (fun () -> 0)
+
+(* Give the calling domain a range of its own. The engines pass their
+   identifier, which no other engine of the run is given; the
+   supervisor keeps 0. Call before inventing any name in the domain. *)
+let set_naming_range i = Domain.DLS.set naming_range i
+
+(* The numbers of the calling domain start here. The stride leaves a
+   domain 2^32 names and a run 2^30 engines, both past anything an
+   analysis reaches. *)
+let fresh_name_base () = Domain.DLS.get naming_range lsl 32
+
+
 module StringValues = struct
 
   let scope_sep : (unit, Format.formatter, unit) format = "."

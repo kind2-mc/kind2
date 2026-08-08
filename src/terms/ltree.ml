@@ -410,9 +410,18 @@ struct
   module Ht = H.Make (T_node)
 
   (* Hashcons table for terms *)
-  let ht = Ht.create 251
+  (* The hash-cons table is private to the domain using it. A domain
+     spawned to run an engine starts with a copy of the table of its
+     parent, so it agrees with the parent on everything built before it
+     started, and numbers what it builds afterwards on its own. A value
+     built by another domain has to be imported before use. *)
+  let ht_key =
+    Domain.DLS.new_key ~split_from_parent:Ht.copy
+      (fun () -> Ht.create 251)
 
-  let stats () = Ht.stats ht
+  let ht () = Domain.DLS.get ht_key
+
+  let stats () = Ht.stats (ht ())
 
   (* Ordering of terms based on tags *)
   let compare { H.tag = t1 } { H.tag = t2 } = Int.compare t1 t2
@@ -518,47 +527,47 @@ struct
    
 
   (* Unsafe constructor for a term *)
-  let ht_term t = Ht.hashcons ht t (prop_of_term_node t)
+  let ht_term t = Ht.hashcons (ht ()) t (prop_of_term_node t)
  
   (* Unsafe constructor for free variable *)
   let ht_free_var v = 
     let n = FreeVar v in 
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for bound variable *)
   let ht_bound_var i = 
     let n = BoundVar i in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for leaf *)
   let ht_leaf s = 
     let n = Leaf s in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for node *)
   let ht_node s l = 
     let n = Node (s, l) in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for let binding *)
   let ht_let l b = 
     let n = Let (l, b) in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for existential quantifier *)
   let ht_exists l = 
     let n = Exists l in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for universal quantifier *)
   let ht_forall l = 
     let n = Forall l in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
   (* Unsafe constructor for an annotated term *)
   let ht_annot t a = 
     let n = Annot (t, a) in
-    Ht.hashcons ht n (prop_of_term_node n)
+    Ht.hashcons (ht ()) n (prop_of_term_node n)
 
 
   (* Convert the flattened representation back into a higher-oder
@@ -1328,7 +1337,7 @@ struct
               | Forall l -> Forall (import_lambda l)
               | Annot (t, a) -> Annot (import t, a)
           in
-          Ht.hashcons ht n' (prop_of_term_node n'))
+          Ht.hashcons (ht ()) n' (prop_of_term_node n'))
       term
 
   (*

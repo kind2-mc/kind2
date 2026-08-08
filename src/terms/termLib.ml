@@ -343,12 +343,14 @@ module Signals = struct
        sigint  | %a@ \
        sigquit | %a@ \
        sigterm | %a@ \
+       sigpipe | %a@ \
        timeout | %a@ \
        break   | %b@]"
       pp_print_handler signals.sigalrm
       pp_print_handler signals.sigint
       pp_print_handler signals.sigquit
       pp_print_handler signals.sigterm
+      pp_print_handler signals.sigpipe
       (pp_print_option Format.pp_print_float)
       signals.timeout
       signals.break
@@ -408,13 +410,15 @@ module Signals = struct
       ignore_sig Sys.sigterm
     )
 
-  (* Sets the handler for sigpipeu to ignore. *)
+  (* Sets the handler for sigpipe to ignore.
+
+     Always sets the disposition: the bookkeeping record starts at
+     [Ignore] while the actual disposition of the process is still the
+     system default (termination), so skipping the call when the record
+     already says [Ignore] would leave the default in place. *)
   let ignore_sigpipe () =
-    if signals.sigpipe = Ignore then ()
-    else (
-      signals.sigpipe <- Ignore ;
-      ignore_sig Sys.sigpipe
-    )
+    signals.sigpipe <- Ignore ;
+    ignore_sig Sys.sigpipe
 
 (*    
   (* Ignore all signals. *)
@@ -457,11 +461,6 @@ module Signals = struct
   let set_sigterm () =
     signals.sigterm <- Exn ;
     set_sig Sys.sigterm exception_on_signal
-
-  (* Sets a handler for sigpipe. *)
-  let set_sigpipe () =
-    signals.sigpipe <- Exn ;
-    set_sig Sys.sigpipe exception_on_signal
 
 
   (* Sets a timeout. *)
