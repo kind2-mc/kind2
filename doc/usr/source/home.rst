@@ -228,10 +228,7 @@ if you have OPAM 2.1 or later installed on your system, or run
 if you have an older version of OPAM
 (you can run ``opam --version`` to check the version).
 
-This guides the installation of the required external
-dependencies using the default package manager for your OS
-(may ask sudo permission).
-It also builds and installs a compatible version
+This builds and installs a compatible version
 of the OCaml compiler and libraries,
 and the ``kind2`` binary.
 Now you can start using ``kind2``.
