@@ -65,7 +65,8 @@ extra_files = [
 log_dir = Path("logs")
 
 # Where kind2 lives
-kind2_bin = Path("../bin/kind2").resolve()
+kind2_exe = "kind2.exe" if os.name == "nt" else "kind2"
+kind2_bin = (Path("../bin") / kind2_exe).resolve()
 
 ######################
 # Test running logic #

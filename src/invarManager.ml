@@ -214,6 +214,13 @@ let rec loop
 
   handle_events input_sys aparam trans_sys ;
 
+  (* On Windows there is no SIGALRM-based wall clock timeout: enforce
+     it here. [handle_events] has just refreshed the total time. *)
+  ( if Sys.win32 then
+      let timeout = Flags.timeout_wall () in
+      if timeout > 0. && Stat.get_float Stat.total_time > timeout then
+        raise TimeoutWall ) ;
+
   let done_at' =
 
     (* All properties proved? *)

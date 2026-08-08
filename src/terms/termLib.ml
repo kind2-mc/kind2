@@ -362,9 +362,19 @@ module Signals = struct
       Sys.catch_break b
     )
 
+  (* Return true if a handler can be installed for the signal on this
+     platform. Windows only supports the signals of the C runtime;
+     installing a handler for the others raises Invalid_argument. The
+     functions below are no-ops for a signal that is not available. *)
+  let signal_available s =
+    not Sys.win32
+    || s = Sys.sigint || s = Sys.sigterm || s = Sys.sigabrt
+    || s = Sys.sigfpe || s = Sys.sigill || s = Sys.sigsegv
+
   (* Sets the handler to ignore for some signal. *)
   let ignore_sig s =
-    Sys.set_signal s Sys.Signal_ignore
+    if signal_available s then
+      Sys.set_signal s Sys.Signal_ignore
 
   (* Sets the handler for sigalrm to ignore. *)
   let ignore_sigalrm () =
@@ -433,7 +443,8 @@ module Signals = struct
 
   (* Sets a handler for a signal. *)
   let set_sig s f =
-    Sys.set_signal s ( Sys.Signal_handle f )
+    if signal_available s then
+      Sys.set_signal s ( Sys.Signal_handle f )
 
 
   (* Sets a handler for sigalrm. *)
@@ -463,15 +474,18 @@ module Signals = struct
     set_sig Sys.sigterm exception_on_signal
 
 
-  (* Sets a timeout. *)
+  (* Sets a timeout. On Windows there are no interval timers and no
+     SIGALRM: the wall clock timeout is enforced by the polling loop of
+     the supervisor instead. *)
   let set_timeout_value ?(interval = 0.) value =
     set_sigalrm_timeout () ;
-    (* Set timer. *)
-    Unix.setitimer
-      Unix.ITIMER_REAL
-      { Unix.it_interval = interval ;
-        Unix.it_value = value }
-    |> ignore
+    if not Sys.win32 then
+      (* Set timer. *)
+      Unix.setitimer
+        Unix.ITIMER_REAL
+        { Unix.it_interval = interval ;
+          Unix.it_value = value }
+      |> ignore
 
   (* Sets a timeout. *)
   let set_timeout value =

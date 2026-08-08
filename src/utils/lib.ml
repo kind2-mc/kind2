@@ -1020,54 +1020,61 @@ let minisleep sec =
 
 (* Return full path to executable, search PATH environment variable
    and current working directory *)
-let find_on_path exec = 
+(* Separator of entries in the PATH environment variable *)
+let path_separator = if Sys.win32 then ';' else ':'
 
-  let rec find_on_path' exec path = 
+(* Return the file if it exists, possibly with the implicit .exe
+   extension of Windows executables *)
+let existing_executable exec_path =
+  if Sys.file_exists exec_path then Some exec_path
+  else if
+    Sys.win32
+    && not (Filename.check_suffix exec_path ".exe")
+    && Sys.file_exists (exec_path ^ ".exe")
+  then Some (exec_path ^ ".exe")
+  else None
+
+let find_on_path exec =
+
+  let rec find_on_path' exec path =
 
     (* Terminate on empty path *)
     if path = "" then raise Not_found;
 
-    (* Split path at first colon *)
-    let path_hd, path_tl = 
+    (* Split path at first separator *)
+    let path_hd, path_tl =
 
-      try 
+      try
 
-        (* Position of colon in string *)
-        let colon_index = String.index path ':' in
+        (* Position of separator in string *)
+        let sep_index = String.index path path_separator in
 
         (* Length of string *)
         let path_len = String.length path in
 
-        (* Return string up to colon *)
-        (String.sub path 0 colon_index, 
-         
-         (* Return string after colon *)
-         String.sub path (colon_index + 1) (path_len - colon_index - 1))
+        (* Return string up to separator *)
+        (String.sub path 0 sep_index,
 
-      (* Colon not found, return whole string and empty string *)
+         (* Return string after separator *)
+         String.sub path (sep_index + 1) (path_len - sep_index - 1))
+
+      (* Separator not found, return whole string and empty string *)
       with Not_found -> path, ""
 
     in
-    
+
     (* Combine path and filename *)
     let exec_path = Filename.concat path_hd exec in
-    
-    if 
 
-      (* Check if file exists on path *)
-      Sys.file_exists exec_path 
+    match existing_executable exec_path with
 
-    then 
+    (* Return full path to file
 
-      (* Return full path to file 
+       TODO: Check if file is executable here? *)
+    | Some exec_path -> exec_path
 
-         TODO: Check if file is executable here? *)
-      exec_path 
-
-    else 
-
-      (* Continue on remaining path entries *)
-      find_on_path' exec path_tl
+    (* Continue on remaining path entries *)
+    | None -> find_on_path' exec path_tl
 
   in
 
@@ -1079,21 +1086,17 @@ let find_on_path exec =
          or [exec] not found on path *)
       find_on_path' exec (Unix.getenv "PATH")
         
-    else if 
-      
+    else
+
       (* Check if file exists on path *)
-      Sys.file_exists exec
-        
-    then 
-      
-      (* Return full path to file 
-         
+      match existing_executable exec with
+
+      (* Return full path to file
+
          TODO: Check if file is executable here? *)
-      exec
+      | Some exec -> exec
 
-    else 
-
-      raise Not_found
+      | None -> raise Not_found
 
   with Not_found -> 
 
@@ -1101,7 +1104,9 @@ let find_on_path exec =
     let exec_path = Filename.concat (Sys.getcwd ()) exec in 
 
     (* Return full path if file exists, fail otherwise *)
-    if Sys.file_exists exec_path then exec_path else raise Not_found
+    match existing_executable exec_path with
+    | Some exec_path -> exec_path
+    | None -> raise Not_found
 
 
 let rec find_file filename = function
