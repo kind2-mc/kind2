@@ -1084,11 +1084,20 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
         (
 
-          (* Send SIGKILL to process *)
-          Unix.kill solver_pid Sys.sigkill;
+          (* Send SIGKILL to process.
+
+             The process may be gone already: the supervisor kills the
+             solvers of an engine that will not stop on its own, from
+             another domain. Unix leaves a child that has exited as a
+             zombie, which can still be signalled and waited for;
+             Windows keeps nothing of it, and both calls fail. Nothing
+             is left to kill or reap either way. *)
+          ( try Unix.kill solver_pid Sys.sigkill with
+            | Unix.Unix_error (Unix.ESRCH, _, _) -> () ) ;
 
           (* Return exit code *)
-          Unix.waitpid [] solver_pid |> snd
+          ( try Unix.waitpid [] solver_pid |> snd with
+            | Unix.Unix_error (Unix.ECHILD, _, _) -> Unix.WEXITED 0 )
 
         )
 
@@ -1099,8 +1108,11 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           (* Wait 10ms *)
           minisleep 0.01;
 
-          (* Check return status *)
-          match Unix.waitpid [Unix.WNOHANG] solver_pid with
+          (* Check return status. Reaped from elsewhere counts as
+             exited: there is nothing left to wait for. *)
+          match ( try Unix.waitpid [Unix.WNOHANG] solver_pid with
+                  | Unix.Unix_error (Unix.ECHILD, _, _) ->
+                    (solver_pid, Unix.WEXITED 0) ) with
 
           (* Process has not exited yet? Wait one more time *)
           | 0, _ -> wait_and_kill (pred time_to_kill)

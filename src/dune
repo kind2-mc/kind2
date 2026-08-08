@@ -17,7 +17,7 @@
 
 (rule
   (with-stdout-to linking-flags.sexp
-    (run ../scripts/gen-linking-flags.sh %{env:LINKING_MODE=dynamic} %{ocaml-config:system} %{ocaml-config:version})))
+    (run bash %{dep:../scripts/gen-linking-flags.sh} %{env:LINKING_MODE=dynamic} %{ocaml-config:system} %{ocaml-config:version})))
 
 (library
  (name kind2dev)
