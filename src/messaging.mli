@@ -23,7 +23,10 @@
     value dropped into the in-memory mailbox of the receiver, without
     any serialization. There are no background threads: sending is a
     mutex-protected queue operation and {!S.recv} drains the mailbox of
-    the calling domain.
+    the calling domain without blocking. {!S.wait_for_message} blocks
+    until the mailbox of the calling domain is not empty, so that a
+    domain with nothing to do until the next message does not have to
+    poll.
 
     @author Jason Oxley, Christoph Sticksel *)
 
@@ -104,6 +107,13 @@ sig
 
   (** Receive the messages queued in the mailbox of the calling domain *)
   val recv : unit -> (Lib.kind_module * message) list
+
+  (** Block until a message is queued in the mailbox of the calling
+      domain. Returns immediately if the mailbox is not empty. Any
+      event a domain may wait for arrives as a message, including
+      termination requests, so waiting without a timeout cannot delay
+      shutdown. *)
+  val wait_for_message : unit -> unit
 
   (** Purge the invariant manager mailbox. Should be called between two
       analyses, after all engines of the previous analysis have

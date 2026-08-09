@@ -39,7 +39,9 @@
    There are no background threads and no acknowledgement or resend
    protocol: delivery is a mutex-protected queue operation and is
    reliable by construction. [recv] drains the mailbox of the calling
-   domain. *)
+   domain without blocking; [wait_for_message] blocks the calling
+   domain until its mailbox is not empty, so that a domain with
+   nothing to do until the next message does not have to poll. *)
 
 exception NotInitialized
 
@@ -102,6 +104,8 @@ sig
   val send_term_message_to : int -> unit
 
   val recv : unit -> (Lib.kind_module * message) list
+
+  val wait_for_message : unit -> unit
 
   val purge_im_mailbox : ctx -> unit
 
@@ -178,17 +182,28 @@ struct
   (* ******************************************************************** *)
 
   (* A queue with O(1) enqueue: [front] is in order, [back] is
-     reversed *)
+     reversed. [nonempty] is signalled whenever a message is added, so
+     that the owner of the mailbox can block until a message arrives
+     instead of polling. *)
   type 'a mailbox = {
     lock : Mutex.t ;
+    nonempty : Condition.t ;
     mutable front : 'a list ;
     mutable back : 'a list ;
   }
 
-  let mk_mailbox () = { lock = Mutex.create () ; front = [] ; back = [] }
+  let mk_mailbox () = {
+    lock = Mutex.create () ;
+    nonempty = Condition.create () ;
+    front = [] ;
+    back = [] ;
+  }
 
   let enqueue entry mb =
-    Mutex.protect mb.lock (fun () -> mb.back <- entry :: mb.back)
+    Mutex.protect mb.lock (fun () ->
+      mb.back <- entry :: mb.back ;
+      (* Only the domain owning the mailbox waits on it *)
+      Condition.signal mb.nonempty)
 
   (* Return all messages in order and empty the mailbox *)
   let drain mb =
@@ -197,6 +212,14 @@ struct
       mb.front <- [] ;
       mb.back <- [] ;
       msgs)
+
+  (* Block until the mailbox contains a message. Returns immediately
+     if the mailbox is not empty. *)
+  let wait_nonempty mb =
+    Mutex.protect mb.lock (fun () ->
+      while mb.front = [] && mb.back = [] do
+        Condition.wait mb.nonempty mb.lock
+      done)
 
   (* Check if some message satisfies [f] without consuming anything *)
   let mailbox_exists f mb =
@@ -312,6 +335,15 @@ struct
     | Uninitialized -> raise NotInitialized
     | Supervisor -> drain im_inbox
     | Worker ep -> drain ep.ep_inbox
+
+  (* Block until a message is queued for the calling domain. Any event
+     a domain may wait for arrives as a message, including termination
+     requests, so waiting without a timeout cannot delay shutdown. *)
+  let wait_for_message () =
+    match get_role () with
+    | Uninitialized -> raise NotInitialized
+    | Supervisor -> wait_nonempty im_inbox
+    | Worker ep -> wait_nonempty ep.ep_inbox
 
   (* Return true if a termination message is queued for the calling
      domain, without consuming any message *)

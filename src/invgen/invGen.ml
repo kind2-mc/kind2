@@ -650,8 +650,6 @@ module Make (Graph : GraphSig) : Out = struct
       "./dot" "graph" suff Graph.fmt_graph_dot graph ;
     InvGenGraph.write_dot_to
       "./dot" "classes" suff Graph.fmt_graph_classes_dot graph ; *)
-    (* minisleep 2.0 ;
-    exit () ; *)
 
     let memory, res = (sys, graph, non_trivial, trivial) :: memory, res
     in

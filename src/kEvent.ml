@@ -2215,8 +2215,18 @@ let recv () =
          []
          (EventMessaging.recv ()))
 
-  (* Don't fail if not initialized *) 
+  (* Don't fail if not initialized *)
   with Messaging.NotInitialized -> []
+
+
+(* Block until a message is queued for the calling domain. Termination
+   requests arrive as messages too, so a waiting engine is woken up on
+   shutdown and raises {!Terminate} in its next call to {!recv}. *)
+let wait_for_message () =
+  try EventMessaging.wait_for_message ()
+  (* Don't fail if not initialized. No message can ever arrive then:
+     sleep so that callers waiting in a loop do not spin. *)
+  with Messaging.NotInitialized -> minisleep 0.01
 
 let purge_im : messaging_setup -> unit =
   fun ctx ->

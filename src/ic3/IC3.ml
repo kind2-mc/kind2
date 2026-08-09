@@ -1264,7 +1264,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                        aparam 
                        trans_sys
                        (C.props_of_prop_set prop_set);
-                     minisleep 0.01;
+                     KEvent.wait_for_message ();
                      wait ()
                    in
                    ignore (wait ()); 
@@ -2410,8 +2410,8 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
 
             (
 
-              (* Delay *)
-              minisleep 0.1;
+              (* Wait for the next message *)
+              KEvent.wait_for_message ();
 
               (* Wait *)
               wait_for_bmc ()
