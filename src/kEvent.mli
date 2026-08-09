@@ -192,6 +192,12 @@ val terminate : unit -> unit
 (** Receive all queued events *)
 val recv : unit -> (Lib.kind_module * event) list
 
+(** Block until an event is queued for the calling domain. Returns
+    immediately if there are queued events. Termination requests
+    arrive as messages too, so a waiting engine is woken up on
+    shutdown and raises {!Terminate} in its next call to {!recv}. *)
+val wait_for_message : unit -> unit
+
 (** Terminates if a termination message was received. Does NOT modify
     received messages. *)
 val check_termination: unit -> unit
