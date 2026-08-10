@@ -263,7 +263,7 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
     string_of_int expected ^ " argument(s) but got " ^ string_of_int got
   | MatchScrutineeNotADT ty ->
-    "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+    "Tester argument or match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
   | UnequalMatchArmTypes (ty1, ty2) ->
     "Match arm types do not agree: found " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | DuplicateConstructor (ctor, ty1, ty2) ->
