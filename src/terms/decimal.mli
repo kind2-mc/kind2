@@ -66,6 +66,14 @@ val of_num : Num.num -> t
 (** Convert a string in floating-point notation [1.2E3] to rational number *)
 val of_string : string -> t
 
+(** Convert a string of an integer or of a fraction [p/q] to a rational
+    number.
+
+    Unlike [Num.num_of_string], this does not temporarily modify the
+    global normalization flags of the num library, which is not safe
+    when several domains use the library. *)
+val of_rational_string : string -> t
+
 (** Convert a rational number to a rational
 
     Truncates the rational number to an integer and raises the

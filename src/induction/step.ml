@@ -519,7 +519,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      stop ()
   | [], _ ->
      (* Need to wait for base confirmation. *)
-     minisleep 0.001 ;
+     KEvent.wait_for_message () ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
   | _ when Flags.BmcKind.max () > 0 && k_int + 1 > Flags.BmcKind.max () ->
      KEvent.log

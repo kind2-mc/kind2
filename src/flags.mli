@@ -739,8 +739,12 @@ module Invgen : sig
   (** Forces arith invgen to look for equalities only. *)
   val arith_eq_only : unit -> bool
 
+  (* Renicing invariant generation is gone with the process it reniced.
+     See the note on [renice] in kind2Flow.ml before bringing it back. *)
+  (*
   (** Renice invariant generation process. *)
   val renice : unit -> int
+  *)
 end
 
 

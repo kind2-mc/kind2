@@ -24,7 +24,10 @@
     some type associated with the hashconsed value.
 
     Hash consing tables use weak pointers or not depending on the chosen
-    implementation ({!HashconsWeak} or {!HashconsStrong}).
+    implementation ({!HashconsWeak} or {!HashconsStrong}). A weak table
+    reclaims what it holds, but hands a new tag to a value it collected
+    and had to build again, so the sets and maps the engines search with
+    are ordered by the collector.
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)
@@ -49,6 +52,9 @@ val create : int -> ('a, 'b) t
   
 (** Removes all elements from the table. *)
 val clear : ('a, 'b) t -> unit
+
+(** A table holding what the given one holds, sharing its values. *)
+val copy : ('a, 'b) t -> ('a, 'b) t
 
 (** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
     any existing value in [t] equal to [n], if any; otherwise, allocates
@@ -86,6 +92,7 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
+    val copy : t -> t
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
     val find : t -> key -> (key, prop) hash_consed
     val iter : ((key, prop) hash_consed -> unit) -> t -> unit

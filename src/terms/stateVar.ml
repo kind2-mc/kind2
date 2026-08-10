@@ -96,9 +96,18 @@ module Hstate_var = Hashcons.Make (State_var_node)
 
 
 (* Storage for state variables *)
-let ht = Hstate_var.create 251
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Hstate_var.copy
+    (fun () -> Hstate_var.create 251)
 
-let stats () = Hstate_var.stats ht
+let ht () = Domain.DLS.get ht_key
+
+let stats () = Hstate_var.stats (ht ())
 
 
 (* ********************************************************************* *)
@@ -157,8 +166,16 @@ module StateVarSet = Set.Make (OrderedStateVar)
 module StateVarMap = Map.Make (OrderedStateVar)
 
 
-(* State variable an uninterpreted function symbol is associated with *)
-let uf_symbols_map = UfSymbol.UfSymbolHashtbl.create 41 
+(* State variable an uninterpreted function symbol is associated with.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let uf_symbols_map_key =
+  Domain.DLS.new_key ~split_from_parent:UfSymbol.UfSymbolHashtbl.copy
+    (fun () -> UfSymbol.UfSymbolHashtbl.create 41)
+
+let uf_symbols_map () = Domain.DLS.get uf_symbols_map_key
 
 
 (* ********************************************************************* *)
@@ -227,8 +244,8 @@ let change_type_of_state_var { Hashcons.prop = v } t = v.var_type <- t
 let uf_symbol_of_state_var { Hashcons.prop = { uf_symbol = u } } = u
 
 (* Uninterpreted function symbol of a state variable *)
-let state_var_of_uf_symbol u = 
-  UfSymbol.UfSymbolHashtbl.find uf_symbols_map u
+let state_var_of_uf_symbol u =
+  UfSymbol.UfSymbolHashtbl.find (uf_symbols_map ()) u
   
 (* Return true if state variable is an input *)
 let is_input { Hashcons.prop = { is_input } } = is_input
@@ -250,15 +267,17 @@ let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
 (* ********************************************************************* *)
 
 
-(* Generate a new identifier for an uninterpreted functions symbol *)
-let gen_uf =
-  let r = ref 0 in
-  fun a s -> 
-    incr r; 
-    UfSymbol.mk_uf_symbol 
-      (Format.sprintf "%%f%d" !r)
-      a
-      s
+(* Generate a new identifier for an uninterpreted functions symbol.
+   Numbered in the range of the calling domain, so that the identifiers
+   of two domains stay apart without either depending on the other. *)
+let gen_uf_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base () + 1))
+
+let gen_uf a s =
+  let r = Domain.DLS.get gen_uf_id in
+  let id = !r in
+  r := id + 1 ;
+  UfSymbol.mk_uf_symbol (Format.sprintf "%%f%d" id) a s
 
 (* Hashcons a state variable *)
 let mk_state_var 
@@ -273,7 +292,7 @@ let mk_state_var
 
     (* Get previous declaration of identifier *)
     let v = 
-      Hstate_var.find ht (state_var_name, state_var_scope)  
+      Hstate_var.find (ht ()) (state_var_name, state_var_scope)  
     in
 
     if 
@@ -346,7 +365,7 @@ let mk_state_var
        (* Hashcons state variable *)
        let state_var = 
          Hstate_var.hashcons 
-           ht 
+           (ht ()) 
            (state_var_name, state_var_scope) 
            { var_type = state_var_type; 
              uf_symbol = state_var_uf_symbol;
@@ -357,9 +376,9 @@ let mk_state_var
 
        (* Remember association of uninterpreted function symbol with
           state variable *)
-       UfSymbol.UfSymbolHashtbl.add 
-         uf_symbols_map 
-         state_var_uf_symbol 
+       UfSymbol.UfSymbolHashtbl.add
+         (uf_symbols_map ())
+         state_var_uf_symbol
          state_var;
 
        (* Return state variable *)
@@ -428,7 +447,7 @@ let state_var_of_string (state_var_name, state_var_scope) =
 
   (* Get previous declaration of symbol, raise {!Not_found} if
      symbol was not declared *)
-  Hstate_var.find ht (state_var_name, state_var_scope)
+  Hstate_var.find (ht ()) (state_var_name, state_var_scope)
 
 
 (* Return a previously declared state variable from a string consisting of the
@@ -444,11 +463,11 @@ let state_var_of_long_string s =
 
 
 (* Fold all variables in the hash-cons table *)
-let fold f a = Hstate_var.fold f ht a
+let fold f a = Hstate_var.fold f (ht ()) a
 
 (* Fold all variables in the hash-cons table *)
 let iter f = 
-  Hstate_var.iter f ht
+  Hstate_var.iter f (ht ())
 
 
 (*******************************)
@@ -474,8 +493,16 @@ let select_prefix = "_select"
 
 module TyH = Type.TypeHashtbl
 
-(* select functions *)
-let array_ty_to_select_fun = TyH.create 7
+(* select functions.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let array_ty_to_select_fun_key =
+  Domain.DLS.new_key ~split_from_parent:TyH.copy
+    (fun () -> TyH.create 7)
+
+let array_ty_to_select_fun () = Domain.DLS.get array_ty_to_select_fun_key
 
 let encode_select_type =
   let cpt = ref 0 in
@@ -483,7 +510,7 @@ let encode_select_type =
     (* let sv_uf = uf_symbol_of_state_var sv in *)
     let ty = type_of_state_var sv |> Type.generalize in
     assert (Type.is_array ty);
-    try TyH.find array_ty_to_select_fun ty
+    try TyH.find (array_ty_to_select_fun ()) ty
     with Not_found ->
       let ty_indexes = Type.all_index_types_of_array ty in
       (* add type for array *)
@@ -492,7 +519,7 @@ let encode_select_type =
       incr cpt;
       let name = select_prefix ^ "_" ^ string_of_int !cpt in
       let f = UfSymbol.mk_uf_symbol name ty_args ty_elem in
-      TyH.add array_ty_to_select_fun ty f;
+      TyH.add (array_ty_to_select_fun ()) ty f;
       f
 
 (* Encoding select funtion is done byt type (i.e. one select by array type).
@@ -504,7 +531,7 @@ let encode_select = encode_select_type
 (* Return select function that were created (this is used for declaration so
    it's better to return more - all - than not enough) *)
 let get_select_ufs () =
-  TyH.fold (fun _ f acc -> f :: acc) array_ty_to_select_fun []
+  TyH.fold (fun _ f acc -> f :: acc) (array_ty_to_select_fun ()) []
 
 (* 
    Local Variables:

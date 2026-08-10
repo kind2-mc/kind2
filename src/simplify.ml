@@ -18,11 +18,14 @@
 
 open Lib
 
-let division_by_zero = ref false
+(* Domain-local: each engine domain tracks divisions by zero in its own
+   simplifications *)
+let division_by_zero = Domain.DLS.new_key (fun () -> ref false)
 
 (** Returns true iff a division by zero happened in a simplification since
     this function was last called. *)
 let has_division_by_zero_happened () =
+  let division_by_zero = Domain.DLS.get division_by_zero in
   let res = !division_by_zero in
   division_by_zero := false ;
   res
@@ -1650,7 +1653,7 @@ let real_division args =
               (fun a e ->
                  if Decimal.(e = zero) then
                    (* raise (Failure "simplify_term: division by zero") *)
-                   division_by_zero := true ;
+                   Domain.DLS.get division_by_zero := true ;
                  Decimal.(a / e))
               h
               tl),
@@ -1687,7 +1690,7 @@ let integer_division args =
           ((List.fold_left
               (fun a e ->
                  if Numeral.(e = zero) then (
-                   division_by_zero := true ;
+                   Domain.DLS.get division_by_zero := true ;
                    Numeral.zero (* TODO: Compute a value consistent with the model *)
                  )
                  else Numeral.(a / e))

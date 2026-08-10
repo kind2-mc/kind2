@@ -329,10 +329,16 @@ module Hsymbol = Hashcons.Make (Symbol_node)
 
 
 (* Storage for hashconsed symbols *)
-let ht = Hsymbol.create 251
+(* The table is private to the domain using it. A domain spawned to
+   run an engine starts with a copy of the table of its parent. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Hsymbol.copy
+    (fun () -> Hsymbol.create 251)
+
+let ht () = Domain.DLS.get ht_key
 
 
-let stats () = Hsymbol.stats ht
+let stats () = Hsymbol.stats (ht ())
 
 
 (* Return the node of a symbol *)
@@ -604,14 +610,13 @@ let uf_of_symbol = function
 
 (* Return a hashconsed symbol *)
 let mk_symbol sym = 
-  Hsymbol.hashcons ht sym ()
-    
+  Hsymbol.hashcons (ht ()) sym ()
 
-(* Import symbol from a different instance into this hashcons table *)
-let import = function 
+(* Import a symbol built by another domain into the tables of this one *)
+let import = function
   | { Hashcons.node = `UF u } -> mk_symbol (`UF (UfSymbol.import u))
   | { Hashcons.node = s } -> mk_symbol s
-
+    
 
 (* Constant propositional value *)
 let s_true = mk_symbol `TRUE

@@ -82,11 +82,17 @@ let index_of_scope s =
   curr
 *)
 
-let node_num_id = ref 0
+(* Numbered in the range of the calling domain: the resulting tag names
+   state variable scopes, and a collision would alias the state
+   variables of two distinct recursive unrollings. *)
+let node_num_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
 let get_node_num_id () =
-  let res = ! node_num_id in
-  node_num_id := 1 + !node_num_id ;
-  res
+  let r = Domain.DLS.get node_num_id in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 let get_rec_tag id = Format.asprintf "rec_%d" id
 
@@ -3290,9 +3296,22 @@ let trans_sys_of_nodes
     subsystems analysis_param
   =
 
-  (* Prevent the garbage collector from running too often during the frontend
-     operations *)
-  Lib.set_liberal_gc ();
+  (* Work on a private copy of the bounds of the state variables.
+
+     The table of [globals] is shared by everything that was built from
+     the same input system, and the engines of an analysis read the one
+     of their transition system while they interpret the models of
+     their solver. Building a transition system adds entries to it, and
+     an IC3IA engine builds one of its own, in its own domain, while
+     the other engines are running: they would then be reading a table
+     that another domain is modifying. Every transition system gets its
+     own table instead, which nothing modifies once it is built. *)
+  let globals =
+    { globals with
+      G.state_var_bounds =
+        StateVar.StateVarHashtbl.copy globals.G.state_var_bounds }
+  in
+
   
   let { A.top } =
     A.info_of_param analysis_param
@@ -3385,9 +3404,6 @@ let trans_sys_of_nodes
     | _ -> ()
   ) ;
 
-  (* Reset garbage collector to its initial settings *)
-  Lib.reset_gc_params ();
-
   let trans_sys =
     if options.slice_nodes == `Experimental then (
       let graph =
@@ -3415,9 +3431,9 @@ let trans_sys_of_nodes
 
 
 
-(* 
+(*
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
-   End: 
+   End:
 *)

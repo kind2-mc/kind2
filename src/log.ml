@@ -61,14 +61,18 @@ type 'a log_printer =
 type 'a m_log_printer =
   Lib.kind_module -> 'a log_printer
 
-(* Module currently running *)
-let this_module = ref `Parser
+(* Module currently running. Domain-local: each engine domain runs a
+   different module. *)
+let this_module =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref `Parser)
 
 (* Set module currently running *)
-let set_module mdl = this_module := mdl 
+let set_module mdl = Domain.DLS.get this_module := mdl
 
 (* Get module currently running *)
-let get_module () = !this_module
+let get_module () = !(Domain.DLS.get this_module)
 
 
 (* ********************************************************************** *)
@@ -85,12 +89,19 @@ type log_format =
   | F_relay
 
 
-(* Current log format *)
-let log_format = ref F_pt
-let prev_log_format = ref !log_format
+(* Current log format. Domain-local: engine domains log in relay format
+   while the supervisor domain keeps the user-facing format. *)
+let log_format =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref F_pt)
+let prev_log_format =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref F_pt)
 
-let get_log_format () = !log_format
-let set_log_format l = log_format := l
+let get_log_format () = !(Domain.DLS.get log_format)
+let set_log_format l = Domain.DLS.get log_format := l
 
 let show_props = ref true 
 let first_log_flag = ref true
@@ -154,16 +165,23 @@ let printf_xml_string mdl level s =
 
 let printf_xml mdl level fmt =
 
+  (* Format the message into a fresh buffer: [Format.str_formatter]
+     belongs to the initial domain and must not be used from other
+     domains *)
+  let buf = Buffer.create 80 in
+  let ppf = Format.formatter_of_buffer buf in
+
   (ignore_or_kfprintf level)
-    (function _ ->
+    (function ppf ->
+      Format.pp_print_flush ppf () ;
       let s =
-        Format.flush_str_formatter ()
+        Buffer.contents buf
         |> Lib.escape_xml_string
       in
       printf_xml_string mdl level s
     )
 
-    Format.str_formatter
+    ppf
     fmt
 
 
@@ -217,16 +235,21 @@ let printf_json_string mdl level s =
 (* Output message as JSON *)
 let printf_json mdl level fmt =
 
+  (* See [printf_xml] *)
+  let buf = Buffer.create 80 in
+  let ppf = Format.formatter_of_buffer buf in
+
   (ignore_or_kfprintf level)
-    (function _ ->
+    (function ppf ->
+      Format.pp_print_flush ppf () ;
       let s =
-        Format.flush_str_formatter ()
+        Buffer.contents buf
         |> Lib.escape_json_string
       in
       printf_json_string mdl level s
     )
 
-    Format.str_formatter
+    ppf
     fmt
 
 let parse_log_json level pos msg =
@@ -270,20 +293,20 @@ let parse_log_json level pos msg =
 (*****************************************************************)
   
 (* Set log format to plain text *)
-let set_log_format_pt () = log_format := F_pt
+let set_log_format_pt () = set_log_format F_pt
 
 (* Set log format to XML *)
 let set_log_format_xml () = 
-  log_format := F_xml;
+  set_log_format F_xml;
   (* Print XML header *)
   print_xml_header ()
 
 (* Set log format to JSON *)
-let set_log_format_json () = log_format := F_json
+let set_log_format_json () = set_log_format F_json
 
 
 (* Set log format to incremental JSON *)
-let set_log_format_ijson () = log_format := F_ijson
+let set_log_format_ijson () = set_log_format F_ijson
 
 let get_show_props () = !show_props
 let set_show_props value = show_props := value 
@@ -291,11 +314,11 @@ let set_show_props value = show_props := value
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () =
-  prev_log_format := !log_format;
-  log_format := F_relay
+  Domain.DLS.get prev_log_format := get_log_format ();
+  set_log_format F_relay
 
 
-let unset_relay_log () = log_format := !prev_log_format
+let unset_relay_log () = set_log_format !(Domain.DLS.get prev_log_format)
 
 module type SLog = sig
   val log : 'a log_printer
@@ -318,7 +341,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
 
     let mdl = get_module () in
 
-    match !log_format with 
+    match get_log_format () with 
     | F_pt -> printf_pt level fmt
     | F_xml -> printf_xml mdl level fmt
     | F_json
@@ -331,7 +354,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
 
     let mdl = get_module () in
 
-    match !log_format with 
+    match get_log_format () with 
     | F_pt -> printf_pt_uncond fmt
     | F_xml -> printf_xml mdl L_info fmt
     | F_ijson
@@ -347,7 +370,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
       Lib.ignore_or_fprintf L_note fmt "%a"
     in
 
-    match !log_format with 
+    match get_log_format () with 
     | F_pt -> print pt a
     | F_xml -> print xml a
     | F_ijson

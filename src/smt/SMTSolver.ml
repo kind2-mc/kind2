@@ -28,10 +28,11 @@ module IntMap = Map.Make(
 )
 
 
-(* Generate next unique identifier *)
+(* Generate next unique identifier. Atomic so that solver instances
+   created concurrently in different domains get distinct identifiers. *)
 let gentag =
-  let r = ref 0 in
-  fun () -> incr r; !r
+  let r = Atomic.make 0 in
+  fun () -> Atomic.fetch_and_add r 1 + 1
 
 
 (* Instantiate module for SMTLIB2 solvers with drivers *)
@@ -62,24 +63,43 @@ type t = {
 }
 
 (** All solver instances created are stored in this map from solver id to
-solver. The main goal of this is to have all the live solver instances in one
-place so that we can kill everyone easily in case of unexpected shutdown.
+solver and the identifier of the domain that created it. The main goal of
+this is to have all the live solver instances in one place so that we can
+kill everyone easily in case of unexpected shutdown, and so that the
+supervisor can unblock an engine domain that is stuck in a solver call by
+killing the underlying solver process.
+
+Guarded by [all_solvers_lock]: solvers are created and destroyed
+concurrently by all engine domains.
 
 See [destroy_all]. *)
 let all_solvers = ref IntMap.empty
+let all_solvers_lock = Mutex.create ()
 
-(** Registers a solver. *)
+(** Registers a solver, owned by the calling domain. *)
 let add_solver ( { id } as solver ) =
-  all_solvers := IntMap.add id solver !all_solvers
+  let owner = (Domain.self () :> int) in
+  Mutex.protect all_solvers_lock (fun () ->
+    all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
 (** Forgets a solver. *)
 let drop_solver { id } =
-  all_solvers := IntMap.remove id !all_solvers
+  Mutex.protect all_solvers_lock (fun () ->
+    all_solvers := IntMap.remove id !all_solvers)
+
+(* Set while the supervisor is terminating the engines of an analysis.
+   Solver instances are then killed outright instead of shut down
+   gracefully: the engine processes and their solvers used to be
+   killed, and waiting for each solver to exit on an [(exit)] command
+   delays the end of the analysis. *)
+let shutting_down = Atomic.make false
+let set_shutting_down b = Atomic.set shutting_down b
 
 (* Destroys a solver instance. *)
 let destroy s =
   let module S = (val s.solver_inst) in
-  S.delete_instance ()
+  if Atomic.get shutting_down then S.kill_instance ()
+  else S.delete_instance ()
 
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error s = function
@@ -187,22 +207,56 @@ let create_instance
 
 (* Delete a solver instance *)
 let delete_instance s =
-  if (IntMap.mem s.id !all_solvers) then (
+  let live =
+    Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
+  in
+  if live then (
     drop_solver s ;
     destroy s
   )
 
-(* Destroys all live solvers. *)
+(* Destroys all live solvers owned by the calling domain. *)
 let destroy_all () =
-  !all_solvers
-  |> IntMap.iter (
-    fun _ s -> destroy s
-  ) ;
-  all_solvers := IntMap.empty
+  let self = (Domain.self () :> int) in
+  let mine =
+    Mutex.protect all_solvers_lock (fun () ->
+      let mine, others =
+        IntMap.partition (fun _ (owner, _) -> owner = self) !all_solvers
+      in
+      all_solvers := others ;
+      mine)
+  in
+  IntMap.iter (fun _ (_, s) -> destroy s) mine
 
-(** Delete instance entries (should be called after forking, on child processes). *)
-let delete_instance_entries () =
-  all_solvers := IntMap.empty
+(* Destroys every live solver of the whole process. Only for final
+   cleanup before the process exits. *)
+let destroy_all_of_process () =
+  let entries =
+    Mutex.protect all_solvers_lock (fun () ->
+      let entries = !all_solvers in
+      all_solvers := IntMap.empty ;
+      entries)
+  in
+  IntMap.iter (fun _ (_, s) -> destroy s) entries
+
+(* Kills the solver processes owned by the given domain without
+   interacting with them. Used by the supervisor to unblock an engine
+   domain that does not react to a termination message because it is
+   stuck in a solver call. *)
+let kill_solvers_of_domain owner =
+  let entries =
+    Mutex.protect all_solvers_lock (fun () ->
+      let mine, others =
+        IntMap.partition (fun _ (owner', _) -> owner' = owner) !all_solvers
+      in
+      all_solvers := others ;
+      mine)
+  in
+  IntMap.iter
+    (fun _ (_, s) ->
+      let module S = (val s.solver_inst) in
+      S.kill_instance ())
+    entries
 
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id

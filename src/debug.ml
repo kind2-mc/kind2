@@ -66,9 +66,14 @@ let set_dflags dflags =
 
 let enabled_time = Unix.gettimeofday ()
 
-let ppf = ref Format.std_formatter
+(* Domain-local so that each engine domain can redirect its debug
+   output to its own file *)
+let ppf =
+  Domain.DLS.new_key
+    ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref Format.std_formatter)
 
-let set_formatter f = ppf := f
+let set_formatter f = Domain.DLS.get ppf := f
 
 
 (* Types of debug functions *)
@@ -78,7 +83,7 @@ type 'a t = ('a, Format.formatter, unit) format -> 'a
 (* Output a message for an debug section *)
 let printf cond section fmt = 
   let fprintf = if cond then Format.fprintf else Format.ifprintf in
-  fprintf !ppf
+  fprintf !(Domain.DLS.get ppf)
     ("@[<hv %i>@{<b>[@}@{<cyan_b>%s@}, @{<cyan>%.3f@}@{<b>]@}@ @[<hv>" ^^fmt^^ "@]@]@.")
     ((String.length section) + 3)
     section

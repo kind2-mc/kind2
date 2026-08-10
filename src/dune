@@ -17,11 +17,11 @@
 
 (rule
   (with-stdout-to linking-flags.sexp
-    (run ../scripts/gen-linking-flags.sh %{env:LINKING_MODE=dynamic} %{ocaml-config:system} %{ocaml-config:version})))
+    (run bash %{dep:../scripts/gen-linking-flags.sh} %{env:LINKING_MODE=dynamic} %{ocaml-config:system} %{ocaml-config:version})))
 
 (library
  (name kind2dev)
- (libraries dune-build-info num str threads yojson zmq menhirLib)
+ (libraries dune-build-info num str threads yojson menhirLib)
  (modules
   (:standard \ C2Icnf kind2 moxi))
  (modules_without_implementation solverSig)

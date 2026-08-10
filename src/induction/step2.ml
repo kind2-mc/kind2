@@ -168,8 +168,8 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
   match props with
     (* Nothing new property-wise, keep going if no new invariant. *)
     | [] -> if not new_stuff then (
-      (* No new invariants, sleeping and looping. *)
-      minisleep 0.07 ;
+      (* No new invariants, waiting for the next message and looping. *)
+      KEvent.wait_for_message () ;
       check_new_things false ctx
     )
     (* Some properties changed status. *)
@@ -203,7 +203,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
       ctx.map <- map ;
       (* We got new stuff we don't loop. *)
       if not new_stuff then (
-        minisleep 0.07 ;
+        KEvent.wait_for_message () ;
         check_new_things false ctx
       )
 

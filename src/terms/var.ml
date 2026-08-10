@@ -119,9 +119,18 @@ module Hvar = Hashcons.Make (Var_node)
 
 
 (* Storage for hashconsed variables *)
-let ht = Hvar.create 251
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Hvar.copy
+    (fun () -> Hvar.create 251)
 
-let stats () = Hvar.stats ht
+let ht () = Domain.DLS.get ht_key
+
+let stats () = Hvar.stats (ht ())
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -286,7 +295,7 @@ let mk_const_state_var v =
   if StateVar.is_const v then
 
     (* Create and hashcons constant state variable *)
-    Hvar.hashcons ht (ConstStateVar v) ()
+    Hvar.hashcons (ht ()) (ConstStateVar v) ()
 
   else
 
@@ -305,14 +314,14 @@ let mk_state_var_instance v o =
   else
 
     (* Create and hashcons state variable instance *)
-    Hvar.hashcons ht (StateVarInstance (v, o)) ()
+    Hvar.hashcons (ht ()) (StateVarInstance (v, o)) ()
 
 
 (* Return a hashconsed variable which is a free variable *)    
 let mk_free_var s t = 
 
   (* Create and hashcons free variable *)
-  Hvar.hashcons ht (FreeVar (s, t)) ()
+  Hvar.hashcons (ht ()) (FreeVar (s, t)) ()
 
 
 (* Import a variable from a different instance into this hashcons table *)
@@ -331,24 +340,29 @@ let import = function
     mk_free_var (HString.import s) (Type.import t)
 
 
-(* Counter for index of fresh uninterpreted symbols *)
-let fresh_var_ids = Type.TypeHashtbl.create 7
+(* Counter for index of fresh uninterpreted symbols.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let fresh_var_ids_key =
+  Domain.DLS.new_key ~split_from_parent:Type.TypeHashtbl.copy
+    (fun () -> Type.TypeHashtbl.create 7)
+
+let fresh_var_ids () = Domain.DLS.get fresh_var_ids_key
 
 
 (* Return name of a fresh uninterpreted symbol  *)
-let rec next_fresh_var_node var_type = 
+let rec next_fresh_var_node var_type =
 
-  let fresh_var_id = 
-
-    try 
-      
-      Type.TypeHashtbl.find fresh_var_ids var_type 
-        
-    with Not_found -> 1
-
+  let fresh_var_id =
+    let id =
+      try Type.TypeHashtbl.find (fresh_var_ids ()) var_type
+      with Not_found -> 1
+    in
+    Type.TypeHashtbl.replace (fresh_var_ids ()) var_type (succ id);
+    id
   in
-
-  Type.TypeHashtbl.replace fresh_var_ids var_type (succ fresh_var_id);
 
   let fresh_var_name = 
 
@@ -368,7 +382,7 @@ let rec next_fresh_var_node var_type =
   try 
 
     (* Check if candidate symbol is already declared *)
-    let _ = Hvar.find ht v in
+    let _ = Hvar.find (ht ()) v in
   
     (* Recurse to get another fresh symbol *)
     next_fresh_var_node var_type
@@ -449,15 +463,27 @@ let map_state_var f v = match v with
 
 module StringMap = Map.Make(String)
 
-(* Maps strings to state var instances. *)
-let unrolled_var_map = ref StringMap.empty
+(* Maps strings to state var instances.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let unrolled_var_map_key =
+  Domain.DLS.new_key ~split_from_parent:(fun r -> ref !r)
+    (fun () -> ref StringMap.empty)
+
+let unrolled_var_map () = Domain.DLS.get unrolled_var_map_key
 (* Adds a mapping between [string] and [var]. Returns [true] if
    [string] was already bound in the map. *)
 let update_unrolled_var_map string var =
-  unrolled_var_map := StringMap.add string var !unrolled_var_map
-(* Looks for the value associated to [string]. *)
+  (unrolled_var_map ()) := StringMap.add string var !(unrolled_var_map ())
+(* Looks for the value associated to [string].
+
+   The map is immutable and the reference is only ever set to a newer
+   map, so the read needs no lock: it returns a map that was current at
+   some point, which is all a lookup can ask for. *)
 let find_unrolled_var_map string =
-  StringMap.find string !unrolled_var_map
+  StringMap.find string !(unrolled_var_map ())
 
 let unrolled_uf_of_state_var_instance = function
   | ({ Hashcons.node = ConstStateVar sv } as var) ->

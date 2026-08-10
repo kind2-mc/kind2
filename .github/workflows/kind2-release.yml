@@ -68,8 +68,8 @@ jobs:
     needs: [get-nightly-ready, create-new-release]
     strategy:
       matrix:
-        name: [ linux-x86_64, linux-arm64, macos-x86_64, macos-arm64 ]
-        ocaml-version: [ 5.3.0 ]
+        name: [ linux-x86_64, linux-arm64, macos-x86_64, macos-arm64, windows-x86_64 ]
+        ocaml-version: [ 5.5.0 ]
         macos-target: [ 12 ]
         include:
           - name: linux-x86_64
@@ -80,6 +80,8 @@ jobs:
             os: macos-15-intel
           - name: macos-arm64
             os: macos-latest
+          - name: windows-x86_64
+            os: windows-latest
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -129,14 +131,31 @@ jobs:
         flambda: true
         build-target: static
     
+    # Not built statically: the linking flags have no Windows case, and it
+    # needs none. Every library the binary imports ships with Windows —
+    # kernel32, msvcrt, advapi32, ws2_32, shell32, shlwapi, ole32, version
+    # and the synch API set — and it loads nothing else at run time.
+    - name: Build Kind 2 Windows binary
+      if: runner.os == 'Windows'
+      uses: ./.github/actions/build-kind2
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
+        cache-prefix: windows
+
     - name: Test Kind 2 binary
-      run: ./bin/kind2 --version
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          ./bin/kind2.exe --version
+        else
+          ./bin/kind2 --version
+        fi
 
     - name: Create asset
       id: create_asset
+      shell: bash
       run: |
         cd bin
-        chmod u+x kind2
         if [[ "$GITHUB_REF" =~ ^refs/tags/v.* ]]; then
           vtag=$GITHUB_REF_NAME
           echo "release=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
@@ -144,16 +163,26 @@ jobs:
           vtag=$(date "+%Y-%m-%d")
           echo "release=nightly" >> $GITHUB_OUTPUT
         fi
-        if [[ "$RUNNER_OS" == "Linux" ]]; then
-          ptag="${{ matrix.name }}"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          # A zip is what a Windows user expects, and Compress-Archive is
+          # always there, where zip and 7z are not guaranteed.
+          asset=kind2-$vtag-windows-x86_64.zip
+          powershell -NoProfile -Command \
+            "Compress-Archive -Path kind2.exe -DestinationPath $asset"
         else
-          ptag="macos-${{ matrix.macos-target }}-$(uname -m)"
+          chmod u+x kind2
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            ptag="${{ matrix.name }}"
+          else
+            ptag="macos-${{ matrix.macos-target }}-$(uname -m)"
+          fi
+          asset=kind2-$vtag-$ptag.tar.gz
+          tar -czf $asset kind2
         fi
-        tarball=kind2-$vtag-$ptag.tar.gz
-        tar -czf $tarball kind2
-        echo "filepath=./bin/$tarball" >> $GITHUB_OUTPUT
+        echo "filepath=./bin/$asset" >> $GITHUB_OUTPUT
 
     - name: Upload release asset
+      shell: bash
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |

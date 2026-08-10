@@ -44,5 +44,13 @@ runs:
     run: opam install -y . --deps-only
   
   - name: Build Kind2
+    if: runner.os != 'Windows'
     shell: bash
     run: opam exec make ${{ inputs.build-target }}
+
+  - name: Build Kind2 (Windows)
+    if: runner.os == 'Windows'
+    shell: bash
+    run: |
+      opam exec -- dune build -p kind2 @install
+      opam exec -- dune install -p kind2 --sections=bin --prefix .

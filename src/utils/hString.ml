@@ -58,7 +58,13 @@ module HString = Hashcons.Make(String_node)
 
 
 (* Storage for hashconsed strings *)
-let ht = HString.create 251
+(* The table is private to the domain using it. A domain spawned to
+   run an engine starts with a copy of the table of its parent. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:HString.copy
+    (fun () -> HString.create 251)
+
+let ht () = Domain.DLS.get ht_key
 
 
 (* ********************************************************************* *)
@@ -152,12 +158,11 @@ let mk_prop _ = ()
 
 
 (* Return a hashconsed string *)
-let mk_hstring s = HString.hashcons ht s (mk_prop s)
+let mk_hstring s = HString.hashcons (ht ()) s (mk_prop s)
 
-
-(* Import a string from a different instance into this hashcons
-   table *)
+(* Import a value built by another domain into the tables of this one *)
 let import { Hashcons.node = s } = mk_hstring s
+
 
 (* ********************************************************************* *)
 (* String functions                                                      *)

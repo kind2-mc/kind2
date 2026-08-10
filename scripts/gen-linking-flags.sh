@@ -13,16 +13,12 @@ case "$LINKING_MODE" in
     static)
         case "$OS" in
             linux) # Assuming Alpine here
-                CCLIB="-static -lstdc++ -lsodium";;
+                CCLIB="-static -no-pie";;
             macosx)
                 FLAGS="-noautolink"
                 NAT=$(echo $OCAML_VERSION | awk -F. '{print ($1 <= 4 || ($1 == 5 && $2 == 0)) ? "" : "nat"}')
                 PTHREAD=$(echo $OCAML_VERSION | awk -F. '{print ($1 <= 4) ? "-lpthread" : ""}')
-                CCLIB="-lzmq_stubs -lthreadsnat -lunix$NAT -lcamlstr$NAT -lnums $PTHREAD -lstdc++"
-                LIBS="libzmq libsodium"
-                for lib in $LIBS; do
-                    CCLIB="$CCLIB $(pkg-config $lib --variable libdir)/$lib.a"
-                done;;
+                CCLIB="-lthreadsnat -lunix$NAT -lcamlstr$NAT -lnums $PTHREAD";;
             *)
                 echo "No known static compilation flags for '$OS'" >&2
                 exit 1
