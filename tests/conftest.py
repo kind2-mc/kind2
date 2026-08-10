@@ -1,7 +1,9 @@
 import itertools
 import os
+import signal
+import subprocess
 from pathlib import Path
-from subprocess import run
+from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
 
@@ -16,6 +18,18 @@ common_args = {
     "--check_subproperties": "true",
     "--check_sat_assume": "false",
 }
+
+# How long we let a single Kind 2 run take before killing it, in seconds.
+#
+# Kind 2 enforces `--timeout` itself, but that enforcement has gaps: it does
+# not cover parsing or the teardown of an analysis, and on Windows there is no
+# SIGALRM to fall back on. This is the backstop, and it only has to be loose
+# enough never to fire on a run that is making progress: without it a single
+# stuck run blocks the whole session until the CI job is killed hours later.
+run_timeout = float(common_args["--timeout"]) + 120
+
+# How long we wait for the output of a run we had to kill
+kill_timeout = 30
 
 # The test conditions that are always enabled. These override common_args if
 # there is a disagreement.
@@ -126,6 +140,66 @@ def pytest_collection_modifyitems(session, items):
 class LustreException(Exception): ...
 
 
+class LustreTimeout(Exception):
+    def __init__(self, stdout: bytes):
+        super().__init__()
+        self.stdout = stdout
+
+
+def kill_tree(proc: Popen):
+    """Kill `proc` and every process it spawned.
+
+    Killing only Kind 2 can leave its solvers running, and on Windows those
+    hold inherited copies of the pipes we read its output from, so reading
+    them would never see the end of the output.
+    """
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=kill_timeout,
+            )
+        except (OSError, TimeoutExpired):
+            pass
+    else:
+        # The run has a process group of its own (see `run_kind2`), which its
+        # solvers belong to as well
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            pass
+
+    proc.kill()
+
+
+def run_kind2(command) -> CompletedProcess:
+    """Run Kind 2, capturing its output, and give up on it after
+    `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
+    popen_args = {}
+    if os.name != "nt":
+        # Put the run in a process group of its own, so that the solvers it
+        # spawns can be killed along with it
+        popen_args["start_new_session"] = True
+
+    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+
+    try:
+        stdout, _ = proc.communicate(timeout=run_timeout)
+    except TimeoutExpired:
+        kill_tree(proc)
+        try:
+            stdout, _ = proc.communicate(timeout=kill_timeout)
+        except TimeoutExpired:
+            # Some process we could not kill still holds the pipes. Report
+            # what we have rather than wait for the rest forever: the reader
+            # threads are daemons, and they do not keep the session alive.
+            stdout = b""
+        raise LustreTimeout(stdout)
+
+    return CompletedProcess(command, proc.returncode, stdout, None)
+
+
 class LustreItem(pytest.Item):
     def __init__(self, *, expected, case, case_name, **kwargs):
         super().__init__(**kwargs)
@@ -145,7 +219,7 @@ class LustreItem(pytest.Item):
         return [kind2_bin, *arg_list, self.path]
 
     def runtest(self):
-        self.res = run(self._command(), capture_output=True)
+        self.res = run_kind2(self._command())
 
         # Timeout is OK 
         result = code_to_expected.get(self.res.returncode)
@@ -159,6 +233,16 @@ class LustreItem(pytest.Item):
         return self.path, 0, self.name
 
     def repr_failure(self, excinfo, style=None):
+        if isinstance(excinfo.value, LustreTimeout):
+            return "\n".join(
+                [
+                    f"Killed after {run_timeout:.0f}s: the run did not stop "
+                    f"on its own, although it was given {common_args['--timeout']}s",
+                    " ".join(map(str, self._command())),
+                    excinfo.value.stdout.decode("utf-8"),
+                ]
+            )
+
         if isinstance(excinfo.value, LustreException):
             return_code = self.res.returncode
             actual = code_to_expected.get(
