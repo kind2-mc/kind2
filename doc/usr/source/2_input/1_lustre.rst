@@ -887,11 +887,12 @@ recursive ADT (see :ref:`2_input/14_algebraic_datatypes`). This form cannot
 be used as a component of a tuple measure. Instead of generating a property,
 Kind 2 checks ADT measures **statically**\ , at compile time: for every
 recursive call, the callee's measure (after substituting the actual call
-arguments for the callee's parameters) must be a strict structural subterm
-of the caller's measure, i.e. a chain of one or more field selectors applied
-to the caller's own measure expression. Pattern matches count towards this:
-a pattern variable bound to a field of the scrutinee is treated as the
-corresponding selector chain. For example:
+arguments for the callee's parameters) must be a variable that the caller
+obtained by pattern-matching -- possibly through several nested matches --
+on its own measure. Concretely: matching on the measure itself (or on a
+variable already known, from an earlier match, to be such a variable) and
+binding one of the resulting constructor's fields makes that field's
+variable an accepted witness that the recursion is decreasing. For example:
 
 .. code-block:: none
 
@@ -919,19 +920,24 @@ corresponding selector chain. For example:
      end;
    tel
 
-Here ``is_even``\ 's call to ``is_odd (m)`` type-checks against ``is_odd``\ 's
-measure ``n`` substituted with the actual argument ``m``\ , namely ``m``
-itself; since the match arm binds ``m`` to the ``pred`` field of the
-scrutinee, this is the selector chain ``n.pred``\ , a strict subterm of the
-caller's own measure ``n``. The same reasoning applies to ``is_odd``\ 's call
-back into ``is_even``\ , so the mutual recursion is accepted as terminating.
+Here ``is_even``\ 's call to ``is_odd (m)`` passes ``m`` in the position of
+``is_odd``\ 's own measure ``n``. The match arm ``Succ (m)`` is matching
+directly on ``is_even``\ 's measure ``n``\ , so ``m`` -- the field it binds --
+is accepted as a witness that the call decreases. The same reasoning applies
+to ``is_odd``\ 's call back into ``is_even``\ , so the mutual recursion is
+accepted as terminating.
 
-Because the check is purely syntactic, it only recognizes recursive
-arguments built directly out of field-selector chains on the measure
-expression (as produced by pattern matches or explicit selectors ``e.f``\ );
-an argument computed through an intermediate local variable, an auxiliary
-call, or any other indirection is rejected even if it is semantically
-equal to such a chain.
+Because a match's tester (e.g. ``Succ?(n)``\ ) is what actually guarantees a
+pattern-bound variable is a genuine substructure of the matched value, only
+such variables are accepted. A **raw field selector is never accepted**\ ,
+even when applied to the exact same field a match would have bound, and
+even when it appears directly guarded by an ``if``/``when`` on the right
+tester (e.g. ``if Succ?(n) then is_even (n.pred) else ...``\ ): applied to
+the wrong constructor a selector is unconstrained, and the checker has no
+way to confirm, from an ``if``/``when`` alone, that the guard actually
+holds at the call. Likewise, an argument computed through an intermediate
+local variable, an auxiliary call, or any other indirection is rejected
+even if it is semantically equal to a directly pattern-matched variable.
 
 Benefits and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
