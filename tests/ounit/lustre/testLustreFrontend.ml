@@ -1061,4 +1061,28 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
     match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_scc_kinds_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, MixedDecreasesKindsInScc _)) -> true
     | _ -> false);
+  mk_test "non-recursive ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_nonrecursive_measure.lus" with
+    | Error (`LustreTypeCheckerError (_, NonRecursiveADTDecreases _)) -> true
+    | _ -> false);
+  mk_test "non-recursive ADT wrapping a recursive ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_nonrecursive_wrapping_recursive_measure.lus" with
+    | Error (`LustreTypeCheckerError (_, NonRecursiveADTDecreases _)) -> true
+    | _ -> false);
+  mk_test "raw field selector not guarded by a match rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_raw_selector_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "call argument expanding to multiple output values rejected, not a crash" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_multi_output_arg_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "decreases-relevant formal entangled in a later, non-sole multi-output arg rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_multi_output_arg_not_first_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call in a struct-update key position rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_struct_update_key_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
 ])

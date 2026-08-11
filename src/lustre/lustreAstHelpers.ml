@@ -152,6 +152,11 @@ let is_direct_self_reference type_name = function
   | UserType (_, _, id) -> HString.equal id type_name
   | _ -> false
 
+let is_directly_recursive_adt type_name ctors =
+  List.exists (fun (_, fields) ->
+    List.exists (fun (_, ty) -> is_direct_self_reference type_name ty) fields
+  ) ctors
+
 let type_arity ty =
   let inner_types = function
     | GroupType (_, es) -> List.length es

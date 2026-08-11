@@ -127,6 +127,7 @@ type error_kind = Unknown of string
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type
+  | NonRecursiveADTDecreases of tc_type
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -293,6 +294,10 @@ let error_message kind = match kind with
   | ADTInLexicographicDecreases ty ->
     "Algebraic data type expressions are not supported as a component of a lexicographic \
      (tuple) decreases measure, but found type " ^ string_of_tc_type ty
+  | NonRecursiveADTDecreases ty ->
+    "Decreases measure of algebraic data type " ^ string_of_tc_type ty
+    ^ " is not supported because this type is not recursive; only recursive algebraic \
+       data types (or integers) can be used as a decreases measure"
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -2509,7 +2514,9 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
         let* ty_exp = expand_type_syn_reftype_history ctx ty in
         (match ty_exp with
         | LA.Int _ -> R.ok (e, warnings)
-        | LA.ADT _ when not in_tuple -> R.ok (e, warnings)
+        | LA.ADT (_, name, ctors) when not in_tuple ->
+          if LH.is_directly_recursive_adt name ctors then R.ok (e, warnings)
+          else type_error pos (NonRecursiveADTDecreases ty)
         | LA.ADT _ -> type_error pos (ADTInLexicographicDecreases ty)
         | _ -> type_error pos (InvalidDecreasesType ty))
       in

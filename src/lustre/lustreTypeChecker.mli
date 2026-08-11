@@ -112,6 +112,7 @@ type error_kind = Unknown of string
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type
+  | NonRecursiveADTDecreases of tc_type
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t

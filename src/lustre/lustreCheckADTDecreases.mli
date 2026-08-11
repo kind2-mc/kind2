@@ -19,9 +19,9 @@
 
     For each recursive call [f(args)] inside such a function, verifies that
     [t_callee\[callee_formals := args\]] is a strict syntactic subterm of the
-    caller's decreases expression [t]. A strict syntactic subterm means the
-    substituted expression is a chain of one or more field projections whose
-    base is exactly [t].
+    caller's decreases expression [t]: exactly a variable bound, at some
+    depth >= 1, by an enclosing match's constructor pattern, matched
+    (transitively) against [t] itself. 
 
     @author Rob Lorch *)
 

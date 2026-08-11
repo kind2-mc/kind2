@@ -5,8 +5,3 @@ con decreases c; noc
 let
   out = if n <= 0 then 0 else 1 + Loop(c, n - 1);
 tel
-
-node main () returns ()
-let
-  check "false_prop" Loop(Red, 5) = 999999;
-tel

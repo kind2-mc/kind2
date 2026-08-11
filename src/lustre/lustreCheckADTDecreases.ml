@@ -18,15 +18,14 @@
 (* Static termination check for functions with ADT decreases clauses.
    For each recursive call f(args) inside such a function, we verify that
    t_callee[callee_formals := args] is a strict syntactic subterm of t,
-   where t is the caller's decreases expression. This check runs after Match
-   desugaring so pattern variables have already been expanded to selector
-   chains (FieldProject nodes). *)
+   where t is the caller's decreases expression. *)
 
 module LA = LustreAst
 module LH = LustreAstHelpers
 module Chk = LustreTypeChecker
 module LDAT = LustreDesugarADTs
 module HStringMap = HString.HStringMap
+module HStringSet = HString.HStringSet
 module NI = NodeId
 
 let (let*) = Res.(>>=)
@@ -42,7 +41,9 @@ let error_message = function
   | NotAStructuralSubterm (callee_m, caller_m) ->
     Format.asprintf
       "Recursive call does not structurally decrease the measure: \
-       '%a' is not a strict subterm of '%a'"
+       '%a' is not a strict subterm of '%a' (only a variable bound by an \
+       enclosing match's constructor pattern can witness a structural \
+       decrease; a bare field selector cannot)"
       LA.pp_print_expr callee_m LA.pp_print_expr caller_m
   | MixedDecreasesKindsInScc ids ->
     "Mutually recursive functions "
@@ -52,14 +53,6 @@ let error_message = function
        recursive group is not supported"
 
 let check_error pos kind = Error (`LustreCheckADTDecreasesError (pos, kind))
-
-(* t' ⊏ t: t' is a strict syntactic subterm of t.
-   Strips FieldProject layers from t'; true iff the chain ends exactly at t. *)
-let rec is_strict_subterm base t' =
-  match t' with
-  | LA.FieldProject (_, inner, _, _) ->
-    (LH.syn_expr_equal None inner base |> Result.get_ok) || is_strict_subterm base inner
-  | _ -> false
 
 (* Extract the decreases expression from a contract, if any. *)
 let get_decreases = function
@@ -90,10 +83,32 @@ let is_adt_decreases ctx adt_map nname e =
         | None -> false)
       | None -> false
 
-(* Collect all (pos, callee_id, args) for calls in the same SCC as
-   caller_scc, by walking all sub-expressions. *)
-let rec collect_rec_calls scc_map caller_scc expr =
-  let go = collect_rec_calls scc_map caller_scc in
+let rec pattern_vars_at_depth pat =
+  match pat with
+  | LA.VarPat (_, id) -> [id]
+  | LA.Pat (_, _, subpats) -> List.concat_map pattern_vars_at_depth subpats
+
+(* Variables a match arm's pattern binds that are provably strict subterms of
+   the scrutinee. *)
+let safe_vars_of_arm_pattern = function
+  | LA.VarPat _ -> []
+  | LA.Pat (_, _, subpats) -> List.concat_map pattern_vars_at_depth subpats
+
+(* Whether it's safe to match on `scrut` and trust its pattern's bindings:
+   true when `scrut` is caller_measure `t` itself (the base case), or when `scrut` is already in `safe_env`, i.e.
+   previously established as a strict subterm of `t` by an earlier match. *)
+let scrutinee_is_safe caller_measure safe_env scrut =
+  (LH.syn_expr_equal None scrut caller_measure |> Result.get_ok)
+  || (match scrut with
+      | LA.Ident (_, v) -> HStringSet.mem v safe_env
+      | _ -> false)
+
+(* Collect all (pos, callee_id, args, safe_env) for calls in the same SCC as
+   caller_scc, by walking all sub-expressions. `safe_env` is the set of
+   variables, in scope at each point, known to be strict structural subterms
+   of `caller_measure`. *)
+let rec collect_rec_calls scc_map caller_scc caller_measure safe_env expr =
+  let go = collect_rec_calls scc_map caller_scc caller_measure safe_env in
   let go_list es = List.concat_map go es in
   match expr with
   | LA.Call (pos, _ty_args, callee_id, args) ->
@@ -103,7 +118,20 @@ let rec collect_rec_calls scc_map caller_scc expr =
       | None -> false
     in
     let sub = go_list args in
-    if in_scc then (pos, callee_id, args) :: sub else sub
+    if in_scc then (pos, callee_id, args, safe_env) :: sub else sub
+  | LA.Match (_, scrut, arms, _) ->
+    let scrut_calls = go scrut in
+    let scrut_safe = scrutinee_is_safe caller_measure safe_env scrut in
+    let arm_calls = List.concat_map (fun (pat, body) ->
+      let arm_env =
+        if scrut_safe then
+          List.fold_left (fun s v -> HStringSet.add v s)
+            safe_env (safe_vars_of_arm_pattern pat)
+        else safe_env
+      in
+      collect_rec_calls scc_map caller_scc caller_measure arm_env body
+    ) arms in
+    scrut_calls @ arm_calls
   | LA.Ident _ | LA.ModeRef _ | LA.Const _
   | LA.Last _ | LA.EmptySet _ | LA.EmptyMap _ | LA.AbstractSymConst _ -> []
   | LA.Pre (_, e) | LA.UnaryOp (_, _, e) | LA.ConvOp (_, _, e)
@@ -116,18 +144,22 @@ let rec collect_rec_calls scc_map caller_scc expr =
   | LA.TernaryOp (_, _, e1, e2, e3) -> go_list [e1; e2; e3]
   | LA.GroupExpr (_, _, es) | LA.ADTTerm (_, _, _, es) -> go_list es
   | LA.RecordExpr (_, _, _, flds) -> go_list (List.map snd flds)
-  | LA.StructUpdate (_, e, _, Some e2) -> go_list [e; e2]
-  | LA.StructUpdate (_, e, _, None) -> go e
+  | LA.StructUpdate (_, e, idx, e2_opt) ->
+    let idx_calls = LH.fold_label_or_index [] (@) go idx in
+    let rest = match e2_opt with
+      | Some e2 -> go_list [e; e2]
+      | None -> go e
+    in
+    idx_calls @ rest
   | LA.IndexAccess (_, e1, e2, _) -> go_list [e1; e2]
   | LA.Condact (_, e1, e2, _, es1, es2) -> go_list ([e1; e2] @ es1 @ es2)
   | LA.Activate (_, _, e1, e2, es) -> go_list ([e1; e2] @ es)
   | LA.Merge (_, _, cases) -> go_list (List.map snd cases)
   | LA.RestartEvery (_, _, es, e) -> go_list (e :: es)
-  | LA.Match (_, e, arms, _) -> go_list (e :: List.map snd arms)
 
-let rec collect_rec_calls_items scc_map caller_scc items =
-  let go_items = collect_rec_calls_items scc_map caller_scc in
-  let go_expr = collect_rec_calls scc_map caller_scc in
+let rec collect_rec_calls_items scc_map caller_scc caller_measure safe_env items =
+  let go_items = collect_rec_calls_items scc_map caller_scc caller_measure safe_env in
+  let go_expr = collect_rec_calls scc_map caller_scc caller_measure safe_env in
   List.concat_map (fun item -> match item with
     | LA.Body (LA.Assert (_, e)) -> go_expr e
     | LA.Body (LA.Equation (_, _, e)) -> go_expr e
@@ -203,7 +235,8 @@ let build_func_map decls =
   ) HStringMap.empty decls
 
 (* Substitute callee_formals with actuals in expr, using intermediate
-   placeholders to avoid variable-capture in simultaneous substitution. *)
+   placeholders to avoid variable-capture in simultaneous substitution.
+   Caller must ensure callee_formals and actuals have equal length. *)
 let substitute_formals callee_formals actuals expr =
   let placeholders = List.mapi
     (fun i _ -> HString.mk_hstring (Format.sprintf ".adt_rec_%d" i))
@@ -217,6 +250,43 @@ let substitute_formals callee_formals actuals expr =
   List.fold_left2
     (fun e ph actual -> LH.substitute_naive ph actual e)
     to_placeholders placeholders actuals
+
+(* Number of flattened values a syntactic call argument denotes *)
+let arity_of_arg ctx arg =
+  let callee_id_opt = match arg with
+    | LA.Call (_, _, id, _)
+    | LA.Condact (_, _, _, id, _, _)
+    | LA.Activate (_, id, _, _, _)
+    | LA.RestartEvery (_, id, _, _) -> Some id
+    | _ -> None
+  in
+  match callee_id_opt with
+  | None -> 1
+  | Some id ->
+    match TypeCheckerContext.lookup_node_ty ctx id with
+    | Some (LA.TArr (_, _, ret_ty)) -> max 1 (List.length (LH.flatten_group_types [ret_ty]))
+    | _ -> 1
+
+(* Positionally align callee_formals against the syntactic call args,
+   accounting for a single call expanding to several args  *)
+let rec align_formals_to_args ctx formals args =
+  match formals, args with
+  | [], _ -> []
+  | _, [] -> assert false
+  | _, arg :: rest_args ->
+    let arity = arity_of_arg ctx arg in
+    let taken, remaining_formals = Lib.list_split arity formals in
+    let mapped = List.map (fun f -> (f, arg, arity = 1)) taken in
+    mapped @ align_formals_to_args ctx remaining_formals rest_args
+
+(* Whether `e`, once the callee's decreases measure has been substituted with
+   the caller's actual arguments, witnesses a genuine structural decrease:
+   exactly a variable bound (transitively) by an enclosing match's
+   constructor pattern -- never a bare field projection or any other shape,
+   which could be unconstrained in SMT if the guard doesn't actually hold. *)
+let is_strict_decrease safe_env = function
+  | LA.Ident (_, v) -> HStringSet.mem v safe_env
+  | _ -> false
 
 (* Check one recursive FuncDecl. *)
 let check_func_decl ctx adt_map scc_map func_map decl =
@@ -237,8 +307,10 @@ let check_func_decl ctx adt_map scc_map func_map decl =
           | Some id -> id
           | None -> assert false
         in
-        let rec_calls = collect_rec_calls_items scc_map caller_scc items in
-        let check_call (pos, callee_id, args) =
+        let rec_calls =
+          collect_rec_calls_items scc_map caller_scc t HStringSet.empty items
+        in
+        let check_call (pos, callee_id, args, safe_env) =
           let callee_name = NI.get_internal_name callee_id in
           match HStringMap.find_opt callee_name func_map with
           | None -> assert false
@@ -246,9 +318,27 @@ let check_func_decl ctx adt_map scc_map func_map decl =
             match get_decreases callee_contract with
             | None -> assert false
             | Some t_callee ->
-              let substituted = substitute_formals callee_formals args t_callee in
-              if is_strict_subterm t substituted then Ok ()
-              else check_error pos (NotAStructuralSubterm (substituted, t))
+              (* Only the formals t_callee actually mentions in its decreases
+                 clause need a substitution at all. *)
+              let relevant = LH.vars_without_node_call_ids t_callee in
+              let aligned = align_formals_to_args local_ctx callee_formals args in
+              let relevant_aligned =
+                List.filter (fun (f, _, _) -> LA.SI.mem f relevant) aligned
+              in
+              if List.exists (fun (_, _, precise) -> not precise) relevant_aligned then
+                (* Multi-output node call args automatically fail structural subterm check. 
+                   Eg N(f()) where N has a decreases clause and f() returns multiple outputs.*)
+                let (_, arg, _) =
+                  List.find (fun (_, _, precise) -> not precise) relevant_aligned
+                in
+                check_error pos (NotAStructuralSubterm (arg, t))
+              else
+                let relevant_formals, relevant_args =
+                  List.map (fun (f, arg, _) -> (f, arg)) relevant_aligned |> List.split
+                in
+                let substituted = substitute_formals relevant_formals relevant_args t_callee in
+                if is_strict_decrease safe_env substituted then Ok ()
+                else check_error pos (NotAStructuralSubterm (substituted, t))
         in
         let* _ = Res.seq (List.map check_call rec_calls) in
         Ok ()

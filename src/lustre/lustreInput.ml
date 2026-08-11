@@ -194,14 +194,18 @@ let type_check declarations =
     (* Step 9. Check match expressions for exhaustiveness and redundancy *)
     let* sorted_node_contract_decls = LCME.check_match_expressions global_ctx sorted_node_contract_decls in
 
-    (* Step 10. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
-    let (const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map) =
-      LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
+    (* Step 10. Statically check ADT decreases clauses for structural subterm
+       ordering. *)
+    let* sorted_node_contract_decls =
+      let early_adt_map =
+        LDAT.build_adt_map (const_inlined_type_and_consts @ sorted_node_contract_decls)
+      in
+      LCAD.check global_ctx early_adt_map scc_map sorted_node_contract_decls
     in
 
-    (* Step 11. Statically check ADT decreases clauses for structural subterm ordering *)
-    let* sorted_node_contract_decls =
-      LCAD.check global_ctx adt_map scc_map sorted_node_contract_decls
+    (* Step 11. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
+    let (const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map) =
+      LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
     in
 
     (* Step 12. Generate imported nodes associated with refinement types if realizability checking is enabled *)
