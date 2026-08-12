@@ -1,4 +1,4 @@
-<!-- DO NOT EDIT, see doc/usr/README.rst for details -->
+<!-- DO NOT EDIT, see doc/README.md for details -->
 
 [<img
 src="https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=main"
@@ -359,5 +359,11 @@ you can run the following:
 .. code-block:: bash
     snap install hugo
     pip3 install beautifulsoup4 lxml weasyprint
+
+Then, enter the doc subdirectory and run:
+
+.. code-block:: bash
+    git init
+    git submodule add https://github.com/imfing/hextra themes/hextra
 
 See ``doc/README.md`` for more information. 
