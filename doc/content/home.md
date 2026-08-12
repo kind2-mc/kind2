@@ -350,4 +350,10 @@ you can run the following:
     snap install hugo
     pip3 install beautifulsoup4 lxml weasyprint
 
+Then, enter the doc subdirectory and run:
+
+.. code-block:: bash
+    git init
+    git submodule add https://github.com/imfing/hextra themes/hextra
+
 See ``doc/README.md`` for more information. 
