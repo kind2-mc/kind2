@@ -83,22 +83,21 @@ let is_adt_decreases ctx adt_map nname e =
         | None -> false)
       | None -> false
 
+(* All variable names a pattern binds, at any depth (both a top-level
+   VarPat's own name and every name nested inside a constructor Pat). *)
 let rec pattern_vars_at_depth pat =
   match pat with
   | LA.VarPat (_, id) -> [id]
   | LA.Pat (_, _, subpats) -> List.concat_map pattern_vars_at_depth subpats
 
-(* Variables a match arm's pattern binds that are provably strict subterms of
-   the scrutinee. *)
-let safe_vars_of_arm_pattern = function
-  | LA.VarPat _ -> []
-  | LA.Pat (_, _, subpats) -> List.concat_map pattern_vars_at_depth subpats
-
 (* Whether it's safe to match on `scrut` and trust its pattern's bindings:
-   true when `scrut` is caller_measure `t` itself (the base case), or when `scrut` is already in `safe_env`, i.e.
-   previously established as a strict subterm of `t` by an earlier match. *)
-let scrutinee_is_safe caller_measure safe_env scrut =
-  (LH.syn_expr_equal None scrut caller_measure |> Result.get_ok)
+   true when `scrut` is caller_measure `t` itself (the base case), or when
+   `scrut` is already in `safe_env`, i.e. previously established as a
+   strict subterm of `t` by an earlier match. *)
+let scrutinee_is_safe caller_measure shadowed safe_env scrut =
+  ((LH.syn_expr_equal None scrut caller_measure |> Result.get_ok)
+   && not (LA.SI.exists (fun v -> HStringSet.mem v shadowed)
+             (LH.vars_without_node_call_ids caller_measure)))
   || (match scrut with
       | LA.Ident (_, v) -> HStringSet.mem v safe_env
       | _ -> false)
@@ -106,9 +105,12 @@ let scrutinee_is_safe caller_measure safe_env scrut =
 (* Collect all (pos, callee_id, args, safe_env) for calls in the same SCC as
    caller_scc, by walking all sub-expressions. `safe_env` is the set of
    variables, in scope at each point, known to be strict structural subterms
-   of `caller_measure`. *)
-let rec collect_rec_calls scc_map caller_scc caller_measure safe_env expr =
-  let go = collect_rec_calls scc_map caller_scc caller_measure safe_env in
+   of `caller_measure`. `shadowed` is the set of variable names rebound by
+   any enclosing pattern so far, safe or not -- used only to invalidate
+   scrutinee_is_safe's "is t itself" case when t's own name has been
+   shadowed. *)
+let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env expr =
+  let go = collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env in
   let go_list es = List.concat_map go es in
   match expr with
   | LA.Call (pos, _ty_args, callee_id, args) ->
@@ -121,15 +123,33 @@ let rec collect_rec_calls scc_map caller_scc caller_measure safe_env expr =
     if in_scc then (pos, callee_id, args, safe_env) :: sub else sub
   | LA.Match (_, scrut, arms, _) ->
     let scrut_calls = go scrut in
-    let scrut_safe = scrutinee_is_safe caller_measure safe_env scrut in
+    let scrut_safe = scrutinee_is_safe caller_measure shadowed safe_env scrut in
+    (* Whether scrut is itself already an established strict subterm *)
+    let scrut_is_safe_alias =
+      match scrut with
+      | LA.Ident (_, v) -> HStringSet.mem v safe_env
+      | _ -> false
+    in
     let arm_calls = List.concat_map (fun (pat, body) ->
-      let arm_env =
-        if scrut_safe then
-          List.fold_left (fun s v -> HStringSet.add v s)
-            safe_env (safe_vars_of_arm_pattern pat)
-        else safe_env
+      let bound = pattern_vars_at_depth pat in
+      let arm_shadowed =
+        List.fold_left (fun s v -> HStringSet.add v s) shadowed bound
       in
-      collect_rec_calls scc_map caller_scc caller_measure arm_env body
+      let arm_env =
+        match pat with
+        | LA.VarPat (_, x) ->
+          if scrut_is_safe_alias then HStringSet.add x safe_env
+          else HStringSet.remove x safe_env
+        | LA.Pat (_, _, _) ->
+          if scrut_safe then
+            List.fold_left (fun s v -> HStringSet.add v s) safe_env bound
+          else
+            (* The pattern's own bindings are not safe here (the scrutinee
+               isn't), and may shadow a same-named variable that *is* safe
+               in the outer scope. *)
+            List.fold_left (fun s v -> HStringSet.remove v s) safe_env bound
+      in
+      collect_rec_calls scc_map caller_scc caller_measure arm_shadowed arm_env body
     ) arms in
     scrut_calls @ arm_calls
   | LA.Ident _ | LA.ModeRef _ | LA.Const _
@@ -157,9 +177,9 @@ let rec collect_rec_calls scc_map caller_scc caller_measure safe_env expr =
   | LA.Merge (_, _, cases) -> go_list (List.map snd cases)
   | LA.RestartEvery (_, _, es, e) -> go_list (e :: es)
 
-let rec collect_rec_calls_items scc_map caller_scc caller_measure safe_env items =
-  let go_items = collect_rec_calls_items scc_map caller_scc caller_measure safe_env in
-  let go_expr = collect_rec_calls scc_map caller_scc caller_measure safe_env in
+let rec collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_env items =
+  let go_items = collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_env in
+  let go_expr = collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env in
   List.concat_map (fun item -> match item with
     | LA.Body (LA.Assert (_, e)) -> go_expr e
     | LA.Body (LA.Equation (_, _, e)) -> go_expr e
@@ -251,30 +271,15 @@ let substitute_formals callee_formals actuals expr =
     (fun e ph actual -> LH.substitute_naive ph actual e)
     to_placeholders placeholders actuals
 
-(* Number of flattened values a syntactic call argument denotes *)
-let arity_of_arg ctx arg =
-  let callee_id_opt = match arg with
-    | LA.Call (_, _, id, _)
-    | LA.Condact (_, _, _, id, _, _)
-    | LA.Activate (_, id, _, _, _)
-    | LA.RestartEvery (_, id, _, _) -> Some id
-    | _ -> None
-  in
-  match callee_id_opt with
-  | None -> 1
-  | Some id ->
-    match TypeCheckerContext.lookup_node_ty ctx id with
-    | Some (LA.TArr (_, _, ret_ty)) -> max 1 (List.length (LH.flatten_group_types [ret_ty]))
-    | _ -> 1
-
 (* Positionally align callee_formals against the syntactic call args,
-   accounting for a single call expanding to several args  *)
+   accounting for a single argument expanding to several formals (e.g. a
+   call to a multi-output node passed directly as one argument). *)
 let rec align_formals_to_args ctx formals args =
   match formals, args with
   | [], _ -> []
   | _, [] -> assert false
   | _, arg :: rest_args ->
-    let arity = arity_of_arg ctx arg in
+    let arity = TypeCheckerContext.arity_of_expr ctx arg in
     let taken, remaining_formals = Lib.list_split arity formals in
     let mapped = List.map (fun f -> (f, arg, arity = 1)) taken in
     mapped @ align_formals_to_args ctx remaining_formals rest_args
@@ -308,7 +313,7 @@ let check_func_decl ctx adt_map scc_map func_map decl =
           | None -> assert false
         in
         let rec_calls =
-          collect_rec_calls_items scc_map caller_scc t HStringSet.empty items
+          collect_rec_calls_items scc_map caller_scc t HStringSet.empty HStringSet.empty items
         in
         let check_call (pos, callee_id, args, safe_env) =
           let callee_name = NI.get_internal_name callee_id in

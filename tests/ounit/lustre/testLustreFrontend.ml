@@ -1085,4 +1085,20 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
     match load_file "./lustreCheckADTDecreases/adt_decreases_struct_update_key_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
     | _ -> false);
+  mk_test "pattern variable shadowing a same-named safe variable rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_shadowed_pattern_var_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "decreases-relevant formal entangled in a group-expression argument rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_group_expr_arg_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "VarPat rebinding a name already safe from an unrelated match rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_varpat_rebind_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "pattern var sharing the measure's own name doesn't impersonate it" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_measure_name_shadowed_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
 ])
