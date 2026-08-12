@@ -1,0 +1,137 @@
+{{- /*
+  fragments.html - Split page content into searchable fragments
+
+  This partial processes a Hugo page and splits its content into fragments based on headings,
+  creating a data structure suitable for search indexing. It supports different fragment types
+  and handles hierarchical heading structures (h1, h2).
+
+  Parameters:
+  - .context (Page): The Hugo page to process
+  - .type (string): Fragment type - "content" (default), "heading", "title", or "summary"
+
+  Returns:
+  - dict: Map of heading keys to content fragments
+
+  Example:
+  Input page with content:
+    # Introduction
+    This is the intro text.
+    ## Setup
+    Setup instructions here.
+    # Configuration
+    Config details here.
+
+  Output (type "content"):
+  {
+    "": "This is the intro text.",
+    "intro#Introduction": "This is the intro text. Setup instructions here.",
+    "setup#Setup": "Setup instructions here.", 
+    "config#Configuration": "Config details here."
+  }
+
+  Fragment types:
+  - "content": Splits page content by headings (default)
+  - "heading": Returns heading keys with empty content
+  - "title": Returns empty content (title handled elsewhere)
+  - "summary": Returns page summary only
+*/ -}}
+
+{{- /* Extract page context and fragment type */ -}}
+{{- $page := .context -}}
+{{- $type := .type | default "content" -}}
+
+{{- /* Process all headings */ -}}
+{{- $s := newScratch -}}
+{{- $s.Set "keys" slice -}}
+{{- $s.Set "markers" slice -}}
+{{- $s.Set "endTags" slice -}}
+{{- $s.Set "ids" slice -}}
+
+{{- $headingData := partial "utils/headings.html" $page -}}
+{{- $headings := index $headingData "headings" -}}
+{{- with $headings -}}
+  {{- partial "utils/extract-headings.html" (dict "target" (dict "Headings" .) "scratch" $s) -}}
+{{- end -}}
+
+{{- $headingKeys := $s.Get "keys" -}}
+{{- $headingMarkers := $s.Get "markers" -}}
+{{- $headingEndTags := $s.Get "endTags" -}}
+{{- $headingIDs := $s.Get "ids" -}}
+
+{{- $content := $page.Content | htmlUnescape -}}
+{{- $len := len $headingKeys -}}
+{{- $data := dict -}}
+
+{{ if eq $type "content" }}
+  {{/* Include full content of the page */}}
+  {{ if eq $len 0 }}
+    {{ $data = $data | merge (dict "" ($page.Plain | htmlUnescape | strings.TrimSpace)) }}
+  {{ else }}
+    {{/* Split the rendered content from bottom to top using stable heading identifiers. */}}
+    {{ range seq $len }}
+      {{ $i := sub $len . }}
+      {{ $headingKey := index $headingKeys $i }}
+      {{ $headingMarker := index $headingMarkers $i }}
+      {{ $headingEndTag := index $headingEndTags $i }}
+      {{ $headingID := index $headingIDs $i }}
+
+      {{ with $headingMarker }}
+        {{ $headingParts := split $content . }}
+
+        {{ if gt (len $headingParts) 1 }}
+          {{ $beforeHeading := index $headingParts 0 }}
+          {{ $headingAndContent := delimit (after 1 $headingParts) . }}
+          {{ $parts := split $headingAndContent $headingEndTag }}
+
+          {{ if gt (len $parts) 1 }}
+            {{ $fragment := delimit (after 1 $parts) $headingEndTag }}
+            {{ $data = $data | merge (dict $headingKey ($fragment | plainify | htmlUnescape | strings.TrimSpace)) }}
+            {{ $content = $beforeHeading }}
+          {{ else }}
+            {{/* Preserve the remaining content when a custom render hook has malformed output. */}}
+            {{ $data = $data | merge (dict $headingKey "") }}
+          {{ end }}
+        {{ else if $headingID }}
+          {{/* Fallback for external renderers (e.g. AsciiDoc) where id is on the heading element itself */}}
+          {{ $idMarker := printf "id=\"%s\"" $headingID }}
+          {{ $idParts := split $content $idMarker }}
+
+          {{ if gt (len $idParts) 1 }}
+            {{ $lastPart := index $idParts (sub (len $idParts) 1) }}
+            {{ $lastPart = replaceRE `^[^>]*>` "" $lastPart }}
+
+            {{ $data = $data | merge (dict $headingKey ($lastPart | plainify | htmlUnescape | strings.TrimSpace)) }}
+            {{ $content = strings.TrimSuffix $lastPart $content }}
+            {{ $content = strings.TrimSuffix $idMarker $content }}
+            {{/* Strip the partial opening heading tag from the tail of the remaining content */}}
+            {{ $content = replaceRE `<[^>]*$` "" $content }}
+          {{ else }}
+            {{/* Fail open so one unmatched heading cannot swallow fragments above it. */}}
+            {{ $data = $data | merge (dict $headingKey "") }}
+          {{ end }}
+        {{ else }}
+          {{/* Fail open so one unmatched heading cannot swallow fragments above it. */}}
+          {{ $data = $data | merge (dict $headingKey "") }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+
+    {{ $preamble := $content | plainify | htmlUnescape | strings.TrimSpace }}
+    {{ with $preamble }}
+      {{ $data = $data | merge (dict "" .) }}
+    {{ end }}
+  {{ end }}
+{{ else if (eq $type "heading" ) }}
+  {{/* Put heading keys with empty content to the data object */}}
+  {{ $data = dict "" "" }}
+  {{ range $headingKeys }}
+    {{ $data = $data | merge (dict . "") }}
+  {{ end }}
+{{ else if (eq $type "title") }}
+  {{/* Use empty data object since title is included in search-data.json */}}
+  {{ $data = $data | merge (dict "" "") }}
+{{ else if (eq $type "summary" ) }}
+  {{ $data = $data | merge (dict "" ($page.Summary | plainify | htmlUnescape | strings.TrimSpace)) }}
+{{ end }}
+
+{{ return $data }}

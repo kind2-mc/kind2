@@ -1,0 +1,43 @@
+{{- $content := .content -}}
+{{- $alertType := .alertType -}}
+{{- $alertTitle := .alertTitle -}}
+{{- $alertSign := .alertSign -}}
+
+{{- $icons := dict
+  "note" "information-circle"
+  "tip" "light-bulb"
+  "important" "information-circle"
+  "warning" "exclamation"
+  "caution" "exclamation-circle"
+-}}
+{{- $icon := or (index $icons $alertType) "light-bulb" -}}
+{{- $title := or $alertTitle (i18n $alertType) (title $alertType) -}}
+
+<div
+  {{ with $alertType }}data-alert="{{ . }}" {{ end -}}
+  {{ with $alertSign }}data-alert-fold="{{ . }}" {{ end -}}
+  class="hextra-alert"
+>
+  {{- with $alertSign }}
+  <button type="button" class="hextra-alert-toggle" aria-expanded="{{ if eq . "+" }}true{{ else }}false{{ end }}">
+    <span class="hextra-alert-title">
+      {{- partial "utils/icon.html" (dict "name" $icon "attributes" `height=16px class="hextra-alert-icon"`) -}}
+      <span class="hextra-alert-title-text">{{- $title -}}</span>
+    </span>
+    {{- partial "utils/icon.html" (dict "name" "chevron-right" "attributes" `class="hextra-alert-chevron" focusable="false"`) -}}
+  </button>
+  {{- else }}
+  <p class="hextra-alert-title">
+    {{- partial "utils/icon.html" (dict "name" $icon "attributes" `height=16px class="hextra-alert-icon"`) -}}
+    <span class="hextra-alert-title-text">{{- $title -}}</span>
+  </p>
+  {{- end }}
+
+  <div class="hextra-alert-content">
+    {{- with $alertSign -}}
+      <div class="hextra-alert-content-inner">{{ $content }}</div>
+    {{- else -}}
+      {{ $content }}
+    {{- end -}}
+  </div>
+</div>

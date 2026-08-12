@@ -1,0 +1,26 @@
+/* Hugo template to derive CSS variables from site and page parameters */
+
+/* Do not remove the following comment. It is used by Hugo to render CSS variables.*/
+
+:root {
+  --hextra-max-page-width: 80rem;
+  --hextra-max-content-width: 72rem;
+  --hextra-max-navbar-width: 80rem;
+  --hextra-max-footer-width: 80rem;
+}
+
+.hextra-max-page-width {
+  max-width: var(--hextra-max-page-width);
+}
+
+.hextra-max-content-width {
+  max-width: var(--hextra-max-content-width);
+}
+
+.hextra-max-navbar-width {
+  max-width: var(--hextra-max-navbar-width);
+}
+
+.hextra-max-footer-width {
+  max-width: var(--hextra-max-footer-width);
+}

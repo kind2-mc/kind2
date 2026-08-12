@@ -1,0 +1,292 @@
+# Configuration
+baseURL: "https://example.com/"
+title: "Hextra"
+
+enableRobotsTXT: true
+# Parse Git commit
+enableGitInfo: true
+# enableEmoji: false
+hasCJKLanguage: true
+
+# services:
+#   googleAnalytics:
+#     ID: G-MEASUREMENT_ID
+
+outputs:
+  home: [html, llms]
+  page: [html, markdown]
+  section: [html, rss, markdown]
+
+defaultContentLanguage: en
+languages:
+  en:
+    label: English
+    weight: 1
+    title: Hextra
+  fa:
+    label: فارسی
+    locale: fa
+    direction: rtl
+    weight: 2
+    title: هگزترا
+    params:
+      banner:
+        message: |
+          هگزترا **v0.12** منتشر شد! 🎉 [تازه‌ها را ببینید]({{% relref "blog/v0.12" %}})
+      page:
+        contextMenu:
+          links:
+            - name: باز کردن در ChatGPT
+              icon: chatgpt
+              url: "https://chatgpt.com/?hints=search&q=%D8%AF%D8%A7%D8%B1%D9%85+%D8%A7%DB%8C%D9%86+%D9%85%D8%B3%D8%AA%D9%86%D8%AF%D8%A7%D8%AA+%D8%B1%D8%A7+%D9%85%DB%8C%E2%80%8C%D8%AE%D9%88%D8%A7%D9%86%D9%85%3A+{url}%0A%DA%A9%D9%85%DA%A9%D9%85+%DA%A9%D9%86+%D8%A8%D9%81%D9%87%D9%85%D9%85+%DA%86%D8%B7%D9%88%D8%B1+%D8%A7%D8%B2+%D8%A2%D9%86+%D8%A7%D8%B3%D8%AA%D9%81%D8%A7%D8%AF%D9%87+%DA%A9%D9%86%D9%85."
+  ja:
+    label: 日本語
+    locale: ja-JP
+    weight: 3
+    title: Hextra
+    params:
+      banner:
+        message: |
+          Hextra **v0.12** がリリースされました！🎉 [新着情報はこちら]({{% relref "blog/v0.12" %}})
+      page:
+        contextMenu:
+          links:
+            - name: ChatGPTで開く
+              icon: chatgpt
+              url: "https://chatgpt.com/?hints=search&q=%E3%81%93%E3%81%AE%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88%E3%82%92%E8%AA%AD%E3%82%93%E3%81%A7%E3%81%84%E3%81%BE%E3%81%99%3A+{url}%0A%E4%BD%BF%E3%81%84%E6%96%B9%E3%82%92%E7%90%86%E8%A7%A3%E3%81%99%E3%82%8B%E3%81%AE%E3%82%92%E6%89%8B%E4%BC%9D%E3%81%A3%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84%E3%80%82"
+  zh-cn:
+    label: 简体中文
+    locale: zh-CN
+    weight: 4
+    title: Hextra
+    params:
+      banner:
+        message: |
+          Hextra **v0.12** 发布啦！🎉 查看[更新内容]({{% relref "blog/v0.12" %}})
+      page:
+        contextMenu:
+          links:
+            - name: 在 ChatGPT 中打开
+              icon: chatgpt
+              url: "https://chatgpt.com/?hints=search&q=%E6%88%91%E6%AD%A3%E5%9C%A8%E9%98%85%E8%AF%BB%E8%BF%99%E4%B8%AA%E6%96%87%E6%A1%A3%3A+{url}%0A%E5%B8%AE%E6%88%91%E7%90%86%E8%A7%A3%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%AE%83%E3%80%82"
+
+module:
+  hugoVersion:
+    extended: true
+    min: "0.146.0"
+
+  workspace: hugo.work
+  imports:
+    - path: github.com/imfing/hextra
+
+markup:
+  highlight:
+    noClasses: false
+  goldmark:
+    renderer:
+      unsafe: true
+    extensions:
+      passthrough:
+        delimiters:
+          block: [['\[', '\]'], ['$$', '$$']]
+          inline: [['\(', '\)']]
+        enable: true
+
+enableInlineShortcodes: true
+
+menu:
+  main:
+    - identifier: documentation
+      name: Documentation
+      pageRef: /docs
+      weight: 1
+    - identifier: versions
+      name: Versions
+      weight: 5
+    - identifier: blog
+      name: Blog
+      pageRef: /blog
+      weight: 2
+    - identifier: more
+      name: More
+      weight: 4
+    - identifier: showcase
+      name: Showcase
+      pageRef: /showcase
+      weight: 3
+      params:
+        type: link
+        icon: collection
+    - name: Search
+      weight: 6
+      params:
+        type: search
+    - name: GitHub
+      weight: 7
+      url: "https://github.com/imfing/hextra"
+      params:
+        icon: github
+    - identifier: development
+      name: Development ↗
+      url: https://imfing.github.io/hextra/versions/latest/
+      parent: versions
+      params:
+        type: link
+        icon: beaker
+    - identifier: v0.10
+      name: v0.10 ↗
+      url: https://imfing.github.io/hextra/versions/v0.10/
+      parent: versions
+    - identifier: v0.11
+      name: v0.11 ↗
+      url: https://imfing.github.io/hextra/versions/v0.11/
+      parent: versions
+    - identifier: about
+      name: About
+      pageRef: /about
+      parent: more
+      weight: 1
+    - identifier: archives
+      name: Archives
+      pageRef: /archives
+      parent: more
+      weight: 2
+    - identifier: glossary
+      name: Glossary
+      pageRef: /glossary
+      parent: more
+      weight: 3
+
+  sidebar:
+    - identifier: more
+      name: More
+      params:
+        type: separator
+      weight: 1
+    - identifier: about
+      name: "About"
+      pageRef: "/about"
+      weight: 2
+    - identifier: hugoDocs
+      name: "Hugo Docs ↗"
+      url: "https://gohugo.io/documentation/"
+      weight: 3
+
+params:
+  description: Modern, responsive, batteries-included Hugo theme for creating beautiful static websites.
+
+  externalLinkDecoration: true
+
+  banner:
+    key: 'announcement-v0.12'
+    message: |
+      Hextra **v0.12** is here! 🎉 Discover [what's new]({{% relref "blog/v0.12" %}})
+
+  navbar:
+    displayTitle: true
+    displayLogo: true
+    logo:
+      path: images/logo.svg
+      dark: images/logo-dark.svg
+      # width: 40
+      # height: 20
+      # link: /
+    width: wide
+
+  theme:
+    # light | dark | system
+    default: system
+    displayToggle: true
+
+  footer:
+    enable: true
+    displayCopyright: true
+    displayPoweredBy: true
+    width: normal
+
+  # Display the last modification date
+  displayUpdatedDate: true
+  dateFormat: "January 2, 2006"
+
+  # Display the author name of the last modified date
+  displayUpdatedAuthor: false
+
+  # Search
+  # flexsearch is enabled by default
+  search:
+    enable: true
+    type: flexsearch
+
+    flexsearch:
+      # index page by: content | summary | heading | title
+      index: content
+      # full | forward | reverse | strict
+      # https://github.com/nextapps-de/flexsearch/#tokenizer-prefix-search
+      tokenize: forward
+
+  editURL:
+    enable: true
+    base: "https://github.com/imfing/hextra/edit/main/docs/content"
+
+  blog:
+    list:
+      displayTags: true
+      # date | lastmod | publishDate | title | weight
+      sortBy: date
+      sortOrder: desc # or "asc"
+      # Pagination
+      pagerSize: 20
+
+    article:
+      displayPagination: true
+
+  archives:
+    # Source section used for the archives page.
+    section: blog
+    # Date format for archive list items.
+    dateFormat: "Jan 02"
+
+  toc:
+    displayTags: true
+
+  highlight:
+    copy:
+      enable: true
+      # hover | always
+      display: hover
+
+  page:
+    # full (100%), wide (90rem), normal (80rem)
+    width: normal
+    # tabs:
+    #   sync: true
+    contextMenu:
+      enable: true
+      links:
+        - name: Open in ChatGPT
+          icon: chatgpt
+          url: "https://chatgpt.com/?hints=search&q=I%27m+looking+at+this+documentation%3A+{url}%0AHelp+me+understand+how+to+use+it."
+        - name: Open in Claude
+          icon: claude
+          url: "https://claude.ai/new?q=I%27m+looking+at+this+documentation%3A+{url}%0AHelp+me+understand+how+to+use+it."
+
+  imageZoom:
+    enable: true
+
+  comments:
+    enable: false
+    type: giscus
+
+    # https://giscus.app/
+    giscus:
+      repo: imfing/hextra
+      repoId: R_kgDOJ9fJag
+      category: General
+      categoryId: DIC_kwDOJ9fJas4CY7gW
+      # mapping: pathname
+      # strict: 0
+      # reactionsEnabled: 1
+      # emitMetadata: 0
+      # inputPosition: top
+      # lang: en
+      # theme: noborder_dark

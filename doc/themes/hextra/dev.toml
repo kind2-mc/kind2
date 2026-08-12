@@ -1,0 +1,35 @@
+# Theme development config for documentation site
+# https://gohugo.io/configuration/build/#cache-busters
+[build]
+  [build.buildStats]
+    enable = true
+    disableIDs = true
+  [[build.cachebusters]]
+    source = 'assets/notwatching/hugo_stats\.json'
+    target = 'styles\.css'
+  [[build.cachebusters]]
+    source = '(postcss|tailwind)\.config\.mjs'
+    target = 'css'
+  [[build.cachebusters]]
+    source = 'assets/.*\.(js|ts|jsx|tsx)'
+    target = 'js'
+  [[build.cachebusters]]
+    source = 'assets/.*\.(.*)$'
+    target = '$1'
+
+[module]
+  [[module.mounts]]
+    source = "assets"
+    target = "assets"
+  [[module.mounts]]
+    source = "hugo_stats.json"
+    target = "assets/notwatching/hugo_stats.json"
+    disableWatch = true
+
+# Theme dev mode runs PostCSS from docs/, while Tailwind v4 loads native
+# dependencies from the theme root. Disable Hugo's Node permission sandbox
+# for this dev-only pipeline so the CSS is compiled instead of served raw.
+[security]
+  [security.node]
+    [security.node.permissions]
+      disable = true

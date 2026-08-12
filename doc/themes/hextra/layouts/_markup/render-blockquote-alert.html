@@ -1,0 +1,5 @@
+{{- if not (in (slice "note" "tip" "important" "warning" "caution") .AlertType) -}}
+  {{- warnf "Alert type %s is not supported" .AlertType -}}
+{{- end -}}
+
+{{- partial "components/github-style-alert.html" (dict "content" .Text "alertType" .AlertType "alertTitle" .AlertTitle "alertSign" .AlertSign) -}}

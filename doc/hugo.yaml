@@ -1,0 +1,64 @@
+baseURL: "https://kind.cs.uiowa.edu/kind2_user_doc/"
+title: Kind 2 User Documentation
+
+theme: hextra
+
+markup:
+  # allow raw html (needed for figures/images carried over from RST)
+  goldmark:
+    renderer:
+      unsafe: true
+    extensions:
+      passthrough:
+        delimiters:
+          block:
+            - ["\\[", "\\]"]
+            - ["$$", "$$"]
+          inline:
+            - ["\\(", "\\)"]
+        enable: true
+
+  # enable hextra syntax highlight
+  highlight:
+    noClasses: false
+
+enableGitInfo: false
+
+menu:
+  main:
+    - name: Documentation
+      pageRef: /docs
+      weight: 1
+    - name: GitHub
+      weight: 2
+      url: "https://github.com/kind2-mc/kind2"
+      params:
+        icon: github
+
+params:
+  description: Kind 2 is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
+
+  # FlexSearch is loaded from a CDN (cdn.jsdelivr.net) by default, which requires
+  # internet access at `hugo build` time. Leave this enabled for normal use;
+  # set to false only if building in a network-restricted environment.
+  search:
+    enable: true
+    type: flexsearch
+
+  navbar:
+    displayTitle: true
+    displayLogo: false
+
+  footer:
+    displayCopyright: false
+    displayPoweredBy: true
+
+  editURL:
+    enable: true
+    base: "https://github.com/kind2-mc/kind2/edit/main/doc/usr/source"
+
+  toc:
+    displayToc: true
+
+  math:
+    enable: true
