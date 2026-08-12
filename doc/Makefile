@@ -7,20 +7,8 @@ doc: html pdf update
 html:
 	hugo --minify
 
-# Debian/Ubuntu (PEP 668) block system-wide `pip install`, so PDF tooling gets
-# its own venv, created on first use. Run `make distclean` to force a rebuild.
-VENV := pdf-tools/venv
-
-venv: $(VENV)/bin/activate
-
-$(VENV)/bin/activate: pdf-tools/requirements.txt
-	python3 -m venv $(VENV)
-	$(VENV)/bin/pip install --quiet --upgrade pip
-	$(VENV)/bin/pip install --quiet -r pdf-tools/requirements.txt
-	touch $(VENV)/bin/activate
-
-pdf: html venv
-	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
+pdf: html
+	SKIP_HUGO_BUILD=1 ./pdf-tools/build_pdf.sh
 
 update:
 	echo '<!-- DO NOT EDIT, see doc/usr/README.rst for details -->\n' > ../README.md
@@ -40,7 +28,6 @@ update:
 	sed -i '/\.\. include:: \(.*\)/{s//source\/\1/;s/'\''/&\\&&/g;s/.*/cat<'"'&'/e}" README.md
 
 	cp content/docs/license.md ../../LICENSE.md
-
 serve:
 	hugo server -D
 

@@ -2,7 +2,7 @@ DUNE_DOCDIR=$(CURDIR)/_build/default/_doc/_html
 LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
-LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
+LOCAL_USRDOCDIR=$(CURDIR)/doc
 
 .PHONY: all build clean doc install kind2-doc test uninstall
 
