@@ -1,3 +1,0 @@
-# Mark generated files so they are collapsed by default in GitHub diffs
-assets/css/compiled/main.css linguist-generated=true
-docs/hugo_stats.json linguist-generated=true

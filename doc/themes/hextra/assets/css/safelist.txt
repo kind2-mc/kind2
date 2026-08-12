@@ -1,1 +1,0 @@
-hx:max-w-full
