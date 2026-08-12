@@ -308,49 +308,48 @@ let check_func_decl ctx adt_map scc_map func_map decl =
     | Some t ->
       if not (is_adt_decreases local_ctx adt_map fname_id t) then Ok ()
       else
-        let caller_scc = match HStringMap.find_opt fname scc_map with
-          | Some id -> id
-          | None -> assert false
-        in
-        let rec_calls =
-          collect_rec_calls_items scc_map caller_scc t HStringSet.empty HStringSet.empty items
-        in
-        let check_call (pos, callee_id, args, safe_env) =
-          let callee_name = NI.get_internal_name callee_id in
-          match HStringMap.find_opt callee_name func_map with
-          | None -> assert false
-          | Some (callee_formals, callee_contract) ->
-            match get_decreases callee_contract with
+        match HStringMap.find_opt fname scc_map with
+        | None -> Ok ()
+        | Some caller_scc ->
+          let rec_calls =
+            collect_rec_calls_items scc_map caller_scc t HStringSet.empty HStringSet.empty items
+          in
+          let check_call (pos, callee_id, args, safe_env) =
+            let callee_name = NI.get_internal_name callee_id in
+            match HStringMap.find_opt callee_name func_map with
             | None -> assert false
-            | Some t_callee ->
-              (* Only the formals t_callee actually mentions in its decreases
-                 clause need a substitution at all. The type checker already
-                 guarantees t_callee mentions nothing but the callee's own
-                 formals (LustreTypeChecker.NonInputInADTDecreasesMeasure),
-                 so every relevant name is guaranteed to align to some arg
-                 below. *)
-              let relevant = LH.vars_without_node_call_ids t_callee in
-              let aligned = align_formals_to_args local_ctx callee_formals args in
-              let relevant_aligned =
-                List.filter (fun (f, _, _) -> LA.SI.mem f relevant) aligned
-              in
-              if List.exists (fun (_, _, precise) -> not precise) relevant_aligned then
-                (* No precise per-formal value exists for a multi-output
-                   argument (e.g. N(f()) where f() has 2+ outputs). *)
-                let (_, arg, _) =
-                  List.find (fun (_, _, precise) -> not precise) relevant_aligned
+            | Some (callee_formals, callee_contract) ->
+              match get_decreases callee_contract with
+              | None -> assert false
+              | Some t_callee ->
+                (* Only the formals t_callee actually mentions in its decreases
+                   clause need a substitution at all. The type checker already
+                   guarantees t_callee mentions nothing but the callee's own
+                   formals (LustreTypeChecker.NonInputInADTDecreasesMeasure),
+                   so every relevant name is guaranteed to align to some arg
+                   below. *)
+                let relevant = LH.vars_without_node_call_ids t_callee in
+                let aligned = align_formals_to_args local_ctx callee_formals args in
+                let relevant_aligned =
+                  List.filter (fun (f, _, _) -> LA.SI.mem f relevant) aligned
                 in
-                check_error pos (NotAStructuralSubterm (arg, t))
-              else
-                let relevant_formals, relevant_args =
-                  List.map (fun (f, arg, _) -> (f, arg)) relevant_aligned |> List.split
-                in
-                let substituted = substitute_formals relevant_formals relevant_args t_callee in
-                if is_strict_decrease safe_env substituted then Ok ()
-                else check_error pos (NotAStructuralSubterm (substituted, t))
-        in
-        let* _ = Res.seq (List.map check_call rec_calls) in
-        Ok ()
+                if List.exists (fun (_, _, precise) -> not precise) relevant_aligned then
+                  (* No precise per-formal value exists for a multi-output
+                     argument (e.g. N(f()) where f() has 2+ outputs). *)
+                  let (_, arg, _) =
+                    List.find (fun (_, _, precise) -> not precise) relevant_aligned
+                  in
+                  check_error pos (NotAStructuralSubterm (arg, t))
+                else
+                  let relevant_formals, relevant_args =
+                    List.map (fun (f, arg, _) -> (f, arg)) relevant_aligned |> List.split
+                  in
+                  let substituted = substitute_formals relevant_formals relevant_args t_callee in
+                  if is_strict_decrease safe_env substituted then Ok ()
+                  else check_error pos (NotAStructuralSubterm (substituted, t))
+          in
+          let* _ = Res.seq (List.map check_call rec_calls) in
+          Ok ()
   )
   | _ -> Ok ()
 

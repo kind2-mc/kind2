@@ -2516,6 +2516,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
          which rejects any measure not built from the function's own inputs
          since those are the only values a recursive call can be shown to
          receive a genuine substructure of. *)
+      let check_decreases_component ~in_tuple e =
         let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
         let* ty_exp = expand_type_syn_reftype_history ctx ty in
         (match ty_exp with
