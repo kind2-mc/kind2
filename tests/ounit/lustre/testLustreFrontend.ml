@@ -234,6 +234,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
     | Ok _ -> true
     | _ -> false);
+  mk_test "more than one decreases clause in a contract rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/multiple_decreases_clauses.lus" with
+    | Error (`LustreSyntaxChecksError (_, MultipleDecreasesClauses _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1100,5 +1104,9 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
   mk_test "pattern var sharing the measure's own name doesn't impersonate it" (fun () ->
     match load_file "./lustreCheckADTDecreases/adt_decreases_measure_name_shadowed_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "constant in an ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_unsubstituted_constant_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, NonInputInADTDecreasesMeasure _)) -> true
     | _ -> false);
 ])

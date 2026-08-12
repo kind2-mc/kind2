@@ -81,6 +81,7 @@ type error_kind = Unknown of string
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | MultipleDecreasesClauses of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -163,6 +164,11 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "mention the input parameters of the function and constants"
+  | MultipleDecreasesClauses id -> "Recursive function '"
+    ^ HString.string_of_hstring id
+    ^ "' has more than one decreases clause in its contract; combine them "
+    ^ "into a single clause (a comma-separated tuple for a lexicographic "
+    ^ "integer measure)"
   | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
   | LemmaCallOutsideCallStatement id -> "Lemma '"
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
@@ -1062,15 +1068,20 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   in
   let* () =
     if is_rec.LA.is_rec then
-      let has_decreases_clause =
+      let num_decreases_clauses =
         match contract with
         | Some (_, items) ->
-          List.exists (function LA.Decreases _ -> true | _ -> false) items
-        | None -> false
+          List.length (List.filter (function LA.Decreases _ -> true | _ -> false) items)
+        | None -> 0
       in
-      if not has_decreases_clause then
+      if num_decreases_clauses = 0 then
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
+      else if num_decreases_clauses > 1 then
+        (* Downstream passes each pick "the" clause independently and can
+           disagree, each then trusting some other pass to check the rest. *)
+        syntax_error span.start_pos
+          (MultipleDecreasesClauses (NI.get_user_name node_id))
       else
         check_decreases_measures inputs outputs contract
     else

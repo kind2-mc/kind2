@@ -1380,9 +1380,12 @@ let topological_sort_with_rec_funs decl_map ad =
           else
             (* [id] does not call itself, so it is not actually part of a
                recursive cycle: a 'rec' annotation on it is a lie that would
-               otherwise surface much later as a missing scc_map entry. *)
+               otherwise surface much later as a missing scc_map entry.
+               Lemmas are excluded: the parser always sets is_rec for them
+               regardless of whether the user wrote 'rec', so it isn't a
+               genuine annotation to hold them to. *)
             match IMap.find_opt id decl_map with
-            | Some (Some decl) when LH.is_recursive_function decl ->
+            | Some (Some (LA.FuncDecl (_, _, { LA.is_rec = true; is_lemma = false }))) ->
               let pos =
                 match find_id_pos ad.id_pos_data id with
                 | Some p -> p

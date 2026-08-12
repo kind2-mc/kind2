@@ -62,6 +62,7 @@ type error_kind = Unknown of string
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | MultipleDecreasesClauses of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t

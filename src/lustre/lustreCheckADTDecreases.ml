@@ -85,10 +85,10 @@ let is_adt_decreases ctx adt_map nname e =
 
 (* All variable names a pattern binds, at any depth (both a top-level
    VarPat's own name and every name nested inside a constructor Pat). *)
-let rec pattern_vars_at_depth pat =
+let rec pattern_bound_vars pat =
   match pat with
   | LA.VarPat (_, id) -> [id]
-  | LA.Pat (_, _, subpats) -> List.concat_map pattern_vars_at_depth subpats
+  | LA.Pat (_, _, subpats) -> List.concat_map pattern_bound_vars subpats
 
 (* Whether it's safe to match on `scrut` and trust its pattern's bindings:
    true when `scrut` is caller_measure `t` itself (the base case), or when
@@ -131,7 +131,7 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
       | _ -> false
     in
     let arm_calls = List.concat_map (fun (pat, body) ->
-      let bound = pattern_vars_at_depth pat in
+      let bound = pattern_bound_vars pat in
       let arm_shadowed =
         List.fold_left (fun s v -> HStringSet.add v s) shadowed bound
       in
@@ -324,15 +324,19 @@ let check_func_decl ctx adt_map scc_map func_map decl =
             | None -> assert false
             | Some t_callee ->
               (* Only the formals t_callee actually mentions in its decreases
-                 clause need a substitution at all. *)
+                 clause need a substitution at all. The type checker already
+                 guarantees t_callee mentions nothing but the callee's own
+                 formals (LustreTypeChecker.NonInputInADTDecreasesMeasure),
+                 so every relevant name is guaranteed to align to some arg
+                 below. *)
               let relevant = LH.vars_without_node_call_ids t_callee in
               let aligned = align_formals_to_args local_ctx callee_formals args in
               let relevant_aligned =
                 List.filter (fun (f, _, _) -> LA.SI.mem f relevant) aligned
               in
               if List.exists (fun (_, _, precise) -> not precise) relevant_aligned then
-                (* Multi-output node call args automatically fail structural subterm check. 
-                   Eg N(f()) where N has a decreases clause and f() returns multiple outputs.*)
+                (* No precise per-formal value exists for a multi-output
+                   argument (e.g. N(f()) where f() has 2+ outputs). *)
                 let (_, arg, _) =
                   List.find (fun (_, _, precise) -> not precise) relevant_aligned
                 in

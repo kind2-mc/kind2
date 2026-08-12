@@ -128,6 +128,7 @@ type error_kind = Unknown of string
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type
   | NonRecursiveADTDecreases of tc_type
+  | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -298,6 +299,12 @@ let error_message kind = match kind with
     "Decreases measure of algebraic data type " ^ string_of_tc_type ty
     ^ " is not supported because this type is not recursive; only recursive algebraic \
        data types (or integers) can be used as a decreases measure"
+  | NonInputInADTDecreasesMeasure id ->
+    "'" ^ HString.string_of_hstring id
+    ^ "' cannot occur in an algebraic-datatype decreases measure; unlike an integer \
+       measure, it may only reference the function's own input parameters, since only \
+       those can be shown to receive a genuine substructure of the caller's measure \
+       across a recursive call"
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -2509,14 +2516,18 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
          which rejects any measure not built from the function's own inputs
          since those are the only values a recursive call can be shown to
          receive a genuine substructure of. *)
-      let check_decreases_component ~in_tuple e =
         let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
         let* ty_exp = expand_type_syn_reftype_history ctx ty in
         (match ty_exp with
         | LA.Int _ -> R.ok (e, warnings)
         | LA.ADT (_, name, ctors) when not in_tuple ->
-          if LH.is_directly_recursive_adt name ctors then R.ok (e, warnings)
-          else type_error pos (NonRecursiveADTDecreases ty)
+          if not (LH.is_directly_recursive_adt name ctors) then
+            type_error pos (NonRecursiveADTDecreases ty)
+          else
+            let (node_in_params, _) = node_params in
+            (match LA.SI.elements (LA.SI.diff (LH.vars_without_node_call_ids e) node_in_params) with
+            | [] -> R.ok (e, warnings)
+            | id :: _ -> type_error pos (NonInputInADTDecreasesMeasure id))
         | LA.ADT _ -> type_error pos (ADTInLexicographicDecreases ty)
         | _ -> type_error pos (InvalidDecreasesType ty))
       in
