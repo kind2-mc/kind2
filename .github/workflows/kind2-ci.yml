@@ -109,11 +109,16 @@ jobs:
         opam exec -- dune build @runtest
         cd tests && ./run
 
+    - name: Setup Hugo
+      uses: peaceiris/actions-hugo@v3
+      with:
+        hugo-version: 'latest'
+        extended: true
+
     - name: Build user documentation
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get install -y latexmk texlive-xetex lmodern
-        pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
+        pip install beautifulsoup4 lxml weasyprint
         make doc
 
     - name: Build developer documentation
