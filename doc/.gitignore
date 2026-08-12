@@ -1,5 +1,5 @@
 public/
 resources/_gen/
 .hugo_build.lock
-print/all-docs.html
+print/
 pdf-tools/venv/

@@ -26,7 +26,7 @@ enableGitInfo: false
 
 menu:
   main:
-    - name: Documentation
+    - name: Get Started
       pageRef: /docs
       weight: 1
     - name: GitHub

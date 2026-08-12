@@ -1,5 +1,3 @@
-<!-- DO NOT EDIT, edit content/README.md instead -->
-
 # Kind 2 User Documentation — Hugo + Hextra
 
 ## Structure
