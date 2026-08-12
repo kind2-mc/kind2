@@ -346,14 +346,15 @@ For PDF documentation, you additionally need:
 If you're on Debian/Ubuntu, assuming you have Python 3 installed,
 you can run the following:
 
-.. code-block:: bash
+``` 
     snap install hugo
     pip3 install beautifulsoup4 lxml weasyprint
+```
 
 Then, enter the doc subdirectory and run:
 
-.. code-block:: bash
+```
     git init
     git submodule add https://github.com/imfing/hextra themes/hextra
-
+```
 See ``doc/README.md`` for more information. 
