@@ -342,4 +342,22 @@ Documentation is available online in
 [HTML](http://kind.cs.uiowa.edu/kind2_user_doc/) or
 [PDF](http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf) forms.
 
-See `doc/usr/README.rst` for more information.
+In order to generate documentation locally, you need:
+
+* `Python v3.5 or later <https://www.python.org/downloads/>`_
+* `Hugo <https://gohugo.io/installation/>`_
+
+For PDF documentation, you additionally need:
+
+* `beautifulsoup4 <https://pypi.org/project/beautifulsoup4/>`_
+* `lxml <https://pypi.org/project/lxml/>`_
+* `weasyprint <https://pypi.org/project/weasyprint/>`_
+
+If you're on Debian/Ubuntu, assuming you have Python 3 installed,
+you can run the following:
+
+.. code-block:: bash
+    snap install hugo
+    pip3 install beautifulsoup4 lxml weasyprint
+
+See ``doc/README.md`` for more information. 
