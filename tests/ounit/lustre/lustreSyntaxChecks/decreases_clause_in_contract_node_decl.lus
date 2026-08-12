@@ -1,0 +1,10 @@
+contract C (n: int) returns ();
+let
+  decreases n;
+tel
+
+function rec F (n: int) returns (out: int)
+con decreases n; import C(n) returns (); noc
+let
+  out = when n <= 0 then 0 else n + F(n - 1);
+tel

@@ -158,7 +158,16 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
   | LA.TypeAscription (_, e, _) | LA.When (_, e, _)
   | LA.FieldProject (_, e, _, _) | LA.ADTTester (_, e, _)
   | LA.AnyOp (_, _, e) | LA.ChooseOp (_, _, e)
-  | LA.Quantifier (_, _, _, e) | LA.Extract (_, e, _, _) -> go e
+  | LA.Extract (_, e, _, _) -> go e
+  | LA.Quantifier (_, _, qs, e) ->
+    (* The quantifier's own bound names shadow any same-named outer
+       binding, exactly as a match arm's pattern bindings do (see the
+       Match case above): they must be added to shadowed and removed from
+       safe_env before recursing into the body. *)
+    let bound = List.map (fun (_, i, _) -> i) qs in
+    let shadowed = List.fold_left (fun s v -> HStringSet.add v s) shadowed bound in
+    let safe_env = List.fold_left (fun s v -> HStringSet.remove v s) safe_env bound in
+    collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env e
   | LA.Arrow (_, e1, e2) | LA.BinaryOp (_, _, e1, e2)
   | LA.CompOp (_, _, e1, e2) | LA.ArrayConstr (_, e1, e2) -> go_list [e1; e2]
   | LA.TernaryOp (_, _, e1, e2, e3) -> go_list [e1; e2; e3]
