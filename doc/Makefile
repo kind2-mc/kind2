@@ -24,7 +24,7 @@ pdf: html venv
 
 update:
 	echo '.. DO NOT EDIT, see doc/README.md for details\n' > ../../README.md
-
+	
 
 serve:
 	hugo server -D
