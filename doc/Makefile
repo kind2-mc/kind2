@@ -1,7 +1,7 @@
 .PHONY: all doc html pdf clean distclean serve venv
 
 # `make doc` builds both output formats, matching the old Sphinx `make all` (html + pdf).
-all: doc update
+all: doc
 doc: html pdf
 
 html:
@@ -21,10 +21,6 @@ $(VENV)/bin/activate: pdf-tools/requirements.txt
 
 pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
-
-update:
-	echo '.. DO NOT EDIT, see doc/README.md for details\n' > ../../README.md
-	
 
 serve:
 	hugo server -D
