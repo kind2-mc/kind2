@@ -30,7 +30,7 @@ clean:
 
 doc:
 	make -C $(LOCAL_USRDOCDIR) all
-	cp $(LOCAL_USRDOCDIR)/build/pdf/kind2.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+	cp $(LOCAL_USRDOCDIR)/print/kind2-user-documentation.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
 
 install:
 	@opam pin add -n -y kind2 https://github.com/kind2-mc/kind2.git
