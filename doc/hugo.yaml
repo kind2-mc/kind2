@@ -44,6 +44,9 @@ params:
   search:
     enable: true
     type: flexsearch
+    flexsearch:
+      base: /vendor/flexsearch/dist
+      js: vendor/flexsearch/dist/flexsearch.bundle.min.js
 
   navbar:
     displayTitle: true
@@ -62,3 +65,5 @@ params:
 
   math:
     enable: true
+    katex:
+      base: /vendor/katex/dist

@@ -1,4 +1,7 @@
-# Kind 2 User Documentation
+# Kind 2 User Documentation — Hugo + Hextra
+
+This is the Kind 2 user documentation, migrated from Sphinx (reStructuredText)
+to [Hugo](https://gohugo.io) using the [Hextra](https://github.com/imfing/hextra) theme.
 
 ## Structure
 
@@ -14,6 +17,9 @@ content/
 themes/hextra/            # Hextra theme, vendored directly (not a Hugo Module)
 hugo.yaml                  # Site configuration
 ```
+
+Page ordering within each section is controlled by the `weight` field in each
+page's front matter, mirroring the original Sphinx `toctree` order.
 
 ## Running locally
 
