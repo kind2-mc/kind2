@@ -50,21 +50,38 @@ assets/vendor/katex/dist/katex.min.css assets/vendor/flexsearch/dist/flexsearch.
 
 html: theme vendor-assets
 	hugo --minify
-	
-# Debian/Ubuntu (PEP 668) block system-wide `pip install`, so PDF tooling gets
-# its own venv, created on first use. Run `make distclean` to force a rebuild.
-VENV := pdf-tools/venv
 
 venv: $(VENV)/bin/activate
 
 $(VENV)/bin/activate: pdf-tools/requirements.txt
-	python3 -m venv $(VENV)
+	@if ! python3 -m venv $(VENV); then \
+		rm -rf $(VENV); \
+		echo; \
+		echo "ERROR: could not create a Python virtual environment at $(VENV)."; \
+		echo "This system may restrict or disallow venv creation (e.g. a"; \
+		echo "locked-down Python, or a missing python3-venv package)."; \
+		echo; \
+		echo "Install the PDF dependencies manually instead, then tell make"; \
+		echo "to use that interpreter directly instead of a venv:"; \
+		echo "  pip install -r pdf-tools/requirements.txt --break-system-packages"; \
+		echo "  PYTHON=python3 make pdf"; \
+		echo; \
+		exit 1; \
+	fi
 	$(VENV)/bin/pip install --quiet --upgrade pip
 	$(VENV)/bin/pip install --quiet -r pdf-tools/requirements.txt
 	touch $(VENV)/bin/activate
 
+# If PYTHON is set explicitly (env var or `make PYTHON=... pdf`), use it
+# directly and skip venv creation altogether — this is the manual-install
+# escape hatch referenced in the error message above.
+ifneq ($(filter command line environment,$(origin PYTHON)),)
+pdf: html
+	SKIP_HUGO_BUILD=1 PYTHON=$(PYTHON) ./pdf-tools/build_pdf.sh
+else
 pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
+endif
 
 serve: theme vendor-assets
 	hugo server -D
