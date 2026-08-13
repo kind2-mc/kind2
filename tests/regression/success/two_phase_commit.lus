@@ -52,8 +52,12 @@ function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
 
 function imported GetDecision(votes: map<HostId,Vote>) returns (d: Decision);
 (*@contract
-  guarantee (forall (i: HostId) votes[i]=Yes) = (d = Commit);
-  guarantee (not (forall (i: HostId) votes[i]=Yes)) = (d = Abort);
+  (* 'votes[i]' is unconstrained where 'i' is not a key of 'votes', so the
+     reads are guarded by membership: 'i in votes and votes[i]=Yes' is false
+     at an absent key whatever the map holds there. The second guarantee is
+     the negation of the first, so that a decision exists for every map. *)
+  guarantee (forall (i: HostId) i in votes and votes[i]=Yes) = (d = Commit);
+  guarantee (not (forall (i: HostId) i in votes and votes[i]=Yes)) = (d = Abort);
 *)
 
 node Coordinator(my_turn: bool; nw_recv: Option<Message>)
