@@ -55,7 +55,7 @@ type h = struct { one : int; two : bool };
 -- Declare a nested record type, keyword struct is optional in record
 -- type declaration
 type i2 = struct { a : int; b: bool };
-type i = { one: i2;  two : bool; };
+type i = struct { one: i2;  two : bool; };
 
 -- A constant of the type of the record, name of the record is
 -- required
@@ -143,7 +143,7 @@ let
   v = any@<int>;
 tel;
 
-type y_t = { a: int; b: real };
+type y_t = struct { a: int; b: real };
 
 node y (const a: bool) returns ();
 
@@ -292,7 +292,7 @@ function imported y2 (a: bool; c: int) returns (b: int);
 
 
 -- A record type 
-type t = { one: int; two: real; three: bool };
+type t = struct { one: int; two: real; three: bool };
 
 -- A node returning a record type 
 node Z(x: bool) returns (y: t);
@@ -661,7 +661,7 @@ let
   color2 = if color1 = blue then green else if color1 = white then orange else yellow;
 tel
 
-type complex1 = { re: real; im: real };
+type complex1 = struct { re: real; im: real };
 const j: complex1 = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
 node get_im(cm1: complex1) returns (x: real);

@@ -1,6 +1,6 @@
 const N: int = 3;
 
-type R = {
+type R = struct {
   x: int;
   y: int;
 };

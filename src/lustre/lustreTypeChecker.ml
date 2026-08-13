@@ -153,7 +153,7 @@ let error_message kind = match kind with
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | NonConcreteTupleProjection e -> "Tuple projection '" ^ LA.string_of_expr e ^ "' must be a concrete natural number"
-  | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
+  | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else or when-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
   | ExpectedBooleanExpression ty -> "Expected a boolean expression but found expression of type " ^ string_of_tc_type ty
   | ExpectedIntegerExpression ty -> "Expected an integer expression but found expression of type "  ^ string_of_tc_type ty
@@ -263,7 +263,7 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
     string_of_int expected ^ " argument(s) but got " ^ string_of_int got
   | MatchScrutineeNotADT ty ->
-    "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+    "Tester argument or match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
   | UnequalMatchArmTypes (ty1, ty2) ->
     "Match arm types do not agree: found " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | DuplicateConstructor (ctor, ty1, ty2) ->

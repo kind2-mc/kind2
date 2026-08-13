@@ -1,7 +1,7 @@
 const Num_Leaders: int;
 const Num_Values: int;
 
-type ValBal = { v: int; b: int };
+type ValBal = struct { v: int; b: int };
 
 function imported AcceptorIdSet_Add(input_set: int; id: int)
 returns (new_set: int);

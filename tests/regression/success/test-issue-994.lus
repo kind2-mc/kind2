@@ -1,4 +1,4 @@
-type rational = { n: int; d: int };
+type rational = struct { n: int; d: int };
 
 node Test () returns ()
 var rats: rational^4;
