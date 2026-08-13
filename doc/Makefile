@@ -50,8 +50,20 @@ assets/vendor/katex/dist/katex.min.css assets/vendor/flexsearch/dist/flexsearch.
 
 html: theme vendor-assets
 	hugo --minify
+	
+# Debian/Ubuntu (PEP 668) block system-wide `pip install`, so PDF tooling gets
+# its own venv, created on first use. Run `make distclean` to force a rebuild.
+VENV := pdf-tools/venv
 
-pdf: html
+venv: $(VENV)/bin/activate
+
+$(VENV)/bin/activate: pdf-tools/requirements.txt
+	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install --quiet --upgrade pip
+	$(VENV)/bin/pip install --quiet -r pdf-tools/requirements.txt
+	touch $(VENV)/bin/activate
+
+pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
 
 serve: theme vendor-assets
