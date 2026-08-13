@@ -109,6 +109,13 @@ let scrutinee_is_safe caller_measure shadowed safe_env scrut =
       | LA.Ident (_, v) -> HStringSet.mem v safe_env
       | _ -> false)
 
+(* Shadow the measure's own variables, so that nothing can be established as a
+   subterm of it. Used when descending into a type, whose binder may itself be
+   named after the measure. *)
+let shadow_measure caller_measure shadowed =
+  LA.SI.fold HStringSet.add
+    (LH.vars_without_node_call_ids caller_measure) shadowed
+
 (* Collect all (pos, callee_id, args, safe_env) for calls in the same SCC as
    caller_scc, by walking all sub-expressions. `safe_env` is the set of
    variables, in scope at each point, known to be strict structural subterms
@@ -119,15 +126,32 @@ let scrutinee_is_safe caller_measure shadowed safe_env scrut =
 let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env expr =
   let go = collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env in
   let go_list es = List.concat_map go es in
-  match expr with
-  | LA.Call (pos, _ty_args, callee_id, args) ->
+  let go_ty ty =
+    LH.fold_lustre_ty
+      (collect_rec_calls scc_map caller_scc caller_measure
+         (shadow_measure caller_measure shadowed) HStringSet.empty)
+      [] (@) ty
+  in
+  let go_ty_list tys = List.concat_map go_ty tys in
+  (* `restart`/`condact`/`activate` on a (stateless) function are no-ops, but
+     they still name a callee, so they are recursive calls like any other. *)
+  let rec_call pos callee_id args sub =
     let callee_name = NI.get_internal_name callee_id in
     let in_scc = match HStringMap.find_opt callee_name scc_map with
       | Some id -> id = caller_scc
       | None -> false
     in
-    let sub = go_list args in
     if in_scc then (pos, callee_id, args, safe_env) :: sub else sub
+  in
+  match expr with
+  | LA.Call (pos, ty_args, callee_id, args) ->
+    rec_call pos callee_id args (go_list args @ go_ty_list ty_args)
+  | LA.Condact (pos, e1, e2, callee_id, args, defaults) ->
+    rec_call pos callee_id args (go_list ([e1; e2] @ args @ defaults))
+  | LA.Activate (pos, callee_id, e1, e2, args) ->
+    rec_call pos callee_id args (go_list ([e1; e2] @ args))
+  | LA.RestartEvery (pos, callee_id, args, e) ->
+    rec_call pos callee_id args (go_list (e :: args))
   | LA.Match (_, scrut, arms, _) ->
     let scrut_calls = go scrut in
     let scrut_safe = scrutinee_is_safe caller_measure shadowed safe_env scrut in
@@ -160,12 +184,16 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     ) arms in
     scrut_calls @ arm_calls
   | LA.Ident _ | LA.ModeRef _ | LA.Const _
-  | LA.Last _ | LA.EmptySet _ | LA.EmptyMap _ | LA.AbstractSymConst _ -> []
+  | LA.Last _ | LA.AbstractSymConst _ -> []
+  | LA.EmptySet (_, ty_opt) ->
+    (match ty_opt with Some ty -> go_ty ty | None -> [])
+  | LA.EmptyMap (_, tys_opt) ->
+    (match tys_opt with Some (kt, vt) -> go_ty_list [kt; vt] | None -> [])
   | LA.Pre (_, e) | LA.UnaryOp (_, _, e) | LA.ConvOp (_, _, e)
-  | LA.TypeAscription (_, e, _) | LA.When (_, e, _)
+  | LA.When (_, e, _)
   | LA.FieldProject (_, e, _, _) | LA.ADTTester (_, e, _)
-  | LA.AnyOp (_, _, e) | LA.ChooseOp (_, _, e)
   | LA.Extract (_, e, _, _) -> go e
+  | LA.TypeAscription (_, e, ty) -> go e @ go_ty ty
   | LA.Quantifier (_, _, qs, e) ->
     (* The quantifier's own bound names shadow any same-named outer
        binding, exactly as a match arm's pattern bindings do (see the
@@ -174,12 +202,20 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     let bound = List.map (fun (_, i, _) -> i) qs in
     let shadowed = List.fold_left (fun s v -> HStringSet.add v s) shadowed bound in
     let safe_env = List.fold_left (fun s v -> HStringSet.remove v s) safe_env bound in
-    collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env e
+    go_ty_list (List.map (fun (_, _, ty) -> ty) qs)
+    @ collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env e
+  | LA.AnyOp (_, (_, i, ty), e) | LA.ChooseOp (_, (_, i, ty), e) ->
+    (* Binds i over e, so it shadows exactly as a quantifier does *)
+    go_ty ty
+    @ collect_rec_calls scc_map caller_scc caller_measure
+        (HStringSet.add i shadowed) (HStringSet.remove i safe_env) e
   | LA.Arrow (_, e1, e2) | LA.BinaryOp (_, _, e1, e2)
   | LA.CompOp (_, _, e1, e2) | LA.ArrayConstr (_, e1, e2) -> go_list [e1; e2]
   | LA.TernaryOp (_, _, e1, e2, e3) -> go_list [e1; e2; e3]
-  | LA.GroupExpr (_, _, es) | LA.ADTTerm (_, _, _, es) -> go_list es
-  | LA.RecordExpr (_, _, _, flds) -> go_list (List.map snd flds)
+  | LA.GroupExpr (_, _, es) -> go_list es
+  | LA.ADTTerm (_, ty_args, _, es) -> go_list es @ go_ty_list ty_args
+  | LA.RecordExpr (_, _, ty_args, flds) ->
+    go_list (List.map snd flds) @ go_ty_list ty_args
   | LA.StructUpdate (_, e, idx, e2_opt) ->
     let idx_calls = LH.fold_label_or_index [] (@) go idx in
     let rest = match e2_opt with
@@ -188,10 +224,31 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     in
     idx_calls @ rest
   | LA.IndexAccess (_, e1, e2, _) -> go_list [e1; e2]
-  | LA.Condact (_, e1, e2, _, es1, es2) -> go_list ([e1; e2] @ es1 @ es2)
-  | LA.Activate (_, _, e1, e2, es) -> go_list ([e1; e2] @ es)
   | LA.Merge (_, _, cases) -> go_list (List.map snd cases)
-  | LA.RestartEvery (_, _, es, e) -> go_list (e :: es)
+
+(* Calls in the types of a function's own declarations: an input's, output's
+   or local's refinement predicate, or an array bound. *)
+let collect_rec_calls_decls scc_map caller_scc caller_measure inputs outputs locals =
+  let go_ty ty =
+    LH.fold_lustre_ty
+      (collect_rec_calls scc_map caller_scc caller_measure
+         (shadow_measure caller_measure HStringSet.empty) HStringSet.empty)
+      [] (@) ty
+  in
+  List.concat_map (fun ip -> LH.extract_ip_ty ip |> snd |> go_ty) inputs
+  @ List.concat_map (fun op -> LH.extract_op_ty op |> snd |> go_ty) outputs
+  @ List.concat_map (fun local ->
+      match local with
+      | LA.NodeVarDecl (_, decl) -> LH.extract_op_ty decl |> snd |> go_ty
+      | LA.NodeConstDecl (_, LA.FreeConst (_, _, ty)) -> go_ty ty
+      | LA.NodeConstDecl (_, LA.TypedConst (_, _, e, ty)) ->
+        go_ty ty
+        @ collect_rec_calls scc_map caller_scc caller_measure
+            HStringSet.empty HStringSet.empty e
+      | LA.NodeConstDecl (_, LA.UntypedConst (_, _, e)) ->
+        collect_rec_calls scc_map caller_scc caller_measure
+          HStringSet.empty HStringSet.empty e
+    ) locals
 
 let rec collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_env items =
   let go_items = collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_env in
@@ -391,7 +448,9 @@ let check_func_decl ctx adt_map scc_map func_map decl =
         | None -> Ok ()
         | Some caller_scc ->
           let rec_calls =
-            collect_rec_calls_items scc_map caller_scc t HStringSet.empty HStringSet.empty items
+            collect_rec_calls_decls scc_map caller_scc t inputs outputs locals
+            @ collect_rec_calls_items scc_map caller_scc t
+                HStringSet.empty HStringSet.empty items
           in
           let check_call (pos, callee_id, args, safe_env) =
             let callee_name = NI.get_internal_name callee_id in

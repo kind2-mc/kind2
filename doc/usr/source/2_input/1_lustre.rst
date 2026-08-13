@@ -950,6 +950,14 @@ holds at the call. Likewise, an argument computed through an intermediate
 local variable, an auxiliary call, or any other indirection is rejected
 even if it is semantically equal to a directly pattern-matched variable.
 
+The check applies to every form that names a callee, not just a plain call:
+``restart f every c``\ , ``condact (c, f (...), d)`` and ``activate f every
+c`` are all recursive calls when ``f`` is in the recursive group, and must
+decrease just the same. It also applies to calls written inside a type
+annotation -- a refinement predicate on an input, output or local, or an
+array bound. Such a call can never be decreasing, since only a match in the
+function's body can witness a decrease, so it is always rejected.
+
 Benefits and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
