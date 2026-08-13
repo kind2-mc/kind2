@@ -465,11 +465,10 @@ let under_approx sys k invs prop =
     |> SMTSolver.assert_term solver;
   done;
 
-  (* Asserting functional congruence instances up to k *)
-  for i = 0 to k do
-    TransSys.fn_congruence_instances sys (Numeral.of_int i)
-    |> List.iter (SMTSolver.assert_term solver);
-  done;
+  (* Asserting functional congruence instances over the unrolling. A replay
+     needs every instance, so nothing is reported as already satisfied. *)
+  TransSys.fn_congruence_instances sys (Numeral.of_int k)
+  |> List.iter (SMTSolver.assert_term solver);
 
   (* create activation literals *)
   let acts = List.map (create_acts solver k) invs in
@@ -895,11 +894,7 @@ let rec find_bound sys solver k kmax invs prop =
     sys (Numeral.of_int k)
   |> SMTSolver.assert_term solver;
 
-  (* Asserting functional congruence instances (at bound zero as well when
-     asserting the first unrolling). *)
-  if k = 1 then
-    TransSys.fn_congruence_instances sys Numeral.zero
-    |> List.iter (SMTSolver.assert_term solver);
+  (* Asserting functional congruence instances over the unrolling *)
   TransSys.fn_congruence_instances sys (Numeral.of_int k)
   |> List.iter (SMTSolver.assert_term solver);
 
@@ -929,11 +924,7 @@ let unroll_trans_actlits sys solver kmax =
           (Some (SMTSolver.declare_fun solver))
           sys (Numeral.of_int k) in
       (* Functional congruence instances are valid formulas of the intended
-         semantics; they can be asserted unguarded (at bound zero as well
-         when asserting the first unrolling) *)
-      if k = 1 then
-        TransSys.fn_congruence_instances sys Numeral.zero
-        |> List.iter (SMTSolver.assert_term solver);
+         semantics, so they can be asserted unguarded *)
       TransSys.fn_congruence_instances sys (Numeral.of_int k)
       |> List.iter (SMTSolver.assert_term solver);
       let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in

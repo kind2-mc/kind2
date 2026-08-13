@@ -24,18 +24,6 @@ module Sys = TransSys
 module Prop = Property
 module Num = Numeral
 
-(* Whether the functional congruence instances have been asserted in the
-   solver. They are activated lazily: only when a counterexample to
-   2-induction is found, to check whether it is spurious with respect to the
-   intended (deterministic) semantics of functions with container-typed
-   arguments (see [TransSys.fn_congruence_instances]).
-
-   Domain-local: each engine runs in its own domain with its own solver, and
-   the flag records whether the instances were asserted in *that* solver. *)
-let fn_congruence_activated_key = Domain.DLS.new_key (fun () -> ref false)
-
-let fn_congruence_activated () = Domain.DLS.get fn_congruence_activated_key
-
 let zero = Num.zero
 let one = Num.one
 let two = Num.(succ one)
@@ -134,8 +122,6 @@ let mk_ctx in_sys param sys =
   Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.(succ one)
   |> Smt.assert_term solver ;
 
-  (* Functional congruence instances start deactivated (see [split]). *)
-  fn_congruence_activated () := false ;
 
   {
     solver ; in_sys ; param ; sys ;
@@ -261,43 +247,54 @@ let split { solver ; sys ; map ; _ } =
       (* Deactivation function. *)
       let deactivate () = Term.mk_not nactlit |> Smt.assert_term solver in
 
+      (* The functional congruence instances ride along as terms to evaluate
+         rather than being asserted: those the model makes false are exactly
+         the ones that refute this counterexample to 2-induction, and they
+         are the only ones worth asserting. When none is false the model
+         already satisfies determinism, so the counterexample is genuine and
+         nothing is asserted at all
+         (see [TransSys.fn_congruence_instances]). *)
+      let congruence = Sys.fn_congruence_instances sys Num.(succ one) in
+
       (* Check-sat. *)
       match
         Smt.check_sat_assuming_and_get_term_values
           solver
           (fun _ term_values -> (* If sat. *)
-            (* Retrieve values. *)
-            term_values |> List.fold_left (
-              fun l (term, value) ->
-                if value == Term.t_false then
-                  (List.assq term map_back) :: l
-                else l
-            ) []
-            |> fun l -> Some l
+            (* Retrieve values: a term of [map_back] is a property, any
+               other one is a congruence instance. *)
+            let spurious, falsifiable =
+              term_values |> List.fold_left (
+                fun (sp, fa) (term, value) ->
+                  if not (Term.equal value Term.t_false) then (sp, fa)
+                  else
+                    match List.assq_opt term map_back with
+                    | Some prop -> (sp, prop :: fa)
+                    | None -> (term :: sp, fa)
+              ) ([], [])
+            in
+            if spurious <> [] then `Refine spurious else `Sat falsifiable
           )
           (fun _ -> (* If unsat. *)
-            None
+            `Unsat
           )
-          (nactlit :: actlits) unknowns
+          (nactlit :: actlits) (unknowns @ congruence)
       with
-      | None -> (* Unsat, remaining properties are unfalsifiable. *)
+      | `Unsat -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;
         unknowns |> List.map (fun t -> List.assq t map_back)
-      | Some _
-        when not !(fn_congruence_activated ())
-             && Sys.has_fn_congruence_groups sys ->
-        (* A counterexample to 2-induction without the functional congruence
-           instances may be spurious; activate them and check again. *)
+      | `Refine spurious ->
+        (* The counterexample violates determinism of a function over
+           containers; rule it out and look again *)
         deactivate () ;
         Smt.trace_comment solver
-          "Activating functional congruence instances." ;
-        Sys.fn_congruence_instances_up_to sys Num.(succ one)
-        |> List.iter (Smt.assert_term solver) ;
-        fn_congruence_activated () := true ;
+          "Asserting the functional congruence instances the counterexample \
+           violates." ;
+        List.iter (Smt.assert_term solver) spurious ;
         loop falsifiable
-      | Some [] ->
+      | `Sat [] ->
         failwith "got empty list of falsifiable properties"
-      | Some nu_falsifiable ->
+      | `Sat nu_falsifiable ->
         deactivate () ;
         (* Sat, we need to check the remaining properties. *)
         List.rev_append nu_falsifiable falsifiable |> loop

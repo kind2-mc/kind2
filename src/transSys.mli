@@ -153,22 +153,21 @@ val global_constraints : t -> Term.t list
 val fn_congruence_groups : t -> fn_congruence_group list
 
 (** [fn_congruence_instances t k] returns the ground functional congruence
-    instances pairing every function application at bound [k] with every
-    application at bounds [0..k]. Asserting the result for each bound of a
-    monotone unrolling covers all pairs of applications in the unrolling.
-    Every instance is a valid formula of the intended semantics, so
-    over-approximating the unrolled window is sound. The result is empty
-    when the system's subtree has no function with container-typed
-    arguments. *)
+    instances for every pair of function applications over bounds [0..k].
+    Empty when the system's subtree has no function with container-typed
+    arguments.
+
+    Each is a valid formula of the intended semantics, so asserting any
+    subset of them is sound, and an engine can leave them all out until a
+    query comes back satisfiable. Given to the solver as terms to evaluate,
+    those the model makes false are exactly the instances that refute it;
+    when there are none the model satisfies determinism, so the
+    counterexample it represents is genuine. *)
 val fn_congruence_instances : t -> Numeral.t -> Term.t list
 
 (** Return true if the system's subtree has at least one functional
     congruence group *)
 val has_fn_congruence_groups : t -> bool
-
-(** [fn_congruence_instances_up_to t k] returns the ground functional
-    congruence instances for all pairs of applications at bounds [0..k] *)
-val fn_congruence_instances_up_to : t -> Numeral.t -> Term.t list
 
 (** Close the initial state constraint by binding all instance
     identifiers, and bump the state variable offsets to be at the given

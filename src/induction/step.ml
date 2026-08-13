@@ -251,18 +251,6 @@ let eval_terms_assert_first_false trans solver eval k =
 
   result
 
-(* Whether the functional congruence instances have been asserted in the
-   solver. They are activated lazily: only when a counterexample to
-   induction is found, to check whether it is spurious with respect to the
-   intended (deterministic) semantics of functions with container-typed
-   arguments (see [TransSys.fn_congruence_instances]).
-
-   Domain-local: each engine runs in its own domain with its own solver, and
-   the flag records whether the instances were asserted in *that* solver. *)
-let fn_congruence_activated_key = Domain.DLS.new_key (fun () -> ref false)
-
-let fn_congruence_activated () = Domain.DLS.get fn_congruence_activated_key
-
 (* Check-sat and splits properties.. *)
 let split (input_sys, analysis, trans) solver k to_split actlits =
   
@@ -297,36 +285,53 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
   in
 
+  (* The functional congruence instances are given to the solver as terms to
+     evaluate rather than asserted: those the model makes false are exactly
+     the ones that refute this counterexample to induction, and they are the
+     only ones worth asserting. When none is false the model already
+     satisfies determinism, so the counterexample is genuine and nothing is
+     asserted at all (see [TransSys.fn_congruence_instances]). *)
+  let if_sat s values =
+    match
+      List.filter_map (fun (i, v) ->
+        if Term.equal v Term.t_false then Some i else None
+      ) values
+    with
+    | _ :: _ as spurious -> `Refine spurious
+    | [] -> `Model (if_sat s)
+  in
+
   let print_cex = Flags.BmcKind.ind_print_cex () in
 
   (* Function to run if unsat. *)
-  let if_unsat _ = None in
+  let if_unsat _ = `Model None in
 
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in
+
+  (* Built once: the same instances serve every iteration *)
+  let congruence = TransSys.fn_congruence_instances trans k in
 
   (* Loops as long as counterexamples can be compressed. *)
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      SMTSolver.check_sat_assuming
+      SMTSolver.check_sat_assuming_and_get_term_values
         solver if_sat if_unsat all_actlits
+        congruence
     with
 
-    | Some model ->
+    | `Refine spurious ->
+      (* The counterexample violates determinism of a function over
+         containers; rule it out and look again *)
+      SMTSolver.trace_comment solver
+        "Asserting the functional congruence instances the counterexample \
+         violates." ;
+      List.iter (SMTSolver.assert_term solver) spurious ;
+      loop ()
 
-      (* A counterexample to induction without the functional congruence
-         instances may be spurious; activate them and check again. *)
-      if not !(fn_congruence_activated ())
-         && TransSys.has_fn_congruence_groups trans
-      then (
-        SMTSolver.trace_comment solver
-          "Activating functional congruence instances." ;
-        TransSys.fn_congruence_instances_up_to trans k
-        |> List.iter (SMTSolver.assert_term solver) ;
-        fn_congruence_activated () := true ;
-        loop ()
-      ) else (
+    | `Model (Some model) ->
+      (
 
       (* Evaluation function. *)
       let term_to_val =
@@ -392,7 +397,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
               loop () )
       ) )
 
-    | None ->
+    | `Model None ->
       (* Returning the unsat result. *)
       None
   in
@@ -583,11 +588,6 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      |> SMTSolver.assert_term solver
      |> ignore ;
 
-     (* Asserting functional congruence instances for the new bound, if
-        they have been activated. *)
-     if !(fn_congruence_activated ()) then
-       TransSys.fn_congruence_instances trans k_p_1
-       |> List.iter (SMTSolver.assert_term solver) ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
      if not (Flags.BmcKind.lazy_invariants ()) then (
@@ -730,8 +730,6 @@ let launch input_sys aparam trans =
 
   TransSys.assert_global_constraints trans (SMTSolver.assert_term solver) ;
 
-  (* Functional congruence instances start deactivated (see [split]). *)
-  fn_congruence_activated () := false ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero

@@ -521,17 +521,20 @@ let global_constraints { global_constraints } = global_constraints
 
 let fn_congruence_groups { fn_congruence_groups } = fn_congruence_groups
 
-(* Ground congruence instances pairing every function application at bound
-   [k] with every application at bounds [0..k]. Asserting the result for
-   each bound of a monotone unrolling yields the instances for all pairs of
-   applications in the unrolling. Every instance is a valid formula of the
-   intended semantics regardless of which bounds are actually asserted, so
-   over-approximating the unrolled window is sound. *)
 let has_fn_congruence_groups { fn_congruence_groups } =
   fn_congruence_groups <> []
 
+(* Ground congruence instances for every pair of function applications over
+   bounds [0..k].
+
+   Each is a valid formula of the intended semantics, so asserting any
+   subset of them is sound, and an engine can leave them all out until a
+   query comes back satisfiable. The engines pass them to the solver as
+   terms to evaluate: those the model makes false are exactly the instances
+   that refute it, and when there are none the model satisfies determinism,
+   so the counterexample it represents is genuine. *)
 let fn_congruence_instances { fn_congruence_groups } k =
-  let inst { fcg_template; fcg_a_vars; fcg_b_vars } app1 o1 app2 o2 =
+  let inst { fcg_template; fcg_a_vars; fcg_b_vars; _ } app1 o1 app2 o2 =
     let bind vars app o =
       List.map2 (fun v sv ->
         v, Term.mk_var (Var.mk_state_var_instance sv o)
@@ -541,39 +544,33 @@ let fn_congruence_instances { fn_congruence_groups } k =
       (bind fcg_a_vars app1 o1 @ bind fcg_b_vars app2 o2)
       fcg_template
   in
-  List.concat_map (fun ({ fcg_apps } as g) ->
-    (* pairs of distinct applications at bound [k] *)
-    let rec same_bound = function
-      | [] -> []
-      | app1 :: tl ->
-        List.map (fun app2 -> inst g app1 k app2 k) tl @ same_bound tl
+  List.fold_left (fun acc ({ fcg_apps; _ } as g) ->
+    let rec bounds j acc =
+      if Numeral.(j > k) then acc
+      else
+        (* every application at [j], against every application at a bound
+           at most [j] (itself included, at a strictly smaller bound) *)
+        let rec over_apps acc = function
+          | [] -> acc
+          | app1 :: tl ->
+            let acc =
+              List.fold_left (fun acc app2 -> inst g app1 j app2 j :: acc)
+                acc tl
+            in
+            let rec earlier i acc =
+              if Numeral.(i >= j) then acc
+              else
+                earlier Numeral.(succ i) (
+                  List.fold_left (fun acc app2 -> inst g app1 j app2 i :: acc)
+                    acc fcg_apps
+                )
+            in
+            over_apps (earlier Numeral.zero acc) tl
+        in
+        bounds Numeral.(succ j) (over_apps acc fcg_apps)
     in
-    (* pairs of an application at bound [k] with one at a smaller bound *)
-    let cross_bound =
-      let rec loop j acc =
-        if Numeral.(j >= k) then acc
-        else
-          loop Numeral.(succ j) (
-            List.fold_left (fun acc app1 ->
-              List.fold_left (fun acc app2 ->
-                inst g app1 k app2 j :: acc
-              ) acc fcg_apps
-            ) acc fcg_apps
-          )
-      in
-      loop Numeral.zero []
-    in
-    same_bound fcg_apps @ cross_bound
-  ) fn_congruence_groups
-
-(* Ground congruence instances for all pairs of applications at bounds
-   [0..k] *)
-let fn_congruence_instances_up_to sys k =
-  let rec loop j acc =
-    if Numeral.(j > k) then acc
-    else loop Numeral.(succ j) (List.rev_append (fn_congruence_instances sys j) acc)
-  in
-  loop Numeral.zero []
+    bounds Numeral.zero acc
+  ) [] fn_congruence_groups
 
 (* Close term by binding variables to terms with a let binding *)
 let close_term bindings term = 
