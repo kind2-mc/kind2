@@ -22,7 +22,7 @@ type h = struct { one : int; two : bool };
 -- Declare a nested record type, keyword struct is optional in record
 -- type declaration
 type i2 = struct { a : int; b: bool };
-type i = { one: i2;  two : bool; };
+type i = struct { one: i2;  two : bool; };
 
 -- A constant of the type of the record, name of the record is
 -- required
@@ -80,7 +80,7 @@ const c3: int = 0xA0f ;
       c5: real = 0.2E+3 ;
       c6: real = 0x3.1f4p-5 ;
 
-type complex1 = { re: real; im: real };
+type complex1 = struct { re: real; im: real };
 const j: complex1 = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
 

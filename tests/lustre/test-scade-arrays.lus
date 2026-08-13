@@ -1,4 +1,4 @@
-type rational = { n: int; d: int };
+type rational = struct { n: int; d: int };
 
 const C1: int^3 = [1, 2, 3];
 const C2: int^3  = 1^3;

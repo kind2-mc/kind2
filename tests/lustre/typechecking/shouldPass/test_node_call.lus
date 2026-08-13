@@ -1,5 +1,5 @@
 -- A record type 
-type t = { one: int; two: real; three: bool };
+type t = struct { one: int; two: real; three: bool };
 
 -- Node with two return values 
 node U1(x0: int; y0: real) returns (x1: int; y1: real);

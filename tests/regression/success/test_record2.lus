@@ -1,4 +1,4 @@
-type rat = {n: real; d: real};
+type rat = struct {n: real; d: real};
 
 node x (r: rat) returns (ok: bool);
 var y: rat;

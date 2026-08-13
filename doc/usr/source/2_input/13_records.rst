@@ -4,12 +4,12 @@ Records
 =======
 
 A record type groups a fixed set of named *fields*, each with its own type.
-Record types are introduced as type aliases, listing the fields between curly
-braces and separating them with semicolons:
+Record types are introduced as type aliases, with the ``struct`` keyword
+followed by the fields between curly braces, separated by semicolons:
 
 .. code-block:: none
 
-   type rat = { n: real; d: real };
+   type rat = struct { n: real; d: real };
 
 A record value is constructed by giving a value to each field, using the type
 name followed by the field assignments (note that fields are assigned with
@@ -32,7 +32,7 @@ record ``r`` is not modified. For example,
 
 .. code-block:: none
 
-   type rat = { n: real; d: real };
+   type rat = struct { n: real; d: real };
    node x (r: rat) returns (y: rat)
    let
      y = r[n := r.n * 2.0];

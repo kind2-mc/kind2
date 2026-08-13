@@ -5,7 +5,7 @@ tel.
 
 
 -- A record type 
-type t = { one: int; two: real; three: bool };
+type t = struct { one: int; two: real; three: bool };
 
 -- Another node 
 node X(x: int) returns (y: int);

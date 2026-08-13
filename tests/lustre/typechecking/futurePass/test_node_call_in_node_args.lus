@@ -1,4 +1,4 @@
-type t = { one: int; two: real; three: bool };
+type t = struct { one: int; two: real; three: bool };
 
 node Z(x: bool) returns (y: t);
 let

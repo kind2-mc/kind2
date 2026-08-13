@@ -25,7 +25,7 @@ let
   guarantee out >= 0.0 ;
 tel
 
-type one = { blah: two } ;
+type one = struct { blah: two } ;
 
 type two = real ;
 
